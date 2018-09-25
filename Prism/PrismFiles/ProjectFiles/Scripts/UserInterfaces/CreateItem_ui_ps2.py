@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'CreateItem.ui'
 #
-# Created: Sun May 27 20:10:39 2018
+# Created: Wed Sep 19 22:52:58 2018
 #      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 class Ui_dlg_CreateItem(object):
     def setupUi(self, dlg_CreateItem):
         dlg_CreateItem.setObjectName("dlg_CreateItem")
-        dlg_CreateItem.resize(317, 176)
+        dlg_CreateItem.resize(317, 182)
         self.verticalLayout = QtWidgets.QVBoxLayout(dlg_CreateItem)
         self.verticalLayout.setObjectName("verticalLayout")
         self.w_type = QtWidgets.QWidget(dlg_CreateItem)
@@ -49,16 +49,12 @@ class Ui_dlg_CreateItem(object):
         self.b_showTasks.setObjectName("b_showTasks")
         self.horizontalLayout.addWidget(self.b_showTasks)
         self.verticalLayout.addWidget(self.w_item)
-        self.w_shotgun = QtWidgets.QWidget(dlg_CreateItem)
-        self.w_shotgun.setObjectName("w_shotgun")
-        self.horizontalLayout_3 = QtWidgets.QHBoxLayout(self.w_shotgun)
+        self.w_prjManager = QtWidgets.QWidget(dlg_CreateItem)
+        self.w_prjManager.setObjectName("w_prjManager")
+        self.horizontalLayout_3 = QtWidgets.QHBoxLayout(self.w_prjManager)
         self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
-        self.chb_createInShotgun = QtWidgets.QCheckBox(self.w_shotgun)
-        self.chb_createInShotgun.setChecked(True)
-        self.chb_createInShotgun.setObjectName("chb_createInShotgun")
-        self.horizontalLayout_3.addWidget(self.chb_createInShotgun)
-        self.verticalLayout.addWidget(self.w_shotgun)
+        self.verticalLayout.addWidget(self.w_prjManager)
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem1)
         spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -87,5 +83,4 @@ class Ui_dlg_CreateItem(object):
         self.l_item.setText(QtWidgets.QApplication.translate("dlg_CreateItem", "Category Name:", None, -1))
         self.b_showTasks.setToolTip(QtWidgets.QApplication.translate("dlg_CreateItem", "existing tasks", None, -1))
         self.b_showTasks.setText(QtWidgets.QApplication.translate("dlg_CreateItem", "▼", None, -1))
-        self.chb_createInShotgun.setText(QtWidgets.QApplication.translate("dlg_CreateItem", "Create asset in Shotgun", None, -1))
 

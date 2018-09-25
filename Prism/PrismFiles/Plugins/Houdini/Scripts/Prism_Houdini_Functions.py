@@ -147,6 +147,10 @@ class Prism_Houdini_Functions(object):
 	@err_decorator
 	def projectChanged(self, origin):
 		self.loadPrjHDAs(origin)
+		job = self.core.projectPath.replace("\\", "/")
+		if job.endswith("/"):
+			job = job[:-1]
+		hou.hscript("set JOB=" + job)
 
 
 	@err_decorator
@@ -171,8 +175,12 @@ class Prism_Houdini_Functions(object):
 			if len(defs) > 0 and defs[0].isInstalled():
 				hou.hda.uninstallFile(i)
 
-		hdaUFolder = os.path.join(origin.projectPath, origin.getConfig('paths', "assets", configPath=origin.prismIni), "HDAs", origin.user)
-		hdaFolders = [os.path.join(origin.projectPath, "00_Pipeline", "HDAs"), os.path.dirname(hdaUFolder), hdaUFolder]
+		
+		hdaFolders = [os.path.join(origin.projectPath, "00_Pipeline", "HDAs")]
+		if hasattr(self.core, "user"):
+			hdaUFolder = os.path.join(origin.projectPath, origin.getConfig('paths', "assets", configPath=origin.prismIni), "HDAs", origin.user)
+			hdaFolders += [os.path.dirname(hdaUFolder), hdaUFolder]
+
 		origin.prjHDAs = []
 
 		for k in hdaFolders:
@@ -294,6 +302,8 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def projectBrowserStartup(self, origin):
+		if platform.system() == "Darwin":
+			origin.menubar.setNativeMenuBar(False)
 		origin.loadOiio()
 		origin.checkColor = "rgb(185, 134, 32)"
 
@@ -316,7 +326,10 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def setRCStyle(self, origin, rcmenu):
-		rcmenu.setStyleSheet(origin.parent().styleSheet())
+		if platform.system() == "Darwin":
+			rcmenu.setStyleSheet(hou.ui.mainQtWindow().styleSheet())
+		else:
+			rcmenu.setStyleSheet(origin.parent().styleSheet())
 
 
 	@err_decorator
@@ -388,7 +401,7 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def sm_preDelete(self, origin, item, silent):
+	def sm_preDelete(self, origin, item, silent=False):
 		if not hasattr(item.ui, "node") or silent:
 			return
 
@@ -448,6 +461,9 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def sm_startup(self, origin):
+		if platform.system() == "Darwin":
+			origin.menubar.setNativeMenuBar(False)
+
 		origin.enabledCol = QColor(204,204,204)
 
 		origin.scrollArea.setStyleSheet(hou.qt.styleSheet().replace("QLabel", "QScrollArea"))
@@ -460,20 +476,20 @@ class Prism_Houdini_Functions(object):
 		origin.b_createRender.setText("Rnd")
 		origin.b_createPlayblast.setText("Pb")
 
-		origin.b_createImport.setMinimumWidth(80)
-		origin.b_createImport.setMaximumWidth(80)
-		origin.b_createExport.setMinimumWidth(55)
-		origin.b_createExport.setMaximumWidth(55)
-		origin.b_createRender.setMinimumWidth(55)
-		origin.b_createRender.setMaximumWidth(55)
-		origin.b_createPlayblast.setMinimumWidth(50)
-		origin.b_createPlayblast.setMaximumWidth(50)
-		origin.b_createDependency.setMinimumWidth(50)
-		origin.b_createDependency.setMaximumWidth(50)
-		origin.b_stateFromNode.setMinimumWidth(130)
-		origin.b_stateFromNode.setMaximumWidth(130)
-		origin.b_getRange.setMaximumWidth(200)
-		origin.b_setRange.setMaximumWidth(200)
+		origin.b_createImport.setMinimumWidth(80*self.core.uiScaleFactor)
+		origin.b_createImport.setMaximumWidth(80*self.core.uiScaleFactor)
+		origin.b_createExport.setMinimumWidth(55*self.core.uiScaleFactor)
+		origin.b_createExport.setMaximumWidth(55*self.core.uiScaleFactor)
+		origin.b_createRender.setMinimumWidth(55*self.core.uiScaleFactor)
+		origin.b_createRender.setMaximumWidth(55*self.core.uiScaleFactor)
+		origin.b_createPlayblast.setMinimumWidth(50*self.core.uiScaleFactor)
+		origin.b_createPlayblast.setMaximumWidth(50*self.core.uiScaleFactor)
+		origin.b_createDependency.setMinimumWidth(50*self.core.uiScaleFactor)
+		origin.b_createDependency.setMaximumWidth(50*self.core.uiScaleFactor)
+		origin.b_stateFromNode.setMinimumWidth(130*self.core.uiScaleFactor)
+		origin.b_stateFromNode.setMaximumWidth(130*self.core.uiScaleFactor)
+		origin.b_getRange.setMaximumWidth(200*self.core.uiScaleFactor)
+		origin.b_setRange.setMaximumWidth(200*self.core.uiScaleFactor)
 
 		startframe = hou.playbar.playbackRange()[0]
 		endframe = hou.playbar.playbackRange()[1]
@@ -522,6 +538,9 @@ class Prism_Houdini_Functions(object):
 			if x[0].node() in expNodes:
 				continue
 
+			if x[0].node().parent() in expNodes and x[0].node().type().name() == "file":
+				continue
+
 			if x[1] in whitelist:
 				continue
 
@@ -535,6 +554,9 @@ class Prism_Houdini_Functions(object):
 				continue
 
 			if x[0] is not None and x[0].name() in ["filename", "dopoutput", "copoutput", "sopoutput"] and x[0].node().type().name() in ["rop_alembic", "rop_dop", "rop_comp", "rop_geometry"]:
+				continue
+
+			if x[0] is not None and x[0].name() in ["filename", "sopoutput"] and x[0].node().type().category().name() == "Driver" and x[0].node().type().name() in ["geometry", "alembic"]:
 				continue
 
 			extFiles.append(hou.expandString(x[1]).replace("\\", "/"))
@@ -617,7 +639,10 @@ class Prism_Houdini_Functions(object):
 
 		ropNodes = []
 		for node in hou.node("/").allSubChildren():
-			if node.type().name() in ["rop_dop", "rop_comp", "rop_geometry", "rop_alembic"]:
+			if node.type().name() in ["rop_dop", "rop_comp", "rop_geometry", "rop_alembic", "filecache"]:
+				ropNodes.append(node)
+
+			if node.type().category().name() == "Driver" and node.type().name() in ["geometry", "alembic"]:
 				ropNodes.append(node)
 
 		for i in origin.states:

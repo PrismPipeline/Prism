@@ -88,7 +88,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 	def __init__(self, core, stateDataPath=None, getVersion=False):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
-		self.version = "v1.0.10.0"
+		self.version = "v1.0.11.0"
 
 		if getVersion:
 			self.close()
@@ -96,7 +96,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 
 		self.core = core
 		self.core.parentWindow(self)
-		
+
 		self.setWindowTitle("Prism - State Manager - " + self.core.projectName)
 
 		self.scenename = self.core.getCurrentFileName()
@@ -212,7 +212,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				self.core.writeErrorLog(erStr)
 
 		fileName = self.core.getCurrentFileName()
-		fileNameData = os.path.basename(fileName).split("_")
+		fileNameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 
 		self.b_shotCam.setEnabled(len(fileNameData) == 8 and fileNameData[0] == "shot")
 
@@ -495,6 +495,20 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 
 	@err_decorator
+	def updateStateList(self):
+		stateData = []
+		for i in range(self.tw_import.topLevelItemCount()):
+			stateData.append([self.tw_import.topLevelItem(i), None])
+			self.appendChildStates(stateData[len(stateData)-1][0], stateData)
+
+		for i in range(self.tw_export.topLevelItemCount()):
+			stateData.append([self.tw_export.topLevelItem(i), None])
+			self.appendChildStates(stateData[len(stateData)-1][0], stateData)
+
+		self.states = [x[0] for x in stateData]
+
+
+	@err_decorator
 	def connectEvents(self):
 		self.actionPrismSettings.triggered.connect(self.core.prismSettings)
 		self.actionProjectBrowser.triggered.connect(self.core.projectBrowser)
@@ -580,6 +594,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 	def handleExportDrop(self, event):
 		self.tw_export.origDropEvent(event)
 		self.updateForeground()
+		self.updateStateList()
 		self.saveStatesToScene()
 
 
@@ -719,6 +734,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		if stateSetup == False:
 			return
 
+		self.core.scaleUI(item)
+
 		if item.ui.className == "Folder" and stateData is None:
 			if self.activeList == self.tw_import:
 				listType = "Import"
@@ -737,12 +754,13 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			if psVersion == 2:
 				item.setFlags(item.flags() & ~Qt.ItemIsAutoTristate)
 		
-		self.states.append(item)
 		if parent is None:
 			pList.addTopLevelItem(item)
 		else:
 			parent.addChild(item)
 			parent.setExpanded(True)
+
+		self.updateStateList()
 
 		if statetype != "Folder":
 			item.setFlags(item.flags() & ~Qt.ItemIsDropEnabled)
@@ -831,7 +849,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		for i in range(item.childCount()):
 			self.deleteState(item.child(i))
 
-		getattr(item.ui, "preDelete", lambda : None)()
+		getattr(item.ui, "preDelete", lambda item: None)(item=item)
 
 		#self.states.remove(item) #buggy in qt 4
 
@@ -936,7 +954,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.tw_import.setCurrentItem(camState)
 		else:
 			fileName = self.core.getCurrentFileName()
-			fnameData = os.path.basename(fileName).split("_")
+			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 			sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
 			if not (os.path.exists(fileName) and len(fnameData) == 8 and (os.path.join(self.core.projectPath, sceneDir) in fileName or ( self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName))):
 				QMessageBox.warning(self.core.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
@@ -959,7 +977,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 			highversion = 0
 			for i in camFolders:
-				fname = i.split("_")
+				fname = i.split(self.core.filenameSeperator)
 				if len(fname) == 3 and fname[0][0] == "v" and len(fname[0]) == 5 and int(fname[0][1:5]) > highversion:
 					highversion = int(fname[0][1:5])
 					highFolder = i
@@ -992,7 +1010,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 
 	def enterEvent(self, event):
-		QApplication.restoreOverrideCursor()
+		try:
+			QApplication.restoreOverrideCursor()
+		except:
+			pass
 
 
 	@err_decorator
@@ -1112,7 +1133,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		shotConfig.read(shotFile)
 
 		fileName = self.core.getCurrentFileName()
-		fileNameData = os.path.basename(fileName).split("_")
+		fileNameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
 		if (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)) and len(fileNameData) == 8 and shotConfig.has_option("shotRanges", fileNameData[1]):
 			shotRange = eval(shotConfig.get("shotRanges", fileNameData[1]))
@@ -1168,7 +1189,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
 					return
 
 			result = []
-			extFiles, extFilesSource = self.core.plugin.sm_getExternalFiles(self)
+			extResult = self.core.plugin.sm_getExternalFiles(self)
+			if extResult is not None:
+				extFiles, extFilesSource = extResult
+			else:
+				extFiles = []
+				extFilesSource = []
 
 			invalidFiles = []
 			nonExistend = []
@@ -1269,7 +1295,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				bLayout.addWidget(bb_warn)
 				warnDlg.setLayout(bLayout)
 				warnDlg.setParent(self.core.messageParent, Qt.Window)
-				warnDlg.resize(750,500)
+				warnDlg.resize(1000*self.core.uiScaleFactor,500*self.core.uiScaleFactor)
 
 				action = warnDlg.exec_()
 
@@ -1299,6 +1325,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.osSubmittedJobs = {}
 			self.osDependencies = []
 			self.dependencies = []
+			self.reloadScenefile = False
 			self.publishInfos = { "updatedExports": {}, "backgroundRender": None}
 			self.core.sceneOpenChecksEnabled = False
 
@@ -1365,6 +1392,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
 					infoString += i["result"][0] +"\n"
 
 			QMessageBox.warning(self.core.messageParent, actionString, "Errors occured during the %s:\n\n" % actionString2 + infoString)
+
+		if self.reloadScenefile:
+			self.core.plugin.openScene(self, self.core.getCurrentFileName())
 
 
 	@err_decorator

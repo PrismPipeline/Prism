@@ -30,7 +30,6 @@
 				ProjectPathControl = Input { Value = "X:/projects/render/", },
 				["JpegFormat.Quality"] = Input { Value = 97, },
 				["OpenEXRFormat.Depth"] = Input { Value = 1, },
-				["OpenEXRFormat.Compression"] = Input { Value = 8, },
 				["OpenEXRFormat.Channels"] = Input { Value = 1, },
 				["QuickTimeMovies.Compression"] = Input { Value = FuID { "Apple ProRes 422 HQ_apch" }, },
 			},
@@ -151,9 +150,9 @@
 					LINKID_DataType = "Number",
 					ICS_ControlPage = "File",
 					INP_Default = 0,
-					ICD_Width = 0.5,
+					ICD_Width = 0.4,
 					INPID_InputControl = "CheckboxControl",
-					LINKS_Name = "local output"
+					LINKS_Name = "Local output"
 				},
 
 				RenderLastVersionControl = {
@@ -162,9 +161,9 @@
 					LINKID_DataType = "Number",
 					ICS_ControlPage = "File",
 					INP_Default = 0,
-					ICD_Width = 0.5,
+					ICD_Width = 0.6,
 					INPID_InputControl = "CheckboxControl",
-					LINKS_Name = "Render as last version"
+					LINKS_Name = "Render as previous version"
 				},
 
 			--	FilePathControl = {
@@ -194,7 +193,7 @@ elif platform.system() == "Darwin":
 	prismRoot = "/Applications/Prism/Prism"
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 
 try:
 	from PySide2.QtCore import *
@@ -244,7 +243,7 @@ elif platform.system() == "Darwin":
 	prismRoot = "/Applications/Prism/Prism"
 	
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 
 try:
 	from PySide2.QtCore import *

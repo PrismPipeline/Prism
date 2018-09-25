@@ -91,7 +91,7 @@ class ExportClass(object):
 		if hasattr(self, "node") and self.node is not None and self.node.parm("f1") is not None:
 			self.sp_rangeStart.setValue(self.node.parm("f1").eval())
 			self.sp_rangeEnd.setValue(self.node.parm("f2").eval())
-			if self.node.type().name() == "rop_alembic":
+			if self.node.type().name() in ["rop_alembic", "alembic"]:
 				idx = self.cb_outType.findText(".abc")
 				if idx != -1:
 					self.cb_outType.setCurrentIndex(idx)
@@ -128,7 +128,7 @@ class ExportClass(object):
 			self.loadData(stateData)
 		else:
 			fileName = self.core.getCurrentFileName()
-			fnameData = os.path.basename(fileName).split("_")
+			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 			if os.path.exists(fileName) and len(fnameData) == 8 and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in fileName)):
 				idx = self.cb_sCamShot.findText(fnameData[1])
 				if idx != -1:
@@ -256,7 +256,7 @@ class ExportClass(object):
 			else:
 				nodePath = self.node.parent()
 
-			if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "rop_comp"]:
+			if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "rop_comp", "filecache", "geometry", "alembic"]:
 				try:
 					self.node.destroy()
 				except:
@@ -271,6 +271,8 @@ class ExportClass(object):
 			ropType = "rop_dop"
 		elif curContext == "Sop":
 			ropType = "rop_geometry"
+		elif curContext == "Driver":
+			ropType = "geometry"
 
 		if self.cb_outType.currentText() == ".abc":
 			if curContext == "Sop":
@@ -337,12 +339,12 @@ class ExportClass(object):
 	@err_decorator
 	def nameChanged(self, text):
 		if self.cb_outType.currentText() == "ShotCam":
-			sText = text + " (%s)" % self.curCam
+			sText = text + " - Shotcam (%s)" % (self.l_taskName2.text(), self.curCam)
 		else:
 			try:
-				sText = text + " (%s)" % self.node
+				sText = text + " - %s (%s)" % (self.l_taskName2.text(), self.node)
 			except:
-				sText = text + " (None)"
+				sText = text + " - %s (None)" % self.l_taskName2.text()
 
 		if self.state.text(0).endswith(" - disabled"):
 			sText += " - disabled"
@@ -362,6 +364,7 @@ class ExportClass(object):
 		
 		if result == 1:
 			self.l_taskName2.setText(self.nameWin.e_item.text())
+			self.nameChanged(self.e_name.text())
 
 			self.b_changeTask.setStyleSheet("")
 
@@ -453,7 +456,7 @@ class ExportClass(object):
 			self.f_convertExport.setVisible(True)
 			if self.cb_manager.count() > 0:
 				self.gb_submit.setVisible(True)
-			if (self.node is None or self.node.type().name() != "rop_alembic"):
+			if (self.node is None or self.node.type().name() not in ["rop_alembic", "alembic"]):
 				self.createNode()
 		elif idx == ".hda":
 			self.f_cam.setVisible(False)
@@ -508,7 +511,7 @@ class ExportClass(object):
 			else:
 				self.cb_outType.setCurrentIndex(0)
 
-			if (self.node is None or self.node.type().name() not in ["rop_dop", "rop_comp", "rop_geometry"]):
+			if (self.node is None or self.node.type().name() in ["rop_alembic", "alembic"]):
 				self.createNode()
 			
 		else:
@@ -521,7 +524,7 @@ class ExportClass(object):
 			self.f_convertExport.setVisible(True)
 			if self.cb_manager.count() > 0:
 				self.gb_submit.setVisible(True)
-			if (self.node is None or self.node.type().name() not in ["rop_dop", "rop_comp", "rop_geometry"]):
+			if (self.node is None or self.node.type().name() in ["rop_alembic", "alembic"]):
 				self.createNode()
 
 
@@ -551,7 +554,7 @@ class ExportClass(object):
 
 	@err_decorator
 	def connectNode(self):
-		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().description() == "ROP Output Driver" or hou.selectedNodes()[0].type().description() == "ROP File Output" or hou.selectedNodes()[0].type().description() == "ROP Alembic Output" or (self.cb_outType.currentText() == ".hda" and hou.selectedNodes()[0].canCreateDigitalAsset())):
+		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().description() in ["ROP Output Driver", "ROP File Output", "ROP Alembic Output", "File Cache"] or (hou.selectedNodes()[0].type().category().name() == "Driver" and hou.selectedNodes()[0].type().name() in ["geometry", "alembic"]) or (self.cb_outType.currentText() == ".hda" and hou.selectedNodes()[0].canCreateDigitalAsset())):
 			self.node = hou.selectedNodes()[0]
 
 			extension = ""
@@ -562,6 +565,12 @@ class ExportClass(object):
 			elif self.node.type().name() == "rop_geometry":
 				extension = os.path.splitext(self.node.parm("sopoutput").eval())[1]
 			elif self.node.type().name() == "rop_alembic":
+				extension = os.path.splitext(self.node.parm("filename").eval())[1]
+			elif self.node.type().name() == "filecache":
+				extension = os.path.splitext(self.node.parm("file").eval())[1]
+			elif self.node.type().name() == "geometry" and self.node.type().category().name() == "Driver":
+				extension = os.path.splitext(self.node.parm("sopoutput").eval())[1]
+			elif self.node.type().name() == "alembic" and self.node.type().category().name() == "Driver":
 				extension = os.path.splitext(self.node.parm("filename").eval())[1]
 
 			if self.cb_outType.findText(extension) != -1:
@@ -647,6 +656,11 @@ class ExportClass(object):
 
 
 	@err_decorator
+	def preDelete(self, item, silent=False):
+		self.core.plugin.sm_preDelete(self, item, silent)
+
+
+	@err_decorator
 	def preExecuteState(self):
 		warnings = []
 
@@ -683,7 +697,7 @@ class ExportClass(object):
 			if self.core.useLocalFiles and self.chb_localOutput.isChecked():
 				outputBase = os.path.join(self.core.localProjectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
 
-			fnameData = os.path.basename(fileName).split("_")
+			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 			if len(fnameData) == 8:
 				comment = fnameData[5]
 			elif len(fnameData) == 6:
@@ -696,8 +710,8 @@ class ExportClass(object):
 			else:
 				hVersion = useVersion[:5]
 
-			outputPath = os.path.join( outputPath, hVersion + "_" + comment + "_" + self.core.user, prefUnit)
-			outputName = os.path.join(outputPath, "shot_" + self.cb_sCamShot.currentText() + "_ShotCam_" + hVersion)
+			outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeperator + comment + self.core.filenameSeperator + self.core.user, prefUnit)
+			outputName = os.path.join(outputPath, "shot" + self.core.filenameSeperator + self.cb_sCamShot.currentText() + self.core.filenameSeperator + "ShotCam" + self.core.filenameSeperator + hVersion)
 
 		else:
 			if self.l_taskName2.text() == "":
@@ -714,18 +728,18 @@ class ExportClass(object):
 
 			hVersion = ""
 			if useVersion != "next":
-				hVersion = useVersion.split("_")[0]
-				pComment = useVersion.split("_")[1]
+				hVersion = useVersion.split(self.core.filenameSeperator)[0]
+				pComment = useVersion.split(self.core.filenameSeperator)[1]
 
-			fnameData = os.path.basename(fileName).split("_")
+			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 			if len(fnameData) == 8:
 				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Export", self.l_taskName2.text()))
 				if hVersion == "":
 					hVersion = self.core.getHighestTaskVersion(outputPath)
 					pComment = fnameData[5]
 
-				outputPath = os.path.join(outputPath, hVersion + "_" + pComment + "_" + self.core.user, prefUnit)
-				outputName = os.path.join(outputPath, fnameData[0] + "_" + fnameData[1] + "_" + self.l_taskName2.text() + "_" + hVersion + ".$F4" + self.cb_outType.currentText())
+				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + self.core.user, prefUnit)
+				outputName = os.path.join(outputPath, fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName2.text() + self.core.filenameSeperator + hVersion + ".$F4" + self.cb_outType.currentText())
 			elif len(fnameData) == 6:
 				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 					outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Export", self.l_taskName2.text())
@@ -735,8 +749,8 @@ class ExportClass(object):
 					hVersion = self.core.getHighestTaskVersion(outputPath)
 					pComment = fnameData[3]
 
-				outputPath = os.path.join( outputPath, hVersion + "_" + pComment + "_" + self.core.user, prefUnit)
-				outputName = os.path.join(outputPath, fnameData[0]  + "_" + self.l_taskName2.text() + "_" + hVersion + ".$F4" + self.cb_outType.currentText())
+				outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + self.core.user, prefUnit)
+				outputName = os.path.join(outputPath, fnameData[0]  + self.core.filenameSeperator + self.l_taskName2.text() + self.core.filenameSeperator + hVersion + ".$F4" + self.cb_outType.currentText())
 			else:
 				return
 
@@ -769,6 +783,8 @@ class ExportClass(object):
 
 			if not os.path.exists(outputPath):
 				os.makedirs(outputPath)
+
+			self.core.callHook("PreExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":outputName})
 
 			self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName, fps=startFrame!=endFrame)
 
@@ -812,7 +828,6 @@ class ExportClass(object):
 
 				transformNode.destroy()
 
-
 			abc_rop.destroy()
 			fbx_rop.destroy()
 
@@ -820,6 +835,8 @@ class ExportClass(object):
 			self.l_pathLast.setToolTip(outputName)
 			self.b_openLast.setEnabled(True)
 			self.b_copyLast.setEnabled(True)
+
+			self.core.callHook("PostExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":outputName})
 
 			self.stateManager.saveStatesToScene()
 
@@ -836,6 +853,9 @@ class ExportClass(object):
 				self.node.name()
 			except:
 				return [self.state.text(0) + ": error - Node is invalid. Skipped the activation of this state."]
+
+			if self.node.isInsideLockedHDA():
+				return [self.state.text(0) + ": error - Node is locked. Skipped the activation of this state."]
 
 			fileName = self.core.getCurrentFileName()
 
@@ -859,11 +879,13 @@ class ExportClass(object):
 				if self.cb_outType.currentText() == ".abc":
 					outputName = outputName.replace(".$F4", "")
 
-				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop"]:
+				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic", "filecache"]:
 					self.node.parm("initsim").set(True)
 
 			if not os.path.exists(outputPath):
 				os.makedirs(outputPath)
+
+			self.core.callHook("PreExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":outputName})
 
 			self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName, fps=startFrame!=endFrame)
 
@@ -890,17 +912,22 @@ class ExportClass(object):
 
 			for idx, outputName in enumerate(outputNames):
 				if self.node.type().name() == "rop_dop":
-					self.stateManager.publishInfos["updatedExports"][self.node.parm("dopoutput").unexpandedString()] = outputName
-					self.node.parm("dopoutput").set(outputName)
+					parmName = "dopoutput"
 				elif self.node.type().name() == "rop_comp":
-					self.stateManager.publishInfos["updatedExports"][self.node.parm("copoutput").unexpandedString()] = outputName
-					self.node.parm("copoutput").set(outputName)
+					parmName = "copoutput"
 				elif self.node.type().name() == "rop_geometry":
-					self.stateManager.publishInfos["updatedExports"][self.node.parm("sopoutput").unexpandedString()] = outputName
-					self.node.parm("sopoutput").set(outputName)
+					parmName = "sopoutput"
 				elif self.node.type().name() == "rop_alembic":
-					self.stateManager.publishInfos["updatedExports"][self.node.parm("filename").unexpandedString()] = outputName
-					self.node.parm("filename").set(outputName)
+					parmName = "filename"
+				elif self.node.type().name() == "filecache":
+					parmName = "file"
+				elif self.node.type().name() == "geometry":
+					parmName = "sopoutput"
+				elif self.node.type().name() == "alembic":
+					parmName = "filename"
+
+				self.stateManager.publishInfos["updatedExports"][self.node.parm(parmName).unexpandedString()] = outputName
+				self.node.parm(parmName).set(outputName)
 
 				hou.hipFile.save()
 
@@ -938,11 +965,13 @@ class ExportClass(object):
 				if idx == 1:
 					transformNode.parm("scale").set(1)
 
+			self.core.callHook("PostExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":outputName})
+
 			if "Result=Success" in result:
 				return [self.state.text(0) + " - success"]
 			else:
 				erStr = ("%s ERROR - houExportPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
-				if not result.startswith("Execute Canceled") and not result.startswith("Execute failed"):
+				if not result.startswith("Execute Canceled") and not result.startswith("Execute failed") and not self.node.type().name() == "filecache":
 					self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - error - " + result]
 

@@ -53,7 +53,7 @@ except:
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
+		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -109,7 +109,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		self.lo_projects.addWidget(projectsUi)
 
-		self.groupboxes = [self.gb_sgUser, self.gb_curPversions, self.gb_curPshotgun]
+		self.groupboxes = [self.gb_curPversions]
 
 		self.loadUI()
 		self.core.plugin.prismSettings_loading(self)
@@ -120,7 +120,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			i.setStyleSheet(ss.replace("QCheckBox::indicator", "QGroupBox::indicator"))
 		
 		self.forceVersionsToggled(self.gb_curPversions.isChecked())
-		self.sgToggled(self.gb_curPshotgun.isChecked())
+		for i in self.core.prjManagers.values():
+			i.prismSettings_postLoadSettings(self)
 
 		self.connectEvents()
 		self.setFocus()
@@ -153,7 +154,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		self.e_curPname.textEdited.connect(self.curPnameEdited)
 		self.chb_curPuseFps.toggled.connect(self.pfpsToggled)
 		self.gb_curPversions.toggled.connect(self.forceVersionsToggled)
-		self.gb_curPshotgun.toggled.connect(self.sgToggled)
 		for i in self.forceVersionPlugins:
 			self.forceVersionPlugins[i]["b"].clicked.connect(lambda y=None, x=i: self.curPshowList(x))
 		for i in self.exOverridePlugins:
@@ -197,12 +197,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	@err_decorator
 	def forceVersionsToggled(self, checked):
 		self.w_versions.setVisible(checked)
-
-
-	@err_decorator
-	def sgToggled(self, checked):
-		self.w_shotgun.setVisible(checked)
-		self.gb_sgUser.setVisible(checked)
 
 
 	@err_decorator
@@ -281,8 +275,24 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 					result = i.integrationRemove(self, installPath)
 
 		if result:
+			existingPaths = []
+			for i in range(self.integrationPlugins[prog]["lw"].count()):
+				existingPaths.append(self.integrationPlugins[prog]["lw"].item(i).text())
+
 			installConfigPath = os.path.join(os.path.dirname(self.core.userini), "installLocations.ini")
-			self.core.setConfig(configPath=installConfigPath, cat=prog, param="%02d" % (self.integrationPlugins[prog]["lw"].currentRow()+1), delete=True)
+			options = self.core.getConfig(cat=prog, configPath=installConfigPath, getOptions=True)
+			cData = []
+			for i in options:
+				cData.append([prog, i, ""])
+
+			self.core.setConfig(configPath=installConfigPath, data=cData, delete=True)
+
+			existingPaths.pop(self.integrationPlugins[prog]["lw"].currentRow())
+			cData = []
+			for idx, i in enumerate(existingPaths):
+				cData.append([prog, "%02d" % idx, i])
+
+			self.core.setConfig(configPath=installConfigPath, data=cData)
 			self.refreshIntegrations()
 
 
@@ -320,12 +330,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			djvPath += os.sep
 		cData.append(['globals', "djvpath", djvPath])
 
-		cData.append(['globals', "sguseaccount", str(self.gb_sgUser.isChecked())])
-		cData.append(['globals', "sgusername", str(self.e_sgUsername.text())])
-		cData.append(['globals', "sguserpassword", str(self.e_sgUserPassword.text())])
 		cData.append(["globals", "prefer_djv", str(self.chb_preferDJV.isChecked())])
 		cData.append(["globals", "showonstartup", str(self.chb_browserStartup.isChecked())])
 		cData.append(["globals", "autosave", str(self.chb_autosave.isChecked())])
+		cData.append(["globals", "highdpi", str(self.chb_highDPI.isChecked())])
 
 		for i in self.exOverridePlugins:
 			res = self.core.getPlugin(i).prismSettings_saveSettings(self)
@@ -335,6 +343,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		for i in self.exOverridePlugins:
 			cData.append(['dccoverrides', "%s_override" % i, str(self.exOverridePlugins[i]["chb"].isChecked())])
 			cData.append(['dccoverrides', "%s_path" % i, str(self.exOverridePlugins[i]["le"].text())])
+
+		for i in self.core.prjManagers.values():
+			res = i.prismSettings_saveSettings(self)
+			if type(res) == list:
+				cData += res
 
 		if self.core.plugin.appType == "3d":
 			if self.chb_autosave.isChecked():
@@ -353,11 +366,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			cData.append(['globals', 'forcefps', str(self.chb_curPuseFps.isChecked())])
 			cData.append(['globals', 'fps', str(self.sp_curPfps.value())])
 			cData.append(['globals', 'forceversions', str(self.gb_curPversions.isChecked())])
-			cData.append(['shotgun', 'active', str(self.gb_curPshotgun.isChecked())])
-			cData.append(['shotgun', 'site', str(self.e_curPsgSite.text())])
-			cData.append(['shotgun', 'projectname', str(self.e_curPsgPrjName.text())])
-			cData.append(['shotgun', 'scriptname', str(self.e_curPsgScriptName.text())])
-			cData.append(['shotgun', 'apikey', str(self.e_curPsgKey.text())])
+
+			for i in self.core.prjManagers.values():
+				res = i.prismSettings_savePrjSettings(self)
+				if type(res) == list:
+					cData += res
 
 			for i in self.forceVersionPlugins:
 				cData.append(['globals', "%s_version" % i, str(self.forceVersionPlugins[i]["le"].text())])
@@ -448,11 +461,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			ucData["%s_path" % i] = ["dccoverrides", "%s_path" % i]
 
 		ucData["username"] = ['globals', "username"]
-		ucData["sguseaccount"] = ['globals', "sguseaccount", "bool"]
-		ucData["sgusername"] = ['globals', "sgusername"]
-		ucData["sguserpassword"] = ['globals', "sguserpassword"]
 		ucData["showonstartup"] = ['globals', "showonstartup", "bool"]
 		ucData["autosave"] = ['globals', "autosave", "bool"]
+		ucData["highdpi"] = ['globals', "highdpi", "bool"]
 		ucData["rvpath"] = ['globals', "rvpath"]
 		ucData["djvpath"] = ['globals', "djvpath"]
 		ucData["prefer_djv"] = ['globals', "prefer_djv", "bool"]
@@ -460,6 +471,13 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		loadFunctions = {}
 		for i in self.exOverridePlugins:
 			res = self.core.getPlugin(i).prismSettings_loadSettings(self)
+			if type(res) == tuple:
+				loadData, pLoadFunctions = res
+				ucData.update(loadData)
+				loadFunctions.update(pLoadFunctions)
+
+		for i in self.core.prjManagers.values():
+			res = i.prismSettings_loadSettings(self)
 			if type(res) == tuple:
 				loadData, pLoadFunctions = res
 				ucData.update(loadData)
@@ -477,15 +495,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 				self.validate(uiWidget=self.e_fname)
 				self.validate(uiWidget =self.e_lname)
 
-		if ucData["sguseaccount"] is not None:
-			self.gb_sgUser.setChecked(ucData["sguseaccount"])
-
-		if ucData["sgusername"] is not None:
-			self.e_sgUsername.setText(ucData["sgusername"])
-
-		if ucData["sguserpassword"] is not None:
-			self.e_sgUserPassword.setText(ucData["sguserpassword"])
-
 		if ucData["showonstartup"] is not None:
 			self.chb_browserStartup.setChecked(ucData["showonstartup"])
 
@@ -495,6 +504,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		if ucData["autosave"] is not None:
 			self.chb_autosave.setChecked(ucData["autosave"])
+
+		if ucData["highdpi"] is not None:
+			self.chb_highDPI.setChecked(ucData["highdpi"])
 
 		if ucData["rvpath"] is not None:
 			self.e_rvPath.setText(ucData["rvpath"])
@@ -512,6 +524,16 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			if ucData["%s_path" % i] is not None:	
 				self.exOverridePlugins[i]["le"].setText(ucData["%s_path" % i])
 
+			if not self.exOverridePlugins[i]["chb"].isChecked() and self.exOverridePlugins[i]["le"].text() == "":
+				execFunc = self.core.getPluginData(i, "getExecutable")
+				if execFunc is not None:
+					examplePath = execFunc()
+					if examplePath is not None:
+						if not os.path.exists(examplePath) and os.path.exists(os.path.dirname(examplePath)):
+							examplePath = os.path.dirname(examplePath)
+
+						self.exOverridePlugins[i]["le"].setText(examplePath)
+
 			self.exOverridePlugins[i]["le"].setEnabled(self.exOverridePlugins[i]["chb"].isChecked())
 			self.exOverridePlugins[i]["b"].setEnabled(self.exOverridePlugins[i]["chb"].isChecked())
 
@@ -526,11 +548,15 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			pcData["fpfps"] = ["globals", "forcefps"]
 			pcData["pfps"] = ["globals", "fps"]
 			pcData["fVersion"] = ["globals", "forceversions"]
-			pcData["sgActive"] = ["shotgun", "active"]
-			pcData["sgSite"] = ["shotgun", "site"]
-			pcData["sgPrjName"] = ["shotgun", "projectname"]
-			pcData["sgScriptName"] = ["shotgun", "scriptname"]
-			pcData["sgApiKey"] = ["shotgun", "apikey"]
+
+			loadFunctions = {}
+
+			for i in self.core.prjManagers.values():
+				res = i.prismSettings_loadPrjSettings(self)
+				if type(res) == tuple:
+					loadData, pLoadFunctions = res
+					pcData.update(loadData)
+					loadFunctions.update(pLoadFunctions)
 
 			pcData = self.core.getConfig(data=pcData, configPath=self.core.prismIni)
 
@@ -544,16 +570,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 				self.sp_curPfps.setValue(float(pcData["pfps"]))
 			if pcData["fVersion"] is not None:
 				self.gb_curPversions.setChecked(eval(pcData["fVersion"]))
-			if pcData["sgActive"] is not None:
-				self.gb_curPshotgun.setChecked(eval(pcData["sgActive"]))
-			if pcData["sgSite"] is not None:
-				self.e_curPsgSite.setText(pcData["sgSite"])
-			if pcData["sgPrjName"] is not None:
-				self.e_curPsgPrjName.setText(pcData["sgPrjName"])
-			if pcData["sgScriptName"] is not None:
-				self.e_curPsgScriptName.setText(pcData["sgScriptName"])
-			if pcData["sgApiKey"] is not None:
-				self.e_curPsgKey.setText(pcData["sgApiKey"])
+
+			for i in sorted(loadFunctions):
+				if pcData[i] is not None:
+					loadFunctions[i](pcData[i])
 
 			for i in self.forceVersionPlugins:
 				if pcData["%s_version" % i] is not None:
@@ -671,6 +691,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		self.refreshIntegrations()
 
 		self.tab_dccApps.layout().addStretch()
+
+		for i in self.core.prjManagers.values():
+			i.prismSettings_loadUI(self)
 
 
 	@err_decorator

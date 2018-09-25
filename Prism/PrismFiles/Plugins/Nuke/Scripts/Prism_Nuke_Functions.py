@@ -237,7 +237,7 @@ class Prism_Nuke_Functions(object):
 			return
 
 		if useLastVersion:
-			msg = QMessageBox(QMessageBox.Information, "Render", "Are you sure you want to execute this state as the last version?\nThis may overwrite existing files.", QMessageBox.Cancel)
+			msg = QMessageBox(QMessageBox.Information, "Render", "Are you sure you want to execute this state as the previous version?\nThis may overwrite existing files.", QMessageBox.Cancel)
 			msg.addButton("Continue", QMessageBox.YesRole)
 			self.core.parentWindow(msg)
 			action = msg.exec_()

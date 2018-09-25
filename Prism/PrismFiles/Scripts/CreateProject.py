@@ -50,7 +50,7 @@ except:
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
+		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -393,16 +393,12 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		cData.append(['globals', 'forcefps', "False"])
 		cData.append(['globals', 'fps', "24"])
 		cData.append(['globals', 'forceversions', "False"])
+		cData.append(['globals', 'filenameseperator', "_"])
 		cData.append(['paths', 'pipeline', "00_Pipeline"])
 		cData.append(['paths', 'scenes', scname])
 		cData.append(['paths', 'assets', assetname])
 		if "dailiesname" in locals():
 			cData.append(['paths', 'dailies', dailiesname])
-		cData.append(['shotgun', 'active', "False"])
-		cData.append(['shotgun', 'site', ""])
-		cData.append(['shotgun', 'projectname', ""])
-		cData.append(['shotgun', 'scriptname', ""])
-		cData.append(['shotgun', 'apikey', ""])
 
 		for i in self.core.getPluginNames():
 			passes = self.core.getPluginData(i, "renderPasses")

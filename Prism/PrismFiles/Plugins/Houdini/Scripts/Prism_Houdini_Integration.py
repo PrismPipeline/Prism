@@ -98,6 +98,40 @@ class Prism_Houdini_Integration(object):
 
 
 	@err_decorator
+	def getExecutable(self):
+		execPath = ""
+		if platform.system() == "Windows":
+			defaultpath = os.path.join(self.getHoudiniPath(), "bin", "houdini.exe")
+			if os.path.exists(defaultpath):
+				execPath = defaultpath
+
+		return execPath
+
+	@err_decorator
+	def getHoudiniPath(self):
+		try:
+			key = _winreg.OpenKey(
+				_winreg.HKEY_LOCAL_MACHINE,
+				"SOFTWARE\\Side Effects Software",
+				0,
+				_winreg.KEY_READ | _winreg.KEY_WOW64_64KEY
+			)
+			validVersion = (_winreg.QueryValueEx(key, "ActiveVersion"))[0]
+
+			key = _winreg.OpenKey(
+				_winreg.HKEY_LOCAL_MACHINE,
+				"SOFTWARE\\Side Effects Software\\Houdini " + validVersion,
+				0,
+				_winreg.KEY_READ | _winreg.KEY_WOW64_64KEY
+			)
+
+			return (_winreg.QueryValueEx(key, "InstallPath"))[0]
+
+		except:
+			return ""
+
+
+	@err_decorator
 	def integrationAdd(self, origin):
 		path = QFileDialog.getExistingDirectory(self.core.messageParent, "Select Houdini folder", self.examplePath)
 

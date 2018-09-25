@@ -98,41 +98,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QGroupBox" name="gb_sgUser">
-             <property name="title">
-              <string>Publish Shotgun versions with Shotgun account:</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-             <property name="checked">
-              <bool>false</bool>
-             </property>
-             <layout class="QGridLayout" name="gridLayout_5">
-              <item row="0" column="0">
-               <widget class="QLabel" name="label_8">
-                <property name="text">
-                 <string>Username:       </string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QLineEdit" name="e_sgUsername"/>
-              </item>
-              <item row="1" column="0">
-               <widget class="QLabel" name="label_9">
-                <property name="text">
-                 <string>Password:</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="1">
-               <widget class="QLineEdit" name="e_sgUserPassword"/>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
             <spacer name="verticalSpacer_6">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -519,70 +484,6 @@
                </widget>
               </item>
               <item>
-               <widget class="QGroupBox" name="gb_curPshotgun">
-                <property name="title">
-                 <string>Shotgun integration</string>
-                </property>
-                <property name="checkable">
-                 <bool>true</bool>
-                </property>
-                <property name="checked">
-                 <bool>false</bool>
-                </property>
-                <layout class="QVBoxLayout" name="verticalLayout_12">
-                 <item>
-                  <widget class="QWidget" name="w_shotgun" native="true">
-                   <layout class="QGridLayout" name="gridLayout_3">
-                    <property name="margin">
-                     <number>0</number>
-                    </property>
-                    <item row="0" column="2">
-                     <widget class="QLineEdit" name="e_curPsgSite"/>
-                    </item>
-                    <item row="3" column="2">
-                     <widget class="QLineEdit" name="e_curPsgKey"/>
-                    </item>
-                    <item row="0" column="0">
-                     <widget class="QLabel" name="l_curPsgSite">
-                      <property name="text">
-                       <string>Shotgun site:</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="3" column="0">
-                     <widget class="QLabel" name="l_curPsgKey">
-                      <property name="text">
-                       <string>Script API key:</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="1" column="2">
-                     <widget class="QLineEdit" name="e_curPsgPrjName"/>
-                    </item>
-                    <item row="1" column="0">
-                     <widget class="QLabel" name="label_14">
-                      <property name="text">
-                       <string>Project Name:</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="2" column="2">
-                     <widget class="QLineEdit" name="e_curPsgScriptName"/>
-                    </item>
-                    <item row="2" column="0">
-                     <widget class="QLabel" name="label_15">
-                      <property name="text">
-                       <string>Script Name:</string>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item>
                <spacer name="verticalSpacer_12">
                 <property name="orientation">
                  <enum>Qt::Vertical</enum>
@@ -735,6 +636,13 @@
                </spacer>
               </item>
              </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="chb_highDPI">
+             <property name="text">
+              <string>HighDPI support (experimental)</string>
+             </property>
             </widget>
            </item>
            <item>
@@ -930,9 +838,6 @@
   <tabstop>tw_settings</tabstop>
   <tabstop>e_fname</tabstop>
   <tabstop>e_lname</tabstop>
-  <tabstop>gb_sgUser</tabstop>
-  <tabstop>e_sgUsername</tabstop>
-  <tabstop>e_sgUserPassword</tabstop>
   <tabstop>e_localPath</tabstop>
   <tabstop>b_browseLocal</tabstop>
   <tabstop>e_curPname</tabstop>
@@ -940,11 +845,6 @@
   <tabstop>chb_curPuseFps</tabstop>
   <tabstop>sp_curPfps</tabstop>
   <tabstop>gb_curPversions</tabstop>
-  <tabstop>gb_curPshotgun</tabstop>
-  <tabstop>e_curPsgSite</tabstop>
-  <tabstop>e_curPsgPrjName</tabstop>
-  <tabstop>e_curPsgScriptName</tabstop>
-  <tabstop>e_curPsgKey</tabstop>
   <tabstop>b_about</tabstop>
   <tabstop>chb_autosave</tabstop>
   <tabstop>chb_browserStartup</tabstop>

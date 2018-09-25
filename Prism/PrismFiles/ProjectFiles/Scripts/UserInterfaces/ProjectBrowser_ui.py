@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ProjectBrowser.ui'
 #
-# Created: Thu Aug 02 22:20:57 2018
+# Created: Mon Sep 17 20:18:51 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_mw_ProjectBrowser(object):
     def setupUi(self, mw_ProjectBrowser):
         mw_ProjectBrowser.setObjectName("mw_ProjectBrowser")
-        mw_ProjectBrowser.resize(1201, 870)
+        mw_ProjectBrowser.resize(1311, 870)
         mw_ProjectBrowser.setMouseTracking(False)
         self.centralwidget = QtGui.QWidget(mw_ProjectBrowser)
         self.centralwidget.setObjectName("centralwidget")
@@ -24,7 +24,7 @@ class Ui_mw_ProjectBrowser(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1199, 847))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1309, 847))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.verticalLayout_14 = QtGui.QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_14.setObjectName("verticalLayout_14")
@@ -566,6 +566,16 @@ class Ui_mw_ProjectBrowser(object):
         self.b_compareRV.setCheckable(False)
         self.b_compareRV.setObjectName("b_compareRV")
         self.horizontalLayout_11.addWidget(self.b_compareRV)
+        self.b_combineVersions = QtGui.QPushButton(self.w_rvButtons)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.b_combineVersions.sizePolicy().hasHeightForWidth())
+        self.b_combineVersions.setSizePolicy(sizePolicy)
+        self.b_combineVersions.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.b_combineVersions.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.b_combineVersions.setObjectName("b_combineVersions")
+        self.horizontalLayout_11.addWidget(self.b_combineVersions)
         self.b_clearRV = QtGui.QPushButton(self.w_rvButtons)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -697,7 +707,7 @@ class Ui_mw_ProjectBrowser(object):
         self.verticalLayout_13.addWidget(self.scrollArea)
         mw_ProjectBrowser.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(mw_ProjectBrowser)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1201, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1311, 21))
         self.menubar.setObjectName("menubar")
         self.menuTools = QtGui.QMenu(self.menubar)
         self.menuTools.setObjectName("menuTools")
@@ -814,9 +824,10 @@ class Ui_mw_ProjectBrowser(object):
         self.b_refresh.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Refresh Tasks", None, QtGui.QApplication.UnicodeUTF8))
         self.l_version.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Versions:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_layer.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Layers:", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_compare.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "RV Compare:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_compare.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Collected Versions:", None, QtGui.QApplication.UnicodeUTF8))
         self.b_addRV.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Add", None, QtGui.QApplication.UnicodeUTF8))
         self.b_compareRV.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Compare", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_combineVersions.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Combine", None, QtGui.QApplication.UnicodeUTF8))
         self.b_clearRV.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Clear", None, QtGui.QApplication.UnicodeUTF8))
         self.b_saveRender1.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "--free--", None, QtGui.QApplication.UnicodeUTF8))
         self.b_saveRender2.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "--free--", None, QtGui.QApplication.UnicodeUTF8))

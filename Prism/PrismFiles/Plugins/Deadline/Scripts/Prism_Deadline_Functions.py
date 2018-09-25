@@ -164,7 +164,7 @@ class Prism_Deadline_Functions(object):
 
 	@err_decorator
 	def sm_dep_startup(self, origin):
-		origin.tw_caches.itemClicked.connect(self.sm_updateDlDeps)
+		origin.tw_caches.itemClicked.connect(lambda x,y: self.sm_updateDlDeps(origin, x, y))
 		origin.tw_caches.itemDoubleClicked.connect(self.sm_dlGoToNode)
 
 
@@ -212,6 +212,7 @@ class Prism_Deadline_Functions(object):
 		ropCopNodeList = []
 		ropSopNodeList = []
 		ropAbcNodeList = []
+		filecacheNodeList = []
 
 		for node in hou.node("/").allSubChildren():
 			if node.type().name() == "file":
@@ -227,6 +228,8 @@ class Prism_Deadline_Functions(object):
 				ropSopNodeList.append(node)
 			elif node.type().name() == "rop_alembic" and len(node.parm("filename").keyframes()) == 0:
 				ropAbcNodeList.append(node)
+			elif node.type().name() == "filecache" and len(node.parm("file").keyframes()) == 0:
+				filecacheNodeList.append(node)
 
 		for i in fileNodeList:
 			itemName = os.path.basename(i.path())
@@ -252,6 +255,11 @@ class Prism_Deadline_Functions(object):
 			itemName = os.path.basename(i.path())
 			item = QTreeWidgetItem(origin.tw_caches.topLevelItem(1), [itemName])
 			item.setToolTip(0, i.parm("sopoutput").unexpandedString() + "\n" + i.path())
+
+		for i in filecacheNodeList:
+			itemName = os.path.basename(i.path())
+			item = QTreeWidgetItem(origin.tw_caches.topLevelItem(1), [itemName])
+			item.setToolTip(0, i.parm("file").unexpandedString() + "\n" + i.path())
 
 		#alembic dependency disabled because no progress measureable
 		for i in ropAbcNodeList:

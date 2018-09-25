@@ -505,7 +505,7 @@ class ImageRenderClass(object):
 
 		for i in self.il.tw_steps.selectedItems():
 			if i.column() == 0:
-				self.core.plugin.sm_render_addRenderPass(self, passName=i.text())
+				self.core.plugin.sm_render_addRenderPass(self, passName=i.text(), steps=steps)
 
 		self.updateUi()
 		self.stateManager.saveStatesToScene()
@@ -583,18 +583,18 @@ class ImageRenderClass(object):
 
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split("_")[0]
-			pComment = useVersion.split("_")[1]
+			hVersion = useVersion.split(self.core.filenameSeperator)[0]
+			pComment = useVersion.split(self.core.filenameSeperator)[1]
 
-		fnameData = os.path.basename(fileName).split("_")
+		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 		if len(fnameData) == 8:
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData[5]
 
-			outputPath = os.path.join(outputPath, hVersion + "_" + pComment, "beauty")
-			outputFile = fnameData[0] + "_" + fnameData[1] + "_" + self.l_taskName.text() + "_" + hVersion + "_beauty..exr" 
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
+			outputFile = fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty..exr" 
 		elif len(fnameData) == 6:
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "3dRender", self.l_taskName.text())
@@ -604,8 +604,8 @@ class ImageRenderClass(object):
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData[3]
 
-			outputPath = os.path.join(outputPath, hVersion + "_" + pComment, "beauty")
-			outputFile = fnameData[0] + "_" + self.l_taskName.text() + "_" + hVersion + "_beauty..exr"
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
+			outputFile = fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty..exr"
 		
 		outputName = os.path.join(outputPath, outputFile)
 		outputName = self.core.plugin.sm_render_fixOutputPath(self, outputName)
@@ -616,6 +616,12 @@ class ImageRenderClass(object):
 
 	@err_decorator
 	def executeState(self, parent, useVersion="next"):
+		if self.chb_globalRange.isChecked():
+			jobFrames = [self.stateManager.sp_rangeStart.value(), self.stateManager.sp_rangeEnd.value()]
+		else:
+			jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
+
+		fileName = self.core.getCurrentFileName()
 		if not self.renderingStarted:	
 			if self.l_taskName.text() == "":
 				return [self.state.text(0) + ": error - no taskname is given. Skipped the activation of this state."]
@@ -625,8 +631,6 @@ class ImageRenderClass(object):
 
 			if self.chb_override.isChecked():
 				self.core.plugin.setVraySettings(self)
-
-			fileName = self.core.getCurrentFileName()
 
 			outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
 
@@ -649,6 +653,8 @@ class ImageRenderClass(object):
 			rSettings = {"outputName": outputName}
 
 			self.core.plugin.sm_render_preSubmit(self, rSettings)
+			self.core.callHook("PreRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":outputName})
+
 			self.core.saveScene(versionUp=False, prismReq=False)
 
 			if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
@@ -658,19 +664,23 @@ class ImageRenderClass(object):
 		else:
 			rSettings = self.LastRSettings
 			result = self.core.plugin.sm_render_startLocalRender(self, rSettings["outputName"], rSettings)
+			outputName = rSettings["outputName"]
 
 		if not self.renderingStarted:
 			self.core.plugin.sm_render_undoRenderSettings(self, rSettings)
 
 		if result == "publish paused":
 			return [self.state.text(0) + " - publish paused"]
-		elif "Result=Success" in result:
-			return [self.state.text(0) + " - success"]
 		else:
-			erStr = ("%s ERROR - sm_default_imageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
-			if not result.startswith("Execute Canceled: "):
-				self.core.writeErrorLog(erStr)
-			return [self.state.text(0) + " - error - " + result]
+			self.core.callHook("PostRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":outputName})
+
+			if "Result=Success" in result:
+				return [self.state.text(0) + " - success"]
+			else:
+				erStr = ("%s ERROR - sm_default_imageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
+				if not result.startswith("Execute Canceled: "):
+					self.core.writeErrorLog(erStr)
+				return [self.state.text(0) + " - error - " + result]
 
 
 	@err_decorator

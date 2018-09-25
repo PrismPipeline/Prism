@@ -34,7 +34,7 @@
 
 class Prism_Maya_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.0.10.0"
+		self.version = "v1.0.11.0"
 		self.appName = "Maya"
 		self.appShortName = "Maya"
 		self.appType = "3d"
@@ -47,9 +47,9 @@ class Prism_Maya_Variables(object):
 			pass
 		else:
 			if hasattr(cmds, "rsProxy"):
-				self.outputFormats = [".abc", ".obj", ".fbx", ".ma", ".rs", "ShotCam"]
+				self.outputFormats = [".abc", ".obj", ".fbx", ".ma", ".mb", ".rs", "ShotCam"]
 			else:
-				self.outputFormats = [".abc", ".obj", ".fbx", ".ma", "ShotCam"]
+				self.outputFormats = [".abc", ".obj", ".fbx", ".ma", ".mb", "ShotCam"]
 		self.appColor = [44,121,207]
 		self.appVersionPresets = ["20180100", "201720", "201600"]
 		vrayPasses = ['defaultpasses', 'maya_vray', str({"Background":"backgroundChannel", "Caustics":"causticsChannel", "Diffuse":"diffuseChannel", "Extra Tex":"ExtraTexElement", "GI":"giChannel", "Lighting":"lightingChannel", "Multi Matte": "MultiMatteElement", "Normals":"normalsChannel", "Reflection":"reflectChannel", "Refraction":"refractChannel", "SSS":"FastSSS2Channel", "Self Illumination":"selfIllumChannel", "Shadow":"shadowChannel", "Specular":"specularChannel", "Velocity":"velocityChannel", "Z-depth":"zdepthChannel"})]

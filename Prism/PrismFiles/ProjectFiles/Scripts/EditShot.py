@@ -341,8 +341,8 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 			prvPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % self.shotName)
 			self.core.pb.savePMap(self.pmap, prvPath)
 
-		if self.chb_createInShotgun.isChecked():
-			self.core.createSgShots([self.shotName])
+		for i in self.core.prjManagers.values():
+			i.editShot_closed(self, self.shotName)
 
 		return True
 
@@ -350,8 +350,6 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 	@err_decorator
 	def loadData(self):
 		if self.shotName is not None:
-			self.chb_createInShotgun.setChecked(False)
-			self.chb_createInShotgun.setVisible(False)
 			if "-" in self.shotName:
 				sname = self.shotName.split("-",1)
 				self.e_sequence.setText(sname[0])
@@ -375,16 +373,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 			imgPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % self.shotName)
 		else:
 			self.b_deleteShot.setVisible(False)
-
-			sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-			if sg is None or not eval(sg) or pVersion != 2:
-				self.chb_createInShotgun.setChecked(False)
-				self.chb_createInShotgun.setVisible(False)
-
-			self.buttonBox.layout().setDirection(QBoxLayout.RightToLeft)
 			self.buttonBox.removeButton(self.buttonBox.buttons()[0])
 			self.buttonBox.addButton("Create and close", QDialogButtonBox.AcceptRole)
 			self.buttonBox.addButton("Create", QDialogButtonBox.ApplyRole)
+			self.buttonBox.setStyleSheet("* { button-layout: 2}")
 
 		if self.shotName is not None and os.path.exists(imgPath):
 			pm = self.core.pb.getImgPMap(imgPath)
@@ -398,3 +390,6 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
 		self.l_shotPreview.setMinimumSize(pmap.width(), pmap.height())
 		self.l_shotPreview.setPixmap(pmap)
+
+		for i in self.core.prjManagers.values():
+			i.editShot_open(self, self.shotName)

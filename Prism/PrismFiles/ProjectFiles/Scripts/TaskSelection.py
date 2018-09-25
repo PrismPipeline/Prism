@@ -616,7 +616,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 					break
 
 			for k in versions:
-				nameData = k[0].split("_")
+				nameData = k[0].split(self.core.filenameSeperator)
 				
 				if not (len(nameData) == 3 and k[0][0] == "v" and len(nameData[0]) == 5):
 					continue
@@ -711,11 +711,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			self.tw_versions.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
 
 		self.tw_versions.resizeColumnsToContents()
-		self.tw_versions.setColumnWidth(0,90)
-		self.tw_versions.setColumnWidth(2,70)
-		self.tw_versions.setColumnWidth(3,50)
-		self.tw_versions.setColumnWidth(4,70)
-		self.tw_versions.setColumnWidth(5,150)
+		self.tw_versions.setColumnWidth(0,90*self.core.uiScaleFactor)
+		self.tw_versions.setColumnWidth(2,70*self.core.uiScaleFactor)
+		self.tw_versions.setColumnWidth(3,50*self.core.uiScaleFactor)
+		self.tw_versions.setColumnWidth(4,70*self.core.uiScaleFactor)
+		self.tw_versions.setColumnWidth(5,150*self.core.uiScaleFactor)
 		self.tw_versions.sortByColumn(twSorting[0], twSorting[1])
 
 		if self.tw_versions.model().rowCount() > 0:

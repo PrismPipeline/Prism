@@ -248,7 +248,7 @@ class ImportFileClass(object):
 
 				self.taskName = ""
 				sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-				if len(vName.split("_")) == 3 and (os.path.join(self.core.projectPath, sceneDir) in self.e_file.text() or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in self.e_file.text())):
+				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, sceneDir) in self.e_file.text() or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in self.e_file.text())):
 					self.taskName = os.path.basename(os.path.dirname(vPath))
 					if self.taskName == "_ShotCam":
 						self.taskName = "ShotCam"
@@ -269,6 +269,10 @@ class ImportFileClass(object):
 
 			self.core.plugin.sm_import_updateObjects(self)
 
+			fileName = self.core.getCurrentFileName()
+
+			self.core.callHook("PreImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
+
 			result, doImport = self.core.plugin.sm_import_importToApp(self, doImport=doImport, update=update, impFileName=impFileName)
 
 			if doImport:
@@ -279,6 +283,8 @@ class ImportFileClass(object):
 
 				if not result:
 					QMessageBox.warning(self.core.messageParent, "ImportFile", "Import failed.")
+
+			self.core.callHook("PostImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName, "importedObjects":self.nodeNames})
 
 		self.stateManager.saveImports()
 		self.updateUi()
@@ -322,11 +328,11 @@ class ImportFileClass(object):
 		if os.path.exists(self.e_file.text()):
 			parDir = os.path.dirname(self.e_file.text())
 			if os.path.basename(parDir) in ["centimeter", "meter"]:
-				versionData = os.path.basename(os.path.dirname(parDir)).split("_")
+				versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
 			else:
-				versionData = os.path.basename(parDir).split("_")
+				versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
 
-			fversionData = os.path.basename(self.e_file.text()).split("_")
+			fversionData = os.path.basename(self.e_file.text()).split(self.core.filenameSeperator)
 			fversion = None
 			for i in fversionData:
 				try:
@@ -342,7 +348,7 @@ class ImportFileClass(object):
 						pass
 						
 			if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
-				self.l_curVersion.setText(versionData[0] + "_" + versionData[1] + "_" + versionData[2])
+				self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
 				self.l_latestVersion.setText("-")
 				vPath = os.path.dirname(self.e_file.text())
 				if os.path.basename(vPath) in ["centimeter", "meter"]:
@@ -355,7 +361,7 @@ class ImportFileClass(object):
 					for k in reversed(folders):
 						meterDir = os.path.join(i[0], k, "meter")
 						cmeterDir = os.path.join(i[0], k, "centimeter")
-						if len(k.split("_")) == 3 and k[0] == "v" and len(k.split("_")[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+						if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
 							self.l_latestVersion.setText(k)
 							break
 					break
@@ -410,7 +416,7 @@ class ImportFileClass(object):
 		
 
 	@err_decorator
-	def preDelete(self, baseText="Do you also want to delete the connected objects?\n\n"):
+	def preDelete(self, item=None, baseText="Do you also want to delete the connected objects?\n\n"):
 		if len(self.nodes) > 0:
 			message = baseText
 			validNodes = [ x for x in self.nodes if self.core.plugin.isNodeValid(self, x)]

@@ -51,7 +51,7 @@ except:
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
+		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *

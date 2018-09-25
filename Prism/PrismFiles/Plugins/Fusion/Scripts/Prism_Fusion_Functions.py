@@ -801,7 +801,7 @@ class Prism_Fusion_Functions(object):
 			return ""
 
 		if useLastVersion:
-			msg = QMessageBox(QMessageBox.Warning, "Prism Warning", "\"Render as last version\" is enabled.\nThis may overwrite existing files.")
+			msg = QMessageBox(QMessageBox.Warning, "Prism Warning", "\"Render as previous version\" is enabled.\nThis may overwrite existing files.")
 			self.core.parentWindow(msg)
 			msg.exec_()
 

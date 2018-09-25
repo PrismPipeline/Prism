@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'EditShot.ui'
 #
-# Created: Tue Jun 26 21:03:08 2018
+# Created: Wed Sep 19 21:24:33 2018
 #      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -109,10 +109,6 @@ class Ui_dlg_EditShot(object):
         self.b_deleteShot.setFocusPolicy(QtCore.Qt.NoFocus)
         self.b_deleteShot.setObjectName("b_deleteShot")
         self.horizontalLayout_4.addWidget(self.b_deleteShot)
-        self.chb_createInShotgun = QtWidgets.QCheckBox(self.widget)
-        self.chb_createInShotgun.setChecked(True)
-        self.chb_createInShotgun.setObjectName("chb_createInShotgun")
-        self.horizontalLayout_4.addWidget(self.chb_createInShotgun)
         spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_4.addItem(spacerItem4)
         self.buttonBox = QtWidgets.QDialogButtonBox(self.widget)
@@ -145,5 +141,4 @@ class Ui_dlg_EditShot(object):
         self.b_changePreview.setText(QtWidgets.QApplication.translate("dlg_EditShot", "Change preview image", None, -1))
         self.l_shotPreview.setText(QtWidgets.QApplication.translate("dlg_EditShot", "Preview image", None, -1))
         self.b_deleteShot.setText(QtWidgets.QApplication.translate("dlg_EditShot", "Delete shot", None, -1))
-        self.chb_createInShotgun.setText(QtWidgets.QApplication.translate("dlg_EditShot", "Create shot in Shotgun", None, -1))
 

@@ -204,7 +204,7 @@ class PlayblastClass(object):
 		if taskname == "":
 			taskname = "None"
 
-		sText = text + " (%s)" % taskname
+		sText = text + " - %s" % taskname
 		if self.state.text(0).endswith(" - disabled"):
 			sText += " - disabled"
 			
@@ -310,6 +310,11 @@ class PlayblastClass(object):
 
 
 	@err_decorator
+	def preDelete(self, item, silent=False):
+		self.core.plugin.sm_preDelete(self, item, silent)
+
+
+	@err_decorator
 	def preExecuteState(self):
 		warnings = []
 
@@ -345,26 +350,26 @@ class PlayblastClass(object):
 
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split("_")[0]
-			pComment = useVersion.split("_")[1]
+			hVersion = useVersion.split(self.core.filenameSeperator)[0]
+			pComment = useVersion.split(self.core.filenameSeperator)[1]
 
-		fnameData = os.path.basename(fileName).split("_")
+		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 		if len(fnameData) == 8:
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData[5]
 
-			outputPath = os.path.join(outputPath, hVersion + "_" + pComment)
-			outputFile = os.path.join( fnameData[0] + "_" + fnameData[1] + "_" + self.l_taskName.text() + "_" + hVersion + ".$F4.jpg" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
+			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4.jpg" )
 		elif len(fnameData) == 6:
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData[3]
 
-			outputPath = os.path.join(outputPath, hVersion + "_" + pComment)
-			outputFile = os.path.join( fnameData[0]  + "_" + self.l_taskName.text() + "_" + hVersion + ".$F4.jpg" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
+			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4.jpg" )
 		else:
 			return
 
@@ -463,10 +468,14 @@ class PlayblastClass(object):
 
 		psettings.frameRange(jobFrames)
 
+		self.core.callHook("PrePlayblast", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
+
 		try:
 			sceneViewer.flipbook()
 			if "panel" in locals():
 				panel.close()
+
+			self.core.callHook("PostPlayblast", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 			if len(os.listdir(outputPath)) > 0:
 				return [self.state.text(0) + " - success"]

@@ -231,6 +231,8 @@ class ImageRenderClass(object):
 		if "stateenabled" in data:
 			self.state.setCheckState(0, eval(data["stateenabled"].replace("PySide.QtCore.", "").replace("PySide2.QtCore.", "")))
 
+		self.nameChanged(self.e_name.text())
+
 
 	@err_decorator
 	def findNode(self, path):
@@ -362,9 +364,9 @@ class ImageRenderClass(object):
 	@err_decorator
 	def nameChanged(self, text):
 		try:
-			sText = text + " (%s)" % self.node
+			sText = text + " - %s (%s)" % (self.l_taskName.text(), self.node)
 		except:
-			sText = text + " (None)"
+			sText = text + " - %s (None)" % self.l_taskName.text()
 
 		if self.state.text(0).endswith(" - disabled"):
 			sText += " - disabled"
@@ -384,6 +386,7 @@ class ImageRenderClass(object):
 		
 		if result == 1:
 			self.l_taskName.setText(self.nameWin.e_item.text())
+			self.nameChanged(self.e_name.text())
 
 			self.b_changeTask.setStyleSheet("")
 
@@ -781,6 +784,11 @@ class ImageRenderClass(object):
 
 
 	@err_decorator
+	def preDelete(self, item, silent=False):
+		self.core.plugin.sm_preDelete(self, item, silent)
+
+
+	@err_decorator
 	def preExecuteState(self):
 		self.updateCams()
 
@@ -822,18 +830,18 @@ class ImageRenderClass(object):
 
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split("_")[0]
-			pComment = useVersion.split("_")[1]
+			hVersion = useVersion.split(self.core.filenameSeperator)[0]
+			pComment = useVersion.split(self.core.filenameSeperator)[1]
 
-		fnameData = os.path.basename(fileName).split("_")
+		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 		if len(fnameData) == 8:
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData[5]
 
-			outputPath = os.path.join(outputPath, hVersion + "_" + pComment, "beauty")
-			outputFile = os.path.join( fnameData[0] + "_" + fnameData[1] + "_" + self.l_taskName.text() + "_" + hVersion + "_beauty.$F4.exr" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
+			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
 		elif len(fnameData) == 6:
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "3dRender", self.l_taskName.text())
@@ -843,8 +851,8 @@ class ImageRenderClass(object):
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData[3]
 
-			outputPath = os.path.join(outputPath, hVersion + "_" + pComment, "beauty")
-			outputFile = os.path.join( fnameData[0]  + "_" + self.l_taskName.text() + "_" + hVersion + "_beauty.$F4.exr" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
+			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
 		else:
 			return
 
@@ -895,13 +903,14 @@ class ImageRenderClass(object):
 		if self.node.type().name() == "ifd":
 			self.node.parm("vm_picture").set(outputName)
 			for i in range(self.node.parm("vm_numaux").eval()):
-				passName = self.node.parm("vm_variable_plane" + str(i+1)).eval()
-				passNames.append(passName)
+				passVar = self.node.parm("vm_variable_plane" + str(i+1)).eval()
+				passName = self.node.parm("vm_channel_plane" + str(i+1)).eval()
+				passNames.append([passName, passVar])
 				passOutputName = os.path.join(os.path.dirname(outputPath), passName, os.path.basename(outputName).replace("beauty", passName))
 				os.makedirs(os.path.split(passOutputName)[0])
 				self.node.parm("vm_usefile_plane" + str(i+1)).set(True)
 				self.node.parm("vm_filename_plane" + str(i+1)).set(passOutputName)
-				if passName != "all":
+				if passVar != "all":
 					self.node.parm("vm_channel_plane" + str(i+1)).set("rgb")
 				else:
 					self.node.parm("vm_channel_plane" + str(i+1)).set("")
@@ -936,6 +945,13 @@ return outPut"""
 
 		hou.hipFile.save()
 
+		if self.chb_globalRange.isChecked():
+			jobFrames = [self.stateManager.sp_rangeStart.value(), self.stateManager.sp_rangeEnd.value()]
+		else:
+			jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
+
+		self.core.callHook("PreRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
+
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
 			result = self.core.rfManagers[self.cb_manager.currentText()].sm_houRender_submitJob(self, outputName, parent)
 		else:
@@ -945,13 +961,7 @@ return outPut"""
 				self.node.parm("res_overridex").set(self.sp_resWidth.value())
 				self.node.parm("res_overridey").set(self.sp_resHeight.value())
 
-
 			self.node.parm("trange").set(1)
-
-			if self.chb_globalRange.isChecked():
-				jobFrames = [self.stateManager.sp_rangeStart.value(), self.stateManager.sp_rangeEnd.value()]
-			else:
-				jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
 
 			self.node.parm("f1").deleteAllKeyframes()
 			self.node.parm("f1").set(jobFrames[0])
@@ -984,6 +994,12 @@ return outPut"""
 				elif action != 0:
 					return "Rendering cancled."
 
+				if self.node.type().name() == "ifd":
+					for i in range(self.node.parm("vm_numaux").eval()):
+						self.node.parm("vm_channel_plane" + str(i+1)).set(passNames[i][0])
+
+				self.core.callHook("PostRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
+
 				if len(os.listdir(outputPath)) > 0:
 					return [self.state.text(0) + " - success"]
 				else:
@@ -994,8 +1010,11 @@ return outPut"""
 				self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - unknown error (view console for more information)"]
 
-		#for i in range(self.node.parm("vm_numaux").eval()):
-		#	self.node.parm("vm_channel_plane" + str(i+1)).set(passNames[i])
+		if self.node.type().name() == "ifd":
+			for i in range(self.node.parm("vm_numaux").eval()):
+				self.node.parm("vm_channel_plane" + str(i+1)).set(passNames[i][0])
+
+		self.core.callHook("PostRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 		if "Result=Success" in result:
 			return [self.state.text(0) + " - success"]

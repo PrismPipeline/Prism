@@ -19,7 +19,7 @@ Gizmo {
  addUserKnob {22 openDir l "Open in explorer" -STARTLINE T "import os\npcore.openFolder(os.path.dirname(nuke.thisNode().knob(\"fileName\").value()))"}
  addUserKnob {26 ""}
  addUserKnob {22 b_startRender l Render T "pcore.plugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
- addUserKnob {22 b_startRenderLastVersion l "Render as last version" -STARTLINE T "pcore.plugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode(), useLastVersion=True)"}
+ addUserKnob {22 b_startRenderLastVersion l "Render as previous version" -STARTLINE T "pcore.plugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode(), useLastVersion=True)"}
 }
  Input {
   inputs 0

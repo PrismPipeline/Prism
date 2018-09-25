@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'TaskSelection.ui'
 #
-# Created: Wed Jun 20 00:49:54 2018
+# Created: Mon Sep 24 22:19:34 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,6 @@ from PySide import QtCore, QtGui
 class Ui_dlg_TaskSelection(object):
     def setupUi(self, dlg_TaskSelection):
         dlg_TaskSelection.setObjectName("dlg_TaskSelection")
-        dlg_TaskSelection.setWindowModality(QtCore.Qt.WindowModal)
         dlg_TaskSelection.resize(1294, 696)
         self.verticalLayout_4 = QtGui.QVBoxLayout(dlg_TaskSelection)
         self.verticalLayout_4.setSpacing(6)

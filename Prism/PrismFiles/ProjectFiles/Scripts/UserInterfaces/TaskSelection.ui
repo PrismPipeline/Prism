@@ -2,9 +2,6 @@
 <ui version="4.0">
  <class>dlg_TaskSelection</class>
  <widget class="QDialog" name="dlg_TaskSelection">
-  <property name="windowModality">
-   <enum>Qt::WindowModal</enum>
-  </property>
   <property name="geometry">
    <rect>
     <x>0</x>

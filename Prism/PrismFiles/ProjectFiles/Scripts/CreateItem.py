@@ -91,18 +91,15 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 			self.w_item.layout().addWidget(self.l_stepName)
 			self.w_item.layout().addWidget(self.e_stepName)
 			self.e_item.setMaximumWidth(100)
-			self.resize(500, self.height())
+			self.resize(500*self.core.uiScaleFactor, self.height())
 			self.setTabOrder(self.e_item, self.e_stepName)
 
 		if showType:
-			sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-			if sg is None or not eval(sg) or pVersion != 2:
-				self.chb_createInShotgun.setChecked(False)
-				self.w_shotgun.setVisible(False)
+			for i in self.core.prjManagers.values():
+				i.createAsset_open(self)
 		else:
 			self.w_type.setVisible(False)
-			self.chb_createInShotgun.setChecked(False)
-			self.w_shotgun.setVisible(False)
+			self.w_prjManager.setVisible(False)
 	
 		self.resize(self.width(), 10)
 
@@ -167,7 +164,8 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
 	@err_decorator
 	def typeChanged(self, state):
-		self.chb_createInShotgun.setEnabled(state)
+		for i in self.core.prjManagers.values():
+			i.createAsset_typeChanged(self, state)
 
 
 	@err_decorator

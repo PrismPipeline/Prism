@@ -2,14 +2,14 @@ import sys, pprint
 
 
 fname = "ProjectBrowser"
-#fname = "EditShot"
-#fname = "CreateItem"
-#fname = "StateManager"
-#fname = "TaskSelection"
+#fname = "CombineMedia"
+fname = "EditShot"
+fname = "CreateItem"
+fname = "StateManager"
+fname = "TaskSelection"
 #fname = "EnterText"
 #fname = "ItemList"
 #fname = "SlaveAssignment"
-#fname = "ShotgunPublish"
 #fname = "ExternalTask"
 
 

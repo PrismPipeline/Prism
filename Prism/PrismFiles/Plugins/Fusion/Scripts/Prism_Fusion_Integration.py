@@ -80,6 +80,15 @@ class Prism_Fusion_Integration(object):
 
 
 	@err_decorator
+	def getExecutable(self):
+		execPath = ""
+		if platform.system() == "Windows":
+			execPath = "C:\\Program Files\\Blackmagic Design\\Fusion 9\\Fusion.exe"
+
+		return execPath
+
+
+	@err_decorator
 	def integrationAdd(self, origin):
 		path = QFileDialog.getExistingDirectory(self.core.messageParent, "Select Fusion folder", self.examplePath)
 

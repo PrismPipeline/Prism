@@ -536,11 +536,11 @@ class Prism_Blender_Functions(object):
 		origin.sp_rangeStart.setValue(bpy.context.scene.frame_start)
 		origin.sp_rangeEnd.setValue(bpy.context.scene.frame_end)
 
-		origin.b_resPresets.setMinimumWidth(30)
+		origin.b_resPresets.setMinimumWidth(30*self.core.uiScaleFactor)
 		origin.b_resPresets.setMinimumHeight(0)
-		origin.b_resPresets.setMaximumHeight(500)
+		origin.b_resPresets.setMaximumHeight(500*self.core.uiScaleFactor)
 
-		origin.b_osSlaves.setMinimumWidth(50)
+		origin.b_osSlaves.setMinimumWidth(50*self.core.uiScaleFactor)
 
 
 	@err_decorator
@@ -889,8 +889,8 @@ class Prism_Blender_Functions(object):
 
 	@err_decorator
 	def sm_import_startup(self, origin):
-		origin.b_browse.setMinimumWidth(50)
-		origin.b_browse.setMaximumWidth(50)
+		origin.b_browse.setMinimumWidth(50*self.core.uiScaleFactor)
+		origin.b_browse.setMaximumWidth(50*self.core.uiScaleFactor)
 		origin.f_abcPath.setVisible(True)
 		origin.f_unitConversion.setVisible(False)
 		origin.l_preferUnit.setText("Prefer versions in cm:")
@@ -1059,9 +1059,9 @@ class Prism_Blender_Functions(object):
 		frange = self.getFrameRange(origin)
 		origin.sp_rangeStart.setValue(frange[0])
 		origin.sp_rangeEnd.setValue(frange[1])
-		origin.b_resPresets.setMinimumWidth(30)
+		origin.b_resPresets.setMinimumWidth(30*self.core.uiScaleFactor)
 		origin.b_resPresets.setMinimumHeight(0)
-		origin.b_resPresets.setMaximumHeight(500)
+		origin.b_resPresets.setMaximumHeight(500*self.core.uiScaleFactor)
 
 
 	@err_decorator
@@ -1129,22 +1129,22 @@ class Prism_Blender_Functions(object):
 		origin.sp_rangeStart.setValue(startframe)
 		origin.sp_rangeEnd.setValue(endframe)
 
-		origin.b_createImport.setMinimumWidth(60)
-		origin.b_createImport.setMaximumWidth(60)
+		origin.b_createImport.setMinimumWidth(60*self.core.uiScaleFactor)
+		origin.b_createImport.setMaximumWidth(60*self.core.uiScaleFactor)
 		origin.b_createImport.setMinimumHeight(0)
-		origin.b_createImport.setMaximumHeight(500)
+		origin.b_createImport.setMaximumHeight(500*self.core.uiScaleFactor)
 		origin.b_shotCam.setMinimumHeight(0)
-		origin.b_shotCam.setMaximumHeight(50)
-		origin.b_createExport.setMinimumWidth(60)
-		origin.b_createExport.setMaximumWidth(60)
-		origin.b_createRender.setMinimumWidth(60)
-		origin.b_createRender.setMaximumWidth(60)
-		origin.b_createPlayblast.setMinimumWidth(70)
-		origin.b_createPlayblast.setMaximumWidth(70)
-		origin.b_getRange.setMaximumWidth(200)
-		origin.b_setRange.setMaximumWidth(200)
-		origin.b_description.setMinimumWidth(35)
-		origin.b_description.setMaximumWidth(35)
+		origin.b_shotCam.setMaximumHeight(50*self.core.uiScaleFactor)
+		origin.b_createExport.setMinimumWidth(60*self.core.uiScaleFactor)
+		origin.b_createExport.setMaximumWidth(60*self.core.uiScaleFactor)
+		origin.b_createRender.setMinimumWidth(60*self.core.uiScaleFactor)
+		origin.b_createRender.setMaximumWidth(60*self.core.uiScaleFactor)
+		origin.b_createPlayblast.setMinimumWidth(70*self.core.uiScaleFactor)
+		origin.b_createPlayblast.setMaximumWidth(70*self.core.uiScaleFactor)
+		origin.b_getRange.setMaximumWidth(200*self.core.uiScaleFactor)
+		origin.b_setRange.setMaximumWidth(200*self.core.uiScaleFactor)
+		origin.b_description.setMinimumWidth(35*self.core.uiScaleFactor)
+		origin.b_description.setMaximumWidth(35*self.core.uiScaleFactor)
 
 
 	@err_decorator

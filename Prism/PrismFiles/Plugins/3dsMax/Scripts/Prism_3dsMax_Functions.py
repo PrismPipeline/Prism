@@ -260,7 +260,7 @@ class Prism_3dsMax_Functions(object):
 			nodes = MaxPlus.INodeTab()
 			for i in origin.lw_objects.selectedItems():
 				node = origin.nodes[origin.lw_objects.row(i)]
-				if self.isNodeValid(node):
+				if self.isNodeValid(origin, node):
 					nodes.Append(MaxPlus.INode.GetINodeByHandle(node))
 			MaxPlus.SelectionManager_SelectNodes(nodes)
 
@@ -746,7 +746,7 @@ for mapfile in mapfiles collect mapfile")
 
 
 	@err_decorator
-	def sm_render_addRenderPass(self, origin, passName):
+	def sm_render_addRenderPass(self, origin, passName, steps):
 		if self.executeScript(origin, passName) is not None:
 			self.executeScript(origin, "(MaxOps.GetCurRenderElementMgr()).AddRenderElement(%s())" % passName)
 

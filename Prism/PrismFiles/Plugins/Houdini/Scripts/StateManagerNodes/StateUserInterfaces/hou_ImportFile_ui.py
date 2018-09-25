@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'hou_ImportFile.ui'
 #
-# Created: Mon May 07 02:55:46 2018
+# Created: Mon Sep 24 18:31:00 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -153,7 +153,7 @@ class Ui_wg_ImportFile(object):
         self.f_updateOnly = QtGui.QWidget(self.gb_options)
         self.f_updateOnly.setObjectName("f_updateOnly")
         self.horizontalLayout_16 = QtGui.QHBoxLayout(self.f_updateOnly)
-        self.horizontalLayout_16.setContentsMargins(-1, 0, -1, 0)
+        self.horizontalLayout_16.setContentsMargins(9, 0, 9, 0)
         self.horizontalLayout_16.setObjectName("horizontalLayout_16")
         self.l_updateOnly = QtGui.QLabel(self.f_updateOnly)
         self.l_updateOnly.setObjectName("l_updateOnly")

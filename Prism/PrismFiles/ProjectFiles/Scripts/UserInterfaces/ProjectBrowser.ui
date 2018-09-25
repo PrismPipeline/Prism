@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1201</width>
+    <width>1311</width>
     <height>870</height>
    </rect>
   </property>
@@ -34,7 +34,7 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>1199</width>
+         <width>1309</width>
          <height>847</height>
         </rect>
        </property>
@@ -1273,7 +1273,7 @@
                  </size>
                 </property>
                 <property name="text">
-                 <string>RV Compare:</string>
+                 <string>Collected Versions:</string>
                 </property>
                </widget>
               </item>
@@ -1365,6 +1365,25 @@
                    </property>
                    <property name="checkable">
                     <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="b_combineVersions">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="focusPolicy">
+                    <enum>Qt::NoFocus</enum>
+                   </property>
+                   <property name="contextMenuPolicy">
+                    <enum>Qt::CustomContextMenu</enum>
+                   </property>
+                   <property name="text">
+                    <string>Combine</string>
                    </property>
                   </widget>
                  </item>
@@ -1660,7 +1679,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1201</width>
+     <width>1311</width>
      <height>21</height>
     </rect>
    </property>

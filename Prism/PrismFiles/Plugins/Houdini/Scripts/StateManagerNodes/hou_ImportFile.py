@@ -90,12 +90,13 @@ class ImportFileClass(object):
 		self.importPath = importPath
 		self.updatePrefUnits()
 
-
 		if importPath is None and stateData is None:
 			import TaskSelection
 			ts = TaskSelection.TaskSelection(core = core, importState = self)
 
 			core.parentWindow(ts)
+			if self.core.uiScaleFactor != 1:
+				self.core.scaleUI(self.state, sFactor=0.5)
 			ts.exec_()
 		
 		if self.importPath is not None:
@@ -195,6 +196,8 @@ class ImportFileClass(object):
 		ts = TaskSelection.TaskSelection(core = self.core, importState = self)
 
 		self.core.parentWindow(ts)
+		if self.core.uiScaleFactor != 1:
+			self.core.scaleUI(self.state, sFactor=0.5)
 		ts.exec_()
 
 		if self.importPath is not None:
@@ -267,7 +270,7 @@ class ImportFileClass(object):
 				else:
 					vName = os.path.basename(vPath)
 
-				if len(vName.split("_")) == 3 and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text() or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text())):
+				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text() or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text())):
 					taskName = os.path.basename(os.path.dirname(vPath))
 					if taskName == "_ShotCam":
 						taskName = "ShotCam"
@@ -290,6 +293,10 @@ class ImportFileClass(object):
 				os.path.splitext(impFileName)[1] != ".abc"
 			except:
 				pass
+
+			fileName = self.core.getCurrentFileName()
+
+			self.core.callHook("PreImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
 
 			if os.path.splitext(impFileName)[1] == ".hda":
 				try:
@@ -402,6 +409,21 @@ class ImportFileClass(object):
 						self.fileNode.parm("fileName").set(impFileName)
 					else:
 						self.fileNode.parm("file").set(impFileName)
+
+		impNodes = []
+		try:
+			curNode = self.node.path()
+			impNodes.append(curNode)
+		except:
+			pass
+
+		try:
+			fNode = self.fileNode.path()
+			impNodes.append(fNode)
+		except:
+			pass
+
+		self.core.callHook("PostImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName, "importedObjects":impNodes})
 
 		self.stateManager.saveImports()
 		self.updateUi()
@@ -530,14 +552,14 @@ class ImportFileClass(object):
 
 		parDir = os.path.dirname(self.e_file.text())
 		if os.path.basename(parDir) in ["centimeter", "meter"]:
-			versionData = os.path.basename(os.path.dirname(parDir)).split("_")
+			versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
 			taskPath = os.path.dirname(os.path.dirname(parDir))
 		else:
-			versionData = os.path.basename(parDir).split("_")
+			versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
 			taskPath = os.path.dirname(parDir)
 
 		if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
-			self.l_curVersion.setText(versionData[0] + "_" + versionData[1] + "_" + versionData[2])
+			self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
 			self.l_latestVersion.setText("-")
 			for i in os.walk(taskPath):
 				folders = i[1]
@@ -545,7 +567,7 @@ class ImportFileClass(object):
 				for k in reversed(folders):
 					meterDir = os.path.join(i[0], k, "meter")
 					cmeterDir = os.path.join(i[0], k, "centimeter")
-					if len(k.split("_")) == 3 and k[0] == "v" and len(k.split("_")[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+					if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
 						self.l_latestVersion.setText(k)
 						break
 				break
@@ -647,6 +669,11 @@ class ImportFileClass(object):
 		else:
 			self.preferredUnit = "meter"
 			self.unpreferredUnit = "centimeter"
+
+
+	@err_decorator
+	def preDelete(self, item, silent=False):
+		self.core.plugin.sm_preDelete(self, item, silent)
 
 
 	@err_decorator

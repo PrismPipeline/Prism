@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>317</width>
-    <height>176</height>
+    <height>182</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -90,19 +90,8 @@
     </widget>
    </item>
    <item>
-    <widget class="QWidget" name="w_shotgun" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
-      <item>
-       <widget class="QCheckBox" name="chb_createInShotgun">
-        <property name="text">
-         <string>Create asset in Shotgun</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
+    <widget class="QWidget" name="w_prjManager" native="true">
+     <layout class="QHBoxLayout" name="horizontalLayout_3"/>
     </widget>
    </item>
    <item>

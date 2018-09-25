@@ -42,13 +42,14 @@ except:
 	from PySide.QtGui import *
 	psVersion = 1
 
+import os, sys, traceback, subprocess, time, datetime, platform
+from functools import wraps
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfaces"))
 if psVersion == 1:
 	import ShotgunPublish_ui
 else:
 	import ShotgunPublish_ui_ps2 as ShotgunPublish_ui
-
-import os, sys, traceback, subprocess, time, datetime, platform
-from functools import wraps
 
 if sys.version[0] == "3":
 	from configparser import ConfigParser
@@ -69,7 +70,7 @@ except:
 
 
 class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
-	def __init__(self, core, ptype, shotName, task, version, sources, startFrame):
+	def __init__(self, core, origin, ptype, shotName, task, version, sources, startFrame):
 		QDialog.__init__(self)
 		self.setupUi(self)
 
@@ -82,7 +83,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 		self.startFrame = startFrame
 		self.shotList = {}
 
-		sgData = self.core.connectToShotgun()
+		sgData = origin.connectToShotgun()
 
 		if sgData[0] is None or sgData[1] is None:
 			return

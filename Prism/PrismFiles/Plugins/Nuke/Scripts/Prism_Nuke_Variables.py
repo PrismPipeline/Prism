@@ -34,7 +34,7 @@
 
 class Prism_Nuke_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.0.10.0"
+		self.version = "v1.0.11.0"
 		self.appName = "Nuke"
 		self.appShortName = "Nuke"
 		self.appType = "2d"

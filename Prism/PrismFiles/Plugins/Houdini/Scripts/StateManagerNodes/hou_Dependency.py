@@ -151,7 +151,12 @@ class DependencyClass(object):
 		else:
 			numDeps = 0
 
-		self.state.setText(0, text + " (" + str(numDeps) + ")")
+		sText = text + " (" + str(numDeps) + ")"
+
+		if self.state.text(0).endswith(" - disabled"):
+			sText += " - disabled"
+
+		self.state.setText(0, sText)
 
 
 	@err_decorator
@@ -180,6 +185,11 @@ class DependencyClass(object):
 			self.gb_dlDependency.setVisible(False)
 			
 		self.nameChanged(self.e_name.text())
+
+
+	@err_decorator
+	def preDelete(self, item, silent=False):
+		self.core.plugin.sm_preDelete(self, item, silent)
 
 
 	@err_decorator

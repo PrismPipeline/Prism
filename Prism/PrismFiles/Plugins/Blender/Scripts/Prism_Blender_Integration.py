@@ -84,6 +84,14 @@ class Prism_Blender_Integration(object):
 
 
 	@err_decorator
+	def getExecutable(self):
+		execPath = ""
+		if platform.system() == "Windows":
+			execPath = os.path.join(os.path.dirname(self.examplePath), "blender.exe")
+
+		return execPath
+
+	@err_decorator
 	def integrationAdd(self, origin):
 		path = QFileDialog.getExistingDirectory(self.core.messageParent, "Select Blender folder", self.examplePath)
 
@@ -125,10 +133,10 @@ class Prism_Blender_Integration(object):
 			if os.path.exists(vpath):
 				return vpath
 			else:
-				return None
+				return ""
 
 		except:
-			return None
+			return ""
 
 
 	def writeBlenderFiles(self, blenderPath):

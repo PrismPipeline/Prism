@@ -34,7 +34,7 @@
 
 class Prism_Pandora_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.0.10.0"
+		self.version = "v1.0.11.0"
 		self.appName = "Pandora"
 		self.appShortName = "Pnd"
 		self.appType = "RenderfarmManager"

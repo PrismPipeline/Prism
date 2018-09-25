@@ -630,13 +630,13 @@
                      <widget class="QPushButton" name="b_description">
                       <property name="minimumSize">
                        <size>
-                        <width>25</width>
+                        <width>20</width>
                         <height>25</height>
                        </size>
                       </property>
                       <property name="maximumSize">
                        <size>
-                        <width>25</width>
+                        <width>20</width>
                         <height>25</height>
                        </size>
                       </property>

@@ -80,6 +80,15 @@ class Prism_Natron_Integration(object):
 
 
 	@err_decorator
+	def getExecutable(self):
+		execPath = ""
+		if platform.system() == "Windows":
+			execPath = "C:\\Program Files\\INRIA\\Natron-2.3.14\\bin\\Natron.exe"
+
+		return execPath
+
+
+	@err_decorator
 	def integrationAdd(self, origin):
 		path = QFileDialog.getExistingDirectory(self.core.messageParent, "Select Natron folder", self.examplePath)
 

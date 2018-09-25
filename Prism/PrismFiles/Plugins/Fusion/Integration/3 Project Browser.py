@@ -42,7 +42,7 @@ elif platform.system() == "Darwin":
 	prismRoot = "/Applications/Prism/Prism"
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 
 try:
 	from PySide2.QtCore import *

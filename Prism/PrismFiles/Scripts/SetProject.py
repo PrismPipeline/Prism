@@ -160,7 +160,7 @@ class SetProjectClass(object):
 			l_recentName.setMaximumWidth(100)
 			l_recentPath = QLabel(prjPath)
 			b_setActive = QPushButton("Set active")
-			b_setActive.setMaximumWidth(80)
+			b_setActive.setMaximumWidth(100)
 			b_setActive.setContextMenuPolicy(Qt.CustomContextMenu)
 			wLayout.addWidget(l_recentName)
 			wLayout.addWidget(l_recentPath)

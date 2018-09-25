@@ -299,7 +299,7 @@ def createInstance(app,group):
     lastNode.b_startRender = param
     del param
 
-    param = lastNode.createButtonParam("b_startRenderLastVersion", "Render as last version")
+    param = lastNode.createButtonParam("b_startRenderLastVersion", "Render as previous version")
 
     # Add the param to the page
     lastNode.prismPage.addParam(param)

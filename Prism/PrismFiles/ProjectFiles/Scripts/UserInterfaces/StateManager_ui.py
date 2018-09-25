@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'StateManager.ui'
 #
-# Created: Mon Jul 09 23:18:49 2018
+# Created: Mon Sep 24 18:28:48 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -222,8 +222,8 @@ class Ui_mw_StateManager(object):
         self.e_comment.setObjectName("e_comment")
         self.horizontalLayout_5.addWidget(self.e_comment)
         self.b_description = QtGui.QPushButton(self.widget_2)
-        self.b_description.setMinimumSize(QtCore.QSize(25, 25))
-        self.b_description.setMaximumSize(QtCore.QSize(25, 25))
+        self.b_description.setMinimumSize(QtCore.QSize(20, 25))
+        self.b_description.setMaximumSize(QtCore.QSize(20, 25))
         self.b_description.setFocusPolicy(QtCore.Qt.NoFocus)
         self.b_description.setObjectName("b_description")
         self.horizontalLayout_5.addWidget(self.b_description)

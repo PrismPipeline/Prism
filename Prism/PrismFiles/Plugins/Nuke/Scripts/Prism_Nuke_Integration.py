@@ -83,6 +83,15 @@ class Prism_Nuke_Integration(object):
 
 
 	@err_decorator
+	def getExecutable(self):
+		execPath = ""
+		if platform.system() == "Windows":
+			execPath = "C:\\Program Files\\Nuke11.2v2\\Nuke11.2.exe"
+
+		return execPath
+
+
+	@err_decorator
 	def integrationAdd(self, origin):
 		path = QFileDialog.getExistingDirectory(self.core.messageParent, "Select Nuke folder", self.examplePath)
 

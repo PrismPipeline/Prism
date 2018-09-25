@@ -118,7 +118,8 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def projectChanged(self, origin):
-		pass
+		job = self.core.projectPath.replace("\\", "/")
+		cmds.workspace(job, openWorkspace=True) 
 
 
 	@err_decorator
@@ -361,6 +362,50 @@ class Prism_Maya_Functions(object):
 			origin.l_taskName2.setText(cmds.sets(name="Export1"))
 			origin.b_changeTask.setPalette(origin.oldPalette)
 
+		origin.w_importReferences = QWidget()
+		origin.lo_importReferences = QHBoxLayout()
+		origin.lo_importReferences.setContentsMargins(9,0,9,0)
+		origin.w_importReferences.setLayout(origin.lo_importReferences)
+		origin.l_importReferences = QLabel("Import references:")
+		spacer = QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Expanding)
+		origin.chb_importReferences = QCheckBox()
+		origin.chb_importReferences.setChecked(True)
+		origin.lo_importReferences.addWidget(origin.l_importReferences)
+		origin.lo_importReferences.addSpacerItem(spacer)
+		origin.lo_importReferences.addWidget(origin.chb_importReferences)
+
+		origin.w_deleteUnknownNodes = QWidget()
+		origin.lo_deleteUnknownNodes = QHBoxLayout()
+		origin.lo_deleteUnknownNodes.setContentsMargins(9,0,9,0)
+		origin.w_deleteUnknownNodes.setLayout(origin.lo_deleteUnknownNodes)
+		origin.l_deleteUnknownNodes = QLabel("Delete unknown nodes:")
+		spacer = QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Expanding)
+		origin.chb_deleteUnknownNodes = QCheckBox()
+		origin.chb_deleteUnknownNodes.setChecked(True)
+		origin.lo_deleteUnknownNodes.addWidget(origin.l_deleteUnknownNodes)
+		origin.lo_deleteUnknownNodes.addSpacerItem(spacer)
+		origin.lo_deleteUnknownNodes.addWidget(origin.chb_deleteUnknownNodes)
+
+		origin.w_deleteDisplayLayers = QWidget()
+		origin.lo_deleteDisplayLayers = QHBoxLayout()
+		origin.lo_deleteDisplayLayers.setContentsMargins(9,0,9,0)
+		origin.w_deleteDisplayLayers.setLayout(origin.lo_deleteDisplayLayers)
+		origin.l_deleteDisplayLayers = QLabel("Delete display layers:")
+		spacer = QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Expanding)
+		origin.chb_deleteDisplayLayers = QCheckBox()
+		origin.chb_deleteDisplayLayers.setChecked(True)
+		origin.lo_deleteDisplayLayers.addWidget(origin.l_deleteDisplayLayers)
+		origin.lo_deleteDisplayLayers.addSpacerItem(spacer)
+		origin.lo_deleteDisplayLayers.addWidget(origin.chb_deleteDisplayLayers)
+
+		origin.gb_export.layout().insertWidget(10, origin.w_importReferences)
+		origin.gb_export.layout().insertWidget(11, origin.w_deleteUnknownNodes)
+		origin.gb_export.layout().insertWidget(12, origin.w_deleteDisplayLayers)
+
+		origin.chb_importReferences.stateChanged.connect(origin.stateManager.saveStatesToScene)
+		origin.chb_deleteUnknownNodes.stateChanged.connect(origin.stateManager.saveStatesToScene)
+		origin.chb_deleteDisplayLayers.stateChanged.connect(origin.stateManager.saveStatesToScene)
+
 
 	@err_decorator
 	def sm_export_setTaskText(self, origin, prevTaskName):
@@ -463,12 +508,57 @@ class Prism_Maya_Functions(object):
 					QMessageBox.warning(self.core.messageParent, "executeState", str(e))
 					return False
 
-		elif expType == ".ma":
-			if origin.chb_wholeScene.isChecked():
-				curFileName = self.core.getCurrentFileName()
+		elif expType in [".ma", ".mb"]:
+			if origin.chb_importReferences.isChecked():
+				refFiles = cmds.file(query=True, reference=True)
+				prevSel = cmds.ls(selection=True, long=True)
+
+				for i in refFiles:
+					if cmds.file(i, query=True, deferReference=True):
+						msgStr = "Referenced file \"%s\" is currently unloaded and cannot be imported.\nWould you like keep or remove this reference in the exported file (it will remain in the working scenefile file) ?" % i
+						msg = QMessageBox(QMessageBox.Question, "Import Reference", msgStr, QMessageBox.NoButton)
+						msg.addButton("Keep", QMessageBox.YesRole)
+						msg.addButton("Remove", QMessageBox.YesRole)
+						self.core.parentWindow(msg)
+						result = msg.exec_()
+
+						if result == 1:
+							cmds.file(i, removeReference=True)
+							origin.stateManager.reloadScenefile = True
+					else:
+						cmds.file(i, importReference=True)
+						origin.stateManager.reloadScenefile = True
+
+				cmds.select(prevSel)
+
+			if origin.chb_deleteUnknownNodes.isChecked():
+				unknownDagNodes = cmds.ls(type = "unknownDag")
+				unknownNodes = cmds.ls(type = "unknown")
+				for item in unknownNodes:
+					if cmds.objExists(item):
+						cmds.delete(item)
+						origin.stateManager.reloadScenefile = True
+				for item in unknownDagNodes:
+					if cmds.objExists(item):
+						cmds.delete(item)
+						origin.stateManager.reloadScenefile = True
+
+			if origin.chb_deleteDisplayLayers.isChecked():
+				layers = cmds.ls(type = "displayLayer")
+				for i in layers:
+					if i != "defaultLayer":
+						cmds.delete(i)
+						origin.stateManager.reloadScenefile = True
+
+			curFileName = self.core.getCurrentFileName()
+			if origin.chb_wholeScene.isChecked() and os.path.splitext(curFileName)[1] == expType:
 				self.core.copySceneFile(curFileName, outputName)
 			else:
-				cmds.file(outputName, force=True, exportSelected=True, pr=True, type="mayaAscii")
+				if expType == ".ma":
+					typeStr = "mayaAscii"
+				elif expType == ".mb":
+					typeStr = "mayaBinary"
+				cmds.file(outputName, force=True, exportSelected=True, pr=True, type=typeStr)
 				for i in expNodes:
 					if cmds.nodeType(i) == "xgmPalette" and cmds.attributeQuery("xgFileName", node=i, exists=True):
 						xgenName = cmds.getAttr(i + ".xgFileName")
@@ -562,6 +652,14 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
+	def sm_export_typeChanged(self, origin, idx):
+		exportScene = idx in [".ma", ".mb"]
+		origin.w_importReferences.setVisible(exportScene)
+		origin.w_deleteUnknownNodes.setVisible(exportScene)
+		origin.w_deleteDisplayLayers.setVisible(exportScene)
+
+
+	@err_decorator
 	def sm_export_preExecute(self, origin, startFrame, endFrame):
 		warnings = []
 
@@ -569,7 +667,33 @@ class Prism_Maya_Functions(object):
 			if origin.cb_outType.currentText() == ".obj" and origin.chb_convertExport.isChecked():
 				warnings.append(["Unit conversion is enabled.", "Creating an additional export in meters is not supported for OBJ exports in Maya. Only the centimeter export will be created.", 2])
 
+		if not origin.w_importReferences.isHidden() and origin.chb_importReferences.isChecked():
+			warnings.append(["References will be imported.", "This will affect all states that will be executed after this export state. The current scenefile will be reloaded after the publish to restore the original references.", 2])
+
+		if not origin.w_deleteUnknownNodes.isHidden() and origin.chb_deleteUnknownNodes.isChecked():
+			warnings.append(["Unknown nodes will be deleted.", "This will affect all states that will be executed after this export state. The current scenefile will be reloaded after the publish to restore all original nodes.", 2])
+
+		if not origin.w_deleteDisplayLayers.isHidden() and origin.chb_deleteDisplayLayers.isChecked():
+			warnings.append(["Display layers will be deleted.", "This will affect all states that will be executed after this export state. The current scenefile will be reloaded after the publish to restore the original display layers.", 2])
+
+
 		return warnings
+
+
+	@err_decorator
+	def sm_export_loadData(self, origin, data):
+		if "importreferences" in data:
+			origin.chb_importReferences.setChecked(eval(data["importreferences"]))
+		if "deleteunknownnodes" in data:
+			origin.chb_deleteUnknownNodes.setChecked(eval(data["deleteunknownnodes"]))
+		if "deletedisplaylayers" in data:
+			origin.chb_deleteDisplayLayers.setChecked(eval(data["deletedisplaylayers"]))
+
+	@err_decorator
+	def sm_export_getStateProps(self, origin):
+		stateProps = {"importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked())}
+
+		return stateProps
 
 
 	@err_decorator
@@ -687,7 +811,10 @@ class Prism_Maya_Functions(object):
 		itemName = item.text()
 		curRender = cmds.getAttr( 'defaultRenderGlobals.currentRenderer' )
 		if curRender == 'arnold':
-			maovs.AOVInterface().removeAOV(itemName)
+			try:
+				maovs.AOVInterface().removeAOV(itemName)
+			except:
+				pass
 		elif curRender == "vray":
 			try:
 				mel.eval('vrayRemoveRenderElement "%s"' % itemName)
@@ -861,7 +988,6 @@ class Prism_Maya_Functions(object):
 		mel.eval ('RenderViewWindow;')
 		mel.eval ('showWindow renderViewWindow;')
 		mel.eval ('tearOffPanel "Render View" "renderWindowPanel" true;')
-		mel.eval ('renderWindowMenuCommand keepImageInRenderView renderView;')
 
 		if origin.curCam == "Current View":
 			view = OpenMayaUI.M3dView.active3dView()
@@ -1003,7 +1129,7 @@ class Prism_Maya_Functions(object):
 		rlayers = cmds.ls(type="renderLayer")
 		if len(rlayers) > 1:
 			prefixBase = os.path.splitext(os.path.basename(dlParams["outputfile"]))[0]
-			passName = prefixBase.split("_")[-1]
+			passName = prefixBase.split(self.core.filenameSeperator)[-1]
 			dlParams["filePrefix"] = os.path.join("..", "..", passName, prefixBase)
 
 
@@ -1033,7 +1159,7 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def sm_render_addRenderPass(self, origin, passName):
+	def sm_render_addRenderPass(self, origin, passName, steps):
 		curRender = self.getCurrentRenderer(origin)
 		if curRender == "vray":
 			mel.eval("vrayAddRenderElement %s;" % steps[passName])
@@ -1243,7 +1369,11 @@ class Prism_Maya_Functions(object):
 					mel.eval('FBXImportMode -v merge')
 					mel.eval('FBXImportConvertUnitString  -v cm')
 
-				origin.nodes = cmds.file(impFileName, i=True, returnNewNodes=True)
+				try:
+					origin.nodes = cmds.file(impFileName, i=True, returnNewNodes=True)
+				except Exception as e:
+					origin.nodes = []
+					QMessageBox.warning(self.core.messageParent, "Import error", "An error occured while importing the file:\n\n%s\n\n%s" % (impFileName, str(e)))
 
 		for i in origin.nodes:
 			cams = cmds.listCameras()
@@ -1285,8 +1415,12 @@ class Prism_Maya_Functions(object):
 
 			nodeName = self.getNodeName(origin, i)
 			newName = nodeName.rsplit(":", 1)[-1]
+
 			if newName != nodeName and not cmds.referenceQuery( i,isNodeReferenced=True):
-				cmds.rename(nodeName, newName)
+				try:
+					cmds.rename(nodeName, newName)
+				except:
+					pass
 
 		origin.updateUi()
 
@@ -1394,7 +1528,7 @@ class Prism_Maya_Functions(object):
 	def sm_readStates(self, origin):
 		val = cmds.fileInfo('PrismStates', query=True)
 		if len(val) != 0:
-			return eval("\"%s\"" % val[0])
+			return eval("\"%s\"" % val[0].replace("\\\\", "\\"))
 
 
 	@err_decorator
@@ -1406,7 +1540,12 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_getExternalFiles(self, origin):
-		extFiles = [self.core.fixPath(str(x)) for x in cmds.file(query=True, list=True) if self.core.fixPath(str(x)) != self.core.fixPath(os.path.join(cmds.workspace( fullName=True, query=True), "untitled"))]
+		prjPath = cmds.workspace( fullName=True, query=True)
+		if prjPath.endswith(":"):
+			prjPath += "/"
+
+		prjPath = os.path.join(prjPath, "untitled")
+		extFiles = [self.core.fixPath(str(x)) for x in cmds.file(query=True, list=True) if self.core.fixPath(str(x)) != self.core.fixPath(prjPath)]
 		return [extFiles, []]
 
 
