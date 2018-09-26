@@ -278,7 +278,7 @@ class ExportClass(object):
 			if curContext == "Sop":
 				ropType = "rop_alembic"
 			else:
-				ropType = ""
+				ropType = "alembic"
 		elif self.cb_outType.currentText() == ".hda":
 			ropType = ""
 
@@ -339,7 +339,7 @@ class ExportClass(object):
 	@err_decorator
 	def nameChanged(self, text):
 		if self.cb_outType.currentText() == "ShotCam":
-			sText = text + " - Shotcam (%s)" % (self.l_taskName2.text(), self.curCam)
+			sText = text + " - Shotcam (%s)" % (self.curCam)
 		else:
 			try:
 				sText = text + " - %s (%s)" % (self.l_taskName2.text(), self.node)
@@ -567,9 +567,15 @@ class ExportClass(object):
 			elif self.node.type().name() == "rop_alembic":
 				extension = os.path.splitext(self.node.parm("filename").eval())[1]
 			elif self.node.type().name() == "filecache":
-				extension = os.path.splitext(self.node.parm("file").eval())[1]
+				if self.node.parm("file").eval().endswith(".bgeo.sc"):
+					extension = ".bgeo"
+				else:
+					extension = os.path.splitext(self.node.parm("file").eval())[1]
 			elif self.node.type().name() == "geometry" and self.node.type().category().name() == "Driver":
-				extension = os.path.splitext(self.node.parm("sopoutput").eval())[1]
+				if self.node.parm("sopoutput").eval().endswith(".bgeo.sc"):
+					extension = ".bgeo"
+				else:
+					extension = os.path.splitext(self.node.parm("sopoutput").eval())[1]
 			elif self.node.type().name() == "alembic" and self.node.type().category().name() == "Driver":
 				extension = os.path.splitext(self.node.parm("filename").eval())[1]
 
@@ -879,7 +885,7 @@ class ExportClass(object):
 				if self.cb_outType.currentText() == ".abc":
 					outputName = outputName.replace(".$F4", "")
 
-				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic", "filecache"]:
+				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic"]:
 					self.node.parm("initsim").set(True)
 
 			if not os.path.exists(outputPath):

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'EditShot.ui'
 #
-# Created: Wed Sep 19 21:24:33 2018
+# Created: Wed Sep 26 13:06:40 2018
 #      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -56,7 +56,7 @@ class Ui_dlg_EditShot(object):
         self.horizontalLayout.addWidget(self.label)
         self.sp_startFrame = QtWidgets.QSpinBox(self.w_range)
         self.sp_startFrame.setMinimumSize(QtCore.QSize(60, 0))
-        self.sp_startFrame.setMaximum(10000)
+        self.sp_startFrame.setMaximum(99999)
         self.sp_startFrame.setProperty("value", 1001)
         self.sp_startFrame.setObjectName("sp_startFrame")
         self.horizontalLayout.addWidget(self.sp_startFrame)
@@ -67,7 +67,7 @@ class Ui_dlg_EditShot(object):
         self.horizontalLayout.addWidget(self.label_3)
         self.sp_endFrame = QtWidgets.QSpinBox(self.w_range)
         self.sp_endFrame.setMinimumSize(QtCore.QSize(60, 0))
-        self.sp_endFrame.setMaximum(10000)
+        self.sp_endFrame.setMaximum(99999)
         self.sp_endFrame.setProperty("value", 1100)
         self.sp_endFrame.setObjectName("sp_endFrame")
         self.horizontalLayout.addWidget(self.sp_endFrame)

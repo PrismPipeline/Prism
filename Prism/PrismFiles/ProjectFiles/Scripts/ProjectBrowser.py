@@ -1761,7 +1761,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.core.useLocalFiles and os.path.exists(lpath):
 			dirContent += [os.path.join(lpath,x) for x in os.listdir(lpath)]
 
-		for i in dirContent:
+		for i in sorted(dirContent):
 			if os.path.isdir(i) and os.path.basename(i).startswith("step_") and len(self.lw_aPipeline.findItems(os.path.basename(i)[len("step_"):], Qt.MatchExactly)) == 0:
 				sItem = QListWidgetItem(os.path.basename(i)[len("step_"):])
 				self.lw_aPipeline.addItem(sItem)
@@ -3050,37 +3050,37 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				break
 
 			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "2dRender")):
-				for k in i[1]:
+				for k in sorted(i[1]):
 					foldercont.append(k +" (2d)")
 				break
 
 			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "external")):
-				for k in i[1]:
+				for k in sorted(i[1]):
 					foldercont.append(k +" (external)")
 				break
 
 			for i in os.walk(os.path.join(self.renderBasePath, "Playblasts")):
-				for k in i[1]:
+				for k in sorted(i[1]):
 					foldercont.append(k +" (playblast)")
 				break
 
 			if self.core.useLocalFiles:
 				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Rendering", "3dRender")):
-					for k in i[1]:
+					for k in sorted(i[1]):
 						tname = k + " (local)"
 						if tname not in foldercont and k not in foldercont:
 							foldercont.append(tname)
 					break
 
 				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Rendering", "2dRender")):
-					for k in i[1]:
+					for k in sorted(i[1]):
 						tname = k + " (2d)"
 						if tname not in foldercont:
 							foldercont.append(tname)
 					break
 
 				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Playblasts")):
-					for k in i[1]:
+					for k in sorted(i[1]):
 						tname = k + " (playblast)"
 						if tname not in foldercont:
 							foldercont.append(tname)
@@ -3321,7 +3321,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.basepath = foldercont[0]
 			base = None
 			for i in sorted(foldercont[2]):
-				if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".mp4", ".mov"]:
+				if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".dpx", ".mp4", ".mov"]:
 					base = i
 					break
 
@@ -3347,7 +3347,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					self.prvIsSequence = False
 					self.seq = []
 					for i in foldercont[2]:
-						if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".mp4", ".mov"]:
+						if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".dpx", ".mp4", ".mov"]:
 							self.seq.append(i)
 
 				if not (self.curRTask == "" or self.curRVersion == "" or len(self.seq) == 0):
@@ -3450,18 +3450,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			size = self.getImgPMap(prvFile).size()
 			pwidth = size.width()
 			pheight = size.height()
-		elif os.path.splitext(prvFile)[1] in [".exr"]:
+		elif os.path.splitext(prvFile)[1] in [".exr", ".dpx"]:
+			pwidth = pheight = "?"
 			if self.oiioLoaded:
 				imgSpecs = oiio.ImageBuf(str(prvFile)).spec()
 				pwidth = imgSpecs.full_width
 				pheight = imgSpecs.full_height
 
 			elif self.wandLoaded:
-				with wand.image.Image(filename=prvFile) as img:
-					pwidth = img.width
-					pheight = img.height
-			else:
-				pwidth = pheight = "?"
+				try:
+					with wand.image.Image(filename=prvFile) as img:
+						pwidth = img.width
+						pheight = img.height
+				except:
+					pass
 
 		elif os.path.splitext(prvFile)[1] in [".mp4", ".mov"]:
 			if vidReader is None:
@@ -3558,7 +3560,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					pmsmall = pm.scaledToWidth(self.renderResX)
 				else:
 					pmsmall = pm.scaledToHeight(self.renderResY)
-			elif curFile.endswith(".exr"):
+			elif os.path.splitext(curFile)[1] in [".exr", ".dpx"]:
 				try:
 					qimg = QImage(self.renderResX, self.renderResY, QImage.Format_RGB16)
 
@@ -4415,7 +4417,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 				if filePath != "":
 					baseName, extension = os.path.splitext(filePath)
-					if extension in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".mp4", ".mov"]:
+					if extension in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".dpx", ".mp4", ".mov"]:
 						if progPath == "":
 							if platform.system() == "Windows":
 								cmd = ['start', '', '%s' % self.core.fixPath(filePath)]
@@ -4591,7 +4593,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			psources = []
 			for m in k[2]:
 				baseName, extension = os.path.splitext(m)
-				if extension in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".mp4", ".mov"]:
+				if extension in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".mp4", ".mov", ".dpx"]:
 					src = [baseName, extension]
 					if len(baseName) > 3:
 						endStr = baseName[-4:]
@@ -4604,7 +4606,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 			for m in sorted(k[2]):
 				baseName, extension = os.path.splitext(m)
-				if extension in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".mp4", ".mov"]:
+				if extension in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".mp4", ".mov", ".dpx"]:
 					fname = m
 					if getFirstFile:
 						return [os.path.join(path, m)]

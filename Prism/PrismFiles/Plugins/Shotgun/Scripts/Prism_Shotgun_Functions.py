@@ -289,12 +289,13 @@ class Prism_Shotgun_Functions(object):
 
 	@err_decorator
 	def createAsset_typeChanged(self, origin, state):
-		origin.chb_createInShotgun.setEnabled(state)
+		if hasattr(origin, "chb_createInShotgun"):
+			origin.chb_createInShotgun.setEnabled(state)
 
 
 	@err_decorator
 	def assetCreated(self, origin, itemDlg, assetPath):
-		if itemDlg.chb_createInShotgun.isChecked():
+		if hasattr(itemDlg, "chb_createInShotgun") and itemDlg.chb_createInShotgun.isChecked():
 			self.createSgAssets([assetPath])
 
 

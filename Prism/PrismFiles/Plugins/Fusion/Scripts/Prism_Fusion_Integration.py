@@ -257,7 +257,7 @@ class Prism_Fusion_Integration(object):
 			return False
 
 
-	def installerExecute(self, fusionItem, result):
+	def installerExecute(self, fusionItem, result, locFile):
 		try:
 			installLocs = []
 

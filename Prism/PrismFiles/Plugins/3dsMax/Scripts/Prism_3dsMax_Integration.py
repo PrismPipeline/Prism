@@ -286,7 +286,7 @@ deleteFile curPath
 			return False
 
 
-	def installerExecute(self, maxItem, result):
+	def installerExecute(self, maxItem, result, locFile):
 		try:
 			maxPaths = []
 			installLocs = []

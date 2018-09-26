@@ -80,12 +80,9 @@ class Prism_Nuke_Functions(object):
 		else:
 			nukeQtParent = QWidget()
 
-		if platform.system() == "Darwin":
-			origin.messageParent = QWidget()
-			origin.messageParent.setParent(nukeQtParent, Qt.Window)
-			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
-		else:
-			origin.messageParent = nukeQtParent
+		origin.messageParent = QWidget()
+		origin.messageParent.setParent(nukeQtParent, Qt.Window)
+		origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 		nuke.menu('Nuke').addCommand( 'Prism/Save Version', origin.saveScene)
 		nuke.menu('Nuke').addCommand( 'Prism/Save Comment', origin.saveWithComment)

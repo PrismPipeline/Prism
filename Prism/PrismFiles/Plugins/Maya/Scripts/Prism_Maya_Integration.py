@@ -324,7 +324,7 @@ class Prism_Maya_Integration(object):
 			return False
 
 
-	def installerExecute(self, mayaItem, result):
+	def installerExecute(self, mayaItem, result, locFile):
 		try:
 			mayaPaths = []
 			installLocs = []

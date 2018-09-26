@@ -151,6 +151,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		self.e_lname.textChanged.connect(lambda x: self.validate(self.e_lname, x))
 		self.b_browseLocal.clicked.connect(lambda: self.browse("local"))
 		self.b_browseLocal.customContextMenuRequested.connect(lambda: self.core.openFolder(self.e_localPath.text()))
+		self.b_resetPrjScripts.clicked.connect(self.resetPrjScripts)
 		self.e_curPname.textEdited.connect(self.curPnameEdited)
 		self.chb_curPuseFps.toggled.connect(self.pfpsToggled)
 		self.gb_curPversions.toggled.connect(self.forceVersionsToggled)
@@ -582,6 +583,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		else:
 			self.l_localPath.setEnabled(False)
 			self.w_prjSettings.setEnabled(False)
+			self.w_resetPrjScripts.setEnabled(False)
 
 		self.pfpsToggled(self.chb_curPuseFps.isChecked())
 		self.w_curPfps.setToolTip("When this option is enabled, Prism checks the fps of scenefiles when they are opened and shows a warning, if they don't match the project fps.")
@@ -722,6 +724,17 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			else:
 				self.integrationPlugins[i]["bremove"].setEnabled(False)
 
+
+	@err_decorator
+	def resetPrjScripts(self):
+		msgString = "This will remove the Prism scripts in your project. They will be replaced by the Prism project scripts %s.\n\nAre you sure?" % self.core.version
+		msg = QMessageBox(QMessageBox.Warning, "Reset scripts", msgString, QMessageBox.Cancel)
+		msg.addButton("Reset project scripts", QMessageBox.YesRole)
+		self.core.parentWindow(msg)
+		action = msg.exec_()
+
+		if action == 0:
+			self.core.updateProject(resetScripts=True)
 
 
 	@err_decorator

@@ -187,7 +187,7 @@ class Prism_Photoshop_Integration(object):
 			return False
 
 
-	def installerExecute(self, photoshopItem, result):
+	def installerExecute(self, photoshopItem, result, locFile):
 		try:
 			installLocs = []
 

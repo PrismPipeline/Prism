@@ -231,7 +231,7 @@ class Prism_Natron_Integration(object):
 			return False
 
 
-	def installerExecute(self, natronItem, result):
+	def installerExecute(self, natronItem, result, locFile):
 		try:
 			installLocs = []
 

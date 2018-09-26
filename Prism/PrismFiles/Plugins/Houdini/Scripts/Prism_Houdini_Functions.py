@@ -107,27 +107,27 @@ class Prism_Houdini_Functions(object):
 			savescript = "import PrismInit\n\nPrismInit.pcore.saveScene()"
 			if hou.shelves.tool("prism_save") is not None:
 				hou.shelves.tool("prism_save").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_save", label ="Save Version",help = "\"\"\"Saves the current file to a new version\"\"\"", script= savescript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSave.png" ))
+			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_save", label ="Save Version",help = "\"\"\"Saves the current file to a new version\"\"\"", script= savescript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSave.png" ).replace("\\", "/"))
 
 			savecommentscript = "import PrismInit\n\nPrismInit.pcore.saveWithComment()"
 			if hou.shelves.tool("prism_commentsave") is not None:
 				hou.shelves.tool("prism_commentsave").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_commentsave", label ="Save Comment",help = "\"\"\"Saves the current file to a new version with a comment\"\"\"", script= savecommentscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSaveComment.png"))
+			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_commentsave", label ="Save Comment",help = "\"\"\"Saves the current file to a new version with a comment\"\"\"", script= savecommentscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSaveComment.png").replace("\\", "/"))
 
 			browserscript = "import PrismInit\n\nPrismInit.pcore.projectBrowser()"
 			if hou.shelves.tool("prism_browser") is not None:
 				hou.shelves.tool("prism_browser").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_browser", label ="Project Browser",help = "\"\"\"Opens the Project Browser\"\"\"", script= browserscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismBrowser.png"))
+			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_browser", label ="Project Browser",help = "\"\"\"Opens the Project Browser\"\"\"", script= browserscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismBrowser.png").replace("\\", "/"))
 
 			managerscript = "import PrismInit\n\nPrismInit.pcore.stateManager()"
 			if hou.shelves.tool("prism_manager") is not None:
 				hou.shelves.tool("prism_manager").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_manager", label ="State Manager",help = "\"\"\"Opens the State Manager\"\"\"", script= managerscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismStates.png"))
+			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_manager", label ="State Manager",help = "\"\"\"Opens the State Manager\"\"\"", script= managerscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismStates.png").replace("\\", "/"))
 
 			prismSettingsscript = "import PrismInit\n\nPrismInit.pcore.prismSettings()"
 			if hou.shelves.tool("prism_settings") is not None:
 				hou.shelves.tool("prism_settings").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_settings", label ="Settings",help = "\"\"\"Opens the Prism settings\"\"\"", script= prismSettingsscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSettings.png"))
+			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_settings", label ="Settings",help = "\"\"\"Opens the Prism settings\"\"\"", script= prismSettingsscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSettings.png").replace("\\", "/"))
 
 			hou.Shelf.setTools(hou.shelves.shelves()[shelfName],( hou.shelves.tool("prism_save"), hou.shelves.tool("prism_commentsave"), hou.shelves.tool("prism_browser"), hou.shelves.tool("prism_manager"), hou.shelves.tool("prism_settings")))
 		
@@ -522,7 +522,7 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def sm_getExternalFiles(self, origin):
-		hou.setFrame(hou.playbar.playbackRange()[0])
+	#	hou.setFrame(hou.playbar.playbackRange()[0])
 		whitelist = ['$HIP/$OS-bounce.rat', '$HIP/$OS-fill.rat', '$HIP/$OS-key.rat', '$HIP/$OS-rim.rat']
 		expNodes = [ x.ui.node for x in self.core.sm.states if x.ui.className in ["Export", "ImageRender"] and x.ui.node is not None and self.isNodeValid(origin, x.ui.node)]
 		houdeps = hou.fileReferences()

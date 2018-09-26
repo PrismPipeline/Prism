@@ -253,7 +253,7 @@ class Prism_Blender_Integration(object):
 			return False
 
 
-	def installerExecute(self, bldItem, result):
+	def installerExecute(self, bldItem, result, locFile):
 		try:
 			installLocs = []
 

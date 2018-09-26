@@ -110,6 +110,12 @@ class PrismTray():
 			self.settingsAction = QAction("Prism Settings...", self.parentWidget, triggered=self.openSettings)
 			self.trayIconMenu.addAction(self.settingsAction)
 			self.trayIconMenu.addSeparator()
+
+			self.pDirAction = QAction("Open Prism directory", self.parentWidget, triggered=lambda: self.openFolder(location="Prism"))
+			self.trayIconMenu.addAction(self.pDirAction)
+			self.prjDirAction = QAction("Open project directory", self.parentWidget, triggered=lambda: self.openFolder(location="Project"))
+			self.trayIconMenu.addAction(self.prjDirAction)
+			self.trayIconMenu.addSeparator()
 			self.exitAction = QAction("Exit", self.parentWidget , triggered=self.exitTray)
 			self.trayIconMenu.addAction(self.exitAction)
 
@@ -217,7 +223,17 @@ class PrismTray():
 			self.trayIcon.showMessage("Unknown Error", "openDailies - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno), icon = QSystemTrayIcon.Critical)
 		
 
-	def openFolder(self, path):
+	def openFolder(self, path="", location=None):
+		if location == "Prism":
+			path = prismRoot
+		elif location == "Project":
+			curProject = self.getConfigData("globals", "current project")
+			if curProject is None:
+				QMessageBox.warning(self.parentWidget, "Open directory", "No active project is set.")
+				return
+			else:
+				path = os.path.dirname(os.path.dirname(curProject))
+
 		if platform.system() == "Windows":
 			path = path.replace("/","\\")
 			cmd = ['explorer', path]

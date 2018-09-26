@@ -382,6 +382,7 @@ class ImportFileClass(object):
 				nwBox.fitAroundContents()
 
 				self.node.setDisplayFlag(False)
+				self.node.setColor(hou.Color(0.451, 0.369, 0.796))
 
 				if self.chb_autoNameSpaces.isChecked():
 					self.removeNameSpaces()

@@ -232,7 +232,7 @@ class Prism_Nuke_Integration(object):
 			return False
 
 
-	def installerExecute(self, nukeItem, result):
+	def installerExecute(self, nukeItem, result, locFile):
 		try:
 			installLocs = []
 

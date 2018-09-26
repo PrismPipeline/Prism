@@ -47,8 +47,10 @@ import traceback, time, platform, shutil, socket
 if platform.system() == "Windows":
 	if sys.version[0] == "3":
 		import winreg as _winreg
+		from configparser import ConfigParser
 	else:
 		import _winreg
+		from ConfigParser import ConfigParser
 
 from functools import wraps
 
@@ -266,41 +268,29 @@ class Prism_Houdini_Integration(object):
 
 
 			# saveScene callback
-			houVersion = houdiniPath[-8:]
+			savePath = os.path.join(houdiniPath, "scripts", "afterscenesave.py")
 
-			major = houVersion[:2]
-			minor = houVersion[3]
-			build = houVersion[-3:]
+			origSaveFile = os.path.join(integrationBase, "afterscenesave.py")
+			with open(origSaveFile, 'r') as mFile:
+				saveString = mFile.read()
 
-			try:
-				saveCallback = (int(major) == 16 and int(minor) == 0 and int(build) >= 557) or (int(major) >= 16 and minor > 0)
-			except:
-				saveCallback = False
+			if os.path.exists(savePath):
+				with open(savePath, 'r') as saveFile:
+					content = saveFile.read()
 
-			if saveCallback:
-				savePath = os.path.join(houdiniPath, "scripts", "afterscenesave.py")
+				if not saveString in content:
+					if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
+						content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + saveString
+						with open(savePath, 'w') as rcfile:
+							rcfile.write(content)
+					else:
+						with open(savePath, 'a') as saveFile:
+							saveFile.write( "\n" + saveString)
+			else:
+				with open(savePath, 'w') as saveFile:
+					saveFile.write(saveString)
 
-				origSaveFile = os.path.join(integrationBase, "afterscenesave.py")
-				with open(origSaveFile, 'r') as mFile:
-					saveString = mFile.read()
-
-				if os.path.exists(savePath):
-					with open(savePath, 'r') as saveFile:
-						content = saveFile.read()
-
-					if not saveString in content:
-						if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-							content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + saveString
-							with open(savePath, 'w') as rcfile:
-								rcfile.write(content)
-						else:
-							with open(savePath, 'a') as saveFile:
-								saveFile.write( "\n" + saveString)
-				else:
-					with open(savePath, 'w') as saveFile:
-						saveFile.write(saveString)
-
-				addedFiles.append(savePath)
+			addedFiles.append(savePath)
 
 
 			if platform.system() in ["Linux", "Darwin"]:
@@ -325,8 +315,9 @@ class Prism_Houdini_Integration(object):
 			else:
 				installBase = installPath
 			initPy = os.path.join(installBase, "python2.7libs", "PrismInit.py")
+			initPyc = initPy + "c"
 
-			for i in [initPy]:
+			for i in [initPy, initPyc]:
 				if os.path.exists(i):
 					os.remove(i)
 
@@ -380,8 +371,44 @@ class Prism_Houdini_Integration(object):
 			return False
 
 
-	def installerExecute(self, houItem, result):
+	def installerExecute(self, houItem, result, locFile):
 		try:
+			locConfig = ConfigParser()
+			if os.path.exists(locFile):
+				try:
+					locConfig.read(locFile)
+				except:
+					pass
+
+			if locConfig.has_section("Houdini"):
+				existingPaths = []
+				removedInt = False
+				opt = locConfig.options("Houdini")
+				for i in opt:
+					removeInt = False
+					path = locConfig.get("Houdini", i)
+					if platform.system() == "Windows" and "Side Effects Software" in path:
+						removeInt = True
+					elif platform.system() == "Linux" and "/opt/hfs" in path:
+						removeInt = True
+					elif platform.system() == "Darwin" and "/Applications/Houdini/" in path:
+						removeInt = True
+
+					if removeInt:
+						self.removeIntegration(path)
+						removedInt = True
+					else:
+						existingPaths.append(path)
+
+					locConfig.remove_option("Houdini", i)
+
+				if removedInt:
+					for idx, i in enumerate(existingPaths):
+						locConfig.set("Houdini", "%02d" % idx, i)
+
+					with open(locFile, 'w') as inifile:
+						locConfig.write(inifile)
+
 			installLocs = []
 
 			if houItem.checkState(0) == Qt.Checked and os.path.exists(houItem.text(1)):

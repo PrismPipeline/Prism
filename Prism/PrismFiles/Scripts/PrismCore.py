@@ -924,18 +924,7 @@ class PrismCore():
 	def showAbout(self, dlgVersion=""):
 		msg = QMessageBox(QMessageBox.Information, "About", "Prism: %s\n%s\n\nCopyright (C) 2016-2018 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com" % (self.version, dlgVersion), parent=self.messageParent)
 		msg.addButton("Ok", QMessageBox.YesRole)
-		
-		if dlgVersion != "":
-			coreversion = self.version[1:].split(".")
-			sversion = dlgVersion.rsplit(" ",1)[1][1:].split(".")
-			if sversion[0] < coreversion[0] or (sversion[0] == coreversion[0] and sversion[1] < coreversion[1]) or (sversion[0] == coreversion[0] and sversion[1] == coreversion[1] and sversion[2] < coreversion[2]) or (len(sversion) == 4 and len(coreversion) == 4 and sversion[0] == coreversion[0] and sversion[1] == coreversion[1] and sversion[2] == coreversion[2] and sversion[3] < coreversion[3]):
-				msg.addButton("Update Project", QMessageBox.YesRole)
-
-		msg.setFocus()
 		action = msg.exec_()
-
-		if action == 1:
-			self.updateProject()
 
 
 	@err_decorator

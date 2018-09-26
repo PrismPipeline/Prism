@@ -33,7 +33,12 @@
 
 
 import os, shutil, sys, imp, subprocess, csv, platform
-from ConfigParser import ConfigParser
+if sys.version[0] == "3":
+	from configparser import ConfigParser
+	pVersion = 3
+else:
+	from ConfigParser import ConfigParser
+	pVersion = 2
 
 if platform.system() == "Windows":
 	import _winreg, win32com
@@ -45,6 +50,7 @@ else:
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'PrismFiles/Scripts'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'PrismFiles/PythonLibs/Python27'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'PrismFiles/PythonLibs/Python27/PySide'))
 
 try:
 	from PySide2.QtCore import *
@@ -423,6 +429,7 @@ class PrismInstaller():
 							os.chmod(settingsPathOld, 0o777)
 
 			installLocs = {}
+			locFile = os.path.join(prismPath, "installLocations.ini")
 
 			if dccItem is not None:
 				for i in range(dccItem.childCount()):
@@ -430,9 +437,8 @@ class PrismInstaller():
 					if not childItem.text(0) in self.prismPlugins:
 						continue
 
-					installLocs[childItem.text(0)] = self.prismPlugins[childItem.text(0)].installerExecute(childItem, result)
+					installLocs[childItem.text(0)] = self.prismPlugins[childItem.text(0)].installerExecute(childItem, result, locFile)
 
-			locFile = os.path.join(prismPath, "installLocations.ini")
 			if len(installLocs) > 0:
 				
 				locConfig = ConfigParser()
