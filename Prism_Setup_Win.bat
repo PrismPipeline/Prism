@@ -1,0 +1,1 @@
+start Prism/PrismFiles/Python27/python.exe Prism/InstallPrism.py

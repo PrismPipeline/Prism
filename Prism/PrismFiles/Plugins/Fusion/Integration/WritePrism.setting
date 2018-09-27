@@ -1,0 +1,294 @@
+{
+	Tools = ordered() {
+		WritePrism = Saver {
+			CustomData = {
+				HelpPage = "https://prism-pipeline.com/documentation/",
+			},
+			CtrlWZoom = false,
+			Inputs = {
+				ProcessWhenBlendIs00 = Input { Value = 0, },
+				Clip = Input {
+					Value = Clip {
+						Filename = "< Please press the refresh button >",
+						FormatID = "OpenEXRFormat",
+						Length = 0,
+						Saving = true,
+						TrimIn = 0,
+						ExtendFirst = 0,
+						ExtendLast = 0,
+						Loop = 1,
+						AspectMode = 0,
+						Depth = 0,
+						TimeCode = 0,
+						GlobalStart = -2000000000,
+						GlobalEnd = 0
+					},
+				},
+				CreateDir = Input { Value = 1, },
+				OutputFormat = Input { Value = FuID { "OpenEXRFormat" }, },
+				["Gamut.SLogVersion"] = Input { Value = FuID { "SLog2" }, },
+				ProjectPathControl = Input { Value = "X:/projects/render/", },
+				["JpegFormat.Quality"] = Input { Value = 97, },
+				["OpenEXRFormat.Depth"] = Input { Value = 1, },
+				["OpenEXRFormat.Channels"] = Input { Value = 1, },
+				["QuickTimeMovies.Compression"] = Input { Value = FuID { "Apple ProRes 422 HQ_apch" }, },
+			},
+			ViewInfo = OperatorInfo { Pos = { 276.888, 81.1259 } },
+			UserControls = ordered() {
+				CreateDir = {
+					LINKS_Name = "Create Folder During Render",
+					LINKID_DataType = "Number",
+					INPID_InputControl = "none",
+					INP_Integer = false,
+					INP_MinScale = 0,
+					INP_MaxScale = 1,
+					INP_MinAllowed = -1000000,
+					INP_MaxAllowed = 1000000,
+					ICS_ControlPage = "File",
+					INP_External = false
+				},
+
+				CreateDirNow = {
+					INP_MaxAllowed = 1000000,
+					INP_Integer = false,
+					ICS_ControlPage = "File",
+					INP_MaxScale = 1,
+					INP_MinScale = 0,
+					INP_MinAllowed = -1000000,
+					LINKID_DataType = "Number",
+					INPID_InputControl = "none",
+					INP_External = false,
+					LINKS_Name = "Create"
+				},
+
+			--	Clip = {
+			--		LINKS_Name = "Filename",
+			--		ICS_ControlPage = "File",
+			--		LINKID_DataType = "Text",
+			--		INPID_InputControl = "none",
+			--		INP_External = false,
+			--	},
+
+				ProcessMode = {
+					LINKS_Name = "Process Mode2",
+					LINKID_DataType = "Number",
+					INPID_InputControl = "none",
+					ICS_ControlPage = "File",
+					INP_Integer = false,
+					{ CCS_AddString = "Full Frames" },
+					{ CCS_AddString = "NTSC Fields" },
+					{ CCS_AddString = "PAL/HD Fields" },
+					{ CCS_AddString = "PAL/HD Fields (Reversed)" },
+					{ CCS_AddString = "NTSC Fields (Reversed)" },
+					{ CCS_AddString = "Auto" },
+					CC_LabelPosition = "Horizontal",
+				},
+
+				SaveFrames = {
+					LINKS_Name = "Save Frames2",
+					LINKID_DataType = "Number",
+					INPID_InputControl = "none",
+					ICS_ControlPage = "File",
+					INP_Integer = false,
+					{ CCS_AddString = "Full Renders Only" },
+					{ CCS_AddString = "Hi Quality Interactive" },
+					CC_LabelPosition = "Horizontal",
+				},
+
+				SetSequenceStart = {
+					LINKS_Name = "Saver-relative Numbering",
+					LINKID_DataType = "Number",
+					INPID_InputControl = "none",
+					ICS_ControlPage = "File",
+					INP_Default = 0,
+					INP_Integer = false,
+					INP_MinScale = 0,
+					INP_MaxScale = 1,
+					INP_MinAllowed = -1000000,
+					INP_MaxAllowed = 1000000,
+					CBC_TriState = false,
+					INP_External = false,
+				},
+
+				SequenceStartFrame = {
+					LINKS_Name = "Sequence Offset",
+					LINKID_DataType = "Number",
+					INPID_InputControl = "none",
+					ICS_ControlPage = "File",
+					INP_Default = 0,
+					INP_Integer = true,
+					INP_MinScale = 0,
+					INP_MaxScale = 100,
+					INP_MinAllowed = -1000000,
+					INP_MaxAllowed = 1000000000,
+					INP_External = false,
+				},
+
+				PrismTaskControl = {
+					TEC_ReadOnly = false,
+					LINKS_Name = "Task",
+					ICS_ControlPage = "File",
+					LINKID_DataType = "Text",
+					INPID_InputControl = "TextEditControl",
+					TEC_Lines = 1,
+					TEC_Wrap = false
+				},
+
+				PrismCommentControl = {
+					TEC_ReadOnly = false,
+					LINKS_Name = "Comment (optional)",
+					ICS_ControlPage = "File",
+					LINKID_DataType = "Text",
+					INPID_InputControl = "TextEditControl",
+					TEC_Lines = 1,
+					TEC_Wrap = false
+				},
+
+				SaveLocalControl = {
+					CBC_TriState = false,
+					INP_Integer = true,
+					LINKID_DataType = "Number",
+					ICS_ControlPage = "File",
+					INP_Default = 0,
+					ICD_Width = 0.4,
+					INPID_InputControl = "CheckboxControl",
+					LINKS_Name = "Local output"
+				},
+
+				RenderLastVersionControl = {
+					CBC_TriState = false,
+					INP_Integer = true,
+					LINKID_DataType = "Number",
+					ICS_ControlPage = "File",
+					INP_Default = 0,
+					ICD_Width = 0.6,
+					INPID_InputControl = "CheckboxControl",
+					LINKS_Name = "Render as previous version"
+				},
+
+			--	FilePathControl = {
+			--		TEC_ReadOnly = true,
+			--		LINKS_Name = "Filepath",
+			--		ICS_ControlPage = "File",
+			--		LINKID_DataType = "Text",
+			--		INPID_InputControl = "TextEditControl",
+			--		TEC_Lines = 1,
+			--		TEC_Wrap = false
+			--	},
+
+				RefreshButton = {
+					LINKS_Name = "Refresh",
+					LINKID_DataType = "Number",
+					INPID_InputControl = "ButtonControl",
+					BTNCS_Execute = [=[
+composition:Execute(string.format([[
+!Py: ""
+import os, sys, platform
+
+if platform.system() == "Windows":
+	prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
+elif platform.system() == "Linux":
+	prismRoot = "/usr/local/Prism"
+elif platform.system() == "Darwin":
+	prismRoot = "/Applications/Prism/Prism"
+
+sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+
+try:
+	from PySide2.QtCore import *
+	from PySide2.QtGui import *
+	from PySide2.QtWidgets import *
+except:
+	from PySide.QtCore import *
+	from PySide.QtGui import *
+
+qapp = QApplication.instance()
+if qapp == None:
+  qapp = QApplication(sys.argv)
+
+import PrismCore
+pcore = PrismCore.PrismCore(app='Fusion', prismArgs=["parentWindows"])
+pcore.plugin.fusion = fusion
+
+curPrj = pcore.getConfig('globals', 'current project')
+if curPrj is not None and curPrj != "":
+	pcore.changeProject(curPrj)
+	tool = comp.FindTool('%s')
+	pcore.plugin.getOutputPath(tool)
+else:
+	QMessageBox.warning(pcore.messageParent, "Prism warning", "No project is active.\nPlease set a project in the Prism Settings or by opening the Project Browser.")
+
+]], tool.Name))
+]=],
+					INP_Integer = false,
+					ICD_Width = 0.5,
+					ICS_ControlPage = "File"
+				},
+
+				OpenDirButton = {
+					LINKS_Name = "Open in explorer",
+					LINKID_DataType = "Number",
+					INPID_InputControl = "ButtonControl",
+					BTNCS_Execute = [=[
+composition:Execute(string.format([[
+!Py: ""
+import os, sys, platform
+
+if platform.system() == "Windows":
+	prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
+elif platform.system() == "Linux":
+	prismRoot = "/usr/local/Prism"
+elif platform.system() == "Darwin":
+	prismRoot = "/Applications/Prism/Prism"
+	
+sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+
+try:
+	from PySide2.QtCore import *
+	from PySide2.QtGui import *
+	from PySide2.QtWidgets import *
+except:
+	from PySide.QtCore import *
+	from PySide.QtGui import *
+
+qapp = QApplication.instance()
+if qapp == None:
+  qapp = QApplication(sys.argv)
+
+import PrismCore
+pcore = PrismCore.PrismCore(app='Fusion', prismArgs=["parentWindows"])
+pcore.plugin.fusion = fusion
+
+curPrj = pcore.getConfig('globals', 'current project')
+if curPrj is not None and curPrj != "":
+	pcore.changeProject(curPrj)
+	tool = comp.FindTool('%s')
+	try:
+		versionPath = os.path.dirname(tool.GetAttrs()["TOOLST_Clip_Name"][1])
+		if not os.path.exists(versionPath):
+			versionPath = os.path.dirname(versionPath)
+	except:
+		versionPath = ""
+
+	if os.path.exists(versionPath):
+		pcore.openFolder(versionPath)
+	else:
+		msg = QMessageBox(QMessageBox.Warning, "Prism Warning", "The outputfolder doesn't exist yet.")
+		pcore.parentWindow(msg)
+		msg.exec_()
+else:
+	QMessageBox.warning(pcore.messageParent, "Prism warning", "No project is active.\nPlease set a project in the Prism Settings or by opening the Project Browser.")
+
+]], tool.Name))
+]=],
+					INP_Integer = false,
+					ICD_Width = 0.5,
+					ICS_ControlPage = "File"
+				},
+			}
+		}
+	},
+	ActiveTool = "WritePrism"
+}
