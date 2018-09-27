@@ -17,11 +17,11 @@ On the website you can find the latest official installer.
 
 To install the latest development version download or clone this repository and the Prism dependencies for your OS:
 
-Windows-dependencies
+[Windows-dependencies](https://www.dropbox.com)
 
-Linux-dependencies
+[Linux-dependencies](https://www.dropbox.com)
 
-MacOSX-dependencies
+[MacOSX-dependencies](https://www.dropbox.com)
 
 Extract the dependencies and copy the extracted folders into Prism/PrismFiles of this repository.
 

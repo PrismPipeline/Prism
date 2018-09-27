@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ProjectBrowser.ui'
 #
-# Created: Mon Sep 17 20:18:51 2018
+# Created: Thu Sep 27 13:53:01 2018
 #      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -572,8 +572,13 @@ class Ui_mw_ProjectBrowser(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.b_combineVersions.sizePolicy().hasHeightForWidth())
         self.b_combineVersions.setSizePolicy(sizePolicy)
+        self.b_combineVersions.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        font = QtGui.QFont()
+        font.setPointSize(7)
+        self.b_combineVersions.setFont(font)
         self.b_combineVersions.setFocusPolicy(QtCore.Qt.NoFocus)
         self.b_combineVersions.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.b_combineVersions.setCheckable(False)
         self.b_combineVersions.setObjectName("b_combineVersions")
         self.horizontalLayout_11.addWidget(self.b_combineVersions)
         self.b_clearRV = QtWidgets.QPushButton(self.w_rvButtons)

@@ -47,10 +47,13 @@ import traceback, time, platform, shutil, socket
 if platform.system() == "Windows":
 	if sys.version[0] == "3":
 		import winreg as _winreg
-		from configparser import ConfigParser
 	else:
 		import _winreg
-		from ConfigParser import ConfigParser
+
+if sys.version[0] == "3":
+	from configparser import ConfigParser
+else:
+	from ConfigParser import ConfigParser
 
 from functools import wraps
 

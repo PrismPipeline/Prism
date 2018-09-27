@@ -3,7 +3,7 @@ import sys, pprint
 
 fname = "ProjectBrowser"
 #fname = "CombineMedia"
-fname = "EditShot"
+#fname = "EditShot"
 #fname = "CreateItem"
 #fname = "StateManager"
 #fname = "TaskSelection"
