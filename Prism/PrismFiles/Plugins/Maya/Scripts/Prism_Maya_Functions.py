@@ -567,6 +567,7 @@ class Prism_Maya_Functions(object):
 						shutil.copyfile(curXgenPath, tXgenPath)
 
 		elif expType == ".rs":
+			cmds.select(expNodes)
 			opt = ""
 			if startFrame != endFrame:
 				opt = "startFrame=%s;endFrame=%s;frameStep=1;" % (startFrame, endFrame)
@@ -1496,6 +1497,11 @@ class Prism_Maya_Functions(object):
 		startframe, endframe = self.getFrameRange(origin)
 		origin.sp_rangeStart.setValue(startframe)
 		origin.sp_rangeEnd.setValue(endframe)
+
+		if hasattr(cmds, "rsProxy") and ".rs" not in self.plugin.outputFormats:
+			self.plugin.outputFormats.insert(-1, ".rs")
+		elif not hasattr(cmds, "rsProxy") and ".rs" in self.plugin.outputFormats:
+			self.plugin.outputFormats.pop(self.plugin.outputFormats.index(".rs"))
 
 		if not self.core.smCallbacksRegistered:
 			import maya.OpenMaya as api

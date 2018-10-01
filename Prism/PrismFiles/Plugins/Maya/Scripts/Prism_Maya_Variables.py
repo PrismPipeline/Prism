@@ -41,15 +41,7 @@ class Prism_Maya_Variables(object):
 		self.hasQtParent = True
 		self.sceneFormats = [".ma", ".mb"]
 		self.appSpecificFormats = self.sceneFormats
-		try:
-			import maya.cmds as cmds
-		except:
-			pass
-		else:
-			if hasattr(cmds, "rsProxy"):
-				self.outputFormats = [".abc", ".obj", ".fbx", ".ma", ".mb", ".rs", "ShotCam"]
-			else:
-				self.outputFormats = [".abc", ".obj", ".fbx", ".ma", ".mb", "ShotCam"]
+		self.outputFormats = [".abc", ".obj", ".fbx", ".ma", ".mb", "ShotCam"]
 		self.appColor = [44,121,207]
 		self.appVersionPresets = ["20180100", "201720", "201600"]
 		vrayPasses = ['defaultpasses', 'maya_vray', str({"Background":"backgroundChannel", "Caustics":"causticsChannel", "Diffuse":"diffuseChannel", "Extra Tex":"ExtraTexElement", "GI":"giChannel", "Lighting":"lightingChannel", "Multi Matte": "MultiMatteElement", "Normals":"normalsChannel", "Reflection":"reflectChannel", "Refraction":"refractChannel", "SSS":"FastSSS2Channel", "Self Illumination":"selfIllumChannel", "Shadow":"shadowChannel", "Specular":"specularChannel", "Velocity":"velocityChannel", "Z-depth":"zdepthChannel"})]

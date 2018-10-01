@@ -120,7 +120,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 		self.core = core
-		self.version = "v1.0.11.0"
+		self.version = "v1.1.0.0"
 		if getVersion:
 			self.getVersion = True
 			self.close()

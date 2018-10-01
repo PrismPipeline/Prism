@@ -120,7 +120,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.0.11.0"
+			self.version = "v1.1.0.0"
 
 			if platform.system() == "Windows":
 				self.prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
@@ -947,7 +947,7 @@ class PrismCore():
 		elif location == "tutorials":
 			url = "https://prism-pipeline.com/tutorials/"
 		elif location == "documentation":
-			url = "https://prism-pipeline.com/documentation/"
+			url = "https://prism-pipeline.readthedocs.io/en/latest/"
 		elif location == "downloads":
 			url = "https://prism-pipeline.com/downloads/"
 			

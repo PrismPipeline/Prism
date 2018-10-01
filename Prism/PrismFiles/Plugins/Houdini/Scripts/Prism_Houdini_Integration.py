@@ -162,30 +162,6 @@ class Prism_Houdini_Integration(object):
 		return result
 
 
-	@err_decorator
-	def getHoudiniPath(self):
-		try:
-			key = _winreg.OpenKey(
-				_winreg.HKEY_LOCAL_MACHINE,
-				"SOFTWARE\\Side Effects Software",
-				0,
-				_winreg.KEY_READ | _winreg.KEY_WOW64_64KEY
-			)
-
-			houdiniVersion = (_winreg.QueryValueEx(key, "ActiveVersion"))[0]
-
-			key = _winreg.OpenKey(
-				_winreg.HKEY_LOCAL_MACHINE,
-				"SOFTWARE\\Side Effects Software\\Houdini " + houdiniVersion,
-				0,
-				_winreg.KEY_READ | _winreg.KEY_WOW64_64KEY
-			)
-
-			return (_winreg.QueryValueEx(key, "InstallPath"))[0]
-		except:
-			return None
-
-
 	def writeHoudiniFiles(self, houdiniPath):
 		try:
 
