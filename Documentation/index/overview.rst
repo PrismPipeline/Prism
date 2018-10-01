@@ -64,7 +64,7 @@ When exporting objects from Maya there are now additional options:
 
 * Import references
 * Delete unknown nodes
-* Delete render layers
+* Delete display layers
 
 Additionally you can export your objects to the .mb (Maya Binary) format now.
 
