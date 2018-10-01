@@ -92,12 +92,12 @@ Integration     Windows   Linux   Mac OSX    Supported Versions
 3dsMax             X                           2017-2019
 Blender            X                           2.79
 Fusion             X                           9.02
-Houdini            X        X        x         16.0, 16.5
-Maya               X        X        x         2016-2018 (earlier versions untested)
+Houdini            X        X        X         16.0, 16.5
+Maya               X        X        X         2016-2018 (earlier versions untested)
 Natron             X        X                  2.13-2.14  (earlier versions untested)
-Nuke               X        X        x         >10.0 (earlier versions unstable)
+Nuke               X        X        X         >10.0 (earlier versions unstable)
 Photoshop          X                           CS6, CC (earlier versions untested)
-Standalone         X        X        x
+Standalone         X        X        X
 ============  ==========  ======  ========   ============================================
 
 Additional integrations can be developed by 3rd parties and can be used in combination with the official Prism software.
