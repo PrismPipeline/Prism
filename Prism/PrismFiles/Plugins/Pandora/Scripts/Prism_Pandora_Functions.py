@@ -537,7 +537,7 @@ class Prism_Pandora_Functions(object):
 		config.set('jobglobals', 'rendernode', origin.node.path())
 		config.set('jobglobals', 'taskTimeout', str(origin.sp_rjTimeout.value()))
 		if len(parent.osDependencies) > 0:
-			config.set('jobglobals', 'jobdependecies', str(parent.jobdependecies))
+			config.set('jobglobals', 'jobdependecies', str(parent.osDependencies))
 		config.add_section('information')
 		config.set('information', 'jobname', jobName)
 		config.set('information', 'scenename', os.path.basename(fileName))

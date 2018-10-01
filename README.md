@@ -13,7 +13,7 @@ https://prism-pipeline.com/
 On the [website](https://prism-pipeline.com/) you can find the latest official installer.
 
 
-### Installing
+## Installing
 
 * To install the latest development version download or clone this repository and the Prism dependencies for your OS:
 

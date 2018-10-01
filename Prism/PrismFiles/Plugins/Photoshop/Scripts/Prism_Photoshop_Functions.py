@@ -211,8 +211,8 @@ class Prism_Photoshop_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
-		if os.path.splitext(filepath)[1] not in self.sceneFormats:
+	def openScene(self, origin, filepath, force=False):
+		if not force and os.path.splitext(filepath)[1] not in self.sceneFormats:
 			return False
 
 		self.psApp.Open(filepath)
@@ -240,17 +240,17 @@ class Prism_Photoshop_Functions(object):
 		fString = "Please select an import option:"
 		msg = QMessageBox(QMessageBox.NoIcon, "Photoshop Import", fString, QMessageBox.Cancel)
 		msg.addButton("Current pass", QMessageBox.YesRole)
-		msg.addButton("All passes", QMessageBox.YesRole)
-		msg.addButton("Layout all passes", QMessageBox.YesRole)
+	#	msg.addButton("All passes", QMessageBox.YesRole)
+	#	msg.addButton("Layout all passes", QMessageBox.YesRole)
 		self.core.parentWindow(msg)
 		action = msg.exec_()
 
 		if action == 0:
 			self.photoshopImportSource(origin)
-		elif action == 1:
-			self.photoshopImportPasses(origin)
-		elif action == 2:
-			self.photoshopLayout(origin)
+	#	elif action == 1:
+	#		self.photoshopImportPasses(origin)
+	#	elif action == 2:
+	#		self.photoshopLayout(origin)
 		else:
 			return
 
@@ -269,13 +269,15 @@ class Prism_Photoshop_Functions(object):
 					firstFrame = origin.pstart
 					lastFrame = origin.pend
 
-				filePath = curSourcePath.replace("@@@@", "####").replace("\\","/")
+				filePath = curSourcePath.replace("@@@@", "%04d" % firstFrame).replace("\\","/")
 			else:
 				filePath =  curSourcePath.replace("\\","/")
 				firstFrame = 0
 				lastFrame = 0
 
-			curReadNode = photoshop.createNode("Read",'file %s first %s last %s' % (filePath,firstFrame,lastFrame),False)
+			self.openScene(origin, filePath, force=True)
+
+			#curReadNode = photoshop.createNode("Read",'file %s first %s last %s' % (filePath,firstFrame,lastFrame),False)
 
 
 	@err_decorator
