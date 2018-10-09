@@ -76,7 +76,7 @@ if platform.system() == "Windows":
 		import winreg as _winreg
 	elif pVersion == 2:
 		import _winreg
-		
+
 elif platform.system() in ["Linux", "Darwin"]:
 	if pVersion == 3:
 		from io import BytesIO as StringIO
@@ -126,7 +126,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.close()
 			return
 
-	#	self.core.reloadPlugins()
+		#	self.core.reloadPlugins()
 
 		self.core.parentWindow(self)
 
@@ -421,7 +421,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.actionAbout = QAction("About...", self)
 		self.actionAbout.triggered.connect(lambda: self.core.showAbout("Project: %s" % self.version))
 		helpMenu.addAction(self.actionAbout)
-	
+
 		self.menubar.addMenu(helpMenu)
 
 		self.setRCStyle(self, helpMenu)
@@ -440,7 +440,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			setattr(self, "chb_aShow%s" % self.core.getPluginData(i, "appShortName"), chb_aApp)
 			setattr(self, "chb_sShow%s" % self.core.getPluginData(i, "appShortName"), chb_sApp)
 			self.appFilters[i] = {"assetChb": chb_aApp, "shotChb": chb_sApp, "shortName": self.core.getPluginData(i, "appShortName"), "formats": self.core.getPluginData(i, "sceneFormats")}
-	
+
 		cData = {}
 
 		for i in self.appFilters:
@@ -508,7 +508,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				rpconfig.read(prj)
 			except:
 				continue
-				
+
 			if not rpconfig.has_option("globals", "project_name"):
 				continue
 
@@ -593,7 +593,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.chb_autoUpdate.setChecked(cData["autoUpdateRenders"])
 
 		self.loadAppLayout(self)
-		
+
 		for i in self.core.unloadedPlugins:
 			getattr(i, "projectBrowser_loadUI", lambda x:None)(self)
 
@@ -615,7 +615,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if cData["expandedSequences" + self.core.projectName] is not None:
 			self.sExpanded = eval(cData["expandedSequences" + self.core.projectName])
-		
+
 
 	@err_decorator
 	def closeEvent(self, event):
@@ -714,7 +714,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		expandedAssets = []
 		if item.isExpanded():
 			expandedAssets.append(item.text(1))
-			
+
 		for i in range(item.childCount()):
 			expandedAssets += self.getExpandedChildren(item.child(i))
 
@@ -1239,7 +1239,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						return
 
 				self.core.copySceneFile(filepath, lfilepath)
-			
+
 			filepath = lfilepath
 
 		filepath = filepath.replace("\\","/")
@@ -1284,9 +1284,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.core.addToRecent(filepath)
 			self.setRecent()
 
-	#	for i in self.core.unloadedPlugins:
-	#		if os.path.splitext(filepath)[1] in i.sceneFormats:
-	#			getattr(i, "scenefileExecuted", lambda x:None)(self)
+		#	for i in self.core.unloadedPlugins:
+		#		if os.path.splitext(filepath)[1] in i.sceneFormats:
+		#			getattr(i, "scenefileExecuted", lambda x:None)(self)
 
 		if openSm:
 			self.core.stateManager()
@@ -1372,7 +1372,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
 
 			if "newfname" in locals():
-		#		newfname = self.correctExt(self, newfname)
+				#		newfname = self.correctExt(self, newfname)
 				filepath = os.path.join(dstname, newfname)
 
 				if self.core.useLocalFiles:
@@ -1429,7 +1429,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			dstname = os.path.join(dstname, "Scenefiles", "step_" + step)
 			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
 
-			#example filename: Body_mod_v0002_details-added_rfr_.max
+		#example filename: Body_mod_v0002_details-added_rfr_.max
 		elif tab == "sf":
 			refresh = self.refreshSFile
 			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
@@ -1474,7 +1474,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
 			self.copiedFile = path
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
-			self.copiedsFile = path 
+			self.copiedsFile = path
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Files":
 			self.fcopymode = mode
 			self.copiedfFile = path
@@ -1503,7 +1503,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				except:
 					QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
 					return None
-		
+
 			dstname = dstname.replace("\\","/")
 
 			self.core.copySceneFile(self.copiedFile, dstname)
@@ -1533,7 +1533,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			for i in fname:
 				newfname += i + self.core.filenameSeperator
 			newfname = newfname[:-1]
-		#	newfname = self.correctExt(self, newfname)
+			#	newfname = self.correctExt(self, newfname)
 			dstname = os.path.join(dstname, newfname)
 
 			if self.core.useLocalFiles:
@@ -1555,7 +1555,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			else:
 				self.core.addToRecent(dstname)
 				self.setRecent()
-		
+
 			self.refreshSFile()
 
 		elif tab == "f":
@@ -1810,7 +1810,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		for i in self.appFilters:
 			if eval("self.chb_aShow%s.isChecked()" % self.appFilters[i]["shortName"]):
 				appfilter += self.appFilters[i]["formats"]
-		
+
 		#example filename: Body_mod_v0002_details-added_rfr_.max
 		for i in scenefiles:
 			row = []
@@ -1855,7 +1855,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				item = QStandardItem(str(cdate))
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
-			#	item.setToolTip(cdate)
+				#	item.setToolTip(cdate)
 				row.append(item)
 				item = QStandardItem(fname[4])
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -1872,7 +1872,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 				model.appendRow(row)
 
-		
+
 		self.tw_aFiles.setModel(model)
 		self.tw_aFiles.setColumnHidden(5, True)
 		if psVersion == 1:
@@ -1887,7 +1887,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_aFiles.setColumnWidth(1,80*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(3,200*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(4,100*self.core.uiScaleFactor)
-		
+
 		self.tw_aFiles.sortByColumn(twSorting[0], twSorting[1])
 
 
@@ -2124,7 +2124,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						item = QStandardItem("")
 					else:
 						item = QStandardItem(fname[5])
-				#	self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
+					#	self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
 					cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
@@ -2133,7 +2133,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem(str(cdate))
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
-				#	item.setToolTip(cdate)
+					#	item.setToolTip(cdate)
 					row.append(item)
 					item = QStandardItem(fname[6])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -2381,7 +2381,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			item = QStandardItem()
 			item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 			item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
-		#	item.setToolTip(cdate)
+			#	item.setToolTip(cdate)
 			row.append(item)
 			item = QStandardItem(os.path.join(foldercont[0], i))
 			row.append(item)
@@ -2476,7 +2476,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem(str(cdate))
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
-				#	item.setToolTip(cdate)
+					#	item.setToolTip(cdate)
 					row.append(item)
 					item = QStandardItem(fname[4])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -2502,7 +2502,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem(str(cdate))
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
-				#	item.setToolTip(cdate)
+					#	item.setToolTip(cdate)
 					row.append(item)
 					item = QStandardItem(fname[6])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -3298,7 +3298,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				break
 		elif self.curRTask.endswith(" (external)"):
 			redirectFile = os.path.join(self.renderBasePath, "Rendering", "external", self.curRTask.replace(" (external)", ""), self.curRVersion, "REDIRECT.txt")
-			
+
 			if os.path.exists(redirectFile):
 				with open(redirectFile, "r") as rfile:
 					rpath = rfile.read()
@@ -3652,7 +3652,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.curRTask = sItems[0].text()
 		else:
 			self.curRTask = ""
-		
+
 		self.updateVersions()
 
 
@@ -3775,7 +3775,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		w_info.setLayout(lay_info)
 		sa_info.setWidget(w_info)
 		sa_info.setWidgetResizable(True)
-	
+
 		bb_info = QDialogButtonBox()
 
 		bb_info.addButton("Ok", QDialogButtonBox.AcceptRole)
@@ -3893,7 +3893,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			pAct = QAction("Default", self)
 			pAct.triggered.connect(lambda: self.compare(current=True, prog="default"))
 			playMenu.addAction(pAct)
-			
+
 			self.setRCStyle(self, playMenu)
 
 			rcmenu.addMenu(playMenu)
@@ -3921,6 +3921,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			cvtMenu.addAction(qtAct)
 			qtAct = QAction("mp4", self)
 			qtAct.triggered.connect(lambda: self.convertImgs(".mp4"))
+			cvtMenu.addAction(qtAct)
+			qtAct = QAction("gif", self)
+			qtAct.triggered.connect(lambda: self.convertImgs(".gif"))
 			cvtMenu.addAction(qtAct)
 			rcmenu.addMenu(cvtMenu)
 			self.setRCStyle(self, cvtMenu)
@@ -4171,7 +4174,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		for i in os.walk(vPath):
 			dirs = i[1]
 			break
-			
+
 		highversion = 0
 		cHighVersion = ""
 		for i in dirs:
@@ -4185,7 +4188,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if version > highversion:
 				highversion = version
 				cHighVersion = i
-					
+
 		newVersion = "v" + format(highversion + 1, '04')
 
 		curLoc = ""
@@ -4351,7 +4354,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if len(cFiles) > 0 and path not in self.compareStates:
 				self.compareStates.insert(0, path)
 				self.lw_compare.insertItem(0, str(self.lw_compare.count() + 1) + ": " + shotName + " - " + curRnd[1][idx]["task"] + " - " + curRnd[1][idx]["version"] + " - " + curRnd[1][idx]["layer"])
-			
+
 
 		if len(self.compareStates) > 0:
 			self.b_compareRV.setEnabled(True)
@@ -4578,7 +4581,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		drag = QDrag(self.l_preview)
 		mData = QMimeData()
-		
+
 		mData.setUrls(urlList)
 		drag.setMimeData(mData)
 
@@ -4616,7 +4619,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						if pVersion == 2:
 							endStr = unicode(endStr)
 						if endStr.isnumeric() and len(psources) == psources.count(psources[0]) and extension not in [".mp4", ".mov"]:
-							fname = "%s@@@@%s" % (baseName[:-4], extension)							
+							fname = "%s@@@@%s" % (baseName[:-4], extension)
 
 					if fname in sources:
 						if len(sources) == 1:
@@ -4661,7 +4664,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					self.rv = (_winreg.QueryValue(key, None))
 			else:
 				self.rv = "/usr/local/rv-Linux-x86-64-7.2.5/bin/rv"
-				
+
 			if not os.path.exists(self.rv):
 				self.rv = None
 		except:
@@ -4754,6 +4757,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		inputpath = os.path.join(self.basepath, self.seq[0]).replace("\\", "/")
 		inputExt = os.path.splitext(inputpath)[1]
 		videoInput = inputExt in [".mp4", ".mov"]
+		gifInput = inputExt in [".gif"]
 
 		if hasattr(self, "pwidth") and self.pwidth == "?":
 			QMessageBox.warning(self.core.messageParent,"Media conversion", "Cannot read media file.")
@@ -4765,7 +4769,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if self.prvIsSequence:
 			inputpath = os.path.splitext(inputpath)[0][:-4] + "%04d" + inputExt
-		
+
 		if self.curRTask.endswith(" (external)") or self.curRTask.endswith(" (2d)") or self.curRTask.endswith(" (playblast)"):
 			outputpath = os.path.join(os.path.dirname(inputpath) + "(%s)" % extension[1:], os.path.basename(inputpath))
 		else:
@@ -4778,9 +4782,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		else:
 			outputpath = os.path.splitext(outputpath)[0] + extension
 
+		#createdir
 		if not os.path.exists(os.path.dirname(outputpath)):
 			os.makedirs(os.path.dirname(outputpath))
 
+		#external task
 		if self.curRTask.endswith(" (external)"):
 			curPath = os.path.join(self.renderBasePath, "Rendering", "external", self.curRTask.replace(" (external)", ""), self.curRVersion)
 			rpath = os.path.join(curPath + "(%s)" % extension[1:], "REDIRECT.txt")
@@ -4791,6 +4797,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			with open(rpath, "w") as rfile:
 				rfile.write(os.path.dirname(outputpath))
 
+		#ffmpeg installation
 		ffmpegIsInstalled = False
 		if platform.system() == "Windows":
 			ffmpegPath = os.path.join(os.path.dirname(self.core.userini), "Tools", "FFmpeg" ,"bin", "ffmpeg.exe")
@@ -4817,10 +4824,28 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		else:
 			startNum = "0"
 
+		#ffmpeg commands
 		if videoInput:
-			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuv420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			print "videoInput"
+			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-i", inputpath,
+									  "-start_number", startNum, outputpath, "-y"],
+									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		elif gifInput:
+			print "gifInput"
+			#temporary pallette
+			paletteFile = os.path.join(os.path.dirname(outputpath),"TMP_palettefile.png")
+			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-vf", "palettegen"
+									  "-i", inputpath, paletteFile, "-y"],
+									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			#pResult = pProc.communicate()
+
 		else:
-			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", "24", "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			print "else"
+			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum,
+									  "-framerate", "24", "-apply_trc",	"iec61966_2_1",
+									  "-i", inputpath, "-pix_fmt", "yuva420p",
+									  "-start_number", startNum, outputpath, "-y"],
+									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		result = nProc.communicate()
 
 		if self.prvIsSequence or videoInput:
@@ -4884,7 +4909,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				curPassName = imgs[0].split(".")[0]
 				increment = "####"
 				curPassFormat = imgs[0].split(".")[-1]
-	 
+
 				filePath =  os.path.join(sourceFolder,curPass,".".join([curPassName,increment,curPassFormat])).replace("\\","/")
 			else:
 				filePath =  os.path.join(curPassPath, imgs[0]).replace("\\","/")
