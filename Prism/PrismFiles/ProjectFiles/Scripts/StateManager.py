@@ -88,7 +88,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 	def __init__(self, core, stateDataPath=None, getVersion=False):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
-		self.version = "v1.0.11.0"
+		self.version = "v1.1.0.0"
 
 		if getVersion:
 			self.close()
