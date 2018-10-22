@@ -99,7 +99,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		self.core = core
 		self.core.parentWindow(self)
 	
-		self.core.plugin.createProject_startup(self)
+		self.core.appPlugin.createProject_startup(self)
 
 		nameTT = "The name of the new project.\nThe project name will be visible at different locations in the Prism user interface."
 		self.l_name.setToolTip(nameTT)
@@ -230,7 +230,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 			cAct = QAction("Default", self)
 			cAct.triggered.connect(lambda: model.setData(idx, "Default"))
 			typeMenu.addAction(cAct)
-			self.core.plugin.setRCStyle(self, typeMenu)
+			self.core.appPlugin.setRCStyle(self, typeMenu)
 
 			typeMenu.exec_(QCursor.pos())
 
@@ -408,8 +408,8 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		self.core.setConfig(data=cData, configPath=inipath)
 
 
-		getattr(self.core.plugin, "callback_projectCreated", lambda x1,x2: None)(self, path)
-		for i in self.core.unloadedPlugins:
+		getattr(self.core.appPlugin, "callback_projectCreated", lambda x1,x2: None)(self, path)
+		for i in self.core.unloadedAppPlugins:
 			getattr(i, "callback_projectCreated", lambda x1,x2: None)(self, path)
 
 		self.inipath = inipath

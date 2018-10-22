@@ -86,7 +86,7 @@ class SetProjectClass(object):
 		self.refreshUi()
 		self.connectEvents()
 
-		self.core.plugin.setProject_loading(self)
+		self.core.appPlugin.setProject_loading(self)
 		self.resize(self.width(), self.minimumSizeHint().height())
 
 
@@ -193,7 +193,7 @@ class SetProjectClass(object):
 		delAct.triggered.connect(lambda: self.deleteRecent(rProject))
 		rcmenu.addAction(delAct)
 
-		self.core.plugin.setRCStyle(self, rcmenu)
+		self.core.appPlugin.setRCStyle(self, rcmenu)
 
 		rcmenu.exec_(QCursor.pos())
 

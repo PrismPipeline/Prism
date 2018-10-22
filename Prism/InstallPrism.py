@@ -519,6 +519,7 @@ class PrismInstaller():
 
 				if os.path.exists(pMenuSource) and os.path.exists(os.path.dirname(pMenuTarget)):
 					shutil.copy2(pMenuSource, pMenuTarget)
+					os.chmod(pMenuTarget, 0o777)
 				else:
 					print "could not create Prism startmenu entry"
 
@@ -597,6 +598,7 @@ class PrismInstaller():
 						#	os.system("launchctl load /Users/%s/Library/LaunchAgents/com.PrismTray.plist" % userName)
 					else:
 						shutil.copy2(trayLnk, trayStartup)
+						os.chmod(trayStartup, 0o777)
 				else:
 					print "could not create PrismTray autostart entry"
 
@@ -608,6 +610,7 @@ class PrismInstaller():
 							shutil.copytree(trayLnk, trayStartMenu)
 						else:
 							shutil.copy2(trayLnk, trayStartMenu)
+							os.chmod(trayStartMenu, 0o777)
 					else:
 						print "could not create PrismTray startmenu entry"
 
@@ -619,6 +622,7 @@ class PrismInstaller():
 						shutil.copytree(pbLnk, pbStartMenu)
 					else:
 						shutil.copy2(pbLnk, pbStartMenu)
+						os.chmod(pbStartMenu, 0o777)
 				else:
 					print "could not create PrismProjectBrowser startmenu entry"
 
@@ -630,6 +634,7 @@ class PrismInstaller():
 						shutil.copytree(settingsLnk, settingsStartMenu)
 					else:
 						shutil.copy2(settingsLnk, settingsStartMenu)
+						os.chmod(settingsStartMenu, 0o777)
 				else:
 					print "could not create PrismSettings startmenu entry"
 

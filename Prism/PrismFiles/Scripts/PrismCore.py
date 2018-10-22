@@ -131,8 +131,15 @@ class PrismCore():
 
 			self.userini = os.path.join(self.prismRoot, "Prism.ini")
 
-			self.pluginPath = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "Plugins"))
-			sys.path.append(self.pluginPath)
+			self.pluginPathApp = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "Plugins", "Apps"))
+			self.pluginPathCustom = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "Plugins", "Custom"))
+			self.pluginPathPrjMng = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "Plugins", "ProjectManagers"))
+			self.pluginPathRFMng = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "Plugins", "RenderfarmManagers"))
+			self.pluginDirs = [self.pluginPathApp, self.pluginPathCustom, self.pluginPathPrjMng, self.pluginPathRFMng]
+			prjScriptPath = os.path.abspath(os.path.join(__file__, os.pardir, "ProjectScripts"))
+			for i in self.pluginDirs:
+				sys.path.append(i)
+			sys.path.append(prjScriptPath)
 
 			self.prismArgs = prismArgs
 
@@ -149,7 +156,6 @@ class PrismCore():
 			for val in sys.path:
 				if "00_Pipeline" in val:
 					sys.path.remove(val)
-
 
 			# add the custom python libraries to the path variable, so they can be imported
 			if pVersion == 2:
@@ -214,58 +220,66 @@ class PrismCore():
 
 	@err_decorator
 	def updatePlugins(self, current):
-		self.unloadedPlugins = []
+		self.unloadedAppPlugins = []
+		self.customPlugins = {}
+		customPlugins = []
 		self.rfManagers = {}
 		rfManagers = []
 		self.prjManagers = {}
 		prjManagers = []
 
-		for i in os.listdir(self.pluginPath):
-			initmodule = "Prism_%s_init" % i
-			initPath = os.path.join(self.pluginPath, i, "Scripts", initmodule + ".py")
-			if i == current or not (os.path.exists(initPath) or os.path.exists(initPath.replace("_init", "_init_unloaded"))):
-				continue
+		sys.path.append(os.path.join(self.pluginPathApp, current, "Scripts"))
+		self.appPlugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
 
-			sys.path.append(os.path.dirname(initPath))
-		#	try:
-			pPlug = getattr(__import__("Prism_%s_init_unloaded" % (i)), "Prism_%s_unloaded" % i)(self)
-			if platform.system() in pPlug.platforms:
-				if pPlug.appType in ["3d", "2d", "standalone"]:
-					self.unloadedPlugins.append(pPlug)
-				elif pPlug.appType in ["RenderfarmManager"]:
-					rfManagers.append(pPlug)
-				elif pPlug.appType in ["ProjectManager"]:
-					prjManagers.append(pPlug)
-		#	except:
-		#		pass
-	
-		sys.path.append(os.path.join(self.pluginPath, current, "Scripts"))
-		self.plugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
-
-		if not self.plugin:
+		if not self.appPlugin:
 			QMessageBox.critical(QWidget(), "Prism Error", "Prism could not initialize correctly and may not work correctly in this session.")
 			return
 
-		if self.plugin.appType == "3d":
+		for k in self.pluginDirs:
+			if not os.path.exists(k):
+				continue
+
+			for i in os.listdir(k):
+				initmodule = "Prism_%s_init" % i
+				initPath = os.path.join(k, i, "Scripts", initmodule + ".py")
+				if i == current or not (os.path.exists(initPath) or os.path.exists(initPath.replace("_init", "_init_unloaded"))):
+					continue
+
+				sys.path.append(os.path.dirname(initPath))
+				pPlug = getattr(__import__("Prism_%s_init_unloaded" % (i)), "Prism_%s_unloaded" % i)(self)
+				if platform.system() in pPlug.platforms:
+					if pPlug.pluginType in ["App"]:
+						self.unloadedAppPlugins.append(pPlug)
+					elif pPlug.pluginType in ["Custom"]:
+						customPlugins.append(pPlug)
+					elif pPlug.pluginType in ["RenderfarmManager"]:
+						rfManagers.append(pPlug)
+					elif pPlug.pluginType in ["ProjectManager"]:
+						prjManagers.append(pPlug)
+
+		for i in customPlugins:
+			self.customPlugins[i.pluginName] = i
+
+		if self.appPlugin.appType == "3d":
 			for i in rfManagers:
 				if i.isActive():
-					self.rfManagers[i.appName] = i
+					self.rfManagers[i.pluginName] = i
 
 		for i in prjManagers:
-			self.prjManagers[i.appName] = i
+			self.prjManagers[i.pluginName] = i
 
-		if not self.plugin.hasQtParent:
+		if not self.appPlugin.hasQtParent:
 			self.messageParent = QWidget()
 			self.parentWindows = False
 			pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python27", "PySide")
 			if pyLibs not in sys.path:
 				sys.path.append(pyLibs)
-			if self.plugin.appName != "Standalone":
+			if self.appPlugin.pluginName != "Standalone":
 				self.messageParent.setWindowFlags(self.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
-		getattr(self.plugin, "instantStartup", lambda x:None)(self)
+		getattr(self.appPlugin, "instantStartup", lambda x:None)(self)
 
-		if self.plugin.appName != "Standalone":
+		if self.appPlugin.pluginName != "Standalone":
 			self.maxwait = 20
 			self.elapsed = 0
 			self.timer = QTimer()
@@ -279,7 +293,7 @@ class PrismCore():
 
 	@err_decorator
 	def reloadPlugins(self):
-		for i in [self.plugin.appName]: # self.getPluginNames():
+		for i in [self.appPlugin.pluginName]: # self.getPluginNames():
 			mods = ["Prism_%s_init" % i, "Prism_%s_externalAccess_Functions" % i, "Prism_%s_Functions" % i, "Prism_%s_Variables" % i]
 			for k in mods:
 				try:
@@ -291,19 +305,41 @@ class PrismCore():
 				except:
 					pass
 
-			self.plugin = getattr(__import__("Prism_%s_init" % i), "Prism_Plugin_%s" % i)(self)
+			self.appPlugin = getattr(__import__("Prism_%s_init" % i), "Prism_Plugin_%s" % i)(self)
 
 			#	__import__(k)
 
 
 	@err_decorator
+	def callback(self, name="", types=["custom"], args=[], kwargs={}):
+		if "curApp" in types:
+			getattr(self.appPlugin, name, lambda *args, **kwargs: None)(*args, **kwargs)
+
+		if "unloadedApps" in types:
+			for i in self.unloadedAppPlugins:
+				getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+
+		if "custom" in types:
+			for i in self.customPlugins.values():
+				getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+
+		if "prjManagers" in types:
+			for i in self.prjManagers.values():
+				getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+
+		if "rfManagers" in types:
+			for i in self.rfManagers.values():
+				getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+
+
+	@err_decorator
 	def startup(self):
-		if self.plugin.hasQtParent:
+		if self.appPlugin.hasQtParent:
 			self.elapsed += 1
 			if self.elapsed > self.maxwait:
 				self.timer.stop()
 
-		result = self.plugin.startup(self)
+		result = self.appPlugin.startup(self)
 
 		if result is not None:
 			return result
@@ -347,7 +383,7 @@ class PrismCore():
 
 	@err_decorator
 	def checkAutoSave(self):
-		if self.plugin.autosaveEnabled(self):
+		if self.appPlugin.autosaveEnabled(self):
 			return
 
 		msg = QMessageBox()
@@ -558,8 +594,6 @@ class PrismCore():
 			if self.getConfig(rSection, "recent" + "%02d" % (i+1)) is None:
 				self.setConfig(rSection, "recent" + "%02d" % (i+1), "")
 
-		sys.path.append(os.path.join(os.path.dirname(self.prismIni), "Scripts"))
-
 		sep = self.getConfig("globals", "filenameseperator", configPath=self.prismIni)
 		if sep is not None:
 			self.filenameSeperator = self.validateStr(sep, allowChars=[self.filenameSeperator])
@@ -567,9 +601,7 @@ class PrismCore():
 		self.setRecentPrj(inipath)
 		self.checkAppVersion()
 		self.checkCommands()
-		self.plugin.projectChanged(self)
-		for i in self.prjManagers.values():
-			i.projectChanged(self)
+		self.callback(name="onProjectChanged", types=["curApp", "custom", "prjManagers"], args=[self])
 
 		if openPb or openUi == "projectBrowser":
 			self.projectBrowser()
@@ -883,8 +915,8 @@ class PrismCore():
 	def parentWindow(self, win):
 		self.scaleUI(win)
 
-		if not self.plugin.hasQtParent:
-			if self.plugin.appName != "Standalone":
+		if not self.appPlugin.hasQtParent:
+			if self.appPlugin.pluginName != "Standalone":
 				win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
 	
 		if not self.parentWindows:
@@ -957,7 +989,7 @@ class PrismCore():
 
 	@err_decorator
 	def stateManager(self, stateDataPath=None, restart=False):
-		if self.plugin.appType != "3d":
+		if self.appPlugin.appType != "3d":
 			return False
 
 		if not os.path.exists(self.userini):
@@ -995,41 +1027,12 @@ class PrismCore():
 							os.remove(modPath)
 
 						import StateManager
-					except:
-						msgString = "Could not load the StateManager.\n\nYou can replace the Prism scripts in your project with scripts from your local Prism installation.\nThis should fix the problem if your project scripts are corrupted."
+					except Exception as e:
+						msgString = "Could not load the StateManager:\n\n%s" % str(e)
 						msg = QMessageBox(QMessageBox.Warning, "Prism Error", msgString, QMessageBox.Ok)
-						msg.addButton("Reset project scripts", QMessageBox.YesRole)
-						msg.setFocus()
 						self.parentWindow(msg)
 						action = msg.exec_()
-
-						if action == 0:
-							self.updateProject(resetScripts=True)
-							self.stateManager()
-
 						return
-
-
-				try:
-					sversionStr = StateManager.StateManager(core = self, getVersion=True)
-					sversion = sversionStr.version[1:].split(".")
-					sversion = [int(x) for x in sversion]
-				except:
-					sversion = None
-
-				if sversion is not None:
-					coreversion = self.version[1:].split(".")
-					coreversion = [int(x) for x in coreversion]
-					if sversion[0] < coreversion[0] or (sversion[0] == coreversion[0] and sversion[1] < coreversion[1]) or (sversion[0] == coreversion[0] and sversion[1] == coreversion[1] and sversion[2] < coreversion[2]):
-						action = self.displayUpdateDlg(sversionStr.version)
-
-						if action == 1:
-							self.updateProject()
-							self.stateManager()
-							return False
-
-					elif sversion[:3] != coreversion[:3]:
-						self.displayUpdateDlg(sversionStr.version, canUpdate=False)
 
 				self.sm = StateManager.StateManager(core = self, stateDataPath=stateDataPath)
 
@@ -1046,7 +1049,8 @@ class PrismCore():
 	def closeSM(self, restart=False):
 		if hasattr(self, "sm"):
 			self.sm.saveEnabled = False
-			self.sm.close()
+			if self.sm.isVisible():
+				self.sm.close()
 			del self.sm			
 
 			if restart:
@@ -1066,10 +1070,8 @@ class PrismCore():
 			self.setProject(openUi="projectBrowser")
 			return False
 
-		try:
+		if hasattr(self, "pb") and self.pb.isVisible():
 			self.pb.close()
-		except:
-			pass
 
 		if not self.validateUser():
 			self.changeUser()
@@ -1089,40 +1091,13 @@ class PrismCore():
 						os.remove(modPath)
 				
 					import ProjectBrowser
-				except:
-					msgString = "Could not load the ProjectBrowser.\n\nYou can replace the Prism scripts in your project with scripts from your local Prism installation.\nThis should fix the problem if your project scripts are corrupted."
+				except Exception as e:
+					msgString = "Could not load the ProjectBrowser:\n\n%s" % str(e)
 					msg = QMessageBox(QMessageBox.Warning, "Prism Error", msgString, QMessageBox.Ok)
 					msg.addButton("Reset project scripts", QMessageBox.YesRole)
-					msg.setFocus()
 					self.parentWindow(msg)
 					action = msg.exec_()
-
-					if action == 0:
-						self.updateProject(resetScripts=True)
-						self.projectBrowser()
-
 					return False
-
-			try:
-				bversionStr = ProjectBrowser.ProjectBrowser(core = self, getVersion=True)
-				bversion = bversionStr.version[1:].split(".")
-				bversion = [int(x) for x in bversion]
-			except:
-				bversion = None
-
-			if bversion is not None:
-				coreversion = self.version[1:].split(".")
-				coreversion = [int(x) for x in coreversion]
-				if bversion[0] < coreversion[0] or (bversion[0] == coreversion[0] and bversion[1] < coreversion[1]) or (bversion[0] == coreversion[0] and bversion[1] == coreversion[1] and bversion[2] < coreversion[2]):
-					action = self.displayUpdateDlg(bversionStr.version)
-
-					if action == 1:
-						self.updateProject()
-						self.projectBrowser()
-						return False
-
-				elif bversion[:3] != coreversion[:3]:
-					self.displayUpdateDlg(bversionStr.version, canUpdate=False)
 			
 			self.pb = ProjectBrowser.ProjectBrowser(core = self)
 			self.pb.show()
@@ -1131,60 +1106,12 @@ class PrismCore():
 
 
 	@err_decorator
-	def displayUpdateDlg(self, pversion, canUpdate=True):
-		msg = QDialog()
-
-		if canUpdate:
-			msg.setWindowTitle("Prism update available")
-			l_info = QLabel("The project %s uses an older version of prism than the installed one:\n" % self.projectName)
-		else:
-			msg.setWindowTitle("Warning")
-			l_info = QLabel("The project %s is on a newer version than the version of Prism you have installed.\nIt is recommended to install the latest version of Prism.\n" % self.projectName)
-
-		l_info2 = QLabel("Prism:\n\nProject %s:\n\n" % self.projectName)
-		l_versions = QLabel("%s\n\n%s\n\n" % (self.version, pversion))
-
-		w_versions = QWidget()
-		lay_versions = QHBoxLayout()
-		lay_versions.addWidget(l_info2)
-		lay_versions.addWidget(l_versions)
-		lay_versions.setContentsMargins(0,10,10,10)
-		w_versions.setLayout(lay_versions)
-	
-		bb_update = QDialogButtonBox()
-
-		if canUpdate:
-			bb_update.addButton("Update project", QDialogButtonBox.AcceptRole)
-			bb_update.addButton("Cancel", QDialogButtonBox.RejectRole)
-		else:
-			bb_update.addButton("Ok", QDialogButtonBox.AcceptRole)
-
-		bb_update.accepted.connect(msg.accept)
-		bb_update.rejected.connect(msg.reject)
-
-		bLayout = QVBoxLayout()
-		bLayout.addWidget(l_info)
-		bLayout.addWidget(w_versions)
-		bLayout.addStretch()
-		bLayout.addWidget(bb_update)
-		msg.setLayout(bLayout)
-		msg.setParent(self.messageParent, Qt.Window)
-		msg.setFocus()
-
-		action = msg.exec_()
-
-		return action
-
-
-	@err_decorator
 	def prismSettings(self, tab=0):
 		if not os.path.exists(self.userini):
 			self.createUserPrefs()
 
-		try:
+		if hasattr(self, "ps") and self.ps.isVisible():
 			self.ps.close()
-		except:
-			pass
 
 		try:
 			del sys.modules["PrismSettings"]
@@ -1246,7 +1173,7 @@ class PrismCore():
 		self.cu.setModal(True)
 		self.parentWindow(self.cu)
 
-		if self.plugin.appName == "Standalone":
+		if self.appPlugin.pluginName == "Standalone":
 			self.cu.buttonBox.rejected.connect(self.changeUserRejected)
 
 		self.cu.exec_()
@@ -1306,131 +1233,14 @@ class PrismCore():
 
 
 	@err_decorator
-	def updateProject(self, resetScripts=False):
-		openPb=False
-		openSm =False
-		openPs = False
-
-		try:
-			if hasattr(self, "pb") and self.pb.isVisible():
-				self.pb.close()
-				openPb = True
-		except:
-			pass
-
-
-		if hasattr(self, "sm"):
-			if self.sm.isVisible():
-				openSm =True
-			self.closeSM()
-		try:
-			if hasattr(self, "sp") and self.sp.isVisible():
-				self.sp.close()
-		except:
-			pass
-
-		try:
-			if hasattr(self, "ps") and self.ps.isVisible():
-				self.ps.close()
-				openPs = True
-		except:
-			pass
-
-		while True:
-			if resetScripts:
-				try:
-					for i in ["Scripts"]:
-						targetDir = os.path.join(os.path.dirname(self.prismIni), i)
-						sourceDir = os.path.join(self.prismRoot, "ProjectFiles", i)
-						if os.path.exists(targetDir):
-							shutil.rmtree(targetDir)
-						if os.path.exists(sourceDir):
-							shutil.copytree(sourceDir, targetDir)
-					break
-
-				except Exception as e:
-					msg = QMessageBox(QMessageBox.Warning, "Reset scripts", "Reset scripts failed\nPermission denied. Another process is using files in the 00_Pipeline folder." + str(e), QMessageBox.Cancel, parent=self.messageParent)
-					msg.addButton("Retry", QMessageBox.YesRole)
-					action = msg.exec_()
-
-					if action != 0:
-						QMessageBox.warning(self.messageParent, "Reset scripts", "Your project scripts may be corrupted.\nIf that's the case, you have to manualy copy the project scripts from your Prism installation to your current project.")
-						break
-			else:
-				try:
-					for i in ["Scripts", "Fallbacks", "HDAs"]:
-						targetDir = os.path.join(os.path.dirname(self.prismIni), i)
-						sourceDir = os.path.join(self.prismRoot, "ProjectFiles", i)
-						if os.path.exists(targetDir):
-							shutil.rmtree(targetDir)
-						if os.path.exists(sourceDir):
-							shutil.copytree(sourceDir, targetDir)
-
-					for k in ["EmptyScenes", "Hooks"]:
-						targetDir = os.path.join(os.path.dirname(self.prismIni), k)
-						sourceDir = os.path.join(self.prismRoot, "ProjectFiles", k)
-
-						if os.path.exists(sourceDir):
-							if not os.path.exists(targetDir):
-								try:
-									os.makedirs(targetDir)
-								except:
-									pass
-								else:
-									for i in os.listdir(sourceDir):
-										sfpath = os.path.join(sourceDir, i)
-										tfpath = os.path.join(targetDir, i)
-										copyFile = True
-
-										if os.path.exists(tfpath):
-											iFileDate = int(os.path.getmtime(sfpath))
-											pFileDate = int(os.path.getmtime(tfpath))
-											if pFileDate >= iFileDate:
-												copyFile = False
-											else:
-												try:
-													os.remove(tfpath)
-												except:
-													pass
-
-										if copyFile:
-											shutil.copy2(sfpath, tfpath)
-
-					for i in os.listdir(os.path.dirname(self.prismIni)):
-						if i.endswith(".bat"):
-							os.remove(os.path.join(os.path.dirname(self.prismIni), i))
-
-					for i in os.listdir(os.path.join(self.prismRoot, "ProjectFiles")):
-						if i.endswith(".bat"):
-							shutil.copy2(os.path.join(self.prismRoot, "ProjectFiles", i), os.path.dirname(self.prismIni))
-					break
-
-				except Exception as e:
-					msg = QMessageBox(QMessageBox.Warning, "Project Update", "Updating project failed\nPermission denied. Another process is using files in the 00_Pipeline folder." + str(e), QMessageBox.Cancel, parent=self.messageParent)
-					msg.addButton("Retry", QMessageBox.YesRole)
-					action = msg.exec_()
-
-					if action != 0:
-						QMessageBox.warning(self.messageParent, "Project Update", "Your project scripts may be corrupted.\nIf that's the case, you have to manualy copy the project scripts from your Prism installation to your current project.")
-						break
-
-		if openPb:
-			self.projectBrowser()
-
-		if openSm:
-			self.stateManager()
-
-		if openPs:
-			self.prismSettings()
-
-
-	@err_decorator
 	def callHook(self, hookName, args={}):
+		self.callback(name=hookName, types=["curApp", "custom"], kwargs=args)
+
 		if not hasattr(self, "projectPath") or self.projectPath == None:
 			return
 
 		hookPath = os.path.join(self.projectPath, "00_Pipeline", "Hooks", hookName + ".py")
-		if os.path.exists(hookPath):
+		if os.path.basename(hookPath) in os.listdir(os.path.dirname(hookPath)):
 			hookDir = os.path.dirname(hookPath)
 			if not hookDir in sys.path:
 				sys.path.append(os.path.dirname(hookPath))
@@ -1478,7 +1288,7 @@ class PrismCore():
 			if isUserIni:
 				warnStr = "The Prism preferences file seems to be corrupt.\n\nIt will be reset, which means all local Prism settings will fall back to their defaults.\nYou will need to set your last project again, but no project files (like scenefiles or renderings) are lost."
 			else:
-				warnStr = "Cannot read the following file. It will be reset now:\n\n"
+				warnStr = "Cannot read the following file:\n\n%s" % configPath
 				
 			msg = QMessageBox(QMessageBox.Warning, "Warning", warnStr, QMessageBox.Ok, parent=self.messageParent)
 			msg.setFocus()
@@ -1550,7 +1360,7 @@ class PrismCore():
 			if isUserIni:
 				warnStr = "The Prism preferences file seems to be corrupt.\n\nIt will be reset, which means all local Prism settings will fall back to their defaults.\nYou will need to set your last project again, but no project files (like scenefiles or renderings) are lost."
 			else:
-				warnStr = "Cannot read the following file. It will be reset now:\n\n"
+				warnStr = "Cannot read the following file. It will be reset now:\n\n%s" % configPath
 
 			msg = QMessageBox(QMessageBox.Warning, "Warning", warnStr, QMessageBox.Ok, parent=self.messageParent)
 			msg.setFocus()
@@ -1679,17 +1489,17 @@ class PrismCore():
 
 	@err_decorator
 	def getPluginNames(self):
-		pluginNames = [x.appName for x in self.unloadedPlugins]
-		pluginNames.append(self.plugin.appName)
+		pluginNames = [x.pluginName for x in self.unloadedAppPlugins]
+		pluginNames.append(self.appPlugin.pluginName)
 
 		return sorted(pluginNames)
 
 
 	@err_decorator
 	def getPluginSceneFormats(self):
-		pluginFormats = list(self.plugin.sceneFormats)
+		pluginFormats = list(self.appPlugin.sceneFormats)
 
-		for i in self.unloadedPlugins:
+		for i in self.unloadedAppPlugins:
 			pluginFormats += i.sceneFormats
 
 		return pluginFormats
@@ -1697,11 +1507,11 @@ class PrismCore():
 
 	@err_decorator
 	def getPluginData(self, pluginName, data):
-		if pluginName == self.plugin.appName:
-			return getattr(self.plugin, data, None)
+		if pluginName == self.appPlugin.pluginName:
+			return getattr(self.appPlugin, data, None)
 		else:
-			for i in self.unloadedPlugins:
-				if i.appName == pluginName:
+			for i in self.unloadedAppPlugins:
+				if i.pluginName == pluginName:
 					return getattr(i, data, None)
 
 		return None
@@ -1709,11 +1519,11 @@ class PrismCore():
 
 	@err_decorator
 	def getPlugin(self, pluginName):
-		if pluginName == self.plugin.appName:
-			return self.plugin
+		if pluginName == self.appPlugin.pluginName:
+			return self.appPlugin
 		else:
-			for i in self.unloadedPlugins:
-				if i.appName == pluginName:
+			for i in self.unloadedAppPlugins:
+				if i.pluginName == pluginName:
 					return i
 
 		return None
@@ -1721,7 +1531,7 @@ class PrismCore():
 
 	@err_decorator
 	def getCurrentFileName(self, path=True):
-		currentFileName = self.plugin.getCurrentFileName(self, path)
+		currentFileName = self.appPlugin.getCurrentFileName(self, path)
 		currentFileName = self.fixPath(currentFileName)
 
 		return currentFileName
@@ -1914,12 +1724,11 @@ class PrismCore():
 		assetPaths = []
 		for path in dirs:
 			val = os.path.basename(path)
-			if val[:5] != "step_":
-				if path == aBasePath or (self.useLocalFiles and path == lBasePath):
-					if aBasePath not in assetPaths:
-						assetPaths.append(aBasePath)
-				else:
-					assetPaths += self.refreshAItem(path)
+			if path == aBasePath or (self.useLocalFiles and path == lBasePath):
+				if aBasePath not in assetPaths:
+					assetPaths.append(aBasePath)
+			else:
+				assetPaths += self.refreshAItem(path)
 
 		return assetPaths
 
@@ -1944,7 +1753,6 @@ class PrismCore():
 			dirContentPaths += [os.path.join(lpath,x) for x in os.listdir(lpath)]
 
 		isAsset = False
-		hasStep = False
 		if "Export" in dirContent and "Playblasts" in dirContent and "Rendering" in dirContent and "Scenefiles" in dirContent:
 			isAsset = True
 			return [path]
@@ -1953,12 +1761,9 @@ class PrismCore():
 			assetPaths = []
 			for i in dirContentPaths:
 				if os.path.isdir(i):
-					if os.path.basename(i).startswith("step_"):
-						hasStep = True
-					else:
-						if os.path.basename(i) not in childs:
-							childs.append(os.path.basename(i))
-							assetPaths += self.refreshAItem(i)
+					if os.path.basename(i) not in childs:
+						childs.append(os.path.basename(i))
+						assetPaths += self.refreshAItem(i)
 
 			return assetPaths
 
@@ -2002,13 +1807,13 @@ class PrismCore():
 					fname[2] = self.getHighestVersion(dstname, "Asset")
 					fname[3] = comment
 					fname[4] = self.user
-					fname[5] = self.plugin.getSceneExtension(self)
+					fname[5] = self.appPlugin.getSceneExtension(self)
 
 				elif len(fname) == 8:
 					fname[4] = self.getHighestVersion(dstname, "Shot")
 					fname[5] = comment
 					fname[6] = self.user
-					fname[7] = self.plugin.getSceneExtension(self)
+					fname[7] = self.appPlugin.getSceneExtension(self)
 
 				newfname = ""
 				for i in fname:
@@ -2022,7 +1827,8 @@ class PrismCore():
 			QMessageBox.warning(self.messageParent, "Could not save the file", "The filepath is longer than 255 characters (%s), which is not supported on Windows." % outLength)
 			return False
 
-		result = self.plugin.saveScene(self, filepath)
+		result = self.appPlugin.saveScene(self, filepath)
+		self.callback(name="onSaveFile", types=["custom"], args=[self, filepath])
 
 		if result == False:
 			return False			
@@ -2091,10 +1897,10 @@ class PrismCore():
 	def copySceneFile(self, origFile, targetFile):
 		shutil.copy2(self.fixPath(origFile), self.fixPath(targetFile))
 		ext = os.path.splitext(origFile)[1]
-		if ext in self.plugin.sceneFormats:
-			getattr(self.plugin, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
+		if ext in self.appPlugin.sceneFormats:
+			getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
 		else:
-			for i in self.unloadedPlugins:
+			for i in self.unloadedAppPlugins:
 				if ext in i.sceneFormats:
 					getattr(i, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
 
@@ -2210,7 +2016,7 @@ class PrismCore():
 		if not self.sceneOpenChecksEnabled:
 			return
 
-		self.plugin.sceneOpen(self)
+		self.appPlugin.sceneOpen(self)
 
 		self.checkImportVersions()
 		self.checkFramerange()
@@ -2229,7 +2035,7 @@ class PrismCore():
 		if not checkImpVersions:
 			return
 
-		paths = self.plugin.getImportPaths(self)
+		paths = self.appPlugin.getImportPaths(self)
 
 		if paths == False:
 			return
@@ -2279,7 +2085,7 @@ class PrismCore():
 		if self.getConfig('paths', "scenes", configPath=self.prismIni) is None:
 			return
 
-		if not getattr(self.plugin, "hasFrameRange", True):
+		if not getattr(self.appPlugin, "hasFrameRange", True):
 			return
 
 		checkRange = self.getConfig("globals", "checkframeranges", ptype="bool")
@@ -2313,7 +2119,7 @@ class PrismCore():
 		if type(shotRange) != list or len(shotRange) != 2:
 			return
 
-		curRange = self.plugin.getFrameRange(self)
+		curRange = self.appPlugin.getFrameRange(self)
 
 		if int(curRange[0]) == shotRange[0] and int(curRange[1]) == shotRange[1]:
 			return			
@@ -2331,12 +2137,12 @@ class PrismCore():
 
 	@err_decorator
 	def getFrameRange(self):
-		return self.plugin.getFrameRange(self)
+		return self.appPlugin.getFrameRange(self)
 
 
 	@err_decorator
 	def setFrameRange(self, startFrame, endFrame):
-		self.plugin.setFrameRange(self, startFrame, endFrame)
+		self.appPlugin.setFrameRange(self, startFrame, endFrame)
 
 
 	def checkFPS(self):
@@ -2345,7 +2151,7 @@ class PrismCore():
 		if forceFPS != "True":
 			return
 
-		if not getattr(self.plugin, "hasFrameRange", True):
+		if not getattr(self.appPlugin, "hasFrameRange", True):
 			return
 
 		if not self.fileInPipeline():
@@ -2404,24 +2210,24 @@ class PrismCore():
 
 	@err_decorator
 	def getFPS(self):
-		return float(self.plugin.getFPS(self))
+		return float(self.appPlugin.getFPS(self))
 
 
 	@err_decorator
 	def checkAppVersion(self):
 		fversion = self.getConfig("globals", "forceversions", configPath=self.prismIni)
-		if fversion is None or not eval(fversion) or self.plugin.appType == "standalone":
+		if fversion is None or not eval(fversion) or self.appPlugin.appType == "standalone":
 			return
 
-		rversion = self.getConfig("globals", "%s_version" % self.plugin.appName, configPath=self.prismIni)
+		rversion = self.getConfig("globals", "%s_version" % self.appPlugin.pluginName, configPath=self.prismIni)
 		if rversion is None or rversion == "":
 			return
 
-		curVersion = self.plugin.getAppVersion(self)
+		curVersion = self.appPlugin.getAppVersion(self)
 
 		if curVersion != rversion:
 			QMessageBox.warning(self.messageParent,"Warning", "You use a different %s version, than configured in your \
-current project.\n\nYour current version: %s\nVersion configured in project: %s\n\nPlease use the required %s version to avoid incompatibility problems." % (self.plugin.appName, curVersion, rversion, self.plugin.appName))
+current project.\n\nYour current version: %s\nVersion configured in project: %s\n\nPlease use the required %s version to avoid incompatibility problems." % (self.appPlugin.pluginName, curVersion, rversion, self.appPlugin.pluginName))
 
 
 	@err_decorator
@@ -2497,10 +2303,10 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 					QMessageBox.warning(self.messageParent, "Warning", "Could not create output folder")
 
 			self.saveVersionInfo(location=os.path.dirname(outputName), version=hVersion, origin=self.getCurrentFileName())
-			self.plugin.isRendering = [True, outputName]
+			self.appPlugin.isRendering = [True, outputName]
 		else:
-			if self.plugin.isRendering[0]:
-				return self.plugin.isRendering[1]
+			if self.appPlugin.isRendering[0]:
+				return self.appPlugin.isRendering[1]
 	
 		return outputName
 

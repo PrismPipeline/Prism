@@ -1,0 +1,248 @@
+{
+    Language = "Python2",
+ 
+    Action {
+        ID = "PrismSave",
+        Category = "Prism",
+        Name = "Save Version",
+       
+        Targets = {
+            Composition = {
+                Execute = _Python [=[
+import os, sys, platform
+
+if platform.system() == "Windows":
+    prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
+elif platform.system() == "Linux":
+    prismRoot = "/usr/local/Prism"
+elif platform.system() == "Darwin":
+    prismRoot = "/Applications/Prism/Prism"
+
+sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+qapp = QApplication.instance()
+if qapp == None:
+  qapp = QApplication(sys.argv)
+
+import PrismCore
+pcore = PrismCore.PrismCore(app="Fusion")
+pcore.appPlugin.fusion = fusion
+
+curPrj = pcore.getConfig("globals", "current project")
+pcore.changeProject(curPrj)
+pcore.saveScene()
+                ]=],
+            },
+        },
+    },
+ 
+    Action {
+        ID = "PrismCommentsave",
+        Category = "Prism",
+        Name = "Save Comment",
+       
+        Targets = {
+            Composition = {
+                Execute = _Python [=[
+import os, sys, platform
+
+if platform.system() == "Windows":
+    prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
+elif platform.system() == "Linux":
+    prismRoot = "/usr/local/Prism"
+elif platform.system() == "Darwin":
+    prismRoot = "/Applications/Prism/Prism"
+
+sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+qapp = QApplication.instance()
+if qapp == None:
+  qapp = QApplication(sys.argv)
+
+import PrismCore
+pcore = PrismCore.PrismCore(app="Fusion")
+pcore.appPlugin.fusion = fusion
+
+curPrj = pcore.getConfig("globals", "current project")
+pcore.changeProject(curPrj)
+pcore.saveWithComment()
+                ]=],
+            },
+        },
+    },
+
+    Action {
+        ID = "PrismProjectBrowser",
+        Category = "Prism",
+        Name = "Project Browser",
+       
+        Targets = {
+            Composition = {
+                Execute = _Python [=[
+import os, sys, platform
+
+if platform.system() == "Windows":
+    prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
+elif platform.system() == "Linux":
+    prismRoot = "/usr/local/Prism"
+elif platform.system() == "Darwin":
+    prismRoot = "/Applications/Prism/Prism"
+
+sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+qapp = QApplication.instance()
+if qapp == None:
+  qapp = QApplication(sys.argv)
+
+
+import PrismCore
+pcore = PrismCore.PrismCore(app="Fusion")
+pcore.appPlugin.fusion = fusion
+
+curPrj = pcore.getConfig("globals", "current project")
+pcore.changeProject(curPrj)
+result = pcore.projectBrowser()
+
+if result == True:
+    qapp.exec_()
+                ]=],
+            },
+        },
+    },
+
+    Action {
+        ID = "PrismUpdateLoader",
+        Category = "Prism",
+        Name = "Update selected read nodes",
+       
+        Targets = {
+            Composition = {
+                Execute = _Python [=[
+import os, sys, platform
+
+if platform.system() == "Windows":
+    prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
+elif platform.system() == "Linux":
+    prismRoot = "/usr/local/Prism"
+elif platform.system() == "Darwin":
+    prismRoot = "/Applications/Prism/Prism"
+
+sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+qapp = QApplication.instance()
+if qapp == None:
+  qapp = QApplication(sys.argv)
+
+
+import PrismCore
+pcore = PrismCore.PrismCore(app="Fusion")
+pcore.appPlugin.fusion = fusion
+
+curPrj = pcore.getConfig("globals", "current project")
+pcore.changeProject(curPrj)
+pcore.appPlugin.updateReadNodes()
+                ]=],
+            },
+        },
+    },
+
+    Action {
+        ID = "PrismSettings",
+        Category = "Prism",
+        Name = "Settings",
+       
+        Targets = {
+            Composition = {
+                Execute = _Python [=[
+import os, sys, platform
+
+if platform.system() == "Windows":
+    prismRoot = os.path.join(os.getenv('LocalAppdata'), "Prism")
+elif platform.system() == "Linux":
+    prismRoot = "/usr/local/Prism"
+elif platform.system() == "Darwin":
+    prismRoot = "/Applications/Prism/Prism"
+    
+sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+qapp = QApplication.instance()
+if qapp == None:
+  qapp = QApplication(sys.argv)
+
+
+import PrismCore
+pcore = PrismCore.PrismCore(app="Fusion")
+pcore.appPlugin.fusion = fusion
+
+curPrj = pcore.getConfig("globals", "current project")
+pcore.changeProject(curPrj)
+result = pcore.prismSettings()
+
+if result == True:
+    qapp.exec_()
+                ]=],
+            },
+        },
+    },
+ 
+    Menus {
+        Target = "ChildFrame",
+ 
+        Before "Help" {
+            Sub "Prism" {
+                "PrismSave{}",
+                "PrismCommentsave{}",
+                "PrismProjectBrowser{}",
+                "PrismUpdateLoader{}",
+                "PrismSettings{}",
+            },
+        },
+    },
+}
+ 
+ 

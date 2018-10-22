@@ -112,7 +112,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		self.groupboxes = [self.gb_curPversions]
 
 		self.loadUI()
-		self.core.plugin.prismSettings_loading(self)
 		self.loadSettings()
 
 		ss = QApplication.instance().styleSheet()
@@ -122,6 +121,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		self.forceVersionsToggled(self.gb_curPversions.isChecked())
 		for i in self.core.prjManagers.values():
 			i.prismSettings_postLoadSettings(self)
+
+		self.core.callback(name="onPrismSettingsOpen", types=["curApp", "custom"], args=[self])
 
 		self.connectEvents()
 		self.setFocus()
@@ -240,11 +241,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 	@err_decorator
 	def integrationAdd(self, prog):
-		if prog == self.core.plugin.appName:
-			result = self.core.plugin.integrationAdd(self)
+		if prog == self.core.appPlugin.pluginName:
+			result = self.core.appPlugin.integrationAdd(self)
 		else:
-			for i in self.core.unloadedPlugins:
-				if i.appName == prog:
+			for i in self.core.unloadedAppPlugins:
+				if i.pluginName == prog:
 					result = i.integrationAdd(self)
 
 		if result:
@@ -268,11 +269,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		installPath = items[0].text()
 
-		if prog == self.core.plugin.appName:
-			result = self.core.plugin.integrationRemove(self, installPath)
+		if prog == self.core.appPlugin.pluginName:
+			result = self.core.appPlugin.integrationRemove(self, installPath)
 		else:
-			for i in self.core.unloadedPlugins:
-				if i.appName == prog:
+			for i in self.core.unloadedAppPlugins:
+				if i.pluginName == prog:
 					result = i.integrationRemove(self, installPath)
 
 		if result:
@@ -350,7 +351,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			if type(res) == list:
 				cData += res
 
-		if self.core.plugin.appType == "3d":
+		if self.core.appPlugin.appType == "3d":
 			if self.chb_autosave.isChecked():
 				if not hasattr(self.core,  "asThread") or not self.core.asThread.isRunning():
 					self.core.startasThread()
@@ -402,6 +403,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			if self.chb_trayStartup.isChecked():
 				if not os.path.exists(trayStartup):
 					shutil.copy2(trayLnk, trayStartup)
+					os.chmod(trayStartup, 0o777)
 
 		elif platform.system() == "Darwin":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
@@ -420,6 +422,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 					os.chown(os.path.dirname(trayStartup), uid, -1)
 					os.chown(trayStartup, uid, -1)
 					os.system("launchctl load /Users/%s/Library/LaunchAgents/com.user.PrismTray.plist" % userName)
+
+		self.core.callback(name="onPrismSettingsSave", types=["custom"], args=[self])
 
 
 	@err_decorator
@@ -753,7 +757,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			tAct.triggered.connect(lambda x=None, t=i: self.forceVersionPlugins[prog]["le"].setText(t))
 			vmenu.addAction(tAct)
 
-		self.core.plugin.setRCStyle(self, vmenu)
+		self.core.appPlugin.setRCStyle(self, vmenu)
 
 		vmenu.exec_(QCursor.pos())
 
