@@ -288,12 +288,6 @@ class ImportFileClass(object):
 					impFileName = prefFile
 					self.e_file.setText(impFileName)
 
-			try:
-				self.fileNode.type().name() == "alembic"
-				os.path.splitext(impFileName)[1] != ".abc"
-			except:
-				pass
-
 			fileName = self.core.getCurrentFileName()
 
 			self.core.callHook("preImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
@@ -368,7 +362,12 @@ class ImportFileClass(object):
 
 						mergeGeo.layoutChildren()
 						self.node.layoutChildren()
-
+					elif os.path.splitext(impFileName)[1] == ".usd":
+						self.fileNode = self.node.createNode("pixar::usdimport")
+						self.fileNode.moveToGoodPosition()
+						self.fileNode.parm("import_file").set(impFileName)
+						self.fileNode.parm("import_primpath").set("/")
+						self.fileNode.parm("import_time").setExpression("$F")
 					else:
 						self.fileNode = self.node.createNode("file")
 						self.fileNode.moveToGoodPosition()
@@ -379,6 +378,7 @@ class ImportFileClass(object):
 					outNode.setRenderFlag(True)
 
 				nwBox.addNode(self.node)
+				self.node.moveToGoodPosition()
 				nwBox.fitAroundContents()
 
 				self.node.setDisplayFlag(False)
@@ -408,6 +408,8 @@ class ImportFileClass(object):
 				else:
 					if os.path.splitext(impFileName)[1] == ".abc":
 						self.fileNode.parm("fileName").set(impFileName)
+					elif os.path.splitext(impFileName)[1] == ".usd":
+						self.fileNode.parm("import_file").set(impFileName)
 					else:
 						self.fileNode.parm("file").set(impFileName)
 
@@ -520,6 +522,7 @@ class ImportFileClass(object):
 		mNode.setDisplayFlag(True)
 		mNode.setRenderFlag(True)
 		mNode.setPosition(paneTab.visibleBounds().center())
+		mNode.setCurrent(True, clear_all_selected=True)
 
 
 	@err_decorator

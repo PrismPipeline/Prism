@@ -86,15 +86,20 @@ class ExportClass(object):
 		else:
 			self.node = node
 
-		self.cb_outType.addItems([".bgeo", ".abc", ".obj", ".hda", "ShotCam", "other"])
+		self.cb_outType.addItems(self.core.appPlugin.outputFormats)
 
 		if hasattr(self, "node") and self.node is not None and self.node.parm("f1") is not None:
 			self.sp_rangeStart.setValue(self.node.parm("f1").eval())
 			self.sp_rangeEnd.setValue(self.node.parm("f2").eval())
+
+			idx = -1
 			if self.node.type().name() in ["rop_alembic", "alembic"]:
 				idx = self.cb_outType.findText(".abc")
-				if idx != -1:
-					self.cb_outType.setCurrentIndex(idx)
+			elif self.node.type().name() in ["pixar::usdrop"]:
+				idx = self.cb_outType.findText(".usd")
+			
+			if idx != -1:
+				self.cb_outType.setCurrentIndex(idx)
 		elif stateData is None:
 			self.sp_rangeStart.setValue(hou.playbar.playbackRange()[0])
 			self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
@@ -257,7 +262,7 @@ class ExportClass(object):
 			else:
 				nodePath = self.node.parent()
 
-			if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "rop_comp", "filecache", "geometry", "alembic"]:
+			if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "rop_comp", "filecache", "geometry", "alembic", "pixar::usdrop"]:
 				try:
 					self.node.destroy()
 				except:
@@ -282,6 +287,8 @@ class ExportClass(object):
 				ropType = "alembic"
 		elif self.cb_outType.currentText() == ".hda":
 			ropType = ""
+		elif self.cb_outType.currentText() == ".usd":
+			ropType = "pixar::usdrop"
 
 		if ropType != "" and nodePath is not None and not nodePath.isInsideLockedHDA() and not nodePath.isLockedHDA():
 			self.node = nodePath.createNode(ropType)
@@ -471,6 +478,18 @@ class ExportClass(object):
 			self.connectNode()
 			if self.node is None or (self.node is not None and not self.node.canCreateDigitalAsset()):
 				self.createNode()
+		elif idx == ".usd":
+			self.f_cam.setVisible(False)
+			self.w_sCamShot.setVisible(False)
+			self.f_taskName.setVisible(True)
+			self.f_status.setVisible(True)
+			self.f_connect.setVisible(True)
+			self.f_frameRange.setVisible(True)
+			self.f_convertExport.setVisible(True)
+			if self.cb_manager.count() > 0:
+				self.gb_submit.setVisible(True)
+			if (self.node is None or self.node.type().name() not in ["pixar::usdrop"]):
+				self.createNode()
 		elif idx == "ShotCam":
 			self.f_cam.setVisible(True)
 			self.w_sCamShot.setVisible(True)
@@ -512,7 +531,7 @@ class ExportClass(object):
 			else:
 				self.cb_outType.setCurrentIndex(0)
 
-			if (self.node is None or self.node.type().name() in ["rop_alembic", "alembic"]):
+			if (self.node is None or self.node.type().name() in ["rop_alembic", "alembic", "pixar::usdrop"]):
 				self.createNode()
 			
 		else:
@@ -525,7 +544,7 @@ class ExportClass(object):
 			self.f_convertExport.setVisible(True)
 			if self.cb_manager.count() > 0:
 				self.gb_submit.setVisible(True)
-			if (self.node is None or self.node.type().name() in ["rop_alembic", "alembic"]):
+			if (self.node is None or self.node.type().name() in ["rop_alembic", "alembic", "pixar::usdrop"]):
 				self.createNode()
 
 
@@ -555,7 +574,7 @@ class ExportClass(object):
 
 	@err_decorator
 	def connectNode(self):
-		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().description() in ["ROP Output Driver", "ROP File Output", "ROP Alembic Output", "File Cache"] or (hou.selectedNodes()[0].type().category().name() == "Driver" and hou.selectedNodes()[0].type().name() in ["geometry", "alembic"]) or (self.cb_outType.currentText() == ".hda" and hou.selectedNodes()[0].canCreateDigitalAsset())):
+		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().description() in ["ROP Output Driver", "ROP File Output", "ROP Alembic Output", "File Cache", 'ROP USD Output'] or (hou.selectedNodes()[0].type().category().name() == "Driver" and hou.selectedNodes()[0].type().name() in ["geometry", "alembic"]) or (self.cb_outType.currentText() == ".hda" and hou.selectedNodes()[0].canCreateDigitalAsset())):
 			self.node = hou.selectedNodes()[0]
 
 			extension = ""
@@ -572,6 +591,8 @@ class ExportClass(object):
 					extension = ".bgeo"
 				else:
 					extension = os.path.splitext(self.node.parm("file").eval())[1]
+			elif self.node.type().name() == "pixar::usdrop":
+				extension = os.path.splitext(self.node.parm("usdfile").eval())[1]
 			elif self.node.type().name() == "geometry" and self.node.type().category().name() == "Driver":
 				if self.node.parm("sopoutput").eval().endswith(".bgeo.sc"):
 					extension = ".bgeo"
@@ -883,7 +904,7 @@ class ExportClass(object):
 				self.node.parm("f1").set(startFrame)
 				self.node.parm("f2").set(endFrame)
 
-				if self.cb_outType.currentText() == ".abc":
+				if self.cb_outType.currentText() in [".abc", ".usd"]:
 					outputName = outputName.replace(".$F4", "")
 
 				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic"]:
@@ -928,6 +949,8 @@ class ExportClass(object):
 					parmName = "filename"
 				elif self.node.type().name() == "filecache":
 					parmName = "file"
+				elif self.node.type().name() == "pixar::usdrop":
+					parmName = "usdfile"
 				elif self.node.type().name() == "geometry":
 					parmName = "sopoutput"
 				elif self.node.type().name() == "alembic":

@@ -41,6 +41,7 @@ class Prism_Houdini_Variables(object):
 		self.appType = "3d"
 		self.hasQtParent = True
 		self.sceneFormats = [".hip", ".hipnc", ".hiplc"]
+		self.outputFormats = [".bgeo", ".abc", ".obj", ".hda", "ShotCam", "other"]
 		self.appSpecificFormats = self.sceneFormats + [".bgeo"]
 		self.appColor = [242,103,34]
 		self.appVersionPresets = ["16, 5, 323", "16, 0, 559"]

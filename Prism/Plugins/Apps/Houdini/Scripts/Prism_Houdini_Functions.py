@@ -526,6 +526,12 @@ class Prism_Houdini_Functions(object):
 		origin.sp_rangeStart.setValue(startframe)
 		origin.sp_rangeEnd.setValue(endframe)
 
+		usdType = hou.nodeType(hou.sopNodeTypeCategory(), "pixar::usdrop")
+		if usdType is not None and ".usd" not in self.plugin.outputFormats:
+			self.plugin.outputFormats.insert(-2, ".usd")
+		elif usdType is not None and ".usd" in self.plugin.outputFormats:
+			self.plugin.outputFormats.pop(self.plugin.outputFormats.index(".usd"))
+
 
 	@err_decorator
 	def sm_saveStates(self, origin, buf):
