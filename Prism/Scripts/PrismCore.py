@@ -2714,7 +2714,7 @@ except Exception as e:
 				shutil.copy2(filepath, filepath.replace(updateRoot, self.prismRoot) )
 
 		if os.path.exists(targetdir):
-			shutil.rmtree(targetdir)
+			shutil.rmtree(targetdir, ignore_errors=False, onerror=self.handleRemoveReadonly)
 		try:
 			import psutil
 		except:
