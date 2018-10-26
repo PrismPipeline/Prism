@@ -1,1 +1,0 @@
-if not IsNetServer() then python.ExecuteFile "initPrism.py"
