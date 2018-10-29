@@ -1,1 +1,0 @@
-app.system("start %localappdata%/Prism/Python27/PrismProjectBrowser.exe %localappdata%/Prism/Plugins/Photoshop/Scripts/Prism_Photoshop_MenuTools.py SaveComment")

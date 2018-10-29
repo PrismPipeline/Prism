@@ -1,0 +1,1 @@
+start Python27/pythonw.exe Scripts/PrismInstaller.py
