@@ -19,7 +19,9 @@ Prism now supports "custom" plugins, which can be used to develop customizations
 It is possible now to choose an installation directory for Prism. This makes it possible to use a single central installation of Prism on a server for the whole team. The prefences are now saved at a different location:
 
 Windows: %userprofile%/Documents/Prism
+
 Linux: $HOME/Prism
+
 Mac: ~Library/Preferences/Prism
 
 It is now possible to update Prism from GitHub or from a .zip file, which makes it easier and faster to get the latest changes.
@@ -112,7 +114,7 @@ Integration     Windows   Linux   Mac OSX    Supported Versions
 3dsMax             X                           2017-2019
 Blender            X                           2.79
 Fusion             X                           9.02
-Houdini            X        X        X         16.0, 17.0
+Houdini            X        X        X         16.0-17.0
 Maya               X        X        X         2016-2018 (earlier versions untested)
 Natron             X        X                  2.13-2.14  (earlier versions untested)
 Nuke               X        X        X         >10.0 (earlier versions unstable)

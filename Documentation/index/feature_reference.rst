@@ -136,9 +136,10 @@ Installation dialog
 
 The installation dialog lets you select for which programs you want to install the Prism integration.
 
-.. image:: images/installer.png
+.. image:: images/integration.png
 
-DCC integrations:
+**DCC integrations:**
+
 All supported DCC applications are listed here. The installer automatically detects which DCCs you have installed on your PC and enables the corresponding options. In most cases you can leave all settings to default. The "custom" options for 3ds Max and Maya can be used to install Prism for additional versions like 2016.5.
 
 If you want to install Prism for a different DCC version, you can double click a path on the right side of the dialog. For 3ds Max and Maya this only works in the "custom" line. A new dialog opens and lets you select a different path (for example to install Prism for an older Houdini version).
