@@ -17,11 +17,11 @@ On the [website](https://prism-pipeline.com/) you can find the latest official i
 
 * To install the latest development version download or clone this repository and the Prism dependencies for your OS:
 
-[Windows-dependencies](https://dl.dropboxusercontent.com/s/bkbzq7znd59h98p/Prism1.1.0_depependencies_Win.zip?dl=0)
+[Windows-dependencies](https://dl.dropboxusercontent.com/s/eiyg0uhagfjnktd/Prism1.1.1_depependencies_Win.zip?dl=0)
 
-[Linux-dependencies](https://dl.dropboxusercontent.com/s/jee5wqoau0i87ko/Prism1.1.0_depependencies_Linux.zip?dl=0)
+[Linux-dependencies](https://dl.dropboxusercontent.com/s/09nr64vk99gnd6u/Prism1.1.1_depependencies_Linux.zip?dl=0)
 
-[MacOSX-dependencies](https://dl.dropboxusercontent.com/s/m7sxaeuixzf1b0r/Prism1.1.0_depependencies_Mac.zip?dl=0)
+[MacOSX-dependencies](https://dl.dropboxusercontent.com/s/84aj0u8re4c14gh/Prism1.1.1_depependencies_Mac.zip?dl=0)
 
 * Extract the dependencies and copy the extracted folders into Prism/PrismFiles of this repository.
 
