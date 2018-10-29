@@ -37,7 +37,8 @@ from functools import wraps
 
 if platform.system() == "Windows":
 	import _winreg, win32com
-
+else:
+	import pwd
 
 class Prism_Standalone_Functions(object):
 	def __init__(self, core, plugin):
@@ -184,6 +185,14 @@ class Prism_Standalone_Functions(object):
 			pMenuSource = os.path.join(self.core.prismRoot, "Tools", "Prism.menu")
 			pMenuTarget = "/etc/xdg/menus/applications-merged/Prism.menu"
 
+			for i in [trayLnk, pbLnk, settingsLnk, pMenuSource]:
+				if os.path.exists(i):
+					with open(i, "r+") as init:
+						initStr = init.read()
+						initStr = initStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
+						init.seek(0)
+						init.write(initStr)
+
 			if not os.path.exists(os.path.dirname(pMenuTarget)):
 				try:
 					os.makedirs(os.path.dirname(pMenuTarget))
@@ -216,8 +225,8 @@ class Prism_Standalone_Functions(object):
 			#subprocess.Popen(['bash', "/usr/local/Prism/Tools/PrismTray.sh"])
 
 		elif platform.system() == "Darwin":
-			if os.path.exists(locFile):
-				os.chmod(locFile, 0o777)
+			if os.path.exists(self.core.installLocPath):
+				os.chmod(self.core.installLocPath, 0o777)
 			
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
 			trayStartup = "/Users/%s/Library/LaunchAgents/com.user.PrismTray.plist" % userName
@@ -229,6 +238,13 @@ class Prism_Standalone_Functions(object):
 			trayLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Tray.app")
 			pbLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Project Browser.app")
 			settingsLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Settings.app")
+
+			if os.path.exists(trayStartupSrc):
+				with open(trayStartupSrc, "r+") as init:
+					initStr = init.read()
+					initStr = initStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
+					init.seek(0)
+					init.write(initStr)
 
 			cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
 

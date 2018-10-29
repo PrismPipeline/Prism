@@ -9,6 +9,26 @@ Prism is a software aimed at animation and VFX projects. Its goal is to automate
 The images in this documentation were mostly taken from Prism Standalone, Houdini- or Maya- integration of Prism, but the Prism user interface in other DCC applications is almost identical. The features described in this documentation can be applied to the integration of all supported programs.
 
 
+What's New in v1.1.1
+=====================
+
+This version makes Prism more customizable and more flexible to use.
+
+Prism now supports "custom" plugins, which can be used to develop customizations of various features in Prism, while staying compatible with the official Prism updates.
+
+It is possible now to choose an installation directory for Prism. This makes it possible to use a single central installation of Prism on a server for the whole team. The prefences are now saved at a different location:
+
+Windows: %userprofile%/Documents/Prism
+Linux: $HOME/Prism
+Mac: ~Library/Preferences/Prism
+
+It is now possible to update Prism from GitHub or from a .zip file, which makes it easier and faster to get the latest changes.
+
+Besides that there are many small usability improvements, like setting the FPS in a scene on a FPS mismatch or an option to show additional import options during the import of an object. Tools from the Tray icon start a lot faster now and there are many bugfixes added in this release.
+
+Lastely it is now possible to use the official Pixar USD plugin for Houdini with Prism. Right now the USD integration allows to export and import USD files in Houdini if you have the USD plugin installed, but in the future there will be more Prism features, which will make use of more features that USD offers.
+
+
 What's New in v1.1.0
 =====================
 
@@ -92,7 +112,7 @@ Integration     Windows   Linux   Mac OSX    Supported Versions
 3dsMax             X                           2017-2019
 Blender            X                           2.79
 Fusion             X                           9.02
-Houdini            X        X        X         16.0, 16.5
+Houdini            X        X        X         16.0, 17.0
 Maya               X        X        X         2016-2018 (earlier versions untested)
 Natron             X        X                  2.13-2.14  (earlier versions untested)
 Nuke               X        X        X         >10.0 (earlier versions unstable)

@@ -49,8 +49,6 @@ if platform.system() == "Windows":
 		import winreg as _winreg
 	elif pVersion == 2:
 		import _winreg
-else:
-	import pwd
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -88,8 +86,9 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
 		else:
 			self.setupUi(self)
 			try:
-				from win32com.shell import shell, shellcon
-				self.documents = shell.SHGetFolderPath(0, shellcon.CSIDL_PERSONAL, None, 0)
+				if platform.system() == "Windows":
+					from win32com.shell import shell, shellcon
+					self.documents = shell.SHGetFolderPath(0, shellcon.CSIDL_PERSONAL, None, 0)
 
 				self.tw_components.header().resizeSection(0,200)
 				self.tw_components.itemDoubleClicked.connect(self.openBrowse)
@@ -104,7 +103,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
 
 
 	def openBrowse(self, item, column):
-		if item.parent().text(0) != "DCC integrations" and item.text(0) not in ["Custom"] or item.childCount() > 0:
+		if item.parent() is not None and item.parent().text(0) != "DCC integrations" and item.text(0) not in ["Custom"] or item.childCount() > 0:
 			return
 
 		path = QFileDialog.getExistingDirectory(QWidget(), "Select destination folder", item.text(column))
@@ -372,15 +371,17 @@ def startInstaller_Linux():
 	try:
 		if os.getuid() != 0:
 			QMessageBox.warning(QWidget(), "Prism Installation", "Please run this installer as root to continue.")
+			sys.exit()
 			return
 
-		prismPath = os.path.join("/usr", "local", "Prism")
-		username = ""
-		docFolder = ""
+		import PrismCore
+		pc = PrismCore.PrismCore()
+		if sys.argv[-1] == "uninstall":
+			pc.openInstaller(uninstall=True)
+		else:
+			pc.openInstaller()
 
-		openInstallerDialog(prismPath, username, docFolder)
-
-	except Exception,e:
+	except Exception as e:
 		exc_type, exc_obj, exc_tb = sys.exc_info()
 		QMessageBox.warning(QWidget(), "Prism Installation", "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno))
 
@@ -389,15 +390,17 @@ def startInstaller_Mac():
 	try:
 		if os.getuid() != 0:
 			QMessageBox.warning(QWidget(), "Prism Installation", "Please run this installer as root to continue.")
+			sys.exit()
 			return
 
-		prismPath = "/Applications/Prism/Prism"
-		username = ""
-		docFolder = ""
+		import PrismCore
+		pc = PrismCore.PrismCore()
+		if sys.argv[-1] == "uninstall":
+			pc.openInstaller(uninstall=True)
+		else:
+			pc.openInstaller()
 
-		openInstallerDialog(prismPath, username, docFolder)
-
-	except Exception,e:
+	except Exception as e:
 		exc_type, exc_obj, exc_tb = sys.exc_info()
 		QMessageBox.warning(QWidget(), "Prism Installation", "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno))
 
@@ -418,7 +421,7 @@ if __name__ == "__main__":
 		elif platform.system() == "Darwin":
 			startInstaller_Mac()
 
-	except Exception,e:
+	except Exception as e:
 		exc_type, exc_obj, exc_tb = sys.exc_info()
 		QMessageBox.warning(QWidget(), "Prism Installation", "Errors occurred.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno))
 

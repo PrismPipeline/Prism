@@ -119,8 +119,15 @@ class PrismCore():
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
-			self.userini = os.path.join(os.environ["userprofile"], "Documents", "Prism", "Prism.ini")
-			self.installLocPath = os.path.join(os.environ["userprofile"], "Documents", "Prism", "InstallLocations.ini")
+			if platform.system() == "Windows":
+				self.userini = os.path.join(os.environ["userprofile"], "Documents", "Prism", "Prism.ini")
+				self.installLocPath = os.path.join(os.environ["userprofile"], "Documents", "Prism", "InstallLocations.ini")
+			elif platform.system() == "Linux":
+				self.userini = os.path.join(os.environ["HOME"], "Prism", "Prism.ini")
+				self.installLocPath = os.path.join(os.environ["HOME"], "Prism", "InstallLocations.ini")
+			elif platform.system() == "Darwin":
+				self.userini = os.path.join(os.environ["HOME"], "Library", "Preferences", "Prism", "Prism.ini")
+				self.installLocPath = os.path.join(os.environ["HOME"], "Library", "Preferences", "Prism", "InstallLocations.ini")
 
 			self.pluginPathApp = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "Plugins", "Apps"))
 			self.pluginPathCustom = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "Plugins", "Custom"))
@@ -2651,7 +2658,10 @@ except Exception as e:
 
 	@err_decorator
 	def updatePrism(self, filepath="", gitHub=False):
-		targetdir = os.path.join(os.environ["temp"], "PrismUpdate")
+		if platform.system() == "Windows":
+			targetdir = os.path.join(os.environ["temp"], "PrismUpdate")
+		else:
+			targetdir = "/tmp/PrismUpdate"
 
 		if os.path.exists(targetdir):
 			try:
@@ -2824,16 +2834,17 @@ except Exception as e:
 					with open(prjErPath, "a") as erLog:
 						erLog.write(text)
 
-			userErPath = os.path.join(os.path.dirname(self.userini), "ErrorLog_%s.txt" % socket.gethostname())
+			if hasattr(self, "userini"):
+				userErPath = os.path.join(os.path.dirname(self.userini), "ErrorLog_%s.txt" % socket.gethostname())
 
-			try:
-				open(userErPath, 'a').close()
-			except:
-				pass
+				try:
+					open(userErPath, 'a').close()
+				except:
+					pass
 
-			if os.path.exists(userErPath):
-				with open(userErPath, "a") as erLog:
-					erLog.write(text)
+				if os.path.exists(userErPath):
+					with open(userErPath, "a") as erLog:
+						erLog.write(text)
 
 			if hasattr(self, "messageParent"):
 				msg = QDialog()

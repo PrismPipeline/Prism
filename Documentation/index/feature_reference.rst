@@ -25,11 +25,12 @@ Follow the installer instructions:
 
 After the files are extracted, an additional :ref:`installation dialog<dlgInstallation>` opens.
 
-Prism will be installed into this location:
+Prism will be installed into this location by default, but you can change the location during the installation:
 
-*%localappdata%/Prism/*
+C:/Prism/*
 
-On the last page of the installer there is a checkbox called "Run Prism". This will start the Prism Tray Icon and it opens a Prism dialog, where you can open or create a new project.
+After the installation the Prism Tray Icon starts, where you can open or create a new project.
+On the last page of the installer there is a checkbox called "Setup integrations". This dialog let's you setup the Prism integration in all your installed DCC apps.
 
 After the installation you can find the "PrismTray", "PrismProjectBrowser" and the "PrismSettings" items in the windows start menu.
 By default, the Prism Tray icon will start, when you start Windows. You can disable this in the "Miscellaneous" tab of the Prism Settings dialog.
@@ -38,15 +39,12 @@ By default, the Prism Tray icon will start, when you start Windows. You can disa
 Installing on Linux
 --------------------------------
 
-`Download <https://prism-pipeline.com/downloads/>`_ Prism and extract the archive.
-Open the Prism directory and start the "InstallPrism.sh" file with root privileges. You can do this by opening the terminal in the directory and typing:
+`Download <https://prism-pipeline.com/downloads/>`_ Prism, extract the archive and move the folder to the location where you want to have Prism installed.
+In the Prism directory start the "Prism_Setup_Linux.sh" file with root privileges. You can do this by opening the terminal in the directory and typing:
 
-``sudo ./InstallPrism.sh``
+``sudo ./Prism_Setup_Linux.sh``
 
-Prism will be installed into this location:
-
-*/usr/local/Prism/*
-
+This will setup your Prism integrations in your DCC apps and it will setup some startmenu entries.
 After the installation you can open Prism from the start menu, from the PrismProjectBrowser desktop icon or in any supported DCC app. After the next system restart a Prism Tray icon will be visible, which allow you to access all the Prism tools by right-clicking on it. (you can also start the tray icon from the start menu)
 
 **Dependencies:**
@@ -113,14 +111,10 @@ Alternatively, you can find some builds `here <https://pkgs.org/download/python-
 Installing on Mac OSX
 --------------------------------
 
-`Download <https://prism-pipeline.com/downloads/>`_ Prism and extract the archive.
-Open the Prism directory and start the "Prism Setup.command" file with the "Open" option in the context menu. You are asked to enter the root password in order to install Prism.
+`Download <https://prism-pipeline.com/downloads/>`_ Prism, mount the .dmg file and copy the Prism folder and the Prism_Setup_Mac.command file to the location, where you want to have Prism installed.
+in the Prism directory start the "Prism_Setup_Mac.command" file with the "Open" option in the context menu. You are asked to enter the root password in order to install Prism.
 
-Prism will be installed into this location:
-
-*/Applications/Prism/*
-
-After the installation you can open Prism from the TrayIcon, from the Launchpad, from the PrismProjectBrowser desktop icon or in any supported DCC app. The TrayIcon allows you to access all the Prism tools by right-clicking on it.
+After the installation you can open Prism from the TrayIcon from the PrismProjectBrowser desktop icon or in any supported DCC app. The TrayIcon allows you to access all the Prism tools by right-clicking on it.
 
 **Dependencies:**
 
@@ -144,12 +138,6 @@ The installation dialog lets you select for which programs you want to install t
 
 .. image:: images/installer.png
 
-Prism files:
-This are the core tools and scripts of Prism, which you need to use Prism. This option should be enabled always.
-
-Keep old settings:
-When an existing Prism installation is found, this option gets enabled. When enabled your existing preferences will be preserved. When disabled your preferences will be deleted and new default preferences will be created.
-
 DCC integrations:
 All supported DCC applications are listed here. The installer automatically detects which DCCs you have installed on your PC and enables the corresponding options. In most cases you can leave all settings to default. The "custom" options for 3ds Max and Maya can be used to install Prism for additional versions like 2016.5.
 
@@ -157,22 +145,13 @@ If you want to install Prism for a different DCC version, you can double click a
 
 You can also add and remove DCC integrations of Prism after the installation in the "DCC apps" tab of the Prism settings.
 
-Install for user (on Windows):
-Select a Windows user for whom Prism will be installed. The current user is selected by default.
-
 
 Uninstall
 --------------------------------
 
-To uninstall Prism, you have to execute the Prism installer again.
-
-On Windows: In the installer you need to click on "Install" to extract the files. After the extraction a window will pop up, which lets you uninstall Prism:
-
-On Linux: type ``sudo ./InstallPrism.sh`` in a terminal to open this window:
-
-.. image:: images/uninstaller.png
-
-Uninstalling Prism will also remove all DCC integrations of Prism. In some programs (like Houdini) the Prism shelf needs to be deleted manually.
+To uninstall Prism, you have to execute the "Uninstall" file in the Prism installation directory.
+This will remove all Prism integrations and startmenu entry of Prism. Then you can delete the Prism installation directory manually.
+In some programs (like Houdini) the Prism shelf needs to be deleted manually. Your projects, scenefiles and renderings will remain unaffected.
 
 
 Integrations
