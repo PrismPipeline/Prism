@@ -1,1 +1,2 @@
-start Prism/PrismFiles/Python27/python.exe Prism/InstallPrism.py
+Prism/Win_Setup_Integrations.bat
+Prism/Win_Setup_Startmenu.bat

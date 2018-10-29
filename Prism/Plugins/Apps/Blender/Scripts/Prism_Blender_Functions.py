@@ -886,7 +886,7 @@ class Prism_Blender_Functions(object):
 	@err_decorator
 	def deleteNodes(self, origin, handles):
 		bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
-		for i in nodes:
+		for i in handles:
 			bpy.data.objects[i].select = True
 		bpy.ops.object.make_local(self.getOverrideContext(origin), type='SELECT_OBDATA_MATERIAL')
 		bpy.ops.object.delete(self.getOverrideContext(origin))
