@@ -467,7 +467,7 @@ class PrismCore():
 	def autoSaveDone(self, action=2):
 		saved = False
 		if action == 0:
-			saved = self.saveScene(prismReq=False)
+			saved = self.saveScene(prismReq=False, versionUp=False)
 		elif action == 1:
 			saved = self.saveScene()
 		elif action == 3:
