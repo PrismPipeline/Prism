@@ -244,6 +244,9 @@ class ImportFileClass(object):
 
 	@err_decorator
 	def importObject(self, taskName = None, objMerge=True):
+		fileName = self.core.getCurrentFileName()
+		impFileName = self.e_file.text().replace("\\", "/")
+
 		if self.e_file.text() != "":
 			versionInfoPath = os.path.join(os.path.dirname(os.path.dirname(self.e_file.text())), "versioninfo.ini")
 			if os.path.exists(versionInfoPath):
@@ -280,15 +283,12 @@ class ImportFileClass(object):
 			taskName = taskName.replace("$", "_")
 			self.taskName = taskName
 
-			impFileName = self.e_file.text()
 			parDirName = os.path.basename(os.path.dirname(impFileName))
 			if parDirName in ["centimeter", "meter"]:
 				prefFile = os.path.join(os.path.dirname(os.path.dirname(impFileName)), self.preferredUnit, os.path.basename(impFileName))
 				if parDirName == self.unpreferredUnit and os.path.exists(prefFile):
 					impFileName = prefFile
 					self.e_file.setText(impFileName)
-
-			fileName = self.core.getCurrentFileName()
 
 			self.core.callHook("preImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
 
@@ -453,21 +453,24 @@ class ImportFileClass(object):
 
 			for i in os.walk(versionPath):
 				if len(i[2]) > 0:
-					splitFile = os.path.splitext(os.path.join(i[0], i[2][0]))
-					if splitFile[0][-5] != "v":
-						try:
-							num = int(splitFile[0][-4:])
-							filename = splitFile[0][:-4] + "$F4" + splitFile[1]
-						except:
-							filename = os.path.join(i[0], i[2][0])
-					else:
-						filename = os.path.join(i[0], i[2][0])
+					for m in i[2]:
+						if os.path.splitext(m)[1] not in [".txt", ".ini"]:
+							splitFile = os.path.splitext(os.path.join(i[0], m))
+							if splitFile[0][-5] != "v":
+								try:
+									num = int(splitFile[0][-4:])
+									filename = splitFile[0][:-4] + "$F4" + splitFile[1]
+								except:
+									filename = os.path.join(i[0], m)
+							else:
+								filename = os.path.join(i[0], m)
 
-					if filename.endswith(".mtl") and os.path.exists(filename[:-3] + "obj"):
-						filename = filename[:-3] + "obj"
-						
-					self.e_file.setText(filename)
-					self.importObject(objMerge=False)
+							if filename.endswith(".mtl") and os.path.exists(filename[:-3] + "obj"):
+								filename = filename[:-3] + "obj"
+								
+							self.e_file.setText(filename)
+							self.importObject(objMerge=False)
+							break
 				break
 
 
@@ -511,7 +514,7 @@ class ImportFileClass(object):
 			outNodePath = ""
 			if self.node.type().name() == "subnet":
 				for i in self.node.children():
-					if i.isDisplayFlagSet():
+					if getattr(i, "isDisplayFlagSet", lambda: None)():
 						outNodePath = i.displayNode().path()
 						break
 			else:
@@ -614,8 +617,8 @@ class ImportFileClass(object):
 			if newName != groupName:
 				renames += 1
 				renameNode.parm("renames").set(renames)
-				renameNode.parm("group" + str(idx+1)).set(groupName)
-				renameNode.parm("newname" + str(idx+1)).set(newName)
+				renameNode.parm("group" + str(renames)).set(groupName)
+				renameNode.parm("newname" + str(renames)).set(newName + "_" + str(renames))
 
 		self.fileNode.parent().layoutChildren()
 

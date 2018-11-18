@@ -979,10 +979,10 @@ class Prism_Blender_Functions(object):
 					bpy.ops.wm.alembic_import(self.getOverrideContext(origin), filepath=impFileName, set_frame_range=False, as_background_job=False)
 
 		if not updateObjs:
-			origin.nodes = []
+			importedNodes = []
 			for i in bpy.data.objects:
 				if i not in existingNodes:
-					origin.nodes.append(i.name)
+					importedNodes.append(i.name)
 
 			origin.setName = "Import_" + fileName[0]
 			extension = 1
@@ -991,16 +991,27 @@ class Prism_Blender_Functions(object):
 					origin.setName += "_%s" % extension
 				extension += 1
 
-			bpy.ops.group.create(name=origin.setName)
+			if origin.chb_trackObjects.isChecked():
+				origin.nodes = importedNodes
+
+			if len(origin.nodes) > 0:
+				bpy.ops.group.create(name=origin.setName)
+
+				for i in origin.nodes:
+					if self.isNodeValid(origin, i):
+						bpy.data.groups[origin.setName].objects.link(bpy.data.objects[i])
+		
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
 
-			for i in origin.nodes:
-				if self.isNodeValid(origin, i):
-					bpy.data.groups[origin.setName].objects.link(bpy.data.objects[i])
-
-			result = len(origin.nodes) > 0
+			result = len(importedNodes) > 0
 
 		return result, doImport
+
+	@err_decorator
+	def sm_import_disableObjectTracking(self, origin):
+		stateGroup = [x for x in bpy.data.groups if x.name == origin.setName]
+		if len(stateGroup) > 0:
+			bpy.data.groups.remove(stateGroup[0])
 
 
 	@err_decorator
@@ -1009,7 +1020,7 @@ class Prism_Blender_Functions(object):
 			return
 
 		origin.nodes = []
-		if origin.setName in bpy.data.groups:
+		if origin.setName in bpy.data.groups and origin.chb_trackObjects.isChecked():
 			origin.nodes =  bpy.data.groups[origin.setName].objects.keys()
 
 

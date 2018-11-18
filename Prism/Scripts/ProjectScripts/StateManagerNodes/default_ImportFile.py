@@ -137,6 +137,8 @@ class ImportFileClass(object):
 			self.chb_autoNameSpaces.setChecked(eval(data["autonamespaces"]))
 		if "updateabc" in data:
 			self.chb_abcPath.setChecked(eval(data["updateabc"]))
+		if "trackobjects" in data:
+			self.chb_trackObjects.setChecked(eval(data["trackobjects"]))
 		if "preferunit" in data:
 			self.chb_preferUnit.setChecked(eval(data["preferunit"]))
 			self.updatePrefUnits()
@@ -164,6 +166,7 @@ class ImportFileClass(object):
 		self.chb_keepRefEdits.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_autoNameSpaces.stateChanged.connect(self.autoNameSpaceChanged)
 		self.chb_abcPath.stateChanged.connect(self.stateManager.saveStatesToScene)
+		self.chb_trackObjects.toggled.connect(self.updateTrackObjects)
 		self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
 		self.chb_preferUnit.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
@@ -220,6 +223,7 @@ class ImportFileClass(object):
 
 	@err_decorator
 	def importObject(self, taskName=None, update=False):
+		result = True
 		if self.e_file.text() != "":
 			versionInfoPath = os.path.join(os.path.dirname(os.path.dirname(self.e_file.text())), "versioninfo.ini")
 			if os.path.exists(versionInfoPath):
@@ -290,7 +294,7 @@ class ImportFileClass(object):
 		self.updateUi()
 		self.stateManager.saveStatesToScene()
 
-		return True
+		return result
 
 
 	@err_decorator
@@ -311,15 +315,18 @@ class ImportFileClass(object):
 
 			for i in os.walk(versionPath):
 				if len(i[2]) > 0:
-					fileName = os.path.join(i[0], i[2][0])
+					for m in i[2]:
+						if os.path.splitext(m)[1] not in [".txt", ".ini"]:
+							fileName = os.path.join(i[0], m)
 
-					if getattr(self.core.appPlugin, "shotcamFormat", ".abc") == ".fbx"  and self.taskName == "ShotCam" and fileName.endswith(".abc") and os.path.exists(fileName[:-3] + "fbx"):
-						fileName = fileName[:-3] + "fbx"
-					if fileName.endswith(".mtl") and os.path.exists(fileName[:-3] + "obj"):
-						fileName = fileName[:-3] + "obj"
+							if getattr(self.core.appPlugin, "shotcamFormat", ".abc") == ".fbx"  and self.taskName == "ShotCam" and fileName.endswith(".abc") and os.path.exists(fileName[:-3] + "fbx"):
+								fileName = fileName[:-3] + "fbx"
+							if fileName.endswith(".mtl") and os.path.exists(fileName[:-3] + "obj"):
+								fileName = fileName[:-3] + "obj"
 
-					self.e_file.setText(fileName)
-					self.importObject(update=True)
+							self.e_file.setText(fileName)
+							self.importObject(update=True)
+							break
 				break
 
 
@@ -387,13 +394,17 @@ class ImportFileClass(object):
 
 		self.lw_objects.clear()
 
-		self.core.appPlugin.sm_import_updateObjects(self)
+		if self.chb_trackObjects.isChecked():
+			self.gb_objects.setVisible(True)
+			self.core.appPlugin.sm_import_updateObjects(self)
 
-		for i in self.nodes:
-			item = QListWidgetItem(self.core.appPlugin.getNodeName(self, i))
-			getattr(self.core.appPlugin, "sm_import_updateListItem", lambda x,y, z:None)(self, item, i)
+			for i in self.nodes:
+				item = QListWidgetItem(self.core.appPlugin.getNodeName(self, i))
+				getattr(self.core.appPlugin, "sm_import_updateListItem", lambda x,y, z:None)(self, item, i)
 
-			self.lw_objects.addItem(item)
+				self.lw_objects.addItem(item)
+		else:
+			self.gb_objects.setVisible(False)
 
 		self.nameChanged(self.e_name.text())
 
@@ -413,6 +424,26 @@ class ImportFileClass(object):
 		else:
 			self.preferredUnit = "meter"
 			self.unpreferredUnit = "centimeter"
+
+
+	@err_decorator
+	def updateTrackObjects(self, state):
+		if not state:
+			if len(self.nodes) > 0:
+				msg = QMessageBox(QMessageBox.Question, "Track objects", "When you disable object tracking Prism won't be able to delete or replace the imported objects at a later point in time. You cannot undo this action. Are you sure you want to disable object tracking?", QMessageBox.Cancel)
+				msg.addButton("Continue", QMessageBox.YesRole)
+				msg.setParent(self.core.messageParent, Qt.Window)
+				action = msg.exec_()
+
+				if action != 0:
+					self.chb_trackObjects.setChecked(True)
+					return
+
+			self.nodes = []
+			getattr(self.core.appPlugin, "sm_import_disableObjectTracking", lambda x: None)(self)
+
+		self.updateUi()
+		self.stateManager.saveStatesToScene()
 		
 
 	@err_decorator
@@ -440,7 +471,8 @@ class ImportFileClass(object):
 	@err_decorator
 	def getStateProps(self):
 		connectedNodes = []
-		for i in range(self.lw_objects.count()):
-			connectedNodes.append([str(self.lw_objects.item(i).text()), self.nodes[i]])
+		if self.chb_trackObjects.isChecked():
+			for i in range(self.lw_objects.count()):
+				connectedNodes.append([str(self.lw_objects.item(i).text()), self.nodes[i]])
 
-		return {"statename":self.e_name.text(), "filepath": self.e_file.text().replace("\\","\\\\"), "keepedits": str(self.chb_keepRefEdits.isChecked()), "autonamespaces": str(self.chb_autoNameSpaces.isChecked()), "updateabc": str(self.chb_abcPath.isChecked()), "preferunit": str(self.chb_preferUnit.isChecked()), "connectednodes": str(connectedNodes), "taskname":self.taskName, "nodenames":str(self.nodeNames), "setname":self.setName}
+		return {"statename":self.e_name.text(), "filepath": self.e_file.text().replace("\\","\\\\"), "keepedits": str(self.chb_keepRefEdits.isChecked()), "autonamespaces": str(self.chb_autoNameSpaces.isChecked()), "updateabc": str(self.chb_abcPath.isChecked()), "trackobjects": str(self.chb_trackObjects.isChecked()), "preferunit": str(self.chb_preferUnit.isChecked()), "connectednodes": str(connectedNodes), "taskname":self.taskName, "nodenames":str(self.nodeNames), "setname":self.setName}

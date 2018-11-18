@@ -34,7 +34,7 @@
 
 import sys, os, datetime, shutil, ast, time, traceback, random, platform
 
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 try:
 	from PySide2.QtCore import *
@@ -117,7 +117,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.core = core
 		self.version = "v1.1.1.0"
 
-	#	self.core.reloadPlugins()
+		#self.core.reloadPlugins()
 
 		self.core.parentWindow(self)
 
@@ -3119,9 +3119,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 					prjMngNames = [[x, x.lower() + "-url"] for x in self.core.prjManagers]
 					for i in prjMngNames:
-						if not self.core.prjManagers[i[0]].isActive():
-							continue
-
 						if vConfig.has_option("information", i[1]):
 							f = item.font()
 							f.setBold(True)

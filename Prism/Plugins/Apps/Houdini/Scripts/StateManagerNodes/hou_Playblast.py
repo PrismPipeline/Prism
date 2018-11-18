@@ -375,7 +375,7 @@ class PlayblastClass(object):
 
 		outputName = os.path.join(outputPath, outputFile)
 
-		return outputName, outputPath, hVersion
+		return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
 
 
 	@err_decorator

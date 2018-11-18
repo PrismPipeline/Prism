@@ -117,7 +117,7 @@ class PrismCore():
 			# set some general variables
 			self.version = "v1.1.1.0"
 
-			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
 			if platform.system() == "Windows":
 				self.userini = os.path.join(os.environ["userprofile"], "Documents", "Prism", "Prism.ini")
@@ -1201,9 +1201,14 @@ class PrismCore():
 	@err_decorator
 	def setupStartMenu(self):
 		if self.appPlugin.pluginName == "Standalone":
-			self.appPlugin.createWinStartMenu(self)
+			result = self.appPlugin.createWinStartMenu(self)
 			if not "silent" in self.prismArgs:
-				QMessageBox.information(self.messageParent, "Prism", "Successfully added start menu entries.")
+				if result == True:
+					msg = "Successfully added start menu entries."
+				else:
+					msg = "Creating start menu entries failed"
+
+				QMessageBox.information(self.messageParent, "Prism", msg)
 
 
 	@err_decorator
@@ -1312,7 +1317,7 @@ class PrismCore():
 			return
 
 		hookPath = os.path.join(self.projectPath, "00_Pipeline", "Hooks", hookName + ".py")
-		if os.path.basename(hookPath) in os.listdir(os.path.dirname(hookPath)):
+		if os.path.exists(os.path.dirname(hookPath)) and os.path.basename(hookPath) in os.listdir(os.path.dirname(hookPath)):
 			hookDir = os.path.dirname(hookPath)
 			if not hookDir in sys.path:
 				sys.path.append(os.path.dirname(hookPath))
@@ -1906,13 +1911,13 @@ class PrismCore():
 				return False
 				
 			if self.useLocalFiles:
-				dstname = filepath.replace(self.projectPath, self.localProjectPath)
+				dstname = self.fixPath(filepath).replace(self.projectPath, self.localProjectPath)
 				if not os.path.exists(dstname):
 					os.makedirs(dstname)
 
 			if versionUp:
 				fname = os.path.basename(curfile).split(self.filenameSeperator)
-				dstname = os.path.dirname(curfile)
+				dstname = os.path.dirname(dstname)
 
 				if len(fname) == 6:
 					fname[2] = self.getHighestVersion(dstname, "Asset")
@@ -2006,7 +2011,12 @@ class PrismCore():
 
 	@err_decorator
 	def copySceneFile(self, origFile, targetFile):
-		shutil.copy2(self.fixPath(origFile), self.fixPath(targetFile))
+		origFile = self.fixPath(origFile)
+		targetFile = self.fixPath(targetFile)
+		if origFile == targetFile:
+			return
+
+		shutil.copy2(origFile, targetFile)
 		ext = os.path.splitext(origFile)[1]
 		if ext in self.appPlugin.sceneFormats:
 			getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
@@ -2657,7 +2667,7 @@ except Exception as e:
 
 
 	@err_decorator
-	def updatePrism(self, filepath="", gitHub=False):
+	def updatePrism(self, filepath="", source=""):
 		if platform.system() == "Windows":
 			targetdir = os.path.join(os.environ["temp"], "PrismUpdate")
 		else:
@@ -2670,7 +2680,71 @@ except Exception as e:
 				QMessageBox.warning(self.messageParent, "Prism update", "Could not remove temp directory:\n%s" % targetdir)
 				return
 
-		if gitHub:
+		if source == "website":
+			pStr = """
+try:
+	import os, sys
+
+	pyLibs = os.path.join('%s', 'PythonLibs', 'Python27')
+	if pyLibs not in sys.path:
+		sys.path.insert(0, pyLibs)
+
+	pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
+	if pyLibs not in sys.path:
+		sys.path.insert(0, pyLibs)
+
+	import requests
+	page = requests.get('https://prism-pipeline.com/downloads/', verify=False)
+	#page = requests.get('https://prism-pipeline.com/downloads/')
+
+	cStr = page.content
+	vCode = 'Latest scripts: ['
+	dbLinknStr = cStr[cStr.find(vCode)+len(vCode): cStr.find(']', cStr.find('Latest scripts: ['))]
+
+	sys.stdout.write(dbLinknStr)
+
+except Exception as e:
+	sys.stdout.write('failed %%s' %% e)
+""" % (self.prismRoot, self.prismRoot)
+
+			if platform.system() == "Windows":
+				pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
+			else:
+				pythonPath = "python"
+
+			result = subprocess.Popen([pythonPath, "-c", pStr], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			stdOutData, stderrdata = result.communicate()
+
+			if "failed" in str(stdOutData) or len(str(stdOutData).split(".")) < 3:
+				msg = QMessageBox(QMessageBox.Information, "Prism", "Unable to connect to www.prism-pipeline.com. Could not check for updates.", QMessageBox.Ok, parent=self.messageParent)
+				action = msg.exec_()
+				return
+
+			if pVersion == 3:
+				stdOutData = stdOutData.decode("utf-8")
+
+			url = str(stdOutData)
+
+			waitmsg = QMessageBox(QMessageBox.NoIcon, "Prism update", "Downloading Prism - please wait..", QMessageBox.Cancel)
+			waitmsg.buttons()[0].setHidden(True)
+			waitmsg.show()
+			QCoreApplication.processEvents()
+
+			import urllib
+
+			u = urllib.urlopen(url)
+			data = u.read()
+			u.close()
+			filepath = os.path.join(os.environ["temp"], "PrismUpdate", "Prism_update.zip")
+			if not os.path.exists(os.path.dirname(filepath)):
+				os.makedirs(os.path.dirname(filepath))
+				
+			with open(filepath, "wb") as f :
+			    f.write(data)
+
+			updateRoot = os.path.join(os.environ["temp"], "PrismUpdate", "Prism")
+		
+		if source == "github":
 			try:
 				from git import Repo
 			except:

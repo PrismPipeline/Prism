@@ -393,7 +393,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
 			trayLnk = "/usr/local/Prism/Tools/PrismTray.desktop"
 			if os.path.exists(trayStartup):
-				os.remove(trayStartup)
+				try:
+					os.remove(trayStartup)
+				except:
+					QMessageBox.warning(self, "Warning", "Permission denied:\n\n%s\n\nTry to execute this tool as root." % trayStartup)
 
 			if self.chb_trayStartup.isChecked():
 				if not os.path.exists(trayStartup):
@@ -748,17 +751,29 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	@err_decorator
 	def showUpdate(self):
 		updateDlg = QDialog()
+		updateDlg.setWindowTitle("Update Prism scripts")
+		updateDlg.l_options = QLabel("- Update from website: Downloads the latest version from the Prism website. This is the simplest option, but eventually this version is not the latest.\n\n- Update from .zip: Select a .zip file, which contains the Prism scripts. You can download .zip files with the Prism scripts from the GitHub repositoy.\n\n- Update from GitHub: Downloads the latest version from GitHub. This is definitely the latest version, but you need to have git installed on your computer to use this option.")
+		updateDlg.b_website = QPushButton("Update from website")
 		updateDlg.b_zip = QPushButton("Update from .zip")
 		updateDlg.b_github = QPushButton("Update from GitHub")
-		layout = QHBoxLayout()
-		layout.addWidget(updateDlg.b_zip)
-		layout.addWidget(updateDlg.b_github)
-		updateDlg.setLayout(layout)
+		lo_update = QVBoxLayout()
+		lo_buttons = QHBoxLayout()
+		w_buttons = QWidget()
+		w_buttons.setLayout(lo_buttons)
+		lo_buttons.addWidget(updateDlg.l_options)
+		lo_buttons.addWidget(updateDlg.b_website)
+		lo_buttons.addWidget(updateDlg.b_zip)
+		lo_buttons.addWidget(updateDlg.b_github)
+		lo_update.addWidget(updateDlg.l_options)
+		lo_update.addWidget(w_buttons)
+		updateDlg.setLayout(lo_update)
 		self.core.parentWindow(updateDlg)
+		updateDlg.b_website.clicked.connect(updateDlg.accept)
+		updateDlg.b_website.clicked.connect(lambda: self.core.updatePrism(source="website"))
 		updateDlg.b_zip.clicked.connect(updateDlg.accept)
 		updateDlg.b_zip.clicked.connect(self.updateFromZip)
 		updateDlg.b_github.clicked.connect(updateDlg.accept)
-		updateDlg.b_github.clicked.connect(lambda: self.core.updatePrism(gitHub=True))
+		updateDlg.b_github.clicked.connect(lambda: self.core.updatePrism(source="github"))
 		action = updateDlg.exec_()
 
 

@@ -247,7 +247,7 @@ class Prism_Blender_Integration(object):
 			elif platform.system() == "Darwin":
 				blenderPath = "/Applications/blender/blender.app/Resources/2.79"
 
-			if blenderPath != None:
+			if blenderPath != "":
 				bldItem.setCheckState(0, Qt.Checked)
 				bldItem.setText(1, blenderPath)
 				bldItem.setToolTip(0, blenderPath)

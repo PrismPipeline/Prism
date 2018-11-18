@@ -80,8 +80,7 @@ class Prism_Shotgun_Functions(object):
 
 	@err_decorator
 	def isActive(self):
-		sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-		if sg is not None and eval(sg) and pVersion == 2:
+		if pVersion == 2:
 			return True
 
 		return False
@@ -786,7 +785,7 @@ class Prism_Shotgun_Functions(object):
 		filters = [ ['project', 'is', {'type': 'Project', 'id': sgPrjId}]]
 		sgShots = {}
 		for x in sg.find("Shot", filters, fields):
-			if "_" not in x['code']:
+			if self.core.filenameSeperator not in x['code']:
 				if x['sg_sequence'] is None:
 					shotName = x['code']
 				else:
@@ -878,6 +877,8 @@ class Prism_Shotgun_Functions(object):
 					msgString += i + "\n"
 		else:
 			msgString = "No shots were created or updated."
+
+		msgString += "\n\nNote that shots with \"%s\" in their name are getting ignored by Prism." % self.core.filenameSeperator
 
 		QMessageBox.information(self.core.messageParent, "Shotgun Sync", msgString)
 

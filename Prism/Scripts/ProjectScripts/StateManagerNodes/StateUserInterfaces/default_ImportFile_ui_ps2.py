@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'default_ImportFile.ui'
+# Form implementation generated from reading ui file 'default_ImportFile.ui',
+# licensing of 'default_ImportFile.ui' applies.
 #
-# Created: Mon Jul 09 20:19:19 2018
-#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
+# Created: Sun Nov 18 17:23:56 2018
+#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +13,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 class Ui_wg_ImportFile(object):
     def setupUi(self, wg_ImportFile):
         wg_ImportFile.setObjectName("wg_ImportFile")
-        wg_ImportFile.resize(340, 625)
+        wg_ImportFile.resize(340, 651)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -210,19 +211,35 @@ class Ui_wg_ImportFile(object):
         self.chb_preferUnit.setObjectName("chb_preferUnit")
         self.horizontalLayout_8.addWidget(self.chb_preferUnit)
         self.verticalLayout_6.addWidget(self.w_preferUnit)
+        self.w_trackObjects = QtWidgets.QWidget(self.gb_options)
+        self.w_trackObjects.setObjectName("w_trackObjects")
+        self.horizontalLayout_9 = QtWidgets.QHBoxLayout(self.w_trackObjects)
+        self.horizontalLayout_9.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout_9.setObjectName("horizontalLayout_9")
+        self.l_trackObjects = QtWidgets.QLabel(self.w_trackObjects)
+        self.l_trackObjects.setObjectName("l_trackObjects")
+        self.horizontalLayout_9.addWidget(self.l_trackObjects)
+        spacerItem8 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_9.addItem(spacerItem8)
+        self.chb_trackObjects = QtWidgets.QCheckBox(self.w_trackObjects)
+        self.chb_trackObjects.setText("")
+        self.chb_trackObjects.setChecked(True)
+        self.chb_trackObjects.setObjectName("chb_trackObjects")
+        self.horizontalLayout_9.addWidget(self.chb_trackObjects)
+        self.verticalLayout_6.addWidget(self.w_trackObjects)
         self.verticalLayout_2.addWidget(self.gb_options)
-        self.groupBox_2 = QtWidgets.QGroupBox(self.gb_import)
-        self.groupBox_2.setObjectName("groupBox_2")
-        self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.groupBox_2)
+        self.gb_objects = QtWidgets.QGroupBox(self.gb_import)
+        self.gb_objects.setObjectName("gb_objects")
+        self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.gb_objects)
         self.verticalLayout_4.setContentsMargins(9, 9, 9, 9)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
-        self.lw_objects = QtWidgets.QListWidget(self.groupBox_2)
+        self.lw_objects = QtWidgets.QListWidget(self.gb_objects)
         self.lw_objects.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.lw_objects.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
         self.lw_objects.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
         self.lw_objects.setObjectName("lw_objects")
         self.verticalLayout_4.addWidget(self.lw_objects)
-        self.verticalLayout_2.addWidget(self.groupBox_2)
+        self.verticalLayout_2.addWidget(self.gb_objects)
         self.verticalLayout.addWidget(self.gb_import)
 
         self.retranslateUi(wg_ImportFile)
@@ -252,5 +269,6 @@ class Ui_wg_ImportFile(object):
         self.b_unitConversion.setText(QtWidgets.QApplication.translate("wg_ImportFile", "cm -> m", None, -1))
         self.l_abcPath.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Alembic - Update path only (if exists)", None, -1))
         self.l_preferUnit.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Prefer versions in meter:", None, -1))
-        self.groupBox_2.setTitle(QtWidgets.QApplication.translate("wg_ImportFile", "Objects", None, -1))
+        self.l_trackObjects.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Keep track of imported objects:", None, -1))
+        self.gb_objects.setTitle(QtWidgets.QApplication.translate("wg_ImportFile", "Objects", None, -1))
 

@@ -921,7 +921,10 @@ record != undefined\n\
 					MaxPlus.LayerManager.DeleteLayer(i)
 
 		if doImport:
-			origin.nodes = [x.GetHandle() for x in MaxPlus.SelectionManager_GetNodes()]
+			importedNodes = [x.GetHandle() for x in MaxPlus.SelectionManager_GetNodes()]
+
+			if origin.chb_trackObjects.isChecked():
+				origin.nodes = importedNodes
 
 		if origin.taskName == "ShotCam":
 			self.executeScript(origin, "setTransformLockFlags selection #all")

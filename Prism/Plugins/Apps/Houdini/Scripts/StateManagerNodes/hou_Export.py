@@ -782,7 +782,7 @@ class ExportClass(object):
 			else:
 				return
 
-		return outputName, outputPath, hVersion
+		return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
 
 
 	@err_decorator

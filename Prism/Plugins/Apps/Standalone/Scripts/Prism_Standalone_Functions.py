@@ -35,6 +35,16 @@
 import os, sys, traceback, time, platform, shutil
 from functools import wraps
 
+try:
+	from PySide2.QtCore import *
+	from PySide2.QtGui import *
+	from PySide2.QtWidgets import *
+	psVersion = 2
+except:
+	from PySide.QtCore import *
+	from PySide.QtGui import *
+	psVersion = 1
+
 if platform.system() == "Windows":
 	import _winreg, win32com
 else:
@@ -168,6 +178,10 @@ class Prism_Standalone_Functions(object):
 				self.core.createShortcut(i[0], vTarget=("%s\Python27\%s" % (self.core.prismRoot, i[1])), args=('"%s\Scripts\%s"' % (self.core.prismRoot, i[2])))
 
 		elif platform.system() == "Linux":
+			if os.getuid() != 0:
+				QMessageBox.warning(QWidget(), "Prism start menu", "Please run this tool as root to continue.")
+				return
+
 			if os.path.exists(self.core.installLocPath):
 				os.chmod(self.core.installLocPath, 0o777)
 				
@@ -328,3 +342,5 @@ class Prism_Standalone_Functions(object):
 					os.chmod(settingsStartMenu, 0o777)
 			else:
 				print "could not create PrismSettings startmenu entry"
+
+		return True

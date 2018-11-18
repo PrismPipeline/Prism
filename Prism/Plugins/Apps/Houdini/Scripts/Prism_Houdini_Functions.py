@@ -70,6 +70,9 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def startup(self, origin):
+		if not hou.isUIAvailable():
+			return False
+
 		if hou.ui.mainQtWindow() is None:
 			return False
 
@@ -410,6 +413,13 @@ class Prism_Houdini_Functions(object):
 				return depPath
 
 		return depPath
+
+	@err_decorator
+	def splitExtension(self, origin, path):
+		if path.endswith(".bgeo.sc"):
+			return [path[:-len(".bgeo.sc")], ".bgeo.sc"]
+		else:
+			return os.path.splitext(path)
 
 
 	@err_decorator
