@@ -1974,13 +1974,13 @@ class PrismCore():
 				return False
 				
 			if self.useLocalFiles:
-				dstname = self.fixPath(filepath).replace(self.projectPath, self.localProjectPath)
-				if not os.path.exists(dstname):
-					os.makedirs(dstname)
+				filepath = self.fixPath(filepath).replace(self.projectPath, self.localProjectPath)
+				if not os.path.exists(os.path.dirname(filepath)):
+					os.makedirs(os.path.dirname(filepath))
 
 			if versionUp:
 				fname = os.path.basename(curfile).split(self.filenameSeperator)
-				dstname = os.path.dirname(dstname)
+				dstname = os.path.dirname(filepath)
 
 				if len(fname) == 6:
 					fname[2] = self.getHighestVersion(dstname, "Asset")
