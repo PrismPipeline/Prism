@@ -215,7 +215,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			pathC = index.model().columnCount()-1
 			versionPath = index.model().index(index.row(), pathC).data()
 		incompatible = []
-		for i in self.core.unloadedAppPlugins:
+		for i in self.core.unloadedAppPlugins.values():
 			incompatible += getattr(i, "appSpecificFormats", [])
 		if os.path.splitext(versionPath)[1] in incompatible:
 			QMessageBox.warning(self.core.messageParent,"Warning", "This filetype is incompatible. Can't import the selected file.")

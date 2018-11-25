@@ -471,14 +471,18 @@ class Prism_Maya_Functions(object):
 
 		if expType == ".obj":
 			cmds.loadPlugin('objExport', quiet=True)
-			cmds.select([ x for x in origin.nodes if cmds.listRelatives(x, shapes=True) is not None])
+			objNodes = [ x for x in origin.nodes if cmds.listRelatives(x, shapes=True) is not None]
+			cmds.select(objNodes)
 			for i in range(startFrame, endFrame+1):
 				cmds.currentTime( i, edit=True )
 				foutputName = outputName.replace("####", format(i, '04'))
 				if origin.chb_wholeScene.isChecked():
 					cmds.file(foutputName, force=True, exportAll=True, type="OBJexport", options="groups=1;ptgroups=1;materials=1;smoothing=1;normals=1")
 				else:
-					cmds.file(foutputName, force=True, exportSelected=True, type="OBJexport", options="groups=1;ptgroups=1;materials=1;smoothing=1;normals=1")
+					if cmds.ls(selection=True) == []:
+						return  "Canceled: No valid objects are specified for .obj export. No output will be created."
+					else:
+						cmds.file(foutputName, force=True, exportSelected=True, type="OBJexport", options="groups=1;ptgroups=1;materials=1;smoothing=1;normals=1")
 			outputName = foutputName
 		elif expType == ".fbx":
 			if origin.chb_wholeScene.isChecked():
@@ -506,15 +510,22 @@ class Prism_Maya_Functions(object):
 					action = msg.exec_()
 
 					if action == 0:
-						if origin.chb_wholeScene.isChecked():
-							mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
-						else:
-							mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+						try:
+							if origin.chb_wholeScene.isChecked():
+								mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
+							else:
+								mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+						except Exception as e:
+							if "Already have an Object named:" in str(e):
+								exc_type, exc_obj, exc_tb = sys.exc_info()
+								erStr = "You are trying to export two objects with the same name, which is not supported with the alemic format:\n\n"
+								QMessageBox.warning(self.core.messageParent, "executeState", erStr + str(e))
+								return False
+
 					else:
 						return False
 				else:
 					exc_type, exc_obj, exc_tb = sys.exc_info()
-					erStr = ("ERROR:\n%s" % traceback.format_exc())
 					QMessageBox.warning(self.core.messageParent, "executeState", str(e))
 					return False
 

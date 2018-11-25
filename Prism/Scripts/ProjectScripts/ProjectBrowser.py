@@ -1227,7 +1227,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			ext = os.path.splitext(filepath)[1]
 			appPath = ""
 
-			for i in self.core.unloadedAppPlugins:
+			for i in self.core.unloadedAppPlugins.values():
 				if ext in i.sceneFormats:
 					orApp = self.core.getConfig("dccoverrides", "%s_override" % i.pluginName.lower(), ptype="bool")
 					if orApp is not None and orApp:
@@ -1258,10 +1258,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) != "Files":
 			self.core.addToRecent(filepath)
 			self.setRecent()
-
-	#	for i in self.core.unloadedAppPlugins:
-	#		if os.path.splitext(filepath)[1] in i.sceneFormats:
-	#			getattr(i, "scenefileExecuted", lambda x:None)(self)
 
 		if openSm:
 			self.core.stateManager()
@@ -1320,7 +1316,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if prog == self.core.appPlugin.pluginName:
 			autobackpath, fileStr = self.core.appPlugin.getAutobackPath(self, tab)
 		else:
-			for i in self.core.unloadedAppPlugins:
+			for i in self.core.unloadedAppPlugins.values():
 				if i.pluginName == prog:
 					autobackpath, fileStr = i.getAutobackPath(self, tab)
 
@@ -1804,7 +1800,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if ext in self.core.appPlugin.sceneFormats:
 					colorVals = self.core.appPlugin.appColor
 				else:
-					for k in self.core.unloadedAppPlugins:
+					for k in self.core.unloadedAppPlugins.values():
 						if ext in k.sceneFormats:
 							colorVals = k.appColor
 
@@ -2082,7 +2078,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					if ext in self.core.appPlugin.sceneFormats:
 						colorVals = self.core.appPlugin.appColor
 					else:
-						for k in self.core.unloadedAppPlugins:
+						for k in self.core.unloadedAppPlugins.values():
 							if ext in k.sceneFormats:
 								colorVals = k.appColor
 
@@ -2422,7 +2418,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if ext in self.core.appPlugin.sceneFormats:
 					colorVals = self.core.appPlugin.appColor
 				else:
-					for k in self.core.unloadedAppPlugins:
+					for k in self.core.unloadedAppPlugins.values():
 						if ext in k.sceneFormats:
 							colorVals = k.appColor
 

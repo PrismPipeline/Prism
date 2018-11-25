@@ -210,23 +210,30 @@ class PrismCore():
 
 
 	@err_decorator
-	def updatePlugins(self, current):
-		self.unloadedAppPlugins = []
-		self.customPlugins = {}
+	def updatePlugins(self, current=None, pluginPath=None):
+		appPlugins = []
 		customPlugins = []
-		self.rfManagers = {}
 		rfManagers = []
-		self.prjManagers = {}
 		prjManagers = []
+	
+		if pluginPath is None:
+			self.unloadedAppPlugins = {}
+			self.customPlugins = {}
+			self.rfManagers = {}
+			self.prjManagers = {}
 
-		sys.path.append(os.path.join(self.pluginPathApp, current, "Scripts"))
-		self.appPlugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
+			sys.path.append(os.path.join(self.pluginPathApp, current, "Scripts"))
+			self.appPlugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
 
-		if not self.appPlugin:
-			QMessageBox.critical(QWidget(), "Prism Error", "Prism could not initialize correctly and may not work correctly in this session.")
-			return
+			if not self.appPlugin:
+				QMessageBox.critical(QWidget(), "Prism Error", "Prism could not initialize correctly and may not work correctly in this session.")
+				return
 
-		for k in self.pluginDirs:
+			pluginDirs = self.pluginDirs
+		else:
+			pluginDirs = [pluginPath]
+
+		for k in pluginDirs:
 			if not os.path.exists(k):
 				continue
 
@@ -251,14 +258,22 @@ class PrismCore():
 					pPlug = getattr(__import__("Prism_%s_init" % (i)), "Prism_%s" % i)(self)
 
 				if platform.system() in pPlug.platforms:
+					if pluginPath is None:
+						pPlug.location = "prismRoot"
+					else:
+						pPlug.location = "prismProject"
+
 					if pPlug.pluginType in ["App"]:
-						self.unloadedAppPlugins.append(pPlug)
+						appPlugins.append(pPlug)
 					elif pPlug.pluginType in ["Custom"]:
 						customPlugins.append(pPlug)
 					elif pPlug.pluginType in ["RenderfarmManager"]:
 						rfManagers.append(pPlug)
 					elif pPlug.pluginType in ["ProjectManager"]:
 						prjManagers.append(pPlug)
+
+		for i in appPlugins:
+			self.unloadedAppPlugins[i.pluginName] = i
 
 		for i in customPlugins:
 			if i.isActive():
@@ -272,6 +287,9 @@ class PrismCore():
 		for i in prjManagers:
 			if i.isActive():
 				self.prjManagers[i.pluginName] = i
+
+		if pluginPath is not None:
+			return
 
 		if not self.appPlugin.hasQtParent:
 			self.messageParent = QWidget()
@@ -329,13 +347,38 @@ class PrismCore():
 			self.customPlugins[cPlug.pluginName] = cPlug
 
 
+
+	@err_decorator
+	def unloadProjectPlugins(self):
+		pluginDicts = [self.unloadedAppPlugins, self.customPlugins, self.rfManagers, self.prjManagers]
+		prjPlugins = []
+		for k in pluginDicts:
+			for i in k:
+				if k[i].location == "prismProject":
+					prjPlugins.append([i, k])
+	
+		for i in prjPlugins:
+			self.unloadPlugin(i[0], i[1])
+
+
+	@err_decorator
+	def unloadPlugin(self, pluginName, pluginCategory):
+		mods = ["Prism_%s_init" % pluginName, "Prism_%s_Functions" % pluginName, "Prism_%s_Variables" % pluginName]
+		for k in mods:
+			try:
+				del sys.modules[k]
+			except:
+				pass
+
+		del pluginCategory[pluginName]
+
 	@err_decorator
 	def callback(self, name="", types=["custom"], args=[], kwargs={}):
 		if "curApp" in types:
 			getattr(self.appPlugin, name, lambda *args, **kwargs: None)(*args, **kwargs)
 
 		if "unloadedApps" in types:
-			for i in self.unloadedAppPlugins:
+			for i in self.unloadedAppPlugins.values():
 				getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
 
 		if "custom" in types:
@@ -521,6 +564,18 @@ class PrismCore():
 		for i in delModules:
 			sys.path.remove(i)
 
+		if hasattr(self, "projectPath"):
+			modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules")
+			if modulePath in sys.path:
+				sys.path.remove(modulePath)
+
+			curModules = sys.modules.keys()
+			for i in curModules:
+				if hasattr(sys.modules[i], "__file__") and modulePath in sys.modules[i].__file__:
+					del sys.modules[i]
+
+		self.unloadProjectPlugins()
+
 		if not os.path.exists(inipath):
 			self.prismIni = ""
 			self.setConfig("globals", "current project", "")
@@ -586,6 +641,14 @@ class PrismCore():
 
 		if inipath != self.getConfig("globals", "current project"):
 			self.setConfig("globals", "current project", inipath)
+
+		modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules")
+		if os.path.exists(modulePath):
+			sys.path.append(modulePath)
+
+		pluginPath = os.path.join(self.projectPath, "00_Pipeline", "Plugins")
+		if os.path.exists(pluginPath):
+			self.updatePlugins(pluginPath=pluginPath)
 
 		rSection = "recent_files_" + self.projectName
 
@@ -1572,7 +1635,7 @@ class PrismCore():
 
 	@err_decorator
 	def getPluginNames(self):
-		pluginNames = [x.pluginName for x in self.unloadedAppPlugins]
+		pluginNames = self.unloadedAppPlugins.keys()
 		pluginNames.append(self.appPlugin.pluginName)
 
 		return sorted(pluginNames)
@@ -1582,7 +1645,7 @@ class PrismCore():
 	def getPluginSceneFormats(self):
 		pluginFormats = list(self.appPlugin.sceneFormats)
 
-		for i in self.unloadedAppPlugins:
+		for i in self.unloadedAppPlugins.values():
 			pluginFormats += i.sceneFormats
 
 		return pluginFormats
@@ -1594,8 +1657,8 @@ class PrismCore():
 			return getattr(self.appPlugin, data, None)
 		else:
 			for i in self.unloadedAppPlugins:
-				if i.pluginName == pluginName:
-					return getattr(i, data, None)
+				if i == pluginName:
+					return getattr(self.unloadedAppPlugins[i], data, None)
 
 		return None
 
@@ -1606,8 +1669,8 @@ class PrismCore():
 			return self.appPlugin
 		else:
 			for i in self.unloadedAppPlugins:
-				if i.pluginName == pluginName:
-					return i
+				if i == pluginName:
+					return self.unloadedAppPlugins[i]
 
 		return None
 
@@ -2021,7 +2084,7 @@ class PrismCore():
 		if ext in self.appPlugin.sceneFormats:
 			getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
 		else:
-			for i in self.unloadedAppPlugins:
+			for i in self.unloadedAppPlugins.values():
 				if ext in i.sceneFormats:
 					getattr(i, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
 

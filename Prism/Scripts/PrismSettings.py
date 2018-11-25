@@ -240,8 +240,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			result = self.core.appPlugin.integrationAdd(self)
 		else:
 			for i in self.core.unloadedAppPlugins:
-				if i.pluginName == prog:
-					result = i.integrationAdd(self)
+				if i == prog:
+					result = self.core.unloadedAppPlugins[i].integrationAdd(self)
 
 		if result:
 			result = self.core.fixPath(result)
@@ -268,8 +268,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			result = self.core.appPlugin.integrationRemove(self, installPath)
 		else:
 			for i in self.core.unloadedAppPlugins:
-				if i.pluginName == prog:
-					result = i.integrationRemove(self, installPath)
+				if i == prog:
+					result = self.core.unloadedAppPlugins[i].integrationRemove(self, installPath)
 
 		if result:
 			existingPaths = []

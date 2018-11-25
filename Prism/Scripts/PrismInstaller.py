@@ -308,22 +308,6 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
 				except:
 					pass
 
-			#if os.path.exists(self.core.prismRoot):
-			#	print "remove old files.."
-			#	
-			#	while True:
-			#		try:
-			#			shutil.rmtree(self.core.prismRoot)
-			#			break
-			#		except RuntimeError:
-			#			msg = QMessageBox(QMessageBox.Warning, "Remove old files", "Could not remove Prism files.\n\nMake sure all dependent programms like 3dsMax, Maya, Houdini, Blender, Nuke, (...), TrayIcon and eventually the windows explorer are closed.", QMessageBox.Cancel)
-			#			msg.addButton("Retry", QMessageBox.YesRole)
-			#			action = msg.exec_()
-
-			#			if action != 0:
-			#				print "Canceled Prism files removal"
-			#				return False
-
 			return True
 
 		except Exception as e:
