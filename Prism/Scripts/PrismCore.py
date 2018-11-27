@@ -569,7 +569,7 @@ class PrismCore():
 			if modulePath in sys.path:
 				sys.path.remove(modulePath)
 
-			curModules = sys.modules.keys()
+			curModules = list(sys.modules.keys())
 			for i in curModules:
 				if hasattr(sys.modules[i], "__file__") and modulePath in sys.modules[i].__file__:
 					del sys.modules[i]
@@ -1635,7 +1635,7 @@ class PrismCore():
 
 	@err_decorator
 	def getPluginNames(self):
-		pluginNames = self.unloadedAppPlugins.keys()
+		pluginNames = list(self.unloadedAppPlugins.keys())
 		pluginNames.append(self.appPlugin.pluginName)
 
 		return sorted(pluginNames)
@@ -2191,6 +2191,16 @@ class PrismCore():
 		else:
 			shortcut.IconLocation = vIcon
 		shortcut.save()
+
+
+	@err_decorator
+	def checkIllegalCharacters(self, strings):
+		illegalStrs = []
+		for i in strings:
+			if not all(ord(c) < 128 for c in i):
+				illegalStrs.append(i)
+
+		return illegalStrs
 
 
 	@err_decorator
@@ -2803,7 +2813,7 @@ except Exception as e:
 				os.makedirs(os.path.dirname(filepath))
 				
 			with open(filepath, "wb") as f :
-			    f.write(data)
+				f.write(data)
 
 			updateRoot = os.path.join(os.environ["temp"], "PrismUpdate", "Prism")
 		

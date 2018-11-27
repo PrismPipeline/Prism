@@ -315,7 +315,12 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def getNodeName(self, origin, node):
 		if self.isNodeValid(origin, node):
-			return str(cmds.ls(node)[0])
+			try:
+				return str(cmds.ls(node)[0])
+			except:
+				QMessageBox.warning(self.core.messageParent, "Warning", "Cannot get name from %s" % node)
+				return node
+
 		else:
 			return "invalid"
 

@@ -281,6 +281,12 @@ class ImportFileClass(object):
 
 			if doImport:
 				self.nodeNames = [self.core.appPlugin.getNodeName(self, x) for x in self.nodes]
+				illegalNodes = self.core.checkIllegalCharacters(self.nodeNames)
+				if len(illegalNodes) > 0:
+					msgStr = "Objects with non-ascii characters were imported. Prism supports only the first 128 characters in the ascii table. Please rename the following objects as they will cause errors with Prism:\n\n"
+					for i in illegalNodes:
+						msgStr += i + "\n"
+					QMessageBox.warning(self.core.messageParent, "Warning", msgStr)
 
 				if self.chb_autoNameSpaces.isChecked():
 					self.core.appPlugin.sm_import_removeNameSpaces(self)
