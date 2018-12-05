@@ -119,8 +119,25 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def onProjectChanged(self, origin):
 		job = self.core.projectPath.replace("\\", "/")
-		cmds.workspace(job, openWorkspace=True) 
+		cmds.workspace(job, openWorkspace=True)
 
+		pluginPath = os.path.join(self.core.projectPath, "00_Pipeline", "CustomModules", "Maya", "plug-ins")	
+		scriptPath = os.path.join(self.core.projectPath, "00_Pipeline", "CustomModules", "Maya", "scripts")
+		
+		if not os.path.exists(pluginPath):
+			os.makedirs(pluginPath)
+
+		if not os.path.exists(scriptPath):
+			os.makedirs(scriptPath)
+
+		if pluginPath not in os.environ["MAYA_PLUG_IN_PATH"]:
+			os.environ["MAYA_PLUG_IN_PATH"] += ";" + pluginPath
+
+		if scriptPath not in os.environ["MAYA_SCRIPT_PATH"]:
+			os.environ["MAYA_SCRIPT_PATH"] += ";" + scriptPath
+
+		if scriptPath not in sys.path:
+			sys.path.append(scriptPath)
 
 	@err_decorator
 	def sceneOpen(self, origin):
@@ -284,6 +301,37 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def onPrismSettingsOpen(self, origin):
 		pass
+
+
+	@err_decorator
+	def appendEnvFile(self, envVar="MAYA_MODULE_PATH"):
+		envPath = os.path.join(os.environ["MAYA_APP_DIR"], cmds.about(version=True), "Maya.env")
+
+		if not hasattr(self.core, "projectPath"):
+			QMessageBox.warning(self.core.messageParent, "Prism", "No project is currently active.")
+			return
+
+		modPath = os.path.join(self.core.projectPath, "00_Pipeline", "CustomModules", "Maya")
+		if not os.path.exists(modPath):
+			os.makedirs(modPath)
+
+		with open(os.path.join(modPath, "prism.mod"), "a") as modFile:
+			modFile.write("\n+ prism 1.0 .\\")
+
+		varText = "MAYA_MODULE_PATH=%s;&" % modPath
+
+		if os.path.exists(envPath):
+			with open(envPath, "r") as envFile:
+				envText = envFile.read()
+
+			if varText in envText:
+				QMessageBox.information(self.core.messageParent, "Prism", "The following path is already in the Maya.env file:\n\n%s" % modPath)
+				return
+
+		with open(envPath, "a") as envFile:
+			envFile.write("\n" + varText)
+
+		QMessageBox.information(self.core.messageParent, "Prism", "The following path was added to the MAYA_MODULE_PATH environment variable in the Maya.env file:\n\n%s\n\nRestart Maya to let this change take effect." % modPath)
 
 
 	@err_decorator
@@ -1069,7 +1117,10 @@ class Prism_Maya_Functions(object):
 
 			tmpPath = os.path.join(os.path.dirname(rSettings["outputName"]), "tmp")
 			if os.path.exists(tmpPath):
-				shutil.rmtree(tmpPath)
+				try:
+					shutil.rmtree(tmpPath)
+				except:
+					pass
 
 			if os.path.exists(os.path.dirname(outputName)) and len(os.listdir(os.path.dirname(outputName))) > 0:
 				return "Result=Success"
@@ -1081,12 +1132,6 @@ class Prism_Maya_Functions(object):
 			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.stateManager.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return "Execute Canceled: unknown error (view console for more information)"
-
-
-	@err_decorator
-	def getExternalFiles(self, origin):
-		extFiles = [self.core.fixPath(str(x)) for x in cmds.file(query=True, list=True) if self.core.fixPath(str(x)) != self.core.getCurrentFileName() and self.core.fixPath(str(x)) != self.core.fixPath(os.path.join(cmds.workspace( fullName=True, query=True), "untitled"))]
-		return extFiles
 
 
 	@err_decorator

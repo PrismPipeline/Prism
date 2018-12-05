@@ -90,7 +90,9 @@ class ImportFileClass(object):
 		self.importPath = importPath
 		self.updatePrefUnits()
 
-		if importPath is None and stateData is None:
+		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier
+
+		if importPath is None and stateData is None and not createEmptyState:
 			import TaskSelection
 			ts = TaskSelection.TaskSelection(core = core, importState = self)
 
@@ -106,7 +108,7 @@ class ImportFileClass(object):
 
 			if not result:
 				return False
-		elif stateData is None:
+		elif stateData is None and not createEmptyState:
 			return False
 
 		self.nameChanged(state.text(0))

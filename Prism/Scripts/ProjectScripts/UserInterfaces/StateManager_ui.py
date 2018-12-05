@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'StateManager.ui'
 #
-# Created: Thu Oct 25 02:04:10 2018
+# Created: Sun Dec  2 22:54:42 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -244,13 +244,11 @@ class Ui_mw_StateManager(object):
         self.verticalLayout_8 = QtGui.QVBoxLayout(self.widget_3)
         self.verticalLayout_8.setSpacing(0)
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_8.setObjectName("verticalLayout_8")
         self.w_stateUi = QtGui.QWidget(self.widget_3)
         self.w_stateUi.setObjectName("w_stateUi")
         self.lo_stateUi = QtGui.QVBoxLayout(self.w_stateUi)
         self.lo_stateUi.setContentsMargins(9, 9, 9, 9)
-        self.lo_stateUi.setContentsMargins(0, 0, 0, 0)
         self.lo_stateUi.setObjectName("lo_stateUi")
         self.verticalLayout_8.addWidget(self.w_stateUi)
         spacerItem4 = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
@@ -325,7 +323,7 @@ class Ui_mw_StateManager(object):
         self.b_publish.setText(QtGui.QApplication.translate("mw_StateManager", "Publish", None, QtGui.QApplication.UnicodeUTF8))
         self.menuAbout.setTitle(QtGui.QApplication.translate("mw_StateManager", "Options", None, QtGui.QApplication.UnicodeUTF8))
         self.menuRecentProjects.setTitle(QtGui.QApplication.translate("mw_StateManager", "Recent projects", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionProjectBrowser.setText(QtGui.QApplication.translate("mw_StateManager", "ProjectBrowser...", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionProjectBrowser.setText(QtGui.QApplication.translate("mw_StateManager", "Project Browser...", None, QtGui.QApplication.UnicodeUTF8))
         self.actionPrismSettings.setText(QtGui.QApplication.translate("mw_StateManager", "Prism Settings...", None, QtGui.QApplication.UnicodeUTF8))
         self.actionZu.setText(QtGui.QApplication.translate("mw_StateManager", "zu", None, QtGui.QApplication.UnicodeUTF8))
         self.actionCopyStates.setText(QtGui.QApplication.translate("mw_StateManager", "Copy all states", None, QtGui.QApplication.UnicodeUTF8))

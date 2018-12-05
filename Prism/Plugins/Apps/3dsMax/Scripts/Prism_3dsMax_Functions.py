@@ -692,17 +692,6 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 
 
 	@err_decorator
-	def getExternalFiles(self, origin):
-		return self.executeScript(origin, "mapfiles=#()\n\
-fn addmap mapfile =\n\
-(\n\
-if (finditem mapfiles mapfile) == 0 do append mapfiles mapfile\n\
-)\n\
-enumeratefiles addmap\n\
-for mapfile in mapfiles collect mapfile")
-
-
-	@err_decorator
 	def sm_render_undoRenderSettings(self, origin, rSettings):
 		if "elementsActive" in rSettings:
 			elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)

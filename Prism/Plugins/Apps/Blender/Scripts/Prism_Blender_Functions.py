@@ -774,17 +774,6 @@ class Prism_Blender_Functions(object):
 
 
 	@err_decorator
-	def getExternalFiles(self, origin):
-		bpy.ops.file.pack_all()
-		bpy.ops.file.pack_libraries()
-		bpy.ops.file.make_paths_absolute()
-
-		caches = [x.filepath for x in bpy.data.cache_files]
-
-		return list(set(caches))
-
-
-	@err_decorator
 	def sm_render_undoRenderSettings(self, origin, rSettings):
 		if "width" in rSettings:
 			bpy.context.scene.render.resolution_x = rSettings["width"]

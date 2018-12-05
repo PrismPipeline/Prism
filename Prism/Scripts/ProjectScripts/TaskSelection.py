@@ -299,6 +299,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			infoAct.triggered.connect(lambda: self.showVersionInfo(os.path.dirname(path)))
 			rcmenu.addAction(infoAct)
 
+			infoPath = os.path.join(os.path.dirname(path), "versioninfo.ini")
+
+			depAct = QAction("Show dependencies", self)
+			depAct.triggered.connect(lambda: self.core.dependencyViewer(infoPath, modal=True))
+			rcmenu.addAction(depAct)
+
 		self.core.appPlugin.setRCStyle(self, rcmenu)
 
 		rcmenu.exec_((viewUi.viewport()).mapToGlobal(pos))

@@ -98,7 +98,9 @@ class ImportFileClass(object):
 		self.updatePalette.setColor(QPalette.Button, QColor(200, 100, 0))
 		self.updatePalette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
 
-		if importPath is None and stateData is None:
+		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier
+
+		if importPath is None and stateData is None and not createEmptyState:
 			import TaskSelection
 			ts = TaskSelection.TaskSelection(core = core, importState = self)
 
@@ -112,7 +114,7 @@ class ImportFileClass(object):
 
 			if not result:
 				return False
-		elif stateData is None:
+		elif stateData is None and not createEmptyState:
 			return False
 
 		self.core.appPlugin.sm_import_startup(self)

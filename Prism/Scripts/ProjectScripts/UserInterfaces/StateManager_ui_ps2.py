@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'StateManager.ui'
+# Form implementation generated from reading ui file 'StateManager.ui',
+# licensing of 'StateManager.ui' applies.
 #
-# Created: Thu Oct 25 02:04:10 2018
-#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
+# Created: Sun Dec  2 22:54:43 2018
+#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -244,13 +245,11 @@ class Ui_mw_StateManager(object):
         self.verticalLayout_8 = QtWidgets.QVBoxLayout(self.widget_3)
         self.verticalLayout_8.setSpacing(0)
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_8.setObjectName("verticalLayout_8")
         self.w_stateUi = QtWidgets.QWidget(self.widget_3)
         self.w_stateUi.setObjectName("w_stateUi")
         self.lo_stateUi = QtWidgets.QVBoxLayout(self.w_stateUi)
         self.lo_stateUi.setContentsMargins(9, 9, 9, 9)
-        self.lo_stateUi.setContentsMargins(0, 0, 0, 0)
         self.lo_stateUi.setObjectName("lo_stateUi")
         self.verticalLayout_8.addWidget(self.w_stateUi)
         spacerItem4 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -325,7 +324,7 @@ class Ui_mw_StateManager(object):
         self.b_publish.setText(QtWidgets.QApplication.translate("mw_StateManager", "Publish", None, -1))
         self.menuAbout.setTitle(QtWidgets.QApplication.translate("mw_StateManager", "Options", None, -1))
         self.menuRecentProjects.setTitle(QtWidgets.QApplication.translate("mw_StateManager", "Recent projects", None, -1))
-        self.actionProjectBrowser.setText(QtWidgets.QApplication.translate("mw_StateManager", "ProjectBrowser...", None, -1))
+        self.actionProjectBrowser.setText(QtWidgets.QApplication.translate("mw_StateManager", "Project Browser...", None, -1))
         self.actionPrismSettings.setText(QtWidgets.QApplication.translate("mw_StateManager", "Prism Settings...", None, -1))
         self.actionZu.setText(QtWidgets.QApplication.translate("mw_StateManager", "zu", None, -1))
         self.actionCopyStates.setText(QtWidgets.QApplication.translate("mw_StateManager", "Copy all states", None, -1))

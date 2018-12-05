@@ -1136,6 +1136,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				desc.setEnabled(False)
 			rcmenu.addAction(desc)
 
+			actDeps = QAction("Show dependencies", self)
+			infoPath = os.path.splitext(filepath)[0] + "versioninfo.ini"
+			if os.path.exists(infoPath):
+				with open(infoPath, 'r') as descFile:
+					fileDescription = descFile.read()
+				actDeps.triggered.connect(lambda: self.core.dependencyViewer(infoPath))
+			else:
+				actDeps.setEnabled(False)
+			rcmenu.addAction(actDeps)
+
 		openex = QAction("Open in Explorer", self)
 		openex.triggered.connect(lambda: self.core.openFolder(filepath))
 		rcmenu.addAction(openex)
@@ -3706,9 +3716,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def showVersionInfo(self, item=None):
-		vInfo = "No information is saved with this version."
-
+	def getVersionInfoPath(self):
 		if self.curRVersion.endswith(" (local)"):
 			base = self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath)
 		else:
@@ -3722,6 +3730,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			path = ""
 		else:
 			path = os.path.join(base, "Rendering", "3dRender", self.curRTask.replace(" (local)", ""), self.curRVersion.replace(" (local)", ""), "versioninfo.ini")
+
+		return path
+
+
+	@err_decorator
+	def showVersionInfo(self, item=None):
+		vInfo = "No information is saved with this version."
+
+		path = self.getVersionInfoPath()
 
 		if os.path.exists(path):
 			vConfig = ConfigParser()
@@ -3772,6 +3789,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		infoDlg.resize(900*self.core.uiScaleFactor,200*self.core.uiScaleFactor)
 
 		action = infoDlg.exec_()
+
+
+	@err_decorator
+	def showDependencies(self):
+		path = self.getVersionInfoPath()
+
+		if not os.path.exists(path):
+			QMessageBox.warning(self.core.messageParent, "Warning", "No dependency information was saved with this version.")
+			return
+
+		self.core.dependencyViewer(path)
 
 
 	@err_decorator
@@ -4079,6 +4107,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			infAct = QAction("Show version info", self)
 			infAct.triggered.connect(self.showVersionInfo)
 			rcmenu.addAction(infAct)
+
+			depAct = QAction("Show dependencies", self)
+			depAct.triggered.connect(self.showDependencies)
+			rcmenu.addAction(depAct)
+			
 			if self.curRTask.endswith(" (external)"):
 				nvAct = QAction("Create new version", self)
 				nvAct.triggered.connect(self.newExVersion)

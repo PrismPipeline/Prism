@@ -565,7 +565,7 @@ class PrismCore():
 			sys.path.remove(i)
 
 		if hasattr(self, "projectPath"):
-			modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules")
+			modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules", "Python")
 			if modulePath in sys.path:
 				sys.path.remove(modulePath)
 
@@ -642,9 +642,11 @@ class PrismCore():
 		if inipath != self.getConfig("globals", "current project"):
 			self.setConfig("globals", "current project", inipath)
 
-		modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules")
-		if os.path.exists(modulePath):
-			sys.path.append(modulePath)
+		modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules", "Python")
+		if not os.path.exists(modulePath):
+			os.makedirs(modulePath)
+		
+		sys.path.append(modulePath)
 
 		pluginPath = os.path.join(self.projectPath, "00_Pipeline", "Plugins")
 		if os.path.exists(pluginPath):
@@ -1164,6 +1166,39 @@ class PrismCore():
 			self.pb.show()
 
 			return True
+
+
+	@err_decorator
+	def dependencyViewer(self, depRoot="", modal=False):
+		if hasattr(self, "dv") and self.dv.isVisible():
+			self.dv.close()
+
+		try:
+			del sys.modules["DependencyViewer"]
+		except:
+			pass
+
+		try:
+			import DependencyViewer
+		except:
+			try:
+				modPath = imp.find_module("DependencyViewer")[1]
+				if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
+					os.remove(modPath)
+			
+				import DependencyViewer
+			except Exception as e:
+				msgString = "Could not load the DependencyViewer:\n\n%s" % str(e)
+				QMessageBox.warning(self.messageParent, "Prism Error", msgString)
+				return False
+		
+		self.dv = DependencyViewer.DependencyViewer(core=self, depRoot=depRoot)
+		if modal:
+			self.dv.exec_()
+		else:
+			self.dv.show()
+
+		return True
 
 
 	@err_decorator
@@ -1983,13 +2018,15 @@ class PrismCore():
 				dstname = os.path.dirname(filepath)
 
 				if len(fname) == 6:
-					fname[2] = self.getHighestVersion(dstname, "Asset")
+					fVersion = self.getHighestVersion(dstname, "Asset")
+					fname[2] = fVersion
 					fname[3] = comment
 					fname[4] = self.user
 					fname[5] = self.appPlugin.getSceneExtension(self)
 
 				elif len(fname) == 8:
-					fname[4] = self.getHighestVersion(dstname, "Shot")
+					fVersion = self.getHighestVersion(dstname, "Shot")
+					fname[4] = fVersion
 					fname[5] = comment
 					fname[6] = self.user
 					fname[7] = self.appPlugin.getSceneExtension(self)
@@ -2020,8 +2057,16 @@ class PrismCore():
 
 		self.addToRecent(filepath)
 
-		if publish and self.useLocalFiles:
-			self.copySceneFile(filepath, self.fixPath(filepath).replace(self.localProjectPath, self.projectPath))
+		if publish:
+			pubFile = filepath
+			if self.useLocalFiles:
+				pubFile = self.fixPath(filepath).replace(self.localProjectPath, self.projectPath)
+				self.copySceneFile(filepath, pubFile)
+		
+			fBase = os.path.splitext(os.path.basename(pubFile))[0]
+
+			infoData = {"filename":os.path.basename(pubFile)}
+			self.saveVersionInfo(location=os.path.dirname(pubFile), version=fVersion, fps=True, filenameBase=fBase, data=infoData)
 
 		if hasattr(self, "sm"):
 			self.sm.scenename = self.getCurrentFileName()
@@ -2529,18 +2574,42 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 
 
 	@err_decorator
-	def saveVersionInfo(self, location, version, origin, fps=None):
-		infoFilePath = os.path.join(location, "versioninfo.ini")
+	def saveVersionInfo(self, location, version, origin=None, fps=None, filenameBase="", data={}):
+		infoFilePath = os.path.join(location, filenameBase + "versioninfo.ini")
 		vConfig = ConfigParser()
 
 		vConfig.add_section("information")
 		vConfig.set("information", "Version", version)
 		vConfig.set("information", "Created by", self.getConfig("globals", "UserName"))
 		vConfig.set("information", "Creation date", time.strftime("%d.%m.%y %X"))
-		vConfig.set("information", "Source scene", origin)
+
+		if origin is not None:
+			vConfig.set("information", "Source scene", origin)
 
 		if fps:
 			vConfig.set("information", "FPS", str(self.getFPS()))
+
+		depsEnabled = self.getConfig('globals', "track_dependencies", configPath=self.prismIni)
+		if depsEnabled != "False":
+			if depsEnabled is None:
+				self.setConfig('globals', "track_dependencies", val="True", configPath=self.prismIni)
+
+			deps = self.appPlugin.getImportPaths(self)
+
+			if deps == False:
+				deps = "[]"
+
+			deps = eval(deps.replace("\\", "/").replace("//", "/"))
+			deps = str([str(x[0]) for x in deps])
+
+			extFiles =  self.appPlugin.sm_getExternalFiles(self)[0]
+			extFiles = list(set(extFiles))
+
+			data["Dependencies"] = deps
+			data["External files"] = extFiles
+
+		for i in data:
+			vConfig.set("information", i, data[i])
 
 		with open(infoFilePath, "w") as infoFile:
 			vConfig.write(infoFile)

@@ -448,7 +448,7 @@ class PlayblastClass(object):
 		if not os.path.exists(outputPath):
 			os.makedirs(outputPath)
 
-		self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
+		self.core.saveVersionInfo(location=outputPath, version=hVersion, origin=fileName)
 
 		psettings.output(outputName)
 			
