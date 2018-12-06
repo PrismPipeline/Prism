@@ -275,7 +275,7 @@ class ImportFileClass(object):
 				else:
 					vName = os.path.basename(vPath)
 
-				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text() or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text())):
+				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)).replace("\\", "/") in self.e_file.text().replace("\\", "/") or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)).replace("\\", "/") in self.e_file.text().replace("\\", "/"))):
 					taskName = os.path.basename(os.path.dirname(vPath))
 					if taskName == "_ShotCam":
 						taskName = "ShotCam"
@@ -293,6 +293,12 @@ class ImportFileClass(object):
 					self.e_file.setText(impFileName)
 
 			self.core.callHook("preImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
+
+			try:
+				self.node.path()
+			except:
+				self.node = None
+				self.fileNode = None
 
 			if os.path.splitext(impFileName)[1] == ".hda":
 				try:

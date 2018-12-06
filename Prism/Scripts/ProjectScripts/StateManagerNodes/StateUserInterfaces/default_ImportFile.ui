@@ -62,7 +62,7 @@
       <item>
        <widget class="QLabel" name="l_name">
         <property name="text">
-         <string>Name:</string>
+         <string>State name:</string>
         </property>
        </widget>
       </item>
@@ -615,7 +615,7 @@
             <item>
              <widget class="QLabel" name="l_trackObjects">
               <property name="text">
-               <string>Keep track of imported objects:</string>
+               <string>Keep track of connected objects:</string>
               </property>
              </widget>
             </item>

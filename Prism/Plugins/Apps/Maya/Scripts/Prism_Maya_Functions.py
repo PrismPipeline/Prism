@@ -496,7 +496,10 @@ class Prism_Maya_Functions(object):
 
 		setNodes = cmds.ls(selection=True, long=True)
 		origin.nodes = [str(x) for x in setNodes]
-		cmds.select(prevSel, noExpand=True)
+		try:
+			cmds.select(prevSel, noExpand=True)
+		except:
+			pass
 
 
 	@err_decorator
@@ -603,7 +606,10 @@ class Prism_Maya_Functions(object):
 						cmds.file(i, importReference=True)
 						origin.stateManager.reloadScenefile = True
 
-				cmds.select(prevSel, noExpand=True)
+				try:
+					cmds.select(prevSel, noExpand=True)
+				except:
+					pass
 
 			if origin.chb_deleteUnknownNodes.isChecked():
 				unknownDagNodes = cmds.ls(type = "unknownDag")
@@ -1351,12 +1357,12 @@ class Prism_Maya_Functions(object):
 		origin.e_file.setText(scenePath)
 		self.deleteNodes(origin, [origin.setName])
 
-		if origin.chb_trackObjects.isChecked():
-			origin.nodes = [refNode]
-			setName = os.path.splitext(os.path.basename(scenePath))[0]
-			origin.setName = cmds.sets(name ="Import_%s_" % setName)
-			for i in origin.nodes:
-				cmds.sets(i, include=origin.setName)
+		origin.chb_trackObjects.setChecked(True)
+		origin.nodes = [refNode]
+		setName = os.path.splitext(os.path.basename(scenePath))[0]
+		origin.setName = cmds.sets(name ="Import_%s_" % setName)
+		for i in origin.nodes:
+			cmds.sets(i, include=origin.setName)
 
 		origin.updateUi()
 
@@ -1528,6 +1534,7 @@ class Prism_Maya_Functions(object):
 			return
 
 		prevSel = cmds.ls(selection=True, long=True)
+		cmds.select(clear=True)
 		try:
 			# the nodes in the set need to be selected to get their long dag path
 			cmds.select(origin.setName)
@@ -1536,7 +1543,10 @@ class Prism_Maya_Functions(object):
 
 		setNodes = cmds.ls(selection=True, long=True)
 		origin.nodes = [str(x) for x in setNodes]
-		cmds.select(prevSel)
+		try:
+			cmds.select(prevSel)
+		except:
+			pass
 
 
 	@err_decorator

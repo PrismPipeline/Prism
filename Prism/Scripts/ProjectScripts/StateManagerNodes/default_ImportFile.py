@@ -76,8 +76,8 @@ class ImportFileClass(object):
 		self.className = "ImportFile"
 		self.listType = "Import"
 
-		self.l_name.setVisible(False)
-		self.e_name.setVisible(False)
+		#self.l_name.setVisible(False)
+		#self.e_name.setVisible(False)
 
 		self.core = core
 		self.stateManager = stateManager
@@ -254,7 +254,7 @@ class ImportFileClass(object):
 
 				self.taskName = ""
 				sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, sceneDir) in self.e_file.text() or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in self.e_file.text())):
+				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/") or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/"))):
 					self.taskName = os.path.basename(os.path.dirname(vPath))
 					if self.taskName == "_ShotCam":
 						self.taskName = "ShotCam"
@@ -273,7 +273,8 @@ class ImportFileClass(object):
 					impFileName = prefFile
 					self.e_file.setText(impFileName)
 
-			self.core.appPlugin.sm_import_updateObjects(self)
+			if self.chb_trackObjects.isChecked():
+				self.core.appPlugin.sm_import_updateObjects(self)
 
 			fileName = self.core.getCurrentFileName()
 

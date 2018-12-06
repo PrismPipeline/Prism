@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'default_ImportFile.ui',
 # licensing of 'default_ImportFile.ui' applies.
 #
-# Created: Sun Nov 18 17:23:56 2018
+# Created: Thu Dec  6 20:52:45 2018
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -248,7 +248,7 @@ class Ui_wg_ImportFile(object):
 
     def retranslateUi(self, wg_ImportFile):
         wg_ImportFile.setWindowTitle(QtWidgets.QApplication.translate("wg_ImportFile", "ImportFile", None, -1))
-        self.l_name.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Name:", None, -1))
+        self.l_name.setText(QtWidgets.QApplication.translate("wg_ImportFile", "State name:", None, -1))
         self.l_class.setText(QtWidgets.QApplication.translate("wg_ImportFile", "ImportFile", None, -1))
         self.gb_import.setTitle(QtWidgets.QApplication.translate("wg_ImportFile", "Import", None, -1))
         self.l_file.setText(QtWidgets.QApplication.translate("wg_ImportFile", "File:", None, -1))
@@ -269,6 +269,6 @@ class Ui_wg_ImportFile(object):
         self.b_unitConversion.setText(QtWidgets.QApplication.translate("wg_ImportFile", "cm -> m", None, -1))
         self.l_abcPath.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Alembic - Update path only (if exists)", None, -1))
         self.l_preferUnit.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Prefer versions in meter:", None, -1))
-        self.l_trackObjects.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Keep track of imported objects:", None, -1))
+        self.l_trackObjects.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Keep track of connected objects:", None, -1))
         self.gb_objects.setTitle(QtWidgets.QApplication.translate("wg_ImportFile", "Objects", None, -1))
 

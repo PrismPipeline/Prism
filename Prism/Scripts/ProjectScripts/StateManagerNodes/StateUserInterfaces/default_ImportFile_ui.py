@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_ImportFile.ui'
 #
-# Created: Sun Nov 18 17:23:55 2018
+# Created: Thu Dec  6 20:52:44 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -247,7 +247,7 @@ class Ui_wg_ImportFile(object):
 
     def retranslateUi(self, wg_ImportFile):
         wg_ImportFile.setWindowTitle(QtGui.QApplication.translate("wg_ImportFile", "ImportFile", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_name.setText(QtGui.QApplication.translate("wg_ImportFile", "Name:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_name.setText(QtGui.QApplication.translate("wg_ImportFile", "State name:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_class.setText(QtGui.QApplication.translate("wg_ImportFile", "ImportFile", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_import.setTitle(QtGui.QApplication.translate("wg_ImportFile", "Import", None, QtGui.QApplication.UnicodeUTF8))
         self.l_file.setText(QtGui.QApplication.translate("wg_ImportFile", "File:", None, QtGui.QApplication.UnicodeUTF8))
@@ -268,6 +268,6 @@ class Ui_wg_ImportFile(object):
         self.b_unitConversion.setText(QtGui.QApplication.translate("wg_ImportFile", "cm -> m", None, QtGui.QApplication.UnicodeUTF8))
         self.l_abcPath.setText(QtGui.QApplication.translate("wg_ImportFile", "Alembic - Update path only (if exists)", None, QtGui.QApplication.UnicodeUTF8))
         self.l_preferUnit.setText(QtGui.QApplication.translate("wg_ImportFile", "Prefer versions in meter:", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_trackObjects.setText(QtGui.QApplication.translate("wg_ImportFile", "Keep track of imported objects:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_trackObjects.setText(QtGui.QApplication.translate("wg_ImportFile", "Keep track of connected objects:", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_objects.setTitle(QtGui.QApplication.translate("wg_ImportFile", "Objects", None, QtGui.QApplication.UnicodeUTF8))
 
