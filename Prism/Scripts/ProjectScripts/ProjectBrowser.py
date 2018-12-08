@@ -4788,9 +4788,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		else:
 			outputpath = os.path.splitext(outputpath)[0] + extension
 
-		if not os.path.exists(os.path.dirname(outputpath)):
-			os.makedirs(os.path.dirname(outputpath))
-
 		if self.curRTask.endswith(" (external)"):
 			curPath = os.path.join(self.renderBasePath, "Rendering", "external", self.curRTask.replace(" (external)", ""), self.curRVersion)
 			rpath = os.path.join(curPath + "(%s)" % extension[1:], "REDIRECT.txt")
@@ -4801,37 +4798,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			with open(rpath, "w") as rfile:
 				rfile.write(os.path.dirname(outputpath))
 
-		ffmpegIsInstalled = False
-		if platform.system() == "Windows":
-			ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "FFmpeg" ,"bin", "ffmpeg.exe")
-			if os.path.exists(ffmpegPath):
-				ffmpegIsInstalled = True
-		elif platform.system() == "Linux":
-			ffmpegPath = "ffmpeg"
-			try:
-				subprocess.Popen([ffmpegPath])
-				ffmpegIsInstalled = True
-			except:
-				pass
-		elif platform.system() == "Darwin":
-			ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "ffmpeg")
-			if os.path.exists(ffmpegPath):
-				ffmpegIsInstalled = True
-
-		if not ffmpegIsInstalled:
-			QMessageBox.critical(self.core.messageParent, "Video conversion", "Could not find %s" % ffmpegPath)
-			return
-
 		if self.prvIsSequence:
-			startNum = str(self.pstart)
+			startNum = self.pstart
 		else:
-			startNum = "0"
+			startNum = 0
 
-		if videoInput:
-			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuv420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		else:
-			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", "24", "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		result = nProc.communicate()
+		result = self.core.convertMedia(inputpath, startNum, outputpath)
 
 		if self.prvIsSequence or videoInput:
 			outputpath = outputpath.replace("%04d", "%04d" % int(startNum))

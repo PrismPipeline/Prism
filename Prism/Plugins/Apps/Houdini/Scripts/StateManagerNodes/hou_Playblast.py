@@ -86,6 +86,8 @@ class PlayblastClass(object):
 		self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
 
 		self.resolutionPresets = ["Cam resolution", "1920x1080", "1280x720", "640x360", "4000x2000", "2000x1000"]
+		self.outputformats = ["jpg", "mp4"]
+		self.cb_formats.addItems(self.outputformats)
 
 		self.cb_displayMode.addItems(["Smooth Shaded", "Smooth Wire Shaded", "Wireframe"])
 		self.f_displayMode.setVisible(False)
@@ -129,6 +131,10 @@ class PlayblastClass(object):
 			self.sp_resHeight.setValue(res[2])
 		if "localoutput" in data:
 			self.chb_localOutput.setChecked(eval(data["localoutput"]))
+		if "outputformat" in data:
+			idx = self.cb_formats.findText(data["outputformat"])
+			if idx > 0:
+				self.cb_formats.setCurrentIndex(idx)
 		if "displaymode" in data:
 			idx = self.cb_displayMode.findText(data["displaymode"])
 			if idx != -1:
@@ -159,6 +165,7 @@ class PlayblastClass(object):
 		self.sp_resHeight.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.b_resPresets.clicked.connect(self.showResPresets)
 		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
+		self.cb_formats.activated.connect(self.stateManager.saveStatesToScene)
 		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
 		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
 
@@ -475,6 +482,27 @@ class PlayblastClass(object):
 			if "panel" in locals():
 				panel.close()
 
+			if self.cb_formats.currentText() == "mp4":
+				mediaBaseName = os.path.splitext(outputName)[0][:-3]
+				videoOutput = mediaBaseName + "mp4"
+				inputpath = os.path.splitext(outputName)[0][:-3] + "%04d" + os.path.splitext(outputName)[1]
+				print inputpath
+				result = self.core.convertMedia(inputpath, jobFrames[0], videoOutput)
+
+				if not os.path.exists(videoOutput):
+					return [self.state.text(0) + (" - error occurred during conversion of jpg files to mp4\n\n%s" % str(result))]
+
+				delFiles = []
+				for i in os.listdir(os.path.dirname(outputName)):
+					if i.startswith(os.path.basename(mediaBaseName)) and i.endswith(".jpg"):
+						delFiles.append(os.path.join(os.path.dirname(outputName), i))
+
+				for i in delFiles:
+					try:
+						os.remove(i)
+					except:
+						pass
+
 			self.core.callHook("postPlayblast", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 			if len(os.listdir(outputPath)) > 0:
@@ -487,16 +515,9 @@ class PlayblastClass(object):
 			self.core.writeErrorLog(erStr)
 			return [self.state.text(0) + " - unknown error (view console for more information)"]
 
-		if "Result=Success" in result:
-			return [self.state.text(0) + " - success"]
-		else:
-			erStr = ("%s ERROR - houPlayblastPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
-			self.core.writeErrorLog(erStr)
-			return [self.state.text(0) + " - error - " + result]
-
 	
 	@err_decorator
 	def getStateProps(self):
 		stateProps = {"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange": str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "currentcam": self.cb_cams.currentText()}
-		stateProps.update({"resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]), "displaymode": self.cb_displayMode.currentText(), "localoutput": str(self.chb_localOutput.isChecked()), "lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0))})
+		stateProps.update({"resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]), "displaymode": self.cb_displayMode.currentText(), "localoutput": str(self.chb_localOutput.isChecked()), "outputformat": str(self.cb_formats.currentText()), "lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0))})
 		return stateProps

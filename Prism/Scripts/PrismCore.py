@@ -2574,6 +2574,46 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 
 
 	@err_decorator
+	def convertMedia(self, inputpath, startNum, outputpath):
+		inputpath = inputpath.replace("\\", "/")
+		inputExt = os.path.splitext(inputpath)[1]
+		videoInput = inputExt in [".mp4", ".mov"]
+		startNum = str(startNum)
+
+		ffmpegIsInstalled = False
+		if platform.system() == "Windows":
+			ffmpegPath = os.path.join(self.prismRoot, "Tools", "FFmpeg" ,"bin", "ffmpeg.exe")
+			if os.path.exists(ffmpegPath):
+				ffmpegIsInstalled = True
+		elif platform.system() == "Linux":
+			ffmpegPath = "ffmpeg"
+			try:
+				subprocess.Popen([ffmpegPath])
+				ffmpegIsInstalled = True
+			except:
+				pass
+		elif platform.system() == "Darwin":
+			ffmpegPath = os.path.join(self.prismRoot, "Tools", "ffmpeg")
+			if os.path.exists(ffmpegPath):
+				ffmpegIsInstalled = True
+
+		if not ffmpegIsInstalled:
+			QMessageBox.critical(self.messageParent, "Video conversion", "Could not find %s" % ffmpegPath)
+			return
+
+		if not os.path.exists(os.path.dirname(outputpath)):
+			os.makedirs(os.path.dirname(outputpath))
+
+		if videoInput:
+			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuv420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		else:
+			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", "24", "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		result = nProc.communicate()
+
+		return result
+
+
+	@err_decorator
 	def saveVersionInfo(self, location, version, origin=None, fps=None, filenameBase="", data={}):
 		infoFilePath = os.path.join(location, filenameBase + "versioninfo.ini")
 		vConfig = ConfigParser()
@@ -2603,7 +2643,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 			deps = str([str(x[0]) for x in deps])
 
 			extFiles =  self.appPlugin.sm_getExternalFiles(self)[0]
-			extFiles = list(set(extFiles))
+			extFiles = str(list(set(extFiles)))
 
 			data["Dependencies"] = deps
 			data["External files"] = extFiles
