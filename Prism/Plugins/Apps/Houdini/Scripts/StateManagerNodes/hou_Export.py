@@ -502,7 +502,7 @@ class ExportClass(object):
 				self.gb_submit.setVisible(True)
 			if (self.node is None or self.node.type().name() not in ["pixar::usdrop"]):
 				self.createNode()
-		elif idx == ".usd":
+		elif idx == ".rs":
 			self.f_cam.setVisible(False)
 			self.w_sCamShot.setVisible(False)
 			self.f_taskName.setVisible(True)
@@ -598,7 +598,7 @@ class ExportClass(object):
 
 	@err_decorator
 	def connectNode(self):
-		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().description() in ["ROP Output Driver", "ROP File Output", "ROP Alembic Output", "File Cache", 'ROP USD Output'] or (hou.selectedNodes()[0].type().category().name() == "Driver" and hou.selectedNodes()[0].type().name() in ["geometry", "alembic", "Redshift_Proxy_Output"]) or (self.cb_outType.currentText() == ".hda" and hou.selectedNodes()[0].canCreateDigitalAsset())):
+		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().description() in ["ROP Output Driver", "ROP File Output", "ROP Alembic Output", "File Cache", 'ROP USD Output', "Redshift Proxy Output"] or (hou.selectedNodes()[0].type().category().name() == "Driver" and hou.selectedNodes()[0].type().name() in ["geometry", "alembic"]) or (self.cb_outType.currentText() == ".hda" and hou.selectedNodes()[0].canCreateDigitalAsset())):
 			self.node = hou.selectedNodes()[0]
 
 			extension = ""
@@ -617,7 +617,7 @@ class ExportClass(object):
 					extension = os.path.splitext(self.node.parm("file").eval())[1]
 			elif self.node.type().name() == "pixar::usdrop":
 				extension = os.path.splitext(self.node.parm("usdfile").eval())[1]
-			elif self.node.type().name() == "Redshift_Proxy_Output" and self.node.type().category().name() == "Driver":
+			elif self.node.type().name() == "Redshift_Proxy_Output":
 				extension = os.path.splitext(self.node.parm("RS_archive_file").eval())[1]
 			elif self.node.type().name() == "geometry" and self.node.type().category().name() == "Driver":
 				if self.node.parm("sopoutput").eval().endswith(".bgeo.sc"):

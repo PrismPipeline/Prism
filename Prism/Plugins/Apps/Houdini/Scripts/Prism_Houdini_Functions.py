@@ -691,7 +691,7 @@ class Prism_Houdini_Functions(object):
 
 		ropNodes = []
 		for node in hou.node("/").allSubChildren():
-			if node.type().name() in ["rop_dop", "rop_comp", "rop_geometry", "rop_alembic", "filecache"]:
+			if node.type().name() in ["rop_dop", "rop_comp", "rop_geometry", "rop_alembic", "filecache", "pixar::usdrop", "Redshift_Proxy_Output"]:
 				ropNodes.append(node)
 
 			if node.type().category().name() == "Driver" and node.type().name() in ["geometry", "alembic"]:
