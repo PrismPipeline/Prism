@@ -376,6 +376,25 @@ class ImportFileClass(object):
 						self.fileNode.parm("import_file").set(impFileName)
 						self.fileNode.parm("import_primpath").set("/")
 						self.fileNode.parm("import_time").setExpression("$F")
+					elif os.path.splitext(impFileName)[1] == ".rs":
+						if hou.nodeType(hou.sopNodeTypeCategory(), "Redshift_Proxy_Output") is None:
+							QMessageBox.warning(self.core.messageParent, "ImportFile", "Format is not supported, because Redshift is not available in Houdini.")
+							if nwBox is not None:
+								if len(nwBox.nodes()) == 0:
+									nwBox.destroy()
+							try:
+								self.node.destroy()
+							except:
+								pass
+							self.fileNode = None
+							return
+
+						self.fileNode = self.node.createNode("redshift_proxySOP")
+						self.fileNode.moveToGoodPosition()
+						self.node.setCurrent(True, clear_all_selected=True)
+						hou.hscript("Redshift_objectSpareParameters")
+						self.node.parm("RS_objprop_proxy_enable").set(True)
+						self.node.parm("RS_objprop_proxy_file").set(impFileName)
 					else:
 						self.fileNode = self.node.createNode("file")
 						self.fileNode.moveToGoodPosition()

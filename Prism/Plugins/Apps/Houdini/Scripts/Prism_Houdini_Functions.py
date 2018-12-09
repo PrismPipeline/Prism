@@ -539,8 +539,14 @@ class Prism_Houdini_Functions(object):
 		usdType = hou.nodeType(hou.sopNodeTypeCategory(), "pixar::usdrop")
 		if usdType is not None and ".usd" not in self.plugin.outputFormats:
 			self.plugin.outputFormats.insert(-2, ".usd")
-		elif usdType is not None and ".usd" in self.plugin.outputFormats:
+		elif usdType is None and ".usd" in self.plugin.outputFormats:
 			self.plugin.outputFormats.pop(self.plugin.outputFormats.index(".usd"))
+
+		rsType = hou.nodeType(hou.sopNodeTypeCategory(), "Redshift_Proxy_Output")
+		if rsType is not None and ".rs" not in self.plugin.outputFormats:
+			self.plugin.outputFormats.insert(-2, ".rs")
+		elif rsType is None and ".rs" in self.plugin.outputFormats:
+			self.plugin.outputFormats.pop(self.plugin.outputFormats.index(".rs"))
 
 
 	@err_decorator
