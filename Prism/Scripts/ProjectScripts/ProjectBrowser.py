@@ -115,7 +115,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 		self.core = core
-		self.version = "v1.1.1.0"
+		self.version = "v1.1.2.0"
 
 		#self.core.reloadPlugins()
 

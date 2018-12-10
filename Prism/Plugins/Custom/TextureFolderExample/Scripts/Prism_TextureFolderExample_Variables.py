@@ -34,7 +34,7 @@
 
 class Prism_TextureFolderExample_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.1.1.0"
+		self.version = "v1.1.2.0"
 		self.pluginName = "TextureFolderExample"
 		self.pluginType = "Custom"
 		self.platforms = ["Windows", "Linux", "Darwin"]
