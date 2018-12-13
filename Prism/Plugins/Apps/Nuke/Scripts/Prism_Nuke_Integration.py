@@ -147,10 +147,11 @@ class Prism_Nuke_Integration(object):
 				with open(menuFile, 'a') as initfile:
 					initfile.write(initString)
 
-			with open(menuFile, "r+") as init:
+			with open(menuFile, "r") as init:
 				initStr = init.read()
+
+			with open(menuFile, "w") as init:
 				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-				init.seek(0)
 				init.write(initStr)
 
 			addedFiles.append(menuFile)

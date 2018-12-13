@@ -140,10 +140,12 @@ class Prism_Photoshop_Integration(object):
 
 				shutil.copy2(origFile, targetFile)
 
-				with open(targetFile, "r+") as init:
+				with open(targetFile, "r") as init:
 					initStr = init.read()
-					initStr = initStr.replace("PRISMROOT", "%s" % self.core.prismRoot.replace("\\", "/"))
-					init.seek(0)
+				
+				initStr = initStr.replace("PRISMROOT", "%s" % self.core.prismRoot.replace("\\", "/"))
+
+				with open(targetFile, "w") as init:
 					init.write(initStr)
 
 			return True

@@ -144,10 +144,11 @@ class Prism_Natron_Integration(object):
 				with open(initFile, 'a') as initfile:
 					initfile.write(initString)
 
-			with open(initFile, "r+") as init:
+			with open(initFile, "r") as init:
 				initStr = init.read()
+
+			with open(initFile, "w") as init:
 				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-				init.seek(0)
 				init.write(initStr)
 
 			addedFiles.append(initFile)

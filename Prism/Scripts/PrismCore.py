@@ -2642,7 +2642,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 			deps = eval(deps.replace("\\", "/").replace("//", "/"))
 			deps = str([str(x[0]) for x in deps])
 
-			extFiles =  self.appPlugin.sm_getExternalFiles(self)[0]
+			extFiles =  getattr(self.appPlugin, "sm_getExternalFiles", lambda x: [[],[]])(self)[0]
 			extFiles = str(list(set(extFiles)))
 
 			data["Dependencies"] = deps

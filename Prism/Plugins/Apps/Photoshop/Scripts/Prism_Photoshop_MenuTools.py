@@ -34,7 +34,7 @@
 
 import os, sys, platform
 
-prismRoot = os.path.abspath(os.path.join(os.pardir, os.pardir, os.pardir, os.pardir, os.pardir, __file__))
+prismRoot = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir))
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
 sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
