@@ -168,10 +168,11 @@ class Prism_Blender_Integration(object):
 			shutil.copy2(baseinitfile, initpath)
 			addedFiles.append(initpath)
 
-			with open(initpath, "r+") as init:
+			with open(initpath, "r") as init:
 				initStr = init.read()
+
+			with open(initpath, "w") as init:
 				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-				init.seek(0)
 				init.write(initStr)
 
 			baseRenderfile = os.path.join(integrationBase, "PrismAutoSaveRender.py")
@@ -247,7 +248,7 @@ class Prism_Blender_Integration(object):
 			elif platform.system() == "Darwin":
 				blenderPath = "/Applications/blender/blender.app/Resources/2.79"
 
-			if blenderPath != None:
+			if blenderPath != "":
 				bldItem.setCheckState(0, Qt.Checked)
 				bldItem.setText(1, blenderPath)
 				bldItem.setToolTip(0, blenderPath)

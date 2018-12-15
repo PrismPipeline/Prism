@@ -34,15 +34,15 @@
 
 class Prism_Houdini_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.1.1.0"
+		self.version = "v1.1.2.0"
 		self.pluginName = "Houdini"
 		self.pluginType = "App"
 		self.appShortName = "Hou"
 		self.appType = "3d"
 		self.hasQtParent = True
 		self.sceneFormats = [".hip", ".hipnc", ".hiplc"]
-		self.outputFormats = [".bgeo", ".abc", ".obj", ".hda", "ShotCam", "other"]
-		self.appSpecificFormats = self.sceneFormats + [".bgeo"]
+		self.outputFormats = [".bgeo", ".bgeo.sc", ".abc", ".obj", ".hda", "ShotCam", "other"]
+		self.appSpecificFormats = self.sceneFormats + [".bgeo", ".bgeo.sc", ".hda"]
 		self.appColor = [242,103,34]
 		self.appVersionPresets = ["16, 5, 323", "16, 0, 559"]
 		mantraPasses = ['defaultpasses', 'houdini_mantra', str([["Color", "Cf"], ["Opacity", "Of"], ["Alpha", "Af"], ["Position", "P"], ["Position-Z", "Pz"], ["Normal", "N"], ["Emission", "Ce"]])]

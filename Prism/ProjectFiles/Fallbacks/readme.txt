@@ -1,0 +1,1 @@
+The Fallbacks folder contains images, which get displayed in the ProjectBrowser, when an image cannot be read for whatever reason.

@@ -1,0 +1,1 @@
+The CustomModules/Python folder gets appended to the PATH environment variable by Prism. You can place 3rd party python modules in there, which you want to use in your hooks/Prism-plugins/custom scripts.

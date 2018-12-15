@@ -192,7 +192,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		customFile = QFileDialog.getOpenFileName(self, "Select File to import", startPath, "All files (*.*)")[0]
 		customFile = self.core.fixPath(customFile)
 
-		splitName = os.path.splitext(customFile)
+		splitName = getattr(self.core.appPlugin, "splitExtension", lambda x, y: os.path.splitext(y))(self, customFile)
 
 		fileName = customFile
 		impPath = getattr(self.core.appPlugin, "fixImportPath", lambda x, y:y)(self, splitName[0])
@@ -207,13 +207,15 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 	def loadVersion(self, index, currentVersion=False):
 		if currentVersion:
 			self.tw_versions.sortByColumn(0, Qt.DescendingOrder)
-			versionPath = self.tw_versions.model().index(0, 6).data()
+			pathC = self.tw_versions.model().columnCount()-1
+			versionPath = self.tw_versions.model().index(0, pathC).data()
 			if versionPath is None:
 				return
 		else:
-			versionPath = index.model().index(index.row(), 6).data()
+			pathC = index.model().columnCount()-1
+			versionPath = index.model().index(index.row(), pathC).data()
 		incompatible = []
-		for i in self.core.unloadedAppPlugins:
+		for i in self.core.unloadedAppPlugins.values():
 			incompatible += getattr(i, "appSpecificFormats", [])
 		if os.path.splitext(versionPath)[1] in incompatible:
 			QMessageBox.warning(self.core.messageParent,"Warning", "This filetype is incompatible. Can't import the selected file.")
@@ -280,7 +282,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 				path = os.path.join(entityItem.text(1), "Export", self.lw_tasks.currentItem().text().replace("ShotCam", "_ShotCam"))
 			else:
-				path = os.path.dirname(self.tw_versions.model().index(row, 6).data())
+				pathC = self.tw_versions.model().columnCount()-1
+				path = os.path.dirname(self.tw_versions.model().index(row, pathC).data())
 				showInfo = True
 
 		if self.core.useLocalFiles and not os.path.exists(path) and os.path.exists(path.replace(self.core.projectPath, self.core.localProjectPath)):
@@ -295,6 +298,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			infoAct = QAction("Show version info", self)
 			infoAct.triggered.connect(lambda: self.showVersionInfo(os.path.dirname(path)))
 			rcmenu.addAction(infoAct)
+
+			infoPath = os.path.join(os.path.dirname(path), "versioninfo.ini")
+
+			depAct = QAction("Show dependencies", self)
+			depAct.triggered.connect(lambda: self.core.dependencyViewer(infoPath, modal=True))
+			rcmenu.addAction(depAct)
 
 		self.core.appPlugin.setRCStyle(self, rcmenu)
 
@@ -595,7 +604,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 	def updateVersions(self):
 		model = QStandardItemModel()
 
-		model.setHorizontalHeaderLabels(["Version", "Comment", "Type", "Units", "User", "Date"])
+		versionLabels = ["Version", "Comment", "Type", "Units", "User", "Date", "Path"]
+
+		if self.core.useLocalFiles:
+			versionLabels.insert(4, "Location")
+
+		model.setHorizontalHeaderLabels(versionLabels)
 
 		twSorting = [self.tw_versions.horizontalHeader().sortIndicatorSection(), self.tw_versions.horizontalHeader().sortIndicatorOrder()]
 
@@ -633,12 +647,15 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				fileName = [None, None, None]
 				for n, unit in enumerate(["centimeter", "meter", ""]):
 					for m in os.walk(os.path.join(k[1], k[0], unit)):
-						if len(m[2]) > 0 and os.path.splitext(m[2][0])[1] not in [".txt", ".ini"]:
-							fileName[n] = os.path.join(k[1], k[0], unit, m[2][0])
-							if getattr(self.core.appPlugin, "shotcamFormat", ".abc") == ".fbx" and self.curTask == "ShotCam" and fileName[n].endswith(".abc") and os.path.exists(fileName[n][:-3] + "fbx"):
-								fileName[n] = fileName[n][:-3] + "fbx"
-							if fileName[n].endswith(".mtl") and os.path.exists(fileName[n][:-3] + "obj"):
-								fileName[n] = fileName[n][:-3] + "obj"
+						if len(m[2]) > 0:
+							for i in m[2]:
+								if os.path.splitext(i)[1] not in [".txt", ".ini"]:
+									fileName[n] = os.path.join(k[1], k[0], unit, i)
+									if getattr(self.core.appPlugin, "shotcamFormat", ".abc") == ".fbx" and self.curTask == "ShotCam" and fileName[n].endswith(".abc") and os.path.exists(fileName[n][:-3] + "fbx"):
+										fileName[n] = fileName[n][:-3] + "fbx"
+									if fileName[n].endswith(".mtl") and os.path.exists(fileName[n][:-3] + "obj"):
+										fileName[n] = fileName[n][:-3] + "obj"
+									break
 						break
 
 				if fileName[0] is None and fileName[1] is None and fileName[2] is None:
@@ -658,8 +675,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 						else:
 							uv = 0
 
-				depPath = os.path.splitext(fileName[uv])[0]
-				depExt = os.path.splitext(fileName[uv])[1]
+				depPath, depExt = getattr(self.core.appPlugin, "splitExtension", lambda x, y: os.path.splitext(y))(self, fileName[uv])
 
 				row = []
 
@@ -693,10 +709,19 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(item)
 
+				if self.core.useLocalFiles:
+					if self.core.localProjectPath in depPath:
+						location = "local"
+					else:
+						location = "global"
+
+					item = QStandardItem(location)
+					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+					row.append(item)
+
 				item = QStandardItem(nameData[2])
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(item)
-
 
 				cdate = datetime.datetime.fromtimestamp(os.path.getmtime(fileName[uv]))
 				cdate = cdate.replace(microsecond = 0)
@@ -713,7 +738,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				model.appendRow(row)
 
 		self.tw_versions.setModel(model)
-		self.tw_versions.setColumnHidden(6, True)
+		self.tw_versions.setColumnHidden(len(versionLabels)-1, True)
 		if psVersion == 1:
 			self.tw_versions.horizontalHeader().setResizeMode(1, QHeaderView.Stretch)
 		else:
@@ -723,8 +748,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		self.tw_versions.setColumnWidth(0,90*self.core.uiScaleFactor)
 		self.tw_versions.setColumnWidth(2,70*self.core.uiScaleFactor)
 		self.tw_versions.setColumnWidth(3,50*self.core.uiScaleFactor)
-		self.tw_versions.setColumnWidth(4,70*self.core.uiScaleFactor)
-		self.tw_versions.setColumnWidth(5,150*self.core.uiScaleFactor)
+		self.tw_versions.setColumnWidth(len(versionLabels)-3,70*self.core.uiScaleFactor)
+		self.tw_versions.setColumnWidth(len(versionLabels)-2,150*self.core.uiScaleFactor)
 		self.tw_versions.sortByColumn(twSorting[0], twSorting[1])
 
 		if self.tw_versions.model().rowCount() > 0:
@@ -753,7 +778,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		if self.tw_versions.selectionModel().currentIndex().row() == -1:
 			return curPath
 
-		return os.path.dirname(self.tw_versions.model().index(self.tw_versions.selectionModel().currentIndex().row(), 6).data())
+		pathC = self.tw_versions.model().columnCount()-1
+		row = self.tw_versions.selectionModel().currentIndex().row()
+		return os.path.dirname(self.tw_versions.model().index(row, pathC).data())
 
 
 	@err_decorator

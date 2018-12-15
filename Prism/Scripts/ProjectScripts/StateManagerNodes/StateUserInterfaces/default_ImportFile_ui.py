@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_ImportFile.ui'
 #
-# Created: Mon Jul 09 20:19:19 2018
+# Created: Thu Dec  6 20:52:44 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_wg_ImportFile(object):
     def setupUi(self, wg_ImportFile):
         wg_ImportFile.setObjectName("wg_ImportFile")
-        wg_ImportFile.resize(340, 625)
+        wg_ImportFile.resize(340, 651)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -210,19 +210,35 @@ class Ui_wg_ImportFile(object):
         self.chb_preferUnit.setObjectName("chb_preferUnit")
         self.horizontalLayout_8.addWidget(self.chb_preferUnit)
         self.verticalLayout_6.addWidget(self.w_preferUnit)
+        self.w_trackObjects = QtGui.QWidget(self.gb_options)
+        self.w_trackObjects.setObjectName("w_trackObjects")
+        self.horizontalLayout_9 = QtGui.QHBoxLayout(self.w_trackObjects)
+        self.horizontalLayout_9.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout_9.setObjectName("horizontalLayout_9")
+        self.l_trackObjects = QtGui.QLabel(self.w_trackObjects)
+        self.l_trackObjects.setObjectName("l_trackObjects")
+        self.horizontalLayout_9.addWidget(self.l_trackObjects)
+        spacerItem8 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout_9.addItem(spacerItem8)
+        self.chb_trackObjects = QtGui.QCheckBox(self.w_trackObjects)
+        self.chb_trackObjects.setText("")
+        self.chb_trackObjects.setChecked(True)
+        self.chb_trackObjects.setObjectName("chb_trackObjects")
+        self.horizontalLayout_9.addWidget(self.chb_trackObjects)
+        self.verticalLayout_6.addWidget(self.w_trackObjects)
         self.verticalLayout_2.addWidget(self.gb_options)
-        self.groupBox_2 = QtGui.QGroupBox(self.gb_import)
-        self.groupBox_2.setObjectName("groupBox_2")
-        self.verticalLayout_4 = QtGui.QVBoxLayout(self.groupBox_2)
+        self.gb_objects = QtGui.QGroupBox(self.gb_import)
+        self.gb_objects.setObjectName("gb_objects")
+        self.verticalLayout_4 = QtGui.QVBoxLayout(self.gb_objects)
         self.verticalLayout_4.setContentsMargins(9, 9, 9, 9)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
-        self.lw_objects = QtGui.QListWidget(self.groupBox_2)
+        self.lw_objects = QtGui.QListWidget(self.gb_objects)
         self.lw_objects.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.lw_objects.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.lw_objects.setHorizontalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.lw_objects.setObjectName("lw_objects")
         self.verticalLayout_4.addWidget(self.lw_objects)
-        self.verticalLayout_2.addWidget(self.groupBox_2)
+        self.verticalLayout_2.addWidget(self.gb_objects)
         self.verticalLayout.addWidget(self.gb_import)
 
         self.retranslateUi(wg_ImportFile)
@@ -231,7 +247,7 @@ class Ui_wg_ImportFile(object):
 
     def retranslateUi(self, wg_ImportFile):
         wg_ImportFile.setWindowTitle(QtGui.QApplication.translate("wg_ImportFile", "ImportFile", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_name.setText(QtGui.QApplication.translate("wg_ImportFile", "Name:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_name.setText(QtGui.QApplication.translate("wg_ImportFile", "State name:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_class.setText(QtGui.QApplication.translate("wg_ImportFile", "ImportFile", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_import.setTitle(QtGui.QApplication.translate("wg_ImportFile", "Import", None, QtGui.QApplication.UnicodeUTF8))
         self.l_file.setText(QtGui.QApplication.translate("wg_ImportFile", "File:", None, QtGui.QApplication.UnicodeUTF8))
@@ -252,5 +268,6 @@ class Ui_wg_ImportFile(object):
         self.b_unitConversion.setText(QtGui.QApplication.translate("wg_ImportFile", "cm -> m", None, QtGui.QApplication.UnicodeUTF8))
         self.l_abcPath.setText(QtGui.QApplication.translate("wg_ImportFile", "Alembic - Update path only (if exists)", None, QtGui.QApplication.UnicodeUTF8))
         self.l_preferUnit.setText(QtGui.QApplication.translate("wg_ImportFile", "Prefer versions in meter:", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupBox_2.setTitle(QtGui.QApplication.translate("wg_ImportFile", "Objects", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_trackObjects.setText(QtGui.QApplication.translate("wg_ImportFile", "Keep track of connected objects:", None, QtGui.QApplication.UnicodeUTF8))
+        self.gb_objects.setTitle(QtGui.QApplication.translate("wg_ImportFile", "Objects", None, QtGui.QApplication.UnicodeUTF8))
 

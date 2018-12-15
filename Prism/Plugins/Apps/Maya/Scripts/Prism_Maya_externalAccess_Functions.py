@@ -36,6 +36,17 @@ import os, sys
 import traceback, time, platform, shutil
 from functools import wraps
 
+try:
+	from PySide2.QtCore import *
+	from PySide2.QtGui import *
+	from PySide2.QtWidgets import *
+	psVersion = 2
+except:
+	from PySide.QtCore import *
+	from PySide.QtGui import *
+	psVersion = 1
+
+
 class Prism_Maya_externalAccess_Functions(object):
 	def __init__(self, core, plugin):
 		self.core = core
@@ -58,7 +69,20 @@ class Prism_Maya_externalAccess_Functions(object):
 
 	@err_decorator
 	def prismSettings_loadUI(self, origin, tab):
-		pass
+		if self.core.appPlugin.pluginName == "Maya":
+			origin.w_addModulePath = QWidget()
+			origin.b_addModulePath = QPushButton("Add current project to Maya module path")
+			lo_addModulePath = QHBoxLayout()
+			origin.w_addModulePath.setLayout(lo_addModulePath)
+			lo_addModulePath.setContentsMargins(0,9,0,9)
+			lo_addModulePath.addStretch()
+			lo_addModulePath.addWidget(origin.b_addModulePath)
+			tab.layout().addWidget(origin.w_addModulePath)
+
+			origin.b_addModulePath.clicked.connect(self.appendEnvFile)
+
+			if not os.path.exists(self.core.prismIni):
+				origin.b_addModulePath.setEnabled(False)
 
 
 	@err_decorator

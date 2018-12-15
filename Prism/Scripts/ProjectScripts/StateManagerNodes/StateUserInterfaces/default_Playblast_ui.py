@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_Playblast.ui'
 #
-# Created: Mon Jul 09 20:19:59 2018
+# Created: Sat Dec  8 20:05:38 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_wg_Playblast(object):
     def setupUi(self, wg_Playblast):
         wg_Playblast.setObjectName("wg_Playblast")
-        wg_Playblast.resize(340, 270)
+        wg_Playblast.resize(340, 296)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -175,6 +175,22 @@ class Ui_wg_Playblast(object):
         self.chb_localOutput.setObjectName("chb_localOutput")
         self.horizontalLayout_16.addWidget(self.chb_localOutput)
         self.verticalLayout_2.addWidget(self.f_localOutput)
+        self.widget_5 = QtGui.QWidget(self.groupBox)
+        self.widget_5.setObjectName("widget_5")
+        self.horizontalLayout_3 = QtGui.QHBoxLayout(self.widget_5)
+        self.horizontalLayout_3.setSpacing(0)
+        self.horizontalLayout_3.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
+        self.label_4 = QtGui.QLabel(self.widget_5)
+        self.label_4.setObjectName("label_4")
+        self.horizontalLayout_3.addWidget(self.label_4)
+        spacerItem5 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout_3.addItem(spacerItem5)
+        self.cb_formats = QtGui.QComboBox(self.widget_5)
+        self.cb_formats.setMinimumSize(QtCore.QSize(150, 0))
+        self.cb_formats.setObjectName("cb_formats")
+        self.horizontalLayout_3.addWidget(self.cb_formats)
+        self.verticalLayout_2.addWidget(self.widget_5)
         self.verticalLayout.addWidget(self.groupBox)
         self.groupBox_3 = QtGui.QGroupBox(wg_Playblast)
         self.groupBox_3.setCheckable(False)
@@ -189,7 +205,6 @@ class Ui_wg_Playblast(object):
         self.widget_21 = QtGui.QWidget(self.groupBox_3)
         self.widget_21.setObjectName("widget_21")
         self.horizontalLayout_19 = QtGui.QHBoxLayout(self.widget_21)
-        self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_19.setObjectName("horizontalLayout_19")
         self.b_openLast = QtGui.QPushButton(self.widget_21)
@@ -222,6 +237,7 @@ class Ui_wg_Playblast(object):
         self.label_6.setText(QtGui.QApplication.translate("wg_Playblast", "Resolution override:", None, QtGui.QApplication.UnicodeUTF8))
         self.b_resPresets.setText(QtGui.QApplication.translate("wg_Playblast", "▼", None, QtGui.QApplication.UnicodeUTF8))
         self.l_localOutput.setText(QtGui.QApplication.translate("wg_Playblast", "Local output:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_4.setText(QtGui.QApplication.translate("wg_Playblast", "Outputformat:", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_3.setTitle(QtGui.QApplication.translate("wg_Playblast", "Last playblast", None, QtGui.QApplication.UnicodeUTF8))
         self.l_pathLast.setText(QtGui.QApplication.translate("wg_Playblast", "None", None, QtGui.QApplication.UnicodeUTF8))
         self.b_openLast.setText(QtGui.QApplication.translate("wg_Playblast", "Open in explorer", None, QtGui.QApplication.UnicodeUTF8))

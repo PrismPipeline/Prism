@@ -138,10 +138,11 @@ class Prism_Fusion_Integration(object):
 				shutil.copy2(origFile, targetFile)
 				addedFiles.append(targetFile)
 
-				with open(targetFile, "r+") as init:
+				with open(targetFile, "r") as init:
 					initStr = init.read()
 					initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-					init.seek(0)
+
+				with open(targetFile, "w") as init:
 					init.write(initStr)
 
 			if platform.system() == "Windows":
@@ -159,10 +160,11 @@ class Prism_Fusion_Integration(object):
 					shutil.copy2(origFile, targetFile)
 					addedFiles.append(targetFile)
 
-					with open(targetFile, "r+") as init:
+					with open(targetFile, "r") as init:
 						initStr = init.read()
+
+					with open(targetFile, "w") as init:
 						initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-						init.seek(0)
 						init.write(initStr)
 
 			for i in ["1 Save Version.py", "2 Save Comment.py", "3 Project Browser.py", "4 Update selected load nodes.py", "5 Settings.py"]:
@@ -179,10 +181,11 @@ class Prism_Fusion_Integration(object):
 				shutil.copy2(origFile, targetFile)
 				addedFiles.append(targetFile)
 
-				with open(targetFile, "r+") as init:
+				with open(targetFile, "r") as init:
 					initStr = init.read()
+
+				with open(targetFile, "w") as init:
 					initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-					init.seek(0)
 					init.write(initStr)
 
 			for i in ["WritePrism.setting"]:
@@ -199,10 +202,11 @@ class Prism_Fusion_Integration(object):
 				shutil.copy2(origFile, targetFile)
 				addedFiles.append(targetFile)
 
-				with open(targetFile, "r+") as init:
+				with open(targetFile, "r") as init:
 					initStr = init.read()
+
+				with open(targetFile, "w") as init:
 					initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-					init.seek(0)
 					init.write(initStr)
 
 			if platform.system() in ["Linux", "Darwin"]:

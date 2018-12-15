@@ -5,12 +5,12 @@ fname = "ProjectBrowser"
 #fname = "CombineMedia"
 #fname = "EditShot"
 fname = "CreateItem"
-#fname = "StateManager"
+fname = "StateManager"
 #fname = "TaskSelection"
 #fname = "EnterText"
 #fname = "ItemList"
 #fname = "ExternalTask"
-
+fname = "DependencyViewer"
 
 pyside = 0
 

@@ -115,9 +115,9 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.1.1.0"
+			self.version = "v1.1.2.0"
 
-			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
 			if platform.system() == "Windows":
 				self.userini = os.path.join(os.environ["userprofile"], "Documents", "Prism", "Prism.ini")
@@ -210,23 +210,30 @@ class PrismCore():
 
 
 	@err_decorator
-	def updatePlugins(self, current):
-		self.unloadedAppPlugins = []
-		self.customPlugins = {}
+	def updatePlugins(self, current=None, pluginPath=None):
+		appPlugins = []
 		customPlugins = []
-		self.rfManagers = {}
 		rfManagers = []
-		self.prjManagers = {}
 		prjManagers = []
+	
+		if pluginPath is None:
+			self.unloadedAppPlugins = {}
+			self.customPlugins = {}
+			self.rfManagers = {}
+			self.prjManagers = {}
 
-		sys.path.append(os.path.join(self.pluginPathApp, current, "Scripts"))
-		self.appPlugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
+			sys.path.append(os.path.join(self.pluginPathApp, current, "Scripts"))
+			self.appPlugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
 
-		if not self.appPlugin:
-			QMessageBox.critical(QWidget(), "Prism Error", "Prism could not initialize correctly and may not work correctly in this session.")
-			return
+			if not self.appPlugin:
+				QMessageBox.critical(QWidget(), "Prism Error", "Prism could not initialize correctly and may not work correctly in this session.")
+				return
 
-		for k in self.pluginDirs:
+			pluginDirs = self.pluginDirs
+		else:
+			pluginDirs = [pluginPath]
+
+		for k in pluginDirs:
 			if not os.path.exists(k):
 				continue
 
@@ -251,14 +258,22 @@ class PrismCore():
 					pPlug = getattr(__import__("Prism_%s_init" % (i)), "Prism_%s" % i)(self)
 
 				if platform.system() in pPlug.platforms:
+					if pluginPath is None:
+						pPlug.location = "prismRoot"
+					else:
+						pPlug.location = "prismProject"
+
 					if pPlug.pluginType in ["App"]:
-						self.unloadedAppPlugins.append(pPlug)
+						appPlugins.append(pPlug)
 					elif pPlug.pluginType in ["Custom"]:
 						customPlugins.append(pPlug)
 					elif pPlug.pluginType in ["RenderfarmManager"]:
 						rfManagers.append(pPlug)
 					elif pPlug.pluginType in ["ProjectManager"]:
 						prjManagers.append(pPlug)
+
+		for i in appPlugins:
+			self.unloadedAppPlugins[i.pluginName] = i
 
 		for i in customPlugins:
 			if i.isActive():
@@ -272,6 +287,9 @@ class PrismCore():
 		for i in prjManagers:
 			if i.isActive():
 				self.prjManagers[i.pluginName] = i
+
+		if pluginPath is not None:
+			return
 
 		if not self.appPlugin.hasQtParent:
 			self.messageParent = QWidget()
@@ -329,13 +347,38 @@ class PrismCore():
 			self.customPlugins[cPlug.pluginName] = cPlug
 
 
+
+	@err_decorator
+	def unloadProjectPlugins(self):
+		pluginDicts = [self.unloadedAppPlugins, self.customPlugins, self.rfManagers, self.prjManagers]
+		prjPlugins = []
+		for k in pluginDicts:
+			for i in k:
+				if k[i].location == "prismProject":
+					prjPlugins.append([i, k])
+	
+		for i in prjPlugins:
+			self.unloadPlugin(i[0], i[1])
+
+
+	@err_decorator
+	def unloadPlugin(self, pluginName, pluginCategory):
+		mods = ["Prism_%s_init" % pluginName, "Prism_%s_Functions" % pluginName, "Prism_%s_Variables" % pluginName]
+		for k in mods:
+			try:
+				del sys.modules[k]
+			except:
+				pass
+
+		del pluginCategory[pluginName]
+
 	@err_decorator
 	def callback(self, name="", types=["custom"], args=[], kwargs={}):
 		if "curApp" in types:
 			getattr(self.appPlugin, name, lambda *args, **kwargs: None)(*args, **kwargs)
 
 		if "unloadedApps" in types:
-			for i in self.unloadedAppPlugins:
+			for i in self.unloadedAppPlugins.values():
 				getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
 
 		if "custom" in types:
@@ -521,6 +564,18 @@ class PrismCore():
 		for i in delModules:
 			sys.path.remove(i)
 
+		if hasattr(self, "projectPath"):
+			modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules", "Python")
+			if modulePath in sys.path:
+				sys.path.remove(modulePath)
+
+			curModules = list(sys.modules.keys())
+			for i in curModules:
+				if hasattr(sys.modules[i], "__file__") and modulePath in sys.modules[i].__file__:
+					del sys.modules[i]
+
+		self.unloadProjectPlugins()
+
 		if not os.path.exists(inipath):
 			self.prismIni = ""
 			self.setConfig("globals", "current project", "")
@@ -586,6 +641,16 @@ class PrismCore():
 
 		if inipath != self.getConfig("globals", "current project"):
 			self.setConfig("globals", "current project", inipath)
+
+		modulePath = os.path.join(self.projectPath, "00_Pipeline", "CustomModules", "Python")
+		if not os.path.exists(modulePath):
+			os.makedirs(modulePath)
+		
+		sys.path.append(modulePath)
+
+		pluginPath = os.path.join(self.projectPath, "00_Pipeline", "Plugins")
+		if os.path.exists(pluginPath):
+			self.updatePlugins(pluginPath=pluginPath)
 
 		rSection = "recent_files_" + self.projectName
 
@@ -1104,6 +1169,39 @@ class PrismCore():
 
 
 	@err_decorator
+	def dependencyViewer(self, depRoot="", modal=False):
+		if hasattr(self, "dv") and self.dv.isVisible():
+			self.dv.close()
+
+		try:
+			del sys.modules["DependencyViewer"]
+		except:
+			pass
+
+		try:
+			import DependencyViewer
+		except:
+			try:
+				modPath = imp.find_module("DependencyViewer")[1]
+				if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
+					os.remove(modPath)
+			
+				import DependencyViewer
+			except Exception as e:
+				msgString = "Could not load the DependencyViewer:\n\n%s" % str(e)
+				QMessageBox.warning(self.messageParent, "Prism Error", msgString)
+				return False
+		
+		self.dv = DependencyViewer.DependencyViewer(core=self, depRoot=depRoot)
+		if modal:
+			self.dv.exec_()
+		else:
+			self.dv.show()
+
+		return True
+
+
+	@err_decorator
 	def prismSettings(self, tab=0):
 		if not os.path.exists(self.userini):
 			self.createUserPrefs()
@@ -1201,9 +1299,14 @@ class PrismCore():
 	@err_decorator
 	def setupStartMenu(self):
 		if self.appPlugin.pluginName == "Standalone":
-			self.appPlugin.createWinStartMenu(self)
+			result = self.appPlugin.createWinStartMenu(self)
 			if not "silent" in self.prismArgs:
-				QMessageBox.information(self.messageParent, "Prism", "Successfully added start menu entries.")
+				if result == True:
+					msg = "Successfully added start menu entries."
+				else:
+					msg = "Creating start menu entries failed"
+
+				QMessageBox.information(self.messageParent, "Prism", msg)
 
 
 	@err_decorator
@@ -1312,7 +1415,7 @@ class PrismCore():
 			return
 
 		hookPath = os.path.join(self.projectPath, "00_Pipeline", "Hooks", hookName + ".py")
-		if os.path.basename(hookPath) in os.listdir(os.path.dirname(hookPath)):
+		if os.path.exists(os.path.dirname(hookPath)) and os.path.basename(hookPath) in os.listdir(os.path.dirname(hookPath)):
 			hookDir = os.path.dirname(hookPath)
 			if not hookDir in sys.path:
 				sys.path.append(os.path.dirname(hookPath))
@@ -1567,7 +1670,7 @@ class PrismCore():
 
 	@err_decorator
 	def getPluginNames(self):
-		pluginNames = [x.pluginName for x in self.unloadedAppPlugins]
+		pluginNames = list(self.unloadedAppPlugins.keys())
 		pluginNames.append(self.appPlugin.pluginName)
 
 		return sorted(pluginNames)
@@ -1577,7 +1680,7 @@ class PrismCore():
 	def getPluginSceneFormats(self):
 		pluginFormats = list(self.appPlugin.sceneFormats)
 
-		for i in self.unloadedAppPlugins:
+		for i in self.unloadedAppPlugins.values():
 			pluginFormats += i.sceneFormats
 
 		return pluginFormats
@@ -1589,8 +1692,8 @@ class PrismCore():
 			return getattr(self.appPlugin, data, None)
 		else:
 			for i in self.unloadedAppPlugins:
-				if i.pluginName == pluginName:
-					return getattr(i, data, None)
+				if i == pluginName:
+					return getattr(self.unloadedAppPlugins[i], data, None)
 
 		return None
 
@@ -1601,8 +1704,8 @@ class PrismCore():
 			return self.appPlugin
 		else:
 			for i in self.unloadedAppPlugins:
-				if i.pluginName == pluginName:
-					return i
+				if i == pluginName:
+					return self.unloadedAppPlugins[i]
 
 		return None
 
@@ -1906,22 +2009,24 @@ class PrismCore():
 				return False
 				
 			if self.useLocalFiles:
-				dstname = filepath.replace(self.projectPath, self.localProjectPath)
-				if not os.path.exists(dstname):
-					os.makedirs(dstname)
+				filepath = self.fixPath(filepath).replace(self.projectPath, self.localProjectPath)
+				if not os.path.exists(os.path.dirname(filepath)):
+					os.makedirs(os.path.dirname(filepath))
 
 			if versionUp:
 				fname = os.path.basename(curfile).split(self.filenameSeperator)
-				dstname = os.path.dirname(curfile)
+				dstname = os.path.dirname(filepath)
 
 				if len(fname) == 6:
-					fname[2] = self.getHighestVersion(dstname, "Asset")
+					fVersion = self.getHighestVersion(dstname, "Asset")
+					fname[2] = fVersion
 					fname[3] = comment
 					fname[4] = self.user
 					fname[5] = self.appPlugin.getSceneExtension(self)
 
 				elif len(fname) == 8:
-					fname[4] = self.getHighestVersion(dstname, "Shot")
+					fVersion = self.getHighestVersion(dstname, "Shot")
+					fname[4] = fVersion
 					fname[5] = comment
 					fname[6] = self.user
 					fname[7] = self.appPlugin.getSceneExtension(self)
@@ -1952,8 +2057,16 @@ class PrismCore():
 
 		self.addToRecent(filepath)
 
-		if publish and self.useLocalFiles:
-			self.copySceneFile(filepath, self.fixPath(filepath).replace(self.localProjectPath, self.projectPath))
+		if publish:
+			pubFile = filepath
+			if self.useLocalFiles:
+				pubFile = self.fixPath(filepath).replace(self.localProjectPath, self.projectPath)
+				self.copySceneFile(filepath, pubFile)
+		
+			fBase = os.path.splitext(os.path.basename(pubFile))[0]
+
+			infoData = {"filename":os.path.basename(pubFile)}
+			self.saveVersionInfo(location=os.path.dirname(pubFile), version=fVersion, fps=True, filenameBase=fBase, data=infoData)
 
 		if hasattr(self, "sm"):
 			self.sm.scenename = self.getCurrentFileName()
@@ -2006,12 +2119,17 @@ class PrismCore():
 
 	@err_decorator
 	def copySceneFile(self, origFile, targetFile):
-		shutil.copy2(self.fixPath(origFile), self.fixPath(targetFile))
+		origFile = self.fixPath(origFile)
+		targetFile = self.fixPath(targetFile)
+		if origFile == targetFile:
+			return
+
+		shutil.copy2(origFile, targetFile)
 		ext = os.path.splitext(origFile)[1]
 		if ext in self.appPlugin.sceneFormats:
 			getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
 		else:
-			for i in self.unloadedAppPlugins:
+			for i in self.unloadedAppPlugins.values():
 				if ext in i.sceneFormats:
 					getattr(i, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
 
@@ -2118,6 +2236,16 @@ class PrismCore():
 		else:
 			shortcut.IconLocation = vIcon
 		shortcut.save()
+
+
+	@err_decorator
+	def checkIllegalCharacters(self, strings):
+		illegalStrs = []
+		for i in strings:
+			if not all(ord(c) < 128 for c in i):
+				illegalStrs.append(i)
+
+		return illegalStrs
 
 
 	@err_decorator
@@ -2446,18 +2574,82 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 
 
 	@err_decorator
-	def saveVersionInfo(self, location, version, origin, fps=None):
-		infoFilePath = os.path.join(location, "versioninfo.ini")
+	def convertMedia(self, inputpath, startNum, outputpath):
+		inputpath = inputpath.replace("\\", "/")
+		inputExt = os.path.splitext(inputpath)[1]
+		videoInput = inputExt in [".mp4", ".mov"]
+		startNum = str(startNum)
+
+		ffmpegIsInstalled = False
+		if platform.system() == "Windows":
+			ffmpegPath = os.path.join(self.prismRoot, "Tools", "FFmpeg" ,"bin", "ffmpeg.exe")
+			if os.path.exists(ffmpegPath):
+				ffmpegIsInstalled = True
+		elif platform.system() == "Linux":
+			ffmpegPath = "ffmpeg"
+			try:
+				subprocess.Popen([ffmpegPath])
+				ffmpegIsInstalled = True
+			except:
+				pass
+		elif platform.system() == "Darwin":
+			ffmpegPath = os.path.join(self.prismRoot, "Tools", "ffmpeg")
+			if os.path.exists(ffmpegPath):
+				ffmpegIsInstalled = True
+
+		if not ffmpegIsInstalled:
+			QMessageBox.critical(self.messageParent, "Video conversion", "Could not find %s" % ffmpegPath)
+			return
+
+		if not os.path.exists(os.path.dirname(outputpath)):
+			os.makedirs(os.path.dirname(outputpath))
+
+		if videoInput:
+			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuv420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		else:
+			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", "24", "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		result = nProc.communicate()
+
+		return result
+
+
+	@err_decorator
+	def saveVersionInfo(self, location, version, origin=None, fps=None, filenameBase="", data={}):
+		infoFilePath = os.path.join(location, filenameBase + "versioninfo.ini")
 		vConfig = ConfigParser()
 
 		vConfig.add_section("information")
 		vConfig.set("information", "Version", version)
 		vConfig.set("information", "Created by", self.getConfig("globals", "UserName"))
 		vConfig.set("information", "Creation date", time.strftime("%d.%m.%y %X"))
-		vConfig.set("information", "Source scene", origin)
+
+		if origin is not None:
+			vConfig.set("information", "Source scene", origin)
 
 		if fps:
 			vConfig.set("information", "FPS", str(self.getFPS()))
+
+		depsEnabled = self.getConfig('globals', "track_dependencies", configPath=self.prismIni)
+		if depsEnabled != "False":
+			if depsEnabled is None:
+				self.setConfig('globals', "track_dependencies", val="True", configPath=self.prismIni)
+
+			deps = self.appPlugin.getImportPaths(self)
+
+			if deps == False:
+				deps = "[]"
+
+			deps = eval(deps.replace("\\", "/").replace("//", "/"))
+			deps = str([str(x[0]) for x in deps])
+
+			extFiles =  getattr(self.appPlugin, "sm_getExternalFiles", lambda x: [[],[]])(self)[0]
+			extFiles = str(list(set(extFiles)))
+
+			data["Dependencies"] = deps
+			data["External files"] = extFiles
+
+		for i in data:
+			vConfig.set("information", i, data[i])
 
 		with open(infoFilePath, "w") as infoFile:
 			vConfig.write(infoFile)
@@ -2657,7 +2849,7 @@ except Exception as e:
 
 
 	@err_decorator
-	def updatePrism(self, filepath="", gitHub=False):
+	def updatePrism(self, filepath="", source=""):
 		if platform.system() == "Windows":
 			targetdir = os.path.join(os.environ["temp"], "PrismUpdate")
 		else:
@@ -2669,37 +2861,50 @@ except Exception as e:
 			except:
 				QMessageBox.warning(self.messageParent, "Prism update", "Could not remove temp directory:\n%s" % targetdir)
 				return
-
-		if gitHub:
-			try:
-				from git import Repo
-			except:
-				QMessageBox.warning(self.messageParent, "Prism update", "Could not load git. In order to update Prism from GitHub you need git installed on your computer.")
-				return
-
-			waitmsg = QMessageBox(QMessageBox.NoIcon, "Prism update", "Downloading repository - please wait..", QMessageBox.Cancel)
+		
+		if source == "github":
+			waitmsg = QMessageBox(QMessageBox.NoIcon, "Prism update", "Downloading Prism - please wait..", QMessageBox.Cancel)
 			waitmsg.buttons()[0].setHidden(True)
+			self.parentWindow(waitmsg)
 			waitmsg.show()
 			QCoreApplication.processEvents()
 
-			Repo.clone_from("https://github.com/RichardFrangenberg/Prism", targetdir)
+			import urllib
 
-			updateRoot = os.path.join(os.environ["temp"], "PrismUpdate", "Prism")
-		else:
-			if not os.path.exists(filepath):
-				return
+			url = 'https://api.github.com/repos/RichardFrangenberg/Prism/zipball'
 
-			import zipfile
+			u = urllib.urlopen(url)
+			data = u.read()
+			u.close()
+			filepath = os.path.join(targetdir, "Prism_update.zip")
+			if not os.path.exists(os.path.dirname(filepath)):
+				os.makedirs(os.path.dirname(filepath))
+				
+			with open(filepath, "wb") as f :
+				f.write(data)
 
-			waitmsg = QMessageBox(QMessageBox.NoIcon, "Prism update", "Extracting - please wait..", QMessageBox.Cancel)
-			waitmsg.buttons()[0].setHidden(True)
-			waitmsg.show()
-			QCoreApplication.processEvents()
+			if "waitmsg" in locals() and waitmsg.isVisible():
+				waitmsg.close()
 
-			with zipfile.ZipFile(filepath,"r") as zip_ref:
-				zip_ref.extractall(targetdir)
+		if not os.path.exists(filepath):
+			return
 
-			updateRoot = os.path.join(os.environ["temp"], "PrismUpdate", "Prism-development", "Prism")
+		import zipfile
+
+		waitmsg = QMessageBox(QMessageBox.NoIcon, "Prism update", "Extracting - please wait..", QMessageBox.Cancel)
+		waitmsg.buttons()[0].setHidden(True)
+		self.parentWindow(waitmsg)
+		waitmsg.show()
+		QCoreApplication.processEvents()
+
+		with zipfile.ZipFile(filepath,"r") as zip_ref:
+			zip_ref.extractall(targetdir)
+
+		for i in os.walk(targetdir):
+			dirs = i[1]
+			break
+
+		updateRoot = os.path.join(targetdir, dirs[0], "Prism")
 
 		if "waitmsg" in locals() and waitmsg.isVisible():
 			waitmsg.close()
@@ -2725,6 +2930,7 @@ except Exception as e:
 
 		if os.path.exists(targetdir):
 			shutil.rmtree(targetdir, ignore_errors=False, onerror=self.handleRemoveReadonly)
+			
 		try:
 			import psutil
 		except:

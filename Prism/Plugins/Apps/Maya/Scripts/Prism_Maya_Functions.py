@@ -119,8 +119,25 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def onProjectChanged(self, origin):
 		job = self.core.projectPath.replace("\\", "/")
-		cmds.workspace(job, openWorkspace=True) 
+		cmds.workspace(job, openWorkspace=True)
 
+		pluginPath = os.path.join(self.core.projectPath, "00_Pipeline", "CustomModules", "Maya", "plug-ins")	
+		scriptPath = os.path.join(self.core.projectPath, "00_Pipeline", "CustomModules", "Maya", "scripts")
+		
+		if not os.path.exists(pluginPath):
+			os.makedirs(pluginPath)
+
+		if not os.path.exists(scriptPath):
+			os.makedirs(scriptPath)
+
+		if pluginPath not in os.environ["MAYA_PLUG_IN_PATH"]:
+			os.environ["MAYA_PLUG_IN_PATH"] += ";" + pluginPath
+
+		if scriptPath not in os.environ["MAYA_SCRIPT_PATH"]:
+			os.environ["MAYA_SCRIPT_PATH"] += ";" + scriptPath
+
+		if scriptPath not in sys.path:
+			sys.path.append(scriptPath)
 
 	@err_decorator
 	def sceneOpen(self, origin):
@@ -287,6 +304,37 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
+	def appendEnvFile(self, envVar="MAYA_MODULE_PATH"):
+		envPath = os.path.join(os.environ["MAYA_APP_DIR"], cmds.about(version=True), "Maya.env")
+
+		if not hasattr(self.core, "projectPath"):
+			QMessageBox.warning(self.core.messageParent, "Prism", "No project is currently active.")
+			return
+
+		modPath = os.path.join(self.core.projectPath, "00_Pipeline", "CustomModules", "Maya")
+		if not os.path.exists(modPath):
+			os.makedirs(modPath)
+
+		with open(os.path.join(modPath, "prism.mod"), "a") as modFile:
+			modFile.write("\n+ prism 1.0 .\\")
+
+		varText = "MAYA_MODULE_PATH=%s;&" % modPath
+
+		if os.path.exists(envPath):
+			with open(envPath, "r") as envFile:
+				envText = envFile.read()
+
+			if varText in envText:
+				QMessageBox.information(self.core.messageParent, "Prism", "The following path is already in the Maya.env file:\n\n%s" % modPath)
+				return
+
+		with open(envPath, "a") as envFile:
+			envFile.write("\n" + varText)
+
+		QMessageBox.information(self.core.messageParent, "Prism", "The following path was added to the MAYA_MODULE_PATH environment variable in the Maya.env file:\n\n%s\n\nRestart Maya to let this change take effect." % modPath)
+
+
+	@err_decorator
 	def createProject_startup(self, origin):
 		pass
 
@@ -315,7 +363,12 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def getNodeName(self, origin, node):
 		if self.isNodeValid(origin, node):
-			return str(cmds.ls(node)[0])
+			try:
+				return str(cmds.ls(node)[0])
+			except:
+				QMessageBox.warning(self.core.messageParent, "Warning", "Cannot get name from %s" % node)
+				return node
+
 		else:
 			return "invalid"
 
@@ -443,7 +496,10 @@ class Prism_Maya_Functions(object):
 
 		setNodes = cmds.ls(selection=True, long=True)
 		origin.nodes = [str(x) for x in setNodes]
-		cmds.select(prevSel, noExpand=True)
+		try:
+			cmds.select(prevSel, noExpand=True)
+		except:
+			pass
 
 
 	@err_decorator
@@ -471,14 +527,18 @@ class Prism_Maya_Functions(object):
 
 		if expType == ".obj":
 			cmds.loadPlugin('objExport', quiet=True)
-			cmds.select([ x for x in origin.nodes if cmds.listRelatives(x, shapes=True) is not None])
+			objNodes = [ x for x in origin.nodes if cmds.listRelatives(x, shapes=True) is not None]
+			cmds.select(objNodes)
 			for i in range(startFrame, endFrame+1):
 				cmds.currentTime( i, edit=True )
 				foutputName = outputName.replace("####", format(i, '04'))
 				if origin.chb_wholeScene.isChecked():
 					cmds.file(foutputName, force=True, exportAll=True, type="OBJexport", options="groups=1;ptgroups=1;materials=1;smoothing=1;normals=1")
 				else:
-					cmds.file(foutputName, force=True, exportSelected=True, type="OBJexport", options="groups=1;ptgroups=1;materials=1;smoothing=1;normals=1")
+					if cmds.ls(selection=True) == []:
+						return  "Canceled: No valid objects are specified for .obj export. No output will be created."
+					else:
+						cmds.file(foutputName, force=True, exportSelected=True, type="OBJexport", options="groups=1;ptgroups=1;materials=1;smoothing=1;normals=1")
 			outputName = foutputName
 		elif expType == ".fbx":
 			if origin.chb_wholeScene.isChecked():
@@ -506,15 +566,22 @@ class Prism_Maya_Functions(object):
 					action = msg.exec_()
 
 					if action == 0:
-						if origin.chb_wholeScene.isChecked():
-							mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
-						else:
-							mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+						try:
+							if origin.chb_wholeScene.isChecked():
+								mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
+							else:
+								mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+						except Exception as e:
+							if "Already have an Object named:" in str(e):
+								exc_type, exc_obj, exc_tb = sys.exc_info()
+								erStr = "You are trying to export two objects with the same name, which is not supported with the alemic format:\n\n"
+								QMessageBox.warning(self.core.messageParent, "executeState", erStr + str(e))
+								return False
+
 					else:
 						return False
 				else:
 					exc_type, exc_obj, exc_tb = sys.exc_info()
-					erStr = ("ERROR:\n%s" % traceback.format_exc())
 					QMessageBox.warning(self.core.messageParent, "executeState", str(e))
 					return False
 
@@ -539,7 +606,10 @@ class Prism_Maya_Functions(object):
 						cmds.file(i, importReference=True)
 						origin.stateManager.reloadScenefile = True
 
-				cmds.select(prevSel)
+				try:
+					cmds.select(prevSel, noExpand=True)
+				except:
+					pass
 
 			if origin.chb_deleteUnknownNodes.isChecked():
 				unknownDagNodes = cmds.ls(type = "unknownDag")
@@ -1053,7 +1123,10 @@ class Prism_Maya_Functions(object):
 
 			tmpPath = os.path.join(os.path.dirname(rSettings["outputName"]), "tmp")
 			if os.path.exists(tmpPath):
-				shutil.rmtree(tmpPath)
+				try:
+					shutil.rmtree(tmpPath)
+				except:
+					pass
 
 			if os.path.exists(os.path.dirname(outputName)) and len(os.listdir(os.path.dirname(outputName))) > 0:
 				return "Result=Success"
@@ -1065,12 +1138,6 @@ class Prism_Maya_Functions(object):
 			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.stateManager.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return "Execute Canceled: unknown error (view console for more information)"
-
-
-	@err_decorator
-	def getExternalFiles(self, origin):
-		extFiles = [self.core.fixPath(str(x)) for x in cmds.file(query=True, list=True) if self.core.fixPath(str(x)) != self.core.getCurrentFileName() and self.core.fixPath(str(x)) != self.core.fixPath(os.path.join(cmds.workspace( fullName=True, query=True), "untitled"))]
-		return extFiles
 
 
 	@err_decorator
@@ -1196,11 +1263,12 @@ class Prism_Maya_Functions(object):
 		outputName = os.path.splitext(outputName)[0][:-1] + os.path.splitext(outputName)[1]
 
 		curRender = self.getCurrentRenderer(origin)
-		aovs = cmds.ls(type='VRayRenderElement')
-		aovs = [x for x in aovs if cmds.getAttr(x + '.enabled')]
 
-		if curRender == "vray" and cmds.getAttr("vraySettings.relements_enableall") != 0 and len(aovs) > 0:
-			outputName = outputName.replace("_beauty", "").replace("beauty", "rgba")
+		if curRender == "vray":
+			aovs = cmds.ls(type='VRayRenderElement')
+			aovs = [x for x in aovs if cmds.getAttr(x + '.enabled')]
+			if cmds.getAttr("vraySettings.relements_enableall") != 0 and len(aovs) > 0:
+				outputName = outputName.replace("_beauty", "").replace("beauty", "rgba")
 
 		return outputName
 
@@ -1230,7 +1298,7 @@ class Prism_Maya_Functions(object):
 		if (num+1) > len(handles):
 			return False
 
-		if cmds.referenceQuery( handles[num],isNodeReferenced=True ) or cmds.objectType( handles[num] ) == "reference":
+		if self.isNodeValid(origin, handles[num]) and (cmds.referenceQuery( handles[num],isNodeReferenced=True ) or cmds.objectType( handles[num] ) == "reference"):
 			try:
 				refNode = cmds.referenceQuery( handles[num], referenceNode=True, topReference=True)
 				fileName = cmds.referenceQuery( refNode,filename=True )
@@ -1258,16 +1326,62 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def sm_import_startup(self, origin):
 		origin.b_unitConversion.setText("m -> cm")
+		origin.b_connectRefNode = QPushButton("Connect selected reference node")
+		origin.b_connectRefNode.clicked.connect(lambda: self.connectRefNode(origin))
+		origin.gb_import.layout().addWidget(origin.b_connectRefNode)
+
+
+	@err_decorator
+	def connectRefNode(self, origin):
+		selection = cmds.ls(selection=True)
+		if len(selection) == 0:
+			QMessageBox.warning(self.core.messageParent, "Warning", "Nothing selected")
+			return
+
+		if not (cmds.referenceQuery(selection[0], isNodeReferenced=True) or cmds.objectType(selection[0]) == "reference"):
+			QMessageBox.warning(self.core.messageParent, "Warning", "%s is not a reference node" % selection[0])
+			return
+
+		refNode = cmds.referenceQuery(selection[0], referenceNode=True, topReference=True )
+
+		if len(origin.nodes) > 0:
+			msg = QMessageBox(QMessageBox.Question, "Connect node", "This state is already connected to existing nodes. Do you want to continue and disconnect the current nodes?", QMessageBox.Cancel)
+			msg.addButton("Continue", QMessageBox.YesRole)
+			msg.setParent(self.core.messageParent, Qt.Window)
+			action = msg.exec_()
+
+			if action != 0:
+				return
+
+		scenePath = cmds.referenceQuery(refNode, filename=True)
+		origin.e_file.setText(scenePath)
+		self.deleteNodes(origin, [origin.setName])
+
+		origin.chb_trackObjects.setChecked(True)
+		origin.nodes = [refNode]
+		setName = os.path.splitext(os.path.basename(scenePath))[0]
+		origin.setName = cmds.sets(name ="Import_%s_" % setName)
+		for i in origin.nodes:
+			cmds.sets(i, include=origin.setName)
+
+		origin.updateUi()
+
+
+	@err_decorator
+	def sm_import_disableObjectTracking(self, origin):
+		self.deleteNodes(origin, [origin.setName])
 
 
 	@err_decorator
 	def sm_import_importToApp(self, origin, doImport, update, impFileName):
 		fileName = os.path.splitext(os.path.basename(impFileName))
 		importOnly = True
+		importedNodes = []
+
 		if fileName[1] in [".ma", ".mb", ".abc"]:
 			validNodes = [ x for x in origin.nodes if self.isNodeValid(origin, x)]
-			if not update and len(validNodes) > 0 and cmds.referenceQuery( validNodes[0], isNodeReferenced=True) and origin.chb_keepRefEdits.isChecked():
-				refNode = cmds.referenceQuery( origin.nodes[0], referenceNode=True, topReference=True )
+			if not update and len(validNodes) > 0 and (cmds.referenceQuery( validNodes[0], isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference") and origin.chb_keepRefEdits.isChecked():
+				refNode = cmds.referenceQuery( validNodes[0], referenceNode=True, topReference=True )
 				msg = QMessageBox(QMessageBox.Question, "Create Reference", "Do you want to replace the current reference?", QMessageBox.No)
 				msg.addButton("Yes", QMessageBox.YesRole)
 				msg.setParent(self.core.messageParent, Qt.Window)
@@ -1277,7 +1391,7 @@ class Prism_Maya_Functions(object):
 					update = True
 				else:
 					origin.preDelete(baseText = "Do you want to delete the currently connected objects?\n\n")
-					origin.nodes = []
+					importedNodes = []
 
 			validNodes = [ x for x in origin.nodes if self.isNodeValid(origin, x)]
 			if not update or len(validNodes) == 0:
@@ -1288,11 +1402,15 @@ class Prism_Maya_Functions(object):
 				rb_reference.setChecked(True)
 				rb_import = QRadioButton("Import objects only")
 				w_namespace = QWidget()
-				nLayout = QVBoxLayout()
+				nLayout = QHBoxLayout()
 				nLayout.setContentsMargins(0,15,0,0)
 				chb_namespace = QCheckBox("Create namespace")
 				chb_namespace.setChecked(True)
+				e_namespace = QLineEdit()
+				e_namespace.setText(fileName[0])
 				nLayout.addWidget(chb_namespace)
+				nLayout.addWidget(e_namespace)
+				chb_namespace.toggled.connect(lambda x: e_namespace.setEnabled(x))
 				w_namespace.setLayout(nLayout)
 				bb_warn = QDialogButtonBox()
 
@@ -1309,7 +1427,7 @@ class Prism_Maya_Functions(object):
 				bLayout.addWidget(bb_warn)
 				refDlg.setLayout(bLayout)
 				refDlg.setParent(self.core.messageParent, Qt.Window)
-				refDlg.resize(220,100)
+				refDlg.resize(400,100)
 
 				action = refDlg.exec_()
 
@@ -1319,15 +1437,15 @@ class Prism_Maya_Functions(object):
 				else:
 					doRef = rb_reference.isChecked()
 					if chb_namespace.isChecked():
-						createNS = "new"
+						nSpace = e_namespace.text()
 					else:
-						createNS = ":"
+						nSpace = ":"
 			else:
-				doRef = cmds.referenceQuery( validNodes[0],isNodeReferenced=True)
+				doRef = cmds.referenceQuery( validNodes[0],isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference"
 				if ":" in validNodes[0]:
-					createNS = validNodes[0].rsplit("|", 1)[0].rsplit(":", 1)[0]
+					nSpace = validNodes[0].rsplit("|", 1)[0].rsplit(":", 1)[0]
 				else:
-					createNS = ":"
+					nSpace = ":"
 
 			if fileName[1] == ".ma":
 				rtype = "mayaAscii"
@@ -1338,24 +1456,27 @@ class Prism_Maya_Functions(object):
 
 			if doRef:
 				validNodes = [ x for x in origin.nodes if self.isNodeValid(origin, x)]
-				if len(validNodes) > 0 and cmds.referenceQuery( validNodes[0],isNodeReferenced=True) and origin.chb_keepRefEdits.isChecked():
+				if len(validNodes) > 0 and (cmds.referenceQuery( validNodes[0],isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference") and origin.chb_keepRefEdits.isChecked():
+					self.deleteNodes(origin, [origin.setName])
 					refNode = cmds.referenceQuery( origin.nodes[0], referenceNode=True, topReference=True )
 					cmds.file(impFileName, loadReference=refNode)
-					origin.nodes = cmds.referenceQuery(refNode, nodes=True, dagPath=True)
+					importedNodes = [refNode]
 				else:
 					origin.preDelete(baseText = "Do you want to delete the currently connected objects?\n\n")
-					if createNS == "new":
-						ns = fileName[0]
-						origin.nodes = cmds.file(impFileName, r=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=ns)
-					else:
-						origin.nodes = cmds.file(impFileName, r=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=True, namespace=createNS)
+					if nSpace == "new":
+						nSpace = fileName[0]
+				
+					newNodes = cmds.file(impFileName, r=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
+
+					refNode = cmds.referenceQuery( newNodes[0], referenceNode=True, topReference=True )
+					importedNodes = [refNode]
+
 			elif importOnly:
 				origin.preDelete(baseText = "Do you want to delete the currently connected objects?\n\n")
-				if createNS == "new":
-					ns = fileName[0]
-					origin.nodes = cmds.file(impFileName, i=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=ns)
-				else:
-					origin.nodes = cmds.file(impFileName, i=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=True, namespace=createNS)
+				if nSpace == "new":
+					nSpace = fileName[0]
+				
+				importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
 
 			importOnly = False
 
@@ -1364,16 +1485,16 @@ class Prism_Maya_Functions(object):
 			import maya.mel as mel
 			if fileName[1] == ".rs":
 				if hasattr(cmds, "rsProxy"):
-					origin.nodes = mel.eval("redshiftDoCreateProxy(\"redshiftProxy#\", \"redshiftProxyPlaceholderShape#\", \"\", \"\", \"%s\");" % impFileName.replace("\\", "\\\\"))
+					importedNodes = mel.eval("redshiftDoCreateProxy(\"redshiftProxy#\", \"redshiftProxyPlaceholderShape#\", \"\", \"\", \"%s\");" % impFileName.replace("\\", "\\\\"))
 					if len(os.listdir(os.path.dirname(impFileName))) > 1:
-						for i in origin.nodes:
+						for i in importedNodes:
 							if cmds.attributeQuery("useFrameExtension", n=i, exists=True):
 								cmds.setAttr(i + ".useFrameExtension", 1)
 							#	seqName = impFileName[:-7] + "####.rs"
 							#	cmds.setAttr(i + ".fileName", seqName, type="string")
 				else:
 					QMessageBox.warning(self.core.messageParent, "ImportFile", "Format is not supported, because Redshift is not available in Maya.")
-					origin.nodes = []
+					importedNodes = []
 				
 			else:
 				if fileName[1] == ".fbx":
@@ -1381,22 +1502,28 @@ class Prism_Maya_Functions(object):
 					mel.eval('FBXImportConvertUnitString  -v cm')
 
 				try:
-					origin.nodes = cmds.file(impFileName, i=True, returnNewNodes=True)
+					importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True)
 				except Exception as e:
-					origin.nodes = []
+					importedNodes = []
 					QMessageBox.warning(self.core.messageParent, "Import error", "An error occured while importing the file:\n\n%s\n\n%s" % (impFileName, str(e)))
 
-		for i in origin.nodes:
+		for i in importedNodes:
 			cams = cmds.listCameras()
 			if i in cams:
 				cmds.camera(i, e=True, farClipPlane=1000000)
 
+		if origin.chb_trackObjects.isChecked():
+			origin.nodes = importedNodes
+		else:
+			origin.nodes = []
+
 		#buggy
 		#cmds.select([ x for x in origin.nodes if self.isNodeValid(origin, x)])
-		origin.setName = cmds.sets(name ="Import_%s_" % fileName[0])
+		if len(origin.nodes) > 0:
+			origin.setName = cmds.sets(name ="Import_%s_" % fileName[0])
 		for i in origin.nodes:
 			cmds.sets(i, include=origin.setName)
-		result = len(origin.nodes) > 0
+		result = len(importedNodes) > 0
 
 		return result, doImport
 
@@ -1407,6 +1534,7 @@ class Prism_Maya_Functions(object):
 			return
 
 		prevSel = cmds.ls(selection=True, long=True)
+		cmds.select(clear=True)
 		try:
 			# the nodes in the set need to be selected to get their long dag path
 			cmds.select(origin.setName)
@@ -1415,7 +1543,10 @@ class Prism_Maya_Functions(object):
 
 		setNodes = cmds.ls(selection=True, long=True)
 		origin.nodes = [str(x) for x in setNodes]
-		cmds.select(prevSel)
+		try:
+			cmds.select(prevSel)
+		except:
+			pass
 
 
 	@err_decorator
@@ -1427,7 +1558,7 @@ class Prism_Maya_Functions(object):
 			nodeName = self.getNodeName(origin, i)
 			newName = nodeName.rsplit(":", 1)[-1]
 
-			if newName != nodeName and not cmds.referenceQuery( i,isNodeReferenced=True):
+			if newName != nodeName and not (cmds.referenceQuery( i,isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference"):
 				try:
 					cmds.rename(nodeName, newName)
 				except:

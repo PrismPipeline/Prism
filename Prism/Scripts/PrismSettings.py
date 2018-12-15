@@ -240,8 +240,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			result = self.core.appPlugin.integrationAdd(self)
 		else:
 			for i in self.core.unloadedAppPlugins:
-				if i.pluginName == prog:
-					result = i.integrationAdd(self)
+				if i == prog:
+					result = self.core.unloadedAppPlugins[i].integrationAdd(self)
 
 		if result:
 			result = self.core.fixPath(result)
@@ -268,8 +268,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			result = self.core.appPlugin.integrationRemove(self, installPath)
 		else:
 			for i in self.core.unloadedAppPlugins:
-				if i.pluginName == prog:
-					result = i.integrationRemove(self, installPath)
+				if i == prog:
+					result = self.core.unloadedAppPlugins[i].integrationRemove(self, installPath)
 
 		if result:
 			existingPaths = []
@@ -393,7 +393,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
 			trayLnk = "/usr/local/Prism/Tools/PrismTray.desktop"
 			if os.path.exists(trayStartup):
-				os.remove(trayStartup)
+				try:
+					os.remove(trayStartup)
+				except:
+					QMessageBox.warning(self, "Warning", "Permission denied:\n\n%s\n\nTry to execute this tool as root." % trayStartup)
 
 			if self.chb_trayStartup.isChecked():
 				if not os.path.exists(trayStartup):
@@ -748,17 +751,25 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	@err_decorator
 	def showUpdate(self):
 		updateDlg = QDialog()
-		updateDlg.b_zip = QPushButton("Update from .zip")
+		updateDlg.setWindowTitle("Update Prism scripts")
+		updateDlg.l_options = QLabel("- Update from GitHub: Downloads the latest version from GitHub. This is definitely the latest version, but may include experimental features.\n\n- Update from .zip: Select a .zip file, which contains the Prism scripts. You can download .zip files with the Prism scripts from the GitHub repository.")
 		updateDlg.b_github = QPushButton("Update from GitHub")
-		layout = QHBoxLayout()
-		layout.addWidget(updateDlg.b_zip)
-		layout.addWidget(updateDlg.b_github)
-		updateDlg.setLayout(layout)
+		updateDlg.b_zip = QPushButton("Update from .zip")
+		lo_update = QVBoxLayout()
+		lo_buttons = QHBoxLayout()
+		w_buttons = QWidget()
+		w_buttons.setLayout(lo_buttons)
+		lo_buttons.addWidget(updateDlg.l_options)
+		lo_buttons.addWidget(updateDlg.b_github)
+		lo_buttons.addWidget(updateDlg.b_zip)
+		lo_update.addWidget(updateDlg.l_options)
+		lo_update.addWidget(w_buttons)
+		updateDlg.setLayout(lo_update)
 		self.core.parentWindow(updateDlg)
 		updateDlg.b_zip.clicked.connect(updateDlg.accept)
 		updateDlg.b_zip.clicked.connect(self.updateFromZip)
 		updateDlg.b_github.clicked.connect(updateDlg.accept)
-		updateDlg.b_github.clicked.connect(lambda: self.core.updatePrism(gitHub=True))
+		updateDlg.b_github.clicked.connect(lambda: self.core.updatePrism(source="github"))
 		action = updateDlg.exec_()
 
 

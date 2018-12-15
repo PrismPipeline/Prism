@@ -581,6 +581,8 @@ class ImageRenderClass(object):
 			elif fileName.startswith(os.path.join(self.core.localProjectPath, sceneDir)):
 				fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
 
+		outputPath = ""
+		outputFile = ""
 		hVersion = ""
 		if useVersion != "next":
 			hVersion = useVersion.split(self.core.filenameSeperator)[0]
@@ -679,7 +681,10 @@ class ImageRenderClass(object):
 			else:
 				erStr = ("%s ERROR - sm_default_imageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
 				if not result.startswith("Execute Canceled: "):
-					self.core.writeErrorLog(erStr)
+					if result == "unknown error (files do not exist)":
+						QMessageBox.warning(self.core.messageParent, "Warning", "No files were created during the rendering. If you think this is a Prism bug please report it in the forum:\nwww.prism-pipeline.com/forum/\nor write a mail to contact@prism-pipeline.com")
+					else:
+						self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - error - " + result]
 
 

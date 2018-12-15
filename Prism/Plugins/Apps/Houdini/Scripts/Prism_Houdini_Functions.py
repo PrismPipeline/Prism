@@ -70,6 +70,9 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def startup(self, origin):
+		if not hou.isUIAvailable():
+			return False
+
 		if hou.ui.mainQtWindow() is None:
 			return False
 
@@ -411,6 +414,13 @@ class Prism_Houdini_Functions(object):
 
 		return depPath
 
+	@err_decorator
+	def splitExtension(self, origin, path):
+		if path.endswith(".bgeo.sc"):
+			return [path[:-len(".bgeo.sc")], ".bgeo.sc"]
+		else:
+			return os.path.splitext(path)
+
 
 	@err_decorator
 	def sm_preDelete(self, origin, item, silent=False):
@@ -529,8 +539,14 @@ class Prism_Houdini_Functions(object):
 		usdType = hou.nodeType(hou.sopNodeTypeCategory(), "pixar::usdrop")
 		if usdType is not None and ".usd" not in self.plugin.outputFormats:
 			self.plugin.outputFormats.insert(-2, ".usd")
-		elif usdType is not None and ".usd" in self.plugin.outputFormats:
+		elif usdType is None and ".usd" in self.plugin.outputFormats:
 			self.plugin.outputFormats.pop(self.plugin.outputFormats.index(".usd"))
+
+		rsType = hou.nodeType(hou.sopNodeTypeCategory(), "Redshift_Proxy_Output")
+		if rsType is not None and ".rs" not in self.plugin.outputFormats:
+			self.plugin.outputFormats.insert(-2, ".rs")
+		elif rsType is None and ".rs" in self.plugin.outputFormats:
+			self.plugin.outputFormats.pop(self.plugin.outputFormats.index(".rs"))
 
 
 	@err_decorator
@@ -675,7 +691,7 @@ class Prism_Houdini_Functions(object):
 
 		ropNodes = []
 		for node in hou.node("/").allSubChildren():
-			if node.type().name() in ["rop_dop", "rop_comp", "rop_geometry", "rop_alembic", "filecache"]:
+			if node.type().name() in ["rop_dop", "rop_comp", "rop_geometry", "rop_alembic", "filecache", "pixar::usdrop", "Redshift_Proxy_Output"]:
 				ropNodes.append(node)
 
 			if node.type().category().name() == "Driver" and node.type().name() in ["geometry", "alembic"]:

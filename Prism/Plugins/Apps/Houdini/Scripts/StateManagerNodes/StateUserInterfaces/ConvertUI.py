@@ -3,7 +3,7 @@ import sys, pprint
 fname = "hou_ImageRender"
 fname = "hou_ImportFile"
 fname = "hou_Export"
-#fname = "hou_Playblast"
+fname = "hou_Playblast"
 #fname = "hou_Dependency"
 #fname = "Folder"
 

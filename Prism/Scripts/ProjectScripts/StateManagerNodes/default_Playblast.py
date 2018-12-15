@@ -86,6 +86,9 @@ class PlayblastClass(object):
 		self.camlist = []
 
 		self.resolutionPresets = ["1920x1080", "1280x720", "640x360", "4000x2000", "2000x1000"]
+		self.outputformats = ["jpg", "mp4"]
+
+		self.cb_formats.addItems(self.outputformats)
 
 		self.connectEvents()
 
@@ -131,6 +134,10 @@ class PlayblastClass(object):
 			self.sp_resHeight.setValue(res[2])
 		if "localoutput" in data:
 			self.chb_localOutput.setChecked(eval(data["localoutput"]))
+		if "outputformat" in data:
+			idx = self.cb_formats.findText(data["outputformat"])
+			if idx > 0:
+				self.cb_formats.setCurrentIndex(idx)
 		if "lastexportpath" in data:
 			lePath = self.core.fixPath(data["lastexportpath"])
 			self.l_pathLast.setText(lePath)
@@ -156,6 +163,7 @@ class PlayblastClass(object):
 		self.sp_resHeight.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.b_resPresets.clicked.connect(self.showResPresets)
 		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
+		self.cb_formats.activated.connect(self.stateManager.saveStatesToScene)
 		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
 		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
 
@@ -355,7 +363,7 @@ class PlayblastClass(object):
 		if not os.path.exists(outputPath):
 			os.makedirs(outputPath)
 
-		self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
+		self.core.saveVersionInfo(location=outputPath, version=hVersion, origin=fileName)
 
 		self.l_pathLast.setText(outputName)
 		self.l_pathLast.setToolTip(outputName)
@@ -383,9 +391,29 @@ class PlayblastClass(object):
 		try:
 			self.core.appPlugin.sm_playblast_createPlayblast(self, jobFrames=jobFrames, outputName=outputName)
 
+			if self.cb_formats.currentText() == "mp4":
+				mediaBaseName = os.path.splitext(outputName)[0]
+				videoOutput = mediaBaseName + "mp4"
+				inputpath = os.path.splitext(outputName)[0] + "%04d" + os.path.splitext(outputName)[1]
+				result = self.core.convertMedia(inputpath, jobFrames[0], videoOutput)
+
+				if not os.path.exists(videoOutput):
+					return [self.state.text(0) + " - error occurred during conversion of jpg files to mp4"]
+
+				delFiles = []
+				for i in os.listdir(os.path.dirname(outputName)):
+					if i.startswith(os.path.basename(mediaBaseName)) and i.endswith(".jpg"):
+						delFiles.append(os.path.join(os.path.dirname(outputName), i))
+
+				for i in delFiles:
+					try:
+						os.remove(i)
+					except:
+						pass
+
 			self.core.callHook("postPlayblast", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":outputName})
 
-			if len(os.listdir(outputPath)) > 0:
+			if len(os.listdir(outputPath)) > 1:
 				return [self.state.text(0) + " - success"]
 			else:
 				return [self.state.text(0) + " - unknown error (files do not exist)"]
@@ -394,13 +422,6 @@ class PlayblastClass(object):
 			erStr = ("%s ERROR - sm_default_playblast %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return [self.state.text(0) + " - unknown error (view console for more information)"]
-
-		if "Result=Success" in result:
-			return [self.state.text(0) + " - success"]
-		else:
-			erStr = ("%s ERROR - sm_default_playblastPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
-			self.core.writeErrorLog(erStr)
-			return [self.state.text(0) + " - error - " + result]
 
 
 	@err_decorator
@@ -421,5 +442,5 @@ class PlayblastClass(object):
 	@err_decorator
 	def getStateProps(self):
 		stateProps = {"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange": str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "currentcam": str(self.curCam), "resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]), "localoutput": str(self.chb_localOutput.isChecked())}
-		stateProps.update({"lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0))})
+		stateProps.update({"lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0)), "outputformat": str(self.cb_formats.currentText())})
 		return stateProps

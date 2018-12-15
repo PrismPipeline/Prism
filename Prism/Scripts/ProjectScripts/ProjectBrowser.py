@@ -34,7 +34,7 @@
 
 import sys, os, datetime, shutil, ast, time, traceback, random, platform
 
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 try:
 	from PySide2.QtCore import *
@@ -115,9 +115,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 		self.core = core
-		self.version = "v1.1.1.0"
+		self.version = "v1.1.2.0"
 
-	#	self.core.reloadPlugins()
+		#self.core.reloadPlugins()
 
 		self.core.parentWindow(self)
 
@@ -1136,6 +1136,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				desc.setEnabled(False)
 			rcmenu.addAction(desc)
 
+			actDeps = QAction("Show dependencies", self)
+			infoPath = os.path.splitext(filepath)[0] + "versioninfo.ini"
+			if os.path.exists(infoPath):
+				with open(infoPath, 'r') as descFile:
+					fileDescription = descFile.read()
+				actDeps.triggered.connect(lambda: self.core.dependencyViewer(infoPath))
+			else:
+				actDeps.setEnabled(False)
+			rcmenu.addAction(actDeps)
+
 		openex = QAction("Open in Explorer", self)
 		openex.triggered.connect(lambda: self.core.openFolder(filepath))
 		rcmenu.addAction(openex)
@@ -1227,7 +1237,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			ext = os.path.splitext(filepath)[1]
 			appPath = ""
 
-			for i in self.core.unloadedAppPlugins:
+			for i in self.core.unloadedAppPlugins.values():
 				if ext in i.sceneFormats:
 					orApp = self.core.getConfig("dccoverrides", "%s_override" % i.pluginName.lower(), ptype="bool")
 					if orApp is not None and orApp:
@@ -1258,10 +1268,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) != "Files":
 			self.core.addToRecent(filepath)
 			self.setRecent()
-
-	#	for i in self.core.unloadedAppPlugins:
-	#		if os.path.splitext(filepath)[1] in i.sceneFormats:
-	#			getattr(i, "scenefileExecuted", lambda x:None)(self)
 
 		if openSm:
 			self.core.stateManager()
@@ -1320,7 +1326,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if prog == self.core.appPlugin.pluginName:
 			autobackpath, fileStr = self.core.appPlugin.getAutobackPath(self, tab)
 		else:
-			for i in self.core.unloadedAppPlugins:
+			for i in self.core.unloadedAppPlugins.values():
 				if i.pluginName == prog:
 					autobackpath, fileStr = i.getAutobackPath(self, tab)
 
@@ -1804,7 +1810,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if ext in self.core.appPlugin.sceneFormats:
 					colorVals = self.core.appPlugin.appColor
 				else:
-					for k in self.core.unloadedAppPlugins:
+					for k in self.core.unloadedAppPlugins.values():
 						if ext in k.sceneFormats:
 							colorVals = k.appColor
 
@@ -2082,7 +2088,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					if ext in self.core.appPlugin.sceneFormats:
 						colorVals = self.core.appPlugin.appColor
 					else:
-						for k in self.core.unloadedAppPlugins:
+						for k in self.core.unloadedAppPlugins.values():
 							if ext in k.sceneFormats:
 								colorVals = k.appColor
 
@@ -2422,7 +2428,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if ext in self.core.appPlugin.sceneFormats:
 					colorVals = self.core.appPlugin.appColor
 				else:
-					for k in self.core.unloadedAppPlugins:
+					for k in self.core.unloadedAppPlugins.values():
 						if ext in k.sceneFormats:
 							colorVals = k.appColor
 
@@ -3119,9 +3125,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 					prjMngNames = [[x, x.lower() + "-url"] for x in self.core.prjManagers]
 					for i in prjMngNames:
-						if not self.core.prjManagers[i[0]].isActive():
-							continue
-
 						if vConfig.has_option("information", i[1]):
 							f = item.font()
 							f.setBold(True)
@@ -3713,9 +3716,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def showVersionInfo(self, item=None):
-		vInfo = "No information is saved with this version."
-
+	def getVersionInfoPath(self):
 		if self.curRVersion.endswith(" (local)"):
 			base = self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath)
 		else:
@@ -3729,6 +3730,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			path = ""
 		else:
 			path = os.path.join(base, "Rendering", "3dRender", self.curRTask.replace(" (local)", ""), self.curRVersion.replace(" (local)", ""), "versioninfo.ini")
+
+		return path
+
+
+	@err_decorator
+	def showVersionInfo(self, item=None):
+		vInfo = "No information is saved with this version."
+
+		path = self.getVersionInfoPath()
 
 		if os.path.exists(path):
 			vConfig = ConfigParser()
@@ -3779,6 +3789,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		infoDlg.resize(900*self.core.uiScaleFactor,200*self.core.uiScaleFactor)
 
 		action = infoDlg.exec_()
+
+
+	@err_decorator
+	def showDependencies(self):
+		path = self.getVersionInfoPath()
+
+		if not os.path.exists(path):
+			QMessageBox.warning(self.core.messageParent, "Warning", "No dependency information was saved with this version.")
+			return
+
+		self.core.dependencyViewer(path)
 
 
 	@err_decorator
@@ -4086,6 +4107,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			infAct = QAction("Show version info", self)
 			infAct.triggered.connect(self.showVersionInfo)
 			rcmenu.addAction(infAct)
+
+			depAct = QAction("Show dependencies", self)
+			depAct.triggered.connect(self.showDependencies)
+			rcmenu.addAction(depAct)
+			
 			if self.curRTask.endswith(" (external)"):
 				nvAct = QAction("Create new version", self)
 				nvAct.triggered.connect(self.newExVersion)
@@ -4762,9 +4788,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		else:
 			outputpath = os.path.splitext(outputpath)[0] + extension
 
-		if not os.path.exists(os.path.dirname(outputpath)):
-			os.makedirs(os.path.dirname(outputpath))
-
 		if self.curRTask.endswith(" (external)"):
 			curPath = os.path.join(self.renderBasePath, "Rendering", "external", self.curRTask.replace(" (external)", ""), self.curRVersion)
 			rpath = os.path.join(curPath + "(%s)" % extension[1:], "REDIRECT.txt")
@@ -4775,37 +4798,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			with open(rpath, "w") as rfile:
 				rfile.write(os.path.dirname(outputpath))
 
-		ffmpegIsInstalled = False
-		if platform.system() == "Windows":
-			ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "FFmpeg" ,"bin", "ffmpeg.exe")
-			if os.path.exists(ffmpegPath):
-				ffmpegIsInstalled = True
-		elif platform.system() == "Linux":
-			ffmpegPath = "ffmpeg"
-			try:
-				subprocess.Popen([ffmpegPath])
-				ffmpegIsInstalled = True
-			except:
-				pass
-		elif platform.system() == "Darwin":
-			ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "ffmpeg")
-			if os.path.exists(ffmpegPath):
-				ffmpegIsInstalled = True
-
-		if not ffmpegIsInstalled:
-			QMessageBox.critical(self.core.messageParent, "Video conversion", "Could not find %s" % ffmpegPath)
-			return
-
 		if self.prvIsSequence:
-			startNum = str(self.pstart)
+			startNum = self.pstart
 		else:
-			startNum = "0"
+			startNum = 0
 
-		if videoInput:
-			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuv420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		else:
-			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", "24", "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		result = nProc.communicate()
+		result = self.core.convertMedia(inputpath, startNum, outputpath)
 
 		if self.prvIsSequence or videoInput:
 			outputpath = outputpath.replace("%04d", "%04d" % int(startNum))

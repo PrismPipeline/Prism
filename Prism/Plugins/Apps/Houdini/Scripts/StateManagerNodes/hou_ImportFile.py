@@ -90,7 +90,9 @@ class ImportFileClass(object):
 		self.importPath = importPath
 		self.updatePrefUnits()
 
-		if importPath is None and stateData is None:
+		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier
+
+		if importPath is None and stateData is None and not createEmptyState:
 			import TaskSelection
 			ts = TaskSelection.TaskSelection(core = core, importState = self)
 
@@ -106,7 +108,7 @@ class ImportFileClass(object):
 
 			if not result:
 				return False
-		elif stateData is None:
+		elif stateData is None and not createEmptyState:
 			return False
 
 		self.nameChanged(state.text(0))
@@ -244,6 +246,9 @@ class ImportFileClass(object):
 
 	@err_decorator
 	def importObject(self, taskName = None, objMerge=True):
+		fileName = self.core.getCurrentFileName()
+		impFileName = self.e_file.text().replace("\\", "/")
+
 		if self.e_file.text() != "":
 			versionInfoPath = os.path.join(os.path.dirname(os.path.dirname(self.e_file.text())), "versioninfo.ini")
 			if os.path.exists(versionInfoPath):
@@ -270,7 +275,7 @@ class ImportFileClass(object):
 				else:
 					vName = os.path.basename(vPath)
 
-				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text() or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in self.e_file.text())):
+				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)).replace("\\", "/") in self.e_file.text().replace("\\", "/") or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)).replace("\\", "/") in self.e_file.text().replace("\\", "/"))):
 					taskName = os.path.basename(os.path.dirname(vPath))
 					if taskName == "_ShotCam":
 						taskName = "ShotCam"
@@ -280,7 +285,6 @@ class ImportFileClass(object):
 			taskName = taskName.replace("$", "_")
 			self.taskName = taskName
 
-			impFileName = self.e_file.text()
 			parDirName = os.path.basename(os.path.dirname(impFileName))
 			if parDirName in ["centimeter", "meter"]:
 				prefFile = os.path.join(os.path.dirname(os.path.dirname(impFileName)), self.preferredUnit, os.path.basename(impFileName))
@@ -288,9 +292,13 @@ class ImportFileClass(object):
 					impFileName = prefFile
 					self.e_file.setText(impFileName)
 
-			fileName = self.core.getCurrentFileName()
-
 			self.core.callHook("preImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
+
+			try:
+				self.node.path()
+			except:
+				self.node = None
+				self.fileNode = None
 
 			if os.path.splitext(impFileName)[1] == ".hda":
 				try:
@@ -368,6 +376,25 @@ class ImportFileClass(object):
 						self.fileNode.parm("import_file").set(impFileName)
 						self.fileNode.parm("import_primpath").set("/")
 						self.fileNode.parm("import_time").setExpression("$F")
+					elif os.path.splitext(impFileName)[1] == ".rs":
+						if hou.nodeType(hou.sopNodeTypeCategory(), "Redshift_Proxy_Output") is None:
+							QMessageBox.warning(self.core.messageParent, "ImportFile", "Format is not supported, because Redshift is not available in Houdini.")
+							if nwBox is not None:
+								if len(nwBox.nodes()) == 0:
+									nwBox.destroy()
+							try:
+								self.node.destroy()
+							except:
+								pass
+							self.fileNode = None
+							return
+
+						self.fileNode = self.node.createNode("redshift_proxySOP")
+						self.fileNode.moveToGoodPosition()
+						self.node.setCurrent(True, clear_all_selected=True)
+						hou.hscript("Redshift_objectSpareParameters")
+						self.node.parm("RS_objprop_proxy_enable").set(True)
+						self.node.parm("RS_objprop_proxy_file").set(impFileName)
 					else:
 						self.fileNode = self.node.createNode("file")
 						self.fileNode.moveToGoodPosition()
@@ -453,21 +480,24 @@ class ImportFileClass(object):
 
 			for i in os.walk(versionPath):
 				if len(i[2]) > 0:
-					splitFile = os.path.splitext(os.path.join(i[0], i[2][0]))
-					if splitFile[0][-5] != "v":
-						try:
-							num = int(splitFile[0][-4:])
-							filename = splitFile[0][:-4] + "$F4" + splitFile[1]
-						except:
-							filename = os.path.join(i[0], i[2][0])
-					else:
-						filename = os.path.join(i[0], i[2][0])
+					for m in i[2]:
+						if os.path.splitext(m)[1] not in [".txt", ".ini"]:
+							splitFile = os.path.splitext(os.path.join(i[0], m))
+							if splitFile[0][-5] != "v":
+								try:
+									num = int(splitFile[0][-4:])
+									filename = splitFile[0][:-4] + "$F4" + splitFile[1]
+								except:
+									filename = os.path.join(i[0], m)
+							else:
+								filename = os.path.join(i[0], m)
 
-					if filename.endswith(".mtl") and os.path.exists(filename[:-3] + "obj"):
-						filename = filename[:-3] + "obj"
-						
-					self.e_file.setText(filename)
-					self.importObject(objMerge=False)
+							if filename.endswith(".mtl") and os.path.exists(filename[:-3] + "obj"):
+								filename = filename[:-3] + "obj"
+								
+							self.e_file.setText(filename)
+							self.importObject(objMerge=False)
+							break
 				break
 
 
@@ -511,7 +541,7 @@ class ImportFileClass(object):
 			outNodePath = ""
 			if self.node.type().name() == "subnet":
 				for i in self.node.children():
-					if i.isDisplayFlagSet():
+					if getattr(i, "isDisplayFlagSet", lambda: None)():
 						outNodePath = i.displayNode().path()
 						break
 			else:
@@ -614,8 +644,8 @@ class ImportFileClass(object):
 			if newName != groupName:
 				renames += 1
 				renameNode.parm("renames").set(renames)
-				renameNode.parm("group" + str(idx+1)).set(groupName)
-				renameNode.parm("newname" + str(idx+1)).set(newName)
+				renameNode.parm("group" + str(renames)).set(groupName)
+				renameNode.parm("newname" + str(renames)).set(newName + "_" + str(renames))
 
 		self.fileNode.parent().layoutChildren()
 

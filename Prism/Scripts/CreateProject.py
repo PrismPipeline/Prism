@@ -406,7 +406,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
 
 		getattr(self.core.appPlugin, "callback_projectCreated", lambda x1,x2: None)(self, path)
-		for i in self.core.unloadedAppPlugins:
+		for i in self.core.unloadedAppPlugins.values():
 			getattr(i, "callback_projectCreated", lambda x1,x2: None)(self, path)
 
 		self.inipath = inipath

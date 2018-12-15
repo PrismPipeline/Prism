@@ -209,10 +209,11 @@ class Prism_Houdini_Integration(object):
 			shutil.copy2(origInitFile, initpath)
 			addedFiles.append(initpath)
 
-			with open(initpath, "r+") as init:
+			with open(initpath, "r") as init:
 				initStr = init.read()
+
+			with open(initpath, "w") as init:
 				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-				init.seek(0)
 				init.write(initStr)
 
 
