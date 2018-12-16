@@ -391,6 +391,8 @@ class PlayblastClass(object):
 		try:
 			self.core.appPlugin.sm_playblast_createPlayblast(self, jobFrames=jobFrames, outputName=outputName)
 
+			getattr(self.core.appPlugin, "sm_playblast_postExecute", lambda x: None)(self)
+
 			if self.cb_formats.currentText() == "mp4":
 				mediaBaseName = os.path.splitext(outputName)[0]
 				videoOutput = mediaBaseName + "mp4"

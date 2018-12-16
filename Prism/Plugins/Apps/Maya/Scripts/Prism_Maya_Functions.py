@@ -1627,12 +1627,30 @@ class Prism_Maya_Functions(object):
 	def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
 		if origin.curCam is not None and self.isNodeValid(origin, origin.curCam):
 			cmds.lookThru(origin.curCam)
+			pbCam = origin.curCam
+		else:
+			view = OpenMayaUI.M3dView.active3dView()
+			cam = api.MDagPath()
+			view.getCamera(cam)
+			pbCam = cam.fullPathName()
+
+		self.pbSceneSettings = {}
+		self.pbSceneSettings["pbCam"] = pbCam
+		self.pbSceneSettings["filmFit"] = cmds.getAttr(pbCam + ".filmFit")
+		self.pbSceneSettings["filmGate"] = cmds.getAttr(pbCam + ".displayFilmGate")
+		self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
+		self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
+
+		cmds.setAttr(pbCam + ".filmFit", 3)
+		cmds.setAttr(pbCam + ".displayFilmGate", False)
+		cmds.setAttr(pbCam + ".displayResolution", False)
+		cmds.setAttr(pbCam + ".overscan", 1.0)
 
 		#set image format to jpeg
 		cmds.setAttr("defaultRenderGlobals.imageFormat", 8)
 		outputName = outputName[:-5]
 
-		cmdString = "cmds.playblast( startTime=%s, endTime=%s, format=\"image\", percent=100, viewer=False, forceOverwrite=True, filename=\"%s\"" % (jobFrames[0], jobFrames[1], outputName.replace("\\", "\\\\"))
+		cmdString = "cmds.playblast( startTime=%s, endTime=%s, format=\"image\", percent=100, viewer=False, forceOverwrite=True, offScreen=True, filename=\"%s\"" % (jobFrames[0], jobFrames[1], outputName.replace("\\", "\\\\"))
 		
 		if origin.chb_resOverride.isChecked():
 			cmdString += ", width=%s, height=%s" % (origin.sp_resWidth.value(), origin.sp_resHeight.value())
@@ -1652,6 +1670,18 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def sm_playblast_execute(self, origin):
 		pass
+
+
+	@err_decorator
+	def sm_playblast_postExecute(self, origin):
+		if "filmFit" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".filmFit", self.pbSceneSettings["filmFit"])
+		if "filmGate" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayFilmGate", self.pbSceneSettings["filmGate"])
+		if "resGate" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayResolution", self.pbSceneSettings["resGate"])
+		if "overscan" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".overscan", self.pbSceneSettings["overscan"])
 
 
 	@err_decorator
