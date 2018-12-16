@@ -437,6 +437,19 @@ class Prism_Maya_Functions(object):
 		origin.lo_importReferences.addSpacerItem(spacer)
 		origin.lo_importReferences.addWidget(origin.chb_importReferences)
 
+		origin.w_preserveReferences = QWidget()
+		origin.lo_preserveReferences = QHBoxLayout()
+		origin.lo_preserveReferences.setContentsMargins(9,0,9,0)
+		origin.w_preserveReferences.setLayout(origin.lo_preserveReferences)
+		origin.l_preserveReferences = QLabel("Preserve references:")
+		spacer = QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Expanding)
+		origin.chb_preserveReferences = QCheckBox()
+		origin.chb_preserveReferences.setChecked(True)
+		origin.lo_preserveReferences.addWidget(origin.l_preserveReferences)
+		origin.lo_preserveReferences.addSpacerItem(spacer)
+		origin.lo_preserveReferences.addWidget(origin.chb_preserveReferences)
+		origin.w_preserveReferences.setEnabled(False)
+
 		origin.w_deleteUnknownNodes = QWidget()
 		origin.lo_deleteUnknownNodes = QHBoxLayout()
 		origin.lo_deleteUnknownNodes.setContentsMargins(9,0,9,0)
@@ -462,12 +475,15 @@ class Prism_Maya_Functions(object):
 		origin.lo_deleteDisplayLayers.addWidget(origin.chb_deleteDisplayLayers)
 
 		origin.gb_export.layout().insertWidget(10, origin.w_importReferences)
-		origin.gb_export.layout().insertWidget(11, origin.w_deleteUnknownNodes)
-		origin.gb_export.layout().insertWidget(12, origin.w_deleteDisplayLayers)
+		origin.gb_export.layout().insertWidget(11, origin.w_preserveReferences)
+		origin.gb_export.layout().insertWidget(12, origin.w_deleteUnknownNodes)
+		origin.gb_export.layout().insertWidget(13, origin.w_deleteDisplayLayers)
 
+		origin.chb_importReferences.stateChanged.connect(lambda x: origin.w_preserveReferences.setEnabled(not x))
 		origin.chb_importReferences.stateChanged.connect(origin.stateManager.saveStatesToScene)
 		origin.chb_deleteUnknownNodes.stateChanged.connect(origin.stateManager.saveStatesToScene)
 		origin.chb_deleteDisplayLayers.stateChanged.connect(origin.stateManager.saveStatesToScene)
+		origin.chb_preserveReferences.stateChanged.connect(origin.stateManager.saveStatesToScene)
 
 
 	@err_decorator
@@ -638,7 +654,8 @@ class Prism_Maya_Functions(object):
 					typeStr = "mayaAscii"
 				elif expType == ".mb":
 					typeStr = "mayaBinary"
-				cmds.file(outputName, force=True, exportSelected=True, pr=True, type=typeStr)
+				pr = origin.chb_preserveReferences.isChecked()
+				cmds.file(outputName, force=True, exportSelected=True, preserveReferences=pr, type=typeStr)
 				for i in expNodes:
 					if cmds.nodeType(i) == "xgmPalette" and cmds.attributeQuery("xgFileName", node=i, exists=True):
 						xgenName = cmds.getAttr(i + ".xgFileName")
@@ -655,11 +672,12 @@ class Prism_Maya_Functions(object):
 			opt += "exportConnectivity=0;enableCompression=0;"
 
 			outputName = os.path.splitext(outputName)[0] + ".####.rs"
+			pr = origin.chb_preserveReferences.isChecked()
 
 			if origin.chb_wholeScene.isChecked():
-				cmds.file(outputName, force=True, exportAll=True, type="Redshift Proxy", preserveReferences=True, options=opt)
+				cmds.file(outputName, force=True, exportAll=True, type="Redshift Proxy", preserveReferences=pr, options=opt)
 			else:
-				cmds.file(outputName, force=True, exportSelected=True, type="Redshift Proxy", preserveReferences=True, options=opt)
+				cmds.file(outputName, force=True, exportSelected=True, type="Redshift Proxy", preserveReferences=pr, options=opt)
 
 			outputName = outputName.replace("####", format(endFrame, '04'))
 
@@ -739,6 +757,9 @@ class Prism_Maya_Functions(object):
 		origin.w_deleteUnknownNodes.setVisible(exportScene)
 		origin.w_deleteDisplayLayers.setVisible(exportScene)
 
+		preserveReferences = idx in [".ma", ".mb", ".rs"]
+		origin.w_preserveReferences.setVisible(preserveReferences)
+
 
 	@err_decorator
 	def sm_export_preExecute(self, origin, startFrame, endFrame):
@@ -769,10 +790,12 @@ class Prism_Maya_Functions(object):
 			origin.chb_deleteUnknownNodes.setChecked(eval(data["deleteunknownnodes"]))
 		if "deletedisplaylayers" in data:
 			origin.chb_deleteDisplayLayers.setChecked(eval(data["deletedisplaylayers"]))
+		if "preserveReferences" in data:
+			origin.chb_preserveReferences.setChecked(eval(data["preserveReferences"]))
 
 	@err_decorator
 	def sm_export_getStateProps(self, origin):
-		stateProps = {"importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked())}
+		stateProps = {"importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked()), "preserveReferences":str(origin.chb_preserveReferences.isChecked())}
 
 		return stateProps
 
@@ -1604,12 +1627,30 @@ class Prism_Maya_Functions(object):
 	def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
 		if origin.curCam is not None and self.isNodeValid(origin, origin.curCam):
 			cmds.lookThru(origin.curCam)
+			pbCam = origin.curCam
+		else:
+			view = OpenMayaUI.M3dView.active3dView()
+			cam = api.MDagPath()
+			view.getCamera(cam)
+			pbCam = cam.fullPathName()
+
+		self.pbSceneSettings = {}
+		self.pbSceneSettings["pbCam"] = pbCam
+		self.pbSceneSettings["filmFit"] = cmds.getAttr(pbCam + ".filmFit")
+		self.pbSceneSettings["filmGate"] = cmds.getAttr(pbCam + ".displayFilmGate")
+		self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
+		self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
+
+		cmds.setAttr(pbCam + ".filmFit", 3)
+		cmds.setAttr(pbCam + ".displayFilmGate", False)
+		cmds.setAttr(pbCam + ".displayResolution", False)
+		cmds.setAttr(pbCam + ".overscan", 1.0)
 
 		#set image format to jpeg
 		cmds.setAttr("defaultRenderGlobals.imageFormat", 8)
 		outputName = outputName[:-5]
 
-		cmdString = "cmds.playblast( startTime=%s, endTime=%s, format=\"image\", percent=100, viewer=False, forceOverwrite=True, filename=\"%s\"" % (jobFrames[0], jobFrames[1], outputName.replace("\\", "\\\\"))
+		cmdString = "cmds.playblast( startTime=%s, endTime=%s, format=\"image\", percent=100, viewer=False, forceOverwrite=True, offScreen=True, filename=\"%s\"" % (jobFrames[0], jobFrames[1], outputName.replace("\\", "\\\\"))
 		
 		if origin.chb_resOverride.isChecked():
 			cmdString += ", width=%s, height=%s" % (origin.sp_resWidth.value(), origin.sp_resHeight.value())
@@ -1629,6 +1670,18 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def sm_playblast_execute(self, origin):
 		pass
+
+
+	@err_decorator
+	def sm_playblast_postExecute(self, origin):
+		if "filmFit" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".filmFit", self.pbSceneSettings["filmFit"])
+		if "filmGate" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayFilmGate", self.pbSceneSettings["filmGate"])
+		if "resGate" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayResolution", self.pbSceneSettings["resGate"])
+		if "overscan" in self.pbSceneSettings:
+			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".overscan", self.pbSceneSettings["overscan"])
 
 
 	@err_decorator

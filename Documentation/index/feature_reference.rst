@@ -25,6 +25,14 @@ Follow the installer instructions:
 
 After the files are extracted, an additional :ref:`installation dialog<dlgInstallation>` opens.
 
+Prism requires Microsoft Visual C++ 2010 Redistributable and Microsoft Visual C++ 2013 Redistributable. These are already installed on most computers, but if you see an error related to MSVCR1.dll or MSVCR120.dll then you need to install these manually.
+
+You can download the installer from the microsoft website:
+
+`Microsoft Visual C++ 2010 Redistributable <https://www.microsoft.com/en-us/download/details.aspx?id=26999>`_
+
+`Microsoft Visual C++ 2013 Redistributable <https://support.microsoft.com/en-us/help/3179560/update-for-visual-c-2013-and-visual-c-redistributable-package>`_
+
 Prism will be installed into this location by default, but you can change the location during the installation:
 
 C:/Prism/*
