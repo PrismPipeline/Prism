@@ -1720,11 +1720,11 @@ class PrismCore():
 
 	@err_decorator
 	def fileInPipeline(self):
-		fileName = self.fixpath(self.getCurrentFileName())
+		fileName = self.fixPath(self.getCurrentFileName())
 
 		fileNameData = os.path.basename(fileName).split(self.filenameSeperator)
 		sceneDir = self.getConfig('paths', "scenes", configPath=self.prismIni)
-		if (self.fixpath(os.path.join(self.projectPath, sceneDir)) in fileName or (self.useLocalFiles and self.fixpath(os.path.join(self.localProjectPath, sceneDir)) in fileName)) and (len(fileNameData) == 6 or len(fileNameData) == 8):
+		if (self.fixPath(os.path.join(self.projectPath, sceneDir)) in fileName or (self.useLocalFiles and self.fixPath(os.path.join(self.localProjectPath, sceneDir)) in fileName)) and (len(fileNameData) == 6 or len(fileNameData) == 8):
 			return True
 		else:
 			return False
