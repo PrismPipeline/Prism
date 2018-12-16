@@ -2036,8 +2036,8 @@ class PrismCore():
 					newfname += i + self.filenameSeperator
 				newfname = newfname[:-1]
 				filepath = os.path.join(dstname, newfname)
-				filepath = filepath.replace("\\","/")
-
+		
+		filepath = filepath.replace("\\","/")
 		outLength = len(filepath)
 		if platform.system() == "Windows" and outLength > 255:
 			QMessageBox.warning(self.messageParent, "Could not save the file", "The filepath is longer than 255 characters (%s), which is not supported on Windows." % outLength)

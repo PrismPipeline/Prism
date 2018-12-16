@@ -757,14 +757,21 @@ class ExportClass(object):
 			elif len(fnameData) == 6:
 				comment = fnameData[3]
 
+			versionUser = self.core.user
+
 			outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
+
+			if useVersion != "next":
+				versionData = useVersion.split(self.core.filenameSeperator)
+				if len(versionData) == 3:
+					hVersion, comment, versionUser = versionData
+				else:
+					useVersion == "next"
 
 			if useVersion == "next":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-			else:
-				hVersion = useVersion[:5]
 
-			outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeperator + comment + self.core.filenameSeperator + self.core.user, prefUnit)
+			outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeperator + comment + self.core.filenameSeperator + versionUser, prefUnit)
 			outputName = os.path.join(outputPath, "shot" + self.core.filenameSeperator + self.cb_sCamShot.currentText() + self.core.filenameSeperator + "ShotCam" + self.core.filenameSeperator + hVersion)
 
 		else:
@@ -780,10 +787,12 @@ class ExportClass(object):
 				elif fileName.startswith(os.path.join(self.core.localProjectPath, sceneDir)):
 					fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
 
+			versionUser = self.core.user
 			hVersion = ""
 			if useVersion != "next":
-				hVersion = useVersion.split(self.core.filenameSeperator)[0]
-				pComment = useVersion.split(self.core.filenameSeperator)[1]
+				versionData = useVersion.split(self.core.filenameSeperator)
+				if len(versionData) == 3:
+					hVersion, pComment, versionUser = versionData
 
 			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
 			if len(fnameData) == 8:
@@ -792,7 +801,7 @@ class ExportClass(object):
 					hVersion = self.core.getHighestTaskVersion(outputPath)
 					pComment = fnameData[5]
 
-				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + self.core.user, prefUnit)
+				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + versionUser, prefUnit)
 				outputName = os.path.join(outputPath, fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4" + self.cb_outType.currentText())
 			elif len(fnameData) == 6:
 				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
@@ -803,7 +812,7 @@ class ExportClass(object):
 					hVersion = self.core.getHighestTaskVersion(outputPath)
 					pComment = fnameData[3]
 
-				outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + self.core.user, prefUnit)
+				outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + versionUser, prefUnit)
 				outputName = os.path.join(outputPath, fnameData[0]  + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4" + self.cb_outType.currentText())
 			else:
 				return

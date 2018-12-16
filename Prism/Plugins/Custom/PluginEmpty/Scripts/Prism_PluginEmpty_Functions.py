@@ -149,12 +149,12 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
-	def preLoadEmptyScene(self, origin):
+	def preLoadEmptyScene(self, origin, filepath):
 		pass
 
 
 	@err_decorator
-	def postLoadEmptyScene(self, origin):
+	def postLoadEmptyScene(self, origin, filepath):
 		pass
 
 

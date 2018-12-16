@@ -1339,9 +1339,12 @@ class Prism_Maya_Functions(object):
 					cmds.delete(i)
 				except RuntimeError as e:
 					if "Cannot delete locked node" in str(e):
-						refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True)
-						fileName = cmds.referenceQuery( refNode,filename=True )
-						cmds.file(fileName, removeReference=True)
+						try:
+							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True)
+							fileName = cmds.referenceQuery( refNode,filename=True )
+							cmds.file(fileName, removeReference=True)
+						except:
+							pass
 					else:
 						raise e
 
