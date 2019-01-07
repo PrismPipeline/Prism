@@ -115,7 +115,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 		self.core = core
-		self.version = "v1.1.2.0"
 
 		#self.core.reloadPlugins()
 
@@ -219,7 +218,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - ProjectBrowser %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - ProjectBrowser %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -398,7 +397,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		helpMenu.addAction(self.actionCheckVersion)
 
 		self.actionAbout = QAction("About...", self)
-		self.actionAbout.triggered.connect(lambda: self.core.showAbout("Project: %s" % self.version))
+		self.actionAbout.triggered.connect(self.core.showAbout)
 		helpMenu.addAction(self.actionAbout)
 	
 		self.menubar.addMenu(helpMenu)

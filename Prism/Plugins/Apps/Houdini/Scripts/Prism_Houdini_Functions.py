@@ -452,6 +452,12 @@ class Prism_Houdini_Functions(object):
 				except:
 					pass
 
+		if item.ui.className == "ImportFile" and os.path.splitext(item.ui.e_file.text())[1] == ".hda":
+			fpath = item.ui.e_file.text().replace("\\", "/")
+			defs = hou.hda.definitionsInFile(fpath)
+			if len(defs) > 0 and defs[0].isInstalled():
+				hou.hda.uninstallFile(fpath)
+
 
 	@err_decorator
 	def sm_preSaveToScene(self, origin):

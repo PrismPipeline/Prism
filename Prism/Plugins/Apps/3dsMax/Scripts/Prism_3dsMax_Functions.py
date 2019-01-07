@@ -686,7 +686,7 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 				return "unknown error (files do not exist)"
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
-			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.stateManager.version, traceback.format_exc()))
+			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.core.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return "Execute Canceled: unknown error (view console for more information)"
 

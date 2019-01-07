@@ -1017,8 +1017,14 @@ class PrismCore():
 
 
 	@err_decorator
-	def showAbout(self, dlgVersion=""):
-		msg = QMessageBox(QMessageBox.Information, "About", "Prism: %s\n%s\n\nCopyright (C) 2016-2018 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com" % (self.version, dlgVersion), parent=self.messageParent)
+	def showAbout(self):
+		pVersion = ""
+		if os.path.exists(self.prismIni):
+			prjVersion = self.getConfig('globals', "prism_version", configPath=self.prismIni)
+			if prjVersion is not None:
+				pVersion = "Project: %s" % prjVersion
+
+		msg = QMessageBox(QMessageBox.Information, "About", "Prism: %s\n%s\n\nCopyright (C) 2016-2018 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com" % (self.version, pVersion), parent=self.messageParent)
 		msg.addButton("Ok", QMessageBox.YesRole)
 		action = msg.exec_()
 

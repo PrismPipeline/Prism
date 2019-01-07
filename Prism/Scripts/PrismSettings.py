@@ -383,7 +383,13 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			trayLnk = os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk")
 
 			if os.path.exists(trayStartup):
-				os.remove(trayStartup)
+				try:
+					os.remove(trayStartup)
+				except WindowsError as e:
+					if e.winerror == 32:
+						QMessageBox.warning(self, "Remove link", "Unable to remove autostart link, because the file is usd by another process:\n\n%s" % trayStartup)
+					else:
+						raise
 
 			if self.chb_trayStartup.isChecked():
 				if not os.path.exists(trayStartup):

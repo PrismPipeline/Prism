@@ -59,7 +59,7 @@ class ImageRenderClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - hou_ImageRender %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - hou_ImageRender %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -1008,7 +1008,7 @@ return outPut"""
 					return [self.state.text(0) + " - unknown error (files do not exist)"]
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - houImageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, traceback.format_exc()))
+				erStr = ("%s ERROR - houImageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
 				self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - unknown error (view console for more information)"]
 
@@ -1021,7 +1021,7 @@ return outPut"""
 		if "Result=Success" in result:
 			return [self.state.text(0) + " - success"]
 		else:
-			erStr = ("%s ERROR - houImageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
+			erStr = ("%s ERROR - houImageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, result))
 			if not result.startswith("Execute Canceled"):
 				self.core.writeErrorLog(erStr)
 			return [self.state.text(0) + " - error - " + result]

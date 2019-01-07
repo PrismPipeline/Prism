@@ -384,6 +384,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		cData = []
 
 		cData.append(['globals', 'project_name', (self.e_name.text())])
+		cData.append(['globals', 'prism_version', self.core.version])
 		cData.append(['globals', "pipeline_steps", str({"mod": "Modeling", "shd": "Shading", "rig": "Rigging", "anm": "Animation", "ren": "Rendering", "rnd": "Research", "sim": "Simulation", "cmp": "Compositing"})])
 		cData.append(['globals', 'uselocalfiles', "False"])
 		cData.append(['globals', 'checkframerange', "True"])

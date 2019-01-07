@@ -58,7 +58,7 @@ class DependencyClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - hou_Dependency %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - hou_Dependency %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -212,7 +212,7 @@ class DependencyClass(object):
 
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
-			erStr = ("%s ERROR - houDependency %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, traceback.format_exc()))
+			erStr = ("%s ERROR - houDependency %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return [self.state.text(0) + " - unknown error (view console for more information)"]
 

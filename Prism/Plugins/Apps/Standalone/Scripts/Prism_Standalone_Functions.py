@@ -271,7 +271,9 @@ class Prism_Standalone_Functions(object):
 						os.remove(desktopPath)
 					except:
 						pass
-				os.symlink(pbLnk, desktopPath)
+
+				if not os.path.exists(desktopPath):
+					os.symlink(pbLnk, desktopPath)
 
 			#subprocess.Popen(['bash', "/usr/local/Prism/Tools/PrismTray.sh"])
 

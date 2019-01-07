@@ -60,7 +60,7 @@ class ExportClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - hou_Export %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - hou_Export %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -974,6 +974,7 @@ class ExportClass(object):
 			self.stateManager.saveStatesToScene()
 
 			for idx, outputName in enumerate(outputNames):
+				parmName = False
 				if self.node.type().name() == "rop_dop":
 					parmName = "dopoutput"
 				elif self.node.type().name() == "rop_comp":
@@ -993,8 +994,9 @@ class ExportClass(object):
 				elif self.node.type().name() == "alembic":
 					parmName = "filename"
 
-				self.stateManager.publishInfos["updatedExports"][self.node.parm(parmName).unexpandedString()] = outputName
-				self.node.parm(parmName).set(outputName)
+				if parmName != False:
+					self.stateManager.publishInfos["updatedExports"][self.node.parm(parmName).unexpandedString()] = outputName
+					self.node.parm(parmName).set(outputName)
 
 				hou.hipFile.save()
 
@@ -1012,7 +1014,7 @@ class ExportClass(object):
 						else:
 							self.node.parm("execute").pressButton()
 							if self.node.errors() != () and self.node.errors() != "":
-								erStr = ("%s ERROR - houExportnode %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, self.node.errors()))
+								erStr = ("%s ERROR - houExportnode %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, self.node.errors()))
 					#			self.core.writeErrorLog(erStr)
 								result = "Execute failed: " + str(self.node.errors())
 
@@ -1024,7 +1026,7 @@ class ExportClass(object):
 
 					except Exception as e:
 						exc_type, exc_obj, exc_tb = sys.exc_info()
-						erStr = ("%s ERROR - houExport %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, traceback.format_exc()))
+						erStr = ("%s ERROR - houExport %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
 						self.core.writeErrorLog(erStr)
 
 						return [self.state.text(0) + " - unknown error (view console for more information)"]
@@ -1037,7 +1039,7 @@ class ExportClass(object):
 			if "Result=Success" in result:
 				return [self.state.text(0) + " - success"]
 			else:
-				erStr = ("%s ERROR - houExportPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
+				erStr = ("%s ERROR - houExportPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, result))
 				if not result.startswith("Execute Canceled") and not result.startswith("Execute failed") and not self.node.type().name() == "filecache":
 					self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - error - " + result]

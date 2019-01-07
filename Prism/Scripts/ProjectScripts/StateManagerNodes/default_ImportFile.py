@@ -62,7 +62,7 @@ class ImportFileClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - sm_default_importFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - sm_default_importFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper

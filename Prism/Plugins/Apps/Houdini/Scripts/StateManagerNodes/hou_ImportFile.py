@@ -65,7 +65,7 @@ class ImportFileClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - hou_ImportFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - hou_ImportFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -564,7 +564,7 @@ class ImportFileClass(object):
 			self.l_status.setText("not installed")
 			self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
 			if os.path.exists(self.e_file.text()):
-				defs = hou.hda.definitionsInFile(self.e_file.text())
+				defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
 				if len(defs) > 0:
 					if defs[0].isInstalled():
 						self.l_status.setText("installed")

@@ -88,7 +88,6 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 	def __init__(self, core, stateDataPath=None):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
-		self.version = "v1.1.2.0"
 
 		self.core = core
 		self.core.parentWindow(self)
@@ -204,7 +203,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - StateManager %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.version, traceback.format_exc()))
+				erStr = ("%s ERROR - StateManager %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
 				self.core.writeErrorLog(erStr)
 
 		fileName = self.core.getCurrentFileName()
@@ -240,7 +239,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - StateManager %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - StateManager %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -271,7 +270,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		helpMenu.addAction(self.actionCheckVersion)
 
 		self.actionAbout = QAction("About...", self)
-		self.actionAbout.triggered.connect(lambda: self.core.showAbout("State Manager: %s" % self.version))
+		self.actionAbout.triggered.connect(self.core.showAbout)
 		helpMenu.addAction(self.actionAbout)
 	
 		self.menubar.addMenu(helpMenu)
