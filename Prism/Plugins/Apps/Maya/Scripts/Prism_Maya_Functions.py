@@ -1511,7 +1511,8 @@ class Prism_Maya_Functions(object):
 			import maya.mel as mel
 			if fileName[1] == ".rs":
 				if hasattr(cmds, "rsProxy"):
-					importedNodes = mel.eval("redshiftDoCreateProxy(\"redshiftProxy#\", \"redshiftProxyPlaceholderShape#\", \"\", \"\", \"%s\");" % impFileName.replace("\\", "\\\\"))
+					objName = os.path.basename(impFileName).split(".")[0]
+					importedNodes = mel.eval("redshiftDoCreateProxy(\"%sProxy\", \"%sShape\", \"\", \"\", \"%s\");" % (objName, objName, impFileName.replace("\\", "\\\\")))
 					if len(os.listdir(os.path.dirname(impFileName))) > 1:
 						for i in importedNodes:
 							if cmds.attributeQuery("useFrameExtension", n=i, exists=True):
