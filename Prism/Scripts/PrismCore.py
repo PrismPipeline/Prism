@@ -115,7 +115,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.1.2.0"
+			self.version = "v1.1.2.1"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -571,7 +571,7 @@ class PrismCore():
 
 			curModules = list(sys.modules.keys())
 			for i in curModules:
-				if hasattr(sys.modules[i], "__file__") and modulePath in sys.modules[i].__file__:
+				if hasattr(sys.modules[i], "__file__") and sys.modules[i].__file__ is not None and modulePath in sys.modules[i].__file__:
 					del sys.modules[i]
 
 		self.unloadProjectPlugins()

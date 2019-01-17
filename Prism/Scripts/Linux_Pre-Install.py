@@ -47,8 +47,8 @@ except:
 	pysideInstalled = False
 
 if not pysideInstalled and not pyside2Installed:
-	libPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "PrismFiles", "PythonLibs", "lib-inactive")
-	libtPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "PrismFiles", "PythonLibs", "lib")
+	libPath = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "PythonLibs", "lib-inactive")
+	libtPath = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "PythonLibs", "lib")
 
 	if os.path.exists(libPath) and not os.path.exists(libtPath):
 		os.rename(libPath, libtPath)

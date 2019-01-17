@@ -1736,7 +1736,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			dirContent += [os.path.join(lpath,x) for x in os.listdir(lpath)]
 
 		addedSteps = []
-		for i in sorted(dirContent):
+		for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
 			stepName = os.path.basename(i)
 			if os.path.isdir(i) and stepName not in addedSteps:
 				sItem = QListWidgetItem(stepName)
@@ -1860,6 +1860,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.tw_aFiles.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
 
 		self.tw_aFiles.resizeColumnsToContents()
+		self.tw_aFiles.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_aFiles.setColumnWidth(0,10*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(1,80*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(3,200*self.core.uiScaleFactor)
@@ -1979,6 +1980,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			for i in os.walk(os.path.join(self.sBasePath, self.cursShots, "Scenefiles")):
 				foldercont = i
 				break
+
 			for i in sorted(foldercont[1]):
 				item = QStandardItem(i)
 				model.appendRow(item)
@@ -2005,6 +2007,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			for i in os.walk(os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)):
 				foldercont = i
 				break
+				
 			for i in sorted(foldercont[1]):
 				item = QStandardItem(i)
 				model.appendRow(item)
@@ -2137,6 +2140,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.tw_sFiles.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
 
 		self.tw_sFiles.resizeColumnsToContents()
+		self.tw_sFiles.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_sFiles.setColumnWidth(0,10*self.core.uiScaleFactor)
 		self.tw_sFiles.setColumnWidth(1,80*self.core.uiScaleFactor)
 		self.tw_sFiles.setColumnWidth(3,200*self.core.uiScaleFactor)
@@ -2497,6 +2501,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.tw_recent.setModel(model)
 		self.tw_recent.resizeColumnsToContents()
+		self.tw_recent.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_recent.setColumnWidth(0,10*self.core.uiScaleFactor)
 		self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
 		self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)

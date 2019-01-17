@@ -159,7 +159,6 @@ class Prism_Houdini_Functions(object):
 	@err_decorator
 	def sceneOpen(self, origin):
 		origin.sceneUnload()
-		self.loadPrjHDAs(origin)
 
 
 	@err_decorator
@@ -180,9 +179,11 @@ class Prism_Houdini_Functions(object):
 
 		
 		hdaFolders = [os.path.join(origin.projectPath, "00_Pipeline", "HDAs")]
+
+		prjHDAs = os.path.join(origin.projectPath, origin.getConfig('paths', "assets", configPath=origin.prismIni), "HDAs")
 		if hasattr(self.core, "user"):
-			hdaUFolder = os.path.join(origin.projectPath, origin.getConfig('paths', "assets", configPath=origin.prismIni), "HDAs", origin.user)
-			hdaFolders += [os.path.dirname(hdaUFolder), hdaUFolder]
+			hdaUFolder = os.path.join(prjHDAs, origin.user)
+			hdaFolders += [prjHDAs, hdaUFolder]
 
 		origin.prjHDAs = []
 
@@ -193,8 +194,9 @@ class Prism_Houdini_Functions(object):
 						if os.path.splitext(m)[1] in [".hda", ".hdanc", ".hdalc", ".otl"]:
 							origin.prjHDAs.append(os.path.join(i[0],m).replace("\\", "/"))
 
+		oplib = os.path.join(prjHDAs, "ProjectHDAs.oplib").replace("\\", "/")
 		for i in origin.prjHDAs:
-			hou.hda.installFile(i)
+			hou.hda.installFile(i, oplib)
 
 
 	@err_decorator

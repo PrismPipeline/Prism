@@ -375,7 +375,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 			if i[1] == "Dailies":
 				dailiesname = i[0]
 
-		cfolders = [os.path.join(path, scname, "Assets"), os.path.join(path, scname, "Shots"), os.path.join(path, assetname, "Textures")]
+		cfolders = [os.path.join(path, scname, "Assets"), os.path.join(path, scname, "Shots"), os.path.join(path, assetname, "Textures"), os.path.join(path, assetname, "HDAs")]
 
 		for i in cfolders:
 			if not os.path.exists(i):
