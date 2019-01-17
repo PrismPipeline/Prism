@@ -225,6 +225,7 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def saveScene(self, origin, filepath):
+		filepath = filepath.replace("\\", "/")
 		return hou.hipFile.save(file_name=filepath, save_to_recent_files=True)
 
 
