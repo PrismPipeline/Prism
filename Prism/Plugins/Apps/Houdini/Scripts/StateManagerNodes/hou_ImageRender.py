@@ -923,14 +923,18 @@ class ImageRenderClass(object):
 			self.node.parm("RS_outputFileFormat").set(0)
 			for parm in self.node.parms():
 				if "RS_aovCustomPrefix" in parm.name():
-						expression = """currentAOVID = hou.evaluatingParm().name().split("_")[-1]
-layerParmName = "RS_aovSuffix_"+currentAOVID
-layerName = hou.pwd().parm(layerParmName).eval()
-commonOutPut = hou.pwd().parm("RS_outputFileNamePrefix").eval()
-outPut = commonOutPut.replace("beauty",layerName)
-return outPut"""
+					currentAOVID = parm.name().split("_")[-1]
+					layerParmName = "RS_aovSuffix_"+currentAOVID
+					layerName = self.node.parm(layerParmName).eval()
+					typeParmName = "RS_aovID_" + currentAOVID
+					layerTypeID = self.node.parm(typeParmName).eval()
+					layerType = self.node.parm(typeParmName).menuLabels()[layerTypeID]
+					if layerType == "Cryptomatte":
+						layerName = "$AOV"
+					commonOutPut = self.node.parm("RS_outputFileNamePrefix").eval()
+					outPut = commonOutPut.replace("beauty",layerName)
 
-						parm.setExpression(expression, hou.exprLanguage.Python)
+					parm.set(outPut)
 
 		self.l_pathLast.setText(outputName)
 		self.l_pathLast.setToolTip(outputName)

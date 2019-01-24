@@ -642,30 +642,43 @@ class Prism_Nuke_Functions(object):
 		curReadNode.setXpos(nukeXPos+nukeSetupWidth+500+idx*350)
 
 		val = 0.5
-		r = int('%02x%02x%02x%02x' % (val*255,0,0,1),16) 
-		g = int('%02x%02x%02x%02x' % (0,val*255,0,1),16) 
-		b = int('%02x%02x%02x%02x' % (0,0,val*255,1),16) 
+		r = int('%02x%02x%02x%02x' % (val*255,0,0,1),16)
+		g = int('%02x%02x%02x%02x' % (0,val*255,0,1),16)
+		b = int('%02x%02x%02x%02x' % (0,0,val*255,1),16)
 
-		redShuffle = nuke.createNode("Shuffle", 'red red blue red green red alpha red',inpanel = False,)
-		greenShuffle = nuke.createNode("Shuffle", 'red green blue green green green alpha green',inpanel = False)
-		blueShuffle = nuke.createNode("Shuffle", 'red blue blue blue green blue alpha blue',inpanel = False)
+		created = False
+		if "cryptomatte" in os.path.basename(filePath):
+			try:
+				cmatte = nuke.createNode("Cryptomatte",inpanel = False)
+			except:
+				pass
+			else:
+				created = True
+				cmatte.setInput(0,curReadNode)
+				self.maskNodes.append(curReadNode)
+				self.maskNodes.append(cmatte)
+		
+		if not created:
+			redShuffle = nuke.createNode("Shuffle", 'red red blue red green red alpha red',inpanel = False)
+			greenShuffle = nuke.createNode("Shuffle", 'red green blue green green green alpha green',inpanel = False)
+			blueShuffle = nuke.createNode("Shuffle", 'red blue blue blue green blue alpha blue',inpanel = False)
 
-		redShuffle['tile_color'].setValue(r)
-		greenShuffle['tile_color'].setValue(g)
-		blueShuffle['tile_color'].setValue(b)
+			redShuffle['tile_color'].setValue(r)
+			greenShuffle['tile_color'].setValue(g)
+			blueShuffle['tile_color'].setValue(b)
 
-		redShuffle.setInput(0,curReadNode)
-		greenShuffle.setInput(0,curReadNode)
-		blueShuffle.setInput(0,curReadNode)
+			redShuffle.setInput(0,curReadNode)
+			greenShuffle.setInput(0,curReadNode)
+			blueShuffle.setInput(0,curReadNode)
 
-		redShuffle.setXpos(redShuffle.xpos()-110)
-	#	greenShuffle.setXpos(greenShuffle.xpos()-110)
-		blueShuffle.setXpos(blueShuffle.xpos()+110)
+			redShuffle.setXpos(redShuffle.xpos()-110)
+		#	greenShuffle.setXpos(greenShuffle.xpos()-110)
+			blueShuffle.setXpos(blueShuffle.xpos()+110)
 
-		self.maskNodes.append(curReadNode)
-		self.maskNodes.append(redShuffle)
-		self.maskNodes.append(greenShuffle)
-		self.maskNodes.append(blueShuffle)
+			self.maskNodes.append(curReadNode)
+			self.maskNodes.append(redShuffle)
+			self.maskNodes.append(greenShuffle)
+			self.maskNodes.append(blueShuffle)
 
 
 	@err_decorator
