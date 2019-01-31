@@ -175,6 +175,36 @@ class Prism_Blender_Integration(object):
 				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
 				init.write(initStr)
 
+			topbarPath = os.path.join(blenderPath, "scripts", "startup", "bl_ui", "space_topbar.py")
+			hMenuStr = 'layout.menu("TOPBAR_MT_help")'
+			hClassName = "TOPBAR_MT_help,"
+			baseTopbarFile = os.path.join(integrationBase, "space_topbar.py")
+
+			with open(baseTopbarFile, "r") as init:
+				bTbStr = init.read()
+
+			if not os.path.exists(topbarPath):
+				topbarPath = os.path.join(blenderPath, "scripts", "startup", "bl_ui", "space_info.py")
+				hMenuStr = 'layout.menu("INFO_MT_help")'
+				hClassName = "INFO_MT_help,"
+
+			if os.path.exists(topbarPath):
+				with open(topbarPath, "r") as init:
+					tbStr = init.read()
+
+				if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
+					tbStr = tbStr[:tbStr.find("#>>>PrismStart")] + tbStr[tbStr.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
+				tbStr = tbStr.replace("    TOPBAR_MT_prism,", "")
+
+				tbStr = tbStr.replace(hMenuStr, hMenuStr + bTbStr)
+				tbStr = tbStr.replace(hClassName, hClassName + '\n    TOPBAR_MT_prism,')
+
+				if not os.path.exists(topbarPath + ".bak"):
+					shutil.copy2(topbarPath, topbarPath + ".bak")
+
+				with open(topbarPath, "w") as init:
+					init.write(tbStr)
+
 			baseRenderfile = os.path.join(integrationBase, "PrismAutoSaveRender.py")
 			shutil.copy2(baseRenderfile, saveRenderPath)
 			addedFiles.append(saveRenderPath)
@@ -197,6 +227,12 @@ class Prism_Blender_Integration(object):
 
 				baseWinfile = os.path.join(integrationBase, "qwindows.dll")
 				winPath = os.path.join(os.path.dirname(blenderPath), "platforms", "qwindows.dll")
+
+				if not os.path.exists(winPath):
+					shutil.copy2(baseWinfile, winPath)
+
+				baseWinfile = os.path.join(integrationBase, "python3.dll")
+				winPath = os.path.join(os.path.dirname(blenderPath), "python3.dll")
 
 				if not os.path.exists(winPath):
 					shutil.copy2(baseWinfile, winPath)
@@ -224,6 +260,23 @@ class Prism_Blender_Integration(object):
 			for i in [initPy, saveRenderPy]:
 				if os.path.exists(i):
 					os.remove(i)
+
+			topbarPath = os.path.join(installPath, "scripts", "startup", "bl_ui", "space_topbar.py")
+
+			if not os.path.exists(topbarPath):
+				topbarPath = os.path.join(installPath, "scripts", "startup", "bl_ui", "space_info.py")
+
+			if os.path.exists(topbarPath):
+				with open(topbarPath, "r") as init:
+					tbStr = init.read()
+
+				if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
+					tbStr = tbStr[:tbStr.find("#>>>PrismStart")] + tbStr[tbStr.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
+
+				tbStr = tbStr.replace('TOPBAR_MT_prism,', "")
+
+				with open(topbarPath, "w") as init:
+					init.write(tbStr)
 
 			return True
 

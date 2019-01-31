@@ -78,7 +78,8 @@ QGroupBox::indicator
     margin-left: 2px;
 }
 
-QCheckBox::indicator:unchecked
+QCheckBox::indicator:unchecked,
+QGroupBox::indicator:unchecked
 {
     image: url(:/qss_icons/rc/checkbox_unchecked.png);
 }
@@ -94,7 +95,8 @@ QGroupBox::indicator:unchecked:pressed
     image: url(:/qss_icons/rc/checkbox_unchecked_focus.png);
 }
 
-QCheckBox::indicator:checked
+QCheckBox::indicator:checked,
+QGroupBox::indicator:checked
 {
     image: url(:/qss_icons/rc/checkbox_checked.png);
 }
@@ -111,14 +113,18 @@ QGroupBox::indicator:checked:pressed
 }
 
 
-QCheckBox::indicator:indeterminate
+QCheckBox::indicator:indeterminate,
+QGroupBox::indicator:indeterminate
 {
     image: url(:/qss_icons/rc/checkbox_indeterminate.png);
 }
 
 QCheckBox::indicator:indeterminate:focus,
 QCheckBox::indicator:indeterminate:hover,
-QCheckBox::indicator:indeterminate:pressed
+QCheckBox::indicator:indeterminate:pressed,
+QGroupBox::indicator:indeterminate:focus,
+QGroupBox::indicator:indeterminate:hover,
+QGroupBox::indicator:indeterminate:pressed
 {
     image: url(:/qss_icons/rc/checkbox_indeterminate_focus.png);
 }

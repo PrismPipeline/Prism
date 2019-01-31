@@ -45,7 +45,7 @@ except:
 import sys, os, traceback, time
 from functools import wraps
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfaces"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
 
 if psVersion == 1:
 	import CreateItem_ui

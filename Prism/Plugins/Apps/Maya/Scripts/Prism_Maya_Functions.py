@@ -1484,7 +1484,12 @@ class Prism_Maya_Functions(object):
 				validNodes = [ x for x in origin.nodes if self.isNodeValid(origin, x)]
 				if len(validNodes) > 0 and (cmds.referenceQuery( validNodes[0],isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference") and origin.chb_keepRefEdits.isChecked():
 					self.deleteNodes(origin, [origin.setName])
-					refNode = cmds.referenceQuery( origin.nodes[0], referenceNode=True, topReference=True )
+					for i in origin.nodes:
+						try:
+							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True )
+							break
+						except:
+							pass
 					cmds.file(impFileName, loadReference=refNode)
 					importedNodes = [refNode]
 				else:
@@ -1494,7 +1499,12 @@ class Prism_Maya_Functions(object):
 				
 					newNodes = cmds.file(impFileName, r=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
 
-					refNode = cmds.referenceQuery( newNodes[0], referenceNode=True, topReference=True )
+					for i in newNodes:
+						try:
+							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True )
+							break
+						except:
+							pass
 					importedNodes = [refNode]
 
 			elif importOnly:

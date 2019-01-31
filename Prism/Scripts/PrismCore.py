@@ -115,7 +115,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.1.2.1"
+			self.version = "v1.1.2.2"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -161,8 +161,13 @@ class PrismCore():
 			if pVersion == 2:
 				pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python27")
 			else:
-				pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python35")
-				QCoreApplication.addLibraryPath(os.path.join(self.prismRoot, "PythonLibs", "Python35", "PySide2", "plugins"))
+				if sys.version_info[1] == 5:
+					libFolder = "Python35"
+				elif sys.version_info[1] == 7:
+					libFolder = "Python37"
+				pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python3")
+				pyLibs = os.path.join(self.prismRoot, "PythonLibs", libFolder)
+				QCoreApplication.addLibraryPath(os.path.join(self.prismRoot, "PythonLibs", libFolder, "PySide2", "plugins"))
 				
 			cpLibs = os.path.join(self.prismRoot, "PythonLibs", "CrossPlatform")
 			win32Libs = os.path.join(cpLibs, "win32")
@@ -210,28 +215,32 @@ class PrismCore():
 
 
 	@err_decorator
-	def updatePlugins(self, current=None, pluginPath=None):
+	def updatePlugins(self, current=None, pluginLocation=None, startup=True):
 		appPlugins = []
 		customPlugins = []
 		rfManagers = []
 		prjManagers = []
 	
-		if pluginPath is None:
+		if pluginLocation is None:
 			self.unloadedAppPlugins = {}
 			self.customPlugins = {}
 			self.rfManagers = {}
 			self.prjManagers = {}
 
-			sys.path.append(os.path.join(self.pluginPathApp, current, "Scripts"))
+			pluginPath = os.path.join(self.pluginPathApp, current, "Scripts")
+			sys.path.append(pluginPath)
 			self.appPlugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
 
 			if not self.appPlugin:
 				QMessageBox.critical(QWidget(), "Prism Error", "Prism could not initialize correctly and may not work correctly in this session.")
 				return
 
+			self.appPlugin.location = "prismRoot"
+			self.appPlugin.pluginPath = pluginPath
+
 			pluginDirs = self.pluginDirs
 		else:
-			pluginDirs = [pluginPath]
+			pluginDirs = [pluginLocation]
 
 		for k in pluginDirs:
 			if not os.path.exists(k):
@@ -242,7 +251,8 @@ class PrismCore():
 					continue
 
 				initmodule = "Prism_%s_init" % i
-				initPath = os.path.join(k, i, "Scripts", initmodule + ".py")
+				pluginPath = os.path.join(k, i, "Scripts")
+				initPath = os.path.join(pluginPath, initmodule + ".py")
 
 				if os.path.basename(k) == "Apps":
 					if i == current or not (os.path.exists(initPath) or os.path.exists(initPath.replace("_init", "_init_unloaded"))):
@@ -258,10 +268,12 @@ class PrismCore():
 					pPlug = getattr(__import__("Prism_%s_init" % (i)), "Prism_%s" % i)(self)
 
 				if platform.system() in pPlug.platforms:
-					if pluginPath is None:
+					if pluginLocation is None:
 						pPlug.location = "prismRoot"
 					else:
 						pPlug.location = "prismProject"
+
+					pPlug.pluginPath = pluginPath
 
 					if pPlug.pluginType in ["App"]:
 						appPlugins.append(pPlug)
@@ -288,7 +300,10 @@ class PrismCore():
 			if i.isActive():
 				self.prjManagers[i.pluginName] = i
 
-		if pluginPath is not None:
+		if pluginLocation is not None:
+			return
+
+		if not startup:
 			return
 
 		if not self.appPlugin.hasQtParent:
@@ -316,22 +331,19 @@ class PrismCore():
 
 	@err_decorator
 	def reloadPlugins(self):
-		for i in [self.appPlugin.pluginName]: # self.getPluginNames():
-			mods = ["Prism_%s_init" % i, "Prism_%s_externalAccess_Functions" % i, "Prism_%s_Functions" % i, "Prism_%s_Variables" % i]
-			for k in mods:
-				try:
-					del sys.modules[k]
-				#	del sys.modules["Prism_%s_init" % i]
-				#	del sys.modules["Prism_%s_externalAccess_Functions" % i]
-				#	del sys.modules[]
-				#	del sys.modules[]
-				except:
-					pass
+		appPlug = self.appPlugin.pluginName
 
-			self.appPlugin = getattr(__import__("Prism_%s_init" % i), "Prism_Plugin_%s" % i)(self)
+		pluginDicts = [self.unloadedAppPlugins, self.customPlugins, self.rfManagers, self.prjManagers]
+		curPlugins = []
+		for k in pluginDicts:
+			for i in k:
+				curPlugins.append([i, k])
+	
+		for i in curPlugins:
+			self.unloadPlugin(i[0], i[1])
 
-			#	__import__(k)
-
+		self.unloadPlugin(self.appPlugin.pluginName)
+		self.updatePlugins(current=appPlug, startup=False)
 
 	@err_decorator
 	def reloadCustomPlugins(self):
@@ -362,15 +374,119 @@ class PrismCore():
 
 
 	@err_decorator
-	def unloadPlugin(self, pluginName, pluginCategory):
-		mods = ["Prism_%s_init" % pluginName, "Prism_%s_Functions" % pluginName, "Prism_%s_Variables" % pluginName]
+	def unloadPlugin(self, pluginName, pluginCategory=None):
+		mods = ["Prism_%s_init" % pluginName, "Prism_%s_init_unloaded" % pluginName, "Prism_%s_Functions" % pluginName, "Prism_%s_Integration" % pluginName, "Prism_%s_externalAccess_Functions" % pluginName, "Prism_%s_Variables" % pluginName]
 		for k in mods:
 			try:
 				del sys.modules[k]
 			except:
 				pass
 
-		del pluginCategory[pluginName]
+		if pluginCategory is not None:
+			del pluginCategory[pluginName]
+
+		if pluginName == self.appPlugin.pluginName:
+			self.appPlugin = None
+
+
+	@err_decorator
+	def getPluginNames(self):
+		pluginNames = list(self.unloadedAppPlugins.keys())
+		pluginNames.append(self.appPlugin.pluginName)
+
+		return sorted(pluginNames)
+
+
+	@err_decorator
+	def getPluginSceneFormats(self):
+		pluginFormats = list(self.appPlugin.sceneFormats)
+
+		for i in self.unloadedAppPlugins.values():
+			pluginFormats += i.sceneFormats
+
+		return pluginFormats
+
+
+	@err_decorator
+	def getPluginData(self, pluginName, data):
+		if pluginName == self.appPlugin.pluginName:
+			return getattr(self.appPlugin, data, None)
+		else:
+			for i in self.unloadedAppPlugins:
+				if i == pluginName:
+					return getattr(self.unloadedAppPlugins[i], data, None)
+
+		return None
+
+
+	@err_decorator
+	def getPlugin(self, pluginName):
+		if pluginName == self.appPlugin.pluginName:
+			return self.appPlugin
+		else:
+			for i in self.unloadedAppPlugins:
+				if i == pluginName:
+					return self.unloadedAppPlugins[i]
+
+		return None
+
+
+	@err_decorator
+	def getLoadedPlugins(self):
+		appPlugs = {self.appPlugin.pluginName: self.appPlugin}
+		appPlugs.update(self.unloadedAppPlugins)
+		plugs = {"App": appPlugs, "Renderfarm": self.rfManagers, "Projectmanager": self.prjManagers, "Custom": self.customPlugins}
+		return plugs
+
+
+	@err_decorator
+	def createPlugin(self, pluginName, pluginType):
+		if pluginType == "App":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "Apps", "PluginEmpty")
+		elif pluginType == "Custom":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "Custom", "PluginEmpty")
+		elif pluginType == "Projectmanager":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "ProjectManagers", "PluginEmpty")
+		elif pluginType == "Renderfarm":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "RenderfarmManagers", "PluginEmpty")
+
+		if not os.path.exists(presetPath):
+			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Empty preset doesn't exist.\n\n(%s)" % presetPath)
+			return
+
+		targetPath = os.path.join(os.path.dirname(presetPath), pluginName)
+
+		if os.path.exists(targetPath):
+			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Plugin already exists.\n\n(%s)" % targetPath)
+			return
+
+		shutil.copytree(presetPath, targetPath)
+
+		for i in os.walk(targetPath):
+			for folder in i[1]:
+				if "PluginEmpty" in folder:
+					folderPath = os.path.join(i[0], folder)
+					newFolderPath = folderPath.replace("PluginEmpty", pluginName)
+					os.rename(folderPath, newFolderPath)
+
+			for file in i[2]:
+				filePath = os.path.join(i[0], file)
+				with open(filePath, "r") as f:
+					content = f.read()
+
+				with open(filePath, "w") as f:
+					f.write(content.replace("PluginEmpty", pluginName))
+
+				if "PluginEmpty" in filePath:
+					newFilePath = filePath.replace("PluginEmpty", pluginName)
+					os.rename(filePath, newFilePath)
+
+		scriptPath = os.path.join(targetPath, "Scripts")
+		if not os.path.exists(scriptPath):
+			scriptPath = targetPath
+
+		self.openFolder(scriptPath)
+
 
 	@err_decorator
 	def callback(self, name="", types=["custom"], args=[], kwargs={}):
@@ -650,7 +766,7 @@ class PrismCore():
 
 		pluginPath = os.path.join(self.projectPath, "00_Pipeline", "Plugins")
 		if os.path.exists(pluginPath):
-			self.updatePlugins(pluginPath=pluginPath)
+			self.updatePlugins(pluginLocation=pluginPath)
 
 		rSection = "recent_files_" + self.projectName
 
@@ -1672,48 +1788,6 @@ class PrismCore():
 			validText = validText.replace(self.filenameSeperator, "")
 
 		return validText
-
-
-	@err_decorator
-	def getPluginNames(self):
-		pluginNames = list(self.unloadedAppPlugins.keys())
-		pluginNames.append(self.appPlugin.pluginName)
-
-		return sorted(pluginNames)
-
-
-	@err_decorator
-	def getPluginSceneFormats(self):
-		pluginFormats = list(self.appPlugin.sceneFormats)
-
-		for i in self.unloadedAppPlugins.values():
-			pluginFormats += i.sceneFormats
-
-		return pluginFormats
-
-
-	@err_decorator
-	def getPluginData(self, pluginName, data):
-		if pluginName == self.appPlugin.pluginName:
-			return getattr(self.appPlugin, data, None)
-		else:
-			for i in self.unloadedAppPlugins:
-				if i == pluginName:
-					return getattr(self.unloadedAppPlugins[i], data, None)
-
-		return None
-
-
-	@err_decorator
-	def getPlugin(self, pluginName):
-		if pluginName == self.appPlugin.pluginName:
-			return self.appPlugin
-		else:
-			for i in self.unloadedAppPlugins:
-				if i == pluginName:
-					return self.unloadedAppPlugins[i]
-
-		return None
 
 
 	@err_decorator

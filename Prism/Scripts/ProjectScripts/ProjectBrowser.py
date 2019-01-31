@@ -32,7 +32,7 @@
 
 
 
-import sys, os, datetime, shutil, ast, time, traceback, random, platform
+import sys, os, datetime, shutil, ast, time, traceback, random, platform, imp
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -115,8 +115,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 		self.core = core
-
-		#self.core.reloadPlugins()
 
 		self.core.parentWindow(self)
 
