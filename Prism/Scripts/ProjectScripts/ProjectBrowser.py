@@ -1018,7 +1018,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if addOmit:
 				rcmenu.addAction(oAct)
 		elif "path" in locals():
-			lw.setCurrentIndex(lw.model().createIndex(-1,0))
+			if iname is None:
+				lw.setCurrentIndex(lw.model().createIndex(-1,0))
 			if tab not in ["ap", "ss", "sp", "sc"]:
 				cat = QAction("Create " + typename, self)
 				cat.triggered.connect(lambda: self.createCatWin(tab, typename))
@@ -1665,19 +1666,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if self.core.useLocalFiles:
 			path = path.replace(self.core.localProjectPath, self.core.projectPath)
-
 			lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
 
 		dirContent = []
 		dirContentPaths = []
 
 		if os.path.exists(path):
-			dirContent += os.listdir(path)
-			dirContentPaths += [os.path.join(path,x) for x in os.listdir(path)]
+			gContent = os.listdir(path)
+			dirContent += gContent
+			dirContentPaths += [os.path.join(path,x) for x in gContent]
 
 		if self.core.useLocalFiles and os.path.exists(lpath):
-			dirContent += os.listdir(lpath)
-			dirContentPaths += [os.path.join(lpath,x) for x in os.listdir(lpath)]
+			lContent = os.listdir(lpath)
+			dirContent += lContent
+			dirContentPaths += [os.path.join(lpath,x) for x in lContent]
 
 		isAsset = False
 		if "Export" in dirContent and "Playblasts" in dirContent and "Rendering" in dirContent and "Scenefiles" in dirContent:
@@ -1688,12 +1690,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			childs = []
 			for i in dirContentPaths:
 				if os.path.isdir(i):
-						if os.path.basename(i) not in childs and i.replace(self.aBasePath, "")[1:] not in self.omittedEntities["Asset"]:
-							child = QTreeWidgetItem([os.path.basename(i), i])
-							item.addChild(child)
-							childs.append(os.path.basename(i))
-							if expanded:
-								self.refreshAItem(child, expanded=False)
+					aName = i.replace(self.aBasePath, "")
+					if self.core.useLocalFiles:
+						aName = aName.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
+					aName = aName[1:]
+
+					if os.path.basename(i) not in childs and aName not in self.omittedEntities["Asset"]:
+						child = QTreeWidgetItem([os.path.basename(i), i])
+						item.addChild(child)
+						childs.append(os.path.basename(i))
+						if expanded:
+							self.refreshAItem(child, expanded=False)
 
 		if isAsset:
 			iFont = item.font(0)
@@ -2259,6 +2266,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if shotName is None:
 			self.es.setWindowTitle("Create Shot")
 
+			if self.cursShots is not None:
+				self.es.e_sequence.setText(self.cursShots.split("-")[0])
+				self.es.e_shotName.setFocus()
+
 		result = self.es.exec_()
 
 		if result != 1 or self.es.shotName is None:
@@ -2720,7 +2731,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def createShotFolders(self, fname, ftype):
 		if ftype == "Asset":
-			basePath = ""
+			basePath = self.aBasePath
+			fname = fname.replace(self.aBasePath, "")
+			if fname[0] in ["/", "\\"]:
+				fname = fname[1:]
 		else:
 			basePath = self.sBasePath
 
@@ -2732,8 +2746,26 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		sFolders.append(os.path.join(basePath, fname, "Rendering", "2dRender"))
 
 		if os.path.exists(os.path.dirname(sFolders[0])):
-			QMessageBox.warning(self.core.messageParent,"Warning", "The %s %s already exists" % (ftype, fname))
-			return
+			if fname in self.omittedEntities[ftype]:
+				msgText = "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?" % (ftype, fname)
+				if psVersion == 1:
+					flags = QMessageBox.StandardButton.Yes
+					flags |= QMessageBox.StandardButton.No
+					result = QMessageBox.question(self.core.messageParent, "Warning", msgText, flags)
+				else:
+					result = QMessageBox.question(self.core.messageParent, "Warning", msgText)
+
+				if str(result).endswith(".Yes"):
+					omitPath = os.path.join(os.path.dirname(self.core.prismIni), "Configs", "omits.ini")
+					items = self.core.getConfig(ftype, configPath=omitPath, getItems=True)
+					eItem = [ x[0] for x in items if x[1] == fname]
+					if len(eItem) > 0:
+						self.core.setConfig(ftype, eItem[0], configPath=omitPath, delete=True)
+				else:
+					return
+			else:
+				QMessageBox.warning(self.core.messageParent,"Warning", "The %s %s already exists" % (ftype, fname))
+				return
 
 		for i in sFolders:
 			if not os.path.exists(i):

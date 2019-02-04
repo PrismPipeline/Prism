@@ -931,7 +931,7 @@ class ImageRenderClass(object):
 					layerType = self.node.parm(typeParmName).menuLabels()[layerTypeID]
 					if layerType == "Cryptomatte":
 						layerName = "$AOV"
-					commonOutPut = self.node.parm("RS_outputFileNamePrefix").eval()
+					commonOutPut = self.node.parm("RS_outputFileNamePrefix").unexpandedString()
 					outPut = commonOutPut.replace("beauty",layerName)
 
 					parm.set(outPut)
