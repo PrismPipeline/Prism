@@ -425,6 +425,18 @@ class Prism_Maya_Functions(object):
 			origin.l_taskName.setText(cmds.sets(name="Export1"))
 			origin.b_changeTask.setPalette(origin.oldPalette)
 
+		origin.w_exportNamespaces = QWidget()
+		origin.lo_exportNamespaces = QHBoxLayout()
+		origin.lo_exportNamespaces.setContentsMargins(9,0,9,0)
+		origin.w_exportNamespaces.setLayout(origin.lo_exportNamespaces)
+		origin.l_exportNamespaces = QLabel("Keep namespaces:")
+		spacer = QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Expanding)
+		origin.chb_exportNamespaces = QCheckBox()
+		origin.chb_exportNamespaces.setChecked(False)
+		origin.lo_exportNamespaces.addWidget(origin.l_exportNamespaces)
+		origin.lo_exportNamespaces.addSpacerItem(spacer)
+		origin.lo_exportNamespaces.addWidget(origin.chb_exportNamespaces)
+
 		origin.w_importReferences = QWidget()
 		origin.lo_importReferences = QHBoxLayout()
 		origin.lo_importReferences.setContentsMargins(9,0,9,0)
@@ -474,11 +486,13 @@ class Prism_Maya_Functions(object):
 		origin.lo_deleteDisplayLayers.addSpacerItem(spacer)
 		origin.lo_deleteDisplayLayers.addWidget(origin.chb_deleteDisplayLayers)
 
-		origin.gb_export.layout().insertWidget(10, origin.w_importReferences)
-		origin.gb_export.layout().insertWidget(11, origin.w_preserveReferences)
-		origin.gb_export.layout().insertWidget(12, origin.w_deleteUnknownNodes)
-		origin.gb_export.layout().insertWidget(13, origin.w_deleteDisplayLayers)
+		origin.gb_export.layout().insertWidget(10, origin.w_exportNamespaces)
+		origin.gb_export.layout().insertWidget(11, origin.w_importReferences)
+		origin.gb_export.layout().insertWidget(12, origin.w_preserveReferences)
+		origin.gb_export.layout().insertWidget(13, origin.w_deleteUnknownNodes)
+		origin.gb_export.layout().insertWidget(14, origin.w_deleteDisplayLayers)
 
+		origin.chb_exportNamespaces.stateChanged.connect(origin.stateManager.saveStatesToScene)
 		origin.chb_importReferences.stateChanged.connect(lambda x: origin.w_preserveReferences.setEnabled(not x))
 		origin.chb_importReferences.stateChanged.connect(origin.stateManager.saveStatesToScene)
 		origin.chb_deleteUnknownNodes.stateChanged.connect(origin.stateManager.saveStatesToScene)
@@ -563,15 +577,19 @@ class Prism_Maya_Functions(object):
 				mel.eval("FBXExport -f \"%s\" -s" % outputName.replace("\\","\\\\"))
 		elif expType == ".abc":
 			try:
-				if origin.chb_wholeScene.isChecked():
-					mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -stripNamespaces -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
-				else:
+				rootString = ""
+				if not origin.chb_wholeScene.isChecked():
 					rootNodes = [x for x in expNodes if len([ k for k in expNodes if x.rsplit("|",1)[0] == k]) == 0]
-					rootString = ""
 					for i in rootNodes:
 						rootString += "-root %s " % i
 
-					mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+				expStr = 'AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\"))
+
+				if not origin.chb_exportNamespaces.isChecked():
+					print "strip"
+					expStr = expStr.replace("-stripNamespaces", "")
+
+				mel.eval(expStr)
 			except Exception as e:
 				if "Conflicting root node names specified" in str(e):
 					fString = "You are trying to export multiple objects with the same name, which is not supported in alembic format.\n\nDo you want to export your objects with namespaces?\nThis may solve the problem."
@@ -583,10 +601,7 @@ class Prism_Maya_Functions(object):
 
 					if action == 0:
 						try:
-							if origin.chb_wholeScene.isChecked():
-								mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
-							else:
-								mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+							mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
 						except Exception as e:
 							if "Already have an Object named:" in str(e):
 								exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -752,6 +767,7 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_typeChanged(self, origin, idx):
+		origin.w_exportNamespaces.setVisible(idx==".abc")
 		exportScene = idx in [".ma", ".mb"]
 		origin.w_importReferences.setVisible(exportScene)
 		origin.w_deleteUnknownNodes.setVisible(exportScene)
@@ -784,6 +800,8 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_loadData(self, origin, data):
+		if "exportnamespaces" in data:
+			origin.chb_exportNamespaces.setChecked(eval(data["exportnamespaces"]))
 		if "importreferences" in data:
 			origin.chb_importReferences.setChecked(eval(data["importreferences"]))
 		if "deleteunknownnodes" in data:
@@ -795,7 +813,7 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_getStateProps(self, origin):
-		stateProps = {"importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked()), "preserveReferences":str(origin.chb_preserveReferences.isChecked())}
+		stateProps = {"exportnamespaces":str(origin.chb_exportNamespaces.isChecked()), "importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked()), "preserveReferences":str(origin.chb_preserveReferences.isChecked())}
 
 		return stateProps
 

@@ -598,7 +598,7 @@ class ExportClass(object):
 
 	@err_decorator
 	def connectNode(self):
-		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().description() in ["ROP Output Driver", "ROP File Output", "ROP Alembic Output", "File Cache", 'ROP USD Output', "Redshift Proxy Output"] or (hou.selectedNodes()[0].type().category().name() == "Driver" and hou.selectedNodes()[0].type().name() in ["geometry", "alembic"]) or (self.cb_outType.currentText() == ".hda" and hou.selectedNodes()[0].canCreateDigitalAsset())):
+		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().name() in ["rop_geometry", "rop_dop", "rop_comp", "rop_alembic", "filecache", 'pixar::usdrop', "Redshift_Proxy_Output"] or (hou.selectedNodes()[0].type().category().name() == "Driver" and hou.selectedNodes()[0].type().name() in ["geometry", "alembic"]) or hou.selectedNodes()[0].canCreateDigitalAsset()):
 			self.node = hou.selectedNodes()[0]
 
 			extension = ""
@@ -626,6 +626,8 @@ class ExportClass(object):
 					extension = os.path.splitext(self.node.parm("sopoutput").eval())[1]
 			elif self.node.type().name() == "alembic" and self.node.type().category().name() == "Driver":
 				extension = os.path.splitext(self.node.parm("filename").eval())[1]
+			elif hou.selectedNodes()[0].canCreateDigitalAsset():
+				extension = ".hda"
 
 			if self.cb_outType.findText(extension) != -1:
 				self.cb_outType.setCurrentIndex(self.cb_outType.findText(extension))
@@ -917,7 +919,7 @@ class ExportClass(object):
 			except:
 				return [self.state.text(0) + ": error - Node is invalid. Skipped the activation of this state."]
 
-			if self.node.isInsideLockedHDA():
+			if not self.node.isEditable():
 				return [self.state.text(0) + ": error - Node is locked. Skipped the activation of this state."]
 
 			fileName = self.core.getCurrentFileName()
@@ -1010,7 +1012,8 @@ class ExportClass(object):
 						result = ""
 						if self.cb_outType.currentText() == ".hda":
 							HDAoutputName = outputName.replace(".$F4", "")
-							self.node.createDigitalAsset(name="prism_" + self.l_taskName.text() , hda_file_name=HDAoutputName, description=self.l_taskName.text(), change_node_type=False)
+							self.node.createDigitalAsset(name="prism_" + self.l_taskName.text() , hda_file_name=HDAoutputName, description=self.l_taskName.text(), change_node_type=True)
+							self.updateUi()
 						else:
 							self.node.parm("execute").pressButton()
 							if self.node.errors() != () and self.node.errors() != "":

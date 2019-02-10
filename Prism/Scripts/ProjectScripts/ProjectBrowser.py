@@ -273,6 +273,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_aPipeline.customContextMenuRequested.connect(lambda x: self.rclCat("ap",x))
 		self.tw_aFiles.customContextMenuRequested.connect(lambda x: self.rclFile("a",x))
 		self.tw_aFiles.doubleClicked.connect(self.exeFile)
+		self.tw_aFiles.setMouseTracking(True)
+		self.tw_aFiles.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "af")
+		self.tw_aFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "af")
+		self.tw_aFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "af")
 
 		self.tw_sShot.currentItemChanged.connect(lambda x, y: self.sShotclicked(x))
 		self.tw_sShot.itemExpanded.connect(self.sItemCollapsed)
@@ -282,6 +286,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_sCategory.customContextMenuRequested.connect(lambda x: self.rclCat("sc",x))
 		self.tw_sFiles.customContextMenuRequested.connect(lambda x: self.rclFile("sf",x))
 		self.tw_sFiles.doubleClicked.connect(self.exeFile)
+		self.tw_sFiles.setMouseTracking(True)
+		self.tw_sFiles.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "sf")
+		self.tw_sFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "sf")
+		self.tw_sFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "sf")
 
 		self.l_shotPreview.mouseDoubleClickEvent = lambda x: self.editShot(self.cursShots)
 
@@ -304,6 +312,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tbw_browser.currentChanged.connect(self.tabChanged)
 		self.tw_recent.customContextMenuRequested.connect(lambda x: self.rclFile("r",x))
 		self.tw_recent.doubleClicked.connect(self.exeFile)
+		self.tw_recent.setMouseTracking(True)
+		self.tw_recent.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "r")
+		self.tw_recent.leaveEvent = lambda x: self.tableLeaveEvent(x, "r")
+		self.tw_recent.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "r")
 
 		for i in self.appFilters:
 			self.appFilters[i]["assetChb"].stateChanged.connect(self.refreshAFile)
@@ -889,6 +901,117 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
+	def tableMoveEvent(self, event, table):
+		self.showDetailWin(event, table)
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.move(QCursor.pos().x()+20, QCursor.pos().y())
+
+
+	@err_decorator
+	def showDetailWin(self, event, table):
+		if table == "af":
+			table = self.tw_aFiles
+		elif table == "sf":
+			table = self.tw_sFiles
+		elif table == "r":
+			table = self.tw_recent
+
+		index = table.indexAt(event.pos())
+		if index.data() is None:
+			if hasattr(self, "detailWin") and self.detailWin.isVisible():
+				self.detailWin.close()
+			return
+
+		scenePath = table.model().index(index.row(),0).data(Qt.UserRole)
+		if scenePath is None:
+			if hasattr(self, "detailWin") and self.detailWin.isVisible():
+				self.detailWin.close()
+			return
+
+		infoPath = os.path.splitext(scenePath)[0] + "info.yml"
+		prvPath = os.path.splitext(scenePath)[0] + "preview.jpg"
+
+		if not os.path.exists(infoPath) and not os.path.exists(prvPath):
+			if hasattr(self, "detailWin") and self.detailWin.isVisible():
+				self.detailWin.close()
+			return
+	
+		if not hasattr(self, "detailWin") or not self.detailWin.isVisible() or self.detailWin.scenePath != scenePath:
+			if hasattr(self, "detailWin"):
+				self.detailWin.close()
+
+			self.detailWin = QFrame()
+
+			ss = getattr(self.core.appPlugin, "getFrameStyleSheet", lambda x: "")(self)
+			self.detailWin.setStyleSheet(ss +""" .QFrame{ border: 2px solid rgb(100,100,100);} """)
+
+			self.detailWin.scenePath = scenePath
+			self.core.parentWindow(self.detailWin)
+			winwidth = 320
+			winheight = 10
+			VBox = QVBoxLayout()
+			if os.path.exists(prvPath):
+				imgmap = self.getImgPMap(prvPath)
+				l_prv = QLabel()
+				l_prv.setPixmap(imgmap)
+				l_prv.setStyleSheet( """
+					border: 1px solid rgb(100,100,100);
+				""")
+				VBox.addWidget(l_prv)
+			w_info = QWidget()
+			GridL = QGridLayout()
+			GridL.setColumnStretch(1,1)
+			rc = 0
+			sPathL = QLabel("Scene:\t")
+			sPath = QLabel(os.path.basename(scenePath))
+			GridL.addWidget(sPathL, rc, 0, Qt.AlignLeft)
+			GridL.addWidget(sPath, rc, 1, Qt.AlignLeft)
+			rc += 1
+			if os.path.exists(infoPath):
+				sceneInfo = self.core.readYaml(infoPath)
+				if sceneInfo is None:
+					sceneInfo = {}
+				if "username" in sceneInfo:
+					unameL = QLabel("User:\t")
+					uname = QLabel(sceneInfo["username"])
+					GridL.addWidget(unameL, rc, 0, Qt.AlignLeft)
+					GridL.addWidget(uname, rc, 1, Qt.AlignLeft)
+					GridL.addWidget(uname, rc, 1, Qt.AlignLeft)
+					rc += 1
+				if "description" in sceneInfo and sceneInfo["description"] != "":
+					descriptionL = QLabel("Description:\t")
+					description = QLabel(sceneInfo["description"])
+					GridL.addWidget(descriptionL, rc, 0, Qt.AlignLeft | Qt.AlignTop)
+					GridL.addWidget(description, rc, 1, Qt.AlignLeft)
+
+			w_info.setLayout(GridL)
+			GridL.setContentsMargins(0,0,0,0)
+			VBox.addWidget(w_info)
+			self.detailWin.setLayout(VBox)
+			self.detailWin.setWindowFlags(
+					  Qt.FramelessWindowHint # hides the window controls
+					| Qt.WindowStaysOnTopHint # forces window to top... maybe
+					| Qt.SplashScreen # this one hides it from the task bar!
+					)
+		
+			self.detailWin.setGeometry(0, 0, winwidth, winheight)
+			self.detailWin.move(QCursor.pos().x()+20, QCursor.pos().y())
+			self.detailWin.show()
+
+
+	@err_decorator
+	def tableLeaveEvent(self, event, table):
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
+
+
+	@err_decorator
+	def tableFocusOutEvent(self, event, table):
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
+
+
+	@err_decorator
 	def rclCat(self, tab, pos):
 		rcmenu = QMenu()
 		typename = "Category"
@@ -1042,18 +1165,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				return
 
 			tw = self.tw_aFiles
-			filepathrow = 5
 			filepath = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles", self.lw_aPipeline.currentItem().text())
 		elif tab == "sf":
 			if self.cursStep is None or self.cursCat is None:
 				return
 
 			tw = self.tw_sFiles
-			filepathrow = 5
 			filepath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
 		elif tab == "r":
 			tw = self.tw_recent
-			filepathrow = 7
 
 		rcmenu = QMenu()
 
@@ -1069,7 +1189,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if not os.path.exists(filepath) and self.core.useLocalFiles and os.path.exists(filepath.replace(self.core.projectPath, self.core.localProjectPath)):
 				filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
 		else:
-			filepath = self.core.fixPath(tw.model().index(irow, filepathrow).data())
+			filepath = self.core.fixPath(tw.model().index(irow, 0).data(Qt.UserRole))
 			cop.triggered.connect(lambda: self.copyfile(filepath))
 			tw.setCurrentIndex(tw.model().createIndex(irow,0))
 		if tab != "r":
@@ -1122,17 +1242,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				else:
 					globalAct.setEnabled(False)
 				rcmenu.addAction(globalAct)
-
-			desc = QAction("Show description", self)
-			sceneName = os.path.splitext(os.path.basename(filepath))[0]
-			descPath = os.path.join(os.path.dirname(self.core.prismIni), "SceneDescriptions", sceneName + ".txt")
-			if os.path.exists(descPath):
-				with open(descPath, 'r') as descFile:
-					fileDescription = descFile.read()
-				desc.triggered.connect(lambda: QMessageBox.information(self.core.messageParent, "Scene description", fileDescription))
-			else:
-				desc.setEnabled(False)
-			rcmenu.addAction(desc)
 
 			actDeps = QAction("Show dependencies", self)
 			infoPath = os.path.splitext(filepath)[0] + "versioninfo.ini"
@@ -1196,20 +1305,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.core.sm.close()
 
 		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
-			column = 5
 			refresh = self.refreshAFile
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
-			column = 5
 			refresh = self.refreshSFile
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Files":
-			column = 2
 			refresh = self.refreshFCat
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Recent":
-			column = 7
 			refresh = self.setRecent
 
 		if filepath == "":
-			filepath = index.model().index(index.row(), column).data()
+			filepath = index.model().index(index.row(), 0).data(Qt.UserRole)
 
 		if self.core.useLocalFiles and os.path.join(self.core.projectPath, self.scenes) in filepath:
 			lfilepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
@@ -1807,6 +1912,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem("█")
 				item.setFont(QFont('SansSerif', 100))
 				item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+				item.setData(i, Qt.UserRole)
 
 				ext = fname[5]
 
@@ -1842,8 +1948,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				item = QStandardItem(fname[4])
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(item)
-				item = QStandardItem(i)
-				row.append(item)
 
 				if publicFile:
 					for k in row[1:]:
@@ -1856,7 +1960,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		
 		self.tw_aFiles.setModel(model)
-		self.tw_aFiles.setColumnHidden(5, True)
 		if psVersion == 1:
 			self.tw_aFiles.horizontalHeader().setResizeMode(0,QHeaderView.Fixed)
 			self.tw_aFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
@@ -2088,6 +2191,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						item = QStandardItem("█")
 					item.setFont(QFont('SansSerif', 100))
 					item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+					item.setData(i, Qt.UserRole)
 
 					ext = fname[7]
 
@@ -2123,8 +2227,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem(fname[6])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					item = QStandardItem(i)
-					row.append(item)
 
 					if publicFile:
 						for k in row[1:]:
@@ -2136,7 +2238,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					model.appendRow(row)
 
 		self.tw_sFiles.setModel(model)
-		self.tw_sFiles.setColumnHidden(5, True)
 		if psVersion == 1:
 			self.tw_sFiles.horizontalHeader().setResizeMode(0,QHeaderView.Fixed)
 			self.tw_sFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
@@ -2433,6 +2534,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem("█")
 				item.setFont(QFont('SansSerif', 100))
 				item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+				item.setData(i, Qt.UserRole)
 
 				ext = fname[-1]
 
@@ -2976,7 +3078,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						self.lw_aPipeline.setCurrentItem(fItems[0])
 						if len(hierarchy) > (endIdx + 1):
 							for i in range(self.tw_aFiles.model().rowCount()):
-								if fileName == self.tw_aFiles.model().index(i,5).data():
+								if fileName == self.tw_aFiles.model().index(i,0).data(Qt.UserRole):
 									idx = self.tw_aFiles.model().index(i,0)
 									self.tw_aFiles.selectRow(idx.row())
 									break
@@ -3033,7 +3135,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 								break
 
 						for i in range(self.tw_sFiles.model().rowCount()):
-							if fileName == self.tw_sFiles.model().index(i,5).data():
+							if fileName == self.tw_sFiles.model().index(i,0).data(Qt.UserRole):
 								idx = self.tw_sFiles.model().index(i,0)
 								self.tw_sFiles.selectRow(idx.row())
 								break

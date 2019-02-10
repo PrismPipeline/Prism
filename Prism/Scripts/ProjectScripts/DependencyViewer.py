@@ -166,11 +166,15 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
 	@err_decorator
 	def updateDependencies(self, depID, versionInfo):
+		source = self.core.getConfig(cat="information", param="source scene", configPath=versionInfo)
 		deps = self.core.getConfig(cat="information", param="dependencies", configPath=versionInfo)
 		extFiles = self.core.getConfig(cat="information", param="external files", configPath=versionInfo)
 
 		try:
 			deps = eval(deps)
+			if source is not None:
+				deps.append(source)
+
 			extFiles = eval(extFiles)
 		except:
 			QMessageBox.warning(self.core.messageParent, "Warning", "Could not read dependencies from file:\n\n%s" % versionInfo)
@@ -204,7 +208,12 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 				date = ""
 				existColor = QColor(255,0,0)
 
-			item = QTreeWidgetItem([os.path.basename(i), existText, "Export", date, i])
+			if i == source:
+				dType = "Source Scene"
+			else:
+				dType = "Export"
+
+			item = QTreeWidgetItem([os.path.basename(i), existText, dType, date, i.replace("\\", "/")])
 
 			item.setForeground(1, existColor)
 
@@ -242,7 +251,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 				date = ""
 				existColor = QColor(255,0,0)
 
-			item = QTreeWidgetItem([os.path.basename(i), existText, "File", date, i])
+			item = QTreeWidgetItem([os.path.basename(i), existText, "File", date, i.replace("\\", "/")])
 
 			item.setForeground(1, existColor)
 			

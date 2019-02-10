@@ -115,7 +115,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.1.2.2"
+			self.version = "v1.1.2.3"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1769,6 +1769,24 @@ class PrismCore():
 
 
 	@err_decorator
+	def readYaml(self, path):
+		from ruamel.yaml import YAML
+		yaml=YAML()
+		with open(path, "r") as config:
+			data = yaml.load(config)
+
+		return data
+
+
+	@err_decorator
+	def writeYaml(self, path, data):
+		from ruamel.yaml import YAML
+		yaml=YAML()
+		with open(path, "w") as config:
+			yaml.dump(data, config)
+
+
+	@err_decorator
 	def validateStr(self, text, allowChars=[], denyChars=[]):
 		invalidChars = [" ", "\\", "/", ":", "*", "?", "\"", "<", ">", "|", "ä", "ö", "ü", "ß", self.filenameSeperator]
 		for i in allowChars:
@@ -2065,7 +2083,7 @@ class PrismCore():
 
 
 	@err_decorator
-	def saveScene(self, comment = "nocomment", publish=False, versionUp=True, prismReq=True, filepath=""):
+	def saveScene(self, comment = "nocomment", publish=False, versionUp=True, prismReq=True, filepath="", details={}, preview=None):
 		if filepath == "":
 			curfile = self.getCurrentFileName()
 			filepath = curfile.replace("\\","/")
@@ -2124,6 +2142,13 @@ class PrismCore():
 			return False
 
 		result = self.appPlugin.saveScene(self, filepath)
+		if len(details) > 0:
+			ymlPath = os.path.splitext(filepath)[0] + "info.yml"
+			self.writeYaml(path=ymlPath, data=details)
+		if preview is not None:
+			prvPath = os.path.splitext(filepath)[0] + "preview.jpg"
+			self.savePMap(preview, prvPath)
+
 		self.callback(name="onSaveFile", types=["custom"], args=[self, filepath])
 
 		if result == False:
@@ -2132,7 +2157,7 @@ class PrismCore():
 		if not prismReq:
 			return filepath
 
-		if not os.path.exists(filepath):
+		if not os.path.exists(filepath) and os.path.splitext(self.fixPath(self.getCurrentFileName()))[0] != os.path.splitext(self.fixPath(filepath))[0]:
 			return False
 
 		self.addToRecent(filepath)
@@ -2192,9 +2217,37 @@ class PrismCore():
 				os.remove(modPath)
 			import SaveComment
 
-		self.savec = SaveComment.SaveComment(core = self)
-		self.savec.buttonBox.accepted.connect(lambda: self.saveScene(self.savec.e_comment.text()))
-		self.savec.exec_()
+		savec = SaveComment.SaveComment(core = self)
+		action = savec.exec_()
+		if action != 0:
+			if savec.previewDefined:
+				prvPMap = savec.l_preview.pixmap()
+			else:
+				prvPMap = None
+
+			details = {"description":savec.e_description.toPlainText(), "username":self.getConfig("globals", "UserName")}
+			self.saveScene(comment=savec.e_comment.text(), details=details, preview=prvPMap)
+
+
+	@err_decorator
+	def savePMap(self, pmap, path):
+		if platform.system() == "Windows":
+			pmap.save(path, "JPG")
+		else:
+			try:
+				img = pmap.toImage()
+				buf = QBuffer()
+				buf.open(QIODevice.ReadWrite)
+				img.save(buf, "PNG")
+
+				strio = StringIO()
+				strio.write(buf.data())
+				buf.close()
+				strio.seek(0)
+				pimg = Image.open(strio)
+				pimg.save(path)
+			except:
+				pmap.save(path, "JPG")
 
 
 	@err_decorator
@@ -2205,6 +2258,18 @@ class PrismCore():
 			return
 
 		shutil.copy2(origFile, targetFile)
+
+		ymlPath = os.path.splitext(origFile)[0] + "info.yml"
+		prvPath = os.path.splitext(origFile)[0] + "preview.jpg"
+		ymlPatht = os.path.splitext(targetFile)[0] + "info.yml"
+		prvPatht = os.path.splitext(targetFile)[0] + "preview.jpg"
+
+		if os.path.exists(ymlPath) and not os.path.exists(ymlPatht):
+			shutil.copy2(ymlPath, ymlPatht)
+
+		if os.path.exists(prvPath) and not os.path.exists(prvPatht):
+			shutil.copy2(prvPath, prvPatht)
+
 		ext = os.path.splitext(origFile)[1]
 		if ext in self.appPlugin.sceneFormats:
 			getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)

@@ -499,6 +499,11 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
+	def getFrameStyleSheet(self, origin):
+		return hou.qt.styleSheet().replace("QWidget", "QFrame")
+
+
+	@err_decorator
 	def onStateManagerOpen(self, origin):
 		if platform.system() == "Darwin":
 			origin.menubar.setNativeMenuBar(False)

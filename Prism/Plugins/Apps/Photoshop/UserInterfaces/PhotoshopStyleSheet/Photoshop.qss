@@ -93,6 +93,7 @@ Main window
 ==================================================================================================*/
 QMainWindow,
 QDialog,
+QFrame,
 QDockWidget,
 QToolBar  {
     background-color: rgb(83, 83, 83); /* main background color */
@@ -131,6 +132,10 @@ QMenu::item:selected,
 QMenu::item:pressed {
     color: black;
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #7aa3e5, stop:1 #5680c1);
+}
+
+QMenu::item:disabled {
+    color: #939393;
 }
 
 QMenu::right-arrow {
@@ -328,7 +333,7 @@ Progress bar
 QProgressBar,
 QProgressBar:horizontal {
     color: white;
-    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #858585, stop:1 #979797);
+    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgb(85, 85, 85), stop:1 rgb(85, 85, 85));
     text-align: center;
     border: 1px solid #2f2f2f;
     /*padding: 1px;*/
@@ -863,10 +868,10 @@ QTreeView > QWidget > QTextEdit:focus,
 QTreeView > QWidget > QTimeEdit:focus,
 QTreeView > QWidget > QDateEdit:focus,
 QTreeView > QWidget > QDateTimeEdit:focus {
-    border-right-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #858585, stop:1 #979797); /* same as focused background color */
-    border-left-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #858585, stop:1 #979797); /* same as focused background color */
-    border-top-color: #858585;
-    border-bottom-color: #979797;
+    border-right-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgb(85, 85, 85), stop:1 rgb(85, 85, 85)); /* same as focused background color */
+    border-left-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgb(85, 85, 85), stop:1 rgb(85, 85, 85)); /* same as focused background color */
+    border-top-color: rgb(85, 85, 85);
+    border-bottom-color: rgb(85, 85, 85);
 
 }
 
@@ -1235,7 +1240,7 @@ QTimeEdit:focus,
 QDateEdit:focus,
 QDateTimeEdit:focus {
     color: white;
-    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #858585, stop:1 #979797);
+    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgb(85, 85, 85), stop:1 rgb(85, 85, 85));
 }
 
 QAbstractSpinBox:disabled,
@@ -1712,6 +1717,8 @@ QRadioButton:focus {
 /*==================================================================================================
 Checkbox
 ==================================================================================================*/
+QGroupBox,
+QGroupBox:disabled,
 QCheckBox,
 QCheckBox:disabled {
     color: white;
@@ -1720,6 +1727,7 @@ QCheckBox:disabled {
     background-color: transparent;
 }
 
+QGroupBox::indicator,
 QCheckBox::indicator {
     color: black;
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #535353, stop:1 #373737);
@@ -1729,10 +1737,15 @@ QCheckBox::indicator {
     border-radius:2px;
 }
 
+QGroupBox::indicator:hover,
 QCheckBox::indicator:hover {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #626262, stop:1 #464646);
 }
 
+QGroupBox::indicator:pressed,
+QGroupBox::indicator:non-exclusive:checked:pressed,
+QGroupBox::indicator:indeterminate:pressed,
+QGroupBox::indicator:checked:pressed,
 QCheckBox::indicator:pressed,
 QCheckBox::indicator:non-exclusive:checked:pressed,
 QCheckBox::indicator:indeterminate:pressed,
@@ -1740,28 +1753,33 @@ QCheckBox::indicator:checked:pressed {
     border-color: #292929; /* same as not pressed... just to disable the effect without deleting the code */
 }
 
+QGroupBox::indicator:checked,
 QCheckBox::indicator:checked {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #373737, stop:1 #535353);
     border: 1px solid #292929; /* QCheckBox has the same color */
     image:url(qss:images/checkbox_light.png);
 }
 
+QGroupBox:disabled,
 QCheckBox:disabled {
     color: #5c5c5c;
     background-color: transparent;
 }
 
+QGroupBox::indicator:disabled,
 QCheckBox::indicator:disabled {
     background-color: transparent;
     border: 1px solid #5c5c5c;
 }
 
+QGroupBox::indicator:indeterminate,
 QCheckBox::indicator:indeterminate {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #373737, stop:1 #535353);
     border: 1px solid #292929; /* QCheckBox has the same color */
     image: url(qss:images/checkbox_indeterminate_light.png);
 }
 
+QGroupBox:focus
 QCheckBox:focus {
     border: none;
 }

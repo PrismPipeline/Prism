@@ -10,7 +10,7 @@ fname = "StateManager"
 #fname = "EnterText"
 #fname = "ItemList"
 #fname = "ExternalTask"
-fname = "DependencyViewer"
+#fname = "DependencyViewer"
 
 pyside = 0
 

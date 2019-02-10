@@ -514,7 +514,7 @@ class ImportFileClass(object):
 
 		if os.path.splitext(self.e_file.text())[1] == ".hda":
 			if os.path.exists(self.e_file.text()):
-				defs = hou.hda.definitionsInFile(self.e_file.text())
+				defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
 				if len(defs) > 0:
 					tname = defs[0].nodeTypeName()
 					mNode = None
@@ -550,7 +550,8 @@ class ImportFileClass(object):
 			mNode.parm("objpath1").set(outNodePath)
 
 		mNode.setDisplayFlag(True)
-		mNode.setRenderFlag(True)
+		if hasattr(mNode, "setRenderFlag"):
+			mNode.setRenderFlag(True)
 		mNode.setPosition(paneTab.visibleBounds().center())
 		mNode.setCurrent(True, clear_all_selected=True)
 

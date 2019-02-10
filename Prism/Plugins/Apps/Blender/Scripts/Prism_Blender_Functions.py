@@ -1190,7 +1190,8 @@ class Prism_Blender_Functions(object):
 		origin.b_setRange.setMaximumWidth(200*self.core.uiScaleFactor)
 		origin.b_description.setMinimumWidth(35*self.core.uiScaleFactor)
 		origin.b_description.setMaximumWidth(35*self.core.uiScaleFactor)
-
+		origin.b_preview.setMinimumWidth(35*self.core.uiScaleFactor)
+		origin.b_preview.setMaximumWidth(35*self.core.uiScaleFactor)
 
 	@err_decorator
 	def sm_saveStates(self, origin, buf):
