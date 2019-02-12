@@ -351,7 +351,7 @@ class ImageRenderClass(object):
 
 
 	@err_decorator
-	def overrideChanged(self):
+	def overrideChanged(self, checked):
 		if self.chb_override.isChecked():
 			self.l_subdivs.setEnabled(True)
 			self.sp_minSubdivs.setEnabled(True)
@@ -632,7 +632,7 @@ class ImageRenderClass(object):
 				return [self.state.text(0) + ": error - no camera is selected. Skipping activation of this state."]
 
 			if self.chb_override.isChecked():
-				self.core.appPlugin.setVraySettings(self)
+				self.core.appPlugin.sm_render_setVraySettings(self)
 
 			outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
 

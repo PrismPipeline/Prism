@@ -57,13 +57,13 @@ class Prism_Maya_Integration(object):
 		self.plugin = plugin
 
 		if platform.system() == "Windows":
-			self.examplePath = os.environ["userprofile"] + "\\Documents\\maya\\2018"
+			self.examplePath = os.environ["userprofile"] + "\\Documents\\maya\\2019"
 		elif platform.system() == "Linux":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = os.path.join("/home", userName, "maya", "2018")
+			self.examplePath = os.path.join("/home", userName, "maya", "2019")
 		elif platform.system() == "Darwin":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = "/Users/%s/Library/Preferences/Autodesk/maya/2018" % userName
+			self.examplePath = "/Users/%s/Library/Preferences/Autodesk/maya/2019" % userName
 
 
 	def err_decorator(func):
@@ -289,13 +289,13 @@ class Prism_Maya_Integration(object):
 	def updateInstallerUI(self, userFolders, pItem):
 		try:
 			if platform.system() == "Windows":
-				mayaPath = [os.path.join(userFolders["Documents"], "maya", "2016"), os.path.join(userFolders["Documents"], "maya", "2017"), os.path.join(userFolders["Documents"], "maya", "2018")]
+				mayaPath = [os.path.join(userFolders["Documents"], "maya", "2016"), os.path.join(userFolders["Documents"], "maya", "2017"), os.path.join(userFolders["Documents"], "maya", "2018"), os.path.join(userFolders["Documents"], "maya", "2019")]
 			elif platform.system() == "Linux":
 				userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-				mayaPath = [os.path.join("/home", userName, "maya", "2016"), os.path.join("/home", userName, "maya", "2017"), os.path.join("/home", userName, "maya", "2018")]
+				mayaPath = [os.path.join("/home", userName, "maya", "2016"), os.path.join("/home", userName, "maya", "2017"), os.path.join("/home", userName, "maya", "2018"), os.path.join("/home", userName, "maya", "2019")]
 			elif platform.system() == "Darwin":
 				userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-				mayaPath = ["/Users/%s/Library/Preferences/Autodesk/maya/2016" % userName, "/Users/%s/Library/Preferences/Autodesk/maya/2017" % userName, "/Users/%s/Library/Preferences/Autodesk/maya/2018" % userName]
+				mayaPath = ["/Users/%s/Library/Preferences/Autodesk/maya/2016" % userName, "/Users/%s/Library/Preferences/Autodesk/maya/2017" % userName, "/Users/%s/Library/Preferences/Autodesk/maya/2018" % userName, "/Users/%s/Library/Preferences/Autodesk/maya/2019" % userName]
 
 			mayaItem = QTreeWidgetItem(["Maya"])
 			mayaItem.setCheckState(0, Qt.Checked)

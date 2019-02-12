@@ -451,13 +451,13 @@ class PrismCore():
 			presetPath = os.path.join(self.prismRoot, "Plugins", "RenderfarmManagers", "PluginEmpty")
 
 		if not os.path.exists(presetPath):
-			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Empty preset doesn't exist.\n\n(%s)" % presetPath)
+			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Empty preset doesn't exist:\n\n%s" % self.fixPath(presetPath))
 			return
 
 		targetPath = os.path.join(os.path.dirname(presetPath), pluginName)
 
 		if os.path.exists(targetPath):
-			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Plugin already exists.\n\n(%s)" % targetPath)
+			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Plugin already exists:\n\n%s" % targetPath)
 			return
 
 		shutil.copytree(presetPath, targetPath)
@@ -1688,7 +1688,10 @@ class PrismCore():
 				userConfig.remove_option(cat, param)
 				continue
 
-			userConfig.set(cat, param, str(val))
+			try:
+				userConfig.set(cat, param, str(val))
+			except UnicodeEncodeError:
+				QMessageBox.warning(self.messageParent, "Save config", "Cannot save setting because it contains illegal characters:\n\n%s   -   %s" % (param, unicode(val)), QMessageBox.Ok)
 
 		with open(configPath, 'w') as inifile:
 			userConfig.write(inifile)
@@ -3018,7 +3021,12 @@ except Exception as e:
 
 			url = 'https://api.github.com/repos/RichardFrangenberg/Prism/zipball'
 
-			u = urllib.urlopen(url)
+			try:
+				u = urllib.urlopen(url)
+			except Exception as e:
+				QMessageBox.warning(self.messageParent, "Prism update", "Could not connect to github:\n%s" % str(e))
+				return
+
 			data = u.read()
 			u.close()
 			filepath = os.path.join(targetdir, "Prism_update.zip")

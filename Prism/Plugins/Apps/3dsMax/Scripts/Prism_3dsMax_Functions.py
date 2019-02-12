@@ -580,7 +580,8 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 
 	@err_decorator
 	def sm_render_setVraySettings(self, origin):
-		self.executeScript(origin, "rs = renderers.current\nif matchpattern (classof rs as string) pattern: \"V_Ray*\" then(\nrs.imageSampler_type = 1\nrs.twoLevel_baseSubdivs = %s\nrs.twoLevel_fineSubdivs = %s\nrs.twoLevel_threshold = %s\nrs.dmc_earlyTermination_threshold = %s" % (origin.chb_minSubdivs.value(), origin.chb_maxSubdivs.value(), origin.chb_cThres.value(), origin.chb_nThres.value()))
+		if self.sm_render_isVray(origin):
+			self.executeScript(origin, "rs = renderers.current\nif matchpattern (classof rs as string) pattern: \"V_Ray*\" then(\nrs.imageSampler_type = 1\nrs.twoLevel_baseSubdivs = %s\nrs.twoLevel_fineSubdivs = %s\nrs.twoLevel_threshold = %s\nrs.dmc_earlyTermination_threshold = %s)" % (origin.sp_minSubdivs.value(), origin.sp_maxSubdivs.value(), origin.sp_cThres.value(), origin.sp_nThres.value()))
 
 
 	@err_decorator

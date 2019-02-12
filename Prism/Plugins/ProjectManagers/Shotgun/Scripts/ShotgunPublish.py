@@ -95,9 +95,6 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 		for i in range(7):
 			self.cb_playlist.addItem( "DAILIES_%s" % (datetime.date.today() + datetime.timedelta(days=i)))
 
-		ss = QApplication.instance().styleSheet()
-		self.gb_playlist.setStyleSheet(ss.replace("QCheckBox::indicator", "QGroupBox::indicator"))
-
 		if ptype == "Asset":
 			self.rb_asset.setChecked(True)
 		else:

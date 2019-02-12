@@ -368,7 +368,6 @@ class Prism_Maya_Functions(object):
 			except:
 				QMessageBox.warning(self.core.messageParent, "Warning", "Cannot get name from %s" % node)
 				return node
-
 		else:
 			return "invalid"
 
@@ -1502,6 +1501,7 @@ class Prism_Maya_Functions(object):
 				validNodes = [ x for x in origin.nodes if self.isNodeValid(origin, x)]
 				if len(validNodes) > 0 and (cmds.referenceQuery( validNodes[0],isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference") and origin.chb_keepRefEdits.isChecked():
 					self.deleteNodes(origin, [origin.setName])
+					refNode = ""
 					for i in origin.nodes:
 						try:
 							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True )
@@ -1516,7 +1516,7 @@ class Prism_Maya_Functions(object):
 						nSpace = fileName[0]
 				
 					newNodes = cmds.file(impFileName, r=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
-
+					refNode = ""
 					for i in newNodes:
 						try:
 							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True )
@@ -1673,10 +1673,17 @@ class Prism_Maya_Functions(object):
 		self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
 		self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
 
-		cmds.setAttr(pbCam + ".filmFit", 3)
-		cmds.setAttr(pbCam + ".displayFilmGate", False)
-		cmds.setAttr(pbCam + ".displayResolution", False)
-		cmds.setAttr(pbCam + ".overscan", 1.0)
+		try: cmds.setAttr(pbCam + ".filmFit", 3)
+		except: pass
+
+		try: cmds.setAttr(pbCam + ".displayFilmGate", False)
+		except: pass
+
+		try: cmds.setAttr(pbCam + ".displayResolution", False)
+		except: pass
+
+		try: cmds.setAttr(pbCam + ".overscan", 1.0)
+		except: pass
 
 		#set image format to jpeg
 		cmds.setAttr("defaultRenderGlobals.imageFormat", 8)
@@ -1707,13 +1714,17 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def sm_playblast_postExecute(self, origin):
 		if "filmFit" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".filmFit", self.pbSceneSettings["filmFit"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".filmFit", self.pbSceneSettings["filmFit"])
+			except: pass
 		if "filmGate" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayFilmGate", self.pbSceneSettings["filmGate"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayFilmGate", self.pbSceneSettings["filmGate"])
+			except: pass
 		if "resGate" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayResolution", self.pbSceneSettings["resGate"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayResolution", self.pbSceneSettings["resGate"])
+			except: pass
 		if "overscan" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".overscan", self.pbSceneSettings["overscan"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".overscan", self.pbSceneSettings["overscan"])
+			except: pass
 
 
 	@err_decorator
@@ -1777,7 +1788,15 @@ class Prism_Maya_Functions(object):
 			prjPath += "/"
 
 		prjPath = os.path.join(prjPath, "untitled")
-		extFiles = [self.core.fixPath(str(x)) for x in cmds.file(query=True, list=True) if self.core.fixPath(str(x)) != self.core.fixPath(prjPath)]
+		extFiles = []
+		for i in cmds.file(query=True, list=True):
+			try:
+				if self.core.fixPath(str(x)) != self.core.fixPath(prjPath):
+					extFiles.append(self.core.fixPath(str(x)))
+			except UnicodeEncodeError:
+				QMessageBox.warning(self.core.messageParent, "Get external files", "Cannot process external filepath because it contains illegal characters:\n\n%s" % (unicode(i)), QMessageBox.Ok)
+
+
 		return [extFiles, []]
 
 

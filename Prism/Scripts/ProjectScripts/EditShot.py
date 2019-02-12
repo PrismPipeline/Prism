@@ -302,6 +302,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
 			if str(result).endswith(".Yes"):
 				self.core.createCmd(["renameShot", self.shotName, newSName])
+				self.core.checkCommands()
 
 		self.shotName = newSName
 

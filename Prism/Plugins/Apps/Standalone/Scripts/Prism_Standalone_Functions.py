@@ -258,9 +258,12 @@ class Prism_Standalone_Functions(object):
 				with open(trayStartupSrc, "r") as init:
 					initStr = init.read()
 
-				with open(trayStartupSrc, "w") as init:
-					initStr = initStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
-					init.write(initStr)
+				try:
+					with open(trayStartupSrc, "w") as init:
+						initStr = initStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
+						init.write(initStr)
+				except IOError:
+					QMessageBox.warning(QWidget(), "Prism start menu", "Please copy the Prism folder to any location on your harddrive before you execute the Prism setup.")
 
 			cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
 

@@ -405,20 +405,32 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		if platform.system() == "Windows":
 			trayStartup = os.path.join(os.getenv('APPDATA'), "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "PrismTray.lnk")
-			trayLnk = os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk")
+			trayLnk = self.core.fixPath(os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk"))
 
-			if os.path.exists(trayStartup):
+			if self.chb_trayStartup.isChecked():
+				if os.path.exists(trayLnk):
+					if os.path.exists(trayStartup):
+						try:
+							os.remove(trayStartup)
+						except WindowsError as e:
+							if e.winerror == 32:
+								QMessageBox.warning(self, "Remove link", "Unable to remove autostart link, because the file is used by another process:\n\n%s" % trayStartup)
+							else:
+								raise
+
+					if not os.path.exists(trayStartup):
+						shutil.copy2(trayLnk, trayStartup)
+				else:
+					QMessageBox.warning(self, "Prism", "Cannot add Prism to the autostart because this shortcut doesn't exist:\n\n%s\n\nExecute '%s\\Win_Setup_Startmenu.bat' to create the shortcut." % (trayLnk, self.core.fixPath(self.core.prismRoot).replace("/", "\\")))
+			elif os.path.exists(trayStartup):
 				try:
 					os.remove(trayStartup)
 				except WindowsError as e:
 					if e.winerror == 32:
-						QMessageBox.warning(self, "Remove link", "Unable to remove autostart link, because the file is usd by another process:\n\n%s" % trayStartup)
+						QMessageBox.warning(self, "Remove link", "Unable to remove autostart link, because the file is used by another process:\n\n%s" % trayStartup)
 					else:
 						raise
 
-			if self.chb_trayStartup.isChecked():
-				if not os.path.exists(trayStartup):
-					shutil.copy2(trayLnk, trayStartup)
 
 		elif platform.system() == "Linux":
 			trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
