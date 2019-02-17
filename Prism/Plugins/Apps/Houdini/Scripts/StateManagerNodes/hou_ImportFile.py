@@ -82,8 +82,8 @@ class ImportFileClass(object):
 		self.listType = "Import"
 		self.taskName = None
 
-		self.l_name.setVisible(False)
-		self.e_name.setVisible(False)
+	#	self.l_name.setVisible(False)
+	#	self.e_name.setVisible(False)
 
 		self.node = node
 		self.fileNode = None
@@ -430,15 +430,15 @@ class ImportFileClass(object):
 						i.setName(i.name().replace(prevTaskName, taskName), unique_name=True)
 						
 				if os.path.splitext(impFileName)[1] == ".abc" and "_ShotCam_" in impFileName:
-					self.node.parm("fileName").set(impFileName)
-					self.node.parm("buildHierarchy").pressButton()
+					if self.core.appPlugin.setNodeParm(self.node, "fileName", val=impFileName):
+						self.node.parm("buildHierarchy").pressButton()
 				else:
 					if os.path.splitext(impFileName)[1] == ".abc":
-						self.fileNode.parm("fileName").set(impFileName)
+						self.core.appPlugin.setNodeParm(self.fileNode, "fileName", val=impFileName)
 					elif os.path.splitext(impFileName)[1] == ".usd":
-						self.fileNode.parm("import_file").set(impFileName)
+						self.core.appPlugin.setNodeParm(self.fileNode, "import_file", val=impFileName)
 					else:
-						self.fileNode.parm("file").set(impFileName)
+						self.core.appPlugin.setNodeParm(self.fileNode, "file", val=impFileName)
 
 		impNodes = []
 		try:
@@ -692,7 +692,7 @@ class ImportFileClass(object):
 				for i in outputCons:
 					i.outputNode().setInput(i.inputIndex(), unitNode, 0)
 
-			unitNode.parm("scale").set(0.01)
+			self.core.appPlugin.setNodeParm(unitNode, "scale", val=0.01)
 			self.fileNode.parent().layoutChildren()
 
 

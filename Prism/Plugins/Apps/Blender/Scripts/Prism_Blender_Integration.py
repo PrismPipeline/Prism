@@ -177,26 +177,35 @@ class Prism_Blender_Integration(object):
 
 			topbarPath = os.path.join(blenderPath, "scripts", "startup", "bl_ui", "space_topbar.py")
 			hMenuStr = 'layout.menu("TOPBAR_MT_help")'
+			fClassStr = 'class TOPBAR_MT_file(Menu):'
 			hClassName = "TOPBAR_MT_help,"
-			baseTopbarFile = os.path.join(integrationBase, "space_topbar.py")
+			baseTopbarFile1 = os.path.join(integrationBase, "space_topbar1.py")
 
-			with open(baseTopbarFile, "r") as init:
-				bTbStr = init.read()
+			with open(baseTopbarFile1, "r") as init:
+				bTbStr1 = init.read()
+
+			baseTopbarFile2 = os.path.join(integrationBase, "space_topbar2.py")
+
+			with open(baseTopbarFile2, "r") as init:
+				bTbStr2 = init.read()
 
 			if not os.path.exists(topbarPath):
 				topbarPath = os.path.join(blenderPath, "scripts", "startup", "bl_ui", "space_info.py")
 				hMenuStr = 'layout.menu("INFO_MT_help")'
+				fClassStr = 'class INFO_MT_file(Menu):'
 				hClassName = "INFO_MT_help,"
 
 			if os.path.exists(topbarPath):
 				with open(topbarPath, "r") as init:
 					tbStr = init.read()
 
-				if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
-					tbStr = tbStr[:tbStr.find("#>>>PrismStart")] + tbStr[tbStr.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
+				for i in range(2):
+					if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
+						tbStr = tbStr[:tbStr.find("#>>>PrismStart")] + tbStr[tbStr.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
 				tbStr = tbStr.replace("    TOPBAR_MT_prism,", "")
 
-				tbStr = tbStr.replace(hMenuStr, hMenuStr + bTbStr)
+				tbStr = tbStr.replace(hMenuStr, hMenuStr + bTbStr1)
+				tbStr = tbStr.replace(fClassStr, bTbStr2 + fClassStr)
 				tbStr = tbStr.replace(hClassName, hClassName + '\n    TOPBAR_MT_prism,')
 
 				if not os.path.exists(topbarPath + ".bak"):
@@ -270,10 +279,11 @@ class Prism_Blender_Integration(object):
 				with open(topbarPath, "r") as init:
 					tbStr = init.read()
 
-				if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
-					tbStr = tbStr[:tbStr.find("#>>>PrismStart")] + tbStr[tbStr.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
+				for i in range(2):
+					if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
+						tbStr = tbStr[:tbStr.find("#>>>PrismStart")] + tbStr[tbStr.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
 
-				tbStr = tbStr.replace('TOPBAR_MT_prism,', "")
+				tbStr = tbStr.replace('\n    TOPBAR_MT_prism,', "")
 
 				with open(topbarPath, "w") as init:
 					init.write(tbStr)

@@ -107,14 +107,16 @@ class Prism_Blender_Functions(object):
 			return False
 
 		origin.timer.stop()
-	#	origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 	#	origin.startasThread()
 
 
 	@err_decorator
 	def autosaveEnabled(self, origin):
-		return bpy.context.user_preferences.filepaths.use_auto_save_temporary_files
+		if bpy.app.version < (2,80,0):
+			return bpy.context.user_preferences.filepaths.use_auto_save_temporary_files
+		else:
+			return bpy.context.preferences.filepaths.use_auto_save_temporary_files
 
 
 	@err_decorator

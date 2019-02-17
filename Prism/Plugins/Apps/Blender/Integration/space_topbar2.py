@@ -1,7 +1,5 @@
 
 #>>>PrismStart
-        layout.menu("TOPBAR_MT_prism")
-
 class TOPBAR_MT_prism(Menu):
     bl_label = "Prism"
 

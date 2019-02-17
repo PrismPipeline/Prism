@@ -567,18 +567,18 @@ class PrismCore():
 		if self.appPlugin.autosaveEnabled(self):
 			return
 
-		msg = QMessageBox()
-		msg.setWindowTitle("Autosave")
-		msg.setText("Autosave is disabled. Would you like to save now?")
-		msg.addButton("Save", QMessageBox.YesRole)
-		msg.addButton("Save new version", QMessageBox.YesRole)
-		msg.addButton("No", QMessageBox.YesRole)
-		msg.addButton("No, don't ask again in this session", QMessageBox.YesRole)
+		self.autosave_msg = QMessageBox()
+		self.autosave_msg.setWindowTitle("Autosave")
+		self.autosave_msg.setText("Autosave is disabled. Would you like to save now?")
+		self.autosave_msg.addButton("Save", QMessageBox.YesRole)
+		self.autosave_msg.addButton("Save new version", QMessageBox.YesRole)
+		self.autosave_msg.addButton("No", QMessageBox.YesRole)
+		self.autosave_msg.addButton("No, don't ask again in this session", QMessageBox.YesRole)
 
-		self.parentWindow(msg)
-		msg.finished.connect(self.autoSaveDone)
-		msg.setModal(False)
-		action = msg.show()
+		self.parentWindow(self.autosave_msg)
+		self.autosave_msg.finished.connect(self.autoSaveDone)
+		self.autosave_msg.setModal(False)
+		action = self.autosave_msg.show()
 
 
 	@err_decorator
@@ -2369,7 +2369,7 @@ class PrismCore():
 		if fixSlashes:
 			text = self.fixPath(text)
 
-		cb = qApp.clipboard()
+		cb = QApplication.clipboard()
 		cb.setText(text)
 
 

@@ -92,6 +92,10 @@ class ExportClass(object):
 		self.gb_submit.setChecked(False)
 		self.f_localOutput.setVisible(self.core.useLocalFiles)
 
+		for i in self.core.rfManagers.values():
+			self.cb_manager.addItem(i.pluginName)
+			i.sm_houExport_startup(self)
+
 		if self.cb_manager.count() == 0:
 			self.gb_submit.setVisible(False)
 
@@ -122,10 +126,6 @@ class ExportClass(object):
 			self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
 
 		self.nameChanged(state.text(0))
-		
-		for i in self.core.rfManagers.values():
-			self.cb_manager.addItem(i.pluginName)
-			i.sm_houExport_startup(self)
 
 		self.managerChanged(True)
 
@@ -328,6 +328,7 @@ class ExportClass(object):
 			else:
 				self.node.moveToGoodPosition()
 
+		self.goToNode()
 		self.updateUi()
 
 
@@ -1014,10 +1015,15 @@ class ExportClass(object):
 				if not self.node.canCreateDigitalAsset() and self.node.type().definition() is None:
 					return [self.state.text(0) + ": error - Cannot create a digital asset from this node: %s" % self.node.path()]
 			else:
-				self.node.parm("trange").set(1)
-				self.node.parm("f3").set(1)
-				self.node.parm("f1").deleteAllKeyframes()
-				self.node.parm("f2").deleteAllKeyframes()
+				if not self.core.appPlugin.setNodeParm(self.node, "trange", val=1):
+					return [self.state.text(0) + ": error - Publish canceled"]
+
+				if not self.core.appPlugin.setNodeParm(self.node, "f1", clear=True):
+					return [self.state.text(0) + ": error - Publish canceled"]
+
+				if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
+					return [self.state.text(0) + ": error - Publish canceled"]
+
 				self.node.parm("f1").set(startFrame)
 				self.node.parm("f2").set(endFrame)
 
@@ -1025,7 +1031,8 @@ class ExportClass(object):
 					outputName = outputName.replace(".$F4", "")
 
 				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic"]:
-					self.node.parm("initsim").set(True)
+					if not self.core.appPlugin.setNodeParm(self.node, "initsim", val=True):
+						return [self.state.text(0) + ": error - Publish canceled"]
 
 			if not os.path.exists(outputPath):
 				os.makedirs(outputPath)
@@ -1079,7 +1086,9 @@ class ExportClass(object):
 
 				if parmName != False:
 					self.stateManager.publishInfos["updatedExports"][self.node.parm(parmName).unexpandedString()] = outputName
-					self.node.parm(parmName).set(outputName)
+
+					if not self.core.appPlugin.setNodeParm(self.node, parmName, val=outputName):
+						return [self.state.text(0) + ": error - Publish canceled"]
 
 				hou.hipFile.save()
 

@@ -593,16 +593,16 @@ class ImageRenderClass(object):
 
 		if self.node.type().name() == "ifd":
 			if item.column() == 0:
-				self.node.parm("vm_channel_plane" + passNum).set(item.text())
+				self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + passNum, val=item.text())
 			elif item.column() == 1:
-				self.node.parm("vm_variable_plane" + passNum).set(item.text())
+				self.core.appPlugin.setNodeParm(self.node, "vm_variable_plane" + passNum, val=item.text())
 		elif self.node.type().name() == "Redshift_ROP":
 			if item.column() == 0:
 				typeNames = self.node.parm("RS_aovID_" + passNum).menuLabels()
 				typeId = typeNames.index(item.text())
-				self.node.parm("RS_aovID_" + passNum).set(typeId)
+				self.core.appPlugin.setNodeParm(self.node, "RS_aovID_" + passNum, val=typeId)
 			elif item.column() == 1:
-				self.node.parm("RS_aovSuffix_" + passNum).set(item.text())
+				self.core.appPlugin.setNodeParm(self.node, "RS_aovSuffix_" + passNum, val=item.text())
 
 
 	@err_decorator
@@ -649,16 +649,16 @@ class ImageRenderClass(object):
 			if i.column() == 0:
 				if self.node.type().name() == "ifd":
 					passNum = self.node.parm("vm_numaux").eval()+1
-					self.node.parm("vm_numaux").set(passNum)
-					self.node.parm("vm_channel_plane" + str(passNum)).set(steps[i.row()][0])
-					self.node.parm("vm_usefile_plane" + str(passNum)).set(True)
-					self.node.parm("vm_variable_plane" + str(passNum)).set(steps[i.row()][1])
+					self.core.appPlugin.setNodeParm(self.node, "vm_numaux", val=passNum)
+					self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(passNum), val=steps[i.row()][0])
+					self.core.appPlugin.setNodeParm(self.node, "vm_usefile_plane" + str(passNum), val=True)
+					self.core.appPlugin.setNodeParm(self.node, "vm_variable_plane" + str(passNum), val=steps[i.row()][1])
 				elif self.node.type().name() == "Redshift_ROP":
 					passNum = self.node.parm("RS_aov").eval()+1
-					self.node.parm("RS_aov").set(passNum)
+					self.core.appPlugin.setNodeParm(self.node, "RS_aov", val=passNum)
 					typeID = self.node.parm("RS_aovID_" + str(passNum)).menuLabels().index(steps[i.row()][0])
-					self.node.parm("RS_aovID_" + str(passNum)).set(typeID)
-					self.node.parm("RS_aovSuffix_" + str(passNum)).set(steps[i.row()][1])
+					self.core.appPlugin.setNodeParm(self.node, "RS_aovID_" + str(passNum), val=typeID)
+					self.core.appPlugin.setNodeParm(self.node, "RS_aovSuffix_" + str(passNum), val=steps[i.row()][1])
 
 		self.updateUi()
 
@@ -752,11 +752,10 @@ class ImageRenderClass(object):
 			if plane[1] != pvar and plane[3] != pname:
 				passes.append(plane)
 
-		self.node.parm("vm_numaux").set(len(passes))
-
-		for i in range(len(passes)):
-			for idx, k in enumerate(parms):
-				self.node.parm(k+str(i+1)).set(passes[i][idx])
+		if self.core.appPlugin.setNodeParm(self.node, "vm_numaux", val=len(passes)):
+			for i in range(len(passes)):
+				for idx, k in enumerate(parms):
+					self.core.appPlugin.setNodeParm(self.node, k+str(i+1), val=passes[i][idx])
 
 		self.updateUi()
 
@@ -884,9 +883,11 @@ class ImageRenderClass(object):
 			return [self.state.text(0) + ": error - Node is invalid."]
 
 		if self.node.type().name() == "ifd":
-			self.node.parm("camera").set(self.curCam.path())
+			if not self.core.appPlugin.setNodeParm(self.node, "camera", val=self.curCam.path()):
+				return [self.state.text(0) + ": error - Publish canceled"]
 		elif self.node.type().name() == "Redshift_ROP":
-			self.node.parm("RS_renderCamera").set(self.curCam.path())
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_renderCamera", val=self.curCam.path()):
+				return [self.state.text(0) + ": error - Publish canceled"]
 
 		fileName = self.core.getCurrentFileName()
 
@@ -903,24 +904,37 @@ class ImageRenderClass(object):
 
 		passNames = []
 		if self.node.type().name() == "ifd":
-			self.node.parm("vm_picture").set(outputName)
+			if not self.core.appPlugin.setNodeParm(self.node, "vm_picture", val=outputName):
+				return [self.state.text(0) + ": error - Publish canceled"]
+
 			for i in range(self.node.parm("vm_numaux").eval()):
 				passVar = self.node.parm("vm_variable_plane" + str(i+1)).eval()
 				passName = self.node.parm("vm_channel_plane" + str(i+1)).eval()
 				passNames.append([passName, passVar])
 				passOutputName = os.path.join(os.path.dirname(outputPath), passName, os.path.basename(outputName).replace("beauty", passName))
 				os.makedirs(os.path.split(passOutputName)[0])
-				self.node.parm("vm_usefile_plane" + str(i+1)).set(True)
-				self.node.parm("vm_filename_plane" + str(i+1)).set(passOutputName)
+
+				if not self.core.appPlugin.setNodeParm(self.node, "vm_usefile_plane" + str(i+1), val=True):
+					return [self.state.text(0) + ": error - Publish canceled"]
+				if not self.core.appPlugin.setNodeParm(self.node, "vm_filename_plane" + str(i+1), val=passOutputName):
+					return [self.state.text(0) + ": error - Publish canceled"]
+
 				if passVar != "all":
-					self.node.parm("vm_channel_plane" + str(i+1)).set("rgb")
+					if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val="rgb"):
+						return [self.state.text(0) + ": error - Publish canceled"]
 				else:
-					self.node.parm("vm_channel_plane" + str(i+1)).set("")
-					self.node.parm("vm_lightexport" + str(i+1)).set(1)
+					if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val=""):
+						return [self.state.text(0) + ": error - Publish canceled"]
+					if not self.core.appPlugin.setNodeParm(self.node, "vm_lightexport" + str(i+1), val=1):
+						return [self.state.text(0) + ": error - Publish canceled"]
 		elif self.node.type().name() == "Redshift_ROP":
-			self.node.parm("RS_outputEnable").set(True)
-			self.node.parm("RS_outputFileNamePrefix").set(outputName)
-			self.node.parm("RS_outputFileFormat").set(0)
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_outputEnable", val=True):
+				return [self.state.text(0) + ": error - Publish canceled"]
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_outputFileNamePrefix", val=outputName):
+				return [self.state.text(0) + ": error - Publish canceled"]
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_outputFileFormat", val=0):
+				return [self.state.text(0) + ": error - Publish canceled"]
+
 			for parm in self.node.parms():
 				if "RS_aovCustomPrefix" in parm.name():
 					currentAOVID = parm.name().split("_")[-1]
@@ -934,7 +948,11 @@ class ImageRenderClass(object):
 					commonOutPut = self.node.parm("RS_outputFileNamePrefix").unexpandedString()
 					outPut = commonOutPut.replace("beauty",layerName)
 
-					parm.set(outPut)
+					if not self.core.appPlugin.setNodeParm(self.node, parm.name(), clear=True):
+						return [self.state.text(0) + ": error - Publish canceled"]
+
+					if not self.core.appPlugin.setNodeParm(self.node, parm.name(), val=outPut):
+						return [self.state.text(0) + ": error - Publish canceled"]
 
 		self.l_pathLast.setText(outputName)
 		self.l_pathLast.setToolTip(outputName)
@@ -944,10 +962,14 @@ class ImageRenderClass(object):
 
 		# RS resolution override in config doesn't work with Deadline, so it will be set before submittig
 		if self.chb_resOverride.isChecked() and self.node.type().name() == "Redshift_ROP":
-			self.node.parm("RS_overrideCameraRes").set(True)
-			self.node.parm("RS_overrideResScale").set("user")
-			self.node.parm("RS_overrideRes1").set(self.sp_resWidth.value())
-			self.node.parm("RS_overrideRes2").set(self.sp_resHeight.value())
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideCameraRes", val=True):
+				return [self.state.text(0) + ": error - Publish canceled"]
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideResScale", val="user"):
+				return [self.state.text(0) + ": error - Publish canceled"]
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideRes1", val=self.sp_resWidth.value()):
+				return [self.state.text(0) + ": error - Publish canceled"]
+			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideRes2", val=self.sp_resHeight.value()):
+				return [self.state.text(0) + ": error - Publish canceled"]
 
 		hou.hipFile.save()
 
@@ -962,16 +984,24 @@ class ImageRenderClass(object):
 			result = self.core.rfManagers[self.cb_manager.currentText()].sm_houRender_submitJob(self, outputName, parent)
 		else:
 			if self.chb_resOverride.isChecked() and self.node.type().name() == "ifd":				
-				self.node.parm("override_camerares").set(True)
-				self.node.parm("res_fraction").set("specific")
-				self.node.parm("res_overridex").set(self.sp_resWidth.value())
-				self.node.parm("res_overridey").set(self.sp_resHeight.value())
+				if not self.core.appPlugin.setNodeParm(self.node, "override_camerares", val=True):
+					return [self.state.text(0) + ": error - Publish canceled"]
+				if not self.core.appPlugin.setNodeParm(self.node, "res_fraction", val="specific"):
+					return [self.state.text(0) + ": error - Publish canceled"]
+				if not self.core.appPlugin.setNodeParm(self.node, "res_overridex", val=self.sp_resWidth.value()):
+					return [self.state.text(0) + ": error - Publish canceled"]
+				if not self.core.appPlugin.setNodeParm(self.node, "res_overridey", val=self.sp_resHeight.value()):
+					return [self.state.text(0) + ": error - Publish canceled"]
 
-			self.node.parm("trange").set(1)
+			if not self.core.appPlugin.setNodeParm(self.node, "trange", val=1):
+				return [self.state.text(0) + ": error - Publish canceled"]
 
-			self.node.parm("f1").deleteAllKeyframes()
+			if not self.core.appPlugin.setNodeParm(self.node, "f1", clear=True):
+				return [self.state.text(0) + ": error - Publish canceled"]
+			if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
+				return [self.state.text(0) + ": error - Publish canceled"]
+
 			self.node.parm("f1").set(jobFrames[0])
-			self.node.parm("f2").deleteAllKeyframes()
 			self.node.parm("f2").set(jobFrames[1])
 
 			try:
@@ -1002,7 +1032,8 @@ class ImageRenderClass(object):
 
 				if self.node.type().name() == "ifd":
 					for i in range(self.node.parm("vm_numaux").eval()):
-						self.node.parm("vm_channel_plane" + str(i+1)).set(passNames[i][0])
+						if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val=passNames[i][0]):
+							return [self.state.text(0) + ": error - Publish canceled"]
 
 				self.core.callHook("postRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
@@ -1018,7 +1049,8 @@ class ImageRenderClass(object):
 
 		if self.node.type().name() == "ifd":
 			for i in range(self.node.parm("vm_numaux").eval()):
-				self.node.parm("vm_channel_plane" + str(i+1)).set(passNames[i][0])
+				if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val=passNames[i][0]):
+					return [self.state.text(0) + ": error - Publish canceled"]
 
 		self.core.callHook("postRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 

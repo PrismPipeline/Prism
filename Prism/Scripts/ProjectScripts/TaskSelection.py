@@ -199,7 +199,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		fileName = impPath + splitName[1]
 
 		if fileName != "":
-			self.importState.importPath = [os.path.basename(os.path.dirname(fileName)).replace(" ", "_"), fileName]
+			self.importState.importPath = [os.path.basename(os.path.splitext(fileName)[0]).replace(" ", "_"), fileName]
 			self.close()
 		
 

@@ -303,7 +303,8 @@ class Prism_Houdini_Functions(object):
 
 
 		outputStr = os.path.join(outputPath, outputFile)
-		ropNode.parm("outputpath").set(outputStr)
+		if not self.setNodeParm(ropNode, "outputpath", outputStr):
+			return False
 
 		exportNode.parm("execute").pressButton()
 
@@ -423,6 +424,33 @@ class Prism_Houdini_Functions(object):
 			return [path[:-len(".bgeo.sc")], ".bgeo.sc"]
 		else:
 			return os.path.splitext(path)
+
+
+	@err_decorator
+	def setNodeParm(self, node, parm, val=None, clear=False):
+		try:
+			if clear:
+				node.parm(parm).deleteAllKeyframes()
+			else:
+				node.parm(parm).set(val)
+		except:
+			curTake = hou.takes.currentTake()
+			if curTake.hasParmTuple(node.parm(parm).tuple()):
+				raise
+			else:
+				msgString = "The parameter is not included in the current take.\nTo continue the parameter needs to be added to the current take.\n\n%s" % node.parm(parm).path()
+				msg = QMessageBox(QMessageBox.Warning, "Locked Parameter", msgString, QMessageBox.Cancel)
+				msg.addButton("Add to current take", QMessageBox.YesRole)
+				self.core.parentWindow(msg)
+				action = msg.exec_()
+
+				if action == 0:
+					curTake.addParmTuple(node.parm(parm).tuple())
+					self.setNodeParm(node, parm, val, clear)
+				else:
+					return False
+
+		return True
 
 
 	@err_decorator
