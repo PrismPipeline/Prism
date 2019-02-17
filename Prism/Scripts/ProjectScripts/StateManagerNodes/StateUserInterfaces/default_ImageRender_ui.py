@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'default_ImageRender.ui'
 #
-# Created: Thu Aug 02 19:52:57 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Wed Feb 13 21:36:13 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -229,14 +229,14 @@ class Ui_wg_ImageRender(object):
         self.sp_minSubdivs.setEnabled(False)
         self.sp_minSubdivs.setMinimum(1)
         self.sp_minSubdivs.setMaximum(999)
-        self.sp_minSubdivs.setProperty("value", 3)
+        self.sp_minSubdivs.setProperty("value", 1)
         self.sp_minSubdivs.setObjectName("sp_minSubdivs")
         self.horizontalLayout_3.addWidget(self.sp_minSubdivs)
         self.sp_maxSubdivs = QtGui.QSpinBox(self.widget_3)
         self.sp_maxSubdivs.setEnabled(False)
         self.sp_maxSubdivs.setMinimum(1)
         self.sp_maxSubdivs.setMaximum(999)
-        self.sp_maxSubdivs.setProperty("value", 3)
+        self.sp_maxSubdivs.setProperty("value", 24)
         self.sp_maxSubdivs.setObjectName("sp_maxSubdivs")
         self.horizontalLayout_3.addWidget(self.sp_maxSubdivs)
         self.verticalLayout_4.addWidget(self.widget_3)
@@ -255,6 +255,7 @@ class Ui_wg_ImageRender(object):
         self.sp_cThres.setEnabled(False)
         self.sp_cThres.setDecimals(3)
         self.sp_cThres.setSingleStep(0.01)
+        self.sp_cThres.setProperty("value", 0.01)
         self.sp_cThres.setObjectName("sp_cThres")
         self.horizontalLayout_12.addWidget(self.sp_cThres)
         self.verticalLayout_4.addWidget(self.widget_12)
@@ -273,6 +274,7 @@ class Ui_wg_ImageRender(object):
         self.sp_nThres.setEnabled(False)
         self.sp_nThres.setDecimals(3)
         self.sp_nThres.setSingleStep(0.01)
+        self.sp_nThres.setProperty("value", 0.005)
         self.sp_nThres.setObjectName("sp_nThres")
         self.horizontalLayout_11.addWidget(self.sp_nThres)
         self.verticalLayout_4.addWidget(self.widget_11)
@@ -521,7 +523,6 @@ class Ui_wg_ImageRender(object):
         self.widget_2.setObjectName("widget_2")
         self.horizontalLayout_19 = QtGui.QHBoxLayout(self.widget_2)
         self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_19.setObjectName("horizontalLayout_19")
         self.b_openLast = QtGui.QPushButton(self.widget_2)
         self.b_openLast.setEnabled(False)
@@ -558,8 +559,8 @@ class Ui_wg_ImageRender(object):
         self.gb_Vray.setTitle(QtGui.QApplication.translate("wg_ImageRender", "Vray", None, QtGui.QApplication.UnicodeUTF8))
         self.l_override.setText(QtGui.QApplication.translate("wg_ImageRender", "Override:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_subdivs.setText(QtGui.QApplication.translate("wg_ImageRender", "Min/Max subdivs", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_cThres.setText(QtGui.QApplication.translate("wg_ImageRender", "Color threshold:", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_nThres.setText(QtGui.QApplication.translate("wg_ImageRender", "Noise threshold:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_cThres.setText(QtGui.QApplication.translate("wg_ImageRender", "AA noise threshold:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_nThres.setText(QtGui.QApplication.translate("wg_ImageRender", "DMC noise threshold:", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_submit.setTitle(QtGui.QApplication.translate("wg_ImageRender", "Submit Render Job", None, QtGui.QApplication.UnicodeUTF8))
         self.l_manager.setText(QtGui.QApplication.translate("wg_ImageRender", "Manager:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_rjPrio.setText(QtGui.QApplication.translate("wg_ImageRender", "Priority:", None, QtGui.QApplication.UnicodeUTF8))

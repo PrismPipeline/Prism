@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -34,8 +34,6 @@
 
 import sys, os, time, platform, traceback, subprocess
 from functools import wraps
-
-
 
 try:
 	from PySide2.QtCore import *

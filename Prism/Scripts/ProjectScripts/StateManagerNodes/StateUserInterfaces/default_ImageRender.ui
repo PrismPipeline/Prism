@@ -32,7 +32,16 @@
    <string>Image Render</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="margin">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
     <number>0</number>
    </property>
    <item>
@@ -617,7 +626,7 @@
             <number>999</number>
            </property>
            <property name="value">
-            <number>3</number>
+            <number>1</number>
            </property>
           </widget>
          </item>
@@ -633,7 +642,7 @@
             <number>999</number>
            </property>
            <property name="value">
-            <number>3</number>
+            <number>24</number>
            </property>
           </widget>
          </item>
@@ -661,7 +670,7 @@
             <bool>false</bool>
            </property>
            <property name="text">
-            <string>Color threshold:</string>
+            <string>AA noise threshold:</string>
            </property>
           </widget>
          </item>
@@ -687,6 +696,9 @@
             <number>3</number>
            </property>
            <property name="singleStep">
+            <double>0.010000000000000</double>
+           </property>
+           <property name="value">
             <double>0.010000000000000</double>
            </property>
           </widget>
@@ -715,7 +727,7 @@
             <bool>false</bool>
            </property>
            <property name="text">
-            <string>Noise threshold:</string>
+            <string>DMC noise threshold:</string>
            </property>
           </widget>
          </item>
@@ -742,6 +754,9 @@
            </property>
            <property name="singleStep">
             <double>0.010000000000000</double>
+           </property>
+           <property name="value">
+            <double>0.005000000000000</double>
            </property>
           </widget>
          </item>
@@ -1334,7 +1349,16 @@
       <bool>true</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_5">
-      <property name="margin">
+      <property name="leftMargin">
+       <number>9</number>
+      </property>
+      <property name="topMargin">
+       <number>9</number>
+      </property>
+      <property name="rightMargin">
+       <number>9</number>
+      </property>
+      <property name="bottomMargin">
        <number>9</number>
       </property>
       <item>
@@ -1375,7 +1399,16 @@
       <bool>false</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_7">
-      <property name="margin">
+      <property name="leftMargin">
+       <number>9</number>
+      </property>
+      <property name="topMargin">
+       <number>9</number>
+      </property>
+      <property name="rightMargin">
+       <number>9</number>
+      </property>
+      <property name="bottomMargin">
        <number>9</number>
       </property>
       <item>
@@ -1388,7 +1421,16 @@
       <item>
        <widget class="QWidget" name="widget_2" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_19">
-         <property name="margin">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
           <number>0</number>
          </property>
          <item>

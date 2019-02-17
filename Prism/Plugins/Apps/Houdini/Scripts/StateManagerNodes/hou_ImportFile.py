@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -307,7 +307,7 @@ class ImportFileClass(object):
 					pass
 
 				if os.path.exists(impFileName):
-					hou.hda.installFile(impFileName)
+					hou.hda.installFile(impFileName, force_use_assets=True)
 			elif self.node is None or self.fileNode is None or not self.chb_updateOnly.isChecked() or (self.fileNode is not None and (self.fileNode.type().name() == "alembic") == (os.path.splitext(impFileName)[1] != ".abc")) or self.node.type().name() == "subnet":
 				if self.node is not None:
 					try:

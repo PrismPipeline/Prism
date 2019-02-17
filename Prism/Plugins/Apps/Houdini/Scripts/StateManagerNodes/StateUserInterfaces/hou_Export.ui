@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>700</height>
+    <height>778</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -32,7 +32,16 @@
    <string>Export</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="margin">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
     <number>0</number>
    </property>
    <item>
@@ -146,14 +155,8 @@
          <property name="spacing">
           <number>0</number>
          </property>
-         <property name="leftMargin">
-          <number>9</number>
-         </property>
          <property name="topMargin">
           <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>9</number>
          </property>
          <property name="bottomMargin">
           <number>0</number>
@@ -268,14 +271,8 @@
          <property name="spacing">
           <number>0</number>
          </property>
-         <property name="leftMargin">
-          <number>9</number>
-         </property>
          <property name="topMargin">
           <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>9</number>
          </property>
          <property name="bottomMargin">
           <number>0</number>
@@ -356,14 +353,8 @@
          <property name="spacing">
           <number>0</number>
          </property>
-         <property name="leftMargin">
-          <number>9</number>
-         </property>
          <property name="topMargin">
           <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>9</number>
          </property>
          <property name="bottomMargin">
           <number>0</number>
@@ -396,14 +387,8 @@
       <item>
        <widget class="QWidget" name="f_convertExport" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_15">
-         <property name="leftMargin">
-          <number>9</number>
-         </property>
          <property name="topMargin">
           <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>9</number>
          </property>
          <property name="bottomMargin">
           <number>0</number>
@@ -442,6 +427,84 @@
        </widget>
       </item>
       <item>
+       <widget class="QWidget" name="w_saveToExistingHDA" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_16">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_saveToExistingHDA">
+           <property name="text">
+            <string>Save new definition in existing HDA:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_11">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_saveToExistingHDA">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_projectHDA" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_19">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_projectHDA">
+           <property name="text">
+            <string>Save as project HDA:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_14">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_projectHDA">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <widget class="QWidget" name="f_localOutput" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_13">
          <property name="topMargin">
@@ -472,6 +535,45 @@
          </item>
          <item>
           <widget class="QCheckBox" name="chb_localOutput">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_blackboxHDA" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_18">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_blackboxHDA">
+           <property name="text">
+            <string>Create Blackbox:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_12">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_blackboxHDA">
            <property name="text">
             <string/>
            </property>
@@ -1023,7 +1125,16 @@
       <item>
        <widget class="QWidget" name="widget_2" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_14">
-         <property name="margin">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
           <number>0</number>
          </property>
          <item>

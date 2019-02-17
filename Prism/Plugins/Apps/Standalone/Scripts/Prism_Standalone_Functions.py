@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -175,7 +175,7 @@ class Prism_Standalone_Functions(object):
 				if not os.path.exists(os.path.dirname(i[0])):
 					os.makedirs(os.path.dirname(i[0]))
 
-				self.core.createShortcut(i[0], vTarget=("%s\Python27\%s" % (self.core.prismRoot, i[1])), args=('"%s\Scripts\%s"' % (self.core.prismRoot, i[2])))
+				self.core.createShortcut(i[0], vTarget=("%s\Python27\%s" % (self.core.prismRoot, i[1])), args=('"%s\Scripts\%s" standalone' % (self.core.prismRoot, i[2])))
 
 		elif platform.system() == "Linux":
 			if os.getuid() != 0:

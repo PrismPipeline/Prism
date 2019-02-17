@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -51,11 +51,14 @@ try:
 	psVersion = 2
 except:
 	try:
+		if "standalone" in sys.argv:
+			raise
+			
 		from PySide.QtCore import *
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -547,7 +550,7 @@ class PrismCore():
 		if quit:
 			return
 
-		autoSave = self.getConfig("globals", "autosave")
+		autoSave = self.getConfig("globals", "autosave", ptype="bool")
 		if autoSave is None or not autoSave:
 			return
 
@@ -556,7 +559,6 @@ class PrismCore():
 		self.asObject.moveToThread(self.asThread)
 		self.asThread.started.connect(self.asObject.run)
 		self.asObject.finished.connect(self.checkAutoSave)
-
 		self.asThread.start()
 
 
@@ -1626,12 +1628,15 @@ class PrismCore():
 				vtype = ptype
 
 			if userConfig.has_option(cat, param):
-				if vtype == "string":
-					returnData[i] = userConfig.get(cat, param)
-				elif vtype == "bool":
-					returnData[i] = userConfig.getboolean(cat, param)
-				elif vtype == "int":
-					returnData[i] = userConfig.getint(cat, param)
+				try:
+					if vtype == "string":
+						returnData[i] = userConfig.get(cat, param)
+					elif vtype == "bool":
+						returnData[i] = userConfig.getboolean(cat, param)
+					elif vtype == "int":
+						returnData[i] = userConfig.getint(cat, param)
+				except:
+					returnData[i] = None
 			else:
 				returnData[i] = None
 
@@ -2383,7 +2388,11 @@ class PrismCore():
 			pass
 		else:
 			shortcut.IconLocation = vIcon
-		shortcut.save()
+
+		try:
+			shortcut.save()
+		except:
+			QMessageBox.warning(self.messageParent, "Create Shortcut", "Could not create shortcut:\n\n%s\n\nProbably you don't have permissions to write to this folder. To fix this install Prism to a different location or change the permissions of this folder." % self.fixPath(vPath))
 
 
 	@err_decorator

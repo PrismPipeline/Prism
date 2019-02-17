@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -134,12 +134,29 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
+	def onSceneOpen(self, origin, filepath):
+		# called when a scenefile gets opened from the Project Browser. Gets NOT called when a scenefile is loaded manually from the file menu in a DCC app.
+		pass
+
+
+	@err_decorator
 	def onAssetDlgOpen(self, origin, assetDialog):
 		pass
 
 
 	@err_decorator
 	def onAssetCreated(self, origin, assetName, assetPath, assetDialog=None):
+		pass
+
+
+	@err_decorator
+	def onStepCreated(self, origin, entity, stepname, path):
+		# entity: "asset" or "shot"
+		pass
+
+
+	@err_decorator
+	def onCategoryCreated(self, origin, catname, path):
 		pass
 
 

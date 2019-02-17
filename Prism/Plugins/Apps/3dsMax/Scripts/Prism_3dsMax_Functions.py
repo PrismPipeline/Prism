@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -559,6 +559,9 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 		if origin.cb_outType.currentText() != "ShotCam":
 			if origin.cb_outType.currentText() != ".fbx":
 				for handle in origin.nodes:
+					if not self.isNodeValid(origin, handle):
+						continue
+					
 					if MaxPlus.INode.GetINodeByHandle(handle).IsHidden():
 						warnings.append(["Some chosen objects are hidden.", "Hidden objects are only supported with fbx exports.", 2])
 						break

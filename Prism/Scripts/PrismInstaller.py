@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -52,9 +52,9 @@ if platform.system() == "Windows":
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
-sys.path.append(os.path.join(prismRoot, 'PythonLibs', 'Python27'))
-sys.path.append(os.path.join(prismRoot, 'PythonLibs', 'Python27', 'PySide'))
-sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
+sys.path.insert(0, os.path.join(prismRoot, 'PythonLibs', 'Python27'))
+sys.path.insert(0, os.path.join(prismRoot, 'PythonLibs', 'Python27', 'PySide'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
 
 try:
 	from PySide2.QtCore import *

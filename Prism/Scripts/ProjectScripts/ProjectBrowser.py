@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -43,12 +43,15 @@ try:
 	psVersion = 2
 except:
 	try:
+		if "standalone" in sys.argv:
+			raise
+
 		from PySide.QtCore import *
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -1372,6 +1375,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.core.addToRecent(filepath)
 			self.setRecent()
 
+		self.core.callback(name="onSceneOpen", types=["custom"], args=[self, filepath])
+
 		if openSm:
 			self.core.stateManager()
 
@@ -1416,8 +1421,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			filepath = filepath.replace("\\","/")
 			filepath += self.core.filenameSeperator + self.core.appPlugin.getSceneExtension(self)
 
+			self.core.startasThread(quit=True)
+		
 			filepath = self.core.saveScene(prismReq=False, filepath=filepath)
 			self.core.sceneOpen()
+			self.core.startasThread()
 
 			self.core.addToRecent(filepath)
 			self.setRecent()
@@ -2774,11 +2782,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				path = self.tw_aHierarchy.currentItem().text(1)
 			refresh = self.refreshAHierarchy
 			uielement = self.tw_aHierarchy
-		elif tab == "ss":
-			path = self.sBasePath
-			refresh = self.refreshShots
-			uielement = self.tw_sShot
-			self.cursShots = self.itemName
 		elif tab == "sc":
 			path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)
 			refresh = self.refreshsCat
@@ -2807,6 +2810,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.core.callback(name="onAssetCreated", types=["custom"], args=[self, self.itemName, path, self.newItem])
 			for i in self.core.prjManagers.values():
 				i.assetCreated(self, self.newItem, assetPath)
+		elif tab == "sc":
+			catPath = os.path.join(path, self.itemName)
+			self.createCategory(self.itemName, catPath)
 		else:
 			dirName = os.path.join(path, self.itemName)
 			if not os.path.exists(dirName):
@@ -2892,22 +2898,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if steps != False:
 			createdDirs = []
 			for i in steps[0]:
-				if tab == "a":
-					dstname = os.path.join(basePath, i)
-				elif tab == "s":
-					existingSteps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
-					if steps[1]:
-						catName = existingSteps[i]
-					else:
-						catName = ""
+				dstname = os.path.join(basePath, i)
 
-					dstname = os.path.join(basePath, i, catName)
 				if not os.path.exists(dstname):
 					try:
 						os.makedirs(dstname)
 						createdDirs.append(i)
 					except:
 						QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % i))
+
+				if tab == "s":
+					entity = "shot"
+				else:
+					entity = "asset"
+
+				self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, i, dstname])
+
+				if tab == "s" and steps[1]:
+					self.createDefaultCat(i, dstname)
+
 			if len(createdDirs) != 0:
 				if tab == "a":
 					self.refreshAHierarchy()
@@ -2918,6 +2927,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					for i in range(self.lw_sPipeline.model().rowCount()):
 						if self.lw_sPipeline.model().index(i,0).data() == createdDirs[0]:
 							self.lw_sPipeline.selectionModel().setCurrentIndex( self.lw_sPipeline.model().index(i,0) , QItemSelectionModel.ClearAndSelect)
+
+
+	@err_decorator
+	def createDefaultCat(self, step, path):
+		existingSteps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
+		catName = existingSteps[step]
+		dstname = os.path.join(path, catName)
+		self.createCategory(catName, dstname)
+
+
+	@err_decorator
+	def createCategory(self, catName, path):
+		if not os.path.exists(path):
+			try:
+				os.makedirs(path)
+			except:
+				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % path))
+			else:
+				self.core.callback(name="onCategoryCreated", types=["custom"], args=[self, catName, path])
 
 
 	@err_decorator
