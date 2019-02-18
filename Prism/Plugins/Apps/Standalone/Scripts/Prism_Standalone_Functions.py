@@ -193,10 +193,23 @@ class Prism_Standalone_Functions(object):
 			trayLnk = os.path.join(self.core.prismRoot, "Tools", "PrismTray.desktop")
 			pbLnk = os.path.join(self.core.prismRoot, "Tools", "PrismProjectBrowser.desktop")
 			settingsLnk = os.path.join(self.core.prismRoot, "Tools", "PrismSettings.desktop")
-
+			spbPath = os.path.join(self.core.prismRoot, "Tools", "PrismProjectBrowser.sh")
+			ssPath = os.path.join(self.core.prismRoot, "Tools", "PrismSettings.sh")
 			cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
-
 			pMenuSource = os.path.join(self.core.prismRoot, "Tools", "Prism.menu")
+
+			for i in [trayLnk, pbLnk, settingsLnk, spbPath, ssPath, cbPath, pMenuSource]:
+				if not os.path.exists(i):
+					continue
+
+				with open(i, "r") as f:
+					content = f.read()
+
+				content = content.replace("PRISMROOT", self.core.prismRoot)
+
+				with open(i, "r") as f:
+					f.write(content)
+			
 			pMenuTarget = "/etc/xdg/menus/applications-merged/Prism.menu"
 
 			for i in [trayLnk, pbLnk, settingsLnk, pMenuSource]:

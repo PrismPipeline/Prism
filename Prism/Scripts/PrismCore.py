@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.1.2.3"
+			self.version = "v1.2.0.0"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1922,6 +1922,9 @@ class PrismCore():
 	@err_decorator
 	def getTaskNames(self, taskType, basePath=""):
 		taskList = []
+
+		if basePath is None:
+			basePath = ""
 
 		if basePath == "":
 			fname = self.getCurrentFileName()

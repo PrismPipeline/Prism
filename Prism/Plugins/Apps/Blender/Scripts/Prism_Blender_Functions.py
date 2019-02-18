@@ -108,7 +108,7 @@ class Prism_Blender_Functions(object):
 
 		origin.timer.stop()
 
-	#	origin.startasThread()
+		origin.startasThread()
 
 
 	@err_decorator

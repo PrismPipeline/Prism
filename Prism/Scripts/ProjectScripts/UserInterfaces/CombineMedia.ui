@@ -45,7 +45,7 @@
        <widget class="QLineEdit" name="e_task"/>
       </item>
       <item row="1" column="0">
-       <widget class="QLabel" name="label_2">
+       <widget class="QLabel" name="l_task">
         <property name="text">
          <string>Create external task:</string>
         </property>

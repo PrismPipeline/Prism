@@ -150,8 +150,9 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
-	def onStepCreated(self, origin, entity, stepname, path):
+	def onStepCreated(self, origin, entity, stepname, path, settings):
 		# entity: "asset" or "shot"
+		# settings: dictionary containing "createDefaultCategory", which holds a boolean (settings["createDefaultCategory"])
 		pass
 
 
@@ -162,6 +163,12 @@ class Prism_PluginEmpty_Functions(object):
 
 	@err_decorator
 	def onShotCreated(self, origin, sequenceName, shotName):
+		pass
+
+		
+	@err_decorator
+	def openPBFileContextMenu(self, origin, rcmenu):
+		# gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of the Project Browser
 		pass
 
 

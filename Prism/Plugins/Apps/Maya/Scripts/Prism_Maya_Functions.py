@@ -1791,8 +1791,8 @@ class Prism_Maya_Functions(object):
 		extFiles = []
 		for i in cmds.file(query=True, list=True):
 			try:
-				if self.core.fixPath(str(x)) != self.core.fixPath(prjPath):
-					extFiles.append(self.core.fixPath(str(x)))
+				if self.core.fixPath(str(i)) != self.core.fixPath(prjPath):
+					extFiles.append(self.core.fixPath(str(i)))
 			except UnicodeEncodeError:
 				QMessageBox.warning(self.core.messageParent, "Get external files", "Cannot process external filepath because it contains illegal characters:\n\n%s" % (unicode(i)), QMessageBox.Ok)
 

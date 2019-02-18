@@ -34,7 +34,7 @@
 
 class Prism_Natron_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.1.2.0"
+		self.version = "v1.2.0.0"
 		self.pluginName = "Natron"
 		self.pluginType = "App"
 		self.appShortName = "Natron"

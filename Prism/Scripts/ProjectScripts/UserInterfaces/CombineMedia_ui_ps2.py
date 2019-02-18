@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'CombineMedia.ui'
+# Form implementation generated from reading ui file 'CombineMedia.ui',
+# licensing of 'CombineMedia.ui' applies.
 #
-# Created: Mon Sep 17 17:00:06 2018
-#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
+# Created: Sun Feb 17 23:21:47 2019
+#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -35,9 +36,9 @@ class Ui_dlg_CombineMedia(object):
         self.e_task = QtWidgets.QLineEdit(self.widget)
         self.e_task.setObjectName("e_task")
         self.gridLayout.addWidget(self.e_task, 1, 2, 1, 1)
-        self.label_2 = QtWidgets.QLabel(self.widget)
-        self.label_2.setObjectName("label_2")
-        self.gridLayout.addWidget(self.label_2, 1, 0, 1, 1)
+        self.l_task = QtWidgets.QLabel(self.widget)
+        self.l_task.setObjectName("l_task")
+        self.gridLayout.addWidget(self.l_task, 1, 0, 1, 1)
         self.chb_task = QtWidgets.QCheckBox(self.widget)
         self.chb_task.setText("")
         self.chb_task.setChecked(True)
@@ -60,5 +61,5 @@ class Ui_dlg_CombineMedia(object):
         self.b_tasks.setText(QtWidgets.QApplication.translate("dlg_CombineMedia", "▼", None, -1))
         self.b_browse.setText(QtWidgets.QApplication.translate("dlg_CombineMedia", "...", None, -1))
         self.label.setText(QtWidgets.QApplication.translate("dlg_CombineMedia", "Outputfile:", None, -1))
-        self.label_2.setText(QtWidgets.QApplication.translate("dlg_CombineMedia", "Create external task:", None, -1))
+        self.l_task.setText(QtWidgets.QApplication.translate("dlg_CombineMedia", "Create external task:", None, -1))
 

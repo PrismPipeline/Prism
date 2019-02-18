@@ -72,6 +72,12 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
 		if len(self.taskList) == 0:
 			self.b_tasks.setHidden(True)
 
+		if self.core.pb.renderBasePath is None:
+			self.l_task.setEnabled(False)
+			self.chb_task.setChecked(False)
+			self.chb_task.setEnabled(False)
+			self.e_task.setEnabled(False)
+
 		self.connectEvents()
 		self.e_output.setFocus()
 

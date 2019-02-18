@@ -1265,6 +1265,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		rcmenu.addAction(copAct)
 
 		self.core.appPlugin.setRCStyle(self, rcmenu)
+		self.core.callback(name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu])
+
 		rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
 
 
@@ -2912,9 +2914,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				else:
 					entity = "asset"
 
-				self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, i, dstname])
+				settings = {"createDefaultCategory":tab == "s" and steps[1]}
 
-				if tab == "s" and steps[1]:
+
+				self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, i, dstname, settings])
+
+				if settings["createDefaultCategory"]:
 					self.createDefaultCat(i, dstname)
 
 			if len(createdDirs) != 0:

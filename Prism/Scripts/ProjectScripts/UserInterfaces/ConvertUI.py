@@ -2,7 +2,7 @@ import sys, pprint
 
 
 fname = "ProjectBrowser"
-#fname = "CombineMedia"
+fname = "CombineMedia"
 #fname = "EditShot"
 #fname = "CreateItem"
 #fname = "StateManager"
