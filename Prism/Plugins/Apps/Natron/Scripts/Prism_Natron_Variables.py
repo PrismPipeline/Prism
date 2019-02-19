@@ -44,4 +44,4 @@ class Prism_Natron_Variables(object):
 		self.appSpecificFormats = self.sceneFormats
 		self.appColor = [210,210,210]
 		self.appVersionPresets = ["2.3.13"]
-		self.platforms = ["Windows", "Linux", "Darwin"]
+		self.platforms = ["Windows", "Linux"]

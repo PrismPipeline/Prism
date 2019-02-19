@@ -328,7 +328,8 @@ class ExportClass(object):
 			else:
 				self.node.moveToGoodPosition()
 
-		self.goToNode()
+		if self.isNodeValid():
+			self.goToNode()
 		self.updateUi()
 
 

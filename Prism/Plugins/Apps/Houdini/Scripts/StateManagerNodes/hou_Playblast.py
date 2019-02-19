@@ -486,7 +486,6 @@ class PlayblastClass(object):
 				mediaBaseName = os.path.splitext(outputName)[0][:-3]
 				videoOutput = mediaBaseName + "mp4"
 				inputpath = os.path.splitext(outputName)[0][:-3] + "%04d" + os.path.splitext(outputName)[1]
-				print inputpath
 				result = self.core.convertMedia(inputpath, jobFrames[0], videoOutput)
 
 				if not os.path.exists(videoOutput):

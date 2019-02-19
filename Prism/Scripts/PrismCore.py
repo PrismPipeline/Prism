@@ -1142,7 +1142,7 @@ class PrismCore():
 			if prjVersion is not None:
 				pVersion = "Project: %s" % prjVersion
 
-		msg = QMessageBox(QMessageBox.Information, "About", "Prism: %s\n%s\n\nCopyright (C) 2016-2018 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com" % (self.version, pVersion), parent=self.messageParent)
+		msg = QMessageBox(QMessageBox.Information, "About", "Prism: %s\n%s\n\nCopyright (C) 2016-2019 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com" % (self.version, pVersion), parent=self.messageParent)
 		msg.addButton("Ok", QMessageBox.YesRole)
 		action = msg.exec_()
 
@@ -1427,12 +1427,12 @@ class PrismCore():
 			if not "silent" in self.prismArgs:
 				if result == True:
 					msg = "Successfully added start menu entries."
+					QMessageBox.information(self.messageParent, "Prism", msg)
 				else:
 					msg = "Creating start menu entries failed"
+					QMessageBox.warning(self.messageParent, "Prism", msg)
 
-				QMessageBox.information(self.messageParent, "Prism", msg)
-
-
+				
 	@err_decorator
 	def validateUser(self):		
 		uname = self.getConfig("globals", "username")

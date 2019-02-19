@@ -207,7 +207,7 @@ class Prism_Standalone_Functions(object):
 
 				content = content.replace("PRISMROOT", self.core.prismRoot)
 
-				with open(i, "r") as f:
+				with open(i, "w") as f:
 					f.write(content)
 			
 			pMenuTarget = "/etc/xdg/menus/applications-merged/Prism.menu"

@@ -48,4 +48,4 @@ class Prism_Blender_Variables(object):
 		self.preferredUnit = "meter"
 		self.canDeleteRenderPasses = False
 		self.colorButtonWithStyleSheet = True
-		self.platforms = ["Windows", "Linux", "Darwin"]
+		self.platforms = ["Windows"]

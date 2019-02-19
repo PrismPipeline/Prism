@@ -1356,7 +1356,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					fileStarted = getattr(i, "customizeExecutable", lambda x1,x2,x3: False)(self, appPath, filepath)
 
 			if appPath != "" and not fileStarted:
-				subprocess.Popen([appPath, self.core.fixPath(filepath)])
+				try:
+					subprocess.Popen([appPath, self.core.fixPath(filepath)])
+				except Exception as e:
+					QMessageBox.warning(self.core.messageParent,"Warning", "Could not execute file:\n\n%s" % str(e))
 				fileStarted = True
 
 			if not fileStarted:
