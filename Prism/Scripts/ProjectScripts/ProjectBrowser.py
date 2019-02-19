@@ -1423,11 +1423,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			filepath = filepath.replace("\\","/")
 			filepath += self.core.filenameSeperator + self.core.appPlugin.getSceneExtension(self)
 
+			asRunning = hasattr(self.core,  "asThread") and self.core.asThread.isRunning()
 			self.core.startasThread(quit=True)
 		
 			filepath = self.core.saveScene(prismReq=False, filepath=filepath)
 			self.core.sceneOpen()
-			self.core.startasThread()
+			if asRunning:
+				self.core.startasThread()
 
 			self.core.addToRecent(filepath)
 			self.setRecent()
