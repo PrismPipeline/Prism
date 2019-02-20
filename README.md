@@ -8,20 +8,25 @@ You can find more information on the website:
 
 https://prism-pipeline.com/
 
+
 ## Getting Started
 
 On the [website](https://prism-pipeline.com/) you can find the latest official installer.
+
+You can find some tutorials here, which explain the basic workflow: [Tutorials](https://prism-pipeline.com/tutorials/)
+
+The documentation can be found here: [Documentation](https://prism-pipeline.readthedocs.io/en/latest/)
 
 
 ## Installing
 
 * To install the latest development version download or clone this repository and the Prism dependencies for your OS:
 
-[Windows-dependencies](https://dl.dropboxusercontent.com/s/eiyg0uhagfjnktd/Prism1.1.1_depependencies_Win.zip?dl=0)
+[Windows-dependencies](https://dl.dropboxusercontent.com/s/p39sdnkmtgqxml1/Prism1.2.0_depependencies_Win.zip?dl=0)
 
-[Linux-dependencies](https://dl.dropboxusercontent.com/s/09nr64vk99gnd6u/Prism1.1.1_depependencies_Linux.zip?dl=0)
+[Linux-dependencies](https://dl.dropboxusercontent.com/s/0ivvj69dv5a62z9/Prism1.2.0_depependencies_Linux.zip?dl=0)
 
-[MacOSX-dependencies](https://dl.dropboxusercontent.com/s/84aj0u8re4c14gh/Prism1.1.1_depependencies_Mac.zip?dl=0)
+[MacOSX-dependencies](https://dl.dropboxusercontent.com/s/2ylt2z5anipks75/Prism1.2.0_depependencies_Mac.zip?dl=0)
 
 * Extract the dependencies and copy the extracted folders into Prism/PrismFiles of this repository.
 
