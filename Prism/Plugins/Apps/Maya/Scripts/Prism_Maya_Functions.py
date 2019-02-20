@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -368,7 +368,6 @@ class Prism_Maya_Functions(object):
 			except:
 				QMessageBox.warning(self.core.messageParent, "Warning", "Cannot get name from %s" % node)
 				return node
-
 		else:
 			return "invalid"
 
@@ -425,6 +424,18 @@ class Prism_Maya_Functions(object):
 			origin.l_taskName.setText(cmds.sets(name="Export1"))
 			origin.b_changeTask.setPalette(origin.oldPalette)
 
+		origin.w_exportNamespaces = QWidget()
+		origin.lo_exportNamespaces = QHBoxLayout()
+		origin.lo_exportNamespaces.setContentsMargins(9,0,9,0)
+		origin.w_exportNamespaces.setLayout(origin.lo_exportNamespaces)
+		origin.l_exportNamespaces = QLabel("Keep namespaces:")
+		spacer = QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Expanding)
+		origin.chb_exportNamespaces = QCheckBox()
+		origin.chb_exportNamespaces.setChecked(False)
+		origin.lo_exportNamespaces.addWidget(origin.l_exportNamespaces)
+		origin.lo_exportNamespaces.addSpacerItem(spacer)
+		origin.lo_exportNamespaces.addWidget(origin.chb_exportNamespaces)
+
 		origin.w_importReferences = QWidget()
 		origin.lo_importReferences = QHBoxLayout()
 		origin.lo_importReferences.setContentsMargins(9,0,9,0)
@@ -474,11 +485,13 @@ class Prism_Maya_Functions(object):
 		origin.lo_deleteDisplayLayers.addSpacerItem(spacer)
 		origin.lo_deleteDisplayLayers.addWidget(origin.chb_deleteDisplayLayers)
 
-		origin.gb_export.layout().insertWidget(10, origin.w_importReferences)
-		origin.gb_export.layout().insertWidget(11, origin.w_preserveReferences)
-		origin.gb_export.layout().insertWidget(12, origin.w_deleteUnknownNodes)
-		origin.gb_export.layout().insertWidget(13, origin.w_deleteDisplayLayers)
+		origin.gb_export.layout().insertWidget(10, origin.w_exportNamespaces)
+		origin.gb_export.layout().insertWidget(11, origin.w_importReferences)
+		origin.gb_export.layout().insertWidget(12, origin.w_preserveReferences)
+		origin.gb_export.layout().insertWidget(13, origin.w_deleteUnknownNodes)
+		origin.gb_export.layout().insertWidget(14, origin.w_deleteDisplayLayers)
 
+		origin.chb_exportNamespaces.stateChanged.connect(origin.stateManager.saveStatesToScene)
 		origin.chb_importReferences.stateChanged.connect(lambda x: origin.w_preserveReferences.setEnabled(not x))
 		origin.chb_importReferences.stateChanged.connect(origin.stateManager.saveStatesToScene)
 		origin.chb_deleteUnknownNodes.stateChanged.connect(origin.stateManager.saveStatesToScene)
@@ -563,15 +576,19 @@ class Prism_Maya_Functions(object):
 				mel.eval("FBXExport -f \"%s\" -s" % outputName.replace("\\","\\\\"))
 		elif expType == ".abc":
 			try:
-				if origin.chb_wholeScene.isChecked():
-					mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -stripNamespaces -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
-				else:
+				rootString = ""
+				if not origin.chb_wholeScene.isChecked():
 					rootNodes = [x for x in expNodes if len([ k for k in expNodes if x.rsplit("|",1)[0] == k]) == 0]
-					rootString = ""
 					for i in rootNodes:
 						rootString += "-root %s " % i
 
-					mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+				expStr = 'AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\"))
+
+				if not origin.chb_exportNamespaces.isChecked():
+					print "strip"
+					expStr = expStr.replace("-stripNamespaces", "")
+
+				mel.eval(expStr)
 			except Exception as e:
 				if "Conflicting root node names specified" in str(e):
 					fString = "You are trying to export multiple objects with the same name, which is not supported in alembic format.\n\nDo you want to export your objects with namespaces?\nThis may solve the problem."
@@ -583,10 +600,7 @@ class Prism_Maya_Functions(object):
 
 					if action == 0:
 						try:
-							if origin.chb_wholeScene.isChecked():
-								mel.eval('AbcExport -j "-frameRange %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, outputName.replace("\\","\\\\\\\\")))
-							else:
-								mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
+							mel.eval('AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\")))
 						except Exception as e:
 							if "Already have an Object named:" in str(e):
 								exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -752,6 +766,7 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_typeChanged(self, origin, idx):
+		origin.w_exportNamespaces.setVisible(idx==".abc")
 		exportScene = idx in [".ma", ".mb"]
 		origin.w_importReferences.setVisible(exportScene)
 		origin.w_deleteUnknownNodes.setVisible(exportScene)
@@ -784,6 +799,8 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_loadData(self, origin, data):
+		if "exportnamespaces" in data:
+			origin.chb_exportNamespaces.setChecked(eval(data["exportnamespaces"]))
 		if "importreferences" in data:
 			origin.chb_importReferences.setChecked(eval(data["importreferences"]))
 		if "deleteunknownnodes" in data:
@@ -795,7 +812,7 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_getStateProps(self, origin):
-		stateProps = {"importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked()), "preserveReferences":str(origin.chb_preserveReferences.isChecked())}
+		stateProps = {"exportnamespaces":str(origin.chb_exportNamespaces.isChecked()), "importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked()), "preserveReferences":str(origin.chb_preserveReferences.isChecked())}
 
 		return stateProps
 
@@ -1158,7 +1175,7 @@ class Prism_Maya_Functions(object):
 				
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
-			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.stateManager.version, traceback.format_exc()))
+			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.core.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return "Execute Canceled: unknown error (view console for more information)"
 
@@ -1339,9 +1356,12 @@ class Prism_Maya_Functions(object):
 					cmds.delete(i)
 				except RuntimeError as e:
 					if "Cannot delete locked node" in str(e):
-						refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True)
-						fileName = cmds.referenceQuery( refNode,filename=True )
-						cmds.file(fileName, removeReference=True)
+						try:
+							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True)
+							fileName = cmds.referenceQuery( refNode,filename=True )
+							cmds.file(fileName, removeReference=True)
+						except:
+							pass
 					else:
 						raise e
 
@@ -1481,7 +1501,13 @@ class Prism_Maya_Functions(object):
 				validNodes = [ x for x in origin.nodes if self.isNodeValid(origin, x)]
 				if len(validNodes) > 0 and (cmds.referenceQuery( validNodes[0],isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference") and origin.chb_keepRefEdits.isChecked():
 					self.deleteNodes(origin, [origin.setName])
-					refNode = cmds.referenceQuery( origin.nodes[0], referenceNode=True, topReference=True )
+					refNode = ""
+					for i in origin.nodes:
+						try:
+							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True )
+							break
+						except:
+							pass
 					cmds.file(impFileName, loadReference=refNode)
 					importedNodes = [refNode]
 				else:
@@ -1490,8 +1516,13 @@ class Prism_Maya_Functions(object):
 						nSpace = fileName[0]
 				
 					newNodes = cmds.file(impFileName, r=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
-
-					refNode = cmds.referenceQuery( newNodes[0], referenceNode=True, topReference=True )
+					refNode = ""
+					for i in newNodes:
+						try:
+							refNode = cmds.referenceQuery( i, referenceNode=True, topReference=True )
+							break
+						except:
+							pass
 					importedNodes = [refNode]
 
 			elif importOnly:
@@ -1508,7 +1539,8 @@ class Prism_Maya_Functions(object):
 			import maya.mel as mel
 			if fileName[1] == ".rs":
 				if hasattr(cmds, "rsProxy"):
-					importedNodes = mel.eval("redshiftDoCreateProxy(\"redshiftProxy#\", \"redshiftProxyPlaceholderShape#\", \"\", \"\", \"%s\");" % impFileName.replace("\\", "\\\\"))
+					objName = os.path.basename(impFileName).split(".")[0]
+					importedNodes = mel.eval("redshiftDoCreateProxy(\"%sProxy\", \"%sShape\", \"\", \"\", \"%s\");" % (objName, objName, impFileName.replace("\\", "\\\\")))
 					if len(os.listdir(os.path.dirname(impFileName))) > 1:
 						for i in importedNodes:
 							if cmds.attributeQuery("useFrameExtension", n=i, exists=True):
@@ -1641,10 +1673,17 @@ class Prism_Maya_Functions(object):
 		self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
 		self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
 
-		cmds.setAttr(pbCam + ".filmFit", 3)
-		cmds.setAttr(pbCam + ".displayFilmGate", False)
-		cmds.setAttr(pbCam + ".displayResolution", False)
-		cmds.setAttr(pbCam + ".overscan", 1.0)
+		try: cmds.setAttr(pbCam + ".filmFit", 3)
+		except: pass
+
+		try: cmds.setAttr(pbCam + ".displayFilmGate", False)
+		except: pass
+
+		try: cmds.setAttr(pbCam + ".displayResolution", False)
+		except: pass
+
+		try: cmds.setAttr(pbCam + ".overscan", 1.0)
+		except: pass
 
 		#set image format to jpeg
 		cmds.setAttr("defaultRenderGlobals.imageFormat", 8)
@@ -1675,13 +1714,17 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def sm_playblast_postExecute(self, origin):
 		if "filmFit" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".filmFit", self.pbSceneSettings["filmFit"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".filmFit", self.pbSceneSettings["filmFit"])
+			except: pass
 		if "filmGate" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayFilmGate", self.pbSceneSettings["filmGate"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayFilmGate", self.pbSceneSettings["filmGate"])
+			except: pass
 		if "resGate" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayResolution", self.pbSceneSettings["resGate"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".displayResolution", self.pbSceneSettings["resGate"])
+			except: pass
 		if "overscan" in self.pbSceneSettings:
-			cmds.setAttr(self.pbSceneSettings["pbCam"] + ".overscan", self.pbSceneSettings["overscan"])
+			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".overscan", self.pbSceneSettings["overscan"])
+			except: pass
 
 
 	@err_decorator
@@ -1745,7 +1788,15 @@ class Prism_Maya_Functions(object):
 			prjPath += "/"
 
 		prjPath = os.path.join(prjPath, "untitled")
-		extFiles = [self.core.fixPath(str(x)) for x in cmds.file(query=True, list=True) if self.core.fixPath(str(x)) != self.core.fixPath(prjPath)]
+		extFiles = []
+		for i in cmds.file(query=True, list=True):
+			try:
+				if self.core.fixPath(str(i)) != self.core.fixPath(prjPath):
+					extFiles.append(self.core.fixPath(str(i)))
+			except UnicodeEncodeError:
+				QMessageBox.warning(self.core.messageParent, "Get external files", "Cannot process external filepath because it contains illegal characters:\n\n%s" % (unicode(i)), QMessageBox.Ok)
+
+
 		return [extFiles, []]
 
 

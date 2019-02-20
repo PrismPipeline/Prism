@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'CombineMedia.ui'
 #
-# Created: Mon Sep 17 17:00:05 2018
+# Created: Sun Feb 17 23:21:47 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -35,9 +35,9 @@ class Ui_dlg_CombineMedia(object):
         self.e_task = QtGui.QLineEdit(self.widget)
         self.e_task.setObjectName("e_task")
         self.gridLayout.addWidget(self.e_task, 1, 2, 1, 1)
-        self.label_2 = QtGui.QLabel(self.widget)
-        self.label_2.setObjectName("label_2")
-        self.gridLayout.addWidget(self.label_2, 1, 0, 1, 1)
+        self.l_task = QtGui.QLabel(self.widget)
+        self.l_task.setObjectName("l_task")
+        self.gridLayout.addWidget(self.l_task, 1, 0, 1, 1)
         self.chb_task = QtGui.QCheckBox(self.widget)
         self.chb_task.setText("")
         self.chb_task.setChecked(True)
@@ -60,5 +60,5 @@ class Ui_dlg_CombineMedia(object):
         self.b_tasks.setText(QtGui.QApplication.translate("dlg_CombineMedia", "▼", None, QtGui.QApplication.UnicodeUTF8))
         self.b_browse.setText(QtGui.QApplication.translate("dlg_CombineMedia", "...", None, QtGui.QApplication.UnicodeUTF8))
         self.label.setText(QtGui.QApplication.translate("dlg_CombineMedia", "Outputfile:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_2.setText(QtGui.QApplication.translate("dlg_CombineMedia", "Create external task:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_task.setText(QtGui.QApplication.translate("dlg_CombineMedia", "Create external task:", None, QtGui.QApplication.UnicodeUTF8))
 

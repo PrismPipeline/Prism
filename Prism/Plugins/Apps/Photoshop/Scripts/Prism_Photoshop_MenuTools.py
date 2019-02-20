@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -36,8 +36,8 @@ import os, sys, platform
 
 prismRoot = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir))
 
-sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 
 try:
 	from PySide2.QtCore import *

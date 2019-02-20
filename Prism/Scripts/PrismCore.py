@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -51,11 +51,14 @@ try:
 	psVersion = 2
 except:
 	try:
+		if "standalone" in sys.argv:
+			raise
+			
 		from PySide.QtCore import *
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -115,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.1.2.0"
+			self.version = "v1.2.0.0"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -161,8 +164,13 @@ class PrismCore():
 			if pVersion == 2:
 				pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python27")
 			else:
-				pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python35")
-				QCoreApplication.addLibraryPath(os.path.join(self.prismRoot, "PythonLibs", "Python35", "PySide2", "plugins"))
+				if sys.version_info[1] == 5:
+					libFolder = "Python35"
+				elif sys.version_info[1] == 7:
+					libFolder = "Python37"
+				pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python3")
+				pyLibs = os.path.join(self.prismRoot, "PythonLibs", libFolder)
+				QCoreApplication.addLibraryPath(os.path.join(self.prismRoot, "PythonLibs", libFolder, "PySide2", "plugins"))
 				
 			cpLibs = os.path.join(self.prismRoot, "PythonLibs", "CrossPlatform")
 			win32Libs = os.path.join(cpLibs, "win32")
@@ -210,28 +218,32 @@ class PrismCore():
 
 
 	@err_decorator
-	def updatePlugins(self, current=None, pluginPath=None):
+	def updatePlugins(self, current=None, pluginLocation=None, startup=True):
 		appPlugins = []
 		customPlugins = []
 		rfManagers = []
 		prjManagers = []
 	
-		if pluginPath is None:
+		if pluginLocation is None:
 			self.unloadedAppPlugins = {}
 			self.customPlugins = {}
 			self.rfManagers = {}
 			self.prjManagers = {}
 
-			sys.path.append(os.path.join(self.pluginPathApp, current, "Scripts"))
+			pluginPath = os.path.join(self.pluginPathApp, current, "Scripts")
+			sys.path.append(pluginPath)
 			self.appPlugin = getattr(__import__("Prism_%s_init" % current), "Prism_Plugin_%s" % current)(self)
 
 			if not self.appPlugin:
 				QMessageBox.critical(QWidget(), "Prism Error", "Prism could not initialize correctly and may not work correctly in this session.")
 				return
 
+			self.appPlugin.location = "prismRoot"
+			self.appPlugin.pluginPath = pluginPath
+
 			pluginDirs = self.pluginDirs
 		else:
-			pluginDirs = [pluginPath]
+			pluginDirs = [pluginLocation]
 
 		for k in pluginDirs:
 			if not os.path.exists(k):
@@ -242,7 +254,8 @@ class PrismCore():
 					continue
 
 				initmodule = "Prism_%s_init" % i
-				initPath = os.path.join(k, i, "Scripts", initmodule + ".py")
+				pluginPath = os.path.join(k, i, "Scripts")
+				initPath = os.path.join(pluginPath, initmodule + ".py")
 
 				if os.path.basename(k) == "Apps":
 					if i == current or not (os.path.exists(initPath) or os.path.exists(initPath.replace("_init", "_init_unloaded"))):
@@ -258,10 +271,12 @@ class PrismCore():
 					pPlug = getattr(__import__("Prism_%s_init" % (i)), "Prism_%s" % i)(self)
 
 				if platform.system() in pPlug.platforms:
-					if pluginPath is None:
+					if pluginLocation is None:
 						pPlug.location = "prismRoot"
 					else:
 						pPlug.location = "prismProject"
+
+					pPlug.pluginPath = pluginPath
 
 					if pPlug.pluginType in ["App"]:
 						appPlugins.append(pPlug)
@@ -288,7 +303,10 @@ class PrismCore():
 			if i.isActive():
 				self.prjManagers[i.pluginName] = i
 
-		if pluginPath is not None:
+		if pluginLocation is not None:
+			return
+
+		if not startup:
 			return
 
 		if not self.appPlugin.hasQtParent:
@@ -316,22 +334,19 @@ class PrismCore():
 
 	@err_decorator
 	def reloadPlugins(self):
-		for i in [self.appPlugin.pluginName]: # self.getPluginNames():
-			mods = ["Prism_%s_init" % i, "Prism_%s_externalAccess_Functions" % i, "Prism_%s_Functions" % i, "Prism_%s_Variables" % i]
-			for k in mods:
-				try:
-					del sys.modules[k]
-				#	del sys.modules["Prism_%s_init" % i]
-				#	del sys.modules["Prism_%s_externalAccess_Functions" % i]
-				#	del sys.modules[]
-				#	del sys.modules[]
-				except:
-					pass
+		appPlug = self.appPlugin.pluginName
 
-			self.appPlugin = getattr(__import__("Prism_%s_init" % i), "Prism_Plugin_%s" % i)(self)
+		pluginDicts = [self.unloadedAppPlugins, self.customPlugins, self.rfManagers, self.prjManagers]
+		curPlugins = []
+		for k in pluginDicts:
+			for i in k:
+				curPlugins.append([i, k])
+	
+		for i in curPlugins:
+			self.unloadPlugin(i[0], i[1])
 
-			#	__import__(k)
-
+		self.unloadPlugin(self.appPlugin.pluginName)
+		self.updatePlugins(current=appPlug, startup=False)
 
 	@err_decorator
 	def reloadCustomPlugins(self):
@@ -362,15 +377,119 @@ class PrismCore():
 
 
 	@err_decorator
-	def unloadPlugin(self, pluginName, pluginCategory):
-		mods = ["Prism_%s_init" % pluginName, "Prism_%s_Functions" % pluginName, "Prism_%s_Variables" % pluginName]
+	def unloadPlugin(self, pluginName, pluginCategory=None):
+		mods = ["Prism_%s_init" % pluginName, "Prism_%s_init_unloaded" % pluginName, "Prism_%s_Functions" % pluginName, "Prism_%s_Integration" % pluginName, "Prism_%s_externalAccess_Functions" % pluginName, "Prism_%s_Variables" % pluginName]
 		for k in mods:
 			try:
 				del sys.modules[k]
 			except:
 				pass
 
-		del pluginCategory[pluginName]
+		if pluginCategory is not None:
+			del pluginCategory[pluginName]
+
+		if pluginName == self.appPlugin.pluginName:
+			self.appPlugin = None
+
+
+	@err_decorator
+	def getPluginNames(self):
+		pluginNames = list(self.unloadedAppPlugins.keys())
+		pluginNames.append(self.appPlugin.pluginName)
+
+		return sorted(pluginNames)
+
+
+	@err_decorator
+	def getPluginSceneFormats(self):
+		pluginFormats = list(self.appPlugin.sceneFormats)
+
+		for i in self.unloadedAppPlugins.values():
+			pluginFormats += i.sceneFormats
+
+		return pluginFormats
+
+
+	@err_decorator
+	def getPluginData(self, pluginName, data):
+		if pluginName == self.appPlugin.pluginName:
+			return getattr(self.appPlugin, data, None)
+		else:
+			for i in self.unloadedAppPlugins:
+				if i == pluginName:
+					return getattr(self.unloadedAppPlugins[i], data, None)
+
+		return None
+
+
+	@err_decorator
+	def getPlugin(self, pluginName):
+		if pluginName == self.appPlugin.pluginName:
+			return self.appPlugin
+		else:
+			for i in self.unloadedAppPlugins:
+				if i == pluginName:
+					return self.unloadedAppPlugins[i]
+
+		return None
+
+
+	@err_decorator
+	def getLoadedPlugins(self):
+		appPlugs = {self.appPlugin.pluginName: self.appPlugin}
+		appPlugs.update(self.unloadedAppPlugins)
+		plugs = {"App": appPlugs, "Renderfarm": self.rfManagers, "Projectmanager": self.prjManagers, "Custom": self.customPlugins}
+		return plugs
+
+
+	@err_decorator
+	def createPlugin(self, pluginName, pluginType):
+		if pluginType == "App":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "Apps", "PluginEmpty")
+		elif pluginType == "Custom":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "Custom", "PluginEmpty")
+		elif pluginType == "Projectmanager":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "ProjectManagers", "PluginEmpty")
+		elif pluginType == "Renderfarm":
+			presetPath = os.path.join(self.prismRoot, "Plugins", "RenderfarmManagers", "PluginEmpty")
+
+		if not os.path.exists(presetPath):
+			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Empty preset doesn't exist:\n\n%s" % self.fixPath(presetPath))
+			return
+
+		targetPath = os.path.join(os.path.dirname(presetPath), pluginName)
+
+		if os.path.exists(targetPath):
+			QMessageBox.warning(self.messageParent, "Prism", "Canceled plugin creation: Plugin already exists:\n\n%s" % targetPath)
+			return
+
+		shutil.copytree(presetPath, targetPath)
+
+		for i in os.walk(targetPath):
+			for folder in i[1]:
+				if "PluginEmpty" in folder:
+					folderPath = os.path.join(i[0], folder)
+					newFolderPath = folderPath.replace("PluginEmpty", pluginName)
+					os.rename(folderPath, newFolderPath)
+
+			for file in i[2]:
+				filePath = os.path.join(i[0], file)
+				with open(filePath, "r") as f:
+					content = f.read()
+
+				with open(filePath, "w") as f:
+					f.write(content.replace("PluginEmpty", pluginName))
+
+				if "PluginEmpty" in filePath:
+					newFilePath = filePath.replace("PluginEmpty", pluginName)
+					os.rename(filePath, newFilePath)
+
+		scriptPath = os.path.join(targetPath, "Scripts")
+		if not os.path.exists(scriptPath):
+			scriptPath = targetPath
+
+		self.openFolder(scriptPath)
+
 
 	@err_decorator
 	def callback(self, name="", types=["custom"], args=[], kwargs={}):
@@ -431,7 +550,7 @@ class PrismCore():
 		if quit:
 			return
 
-		autoSave = self.getConfig("globals", "autosave")
+		autoSave = self.getConfig("globals", "autosave", ptype="bool")
 		if autoSave is None or not autoSave:
 			return
 
@@ -440,7 +559,6 @@ class PrismCore():
 		self.asObject.moveToThread(self.asThread)
 		self.asThread.started.connect(self.asObject.run)
 		self.asObject.finished.connect(self.checkAutoSave)
-
 		self.asThread.start()
 
 
@@ -449,18 +567,18 @@ class PrismCore():
 		if self.appPlugin.autosaveEnabled(self):
 			return
 
-		msg = QMessageBox()
-		msg.setWindowTitle("Autosave")
-		msg.setText("Autosave is disabled. Would you like to save now?")
-		msg.addButton("Save", QMessageBox.YesRole)
-		msg.addButton("Save new version", QMessageBox.YesRole)
-		msg.addButton("No", QMessageBox.YesRole)
-		msg.addButton("No, don't ask again in this session", QMessageBox.YesRole)
+		self.autosave_msg = QMessageBox()
+		self.autosave_msg.setWindowTitle("Autosave")
+		self.autosave_msg.setText("Autosave is disabled. Would you like to save now?")
+		self.autosave_msg.addButton("Save", QMessageBox.YesRole)
+		self.autosave_msg.addButton("Save new version", QMessageBox.YesRole)
+		self.autosave_msg.addButton("No", QMessageBox.YesRole)
+		self.autosave_msg.addButton("No, don't ask again in this session", QMessageBox.YesRole)
 
-		self.parentWindow(msg)
-		msg.finished.connect(self.autoSaveDone)
-		msg.setModal(False)
-		action = msg.show()
+		self.parentWindow(self.autosave_msg)
+		self.autosave_msg.finished.connect(self.autoSaveDone)
+		self.autosave_msg.setModal(False)
+		action = self.autosave_msg.show()
 
 
 	@err_decorator
@@ -571,7 +689,7 @@ class PrismCore():
 
 			curModules = list(sys.modules.keys())
 			for i in curModules:
-				if hasattr(sys.modules[i], "__file__") and modulePath in sys.modules[i].__file__:
+				if hasattr(sys.modules[i], "__file__") and sys.modules[i].__file__ is not None and modulePath in sys.modules[i].__file__:
 					del sys.modules[i]
 
 		self.unloadProjectPlugins()
@@ -650,7 +768,7 @@ class PrismCore():
 
 		pluginPath = os.path.join(self.projectPath, "00_Pipeline", "Plugins")
 		if os.path.exists(pluginPath):
-			self.updatePlugins(pluginPath=pluginPath)
+			self.updatePlugins(pluginLocation=pluginPath)
 
 		rSection = "recent_files_" + self.projectName
 
@@ -1017,8 +1135,14 @@ class PrismCore():
 
 
 	@err_decorator
-	def showAbout(self, dlgVersion=""):
-		msg = QMessageBox(QMessageBox.Information, "About", "Prism: %s\n%s\n\nCopyright (C) 2016-2018 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com" % (self.version, dlgVersion), parent=self.messageParent)
+	def showAbout(self):
+		pVersion = ""
+		if os.path.exists(self.prismIni):
+			prjVersion = self.getConfig('globals', "prism_version", configPath=self.prismIni)
+			if prjVersion is not None:
+				pVersion = "Project: %s" % prjVersion
+
+		msg = QMessageBox(QMessageBox.Information, "About", "Prism: %s\n%s\n\nCopyright (C) 2016-2019 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com" % (self.version, pVersion), parent=self.messageParent)
 		msg.addButton("Ok", QMessageBox.YesRole)
 		action = msg.exec_()
 
@@ -1303,12 +1427,12 @@ class PrismCore():
 			if not "silent" in self.prismArgs:
 				if result == True:
 					msg = "Successfully added start menu entries."
+					QMessageBox.information(self.messageParent, "Prism", msg)
 				else:
 					msg = "Creating start menu entries failed"
+					QMessageBox.warning(self.messageParent, "Prism", msg)
 
-				QMessageBox.information(self.messageParent, "Prism", msg)
-
-
+				
 	@err_decorator
 	def validateUser(self):		
 		uname = self.getConfig("globals", "username")
@@ -1504,12 +1628,15 @@ class PrismCore():
 				vtype = ptype
 
 			if userConfig.has_option(cat, param):
-				if vtype == "string":
-					returnData[i] = userConfig.get(cat, param)
-				elif vtype == "bool":
-					returnData[i] = userConfig.getboolean(cat, param)
-				elif vtype == "int":
-					returnData[i] = userConfig.getint(cat, param)
+				try:
+					if vtype == "string":
+						returnData[i] = userConfig.get(cat, param)
+					elif vtype == "bool":
+						returnData[i] = userConfig.getboolean(cat, param)
+					elif vtype == "int":
+						returnData[i] = userConfig.getint(cat, param)
+				except:
+					returnData[i] = None
 			else:
 				returnData[i] = None
 
@@ -1566,7 +1693,10 @@ class PrismCore():
 				userConfig.remove_option(cat, param)
 				continue
 
-			userConfig.set(cat, param, str(val))
+			try:
+				userConfig.set(cat, param, str(val))
+			except UnicodeEncodeError:
+				QMessageBox.warning(self.messageParent, "Save config", "Cannot save setting because it contains illegal characters:\n\n%s   -   %s" % (param, unicode(val)), QMessageBox.Ok)
 
 		with open(configPath, 'w') as inifile:
 			userConfig.write(inifile)
@@ -1647,6 +1777,24 @@ class PrismCore():
 
 
 	@err_decorator
+	def readYaml(self, path):
+		from ruamel.yaml import YAML
+		yaml=YAML()
+		with open(path, "r") as config:
+			data = yaml.load(config)
+
+		return data
+
+
+	@err_decorator
+	def writeYaml(self, path, data):
+		from ruamel.yaml import YAML
+		yaml=YAML()
+		with open(path, "w") as config:
+			yaml.dump(data, config)
+
+
+	@err_decorator
 	def validateStr(self, text, allowChars=[], denyChars=[]):
 		invalidChars = [" ", "\\", "/", ":", "*", "?", "\"", "<", ">", "|", "ä", "ö", "ü", "ß", self.filenameSeperator]
 		for i in allowChars:
@@ -1666,48 +1814,6 @@ class PrismCore():
 			validText = validText.replace(self.filenameSeperator, "")
 
 		return validText
-
-
-	@err_decorator
-	def getPluginNames(self):
-		pluginNames = list(self.unloadedAppPlugins.keys())
-		pluginNames.append(self.appPlugin.pluginName)
-
-		return sorted(pluginNames)
-
-
-	@err_decorator
-	def getPluginSceneFormats(self):
-		pluginFormats = list(self.appPlugin.sceneFormats)
-
-		for i in self.unloadedAppPlugins.values():
-			pluginFormats += i.sceneFormats
-
-		return pluginFormats
-
-
-	@err_decorator
-	def getPluginData(self, pluginName, data):
-		if pluginName == self.appPlugin.pluginName:
-			return getattr(self.appPlugin, data, None)
-		else:
-			for i in self.unloadedAppPlugins:
-				if i == pluginName:
-					return getattr(self.unloadedAppPlugins[i], data, None)
-
-		return None
-
-
-	@err_decorator
-	def getPlugin(self, pluginName):
-		if pluginName == self.appPlugin.pluginName:
-			return self.appPlugin
-		else:
-			for i in self.unloadedAppPlugins:
-				if i == pluginName:
-					return self.unloadedAppPlugins[i]
-
-		return None
 
 
 	@err_decorator
@@ -1816,6 +1922,9 @@ class PrismCore():
 	@err_decorator
 	def getTaskNames(self, taskType, basePath=""):
 		taskList = []
+
+		if basePath is None:
+			basePath = ""
 
 		if basePath == "":
 			fname = self.getCurrentFileName()
@@ -1985,7 +2094,7 @@ class PrismCore():
 
 
 	@err_decorator
-	def saveScene(self, comment = "nocomment", publish=False, versionUp=True, prismReq=True, filepath=""):
+	def saveScene(self, comment = "nocomment", publish=False, versionUp=True, prismReq=True, filepath="", details={}, preview=None):
 		if filepath == "":
 			curfile = self.getCurrentFileName()
 			filepath = curfile.replace("\\","/")
@@ -2036,14 +2145,21 @@ class PrismCore():
 					newfname += i + self.filenameSeperator
 				newfname = newfname[:-1]
 				filepath = os.path.join(dstname, newfname)
-				filepath = filepath.replace("\\","/")
-
+		
+		filepath = filepath.replace("\\","/")
 		outLength = len(filepath)
 		if platform.system() == "Windows" and outLength > 255:
 			QMessageBox.warning(self.messageParent, "Could not save the file", "The filepath is longer than 255 characters (%s), which is not supported on Windows." % outLength)
 			return False
 
 		result = self.appPlugin.saveScene(self, filepath)
+		if len(details) > 0:
+			ymlPath = os.path.splitext(filepath)[0] + "info.yml"
+			self.writeYaml(path=ymlPath, data=details)
+		if preview is not None:
+			prvPath = os.path.splitext(filepath)[0] + "preview.jpg"
+			self.savePMap(preview, prvPath)
+
 		self.callback(name="onSaveFile", types=["custom"], args=[self, filepath])
 
 		if result == False:
@@ -2052,7 +2168,7 @@ class PrismCore():
 		if not prismReq:
 			return filepath
 
-		if not os.path.exists(filepath):
+		if not os.path.exists(filepath) and os.path.splitext(self.fixPath(self.getCurrentFileName()))[0] != os.path.splitext(self.fixPath(filepath))[0]:
 			return False
 
 		self.addToRecent(filepath)
@@ -2112,9 +2228,37 @@ class PrismCore():
 				os.remove(modPath)
 			import SaveComment
 
-		self.savec = SaveComment.SaveComment(core = self)
-		self.savec.buttonBox.accepted.connect(lambda: self.saveScene(self.savec.e_comment.text()))
-		self.savec.exec_()
+		savec = SaveComment.SaveComment(core = self)
+		action = savec.exec_()
+		if action != 0:
+			if savec.previewDefined:
+				prvPMap = savec.l_preview.pixmap()
+			else:
+				prvPMap = None
+
+			details = {"description":savec.e_description.toPlainText(), "username":self.getConfig("globals", "UserName")}
+			self.saveScene(comment=savec.e_comment.text(), details=details, preview=prvPMap)
+
+
+	@err_decorator
+	def savePMap(self, pmap, path):
+		if platform.system() == "Windows":
+			pmap.save(path, "JPG")
+		else:
+			try:
+				img = pmap.toImage()
+				buf = QBuffer()
+				buf.open(QIODevice.ReadWrite)
+				img.save(buf, "PNG")
+
+				strio = StringIO()
+				strio.write(buf.data())
+				buf.close()
+				strio.seek(0)
+				pimg = Image.open(strio)
+				pimg.save(path)
+			except:
+				pmap.save(path, "JPG")
 
 
 	@err_decorator
@@ -2125,6 +2269,18 @@ class PrismCore():
 			return
 
 		shutil.copy2(origFile, targetFile)
+
+		ymlPath = os.path.splitext(origFile)[0] + "info.yml"
+		prvPath = os.path.splitext(origFile)[0] + "preview.jpg"
+		ymlPatht = os.path.splitext(targetFile)[0] + "info.yml"
+		prvPatht = os.path.splitext(targetFile)[0] + "preview.jpg"
+
+		if os.path.exists(ymlPath) and not os.path.exists(ymlPatht):
+			shutil.copy2(ymlPath, ymlPatht)
+
+		if os.path.exists(prvPath) and not os.path.exists(prvPatht):
+			shutil.copy2(prvPath, prvPatht)
+
 		ext = os.path.splitext(origFile)[1]
 		if ext in self.appPlugin.sceneFormats:
 			getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3: None)(self, origFile, targetFile)
@@ -2216,7 +2372,7 @@ class PrismCore():
 		if fixSlashes:
 			text = self.fixPath(text)
 
-		cb = qApp.clipboard()
+		cb = QApplication.clipboard()
 		cb.setText(text)
 
 
@@ -2235,7 +2391,11 @@ class PrismCore():
 			pass
 		else:
 			shortcut.IconLocation = vIcon
-		shortcut.save()
+
+		try:
+			shortcut.save()
+		except:
+			QMessageBox.warning(self.messageParent, "Create Shortcut", "Could not create shortcut:\n\n%s\n\nProbably you don't have permissions to write to this folder. To fix this install Prism to a different location or change the permissions of this folder." % self.fixPath(vPath))
 
 
 	@err_decorator
@@ -2873,7 +3033,12 @@ except Exception as e:
 
 			url = 'https://api.github.com/repos/RichardFrangenberg/Prism/zipball'
 
-			u = urllib.urlopen(url)
+			try:
+				u = urllib.urlopen(url)
+			except Exception as e:
+				QMessageBox.warning(self.messageParent, "Prism update", "Could not connect to github:\n%s" % str(e))
+				return
+
 			data = u.read()
 			u.close()
 			filepath = os.path.join(targetdir, "Prism_update.zip")

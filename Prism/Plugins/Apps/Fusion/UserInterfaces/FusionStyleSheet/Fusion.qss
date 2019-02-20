@@ -93,6 +93,7 @@ Main window
 ==================================================================================================*/
 QMainWindow,
 QDialog,
+QFrame,
 QDockWidget,
 QToolBar  {
     background-color: rgb(40, 40, 46); /* main background color */
@@ -131,6 +132,10 @@ QMenu::item:selected,
 QMenu::item:pressed {
     color: rgb(200, 200, 200);
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgb(65, 76, 112), stop:1 rgb(65, 76, 112));
+}
+
+QMenu::item:disabled {
+    color: #939393;
 }
 
 QMenu::right-arrow {

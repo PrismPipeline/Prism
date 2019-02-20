@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -134,6 +134,12 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
+	def onSceneOpen(self, origin, filepath):
+		# called when a scenefile gets opened from the Project Browser. Gets NOT called when a scenefile is loaded manually from the file menu in a DCC app.
+		pass
+
+
+	@err_decorator
 	def onAssetDlgOpen(self, origin, assetDialog):
 		pass
 
@@ -144,17 +150,35 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
+	def onStepCreated(self, origin, entity, stepname, path, settings):
+		# entity: "asset" or "shot"
+		# settings: dictionary containing "createDefaultCategory", which holds a boolean (settings["createDefaultCategory"])
+		pass
+
+
+	@err_decorator
+	def onCategoryCreated(self, origin, catname, path):
+		pass
+
+
+	@err_decorator
 	def onShotCreated(self, origin, sequenceName, shotName):
 		pass
 
-
+		
 	@err_decorator
-	def preLoadEmptyScene(self, origin):
+	def openPBFileContextMenu(self, origin, rcmenu):
+		# gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of the Project Browser
 		pass
 
 
 	@err_decorator
-	def postLoadEmptyScene(self, origin):
+	def preLoadEmptyScene(self, origin, filepath):
+		pass
+
+
+	@err_decorator
+	def postLoadEmptyScene(self, origin, filepath):
 		pass
 
 

@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -62,7 +62,7 @@ class ImportFileClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - sm_default_importFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - sm_default_importFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -280,7 +280,12 @@ class ImportFileClass(object):
 
 			self.core.callHook("preImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
 
-			result, doImport = self.core.appPlugin.sm_import_importToApp(self, doImport=doImport, update=update, impFileName=impFileName)
+			result = self.core.appPlugin.sm_import_importToApp(self, doImport=doImport, update=update, impFileName=impFileName)
+
+			if result is None:
+				doImport = False
+			else:
+				result, doImport = result
 
 			if doImport:
 				self.nodeNames = [self.core.appPlugin.getNodeName(self, x) for x in self.nodes]
@@ -482,6 +487,10 @@ class ImportFileClass(object):
 		connectedNodes = []
 		if self.chb_trackObjects.isChecked():
 			for i in range(self.lw_objects.count()):
-				connectedNodes.append([str(self.lw_objects.item(i).text()), self.nodes[i]])
+				try:
+					connectedNodes.append([str(self.lw_objects.item(i).text()), self.nodes[i]])
+				except UnicodeEncodeError:
+					QMessageBox.warning(self.core.messageParent, "Prism", "Cannot save node names because it contains illegal characters:\n\n%s" % (unicode(self.lw_objects.item(i).text())), QMessageBox.Ok)
+
 
 		return {"statename":self.e_name.text(), "filepath": self.e_file.text().replace("\\","\\\\"), "keepedits": str(self.chb_keepRefEdits.isChecked()), "autonamespaces": str(self.chb_autoNameSpaces.isChecked()), "updateabc": str(self.chb_abcPath.isChecked()), "trackobjects": str(self.chb_trackObjects.isChecked()), "preferunit": str(self.chb_preferUnit.isChecked()), "connectednodes": str(connectedNodes), "taskname":self.taskName, "nodenames":str(self.nodeNames), "setname":self.setName}

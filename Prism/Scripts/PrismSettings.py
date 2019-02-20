@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -44,11 +44,14 @@ try:
 	psVersion = 2
 except:
 	try:
+		if "standalone" in sys.argv:
+			raise
+
 		from PySide.QtCore import *
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -108,10 +111,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		self.loadUI()
 		self.loadSettings()
-
-		ss = QApplication.instance().styleSheet()
-		for i in self.groupboxes:
-			i.setStyleSheet(ss.replace("QCheckBox::indicator", "QGroupBox::indicator"))
+		self.refreshPlugins()
 		
 		self.forceVersionsToggled(self.gb_curPversions.isChecked())
 		for i in self.core.prjManagers.values():
@@ -166,6 +166,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		self.b_browseRV.customContextMenuRequested.connect(lambda: self.core.openFolder(self.e_rvPath.text()))
 		self.b_browseDJV.clicked.connect(lambda: self.browse("djv"))
 		self.b_browseDJV.customContextMenuRequested.connect(lambda: self.core.openFolder(self.e_djvPath.text()))
+		self.tw_plugins.customContextMenuRequested.connect(self.rclPluginList)
+		self.b_reloadPlugins.clicked.connect(self.reloadPlugins)
+		self.b_createPlugin.clicked.connect(self.createPlugin)
 		self.buttonBox.accepted.connect(self.saveSettings)
 
 
@@ -232,6 +235,31 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	def orToggled(self, prog, state):
 		self.exOverridePlugins[prog]["le"].setEnabled(state)
 		self.exOverridePlugins[prog]["b"].setEnabled(state)
+
+
+	@err_decorator
+	def rclPluginList(self, pos=None):
+		rcmenu = QMenu()
+
+		unloadAct = QAction("Unload", self)
+		unloadAct.triggered.connect(self.unloadPlugins)
+		rcmenu.addAction(unloadAct)
+
+		openAct = QAction("Open in explorer", self)
+		openAct.triggered.connect(self.openPluginFolder)
+		rcmenu.addAction(openAct)
+
+		selPlugs = []
+		for i in self.tw_plugins.selectedItems():
+			if i.row() not in selPlugs:
+				selPlugs.append(i.row())
+
+		if len(selPlugs) > 1:
+			openAct.setEnabled(False)
+
+		getattr(self.core.appPlugin, "setRCStyle", lambda x,y: None)(self, rcmenu)
+
+		rcmenu.exec_(QCursor.pos())
 
 
 	@err_decorator
@@ -380,14 +408,32 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		if platform.system() == "Windows":
 			trayStartup = os.path.join(os.getenv('APPDATA'), "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "PrismTray.lnk")
-			trayLnk = os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk")
-
-			if os.path.exists(trayStartup):
-				os.remove(trayStartup)
+			trayLnk = self.core.fixPath(os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk"))
 
 			if self.chb_trayStartup.isChecked():
-				if not os.path.exists(trayStartup):
-					shutil.copy2(trayLnk, trayStartup)
+				if os.path.exists(trayLnk):
+					if os.path.exists(trayStartup):
+						try:
+							os.remove(trayStartup)
+						except WindowsError as e:
+							if e.winerror == 32:
+								QMessageBox.warning(self, "Remove link", "Unable to remove autostart link, because the file is used by another process:\n\n%s" % trayStartup)
+							else:
+								raise
+
+					if not os.path.exists(trayStartup):
+						shutil.copy2(trayLnk, trayStartup)
+				else:
+					QMessageBox.warning(self, "Prism", "Cannot add Prism to the autostart because this shortcut doesn't exist:\n\n%s\n\nExecute '%s\\Win_Setup_Startmenu.bat' to create the shortcut." % (trayLnk, self.core.fixPath(self.core.prismRoot).replace("/", "\\")))
+			elif os.path.exists(trayStartup):
+				try:
+					os.remove(trayStartup)
+				except WindowsError as e:
+					if e.winerror == 32:
+						QMessageBox.warning(self, "Remove link", "Unable to remove autostart link, because the file is used by another process:\n\n%s" % trayStartup)
+					else:
+						raise
+
 
 		elif platform.system() == "Linux":
 			trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
@@ -696,6 +742,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		self.tab_dccApps.layout().addStretch()
 
+		self.tw_plugins.setColumnCount(4)
+		self.tw_plugins.setHorizontalHeaderLabels(["Name", "Type", "Version", "Location"])
+		self.tw_plugins.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
+		self.tw_plugins.verticalHeader().setDefaultSectionSize(25);
+		self.tw_plugins.horizontalHeader().setStretchLastSection(True)
+
 		for i in self.core.prjManagers.values():
 			i.prismSettings_loadUI(self)
 
@@ -725,6 +777,109 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 				self.integrationPlugins[i]["bremove"].setEnabled(True)
 			else:
 				self.integrationPlugins[i]["bremove"].setEnabled(False)
+
+
+	@err_decorator
+	def refreshPlugins(self):
+		self.tw_plugins.setRowCount(0)
+		self.tw_plugins.setSortingEnabled(False)
+
+		plugins = self.core.getLoadedPlugins()
+
+		for pType in plugins:
+			for pluginName in plugins[pType]:
+				nameItem = QTableWidgetItem(pluginName)
+				typeItem = QTableWidgetItem(pType)
+				versionItem = QTableWidgetItem(plugins[pType][pluginName].version)
+				locItem = QTableWidgetItem(plugins[pType][pluginName].location.replace("prismRoot", "Root").replace("prismProject", "Project"))
+
+				nameItem.setData(Qt.UserRole, plugins[pType][pluginName])
+
+				rc = self.tw_plugins.rowCount()
+				self.tw_plugins.insertRow(rc)
+
+				self.tw_plugins.setItem(rc, 0, nameItem)
+				self.tw_plugins.setItem(rc, 1, typeItem)
+				self.tw_plugins.setItem(rc, 2, versionItem)
+				self.tw_plugins.setItem(rc, 3, locItem)
+
+		self.tw_plugins.resizeColumnsToContents()
+		self.tw_plugins.setColumnWidth(0,450)
+		self.tw_plugins.setColumnWidth(1,120)
+		self.tw_plugins.setColumnWidth(2,80)
+		self.tw_plugins.setSortingEnabled(True)
+		self.tw_plugins.sortByColumn(0, Qt.AscendingOrder)
+
+
+	@err_decorator
+	def unloadPlugins(self):
+		for i in self.tw_plugins.selectedItems():
+			if i.column() != 0:
+				continue
+
+			plugin = i.data(Qt.UserRole)
+			if plugin == self.core.appPlugin:
+				QMessageBox.warning(self.core.messageParent, "Prism", "Cannot unload the currently active app plugin.")
+				continue
+			elif plugin in self.core.unloadedAppPlugins.values():
+				cat = self.core.unloadedAppPlugins
+			elif plugin in self.core.rfManagers.values():
+				cat = self.core.rfManagers
+			elif plugin in self.core.prjManagers.values():
+				cat = self.core.prjManagers
+			elif plugin in self.core.customPlugins.values():
+				cat = self.core.customPlugins
+
+			self.core.unloadPlugin(plugin.pluginName, cat)
+
+		if os.path.exists(self.core.prismIni):
+			self.core.changeProject(self.core.prismIni)
+
+		self.core.prismSettings(tab=5)
+
+
+	@err_decorator
+	def reloadPlugins(self):
+		self.core.reloadPlugins()
+
+		if os.path.exists(self.core.prismIni):
+			self.core.changeProject(self.core.prismIni)
+
+		self.core.prismSettings(tab=5)
+
+
+	@err_decorator
+	def createPlugin(self):
+		import CreateItem
+
+		newPDlg = CreateItem.CreateItem(core=self.core)
+
+		self.core.parentWindow(newPDlg)
+		newPDlg.setWindowTitle("Create Plugin")
+		newPDlg.l_item.setText("Plugin Name:")
+		newPDlg.cb_type = QComboBox()
+		newPDlg.cb_type.addItems(["App", "Renderfarm", "Projectmanager", "Custom"])
+		newPDlg.cb_type.setCurrentIndex(3)
+		newPDlg.w_item.layout().addWidget(newPDlg.cb_type)
+		newPDlg.resize(400, newPDlg.height())
+		action = newPDlg.exec_()
+	
+		if action != 0:
+			pluginName = newPDlg.itemName
+			pluginType = newPDlg.cb_type.currentText()
+
+			self.core.createPlugin(pluginName, pluginType)
+			self.reloadPlugins()
+
+
+	@err_decorator
+	def openPluginFolder(self):
+		for i in self.tw_plugins.selectedItems():
+			if i.column() != 0:
+				continue
+
+			plugin = i.data(Qt.UserRole)
+			self.core.openFolder(plugin.pluginPath)
 
 
 	@err_decorator

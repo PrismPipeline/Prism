@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -159,7 +159,6 @@ class Prism_Houdini_Functions(object):
 	@err_decorator
 	def sceneOpen(self, origin):
 		origin.sceneUnload()
-		self.loadPrjHDAs(origin)
 
 
 	@err_decorator
@@ -180,9 +179,11 @@ class Prism_Houdini_Functions(object):
 
 		
 		hdaFolders = [os.path.join(origin.projectPath, "00_Pipeline", "HDAs")]
+
+		prjHDAs = os.path.join(origin.projectPath, origin.getConfig('paths', "assets", configPath=origin.prismIni), "HDAs")
 		if hasattr(self.core, "user"):
-			hdaUFolder = os.path.join(origin.projectPath, origin.getConfig('paths', "assets", configPath=origin.prismIni), "HDAs", origin.user)
-			hdaFolders += [os.path.dirname(hdaUFolder), hdaUFolder]
+			hdaUFolder = os.path.join(prjHDAs, origin.user)
+			hdaFolders += [prjHDAs, hdaUFolder]
 
 		origin.prjHDAs = []
 
@@ -193,8 +194,9 @@ class Prism_Houdini_Functions(object):
 						if os.path.splitext(m)[1] in [".hda", ".hdanc", ".hdalc", ".otl"]:
 							origin.prjHDAs.append(os.path.join(i[0],m).replace("\\", "/"))
 
+		oplib = os.path.join(prjHDAs, "ProjectHDAs.oplib").replace("\\", "/")
 		for i in origin.prjHDAs:
-			hou.hda.installFile(i)
+			hou.hda.installFile(i, oplib)
 
 
 	@err_decorator
@@ -223,6 +225,7 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def saveScene(self, origin, filepath):
+		filepath = filepath.replace("\\", "/")
 		return hou.hipFile.save(file_name=filepath, save_to_recent_files=True)
 
 
@@ -300,7 +303,8 @@ class Prism_Houdini_Functions(object):
 
 
 		outputStr = os.path.join(outputPath, outputFile)
-		ropNode.parm("outputpath").set(outputStr)
+		if not self.setNodeParm(ropNode, "outputpath", outputStr):
+			return False
 
 		exportNode.parm("execute").pressButton()
 
@@ -423,6 +427,33 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
+	def setNodeParm(self, node, parm, val=None, clear=False):
+		try:
+			if clear:
+				node.parm(parm).deleteAllKeyframes()
+			else:
+				node.parm(parm).set(val)
+		except:
+			curTake = hou.takes.currentTake()
+			if curTake.hasParmTuple(node.parm(parm).tuple()):
+				raise
+			else:
+				msgString = "The parameter is not included in the current take.\nTo continue the parameter needs to be added to the current take.\n\n%s" % node.parm(parm).path()
+				msg = QMessageBox(QMessageBox.Warning, "Locked Parameter", msgString, QMessageBox.Cancel)
+				msg.addButton("Add to current take", QMessageBox.YesRole)
+				self.core.parentWindow(msg)
+				action = msg.exec_()
+
+				if action == 0:
+					curTake.addParmTuple(node.parm(parm).tuple())
+					self.setNodeParm(node, parm, val, clear)
+				else:
+					return False
+
+		return True
+
+
+	@err_decorator
 	def sm_preDelete(self, origin, item, silent=False):
 		if not hasattr(item.ui, "node") or silent:
 			return
@@ -451,6 +482,12 @@ class Prism_Houdini_Functions(object):
 						item.ui.node2.destroy()
 				except:
 					pass
+
+		if item.ui.className == "ImportFile" and os.path.splitext(item.ui.e_file.text())[1] == ".hda":
+			fpath = item.ui.e_file.text().replace("\\", "/")
+			defs = hou.hda.definitionsInFile(fpath)
+			if len(defs) > 0 and defs[0].isInstalled():
+				hou.hda.uninstallFile(fpath)
 
 
 	@err_decorator
@@ -487,6 +524,11 @@ class Prism_Houdini_Functions(object):
 		ssheet += "QGroupBox::indicator::unchecked\n{\n    image: url(%s/Plugins/Apps/Houdini/UserInterfaces/checkbox_off.svg);\n}" % self.core.prismRoot
 		ssheet += "QGroupBox::indicator { width: 16px; height: 16px;}"
 		widget.setStyleSheet(ssheet)
+
+
+	@err_decorator
+	def getFrameStyleSheet(self, origin):
+		return hou.qt.styleSheet().replace("QWidget", "QFrame")
 
 
 	@err_decorator

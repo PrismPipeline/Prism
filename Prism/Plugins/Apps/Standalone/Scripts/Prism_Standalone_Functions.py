@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -175,7 +175,7 @@ class Prism_Standalone_Functions(object):
 				if not os.path.exists(os.path.dirname(i[0])):
 					os.makedirs(os.path.dirname(i[0]))
 
-				self.core.createShortcut(i[0], vTarget=("%s\Python27\%s" % (self.core.prismRoot, i[1])), args=('"%s\Scripts\%s"' % (self.core.prismRoot, i[2])))
+				self.core.createShortcut(i[0], vTarget=("%s\Python27\%s" % (self.core.prismRoot, i[1])), args=('"%s\Scripts\%s" standalone' % (self.core.prismRoot, i[2])))
 
 		elif platform.system() == "Linux":
 			if os.getuid() != 0:
@@ -193,10 +193,23 @@ class Prism_Standalone_Functions(object):
 			trayLnk = os.path.join(self.core.prismRoot, "Tools", "PrismTray.desktop")
 			pbLnk = os.path.join(self.core.prismRoot, "Tools", "PrismProjectBrowser.desktop")
 			settingsLnk = os.path.join(self.core.prismRoot, "Tools", "PrismSettings.desktop")
-
+			spbPath = os.path.join(self.core.prismRoot, "Tools", "PrismProjectBrowser.sh")
+			ssPath = os.path.join(self.core.prismRoot, "Tools", "PrismSettings.sh")
 			cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
-
 			pMenuSource = os.path.join(self.core.prismRoot, "Tools", "Prism.menu")
+
+			for i in [trayLnk, pbLnk, settingsLnk, spbPath, ssPath, cbPath, pMenuSource]:
+				if not os.path.exists(i):
+					continue
+
+				with open(i, "r") as f:
+					content = f.read()
+
+				content = content.replace("PRISMROOT", self.core.prismRoot)
+
+				with open(i, "w") as f:
+					f.write(content)
+			
 			pMenuTarget = "/etc/xdg/menus/applications-merged/Prism.menu"
 
 			for i in [trayLnk, pbLnk, settingsLnk, pMenuSource]:
@@ -258,9 +271,12 @@ class Prism_Standalone_Functions(object):
 				with open(trayStartupSrc, "r") as init:
 					initStr = init.read()
 
-				with open(trayStartupSrc, "w") as init:
-					initStr = initStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
-					init.write(initStr)
+				try:
+					with open(trayStartupSrc, "w") as init:
+						initStr = initStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
+						init.write(initStr)
+				except IOError:
+					QMessageBox.warning(QWidget(), "Prism start menu", "Please copy the Prism folder to any location on your harddrive before you execute the Prism setup.")
 
 			cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
 
@@ -271,7 +287,9 @@ class Prism_Standalone_Functions(object):
 						os.remove(desktopPath)
 					except:
 						pass
-				os.symlink(pbLnk, desktopPath)
+
+				if not os.path.exists(desktopPath):
+					os.symlink(pbLnk, desktopPath)
 
 			#subprocess.Popen(['bash', "/usr/local/Prism/Tools/PrismTray.sh"])
 

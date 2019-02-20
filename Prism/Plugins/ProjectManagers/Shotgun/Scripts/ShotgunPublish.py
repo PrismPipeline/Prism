@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -94,9 +94,6 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 
 		for i in range(7):
 			self.cb_playlist.addItem( "DAILIES_%s" % (datetime.date.today() + datetime.timedelta(days=i)))
-
-		ss = QApplication.instance().styleSheet()
-		self.gb_playlist.setStyleSheet(ss.replace("QCheckBox::indicator", "QGroupBox::indicator"))
 
 		if ptype == "Asset":
 			self.rb_asset.setChecked(True)

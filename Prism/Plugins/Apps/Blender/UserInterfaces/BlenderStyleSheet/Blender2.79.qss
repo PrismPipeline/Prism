@@ -94,6 +94,7 @@ Main window
 QMainWindow,
 QDialog,
 QDockWidget,
+QFrame,
 QToolBar  {
     background-color: #727272; /* main background color */
 }
@@ -131,6 +132,10 @@ QMenu::item:selected,
 QMenu::item:pressed {
     color: black;
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #7aa3e5, stop:1 #5680c1);
+}
+
+QMenu::item:disabled {
+    color: #939393;
 }
 
 QMenu::right-arrow {
@@ -807,6 +812,7 @@ QTreeView > QWidget > QSpinBox,
 QTreeView > QWidget > QDoubleSpinBox,
 QTreeView > QWidget > QLineEdit,
 QTreeView > QWidget > QTextEdit,
+QTreeView > QWidget > QPlainTextEdit,
 QTreeView > QWidget > QTimeEdit,
 QTreeView > QWidget > QDateEdit,
 QTreeView > QWidget > QDateTimeEdit,
@@ -821,6 +827,7 @@ QTreeView > QWidget > QSpinBox,
 QTreeView > QWidget > QDoubleSpinBox,
 QTreeView > QWidget > QLineEdit,
 QTreeView > QWidget > QTextEdit,
+QTreeView > QWidget > QPlainTextEdit,
 QTreeView > QWidget > QTimeEdit,
 QTreeView > QWidget > QDateEdit,
 QTreeView > QWidget > QDateTimeEdit,
@@ -855,6 +862,7 @@ QTreeView > QWidget > QSpinBox:focus,
 QTreeView > QWidget > QDoubleSpinBox:focus,
 QTreeView > QWidget > QLineEdit:focus,
 QTreeView > QWidget > QTextEdit:focus,
+QTreeView > QWidget > QPlainTextEdit:focus,
 QTreeView > QWidget > QTimeEdit:focus,
 QTreeView > QWidget > QDateEdit:focus,
 QTreeView > QWidget > QDateTimeEdit:focus {
@@ -870,6 +878,7 @@ QTreeView > QWidget > QSpinBox:read-only,
 QTreeView > QWidget > QDoubleSpinBox:read-only,
 QTreeView > QWidget > QLineEdit:read-only,
 QTreeView > QWidget > QTextEdit:read-only,
+QTreeView > QWidget > QPlainTextEdit:read-only,
 QTreeView > QWidget > QTimeEdit:read-only,
 QTreeView > QWidget > QDateEdit:read-only,
 QTreeView > QWidget > QDateTimeEdit:read-only {
@@ -1038,20 +1047,6 @@ QMainWindow::separator:vertical {
 
 
 /*==================================================================================================
-Text/Python editor (macros, etc...)
-==================================================================================================*/
-QPlainTextEdit,
-QPlainTextEdit:focus {
-    background-color: #c8c8c8;
-    selection-color: white;
-    selection-background-color: #3874f2;
-    border: 1px solid #505050;
-    border-radius: 3px;
-    margin: 4px;
-}
-
-
-/*==================================================================================================
 Tasks panel (custom FreeCAD class)
 ==================================================================================================*/
 /* Action group */
@@ -1176,6 +1171,7 @@ QSpinBox,
 QDoubleSpinBox,
 QLineEdit,
 QTextEdit,
+QPlainTextEdit,
 QTimeEdit,
 QDateEdit,
 QDateTimeEdit {
@@ -1195,6 +1191,7 @@ QSpinBox:hover,
 QDoubleSpinBox:hover,
 QLineEdit:hover,
 QTextEdit:hover,
+QPlainTextEdit:hover,
 QTimeEdit:hover,
 QDateEdit:hover,
 QDateTimeEdit:hover {
@@ -1212,17 +1209,12 @@ QDateTimeEdit {
     padding-right: 0px; /* temporal */
 }
 
-/* when QTextEdit are no editable */
-QTextEdit:!editable {
-    background-color: #c8c8c8;
-    border: 1px solid #505050;
-}
-
 QAbstractSpinBox:focus,
 QSpinBox:focus,
 QDoubleSpinBox:focus,
 QLineEdit:focus,
 QTextEdit:focus,
+QPlainTextEdit:focus,
 QTimeEdit:focus,
 QDateEdit:focus,
 QDateTimeEdit:focus {
@@ -1235,6 +1227,7 @@ QSpinBox:disabled,
 QDoubleSpinBox:disabled,
 QLineEdit:disabled,
 QTextEdit:disabled,
+QPlainTextEdit:disabled,
 QTimeEdit:disabled,
 QDateEdit:disabled,
 QDateTimeEdit:disabled {
@@ -1704,6 +1697,9 @@ QRadioButton:focus {
 /*==================================================================================================
 Checkbox
 ==================================================================================================*/
+
+QGroupBox,
+QGroupBox:disabled,
 QCheckBox,
 QCheckBox:disabled {
     color: black;
@@ -1712,6 +1708,7 @@ QCheckBox:disabled {
     background-color: transparent;
 }
 
+QGroupBox::indicator,
 QCheckBox::indicator {
     color: black;
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #535353, stop:1 #373737);
@@ -1721,10 +1718,15 @@ QCheckBox::indicator {
     border-radius:2px;
 }
 
+QGroupBox::indicator:hover,
 QCheckBox::indicator:hover {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #626262, stop:1 #464646);
 }
 
+QGroupBox::indicator:pressed,
+QGroupBox::indicator:non-exclusive:checked:pressed,
+QGroupBox::indicator:indeterminate:pressed,
+QGroupBox::indicator:checked:pressed,
 QCheckBox::indicator:pressed,
 QCheckBox::indicator:non-exclusive:checked:pressed,
 QCheckBox::indicator:indeterminate:pressed,
@@ -1732,28 +1734,33 @@ QCheckBox::indicator:checked:pressed {
     border-color: #292929; /* same as not pressed... just to disable the effect without deleting the code */
 }
 
+QGroupBox::indicator:checked,
 QCheckBox::indicator:checked {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #373737, stop:1 #535353);
     border: 1px solid #292929; /* QCheckBox has the same color */
     image:url(qss:images/checkbox_light.png);
 }
 
+QGroupBox:disabled,
 QCheckBox:disabled {
     color: #5c5c5c;
     background-color: transparent;
 }
 
+QGroupBox::indicator:disabled,
 QCheckBox::indicator:disabled {
     background-color: transparent;
     border: 1px solid #5c5c5c;
 }
 
+QGroupBox::indicator:indeterminate,
 QCheckBox::indicator:indeterminate {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #373737, stop:1 #535353);
     border: 1px solid #292929; /* QCheckBox has the same color */
     image: url(qss:images/checkbox_indeterminate_light.png);
 }
 
+QGroupBox:focus,
 QCheckBox:focus {
     border: none;
 }
@@ -1966,6 +1973,7 @@ QToolBar > QSpinBox,
 QToolBar > QDoubleSpinBox,
 QToolBar > QLineEdit,
 QToolBar > QTextEdit,
+QToolBar > QPlainTextEdit,
 QToolBar > QTimeEdit,
 QToolBar > QDateEdit,
 QToolBar > QDateTimeEdit {
@@ -1980,6 +1988,7 @@ QToolBar > QSpinBox,
 QToolBar > QDoubleSpinBox,
 QToolBar > QLineEdit,
 QToolBar > QTextEdit,
+QToolBar > QPlainTextEdit,
 QToolBar > QTimeEdit,
 QToolBar > QDateEdit,
 QToolBar > QDateTimeEdit {
@@ -2163,6 +2172,7 @@ QTableView > QWidget > QSpinBox,
 QTableView > QWidget > QDoubleSpinBox,
 QTableView > QWidget > QLineEdit,
 QTableView > QWidget > QTextEdit,
+QTableView > QWidget > QPlainTextEdit,
 QTableView > QWidget > QTimeEdit,
 QTableView > QWidget > QDateEdit,
 QTableView > QWidget > QDateTimeEdit,
@@ -2189,6 +2199,7 @@ QTableView > QWidget > QSpinBox,
 QTableView > QWidget > QDoubleSpinBox,
 QTableView > QWidget > QLineEdit,
 QTableView > QWidget > QTextEdit,
+QTableView > QWidget > QPlainTextEdit,
 QTableView > QWidget > QTimeEdit,
 QTableView > QWidget > QDateEdit,
 QTableView > QWidget > QDateTimeEdit {
@@ -2220,6 +2231,7 @@ QTableView > QWidget > QSpinBox:focus,
 QTableView > QWidget > QDoubleSpinBox:focus,
 QTableView > QWidget > QLineEdit:focus,
 QTableView > QWidget > QTextEdit:focus,
+QTableView > QWidget > QPlainTextEdit:focus,
 QTableView > QWidget > QTimeEdit:focus,
 QTableView > QWidget > QDateEdit:focus,
 QTableView > QWidget > QDateTimeEdit:focus {
@@ -2236,6 +2248,7 @@ QTableView > QWidget > QSpinBox:disabled,
 QTableView > QWidget > QDoubleSpinBox:disabled,
 QTableView > QWidget > QLineEdit:disabled,
 QTableView > QWidget > QTextEdit:disabled,
+QTableView > QWidget > QPlainTextEdit:disabled,
 QTableView > QWidget > QTimeEdit:disabled,
 QTableView > QWidget > QDateEdit:disabled,
 QTableView > QWidget > QDateTimeEdit:disabled {
@@ -2250,6 +2263,7 @@ QTableView > QWidget > QSpinBox:read-only,
 QTableView > QWidget > QDoubleSpinBox:read-only,
 QTableView > QWidget > QLineEdit:read-only,
 QTableView > QWidget > QTextEdit:read-only,
+QTableView > QWidget > QPlainTextEdit:read-only,
 QTableView > QWidget > QTimeEdit:read-only,
 QTableView > QWidget > QDateEdit:read-only,
 QTableView > QWidget > QDateTimeEdit:read-only {

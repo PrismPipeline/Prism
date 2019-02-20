@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -107,14 +107,16 @@ class Prism_Blender_Functions(object):
 			return False
 
 		origin.timer.stop()
-	#	origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
-	#	origin.startasThread()
+		origin.startasThread()
 
 
 	@err_decorator
 	def autosaveEnabled(self, origin):
-		return bpy.context.user_preferences.filepaths.use_auto_save_temporary_files
+		if bpy.app.version < (2,80,0):
+			return bpy.context.user_preferences.filepaths.use_auto_save_temporary_files
+		else:
+			return bpy.context.preferences.filepaths.use_auto_save_temporary_files
 
 
 	@err_decorator
@@ -196,7 +198,8 @@ class Prism_Blender_Functions(object):
 
 	@err_decorator
 	def onProjectBrowserStartup(self, origin):
-		origin.publicColor = QColor(50,100,170)
+		if bpy.app.version < (2,80,0):
+			origin.publicColor = QColor(50,100,170)
 
 
 	@err_decorator
@@ -245,12 +248,45 @@ class Prism_Blender_Functions(object):
 
 
 	@err_decorator
-	def sm_export_addObjects(self, origin):
-		if origin.l_taskName.text() not in bpy.data.groups:
-			bpy.ops.group.create(name=origin.l_taskName.text())
+	def getGroups(self):
+		if bpy.app.version < (2,80,0):
+			return bpy.data.groups
+		else:
+			return bpy.data.collections
 
-		for i in [ o for o in bpy.context.scene.objects if o.select and o not in list(bpy.data.groups[origin.l_taskName.text()].objects) ]:
-			bpy.data.groups[origin.l_taskName.text()].objects.link(i)
+
+	@err_decorator
+	def createGroups(self, name):
+		if bpy.app.version < (2,80,0):
+			bpy.ops.group.create(name=name)
+		else:
+			bpy.ops.collection.create(name=name)
+
+
+	@err_decorator
+	def getSelectObject(self, obj):
+		if bpy.app.version < (2,80,0):
+			return obj.select
+		else:
+			return obj.select_get()
+
+	@err_decorator
+	def selectObject(self, obj, select=True):
+		if bpy.app.version < (2,80,0):
+			obj.select = select
+			bpy.context.scene.objects.active = obj
+		else:
+			obj.select_set(select)
+			bpy.context.view_layer.objects.active = obj
+
+
+	@err_decorator
+	def sm_export_addObjects(self, origin):
+		if origin.l_taskName.text() not in self.getGroups():
+			self.createGroups(name=origin.l_taskName.text())
+
+		for i in [ o for o in bpy.context.scene.objects if self.getSelectObject(o) and o not in list(self.getGroups()[origin.l_taskName.text()].objects) ]:
+			self.getGroups()[origin.l_taskName.text()].objects.link(i)
 
 		origin.updateUi()
 		origin.stateManager.saveStatesToScene()
@@ -268,7 +304,7 @@ class Prism_Blender_Functions(object):
 			for i in origin.lw_objects.selectedItems():
 				node = origin.nodes[origin.lw_objects.row(i)]
 				if self.isNodeValid(origin, node):
-					bpy.data.objects[node].select = True
+					self.selectObject(bpy.data.objects[node])
 
 
 	@err_decorator
@@ -290,7 +326,7 @@ class Prism_Blender_Functions(object):
 	def selectCam(self, origin):
 		if self.isNodeValid(origin, origin.curCam):
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
-			bpy.data.objects[origin.curCam].select = True
+			self.selectObject(bpy.data.objects[origin.curCam])
 
 
 	@err_decorator
@@ -301,12 +337,12 @@ class Prism_Blender_Functions(object):
 		if not origin.stateManager.loading:
 			setName = "Export"
 			extension = 1
-			while setName in bpy.data.groups and extension < 999:
-				if "%s%s" % (setName, extension) not in bpy.data.groups:
+			while setName in self.getGroups() and extension < 999:
+				if "%s%s" % (setName, extension) not in self.getGroups():
 					setName += "%s" % extension
 				extension += 1
 
-			bpy.ops.group.create(name=setName)
+			self.createGroups(name=setName)
 			origin.l_taskName.setText(setName)
 			origin.b_changeTask.setPalette(origin.oldPalette)
 
@@ -315,41 +351,41 @@ class Prism_Blender_Functions(object):
 	def sm_export_setTaskText(self, origin, prevTaskName):
 		setName = origin.nameWin.e_item.text()
 		extension = 1
-		while setName in bpy.data.groups and extension < 999:
-			if "%s_%s" % (setName, extension) not in bpy.data.groups:
+		while setName in self.getGroups() and extension < 999:
+			if "%s_%s" % (setName, extension) not in self.getGroups():
 				setName += "_%s" % extension
 			extension += 1
 
-		if prevTaskName in bpy.data.groups:
-			bpy.data.groups[prevTaskName].name = setName
+		if prevTaskName in self.getGroups():
+			self.getGroups()[prevTaskName].name = setName
 		else:
-			bpy.ops.group.create(name=setName)
+			self.createGroups(name=setName)
 
 		origin.l_taskName.setText(setName)
 
 
 	@err_decorator
 	def sm_export_removeSetItem(self, origin, node):
-		if origin.l_taskName.text() not in bpy.data.groups:
+		if origin.l_taskName.text() not in self.getGroups():
 			return 
 
-		bpy.data.groups[origin.l_taskName.text()].objects.unlink(bpy.data.objects[node])
+		self.getGroups()[origin.l_taskName.text()].objects.unlink(bpy.data.objects[node])
 
 
 	@err_decorator
 	def sm_export_clearSet(self, origin):
-		if origin.l_taskName.text() not in bpy.data.groups:
+		if origin.l_taskName.text() not in self.getGroups():
 			return 
 
-		for node in bpy.data.groups[origin.l_taskName.text()].objects:
-			bpy.data.groups[origin.l_taskName.text()].objects.unlink(node)
+		for node in self.getGroups()[origin.l_taskName.text()].objects:
+			self.getGroups()[origin.l_taskName.text()].objects.unlink(node)
 
 
 	@err_decorator
 	def sm_export_updateObjects(self, origin):
 		origin.nodes = []
-		if origin.l_taskName.text() in bpy.data.groups:
-			origin.nodes = bpy.data.groups[origin.l_taskName.text()].objects.keys()
+		if origin.l_taskName.text() in self.getGroups():
+			origin.nodes = self.getGroups()[origin.l_taskName.text()].objects.keys()
 
 
 	@err_decorator
@@ -383,7 +419,7 @@ class Prism_Blender_Functions(object):
 			empObj.scale = [sVal, sVal, sVal]
 
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
-			empObj.select = True
+			self.selectObject(empObj)
 			bpy.ops.object.delete(self.getOverrideContext(origin))
 
 		bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
@@ -397,7 +433,7 @@ class Prism_Blender_Functions(object):
 		bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
 		for i in expNodes:
 			if self.isNodeValid(origin, i):
-				bpy.data.objects[i].select = True
+				self.selectObject(bpy.data.objects[i])
 
 		if origin.cb_outType.currentText() == ".obj":
 			for i in range(startFrame, endFrame+1):
@@ -458,7 +494,7 @@ class Prism_Blender_Functions(object):
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
 			for i in scaleNodes:
 				if self.isNodeValid(origin, i):
-					bpy.data.objects[i].select = True
+					self.selectObject(bpy.data.objects[i])
 			#bpy.ops.object.transform_apply(self.getOverrideContext(origin), location=True, rotation=True, scale=True)
 
 			for i in scaleNodes:
@@ -475,7 +511,7 @@ class Prism_Blender_Functions(object):
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
 			for i in expNodes:
 				if self.isNodeValid(origin, i):
-					bpy.data.objects[i].select = True
+					self.selectObject(bpy.data.objects[i])
 		#	bpy.ops.object.transform_apply(self.getOverrideContext(origin), location=True, rotation=True, scale=True)
 
 			outputName = os.path.join(os.path.dirname(os.path.dirname(outputName)), "centimeter", os.path.basename(outputName))
@@ -492,7 +528,7 @@ class Prism_Blender_Functions(object):
 	@err_decorator
 	def sm_export_preDelete(self, origin):
 		try:
-			bpy.data.groups.remove(bpy.data.groups[0], True)
+			self.getGroups().remove(self.getGroups()[origin.l_taskName.text()], True)
 		except:
 			pass
 
@@ -717,7 +753,12 @@ class Prism_Blender_Functions(object):
 
 				bpy.app.handlers.render_complete.append(renderFinished_handler)
 				bpy.app.handlers.render_cancel.append(renderFinished_handler)
-				bpy.ops.render.render(self.getOverrideContext(origin), 'INVOKE_DEFAULT', animation=True)
+
+				ctx = self.getOverrideContext(origin)
+				if bpy.app.version >= (2,80,0):
+					ctx.pop("screen")
+					ctx.pop("area")
+				bpy.ops.render.render(ctx, 'INVOKE_DEFAULT', animation=True)
 				origin.renderingStarted = True
 				origin.LastRSettings = rSettings
 
@@ -740,7 +781,7 @@ class Prism_Blender_Functions(object):
 				origin.waitmsg.close()
 
 			exc_type, exc_obj, exc_tb = sys.exc_info()
-			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.stateManager.version, traceback.format_exc()))
+			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.core.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return "Execute Canceled: unknown error (view console for more information)"
 
@@ -752,25 +793,26 @@ class Prism_Blender_Functions(object):
 			origin.stateManager.publish(continuePublish=True)
 			return
 
-		self.startRenderThread(origin)
+		self.startRenderThread(origin, restart=True)
 
 
 	@err_decorator
-	def startRenderThread(self, origin, quit=False):
-		if hasattr(self,  "brThread") and self.brThread.isRunning():
+	def startRenderThread(self, origin, quit=False, restart=False):
+		if quit and hasattr(self,  "brThread") and self.brThread.isRunning():
 			self.brObject.active = False
 			self.brThread.quit()
-
-		if quit:
 			return
 
-		self.brThread = QThread()
-		self.brObject = bldRenderTimer(self.brThread)
-		self.brObject.moveToThread(self.brThread)
-		self.brThread.started.connect(self.brObject.run)
-		self.brObject.finished.connect(lambda: self.CheckRenderFinished(origin))
+		if restart:
+			self.brObject.run()
+		else:
+			self.brThread = QThread()
+			self.brObject = bldRenderTimer(self.brThread)
+			self.brObject.moveToThread(self.brThread)
+			self.brThread.started.connect(self.brObject.run)
+			self.brObject.finished.connect(lambda: self.CheckRenderFinished(origin))
 
-		self.brThread.start()
+			self.brThread.start()
 
 
 	@err_decorator
@@ -876,7 +918,7 @@ class Prism_Blender_Functions(object):
 	def deleteNodes(self, origin, handles):
 		bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
 		for i in handles:
-			bpy.data.objects[i].select = True
+			self.selectObject(bpy.data.objects[i])
 		bpy.ops.object.make_local(self.getOverrideContext(origin), type='SELECT_OBDATA_MATERIAL')
 		bpy.ops.object.delete(self.getOverrideContext(origin))
 
@@ -975,8 +1017,8 @@ class Prism_Blender_Functions(object):
 
 			origin.setName = "Import_" + fileName[0]
 			extension = 1
-			while origin.setName in bpy.data.groups and extension < 999:
-				if "%s_%s" % (origin.setName, extension) not in bpy.data.groups:
+			while origin.setName in self.getGroups() and extension < 999:
+				if "%s_%s" % (origin.setName, extension) not in self.getGroups():
 					origin.setName += "_%s" % extension
 				extension += 1
 
@@ -984,11 +1026,11 @@ class Prism_Blender_Functions(object):
 				origin.nodes = importedNodes
 
 			if len(origin.nodes) > 0:
-				bpy.ops.group.create(name=origin.setName)
+				self.createGroups(name=origin.setName)
 
 				for i in origin.nodes:
 					if self.isNodeValid(origin, i):
-						bpy.data.groups[origin.setName].objects.link(bpy.data.objects[i])
+						self.getGroups()[origin.setName].objects.link(bpy.data.objects[i])
 		
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
 
@@ -998,9 +1040,9 @@ class Prism_Blender_Functions(object):
 
 	@err_decorator
 	def sm_import_disableObjectTracking(self, origin):
-		stateGroup = [x for x in bpy.data.groups if x.name == origin.setName]
+		stateGroup = [x for x in self.getGroups() if x.name == origin.setName]
 		if len(stateGroup) > 0:
-			bpy.data.groups.remove(stateGroup[0])
+			self.getGroups().remove(stateGroup[0])
 
 
 	@err_decorator
@@ -1009,8 +1051,8 @@ class Prism_Blender_Functions(object):
 			return
 
 		origin.nodes = []
-		if origin.setName in bpy.data.groups and origin.chb_trackObjects.isChecked():
-			origin.nodes =  bpy.data.groups[origin.setName].objects.keys()
+		if origin.setName in self.getGroups() and origin.chb_trackObjects.isChecked():
+			origin.nodes =  self.getGroups()[origin.setName].objects.keys()
 
 
 	@err_decorator
@@ -1041,11 +1083,11 @@ class Prism_Blender_Functions(object):
 			empObj.scale = [sVal, sVal, sVal]
 
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
-			bpy.data.objects[origin.nodes[0]].select = True
+			self.selectObject(bpy.data.objects[origin.nodes[0]])
 			bpy.ops.object.parent_clear(self.getOverrideContext(origin), type="CLEAR_KEEP_TRANSFORM")
 
 			bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
-			empObj.select = True
+			self.selectObject(empObj)
 			bpy.ops.object.delete(self.getOverrideContext(origin))
 
 
@@ -1134,23 +1176,24 @@ class Prism_Blender_Functions(object):
 		origin.sp_rangeStart.setValue(startframe)
 		origin.sp_rangeEnd.setValue(endframe)
 
-		origin.b_createImport.setMinimumWidth(60*self.core.uiScaleFactor)
-		origin.b_createImport.setMaximumWidth(60*self.core.uiScaleFactor)
+		origin.b_createImport.setMinimumWidth(70*self.core.uiScaleFactor)
+		origin.b_createImport.setMaximumWidth(70*self.core.uiScaleFactor)
 		origin.b_createImport.setMinimumHeight(0)
 		origin.b_createImport.setMaximumHeight(500*self.core.uiScaleFactor)
 		origin.b_shotCam.setMinimumHeight(0)
 		origin.b_shotCam.setMaximumHeight(50*self.core.uiScaleFactor)
-		origin.b_createExport.setMinimumWidth(60*self.core.uiScaleFactor)
-		origin.b_createExport.setMaximumWidth(60*self.core.uiScaleFactor)
-		origin.b_createRender.setMinimumWidth(60*self.core.uiScaleFactor)
-		origin.b_createRender.setMaximumWidth(60*self.core.uiScaleFactor)
-		origin.b_createPlayblast.setMinimumWidth(70*self.core.uiScaleFactor)
-		origin.b_createPlayblast.setMaximumWidth(70*self.core.uiScaleFactor)
+		origin.b_createExport.setMinimumWidth(70*self.core.uiScaleFactor)
+		origin.b_createExport.setMaximumWidth(70*self.core.uiScaleFactor)
+		origin.b_createRender.setMinimumWidth(70*self.core.uiScaleFactor)
+		origin.b_createRender.setMaximumWidth(70*self.core.uiScaleFactor)
+		origin.b_createPlayblast.setMinimumWidth(80*self.core.uiScaleFactor)
+		origin.b_createPlayblast.setMaximumWidth(80*self.core.uiScaleFactor)
 		origin.b_getRange.setMaximumWidth(200*self.core.uiScaleFactor)
 		origin.b_setRange.setMaximumWidth(200*self.core.uiScaleFactor)
 		origin.b_description.setMinimumWidth(35*self.core.uiScaleFactor)
 		origin.b_description.setMaximumWidth(35*self.core.uiScaleFactor)
-
+		origin.b_preview.setMinimumWidth(35*self.core.uiScaleFactor)
+		origin.b_preview.setMaximumWidth(35*self.core.uiScaleFactor)
 
 	@err_decorator
 	def sm_saveStates(self, origin, buf):

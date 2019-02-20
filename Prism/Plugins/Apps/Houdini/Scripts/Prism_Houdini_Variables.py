@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -34,7 +34,7 @@
 
 class Prism_Houdini_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.1.2.0"
+		self.version = "v1.2.0.0"
 		self.pluginName = "Houdini"
 		self.pluginType = "App"
 		self.appShortName = "Hou"

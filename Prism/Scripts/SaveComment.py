@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -42,7 +42,8 @@ except:
 	from PySide.QtGui import *
 	psVersion = 1
 
-import sys, os
+import sys, os, traceback, platform, time
+from functools import wraps
 
 if psVersion == 1:
 	from UserInterfacesPrism import SaveComment_ui
@@ -57,13 +58,31 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
 
 		self.core = core
 		self.core.parentWindow(self)
+		self.previewDefined = False
 		self.e_comment.textEdited.connect(self.validate)
+		self.b_changePreview.clicked.connect(self.grabArea)
+		self.setEmptyPreview()
+
+
+	def err_decorator(func):
+		@wraps(func)
+		def func_wrapper(*args, **kwargs):
+			exc_info = sys.exc_info()
+			try:
+				return func(*args, **kwargs)
+			except Exception as e:
+				exc_type, exc_obj, exc_tb = sys.exc_info()
+				erStr = ("%s ERROR - ProjectBrowser %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				args[0].core.writeErrorLog(erStr)
+
+		return func_wrapper
 
 
 	def enterEvent(self, event):
 		QApplication.restoreOverrideCursor()
 
 
+	@err_decorator
 	def validate(self, origText):
 		text = self.core.validateStr(origText)
 
@@ -71,3 +90,42 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
 			cpos = self.e_comment.cursorPosition()
 			self.e_comment.setText(text)
 			self.e_comment.setCursorPosition(cpos-1)
+
+
+	@err_decorator
+	def setEmptyPreview(self):
+		imgFile = os.path.join(self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileBig.jpg")
+		pmap = self.getImgPMap(imgFile)
+		pmap = pmap.scaled(QSize(500, 281))
+		self.l_preview.setPixmap(pmap)
+
+
+	@err_decorator
+	def getImgPMap(self, path):
+		if platform.system() == "Windows":
+			return QPixmap(path)
+		else:
+			try:
+				im = Image.open(path)
+				im = im.convert("RGBA")
+				r,g,b,a = im.split()
+				im = Image.merge("RGBA", (b,g,r,a))
+				data = im.tobytes("raw", "RGBA")
+
+				qimg = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
+
+				return QPixmap(qimg)
+			except:
+				return QPixmap(path)
+
+
+	@err_decorator
+	def grabArea(self):
+		self.setWindowOpacity(0)
+		from PrismUtils import ScreenShot
+		previewImg = ScreenShot.grabScreenArea(self.core)
+		self.setWindowOpacity(1)
+
+		if previewImg is not None:
+			self.l_preview.setPixmap(previewImg.scaled(self.l_preview.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+			self.previewDefined = True

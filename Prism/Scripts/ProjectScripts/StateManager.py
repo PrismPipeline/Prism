@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -88,7 +88,6 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 	def __init__(self, core, stateDataPath=None):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
-		self.version = "v1.1.2.0"
 
 		self.core = core
 		self.core.parentWindow(self)
@@ -104,6 +103,8 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 		self.layout().setContentsMargins(6,6,6,0)
 
 		self.disabledCol = QColor(100,100,100)
+		self.styleExists = "QPushButton { border: 1px solid rgb(100,200,100); }"
+		self.styleMissing = "QPushButton { border: 1px solid rgb(200,100,100); }"
 
 		self.draggedItem = None
 
@@ -127,6 +128,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 		self.stateTypes = {}
 
 		self.description = ""
+		self.previewImg = None
 
 		foldercont = ["","",""]
 
@@ -204,7 +206,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - StateManager %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.version, traceback.format_exc()))
+				erStr = ("%s ERROR - StateManager %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
 				self.core.writeErrorLog(erStr)
 
 		fileName = self.core.getCurrentFileName()
@@ -240,7 +242,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - StateManager %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - StateManager %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -271,7 +273,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		helpMenu.addAction(self.actionCheckVersion)
 
 		self.actionAbout = QAction("About...", self)
-		self.actionAbout.triggered.connect(lambda: self.core.showAbout("State Manager: %s" % self.version))
+		self.actionAbout.triggered.connect(self.core.showAbout)
 		helpMenu.addAction(self.actionAbout)
 	
 		self.menubar.addMenu(helpMenu)
@@ -308,6 +310,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 		if self.menuRecentProjects.isEmpty():
 			self.menuRecentProjects.setEnabled(False)
+
+		if self.description == "":
+			self.b_description.setStyleSheet(self.styleMissing)
+		else:
+			self.b_description.setStyleSheet(self.styleExists)
+		self.b_preview.setStyleSheet(self.styleMissing)
 
 
 	@err_decorator
@@ -357,6 +365,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
 					self.e_comment.setText(stateConfig.get("publish", "comment"))
 				if stateConfig.has_option("publish", "description"):
 					self.description = stateConfig.get("publish", "description")
+					if self.description == "":
+						self.b_description.setStyleSheet(self.styleMissing)
+					else:
+						self.b_description.setStyleSheet(self.styleExists)
 
 				for i in stateConfig.sections():
 					if i == "publish":
@@ -550,6 +562,18 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		self.e_comment.textChanged.connect(self.commentChanged)
 		self.e_comment.editingFinished.connect(self.saveStatesToScene)
 		self.b_description.clicked.connect(self.showDescription)
+		self.b_description.customContextMenuRequested.connect(self.clearDescription)
+		self.b_preview.clicked.connect(self.getPreview)
+		self.b_preview.customContextMenuRequested.connect(self.clearPreview)
+		self.b_description.setMouseTracking(True)
+		self.b_description.mouseMoveEvent = lambda x: self.detailMoveEvent(x, "d")
+		self.b_description.leaveEvent = lambda x: self.detailLeaveEvent(x, "d")
+		self.b_description.focusOutEvent = lambda x: self.detailFocusOutEvent(x, "d")
+		self.b_preview.setMouseTracking(True)
+		self.b_preview.mouseMoveEvent = lambda x: self.detailMoveEvent(x, "p")
+		self.b_preview.leaveEvent = lambda x: self.detailLeaveEvent(x, "p")
+		self.b_preview.focusOutEvent = lambda x: self.detailFocusOutEvent(x, "p")
+
 		self.b_getRange.clicked.connect(self.getRange)
 		self.b_setRange.clicked.connect(lambda: self.core.setFrameRange(self.sp_rangeStart.value(), self.sp_rangeEnd.value()))
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
@@ -1113,6 +1137,125 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		descriptionDlg.exec_()
 
 		self.description = descriptionDlg.te_text.toPlainText()
+		if self.description == "":
+			self.b_description.setStyleSheet(self.styleMissing)
+		else:
+			self.b_description.setStyleSheet(self.styleExists)
+		self.saveStatesToScene()
+
+
+	@err_decorator
+	def getPreview(self):
+		from PrismUtils import ScreenShot
+		self.previewImg = ScreenShot.grabScreenArea(self.core)
+		if self.previewImg is None:
+			self.b_preview.setStyleSheet(self.styleMissing)
+		else:
+			self.previewImg = self.previewImg.scaled(500, 281, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+			self.b_preview.setStyleSheet(self.styleExists)
+
+
+	@err_decorator
+	def clearDescription(self, pos=None):
+		self.description = ""
+		self.b_description.setStyleSheet(self.styleMissing)
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
+		self.saveStatesToScene()
+
+
+	@err_decorator
+	def clearPreview(self, pos=None):
+		self.previewImg = None
+		self.b_preview.setStyleSheet(self.styleMissing)
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
+
+
+	@err_decorator
+	def detailMoveEvent(self, event, table):
+		self.showDetailWin(event, table)
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.move(QCursor.pos().x()+20, QCursor.pos().y()-self.detailWin.height())
+
+
+	@err_decorator
+	def showDetailWin(self, event, detailType):
+		if detailType == "d":
+			detail = self.description
+		elif detailType == "p":
+			detail = self.previewImg
+
+		if not detail:
+			if hasattr(self, "detailWin") and self.detailWin.isVisible():
+				self.detailWin.close()
+			return
+	
+		if not hasattr(self, "detailWin") or not self.detailWin.isVisible() or self.detailWin.detail != detail:
+			if hasattr(self, "detailWin"):
+				self.detailWin.close()
+
+			self.detailWin = QFrame()
+			ss = getattr(self.core.appPlugin, "getFrameStyleSheet", lambda x: "")(self)
+			self.detailWin.setStyleSheet(ss +""" .QFrame{ border: 2px solid rgb(100,100,100);} """)
+
+			self.detailWin.detail = detail
+			self.core.parentWindow(self.detailWin)
+			winwidth = 320
+			winheight = 10
+			VBox = QVBoxLayout()
+			if detailType is "p":
+				l_prv = QLabel()
+				l_prv.setPixmap(detail)
+				l_prv.setStyleSheet( """
+					border: 1px solid rgb(100,100,100);
+				""")
+				VBox.addWidget(l_prv)
+				VBox.setContentsMargins(0,0,0,0)
+			elif detailType is "d":
+				descr = QLabel(self.description)
+				VBox.addWidget(descr)
+			self.detailWin.setLayout(VBox)
+			self.detailWin.setWindowFlags(
+					  Qt.FramelessWindowHint # hides the window controls
+					| Qt.WindowStaysOnTopHint # forces window to top... maybe
+					| Qt.SplashScreen # this one hides it from the task bar!
+					)
+		
+			self.detailWin.setGeometry(0, 0, winwidth, winheight)
+			self.detailWin.move(QCursor.pos().x()+20, QCursor.pos().y())
+			self.detailWin.show()
+
+
+	@err_decorator
+	def getImgPMap(self, path):
+		if platform.system() == "Windows":
+			return QPixmap(path)
+		else:
+			try:
+				im = Image.open(path)
+				im = im.convert("RGBA")
+				r,g,b,a = im.split()
+				im = Image.merge("RGBA", (b,g,r,a))
+				data = im.tobytes("raw", "RGBA")
+
+				qimg = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
+
+				return QPixmap(qimg)
+			except:
+				return QPixmap(path)
+
+
+	@err_decorator
+	def detailLeaveEvent(self, event, table):
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
+
+
+	@err_decorator
+	def detailFocusOutEvent(self, event, table):
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
 
 
 	@err_decorator
@@ -1310,24 +1453,24 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				if action == 0:
 					return
 
+			details = {}
+			if self.description != "":
+				details = {"description":self.description, "username":self.core.getConfig("globals", "UserName")}
+
 			if executeState:
-				sceneSaved = self.core.saveScene(versionUp=False)
+				sceneSaved = self.core.saveScene(versionUp=False, details=details, preview=self.previewImg)
 			else:
-				sceneSaved = self.core.saveScene(comment=self.e_comment.text(), publish=True)
+				sceneSaved = self.core.saveScene(comment=self.e_comment.text(), publish=True, details=details, preview=self.previewImg)
 
 			if not sceneSaved:
 				QMessageBox.warning(self.core.messageParent, actionString, actionString + " canceled")
 				return
 
-			if self.description != "":
-				descPath = os.path.join(os.path.dirname(self.core.prismIni), "SceneDescriptions", os.path.splitext(os.path.basename(self.core.getCurrentFileName()))[0] + ".txt")
-				if not os.path.exists(os.path.dirname(descPath)):
-					os.makedirs(os.path.dirname(descPath))
-
-				with open(descPath, 'w') as descFile:
-					descFile.write(self.description)
-
-				self.description = ""
+			self.description = ""
+			self.previewImg = None
+			self.b_description.setStyleSheet(self.styleMissing)
+			self.b_preview.setStyleSheet(self.styleMissing)
+			self.saveStatesToScene()
 
 			self.publishResult = []
 			self.osSubmittedJobs = {}

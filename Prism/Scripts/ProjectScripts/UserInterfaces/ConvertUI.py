@@ -2,15 +2,15 @@ import sys, pprint
 
 
 fname = "ProjectBrowser"
-#fname = "CombineMedia"
+fname = "CombineMedia"
 #fname = "EditShot"
-fname = "CreateItem"
-fname = "StateManager"
+#fname = "CreateItem"
+#fname = "StateManager"
 #fname = "TaskSelection"
 #fname = "EnterText"
 #fname = "ItemList"
 #fname = "ExternalTask"
-fname = "DependencyViewer"
+#fname = "DependencyViewer"
 
 pyside = 0
 

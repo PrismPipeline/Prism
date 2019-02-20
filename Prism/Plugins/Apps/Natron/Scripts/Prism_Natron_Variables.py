@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -34,7 +34,7 @@
 
 class Prism_Natron_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.1.2.0"
+		self.version = "v1.2.0.0"
 		self.pluginName = "Natron"
 		self.pluginType = "App"
 		self.appShortName = "Natron"
@@ -44,4 +44,4 @@ class Prism_Natron_Variables(object):
 		self.appSpecificFormats = self.sceneFormats
 		self.appColor = [210,210,210]
 		self.appVersionPresets = ["2.3.13"]
-		self.platforms = ["Windows", "Linux", "Darwin"]
+		self.platforms = ["Windows", "Linux"]

@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -32,7 +32,7 @@
 
 
 
-import sys, os, datetime, shutil, ast, time, traceback, random, platform
+import sys, os, datetime, shutil, ast, time, traceback, random, platform, imp
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -43,12 +43,15 @@ try:
 	psVersion = 2
 except:
 	try:
+		if "standalone" in sys.argv:
+			raise
+
 		from PySide.QtCore import *
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27"))
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -115,9 +118,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 		self.core = core
-		self.version = "v1.1.2.0"
-
-		#self.core.reloadPlugins()
 
 		self.core.parentWindow(self)
 
@@ -219,7 +219,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - ProjectBrowser %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - ProjectBrowser %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -276,6 +276,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_aPipeline.customContextMenuRequested.connect(lambda x: self.rclCat("ap",x))
 		self.tw_aFiles.customContextMenuRequested.connect(lambda x: self.rclFile("a",x))
 		self.tw_aFiles.doubleClicked.connect(self.exeFile)
+		self.tw_aFiles.setMouseTracking(True)
+		self.tw_aFiles.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "af")
+		self.tw_aFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "af")
+		self.tw_aFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "af")
 
 		self.tw_sShot.currentItemChanged.connect(lambda x, y: self.sShotclicked(x))
 		self.tw_sShot.itemExpanded.connect(self.sItemCollapsed)
@@ -285,6 +289,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_sCategory.customContextMenuRequested.connect(lambda x: self.rclCat("sc",x))
 		self.tw_sFiles.customContextMenuRequested.connect(lambda x: self.rclFile("sf",x))
 		self.tw_sFiles.doubleClicked.connect(self.exeFile)
+		self.tw_sFiles.setMouseTracking(True)
+		self.tw_sFiles.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "sf")
+		self.tw_sFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "sf")
+		self.tw_sFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "sf")
 
 		self.l_shotPreview.mouseDoubleClickEvent = lambda x: self.editShot(self.cursShots)
 
@@ -307,6 +315,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tbw_browser.currentChanged.connect(self.tabChanged)
 		self.tw_recent.customContextMenuRequested.connect(lambda x: self.rclFile("r",x))
 		self.tw_recent.doubleClicked.connect(self.exeFile)
+		self.tw_recent.setMouseTracking(True)
+		self.tw_recent.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "r")
+		self.tw_recent.leaveEvent = lambda x: self.tableLeaveEvent(x, "r")
+		self.tw_recent.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "r")
 
 		for i in self.appFilters:
 			self.appFilters[i]["assetChb"].stateChanged.connect(self.refreshAFile)
@@ -398,7 +410,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		helpMenu.addAction(self.actionCheckVersion)
 
 		self.actionAbout = QAction("About...", self)
-		self.actionAbout.triggered.connect(lambda: self.core.showAbout("Project: %s" % self.version))
+		self.actionAbout.triggered.connect(self.core.showAbout)
 		helpMenu.addAction(self.actionAbout)
 	
 		self.menubar.addMenu(helpMenu)
@@ -892,6 +904,117 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
+	def tableMoveEvent(self, event, table):
+		self.showDetailWin(event, table)
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.move(QCursor.pos().x()+20, QCursor.pos().y())
+
+
+	@err_decorator
+	def showDetailWin(self, event, table):
+		if table == "af":
+			table = self.tw_aFiles
+		elif table == "sf":
+			table = self.tw_sFiles
+		elif table == "r":
+			table = self.tw_recent
+
+		index = table.indexAt(event.pos())
+		if index.data() is None:
+			if hasattr(self, "detailWin") and self.detailWin.isVisible():
+				self.detailWin.close()
+			return
+
+		scenePath = table.model().index(index.row(),0).data(Qt.UserRole)
+		if scenePath is None:
+			if hasattr(self, "detailWin") and self.detailWin.isVisible():
+				self.detailWin.close()
+			return
+
+		infoPath = os.path.splitext(scenePath)[0] + "info.yml"
+		prvPath = os.path.splitext(scenePath)[0] + "preview.jpg"
+
+		if not os.path.exists(infoPath) and not os.path.exists(prvPath):
+			if hasattr(self, "detailWin") and self.detailWin.isVisible():
+				self.detailWin.close()
+			return
+	
+		if not hasattr(self, "detailWin") or not self.detailWin.isVisible() or self.detailWin.scenePath != scenePath:
+			if hasattr(self, "detailWin"):
+				self.detailWin.close()
+
+			self.detailWin = QFrame()
+
+			ss = getattr(self.core.appPlugin, "getFrameStyleSheet", lambda x: "")(self)
+			self.detailWin.setStyleSheet(ss +""" .QFrame{ border: 2px solid rgb(100,100,100);} """)
+
+			self.detailWin.scenePath = scenePath
+			self.core.parentWindow(self.detailWin)
+			winwidth = 320
+			winheight = 10
+			VBox = QVBoxLayout()
+			if os.path.exists(prvPath):
+				imgmap = self.getImgPMap(prvPath)
+				l_prv = QLabel()
+				l_prv.setPixmap(imgmap)
+				l_prv.setStyleSheet( """
+					border: 1px solid rgb(100,100,100);
+				""")
+				VBox.addWidget(l_prv)
+			w_info = QWidget()
+			GridL = QGridLayout()
+			GridL.setColumnStretch(1,1)
+			rc = 0
+			sPathL = QLabel("Scene:\t")
+			sPath = QLabel(os.path.basename(scenePath))
+			GridL.addWidget(sPathL, rc, 0, Qt.AlignLeft)
+			GridL.addWidget(sPath, rc, 1, Qt.AlignLeft)
+			rc += 1
+			if os.path.exists(infoPath):
+				sceneInfo = self.core.readYaml(infoPath)
+				if sceneInfo is None:
+					sceneInfo = {}
+				if "username" in sceneInfo:
+					unameL = QLabel("User:\t")
+					uname = QLabel(sceneInfo["username"])
+					GridL.addWidget(unameL, rc, 0, Qt.AlignLeft)
+					GridL.addWidget(uname, rc, 1, Qt.AlignLeft)
+					GridL.addWidget(uname, rc, 1, Qt.AlignLeft)
+					rc += 1
+				if "description" in sceneInfo and sceneInfo["description"] != "":
+					descriptionL = QLabel("Description:\t")
+					description = QLabel(sceneInfo["description"])
+					GridL.addWidget(descriptionL, rc, 0, Qt.AlignLeft | Qt.AlignTop)
+					GridL.addWidget(description, rc, 1, Qt.AlignLeft)
+
+			w_info.setLayout(GridL)
+			GridL.setContentsMargins(0,0,0,0)
+			VBox.addWidget(w_info)
+			self.detailWin.setLayout(VBox)
+			self.detailWin.setWindowFlags(
+					  Qt.FramelessWindowHint # hides the window controls
+					| Qt.WindowStaysOnTopHint # forces window to top... maybe
+					| Qt.SplashScreen # this one hides it from the task bar!
+					)
+		
+			self.detailWin.setGeometry(0, 0, winwidth, winheight)
+			self.detailWin.move(QCursor.pos().x()+20, QCursor.pos().y())
+			self.detailWin.show()
+
+
+	@err_decorator
+	def tableLeaveEvent(self, event, table):
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
+
+
+	@err_decorator
+	def tableFocusOutEvent(self, event, table):
+		if hasattr(self, "detailWin") and self.detailWin.isVisible():
+			self.detailWin.close()
+
+
+	@err_decorator
 	def rclCat(self, tab, pos):
 		rcmenu = QMenu()
 		typename = "Category"
@@ -1021,7 +1144,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if addOmit:
 				rcmenu.addAction(oAct)
 		elif "path" in locals():
-			lw.setCurrentIndex(lw.model().createIndex(-1,0))
+			if iname is None:
+				lw.setCurrentIndex(lw.model().createIndex(-1,0))
 			if tab not in ["ap", "ss", "sp", "sc"]:
 				cat = QAction("Create " + typename, self)
 				cat.triggered.connect(lambda: self.createCatWin(tab, typename))
@@ -1044,18 +1168,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				return
 
 			tw = self.tw_aFiles
-			filepathrow = 5
 			filepath = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles", self.lw_aPipeline.currentItem().text())
 		elif tab == "sf":
 			if self.cursStep is None or self.cursCat is None:
 				return
 
 			tw = self.tw_sFiles
-			filepathrow = 5
 			filepath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
 		elif tab == "r":
 			tw = self.tw_recent
-			filepathrow = 7
 
 		rcmenu = QMenu()
 
@@ -1071,7 +1192,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if not os.path.exists(filepath) and self.core.useLocalFiles and os.path.exists(filepath.replace(self.core.projectPath, self.core.localProjectPath)):
 				filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
 		else:
-			filepath = self.core.fixPath(tw.model().index(irow, filepathrow).data())
+			filepath = self.core.fixPath(tw.model().index(irow, 0).data(Qt.UserRole))
 			cop.triggered.connect(lambda: self.copyfile(filepath))
 			tw.setCurrentIndex(tw.model().createIndex(irow,0))
 		if tab != "r":
@@ -1125,17 +1246,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					globalAct.setEnabled(False)
 				rcmenu.addAction(globalAct)
 
-			desc = QAction("Show description", self)
-			sceneName = os.path.splitext(os.path.basename(filepath))[0]
-			descPath = os.path.join(os.path.dirname(self.core.prismIni), "SceneDescriptions", sceneName + ".txt")
-			if os.path.exists(descPath):
-				with open(descPath, 'r') as descFile:
-					fileDescription = descFile.read()
-				desc.triggered.connect(lambda: QMessageBox.information(self.core.messageParent, "Scene description", fileDescription))
-			else:
-				desc.setEnabled(False)
-			rcmenu.addAction(desc)
-
 			actDeps = QAction("Show dependencies", self)
 			infoPath = os.path.splitext(filepath)[0] + "versioninfo.ini"
 			if os.path.exists(infoPath):
@@ -1155,6 +1265,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		rcmenu.addAction(copAct)
 
 		self.core.appPlugin.setRCStyle(self, rcmenu)
+		self.core.callback(name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu])
+
 		rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
 
 
@@ -1198,20 +1310,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.core.sm.close()
 
 		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
-			column = 5
 			refresh = self.refreshAFile
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
-			column = 5
 			refresh = self.refreshSFile
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Files":
-			column = 2
 			refresh = self.refreshFCat
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Recent":
-			column = 7
 			refresh = self.setRecent
 
 		if filepath == "":
-			filepath = index.model().index(index.row(), column).data()
+			filepath = index.model().index(index.row(), 0).data(Qt.UserRole)
 
 		if self.core.useLocalFiles and os.path.join(self.core.projectPath, self.scenes) in filepath:
 			lfilepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
@@ -1248,7 +1356,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					fileStarted = getattr(i, "customizeExecutable", lambda x1,x2,x3: False)(self, appPath, filepath)
 
 			if appPath != "" and not fileStarted:
-				subprocess.Popen([appPath, self.core.fixPath(filepath)])
+				try:
+					subprocess.Popen([appPath, self.core.fixPath(filepath)])
+				except Exception as e:
+					QMessageBox.warning(self.core.messageParent,"Warning", "Could not execute file:\n\n%s" % str(e))
 				fileStarted = True
 
 			if not fileStarted:
@@ -1268,6 +1379,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) != "Files":
 			self.core.addToRecent(filepath)
 			self.setRecent()
+
+		self.core.callback(name="onSceneOpen", types=["custom"], args=[self, filepath])
 
 		if openSm:
 			self.core.stateManager()
@@ -1313,8 +1426,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			filepath = filepath.replace("\\","/")
 			filepath += self.core.filenameSeperator + self.core.appPlugin.getSceneExtension(self)
 
+			asRunning = hasattr(self.core,  "asThread") and self.core.asThread.isRunning()
+			self.core.startasThread(quit=True)
+		
 			filepath = self.core.saveScene(prismReq=False, filepath=filepath)
 			self.core.sceneOpen()
+			if asRunning:
+				self.core.startasThread()
 
 			self.core.addToRecent(filepath)
 			self.setRecent()
@@ -1668,19 +1786,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if self.core.useLocalFiles:
 			path = path.replace(self.core.localProjectPath, self.core.projectPath)
-
 			lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
 
 		dirContent = []
 		dirContentPaths = []
 
 		if os.path.exists(path):
-			dirContent += os.listdir(path)
-			dirContentPaths += [os.path.join(path,x) for x in os.listdir(path)]
+			gContent = os.listdir(path)
+			dirContent += gContent
+			dirContentPaths += [os.path.join(path,x) for x in gContent]
 
 		if self.core.useLocalFiles and os.path.exists(lpath):
-			dirContent += os.listdir(lpath)
-			dirContentPaths += [os.path.join(lpath,x) for x in os.listdir(lpath)]
+			lContent = os.listdir(lpath)
+			dirContent += lContent
+			dirContentPaths += [os.path.join(lpath,x) for x in lContent]
 
 		isAsset = False
 		if "Export" in dirContent and "Playblasts" in dirContent and "Rendering" in dirContent and "Scenefiles" in dirContent:
@@ -1691,12 +1810,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			childs = []
 			for i in dirContentPaths:
 				if os.path.isdir(i):
-						if os.path.basename(i) not in childs and i.replace(self.aBasePath, "")[1:] not in self.omittedEntities["Asset"]:
-							child = QTreeWidgetItem([os.path.basename(i), i])
-							item.addChild(child)
-							childs.append(os.path.basename(i))
-							if expanded:
-								self.refreshAItem(child, expanded=False)
+					aName = i.replace(self.aBasePath, "")
+					if self.core.useLocalFiles:
+						aName = aName.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
+					aName = aName[1:]
+
+					if os.path.basename(i) not in childs and aName not in self.omittedEntities["Asset"]:
+						child = QTreeWidgetItem([os.path.basename(i), i])
+						item.addChild(child)
+						childs.append(os.path.basename(i))
+						if expanded:
+							self.refreshAItem(child, expanded=False)
 
 		if isAsset:
 			iFont = item.font(0)
@@ -1737,7 +1861,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			dirContent += [os.path.join(lpath,x) for x in os.listdir(lpath)]
 
 		addedSteps = []
-		for i in sorted(dirContent):
+		for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
 			stepName = os.path.basename(i)
 			if os.path.isdir(i) and stepName not in addedSteps:
 				sItem = QListWidgetItem(stepName)
@@ -1803,6 +1927,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem("█")
 				item.setFont(QFont('SansSerif', 100))
 				item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+				item.setData(i, Qt.UserRole)
 
 				ext = fname[5]
 
@@ -1838,8 +1963,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				item = QStandardItem(fname[4])
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(item)
-				item = QStandardItem(i)
-				row.append(item)
 
 				if publicFile:
 					for k in row[1:]:
@@ -1852,7 +1975,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		
 		self.tw_aFiles.setModel(model)
-		self.tw_aFiles.setColumnHidden(5, True)
 		if psVersion == 1:
 			self.tw_aFiles.horizontalHeader().setResizeMode(0,QHeaderView.Fixed)
 			self.tw_aFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
@@ -1861,6 +1983,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.tw_aFiles.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
 
 		self.tw_aFiles.resizeColumnsToContents()
+		self.tw_aFiles.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_aFiles.setColumnWidth(0,10*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(1,80*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(3,200*self.core.uiScaleFactor)
@@ -1980,6 +2103,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			for i in os.walk(os.path.join(self.sBasePath, self.cursShots, "Scenefiles")):
 				foldercont = i
 				break
+
 			for i in sorted(foldercont[1]):
 				item = QStandardItem(i)
 				model.appendRow(item)
@@ -2006,6 +2130,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			for i in os.walk(os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)):
 				foldercont = i
 				break
+				
 			for i in sorted(foldercont[1]):
 				item = QStandardItem(i)
 				model.appendRow(item)
@@ -2081,6 +2206,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						item = QStandardItem("█")
 					item.setFont(QFont('SansSerif', 100))
 					item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+					item.setData(i, Qt.UserRole)
 
 					ext = fname[7]
 
@@ -2116,8 +2242,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem(fname[6])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					item = QStandardItem(i)
-					row.append(item)
 
 					if publicFile:
 						for k in row[1:]:
@@ -2129,7 +2253,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					model.appendRow(row)
 
 		self.tw_sFiles.setModel(model)
-		self.tw_sFiles.setColumnHidden(5, True)
 		if psVersion == 1:
 			self.tw_sFiles.horizontalHeader().setResizeMode(0,QHeaderView.Fixed)
 			self.tw_sFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
@@ -2138,6 +2261,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.tw_sFiles.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
 
 		self.tw_sFiles.resizeColumnsToContents()
+		self.tw_sFiles.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_sFiles.setColumnWidth(0,10*self.core.uiScaleFactor)
 		self.tw_sFiles.setColumnWidth(1,80*self.core.uiScaleFactor)
 		self.tw_sFiles.setColumnWidth(3,200*self.core.uiScaleFactor)
@@ -2257,6 +2381,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.core.parentWindow(self.es)
 		if shotName is None:
 			self.es.setWindowTitle("Create Shot")
+
+			if self.cursShots is not None:
+				self.es.e_sequence.setText(self.cursShots.split("-")[0])
+				self.es.e_shotName.setFocus()
 
 		result = self.es.exec_()
 
@@ -2421,6 +2549,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item = QStandardItem("█")
 				item.setFont(QFont('SansSerif', 100))
 				item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+				item.setData(i, Qt.UserRole)
 
 				ext = fname[-1]
 
@@ -2498,6 +2627,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.tw_recent.setModel(model)
 		self.tw_recent.resizeColumnsToContents()
+		self.tw_recent.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_recent.setColumnWidth(0,10*self.core.uiScaleFactor)
 		self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
 		self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)
@@ -2659,11 +2789,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				path = self.tw_aHierarchy.currentItem().text(1)
 			refresh = self.refreshAHierarchy
 			uielement = self.tw_aHierarchy
-		elif tab == "ss":
-			path = self.sBasePath
-			refresh = self.refreshShots
-			uielement = self.tw_sShot
-			self.cursShots = self.itemName
 		elif tab == "sc":
 			path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)
 			refresh = self.refreshsCat
@@ -2692,6 +2817,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.core.callback(name="onAssetCreated", types=["custom"], args=[self, self.itemName, path, self.newItem])
 			for i in self.core.prjManagers.values():
 				i.assetCreated(self, self.newItem, assetPath)
+		elif tab == "sc":
+			catPath = os.path.join(path, self.itemName)
+			self.createCategory(self.itemName, catPath)
 		else:
 			dirName = os.path.join(path, self.itemName)
 			if not os.path.exists(dirName):
@@ -2718,7 +2846,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def createShotFolders(self, fname, ftype):
 		if ftype == "Asset":
-			basePath = ""
+			basePath = self.aBasePath
+			fname = fname.replace(self.aBasePath, "")
+			if fname[0] in ["/", "\\"]:
+				fname = fname[1:]
 		else:
 			basePath = self.sBasePath
 
@@ -2730,8 +2861,26 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		sFolders.append(os.path.join(basePath, fname, "Rendering", "2dRender"))
 
 		if os.path.exists(os.path.dirname(sFolders[0])):
-			QMessageBox.warning(self.core.messageParent,"Warning", "The %s %s already exists" % (ftype, fname))
-			return
+			if fname in self.omittedEntities[ftype]:
+				msgText = "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?" % (ftype, fname)
+				if psVersion == 1:
+					flags = QMessageBox.StandardButton.Yes
+					flags |= QMessageBox.StandardButton.No
+					result = QMessageBox.question(self.core.messageParent, "Warning", msgText, flags)
+				else:
+					result = QMessageBox.question(self.core.messageParent, "Warning", msgText)
+
+				if str(result).endswith(".Yes"):
+					omitPath = os.path.join(os.path.dirname(self.core.prismIni), "Configs", "omits.ini")
+					items = self.core.getConfig(ftype, configPath=omitPath, getItems=True)
+					eItem = [ x[0] for x in items if x[1] == fname]
+					if len(eItem) > 0:
+						self.core.setConfig(ftype, eItem[0], configPath=omitPath, delete=True)
+				else:
+					return
+			else:
+				QMessageBox.warning(self.core.messageParent,"Warning", "The %s %s already exists" % (ftype, fname))
+				return
 
 		for i in sFolders:
 			if not os.path.exists(i):
@@ -2756,22 +2905,28 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if steps != False:
 			createdDirs = []
 			for i in steps[0]:
-				if tab == "a":
-					dstname = os.path.join(basePath, i)
-				elif tab == "s":
-					existingSteps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
-					if steps[1]:
-						catName = existingSteps[i]
-					else:
-						catName = ""
+				dstname = os.path.join(basePath, i)
 
-					dstname = os.path.join(basePath, i, catName)
 				if not os.path.exists(dstname):
 					try:
 						os.makedirs(dstname)
 						createdDirs.append(i)
 					except:
 						QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % i))
+
+				if tab == "s":
+					entity = "shot"
+				else:
+					entity = "asset"
+
+				settings = {"createDefaultCategory":tab == "s" and steps[1]}
+
+
+				self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, i, dstname, settings])
+
+				if settings["createDefaultCategory"]:
+					self.createDefaultCat(i, dstname)
+
 			if len(createdDirs) != 0:
 				if tab == "a":
 					self.refreshAHierarchy()
@@ -2782,6 +2937,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					for i in range(self.lw_sPipeline.model().rowCount()):
 						if self.lw_sPipeline.model().index(i,0).data() == createdDirs[0]:
 							self.lw_sPipeline.selectionModel().setCurrentIndex( self.lw_sPipeline.model().index(i,0) , QItemSelectionModel.ClearAndSelect)
+
+
+	@err_decorator
+	def createDefaultCat(self, step, path):
+		existingSteps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
+		catName = existingSteps[step]
+		dstname = os.path.join(path, catName)
+		self.createCategory(catName, dstname)
+
+
+	@err_decorator
+	def createCategory(self, catName, path):
+		if not os.path.exists(path):
+			try:
+				os.makedirs(path)
+			except:
+				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % path))
+			else:
+				self.core.callback(name="onCategoryCreated", types=["custom"], args=[self, catName, path])
 
 
 	@err_decorator
@@ -2942,7 +3116,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						self.lw_aPipeline.setCurrentItem(fItems[0])
 						if len(hierarchy) > (endIdx + 1):
 							for i in range(self.tw_aFiles.model().rowCount()):
-								if fileName == self.tw_aFiles.model().index(i,5).data():
+								if fileName == self.tw_aFiles.model().index(i,0).data(Qt.UserRole):
 									idx = self.tw_aFiles.model().index(i,0)
 									self.tw_aFiles.selectRow(idx.row())
 									break
@@ -2999,7 +3173,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 								break
 
 						for i in range(self.tw_sFiles.model().rowCount()):
-							if fileName == self.tw_sFiles.model().index(i,5).data():
+							if fileName == self.tw_sFiles.model().index(i,0).data(Qt.UserRole):
 								idx = self.tw_sFiles.model().index(i,0)
 								self.tw_sFiles.selectRow(idx.row())
 								break

@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -43,11 +43,14 @@ try:
 	psVersion = 2
 except:
 	try:
+		if "standalone" in sys.argv:
+			raise
+
 		from PySide.QtCore import *
 		from PySide.QtGui import *
 		psVersion = 1
 	except:
-		sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+		sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 		try:
 			from PySide2.QtCore import *
 			from PySide2.QtGui import *
@@ -375,7 +378,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 			if i[1] == "Dailies":
 				dailiesname = i[0]
 
-		cfolders = [os.path.join(path, scname, "Assets"), os.path.join(path, scname, "Shots"), os.path.join(path, assetname, "Textures")]
+		cfolders = [os.path.join(path, scname, "Assets"), os.path.join(path, scname, "Shots"), os.path.join(path, assetname, "Textures"), os.path.join(path, assetname, "HDAs")]
 
 		for i in cfolders:
 			if not os.path.exists(i):
@@ -384,6 +387,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		cData = []
 
 		cData.append(['globals', 'project_name', (self.e_name.text())])
+		cData.append(['globals', 'prism_version', self.core.version])
 		cData.append(['globals', "pipeline_steps", str({"mod": "Modeling", "shd": "Shading", "rig": "Rigging", "anm": "Animation", "ren": "Rendering", "rnd": "Research", "sim": "Simulation", "cmp": "Compositing"})])
 		cData.append(['globals', 'uselocalfiles', "False"])
 		cData.append(['globals', 'checkframerange', "True"])

@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -59,7 +59,7 @@ class PlayblastClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - hou_Playblast %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - hou_Playblast %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -486,7 +486,6 @@ class PlayblastClass(object):
 				mediaBaseName = os.path.splitext(outputName)[0][:-3]
 				videoOutput = mediaBaseName + "mp4"
 				inputpath = os.path.splitext(outputName)[0][:-3] + "%04d" + os.path.splitext(outputName)[1]
-				print inputpath
 				result = self.core.convertMedia(inputpath, jobFrames[0], videoOutput)
 
 				if not os.path.exists(videoOutput):
@@ -511,7 +510,7 @@ class PlayblastClass(object):
 				return [self.state.text(0) + " - unknown error (files do not exist)"]
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
-			erStr = ("%s ERROR - houPlayblast %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, traceback.format_exc()))
+			erStr = ("%s ERROR - houPlayblast %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return [self.state.text(0) + " - unknown error (view console for more information)"]
 

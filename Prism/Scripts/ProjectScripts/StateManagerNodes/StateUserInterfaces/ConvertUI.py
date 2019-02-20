@@ -2,8 +2,8 @@ import sys, pprint
 
 fname = "default_ImportFile"
 #fname = "default_Export"
-#fname = "default_ImageRender"
-fname = "default_Playblast"
+fname = "default_ImageRender"
+#fname = "default_Playblast"
 #fname = "Folder"
 
 pyside = 0

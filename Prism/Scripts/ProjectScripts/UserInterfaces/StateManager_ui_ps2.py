@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'StateManager.ui',
 # licensing of 'StateManager.ui' applies.
 #
-# Created: Sun Dec  2 22:54:43 2018
+# Created: Thu Feb  7 21:32:41 2019
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -226,8 +226,16 @@ class Ui_mw_StateManager(object):
         self.b_description.setMinimumSize(QtCore.QSize(20, 25))
         self.b_description.setMaximumSize(QtCore.QSize(20, 25))
         self.b_description.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.b_description.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.b_description.setObjectName("b_description")
         self.horizontalLayout_5.addWidget(self.b_description)
+        self.b_preview = QtWidgets.QPushButton(self.widget_2)
+        self.b_preview.setMinimumSize(QtCore.QSize(20, 25))
+        self.b_preview.setMaximumSize(QtCore.QSize(20, 25))
+        self.b_preview.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.b_preview.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.b_preview.setObjectName("b_preview")
+        self.horizontalLayout_5.addWidget(self.b_preview)
         self.verticalLayout_6.addWidget(self.widget_2)
         self.b_publish = QtWidgets.QPushButton(self.gb_publish)
         self.b_publish.setEnabled(False)
@@ -321,6 +329,8 @@ class Ui_mw_StateManager(object):
         self.l_comment.setText(QtWidgets.QApplication.translate("mw_StateManager", "Comment:", None, -1))
         self.b_description.setToolTip(QtWidgets.QApplication.translate("mw_StateManager", "Add a description to the published file", None, -1))
         self.b_description.setText(QtWidgets.QApplication.translate("mw_StateManager", "D", None, -1))
+        self.b_preview.setToolTip(QtWidgets.QApplication.translate("mw_StateManager", "Add a preview to the published file", None, -1))
+        self.b_preview.setText(QtWidgets.QApplication.translate("mw_StateManager", "P", None, -1))
         self.b_publish.setText(QtWidgets.QApplication.translate("mw_StateManager", "Publish", None, -1))
         self.menuAbout.setTitle(QtWidgets.QApplication.translate("mw_StateManager", "Options", None, -1))
         self.menuRecentProjects.setTitle(QtWidgets.QApplication.translate("mw_StateManager", "Recent projects", None, -1))

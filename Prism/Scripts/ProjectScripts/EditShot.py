@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -302,6 +302,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
 			if str(result).endswith(".Yes"):
 				self.core.createCmd(["renameShot", self.shotName, newSName])
+				self.core.checkCommands()
 
 		self.shotName = newSName
 

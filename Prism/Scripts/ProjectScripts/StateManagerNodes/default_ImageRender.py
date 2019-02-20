@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -62,7 +62,7 @@ class ImageRenderClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - sm_default_imageRender %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - sm_default_imageRender %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -351,7 +351,7 @@ class ImageRenderClass(object):
 
 
 	@err_decorator
-	def overrideChanged(self):
+	def overrideChanged(self, checked):
 		if self.chb_override.isChecked():
 			self.l_subdivs.setEnabled(True)
 			self.sp_minSubdivs.setEnabled(True)
@@ -632,7 +632,7 @@ class ImageRenderClass(object):
 				return [self.state.text(0) + ": error - no camera is selected. Skipping activation of this state."]
 
 			if self.chb_override.isChecked():
-				self.core.appPlugin.setVraySettings(self)
+				self.core.appPlugin.sm_render_setVraySettings(self)
 
 			outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
 
@@ -679,7 +679,7 @@ class ImageRenderClass(object):
 			if "Result=Success" in result:
 				return [self.state.text(0) + " - success"]
 			else:
-				erStr = ("%s ERROR - sm_default_imageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.stateManager.version, result))
+				erStr = ("%s ERROR - sm_default_imageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, result))
 				if not result.startswith("Execute Canceled: "):
 					if result == "unknown error (files do not exist)":
 						QMessageBox.warning(self.core.messageParent, "Warning", "No files were created during the rendering. If you think this is a Prism bug please report it in the forum:\nwww.prism-pipeline.com/forum/\nor write a mail to contact@prism-pipeline.com")

@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -65,7 +65,7 @@ class ImportFileClass(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - hou_ImportFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].stateManager.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - hou_ImportFile %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -82,8 +82,8 @@ class ImportFileClass(object):
 		self.listType = "Import"
 		self.taskName = None
 
-		self.l_name.setVisible(False)
-		self.e_name.setVisible(False)
+	#	self.l_name.setVisible(False)
+	#	self.e_name.setVisible(False)
 
 		self.node = node
 		self.fileNode = None
@@ -307,7 +307,7 @@ class ImportFileClass(object):
 					pass
 
 				if os.path.exists(impFileName):
-					hou.hda.installFile(impFileName)
+					hou.hda.installFile(impFileName, force_use_assets=True)
 			elif self.node is None or self.fileNode is None or not self.chb_updateOnly.isChecked() or (self.fileNode is not None and (self.fileNode.type().name() == "alembic") == (os.path.splitext(impFileName)[1] != ".abc")) or self.node.type().name() == "subnet":
 				if self.node is not None:
 					try:
@@ -430,15 +430,15 @@ class ImportFileClass(object):
 						i.setName(i.name().replace(prevTaskName, taskName), unique_name=True)
 						
 				if os.path.splitext(impFileName)[1] == ".abc" and "_ShotCam_" in impFileName:
-					self.node.parm("fileName").set(impFileName)
-					self.node.parm("buildHierarchy").pressButton()
+					if self.core.appPlugin.setNodeParm(self.node, "fileName", val=impFileName):
+						self.node.parm("buildHierarchy").pressButton()
 				else:
 					if os.path.splitext(impFileName)[1] == ".abc":
-						self.fileNode.parm("fileName").set(impFileName)
+						self.core.appPlugin.setNodeParm(self.fileNode, "fileName", val=impFileName)
 					elif os.path.splitext(impFileName)[1] == ".usd":
-						self.fileNode.parm("import_file").set(impFileName)
+						self.core.appPlugin.setNodeParm(self.fileNode, "import_file", val=impFileName)
 					else:
-						self.fileNode.parm("file").set(impFileName)
+						self.core.appPlugin.setNodeParm(self.fileNode, "file", val=impFileName)
 
 		impNodes = []
 		try:
@@ -514,7 +514,7 @@ class ImportFileClass(object):
 
 		if os.path.splitext(self.e_file.text())[1] == ".hda":
 			if os.path.exists(self.e_file.text()):
-				defs = hou.hda.definitionsInFile(self.e_file.text())
+				defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
 				if len(defs) > 0:
 					tname = defs[0].nodeTypeName()
 					mNode = None
@@ -550,7 +550,8 @@ class ImportFileClass(object):
 			mNode.parm("objpath1").set(outNodePath)
 
 		mNode.setDisplayFlag(True)
-		mNode.setRenderFlag(True)
+		if hasattr(mNode, "setRenderFlag"):
+			mNode.setRenderFlag(True)
 		mNode.setPosition(paneTab.visibleBounds().center())
 		mNode.setCurrent(True, clear_all_selected=True)
 
@@ -564,7 +565,7 @@ class ImportFileClass(object):
 			self.l_status.setText("not installed")
 			self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
 			if os.path.exists(self.e_file.text()):
-				defs = hou.hda.definitionsInFile(self.e_file.text())
+				defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
 				if len(defs) > 0:
 					if defs[0].isInstalled():
 						self.l_status.setText("installed")
@@ -691,7 +692,7 @@ class ImportFileClass(object):
 				for i in outputCons:
 					i.outputNode().setInput(i.inputIndex(), unitNode, 0)
 
-			unitNode.parm("scale").set(0.01)
+			self.core.appPlugin.setNodeParm(unitNode, "scale", val=0.01)
 			self.fileNode.parent().layoutChildren()
 
 

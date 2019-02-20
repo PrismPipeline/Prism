@@ -11,7 +11,7 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2018 Richard Frangenberg
+# Copyright (C) 2016-2019 Richard Frangenberg
 #
 # Licensed under GNU GPL-3.0-or-later
 #
@@ -559,6 +559,9 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 		if origin.cb_outType.currentText() != "ShotCam":
 			if origin.cb_outType.currentText() != ".fbx":
 				for handle in origin.nodes:
+					if not self.isNodeValid(origin, handle):
+						continue
+					
 					if MaxPlus.INode.GetINodeByHandle(handle).IsHidden():
 						warnings.append(["Some chosen objects are hidden.", "Hidden objects are only supported with fbx exports.", 2])
 						break
@@ -580,7 +583,8 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 
 	@err_decorator
 	def sm_render_setVraySettings(self, origin):
-		self.executeScript(origin, "rs = renderers.current\nif matchpattern (classof rs as string) pattern: \"V_Ray*\" then(\nrs.imageSampler_type = 1\nrs.twoLevel_baseSubdivs = %s\nrs.twoLevel_fineSubdivs = %s\nrs.twoLevel_threshold = %s\nrs.dmc_earlyTermination_threshold = %s" % (origin.chb_minSubdivs.value(), origin.chb_maxSubdivs.value(), origin.chb_cThres.value(), origin.chb_nThres.value()))
+		if self.sm_render_isVray(origin):
+			self.executeScript(origin, "rs = renderers.current\nif matchpattern (classof rs as string) pattern: \"V_Ray*\" then(\nrs.imageSampler_type = 1\nrs.twoLevel_baseSubdivs = %s\nrs.twoLevel_fineSubdivs = %s\nrs.twoLevel_threshold = %s\nrs.dmc_earlyTermination_threshold = %s)" % (origin.sp_minSubdivs.value(), origin.sp_maxSubdivs.value(), origin.sp_cThres.value(), origin.sp_nThres.value()))
 
 
 	@err_decorator
@@ -686,7 +690,7 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 				return "unknown error (files do not exist)"
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
-			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.stateManager.version, traceback.format_exc()))
+			erStr = ("%s ERROR - sm_default_imageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), origin.core.version, traceback.format_exc()))
 			self.core.writeErrorLog(erStr)
 			return "Execute Canceled: unknown error (view console for more information)"
 
