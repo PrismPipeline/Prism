@@ -805,7 +805,7 @@ class ExportClass(object):
 				warnings.append(["Node is invalid.", "", 3])
 
 		if not hou.simulationEnabled():
-			warnings.append(["Houdini simulations are disabled.", "", 3])
+			warnings.append(["Simulations are disabled.", "", 2])
 
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
 			warnings += self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_preExecute(self)
@@ -1025,8 +1025,11 @@ class ExportClass(object):
 				if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
 					return [self.state.text(0) + ": error - Publish canceled"]
 
-				self.node.parm("f1").set(startFrame)
-				self.node.parm("f2").set(endFrame)
+				if not self.core.appPlugin.setNodeParm(self.node, "f1", val=startFrame):
+					return [self.state.text(0) + ": error - Publish canceled"]
+
+				if not self.core.appPlugin.setNodeParm(self.node, "f2", val=endFrame):
+					return [self.state.text(0) + ": error - Publish canceled"]
 
 				if self.cb_outType.currentText() in [".abc", ".usd"]:
 					outputName = outputName.replace(".$F4", "")
@@ -1094,7 +1097,8 @@ class ExportClass(object):
 				hou.hipFile.save()
 
 				if idx == 1:
-					transformNode.parm("scale").set(100)
+					if not self.core.appPlugin.setNodeParm(transformNode, scale, val=100):
+						return [self.state.text(0) + ": error - Publish canceled"]
 
 				if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
 					result = self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_submitJob(self, outputName, parent)
@@ -1154,10 +1158,12 @@ class ExportClass(object):
 							self.updateUi()
 						else:
 							self.node.parm("execute").pressButton()
-							if self.node.errors() != () and self.node.errors() != "":
-								erStr = ("%s ERROR - houExportnode %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, self.node.errors()))
+							errs = self.node.errors()
+							if len(errs) > 0:
+								errs = "\n" + "\n\n".join(errs)
+								erStr = ("%s ERROR - houExportnode %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, errs))
 					#			self.core.writeErrorLog(erStr)
-								result = "Execute failed: " + str(self.node.errors())
+								result = "Execute failed: " + errs
 
 						if result == "":
 							if len(os.listdir(outputPath)) > 0:
@@ -1173,7 +1179,8 @@ class ExportClass(object):
 						return [self.state.text(0) + " - unknown error (view console for more information)"]
 
 				if idx == 1:
-					transformNode.parm("scale").set(1)
+					if not self.core.appPlugin.setNodeParm(transformNode, scale, val=1):
+						return [self.state.text(0) + ": error - Publish canceled"]
 
 			self.core.callHook("postExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":outputName})
 

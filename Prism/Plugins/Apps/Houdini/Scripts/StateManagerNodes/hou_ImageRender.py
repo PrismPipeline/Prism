@@ -1001,8 +1001,11 @@ class ImageRenderClass(object):
 			if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
 				return [self.state.text(0) + ": error - Publish canceled"]
 
-			self.node.parm("f1").set(jobFrames[0])
-			self.node.parm("f2").set(jobFrames[1])
+			if not self.core.appPlugin.setNodeParm(self.node, "f1", val=jobFrames[0]):
+				return [self.state.text(0) + ": error - Publish canceled"]
+
+			if not self.core.appPlugin.setNodeParm(self.node, "f2", val=jobFrames[1]):
+				return [self.state.text(0) + ": error - Publish canceled"]
 
 			try:
 				bkrender = self.stateManager.publishInfos["backgroundRender"]

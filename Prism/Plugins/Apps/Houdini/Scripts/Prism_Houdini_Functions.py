@@ -435,18 +435,30 @@ class Prism_Houdini_Functions(object):
 				node.parm(parm).set(val)
 		except:
 			curTake = hou.takes.currentTake()
-			if curTake.hasParmTuple(node.parm(parm).tuple()):
-				raise
+			if curTake.hasParmTuple(node.parm(parm).tuple()) or curTake.parent() is None:
+				msgString = "Cannot set this parameter. Probably because it is locked:\n\n%s" % node.parm(parm).path()
+				msg = QMessageBox(QMessageBox.Warning, "Cannot set Parameter", msgString, QMessageBox.Cancel)
+				msg.addButton("Ignore", QMessageBox.YesRole)
+				self.core.parentWindow(msg)
+				action = msg.exec_()
+
+				if action == 0:
+					return True
+				else:
+					return False
 			else:
-				msgString = "The parameter is not included in the current take.\nTo continue the parameter needs to be added to the current take.\n\n%s" % node.parm(parm).path()
+				msgString = "The parameter is not included in the current take.\nTo continue the parameter should be added to the current take.\n\n%s" % node.parm(parm).path()
 				msg = QMessageBox(QMessageBox.Warning, "Locked Parameter", msgString, QMessageBox.Cancel)
 				msg.addButton("Add to current take", QMessageBox.YesRole)
+				msg.addButton("Ignore", QMessageBox.YesRole)
 				self.core.parentWindow(msg)
 				action = msg.exec_()
 
 				if action == 0:
 					curTake.addParmTuple(node.parm(parm).tuple())
 					self.setNodeParm(node, parm, val, clear)
+				elif action == 1:
+					return True
 				else:
 					return False
 
