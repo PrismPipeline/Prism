@@ -682,21 +682,42 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def sm_createRenderPressed(self, origin):
-		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().name() in ["ifd", "Redshift_ROP"]):
-			origin.createPressed("Render")
-			return
+		renderers = self.getRendererPlugins()
+		if len(hou.selectedNodes()) > 0:
+			for i in renderers:
+				if hou.selectedNodes()[0].type().name() in i.ropNames:
+					origin.createPressed("Render")
+					return
 
 		rndMenu = QMenu()
-		mAct = QAction("Mantra", origin)
-		mAct.triggered.connect(lambda: origin.createPressed("Render", renderer="Mantra"))
-		rndMenu.addAction(mAct)
-		mAct = QAction("Redshift", origin)
-		mAct.triggered.connect(lambda: origin.createPressed("Render", renderer="Redshift"))
-		rndMenu.addAction(mAct)
+		for i in renderers:
+			mAct = QAction(i.label, origin)
+			mAct.triggered.connect(lambda x=i.label: origin.createPressed("Render", renderer=x))
+			rndMenu.addAction(mAct)
+
+		if rndMenu.isEmpty():
+			origin.createPressed("Render")
+			return False
 
 		self.setRCStyle(origin, rndMenu)
 
 		rndMenu.exec_(QCursor.pos())
+
+
+	@err_decorator
+	def getRendererPlugins(self):
+		for i in ["Prism_Houdini_Renderer_Arnold", "Prism_Houdini_Renderer_Mantra", "Prism_Houdini_Renderer_Redshift", "Prism_Houdini_Renderer_Vray"]:
+			try:
+				del sys.modules[i]
+			except:
+				pass
+
+		import Prism_Houdini_Renderer_Arnold as arnoldRenderer
+		import Prism_Houdini_Renderer_Mantra as mantraRenderer
+		import Prism_Houdini_Renderer_Redshift as redshiftRenderer
+		import Prism_Houdini_Renderer_Vray as vrayRenderer
+
+		return [arnoldRenderer, mantraRenderer, redshiftRenderer, vrayRenderer]
 
 
 	@err_decorator

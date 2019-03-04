@@ -354,7 +354,7 @@ class Prism_Shotgun_Functions(object):
 			if not authentificated:
 				try:
 					self.sg = shotgun_api3.Shotgun(sgSite, script_name=sgScriptName, api_key=sgApiKey)
-				except ValueError as e:
+				except Exception as e:
 					QMessageBox.warning(self.core.messageParent,"Shotgun", "Could not connect to Shotgun:\n\n%s" % e)
 					return [None, None, None]
 

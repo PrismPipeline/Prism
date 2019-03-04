@@ -473,7 +473,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	@err_decorator
 	def loadSettings(self):
 		if not os.path.exists(self.core.userini):
-			QMessageBox.warning(self,"loadSettings", "Prism config does not exist.")
+			QMessageBox.warning(self, "Load Settings", "Prism config does not exist.")
 			return
 
 		if hasattr(self.core, "projectName"):
@@ -532,7 +532,13 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 				ucData.update(loadData)
 				loadFunctions.update(pLoadFunctions)
 
-		ucData = self.core.getConfig(data=ucData)
+		result = self.core.getConfig(data=ucData)
+
+		if result is None:
+			QMessageBox.warning(self, "Load Settings", "Loading Prism Settings failed.")
+			return
+
+		ucData = result
 
 		if ucData["username"] is not None:
 			uname = ucData["username"].split()

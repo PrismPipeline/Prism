@@ -996,7 +996,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					| Qt.WindowStaysOnTopHint # forces window to top... maybe
 					| Qt.SplashScreen # this one hides it from the task bar!
 					)
-		
+			self.detailWin.setAttribute(Qt.WA_ShowWithoutActivating)
 			self.detailWin.setGeometry(0, 0, winwidth, winheight)
 			self.detailWin.move(QCursor.pos().x()+20, QCursor.pos().y())
 			self.detailWin.show()

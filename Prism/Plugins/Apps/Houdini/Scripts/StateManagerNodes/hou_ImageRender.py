@@ -80,12 +80,8 @@ class ImageRenderClass(object):
 
 		self.camlist = []
 
-		if "Unknown command" in hou.hscript("Redshift_version()")[1]:
-			self.f_renderer.setVisible(False)
-			self.rsAvailable = False
-		else:
-			self.cb_renderer.addItems(["Mantra", "Redshift"])
-			self.rsAvailable = True
+		self.renderers = [x for x in self.core.appPlugin.getRendererPlugins() if x.isActive()]
+		self.cb_renderer.addItems([x.label for x in self.renderers])
 
 		self.resolutionPresets = ["1920x1080", "1280x720", "640x360", "4000x2000", "2000x1000"]
 
@@ -107,13 +103,17 @@ class ImageRenderClass(object):
 		if node is None:
 			if stateData is None:
 				if not self.connectNode():
-					self.cb_renderer.setCurrentIndex(self.cb_renderer.findText(renderer))
-					self.rendererChanged(renderer)
+					idx = self.cb_renderer.findText(renderer)
+					if idx != -1:
+						self.cb_renderer.setCurrentIndex(idx)
 		else:
 			self.node = node
-			if node.type().name() == "Redshift_ROP":
-				self.cb_renderer.setCurrentIndex(self.cb_renderer.findText("Redshift"))
-				self.rendererChanged("Redshift")
+			ropType = node.type().name()
+			for i in self.renderers:
+				if ropType in i.ropNames:
+					self.cb_renderer.setCurrentIndex(self.cb_renderer.findText(i.label))
+
+		self.rendererChanged(self.cb_renderer.currentText(), create=stateData is None)
 
 		if hasattr(self, "node") and self.node is not None:
 			self.sp_rangeStart.setValue(self.node.parm("f1").eval())
@@ -143,12 +143,15 @@ class ImageRenderClass(object):
 			self.node = hou.node(data["connectednode"])
 			if self.node is None:
 				self.node = self.findNode(data["connectednode"])
+			if self.node is not None:
+				ropType = self.node.type().name()
+				for i in self.renderers:
+					if ropType in i.ropNames:
+						self.cb_renderer.setCurrentIndex(self.cb_renderer.findText(i.label))
 		if "connectednode2" in data:
 			self.node2 = hou.node(data["connectednode2"])
 			if self.node2 is None:
 				self.node2 = self.findNode(data["connectednode2"])
-
-		self.updateUi()
 
 		if "statename" in data:
 			self.e_name.setText(data["statename"])
@@ -166,10 +169,7 @@ class ImageRenderClass(object):
 			res = eval(data["camoverride"])
 			self.chb_camOverride.setChecked(res)
 			if not res and self.node is not None:
-				if self.node.type().name() == "ifd":
-					self.curCam = hou.node(self.node.parm("camera").eval())
-				elif self.node.type().name() == "Redshift_ROP":
-					self.curCam = hou.node(self.node.parm("RS_renderCamera").eval())
+				self.curCam = self.curRenderer.getCam(self.node)
 		if "currentcam" in data:
 			idx = self.cb_cams.findText(data["currentcam"])
 			if idx != -1:
@@ -321,19 +321,13 @@ class ImageRenderClass(object):
 
 
 	@err_decorator
-	def rendererChanged(self, renderer):
-		if renderer == "Mantra":
-			if (self.node is None or self.node.type().name() != "ifd"):
-				self.deleteNode()
-				self.node = hou.node("/out").createNode("ifd")
+	def rendererChanged(self, renderer, create=True):
+		self.curRenderer = [x for x in self.renderers if x.label == renderer][0]
+		if self.node is None or self.node.type().name() not in self.curRenderer.ropNames:
+			self.deleteNode()
+			if create:
+				self.curRenderer.createROP(self)
 				self.node.moveToGoodPosition()
-		elif renderer == "Redshift" and self.rsAvailable:
-			if (self.node is None or self.node.type().name() != "Redshift_ROP"):
-				self.deleteNode()
-				self.node = hou.node("/out").createNode("Redshift_ROP")
-				self.node2 = hou.node("/out").createNode("Redshift_IPR")
-				self.node.moveToGoodPosition()
-				self.node2.moveToGoodPosition()
 
 		self.refreshPasses()
 
@@ -479,10 +473,8 @@ class ImageRenderClass(object):
 				else:
 					self.curCam = None
 				self.stateManager.saveStatesToScene()
-		elif self.node is not None and self.node.type().name() == "ifd":
-			self.curCam = hou.node(self.node.parm("camera").eval())
-		elif self.node is not None and self.node.type().name() == "Redshift_ROP":
-			self.curCam = hou.node(self.node.parm("RS_renderCamera").eval())
+		elif self.node is not None:
+			self.curCam = self.curRenderer.getCam(self.node)
 
 
 	@err_decorator
@@ -502,19 +494,16 @@ class ImageRenderClass(object):
 
 	@err_decorator
 	def connectNode(self):
-		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().name() == "ifd" or hou.selectedNodes()[0].type().name() == "Redshift_ROP"):
-			self.node = hou.selectedNodes()[0]
+		if len(hou.selectedNodes()) == 0:
+			return False
 
-			if hou.selectedNodes()[0].type().name() == "ifd":
-				self.cb_renderer.setCurrentIndex(self.cb_renderer.findText("Mantra"))
-			elif hou.selectedNodes()[0].type().name() == "Redshift_ROP":
-				self.cb_renderer.setCurrentIndex(self.cb_renderer.findText("Redshift"))
-
-			self.nameChanged(self.e_name.text())
-			self.updateUi()
-			self.stateManager.saveStatesToScene()
-
-			return True
+		ropType = hou.selectedNodes()[0].type().name()
+		for i in self.renderers:
+			if ropType in i.ropNames:
+				self.node = hou.selectedNodes()[0]
+				self.cb_renderer.setCurrentIndex(self.cb_renderer.findText(i.label))
+				self.rendererChanged(self.cb_renderer.currentText())
+				return True
 
 		return False
 
@@ -590,34 +579,20 @@ class ImageRenderClass(object):
 			return
 
 		passNum = str(int(self.tw_passes.item(item.row(), 2).text()) + 1)
-
-		if self.node.type().name() == "ifd":
-			if item.column() == 0:
-				self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + passNum, val=item.text())
-			elif item.column() == 1:
-				self.core.appPlugin.setNodeParm(self.node, "vm_variable_plane" + passNum, val=item.text())
-		elif self.node.type().name() == "Redshift_ROP":
-			if item.column() == 0:
-				typeNames = self.node.parm("RS_aovID_" + passNum).menuLabels()
-				typeId = typeNames.index(item.text())
-				self.core.appPlugin.setNodeParm(self.node, "RS_aovID_" + passNum, val=typeId)
-			elif item.column() == 1:
-				self.core.appPlugin.setNodeParm(self.node, "RS_aovSuffix_" + passNum, val=item.text())
+		self.curRenderer.setAOVData(self, self.node, passNum, item)
 
 
 	@err_decorator
 	def showPasses(self):
 		steps = None
 		if self.node is not None:
-			if self.node.type().name() == "ifd":
-				steps = self.core.getConfig("defaultpasses", "houdini_mantra", configPath=self.core.prismIni)
-			elif self.node.type().name() == "Redshift_ROP":
-				steps = self.core.getConfig("defaultpasses", "houdini_redshift", configPath=self.core.prismIni)
+			steps = self.curRenderer.getDefaultPasses(self)
 
 		if steps == None or len(steps) == 0:
 			return False
 
-		steps = eval(steps)
+		if type(steps) != list:
+			steps = eval(steps)
 
 		try:
 			del sys.modules["ItemList"]
@@ -630,8 +605,13 @@ class ImageRenderClass(object):
 		self.core.parentWindow(self.il)
 		self.il.tw_steps.doubleClicked.connect(self.il.accept)
 		self.il.b_addStep.setVisible(False)
-		self.il.tw_steps.horizontalHeaderItem(0).setText("Name")
-		self.il.tw_steps.horizontalHeaderItem(1).setText("VEX Variable")
+		if self.curRenderer.label == "Mantra":
+			self.il.tw_steps.horizontalHeaderItem(0).setText("Name")
+			self.il.tw_steps.horizontalHeaderItem(1).setText("VEX Variable")
+		else:
+			self.il.tw_steps.horizontalHeaderItem(0).setText("Type")
+			self.il.tw_steps.horizontalHeaderItem(1).setText("Name")
+
 		for i in steps:
 			rc = self.il.tw_steps.rowCount()
 			self.il.tw_steps.insertRow(rc)
@@ -639,6 +619,8 @@ class ImageRenderClass(object):
 			self.il.tw_steps.setItem(rc, 0, item1)
 			item2 = QTableWidgetItem(i[1])
 			self.il.tw_steps.setItem(rc, 1, item2)
+
+		self.il.tw_steps.resizeColumnsToContents()
 	
 		result = self.il.exec_()
 
@@ -647,18 +629,7 @@ class ImageRenderClass(object):
 
 		for i in self.il.tw_steps.selectedItems():
 			if i.column() == 0:
-				if self.node.type().name() == "ifd":
-					passNum = self.node.parm("vm_numaux").eval()+1
-					self.core.appPlugin.setNodeParm(self.node, "vm_numaux", val=passNum)
-					self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(passNum), val=steps[i.row()][0])
-					self.core.appPlugin.setNodeParm(self.node, "vm_usefile_plane" + str(passNum), val=True)
-					self.core.appPlugin.setNodeParm(self.node, "vm_variable_plane" + str(passNum), val=steps[i.row()][1])
-				elif self.node.type().name() == "Redshift_ROP":
-					passNum = self.node.parm("RS_aov").eval()+1
-					self.core.appPlugin.setNodeParm(self.node, "RS_aov", val=passNum)
-					typeID = self.node.parm("RS_aovID_" + str(passNum)).menuLabels().index(steps[i.row()][0])
-					self.core.appPlugin.setNodeParm(self.node, "RS_aovID_" + str(passNum), val=typeID)
-					self.core.appPlugin.setNodeParm(self.node, "RS_aovSuffix_" + str(passNum), val=steps[i.row()][1])
+				self.curRenderer.addAOV(self, steps[i.row()])
 
 		self.updateUi()
 
@@ -677,52 +648,14 @@ class ImageRenderClass(object):
 		self.tw_passes.setColumnCount(3)
 		self.tw_passes.setColumnHidden(2, True)
 		self.tw_passes.setStyleSheet("")
-		if self.node.type().name() == "ifd":
-			self.tw_passes.horizontalHeaderItem(0).setText("Name")
-			self.tw_passes.horizontalHeaderItem(1).setText("VEX Variable")
-		elif self.node.type().name() == "Redshift_ROP":
-			self.tw_passes.horizontalHeaderItem(0).setText("Type")
-			self.tw_passes.horizontalHeaderItem(1).setText("Name")
-
-		passNum = 0
-		
-		if self.node is not None:
-			if self.node.type().name() == "ifd":
-				for i in range(self.node.parm("vm_numaux").eval()):
-					if self.node.parm("vm_disable_plane" + str(i+1)).eval() == 1:
-						continue
-
-					passName = QTableWidgetItem(self.node.parm("vm_channel_plane" + str(i+1)).eval())
-					passVariable = QTableWidgetItem(self.node.parm("vm_variable_plane" + str(i+1)).eval())
-					passNItem = QTableWidgetItem(str(i))
-					self.tw_passes.insertRow(passNum)
-					self.tw_passes.setItem(passNum, 0, passName)
-					self.tw_passes.setItem(passNum, 1, passVariable)
-					self.tw_passes.setItem(passNum, 2, passNItem)
-					passNum += 1
-
-			elif self.node.type().name() == "Redshift_ROP":
-				for i in range(self.node.parm("RS_aov").eval()):
-					if self.node.parm("RS_aovEnable_" + str(i+1)).eval() == 0:
-						continue
-
-					passTypeID = self.node.parm("RS_aovID_" + str(i+1)).eval()
-					passTypeName = QTableWidgetItem(self.node.parm("RS_aovID_" + str(i+1)).menuLabels()[passTypeID])
-					passName = QTableWidgetItem(self.node.parm("RS_aovSuffix_" + str(i+1)).eval())
-					passNItem = QTableWidgetItem(str(i))
-					self.tw_passes.insertRow(passNum)
-					self.tw_passes.setItem(passNum, 0, passTypeName)
-					self.tw_passes.setItem(passNum, 1, passName)
-					self.tw_passes.setItem(passNum, 2, passNItem)
-					passNum += 1
-
+		self.curRenderer.refreshAOVs(self)
 
 		self.setPassDataEnabled = True
 
 
 	@err_decorator
 	def rclickPasses(self, pos):
-		if self.tw_passes.selectedIndexes() == [] or self.node.type().name() == "Redshift_ROP":
+		if self.tw_passes.selectedIndexes() == []:
 			return
 
 		irow = self.tw_passes.selectedIndexes()[0].row()
@@ -739,49 +672,13 @@ class ImageRenderClass(object):
 
 	@err_decorator
 	def deletePass(self, row):
-		pname = self.tw_passes.item(row, 0).text()
-		pvar = self.tw_passes.item(row, 1).text()
-
-		parms = ["vm_disable_plane", "vm_variable_plane", "vm_vextype_plane", "vm_channel_plane", "vm_usefile_plane", "vm_filename_plane", "vm_quantize_plane", "vm_sfilter_plane", "vm_pfilter_plane", "vm_componentexport", "vm_lightexport", "vm_lightexport_scope", "vm_lightexport_select"]
-		passes = []
-		for i in range(self.node.parm("vm_numaux").eval()):
-			plane = []
-			for k in parms:
-				plane.append(self.node.parm(k+str(i+1)).eval())
-
-			if plane[1] != pvar and plane[3] != pname:
-				passes.append(plane)
-
-		if self.core.appPlugin.setNodeParm(self.node, "vm_numaux", val=len(passes)):
-			for i in range(len(passes)):
-				for idx, k in enumerate(parms):
-					self.core.appPlugin.setNodeParm(self.node, k+str(i+1), val=passes[i][idx])
-
+		self.curRenderer.deleteAOV(self, row)
 		self.updateUi()
 
 
 	@err_decorator
 	def passesDbClick(self, event):
-		if self.node is None or self.node.type().name() != "Redshift_ROP" or event.button() != Qt.LeftButton:
-			self.tw_passes.mouseDbcEvent(event)
-			return
-
-		curItem = self.tw_passes.itemFromIndex(self.tw_passes.indexAt(event.pos()))
-		if curItem is not None and curItem.column() == 0:
-			typeMenu = QMenu()
-
-			types = self.node.parm("RS_aovID_1").menuLabels()
-
-			for i in types:
-				tAct = QAction(i, self)
-				tAct.triggered.connect(lambda z=None, x=curItem, y=i: x.setText(y))
-				tAct.triggered.connect(lambda z=None, x=curItem: self.setPassData(x))
-				typeMenu.addAction(tAct)
-
-			typeMenu.setStyleSheet(self.stateManager.parent().styleSheet())
-			typeMenu.exec_(QCursor.pos())
-		else:
-			self.tw_passes.mouseDbcEvent(event)
+		self.curRenderer.aovDbClick(self, event)
 
 
 	@err_decorator
@@ -877,17 +774,12 @@ class ImageRenderClass(object):
 			return [self.state.text(0) + ": error - The selected camera is invalid. Skipped the activation of this state."]
 
 		try:
-			if not self.node.type().name() in ["ifd", "Redshift_ROP"]:
-				return [self.state.text(0) + ": error - Node is invalid."]
+			self.node.name()
 		except:
 			return [self.state.text(0) + ": error - Node is invalid."]
 
-		if self.node.type().name() == "ifd":
-			if not self.core.appPlugin.setNodeParm(self.node, "camera", val=self.curCam.path()):
-				return [self.state.text(0) + ": error - Publish canceled"]
-		elif self.node.type().name() == "Redshift_ROP":
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_renderCamera", val=self.curCam.path()):
-				return [self.state.text(0) + ": error - Publish canceled"]
+		if not self.curRenderer.setCam(self, self.node, self.curCam.path()):
+			return [self.state.text(0) + ": error - Publish canceled"]
 
 		fileName = self.core.getCurrentFileName()
 
@@ -902,57 +794,9 @@ class ImageRenderClass(object):
 
 		self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
 
-		passNames = []
-		if self.node.type().name() == "ifd":
-			if not self.core.appPlugin.setNodeParm(self.node, "vm_picture", val=outputName):
-				return [self.state.text(0) + ": error - Publish canceled"]
-
-			for i in range(self.node.parm("vm_numaux").eval()):
-				passVar = self.node.parm("vm_variable_plane" + str(i+1)).eval()
-				passName = self.node.parm("vm_channel_plane" + str(i+1)).eval()
-				passNames.append([passName, passVar])
-				passOutputName = os.path.join(os.path.dirname(outputPath), passName, os.path.basename(outputName).replace("beauty", passName))
-				os.makedirs(os.path.split(passOutputName)[0])
-
-				if not self.core.appPlugin.setNodeParm(self.node, "vm_usefile_plane" + str(i+1), val=True):
-					return [self.state.text(0) + ": error - Publish canceled"]
-				if not self.core.appPlugin.setNodeParm(self.node, "vm_filename_plane" + str(i+1), val=passOutputName):
-					return [self.state.text(0) + ": error - Publish canceled"]
-
-				if passVar != "all":
-					if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val="rgb"):
-						return [self.state.text(0) + ": error - Publish canceled"]
-				else:
-					if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val=""):
-						return [self.state.text(0) + ": error - Publish canceled"]
-					if not self.core.appPlugin.setNodeParm(self.node, "vm_lightexport" + str(i+1), val=1):
-						return [self.state.text(0) + ": error - Publish canceled"]
-		elif self.node.type().name() == "Redshift_ROP":
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_outputEnable", val=True):
-				return [self.state.text(0) + ": error - Publish canceled"]
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_outputFileNamePrefix", val=outputName):
-				return [self.state.text(0) + ": error - Publish canceled"]
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_outputFileFormat", val=0):
-				return [self.state.text(0) + ": error - Publish canceled"]
-
-			for parm in self.node.parms():
-				if "RS_aovCustomPrefix" in parm.name():
-					currentAOVID = parm.name().split("_")[-1]
-					layerParmName = "RS_aovSuffix_"+currentAOVID
-					layerName = self.node.parm(layerParmName).eval()
-					typeParmName = "RS_aovID_" + currentAOVID
-					layerTypeID = self.node.parm(typeParmName).eval()
-					layerType = self.node.parm(typeParmName).menuLabels()[layerTypeID]
-					if layerType == "Cryptomatte":
-						layerName = "$AOV"
-					commonOutPut = self.node.parm("RS_outputFileNamePrefix").unexpandedString()
-					outPut = commonOutPut.replace("beauty",layerName)
-
-					if not self.core.appPlugin.setNodeParm(self.node, parm.name(), clear=True):
-						return [self.state.text(0) + ": error - Publish canceled"]
-
-					if not self.core.appPlugin.setNodeParm(self.node, parm.name(), val=outPut):
-						return [self.state.text(0) + ": error - Publish canceled"]
+		result = self.curRenderer.executeAOVs(self, outputName)
+		if not result:
+			return result
 
 		self.l_pathLast.setText(outputName)
 		self.l_pathLast.setToolTip(outputName)
@@ -960,16 +804,10 @@ class ImageRenderClass(object):
 		self.b_copyLast.setEnabled(True)
 		self.stateManager.saveStatesToScene()
 
-		# RS resolution override in config doesn't work with Deadline, so it will be set before submittig
-		if self.chb_resOverride.isChecked() and self.node.type().name() == "Redshift_ROP":
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideCameraRes", val=True):
-				return [self.state.text(0) + ": error - Publish canceled"]
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideResScale", val="user"):
-				return [self.state.text(0) + ": error - Publish canceled"]
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideRes1", val=self.sp_resWidth.value()):
-				return [self.state.text(0) + ": error - Publish canceled"]
-			if not self.core.appPlugin.setNodeParm(self.node, "RS_overrideRes2", val=self.sp_resHeight.value()):
-				return [self.state.text(0) + ": error - Publish canceled"]
+		if self.chb_resOverride.isChecked():				
+			result = self.curRenderer.setResolution(self)
+			if not result:
+				return result
 
 		hou.hipFile.save()
 
@@ -983,16 +821,6 @@ class ImageRenderClass(object):
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
 			result = self.core.rfManagers[self.cb_manager.currentText()].sm_houRender_submitJob(self, outputName, parent)
 		else:
-			if self.chb_resOverride.isChecked() and self.node.type().name() == "ifd":				
-				if not self.core.appPlugin.setNodeParm(self.node, "override_camerares", val=True):
-					return [self.state.text(0) + ": error - Publish canceled"]
-				if not self.core.appPlugin.setNodeParm(self.node, "res_fraction", val="specific"):
-					return [self.state.text(0) + ": error - Publish canceled"]
-				if not self.core.appPlugin.setNodeParm(self.node, "res_overridex", val=self.sp_resWidth.value()):
-					return [self.state.text(0) + ": error - Publish canceled"]
-				if not self.core.appPlugin.setNodeParm(self.node, "res_overridey", val=self.sp_resHeight.value()):
-					return [self.state.text(0) + ": error - Publish canceled"]
-
 			if not self.core.appPlugin.setNodeParm(self.node, "trange", val=1):
 				return [self.state.text(0) + ": error - Publish canceled"]
 
@@ -1008,62 +836,35 @@ class ImageRenderClass(object):
 				return [self.state.text(0) + ": error - Publish canceled"]
 
 			try:
-				bkrender = self.stateManager.publishInfos["backgroundRender"]
-				if bkrender is None:
-					if self.node.type().name() == "ifd":				
-						msg = QMessageBox(QMessageBox.Question, "Render", "How do you want to render?", QMessageBox.Cancel)
-						msg.addButton("Render", QMessageBox.YesRole)
-						msg.addButton("Render in background", QMessageBox.YesRole)
-						self.core.parentWindow(msg)
-						action = msg.exec_()
-						self.stateManager.publishInfos["backgroundRender"] = action
-					elif self.node.type().name() == "Redshift_ROP":
-						action = 0
-				else:
-					if bkrender:
-						action = 1
-					else:
-						action = 0
+				result = self.curRenderer.executeRender(self)
+				if not result:
+					return result
 
-				if action == 0:
-					self.node.parm("execute").pressButton()
-				elif action == 1:
-					hou.hipFile.save()
-					self.node.parm("executebackground").pressButton()
-				elif action != 0:
-					return "Rendering cancled."
-
-				if self.node.type().name() == "ifd":
-					for i in range(self.node.parm("vm_numaux").eval()):
-						if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val=passNames[i][0]):
-							return [self.state.text(0) + ": error - Publish canceled"]
-
-				self.core.callHook("postRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
-
-				if len(os.listdir(outputPath)) > 0:
-					return [self.state.text(0) + " - success"]
-				else:
-					return [self.state.text(0) + " - unknown error (files do not exist)"]
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
 				erStr = ("%s ERROR - houImageRender %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
 				self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - unknown error (view console for more information)"]
 
-		if self.node.type().name() == "ifd":
-			for i in range(self.node.parm("vm_numaux").eval()):
-				if not self.core.appPlugin.setNodeParm(self.node, "vm_channel_plane" + str(i+1), val=passNames[i][0]):
-					return [self.state.text(0) + ": error - Publish canceled"]
+		result = self.curRenderer.postExecute(self)
+		if not result:
+			return result
 
 		self.core.callHook("postRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
-		if "Result=Success" in result:
-			return [self.state.text(0) + " - success"]
+		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
+			if "Result=Success" in result:
+				return [self.state.text(0) + " - success"]
+			else:
+				erStr = ("%s ERROR - houImageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, result))
+				if not result.startswith("Execute Canceled"):
+					self.core.writeErrorLog(erStr)
+				return [self.state.text(0) + " - error - " + result]
 		else:
-			erStr = ("%s ERROR - houImageRenderPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, result))
-			if not result.startswith("Execute Canceled"):
-				self.core.writeErrorLog(erStr)
-			return [self.state.text(0) + " - error - " + result]
+			if len(os.listdir(outputPath)) > 0:
+				return [self.state.text(0) + " - success"]
+			else:
+				return [self.state.text(0) + " - unknown error (files do not exist)"]
 
 
 	@err_decorator

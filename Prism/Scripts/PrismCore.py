@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.0"
+			self.version = "v1.2.0.1"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -660,8 +660,11 @@ class PrismCore():
 		uconfig.add_section('recent_projects')
 
 		# write the config to the file
-		with open(self.userini, 'w') as inifile:
-			uconfig.write(inifile)
+		try:
+			with open(self.userini, 'w') as inifile:
+				uconfig.write(inifile)
+		except Exception as e:
+			QMessageBox.warning(self.messageParent, "Warning", "Could not create the Prism preferences:\n\n%s\n\nMake sure you have required permissions to write to that folder.\n\nError:\n%s" % (self.userini, str(e)))
 
 		if platform.system() in ["Linux", "Darwin"]:
 			if os.path.exists(self.userini):
@@ -1632,9 +1635,15 @@ class PrismCore():
 					if vtype == "string":
 						returnData[i] = userConfig.get(cat, param)
 					elif vtype == "bool":
-						returnData[i] = userConfig.getboolean(cat, param)
+						try:
+							returnData[i] = userConfig.getboolean(cat, param)
+						except:
+							returnData[i] = False
 					elif vtype == "int":
-						returnData[i] = userConfig.getint(cat, param)
+						try:
+							returnData[i] = userConfig.getint(cat, param)
+						except:
+							returnData[i] = 0
 				except:
 					returnData[i] = None
 			else:
@@ -2384,6 +2393,7 @@ class PrismCore():
 			return
 		shell = win32com.client.Dispatch('WScript.Shell')
 		shortcut = shell.CreateShortCut(vPath)
+		vTarget = vTarget.replace("/", "\\")
 		shortcut.Targetpath = vTarget
 		shortcut.Arguments = args
 		shortcut.WorkingDirectory = vWorkingDir
@@ -2827,7 +2837,6 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 			pStr = """
 try:
 	import os, sys
-
 	pyLibs = os.path.join('%s', 'PythonLibs', 'Python27')
 	if pyLibs not in sys.path:
 		sys.path.insert(0, pyLibs)
@@ -2870,27 +2879,9 @@ except Exception as e:
 			stdOutData, stderrdata = result.communicate()
 
 			if not "success" in str(stdOutData):
-				try:
-					import smtplib
-
-					from email.mime.text import MIMEText
-
-					msg = MIMEText(text)
-
-					msg['Subject'] = subject
-					msg['From'] = "vfxpipemail@gmail.com"
-					msg['To'] = "contact@prism-pipeline.com"
-
-					s = smtplib.SMTP('smtp.gmail.com:587')
-					s.ehlo()
-					s.starttls()
-					s.login("vfxpipemail@gmail.com", "vfxpipeline")
-					s.sendmail("vfxpipemail@gmail.com", "contact@prism-pipeline.com", msg.as_string())
-					s.quit()
-				except Exception as e:
-					exc_type, exc_obj, exc_tb = sys.exc_info()
-					messageStr = "%s\n\n%s - %s - %s - %s\n\n%s" % (stdOutData, str(e), exc_type, exc_tb.tb_lineno, traceback.format_exc(), text)
-					raise RuntimeError(messageStr)
+				exc_type, exc_obj, exc_tb = sys.exc_info()
+				messageStr = "%s\n\n%s" % (unicode(stdOutData, errors='ignore'), text)
+				raise RuntimeError(messageStr)
 
 			msg = QMessageBox(QMessageBox.Information, "Information", "Sent message successfully.", QMessageBox.Ok, parent=self.messageParent)
 			msg.setFocus()

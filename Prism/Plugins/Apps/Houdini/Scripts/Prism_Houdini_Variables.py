@@ -45,8 +45,10 @@ class Prism_Houdini_Variables(object):
 		self.appSpecificFormats = self.sceneFormats + [".bgeo", ".bgeo.sc", ".hda"]
 		self.appColor = [242,103,34]
 		self.appVersionPresets = ["16, 5, 323", "16, 0, 559"]
-		mantraPasses = ['defaultpasses', 'houdini_mantra', str([["Color", "Cf"], ["Opacity", "Of"], ["Alpha", "Af"], ["Position", "P"], ["Position-Z", "Pz"], ["Normal", "N"], ["Emission", "Ce"]])]
-		redshiftPasses = ['defaultpasses', 'houdini_redshift', str([["Z Depth", "Z"], ["Puzzle Matte", "puzzleMatte"], ["Diffuse Lighting", "diffuse"], ["Reflections", "reflection"], ["Refractions", "refraction"], ["Global Illumination", "gi"], ["Shadows", "shadows"], ["Normals", "N"]])]
-		self.renderPasses = [mantraPasses, redshiftPasses]
+		self.arnoldPasses = ['defaultpasses', 'houdini_mantra', str([["direct", "DirectLight"], ["indirect", "IndirectLight"], ["emission", "Emission"], ["diffuse", "DiffuseReflection"], ["specular", "SpecularReflection"], ["transmission", "SpecularTransmisson"], ["sss", "SSS"], ["volume", "Volume"], ["albedo", "Albedo"], ["direct", "Beauty"], ["Z", "Depth"], ["N", "Normal"], ["crypto_asset", "CryptoAsset"], ["crypto_object", "CryptoObject"], ["crypto_material", "CryptoMaterial"]])]
+		self.mantraPasses = ['defaultpasses', 'houdini_mantra', str([["Color", "Cf"], ["Opacity", "Of"], ["Alpha", "Af"], ["Position", "P"], ["Position-Z", "Pz"], ["Normal", "N"], ["Emission", "Ce"]])]
+		self.redshiftPasses = ['defaultpasses', 'houdini_redshift', str([["Cryptomatte", "cryptomatte"], ["Z Depth", "Z"], ["Puzzle Matte", "puzzleMatte"], ["Diffuse Lighting", "diffuse"], ["Reflections", "reflection"], ["Refractions", "refraction"], ["Global Illumination", "gi"], ["Shadows", "shadows"], ["Normals", "N"]])]
+		self.vrayPasses= ['defaultpasses', "houdini_vray", str([["Diffuse", "diffuse"], ["Reflection", "reflection"], ["Refraction", "refraction"], ["Self Illumination", "illum"], ["Shadow", "shadow"], ["Specular", "specular"], ["Lighting", "lighting"], ["GI", "gi"], ["Z-Depth", "Z"], ["SSS", "sss"], ["Normal", "N"]])]
+		self.renderPasses = [self.mantraPasses, self.redshiftPasses, self.vrayPasses]
 		self.preferredUnit = "meter"
 		self.platforms = ["Windows", "Linux", "Darwin"]
