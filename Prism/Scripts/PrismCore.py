@@ -1787,6 +1787,9 @@ class PrismCore():
 
 	@err_decorator
 	def readYaml(self, path):
+		if not os.path.exists(path):
+			return {}
+
 		from ruamel.yaml import YAML
 		yaml=YAML()
 		with open(path, "r") as config:
@@ -1797,6 +1800,9 @@ class PrismCore():
 
 	@err_decorator
 	def writeYaml(self, path, data):
+		if not os.path.exists(os.path.dirname(path)):
+			os.makedirs(os.path.dirname(path))
+
 		from ruamel.yaml import YAML
 		yaml=YAML()
 		with open(path, "w") as config:

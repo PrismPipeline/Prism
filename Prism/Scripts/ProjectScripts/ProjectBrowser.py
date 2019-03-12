@@ -521,17 +521,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				self.menuTools.addMenu(prjMngMenu)
 				self.core.appPlugin.setRCStyle(self, prjMngMenu)
 
-		self.tabOrder = ["Assets","Shots","Files","Recent"]
+		self.tabOrder = {
+					"Assets":{"order":0, "showRenderings":True}, 
+					"Shots":{"order":1, "showRenderings":True},
+					"Files":{"order":2, "showRenderings":False},
+					"Recent":{"order":3, "showRenderings":False}
+					}
 		if cData["assetsOrder"] is not None and cData["shotsOrder"] is not None and cData["filesOrder"] is not None and cData["recentOrder"] is not None:
-			self.tabOrder[cData["assetsOrder"]] = "Assets"
-			self.tabOrder[cData["shotsOrder"]] = "Shots"
-			self.tabOrder[cData["filesOrder"]] = "Files"
-			self.tabOrder[cData["recentOrder"]] = "Recent"
+			for i in ["assetsOrder", "shotsOrder", "filesOrder", "recentOrder"]:
+				if cData[i] >= len(self.tabOrder):
+					cData[i] = -1
+			self.tabOrder["Assets"]["order"] = cData["assetsOrder"]
+			self.tabOrder["Shots"]["order"] = cData["shotsOrder"]
+			self.tabOrder["Files"]["order"] = cData["filesOrder"]
+			self.tabOrder["Recent"]["order"] = cData["recentOrder"]
 
-		self.tbw_browser.insertTab(self.tabOrder.index("Assets"), self.t_assets, "Assets")
-		self.tbw_browser.insertTab(self.tabOrder.index("Shots"), self.t_shots, "Shots")
-		self.tbw_browser.insertTab(self.tabOrder.index("Files"), self.t_files, "Files")
-		self.tbw_browser.insertTab(self.tabOrder.index("Recent"), self.t_recent, "Recent")
+		self.tbw_browser.insertTab(self.tabOrder["Assets"]["order"], self.t_assets, "Assets")
+		self.tbw_browser.insertTab(self.tabOrder["Shots"]["order"], self.t_shots, "Shots")
+		self.tbw_browser.insertTab(self.tabOrder["Files"]["order"], self.t_files, "Files")
+		self.tbw_browser.insertTab(self.tabOrder["Recent"]["order"], self.t_recent, "Recent")
 
 		if not cData["assetsVisible"]:
 			self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_assets))
@@ -544,6 +552,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_files))
 		self.actionFiles.setChecked(False)
 		self.actionFiles.setVisible(False)
+		self.tabOrder.pop("Files")
 
 		if not cData["recentVisible"]:
 			self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_recent))
@@ -573,18 +582,22 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			fileSort = eval(cData["fileSorting"].replace("PySide.QtCore.", "").replace("PySide2.QtCore.", ""))
 			self.tw_fFiles.sortByColumn(fileSort[0], fileSort[1])
 
-		if cData["current"] is not None and cData["current"] != "":
-			self.tbw_browser.setCurrentIndex(self.tabOrder.index(cData["current"]))
+		self.core.appPlugin.projectBrowserLoadLayout(self)
+		self.core.callback(name="projectBrowser_loadUI", types=["custom" ,"unloadedApps"], args=[self])
+		if cData["current"] is not None and cData["current"] != "" and cData["current"] in self.tabOrder:
+			for i in range(self.tbw_browser.count()):
+				if self.tbw_browser.tabText(i) == cData["current"]:
+					self.tbw_browser.setCurrentIndex(i)
+					break
 			self.updateChanged(False)
+
+		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.tabText(self.tbw_browser.currentIndex())]["showRenderings"])
 
 		if self.tbw_browser.count() == 0:
 			self.tbw_browser.setVisible(False)
 
 		if cData["autoUpdateRenders"] is not None:
 			self.chb_autoUpdate.setChecked(cData["autoUpdateRenders"])
-
-		self.core.appPlugin.projectBrowserLoadLayout(self)
-		self.core.callback(name="projectBrowser_loadUI", types=["unloadedApps"], args=[self])
 
 		if cData["windowSize"] is not None:
 			wsize = eval(cData["windowSize"])
@@ -730,6 +743,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.refreshFCat()
 		elif self.tbw_browser.tabText(tab) == "Recent":
 			self.setRecent()
+
+		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.tabText(tab)]["showRenderings"])
 
 		if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
 			self.updateTasks()
@@ -2047,6 +2062,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if seqName not in sequences:
 					sequences.append(seqName)
 
+		sequences = sorted(sequences)
+
 		if "no sequence" in sequences:
 			sequences.insert(len(sequences), sequences.pop(sequences.index("no sequence")))
 
@@ -2061,7 +2078,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if seqName in self.sExpanded:
 				seqItem.setExpanded(True)
 
-		for i in shots:
+		for i in sorted(shots):
 			for k in range(self.tw_sShot.topLevelItemCount()):
 				tlItem = self.tw_sShot.topLevelItem(k)
 				if tlItem.text(0) == i[0]:
@@ -2710,7 +2727,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerAssets(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder.index("Assets"), self.t_assets, "Assets")
+			self.tbw_browser.insertTab(self.tabOrder["Assets"]["order"], self.t_assets, "Assets")
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:
@@ -2722,7 +2739,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerShots(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder.index("Shots"), self.t_shots, "Shots")
+			self.tbw_browser.insertTab(self.tabOrder["Shots"]["order"], self.t_shots, "Shots")
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:
@@ -2734,7 +2751,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerFiles(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder.index("Files"), self.t_files, "Files")
+			self.tbw_browser.insertTab(self.tabOrder["Files"]["order"], self.t_files, "Files")
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:
@@ -2747,7 +2764,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerRecent(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder.index("Recent"), self.t_recent, "Recent")
+			self.tbw_browser.insertTab(self.tabOrder["Recent"]["order"], self.t_recent, "Recent")
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:

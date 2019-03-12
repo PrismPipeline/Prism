@@ -455,7 +455,7 @@ class Prism_Blender_Functions(object):
 			else:
 				for object_ in bpy.data.objects:
 					if object_.name not in expNodes:
-						bpy.data.objects.remove(object_, True)
+						bpy.data.objects.remove(object_, do_unlink=True)
 				bpy.ops.wm.save_as_mainfile(filepath=outputName, copy=True)
 				bpy.ops.wm.revert_mainfile()
 				self.core.stateManager()
@@ -916,11 +916,13 @@ class Prism_Blender_Functions(object):
 
 	@err_decorator
 	def deleteNodes(self, origin, handles):
-		bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
 		for i in handles:
-			self.selectObject(bpy.data.objects[i])
-		bpy.ops.object.make_local(self.getOverrideContext(origin), type='SELECT_OBDATA_MATERIAL')
-		bpy.ops.object.delete(self.getOverrideContext(origin))
+			bpy.data.objects.remove(bpy.data.objects[i])
+	#	bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
+	#	for i in handles:
+	#		self.selectObject(bpy.data.objects[i])
+	#	bpy.ops.object.make_local(self.getOverrideContext(origin), type='SELECT_OBDATA_MATERIAL')
+	#	bpy.ops.object.delete(self.getOverrideContext(origin))
 
 
 	@err_decorator
@@ -963,16 +965,24 @@ class Prism_Blender_Functions(object):
 			if not updateObjs:
 				origin.preDelete(baseText = "Do you want to delete the currently connected objects?\n\n")
 		
-				existingNodes = list(bpy.data.objects)
+				if bpy.app.version >= (2,80,0):
+					existingNodes = list(bpy.data.collections[0].objects)
+				else:
+					existingNodes = list(bpy.context.scene.objects)
 
 				with bpy.data.libraries.load(impFileName, link=link) as (data_from, data_to):
 					data_to.objects = data_from.objects
 
 				for obj in data_to.objects:
 					if obj in existingNodes:
-						del existingNodes[existingNodes.index(obj)]
-					elif obj is not None:
-						bpy.context.scene.objects.link(obj)
+						continue
+						#del existingNodes[existingNodes.index(obj)]
+
+					if obj is not None:
+						if bpy.app.version >= (2,80,0):
+							bpy.data.collections[0].objects.link(obj)
+						else:
+							bpy.context.scene.objects.link(obj)
 
 		else:
 			if fileName[1] not in [".fbx", ".obj", ".abc"]:

@@ -79,6 +79,11 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
+	def projectBrowser_loadUI(self, origin):
+		pass
+
+
+	@err_decorator
 	def onProjectBrowserStartup(self, origin):
 		pass
 
