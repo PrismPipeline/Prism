@@ -649,7 +649,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 					for m in os.walk(os.path.join(k[1], k[0], unit)):
 						if len(m[2]) > 0:
 							for i in m[2]:
-								if os.path.splitext(i)[1] not in [".txt", ".ini"]:
+								if os.path.splitext(i)[1] not in [".txt", ".ini"] and i[0] != ".":
 									fileName[n] = os.path.join(k[1], k[0], unit, i)
 									if getattr(self.core.appPlugin, "shotcamFormat", ".abc") == ".fbx" and self.curTask == "ShotCam" and fileName[n].endswith(".abc") and os.path.exists(fileName[n][:-3] + "fbx"):
 										fileName[n] = fileName[n][:-3] + "fbx"

@@ -171,7 +171,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 	@err_decorator
 	def validateText(self, origText, pathUi):
 		if pathUi == self.e_name:
-			allowChars = []
+			allowChars = ["_"]
 		else:
 			allowChars = ["/", "\\", "_", " ", ":"]
 

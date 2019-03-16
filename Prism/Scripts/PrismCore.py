@@ -2835,7 +2835,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 	def sendEmail(self, text, subject="Prism Error"):
 		waitmsg = QMessageBox(QMessageBox.NoIcon, "Sending message", "Sending - please wait..", QMessageBox.Cancel)
 		self.parentWindow(waitmsg)
-		waitmsg.buttons()[0].setHidden(True)
+		waitmsg.setStandardButtons(0)
 		waitmsg.show()
 		QCoreApplication.processEvents()
 
@@ -3021,17 +3021,20 @@ except Exception as e:
 		
 		if source == "github":
 			waitmsg = QMessageBox(QMessageBox.NoIcon, "Prism update", "Downloading Prism - please wait..", QMessageBox.Cancel)
-			waitmsg.buttons()[0].setHidden(True)
+			waitmsg.setStandardButtons(0)
 			self.parentWindow(waitmsg)
 			waitmsg.show()
 			QCoreApplication.processEvents()
 
-			import urllib
-
 			url = 'https://api.github.com/repos/RichardFrangenberg/Prism/zipball'
 
 			try:
-				u = urllib.urlopen(url)
+				if pVersion == 2:
+					import urllib
+					u = urllib.urlopen(url)
+				else:
+					import urllib.request
+					u = urllib.request.urlopen(url)
 			except Exception as e:
 				QMessageBox.warning(self.messageParent, "Prism update", "Could not connect to github:\n%s" % str(e))
 				return
@@ -3054,7 +3057,7 @@ except Exception as e:
 		import zipfile
 
 		waitmsg = QMessageBox(QMessageBox.NoIcon, "Prism update", "Extracting - please wait..", QMessageBox.Cancel)
-		waitmsg.buttons()[0].setHidden(True)
+		waitmsg.setStandardButtons(0)
 		self.parentWindow(waitmsg)
 		waitmsg.show()
 		QCoreApplication.processEvents()

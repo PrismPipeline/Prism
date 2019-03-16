@@ -1730,6 +1730,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			stepItem = QTableWidgetItem(steps[i])
 			self.ss.tw_steps.setItem(rc, 1, stepItem)
 
+		self.core.callback(name="onStepDlgOpen", types=["custom"], args=[self, self.ss])
+
 		result = self.ss.exec_()
 
 		if result == 1:
@@ -2021,9 +2023,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def refreshShots(self):
-		self.tw_sShot.clear()
-
+	def getShots(self):
 		if self.core.useLocalFiles:
 			lBasePath = self.sBasePath.replace(self.core.projectPath, self.core.localProjectPath)
 
@@ -2063,14 +2063,19 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					sequences.append(seqName)
 
 		sequences = sorted(sequences)
+		shots = sorted(shots)
 
 		if "no sequence" in sequences:
 			sequences.insert(len(sequences), sequences.pop(sequences.index("no sequence")))
 
-		blockoutSeqs = [x for x in sequences if x.startswith("BLK")]
+		return sequences, shots
 
-		for i in blockoutSeqs:
-			sequences.insert(len(sequences), sequences.pop(sequences.index(i)))
+
+	@err_decorator
+	def refreshShots(self):
+		self.tw_sShot.clear()
+
+		sequences, shots = self.getShots()
 
 		for seqName in sequences:
 			seqItem = QTreeWidgetItem([seqName, seqName + "-"])
@@ -2078,7 +2083,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if seqName in self.sExpanded:
 				seqItem.setExpanded(True)
 
-		for i in sorted(shots):
+		for i in shots:
 			for k in range(self.tw_sShot.topLevelItemCount()):
 				tlItem = self.tw_sShot.topLevelItem(k)
 				if tlItem.text(0) == i[0]:
@@ -2787,10 +2792,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.newItem.e_item.setFocus()
 		self.newItem.setWindowTitle("Create " + name)
 		self.newItem.l_item.setText(name + " Name:")
-		self.newItem.show()
 		self.newItem.buttonBox.accepted.connect(lambda: self.createCat(tab))
+
 		if tab == "ah":
 			self.core.callback(name="onAssetDlgOpen", types=["custom"], args=[self, self.newItem])
+		elif tab == "sc":
+			self.core.callback(name="onCategroyDlgOpen", types=["custom"], args=[self, self.newItem])
+
+		self.newItem.show()
 
 
 	@err_decorator
@@ -4238,8 +4247,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def rclList(self, pos, lw):
-		if lw.itemAt(pos) is not None:
-			itemName = lw.itemAt(pos).text()
+		item = lw.itemAt(pos)
+		if item is not None:
+			itemName = item.text()
 		else:
 			itemName = ""
 
@@ -4321,6 +4331,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			glbAct = QAction("Move to global", self)
 			glbAct.triggered.connect(lambda: self.copyToGlobal(path))
 			rcmenu.addAction(glbAct)
+
+		self.core.callback(name="openPBListContextMenu", types=["custom"], args=[self, rcmenu, lw, item, path])
 
 		if rcmenu.isEmpty():
 			return False
