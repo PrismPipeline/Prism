@@ -3220,66 +3220,88 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def updateTasks(self):
-		self.renderRefreshEnabled = False
+	def getMediaTasks(self, entityName=None, entityType=None):
+		mediaTasks = {"3d":[], "2d":[], "playblast":[], "external":[]}
 
-		self.curRTask = ""
-		self.lw_task.clear()
+		if entityType is None:
+			entityType = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
 
 		foldercont = []
 		self.renderBasePath = None
 
-
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
-			if self.tw_aHierarchy.currentItem() is not None and self.tw_aHierarchy.currentItem().text(2) == "Asset":
-				self.renderBasePath = self.tw_aHierarchy.currentItem().text(1)
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots" and self.cursShots is not None:
-			self.renderBasePath = os.path.join(self.core.projectPath, self.scenes, "Shots", self.cursShots)
+		if entityName is None:
+			if entityType == "Assets":
+				if self.tw_aHierarchy.currentItem() is not None and self.tw_aHierarchy.currentItem().text(2) == "Asset":
+					self.renderBasePath = self.tw_aHierarchy.currentItem().text(1)
+			elif entityType == "Shots" and self.cursShots is not None:
+				self.renderBasePath = os.path.join(self.core.projectPath, self.scenes, "Shots", self.cursShots)
+		else:
+			if entityType == "Assets":
+				pass
+			elif entityType == "Shots":
+				self.renderBasePath = os.path.join(self.core.projectPath, self.scenes, "Shots", entityName)
 
 		if self.renderBasePath is not None:
 			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "3dRender")):
-				foldercont += i[1]
+				for k in sorted(i[1]):
+					mediaTasks["3d"].append([k, "3d", os.path.join(i[0], k)])
 				break
 
 			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "2dRender")):
 				for k in sorted(i[1]):
-					foldercont.append(k +" (2d)")
+					mediaTasks["2d"].append([k +" (2d)", "2d", os.path.join(i[0], k)])
 				break
 
 			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "external")):
 				for k in sorted(i[1]):
-					foldercont.append(k +" (external)")
+					mediaTasks["external"].append([k +" (external)", "external", os.path.join(i[0], k)])
 				break
 
 			for i in os.walk(os.path.join(self.renderBasePath, "Playblasts")):
 				for k in sorted(i[1]):
-					foldercont.append(k +" (playblast)")
+					mediaTasks["playblast"].append([k +" (playblast)", "playblast", os.path.join(i[0], k)])
 				break
 
 			if self.core.useLocalFiles:
 				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Rendering", "3dRender")):
 					for k in sorted(i[1]):
 						tname = k + " (local)"
-						if tname not in foldercont and k not in foldercont:
-							foldercont.append(tname)
+						taskNames = [x[0] for x in mediaTasks["3d"]]
+						if tname not in taskNames and k not in taskNames:
+							mediaTasks["3d"].append([tname, "3d", os.path.join(i[0], k)])
 					break
 
 				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Rendering", "2dRender")):
 					for k in sorted(i[1]):
 						tname = k + " (2d)"
-						if tname not in foldercont:
-							foldercont.append(tname)
+						taskNames = [x[0] for x in mediaTasks["2d"]]
+						if tname not in mediaTasks["2d"]:
+							mediaTasks["2d"].append([tname, "2d", os.path.join(i[0], k)])
 					break
 
 				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Playblasts")):
 					for k in sorted(i[1]):
 						tname = k + " (playblast)"
-						if tname not in foldercont:
-							foldercont.append(tname)
+						taskNames = [x[0] for x in mediaTasks["playblast"]]
+						if tname not in mediaTasks["playblast"]:
+							mediaTasks["playblast"].append([tname, "playblast", os.path.join(i[0], k)])
 					break
 
-			for i in foldercont:
-				self.lw_task.addItem(i)
+		return mediaTasks
+
+
+	@err_decorator
+	def updateTasks(self):
+		self.renderRefreshEnabled = False
+
+		self.curRTask = ""
+		self.lw_task.clear()
+
+		mediaTasks = self.getMediaTasks()
+
+		for i in ["3d", "2d", "playblast", "external"]:
+			for k in mediaTasks[i]:
+				self.lw_task.addItem(k[0])
 
 		mIdx = self.lw_task.findItems("main", (Qt.MatchExactly & Qt.MatchCaseSensitive))
 		if len(mIdx) > 0:
@@ -3303,7 +3325,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_version.clear()
 
 		if len(self.lw_task.selectedItems()) == 1:
-			foldercont = self.getRenderVersions(self.curRTask)
+			foldercont = self.getRenderVersions(task=self.curRTask)
 			foldercont.sort()
 			for i in reversed(foldercont):
 				item = QListWidgetItem(i)
@@ -3373,45 +3395,30 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def getRenderVersions(self, task):
+	def getRenderVersions(self, task="", taskPath=None):
 		foldercont = []
-		if self.renderBasePath is None:
-			return foldercont
 
-		if task.endswith(" (playblast)"):
-			for i in os.walk(os.path.join(self.renderBasePath, "Playblasts", task.replace(" (playblast)", ""))):
-				foldercont = i[1]
-				break
+		if taskPath is None:
+			if self.renderBasePath is None:
+				return foldercont
 
-			if self.core.useLocalFiles:
-				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Playblasts", task.replace(" (playblast)", ""))):
-					for k in i[1]:
-						foldercont.append(k +" (local)")
-					break
+			if task.endswith(" (playblast)"):
+				taskPath = os.path.join(self.renderBasePath, "Playblasts", task.replace(" (playblast)", ""))
+			elif task.endswith(" (2d)"):
+				taskPath = os.path.join(self.renderBasePath, "Rendering", "2dRender", task.replace(" (2d)", ""))
+			elif task.endswith(" (external)"):
+				taskPath = os.path.join(self.renderBasePath, "Rendering", "external", task.replace(" (external)", ""))
+			else:
+				taskPath = os.path.join(self.renderBasePath, "Rendering", "3dRender", task.replace(" (local)", ""))
 
-		elif task.endswith(" (2d)"):
-			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "2dRender", task.replace(" (2d)", ""))):
-				foldercont = i[1]
-				break
+		for i in os.walk(taskPath):
+			foldercont = i[1]
+			break
 
-			if self.core.useLocalFiles:
-				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Rendering", "2dRender", task.replace(" (2d)", ""))):
-					for k in i[1]:
-						foldercont.append(k +" (local)")
-					break
-		elif task.endswith(" (external)"):
-			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "external", task.replace(" (external)", ""))):
-				foldercont = i[1]
-				break
-		else:
-			if self.core.useLocalFiles:
-				for i in os.walk(os.path.join(self.renderBasePath.replace(self.core.projectPath, self.core.localProjectPath), "Rendering", "3dRender", task.replace(" (local)", ""))):
-					for k in i[1]:
-						foldercont.append(k +" (local)")
-					break
-
-			for i in os.walk(os.path.join(self.renderBasePath, "Rendering", "3dRender", task)):
-				foldercont += i[1]
+		if self.core.useLocalFiles:
+			for i in os.walk(taskPath.replace(self.core.projectPath, self.core.localProjectPath)):
+				for k in i[1]:
+					foldercont.append(k +" (local)")
 				break
 
 		return foldercont
@@ -4474,7 +4481,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if len(sTasks) > 1:
 			for i in sTasks:
 				render = {"task":i.text(), "version":"", "layer":""}
-				versions = self.getRenderVersions(i.text())
+				versions = self.getRenderVersions(task=i.text())
 
 				if len(versions) > 0:
 					versions.sort()

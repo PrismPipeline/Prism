@@ -1437,7 +1437,7 @@ class PrismCore():
 
 				
 	@err_decorator
-	def validateUser(self):		
+	def validateUser(self):
 		uname = self.getConfig("globals", "username")
 		if uname is None:
 			return False
@@ -1480,6 +1480,18 @@ class PrismCore():
 
 		self.cu.exec_()
 
+
+	@err_decorator
+	def getUserAbbreviation(self, userName):
+		abbrev = ""
+		userName = userName.split()
+		if len(userName) == 2 and len(userName[0]) > 0 and len(userName[1]) > 1:
+			abbrev = (userName[0][0] + userName[1][:2]).lower()
+		elif len(userName[0]) > 2:
+			abbrev = userName[0][:3].lower()
+
+		return abbrev
+		
 
 	@err_decorator
 	def changeUserRejected(self):
@@ -3212,6 +3224,10 @@ except Exception as e:
 					open(userErPath, 'a').close()
 				except:
 					pass
+
+				if platform.system() in ["Linux", "Darwin"]:
+					if os.path.exists(userErPath):
+						os.chmod(userErPath, 0o777)
 
 				if os.path.exists(userErPath):
 					with open(userErPath, "a") as erLog:

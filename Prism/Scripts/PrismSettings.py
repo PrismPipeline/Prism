@@ -434,7 +434,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 					else:
 						raise
 
-
 		elif platform.system() == "Linux":
 			trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
 			trayLnk = "/usr/local/Prism/Tools/PrismTray.desktop"

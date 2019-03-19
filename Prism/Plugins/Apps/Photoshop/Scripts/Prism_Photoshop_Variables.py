@@ -46,4 +46,4 @@ class Prism_Photoshop_Variables(object):
 		self.appVersionPresets = ["13.0.0"]
 		self.hasFrameRange = False
 		self.canOverrideExecuteable = False
-		self.platforms = ["Windows"]
+		self.platforms = ["Windows", "Darwin"]

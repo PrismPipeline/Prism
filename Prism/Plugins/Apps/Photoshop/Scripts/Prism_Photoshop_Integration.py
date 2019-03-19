@@ -61,7 +61,7 @@ class Prism_Photoshop_Integration(object):
 		if platform.system() == "Windows":
 			self.examplePath = str(self.getPhotoshopPath())
 		elif platform.system() == "Darwin":
-			self.examplePath = ""
+			self.examplePath = "/Applications/Adobe Photoshop CC 2019"
 
 
 	def err_decorator(func):
@@ -182,7 +182,7 @@ class Prism_Photoshop_Integration(object):
 			photoshopItem = QTreeWidgetItem(["Photoshop"])
 			pItem.addChild(photoshopItem)
 
-			photoshopPath = self.getPhotoshopPath()
+			photoshopPath = self.examplePath
 			if photoshopPath is not None and os.path.exists(photoshopPath):
 				photoshopItem.setCheckState(0, Qt.Checked)
 				photoshopItem.setText(1, photoshopPath)

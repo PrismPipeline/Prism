@@ -130,8 +130,11 @@ class Prism_Photoshop_externalAccess_Functions(object):
 
 
 	@err_decorator
-	def connectToPhotoshop(self, origin, filepath=None):
-		pythonPath = os.path.join(self.core.prismRoot, "Python27", "PrismProjectBrowser.exe")
+	def connectToPhotoshop(self, origin, filepath=""):
+		if platform.system() == "Windows":
+			pythonPath = os.path.join(self.core.prismRoot, "Python27", "PrismProjectBrowser.exe")
+		else:
+			pythonPath = "python"
 
 		menuPath = os.path.join(self.core.prismRoot, "Plugins", "Apps", "Photoshop", "Scripts", "Prism_Photoshop_MenuTools.py")
-		subprocess.Popen([pythonPath, menuPath, "Tools"])
+		subprocess.Popen([pythonPath, menuPath, "Tools", filepath])

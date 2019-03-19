@@ -93,13 +93,18 @@ class Prism_Photoshop_Functions(object):
 			# CS6: .60, CC2015: .90
 			self.psApp = win32com.client.Dispatch("Photoshop.Application")
 		else:
-			ps2018 = "/Applications/Adobe Photoshop CC 2018"
-			ps2015 = "/Applications/Adobe Photoshop CC 2015"
+			ps2019 = "/Applications/Adobe Photoshop CC 2019/Adobe Photoshop CC 2019.app"
+			ps2018 = "/Applications/Adobe Photoshop CC 2018/Adobe Photoshop CC 2018.app"
+			ps2015 = "/Applications/Adobe Photoshop CC 2015/Adobe Photoshop CC 2015.app"
 
-			if os.path.exists(ps2018):
+			if os.path.exists(ps2019):
+				self.psApp = app(ps2019)
+			elif os.path.exists(ps2018):
 				self.psApp = app(ps2018)
 			elif os.path.exists(ps2015):
 				self.psApp = app(ps2015)
+
+			self.psApp.activate()
 
 		return False
 
@@ -215,7 +220,10 @@ class Prism_Photoshop_Functions(object):
 		if not force and os.path.splitext(filepath)[1] not in self.sceneFormats:
 			return False
 
-		self.psApp.Open(filepath)
+		if platform.system() == "Windows":
+			self.psApp.Open(filepath)
+		else:
+			self.psApp.open(mactypes.Alias(filepath))
 
 		return True
 

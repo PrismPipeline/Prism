@@ -32,7 +32,7 @@
 
 
 
-import os, sys, platform
+import os, sys
 
 prismRoot = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir))
 
@@ -72,6 +72,9 @@ elif sys.argv[1] == "ProjectBrowser":
 	result = pcore.projectBrowser()
 elif sys.argv[1] == "Settings":
 	result = pcore.prismSettings()
+
+if len(sys.argv) > 2:
+	pcore.appPlugin.openScene(origin=pcore, filepath=sys.argv[2])
 
 if result == True:
     qapp.exec_()
