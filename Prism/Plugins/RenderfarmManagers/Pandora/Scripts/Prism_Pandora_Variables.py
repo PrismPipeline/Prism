@@ -37,5 +37,5 @@ class Prism_Pandora_Variables(object):
 		self.version = "v1.2.0.0"
 		self.pluginName = "Pandora"
 		self.pluginType = "RenderfarmManager"
-		self.canOutputLocal = False
+		self.canOutputLocal = True
 		self.platforms = ["Windows"]

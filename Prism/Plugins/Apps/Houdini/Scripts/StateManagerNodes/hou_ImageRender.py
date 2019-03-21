@@ -846,9 +846,9 @@ class ImageRenderClass(object):
 				self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - unknown error (view console for more information)"]
 
-		result = self.curRenderer.postExecute(self)
-		if not result:
-			return result
+		postResult = self.curRenderer.postExecute(self)
+		if not postResult:
+			return postResult
 
 		self.core.callHook("postRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 

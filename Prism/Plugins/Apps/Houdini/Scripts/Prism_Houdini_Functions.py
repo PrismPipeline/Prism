@@ -689,19 +689,22 @@ class Prism_Houdini_Functions(object):
 					origin.createPressed("Render")
 					return
 
-		rndMenu = QMenu()
-		for i in renderers:
-			mAct = QAction(i.label, origin)
-			mAct.triggered.connect(lambda x=i.label: origin.createPressed("Render", renderer=x))
-			rndMenu.addAction(mAct)
+		if len(renderers) == 1:
+			origin.createPressed("Render", renderer=renderers[0].label)
+		else:
+			rndMenu = QMenu()
+			for i in renderers:
+				mAct = QAction(i.label, origin)
+				mAct.triggered.connect(lambda x=i.label: origin.createPressed("Render", renderer=x))
+				rndMenu.addAction(mAct)
 
-		if rndMenu.isEmpty():
-			origin.createPressed("Render")
-			return False
+			if rndMenu.isEmpty():
+				origin.createPressed("Render")
+				return False
 
-		self.setRCStyle(origin, rndMenu)
+			self.setRCStyle(origin, rndMenu)
 
-		rndMenu.exec_(QCursor.pos())
+			rndMenu.exec_(QCursor.pos())
 
 
 	@err_decorator
@@ -717,7 +720,7 @@ class Prism_Houdini_Functions(object):
 		import Prism_Houdini_Renderer_Redshift as redshiftRenderer
 		import Prism_Houdini_Renderer_Vray as vrayRenderer
 
-		return [arnoldRenderer, mantraRenderer, redshiftRenderer, vrayRenderer]
+		return [x for x in [arnoldRenderer, mantraRenderer, redshiftRenderer, vrayRenderer] if x.isActive()]
 
 
 	@err_decorator
