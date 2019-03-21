@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.1"
+			self.version = "v1.2.0.2"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1483,6 +1483,9 @@ class PrismCore():
 
 	@err_decorator
 	def getUserAbbreviation(self, userName):
+		if not userName:
+			return ""
+
 		abbrev = ""
 		userName = userName.split()
 		if len(userName) == 2 and len(userName[0]) > 0 and len(userName[1]) > 1:
