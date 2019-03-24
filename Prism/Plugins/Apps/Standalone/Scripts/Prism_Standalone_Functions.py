@@ -262,23 +262,24 @@ class Prism_Standalone_Functions(object):
 			pbStartMenu = "/Applications/Prism/Prism Project Browser.app"
 			settingsStartMenu = "/Applications/Prism/Prism Settings.app"
 
-			trayStartupSrc = os.path.join(self.core.prismRoot, "Tools", "com.user.PrismTray.plist")
-			trayLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Tray.app")
-			pbLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Project Browser.app")
-			settingsLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Settings.app")
+			trayStartupSrc = os.path.join(self.core.prismRoot, "Tools", "Templates", "com.user.PrismTray.plist")
+			trayLnk = os.path.join(self.core.prismRoot, "Tools", "Templates", "Prism Tray.app")
+			pbLnk = os.path.join(self.core.prismRoot, "Tools", "Templates", "Prism Project Browser.app")
+			settingsLnk = os.path.join(self.core.prismRoot, "Tools", "Templates", "Prism Settings.app")
+
+			cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
 
 			if os.path.exists(trayStartupSrc):
 				with open(trayStartupSrc, "r") as init:
 					initStr = init.read()
 
 				try:
-					with open(trayStartupSrc, "w") as init:
-						initStr = initStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
-						init.write(initStr)
+					tmpPath = os.path.join(self.core.prismRoot, "Tools", "tmp.txt")
+					open(tmpPath, 'w').close()
+					os.remove(tmpPath)
 				except IOError:
 					QMessageBox.warning(QWidget(), "Prism start menu", "Please copy the Prism folder to any location on your harddrive before you execute the Prism setup.")
-
-			cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
+					return False
 
 			if os.path.exists(pbLnk):
 				desktopPath = "/Users/%s/Desktop/%s" % (userName, os.path.splitext(os.path.basename(pbLnk))[0])
@@ -288,8 +289,10 @@ class Prism_Standalone_Functions(object):
 					except:
 						pass
 
-				if not os.path.exists(desktopPath):
-					os.symlink(pbLnk, desktopPath)
+				if os.path.lexists(desktopPath):
+					os.unlink(desktopPath)
+
+				os.symlink(pbLnk, desktopPath)
 
 			#subprocess.Popen(['bash', "/usr/local/Prism/Tools/PrismTray.sh"])
 
@@ -333,6 +336,10 @@ class Prism_Standalone_Functions(object):
 						if os.path.exists(trayStartMenu):
 							shutil.rmtree(trayStartMenu)
 						shutil.copytree(trayLnk, trayStartMenu)
+						for k in os.walk(trayStartMenu):
+							for m in k[2]:
+								path = os.path.join(k[0], m)
+								os.chown(path, uid, -1)
 					else:
 						shutil.copy2(trayLnk, trayStartMenu)
 						os.chmod(trayStartMenu, 0o777)
@@ -345,6 +352,10 @@ class Prism_Standalone_Functions(object):
 					if os.path.exists(pbStartMenu):
 						shutil.rmtree(pbStartMenu)
 					shutil.copytree(pbLnk, pbStartMenu)
+					for k in os.walk(pbStartMenu):
+						for m in k[2]:
+							path = os.path.join(k[0], m)
+							os.chown(path, uid, -1)
 				else:
 					shutil.copy2(pbLnk, pbStartMenu)
 					os.chmod(pbStartMenu, 0o777)
@@ -357,10 +368,69 @@ class Prism_Standalone_Functions(object):
 					if os.path.exists(settingsStartMenu):
 						shutil.rmtree(settingsStartMenu)
 					shutil.copytree(settingsLnk, settingsStartMenu)
+					for k in os.walk(settingsStartMenu):
+						for m in k[2]:
+							path = os.path.join(k[0], m)
+							os.chown(path, uid, -1)
 				else:
 					shutil.copy2(settingsLnk, settingsStartMenu)
 					os.chmod(settingsStartMenu, 0o777)
 			else:
 				print "could not create PrismSettings startmenu entry"
+
+		if platform.system() == "Darwin":
+			trayLnk = os.path.join(self.core.prismRoot, "Tools", "Templates", "Prism Tray.app")
+			pbLnk = os.path.join(self.core.prismRoot, "Tools", "Templates", "Prism Project Browser.app")
+			settingsLnk = os.path.join(self.core.prismRoot, "Tools", "Templates", "Prism Settings.app")
+
+			templateTools = [
+				trayLnk,
+				pbLnk,
+				settingsLnk,
+				os.path.join(self.core.prismRoot, "Tools", "Templates", "PrismProjectBrowser.sh"),
+				os.path.join(self.core.prismRoot, "Tools", "Templates", "PrismSettings.sh"),
+				os.path.join(self.core.prismRoot, "Tools", "Templates", "PrismTray.sh")
+			]
+
+			trayScript = os.path.join(trayStartMenu, "Contents", "Resources", "script")
+			pbScript = os.path.join(pbStartMenu, "Contents", "Resources", "script")
+			settingsScript = os.path.join(settingsStartMenu, "Contents", "Resources", "script")
+
+			shortCuts = [trayStartup, trayScript, pbScript, settingsScript]
+			uid = pwd.getpwnam(userName).pw_uid
+
+			for i in templateTools:
+				if not os.path.exists(i):
+					continue
+
+				targetPath = os.path.join(os.path.dirname(os.path.dirname(i)), os.path.basename(i))
+				if os.path.isdir(i):
+					if os.path.exists(targetPath):
+						shutil.rmtree(targetPath)
+					shutil.copytree(i, targetPath)
+					filepath = os.path.join(targetPath, "Contents", "Resources", "script")
+					for k in os.walk(targetPath):
+						for m in k[2]:
+							path = os.path.join(k[0], m)
+							os.chown(path, uid, -1)
+				else:
+					shutil.copy2(i, targetPath)
+					os.chmod(targetPath, 0o777)
+					filepath = targetPath
+
+				shortCuts.append(filepath)
+
+			for i in shortCuts:
+				if not os.path.exists(i):
+					continue
+
+				with open(i, "r") as init:
+					scriptStr = init.read()
+
+				with open(i, "w") as init:
+					scriptStr = scriptStr.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
+					init.write(scriptStr)
+
+				os.chown(i, uid, -1)
 
 		return True

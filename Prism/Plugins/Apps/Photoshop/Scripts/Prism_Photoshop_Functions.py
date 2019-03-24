@@ -32,7 +32,7 @@
 
 
 
-import os, sys, platform
+import os, sys, platform, subprocess
 import traceback, time
 from functools import wraps
 
@@ -48,8 +48,6 @@ except:
 
 if platform.system() == "Windows":
 	import win32com.client
-else:
-	from appscript import *
 
 
 class Prism_Photoshop_Functions(object):
@@ -93,18 +91,20 @@ class Prism_Photoshop_Functions(object):
 			# CS6: .60, CC2015: .90
 			self.psApp = win32com.client.Dispatch("Photoshop.Application")
 		else:
-			ps2019 = "/Applications/Adobe Photoshop CC 2019/Adobe Photoshop CC 2019.app"
-			ps2018 = "/Applications/Adobe Photoshop CC 2018/Adobe Photoshop CC 2018.app"
-			ps2015 = "/Applications/Adobe Photoshop CC 2015/Adobe Photoshop CC 2015.app"
+			self.psAppName = "Adobe Photoshop CC 2019"
+			for foldercont in os.walk("/Applications"):
+				for folder in reversed(sorted(foldercont[1])):
+					if folder.startswith("Adobe Photoshop"):
+						self.psAppName = folder
+						break
+				break
 
-			if os.path.exists(ps2019):
-				self.psApp = app(ps2019)
-			elif os.path.exists(ps2018):
-				self.psApp = app(ps2018)
-			elif os.path.exists(ps2015):
-				self.psApp = app(ps2015)
-
-			self.psApp.activate()
+			scpt = '''
+			tell application "%s"
+				activate
+			end tell
+			''' % self.psAppName
+			self.executeAppleScript(scpt)
 
 		return False
 
@@ -132,18 +132,36 @@ class Prism_Photoshop_Functions(object):
 
 
 	@err_decorator
+	def executeAppleScript(self, script):
+		p = subprocess.Popen(['osascript'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout, stderr = p.communicate(script)
+		if p.returncode != 0:
+			return None
+
+		return stdout
+
+
+	@err_decorator
 	def getCurrentFileName(self, origin, path=True):
 		try:
 			if self.win:
 				doc = self.psApp.Application.ActiveDocument
 				currentFileName = doc.FullName
 			else:
-				doc = self.psApp.application.current_document
-				currentFileName = doc.file_path
+				scpt = '''
+				tell application "%s"
+					set fpath to file path of current document
+					POSIX path of fpath
+				end tell
+				''' % self.psAppName
+				currentFileName = self.executeAppleScript(scpt)
+
+				if currentFileName is None:
+					raise
 		except:
 			currentFileName = ""
 
-		if not path:
+		if not path and currentFileName != "":
 			currentFileName = os.path.basename(currentFileName)
 
 		return currentFileName
@@ -157,13 +175,29 @@ class Prism_Photoshop_Functions(object):
 	@err_decorator
 	def saveScene(self, origin, filepath):
 		try:
-			doc = self.psApp.ActiveDocument
+			if self.win:
+				doc = self.psApp.ActiveDocument
+			else:
+				doc = self.core.getCurrentFileName()
+				if doc == "":
+					raise
 		except:
 			QMessageBox.warning(self.core.messageParent, "Warning", "There is no active document in Photoshop.")
 			return
 
 		try:
-			doc.SaveAs(filepath) 
+			if self.win:
+				doc.SaveAs(filepath) 
+			else:
+				scpt = '''
+				tell application "%s"
+					save current document in file "%s"
+				end tell
+				''' % (self.psAppName, filepath)
+				doc = self.executeAppleScript(scpt)
+
+				if doc is None:
+					raise
 		except:
 			return ""
 
@@ -190,7 +224,17 @@ class Prism_Photoshop_Functions(object):
 
 	@err_decorator
 	def getAppVersion(self, origin):
-		return self.psApp.Version
+		if self.win:
+			version = self.psApp.Version
+		else:
+			scpt = '''
+				tell application "%s"
+					application version
+				end tell
+			''' % self.psAppName
+			version = self.executeAppleScript(scpt)
+
+		return version
 		
 
 	@err_decorator
@@ -220,10 +264,15 @@ class Prism_Photoshop_Functions(object):
 		if not force and os.path.splitext(filepath)[1] not in self.sceneFormats:
 			return False
 
-		if platform.system() == "Windows":
+		if self.win:
 			self.psApp.Open(filepath)
 		else:
-			self.psApp.open(mactypes.Alias(filepath))
+			scpt = '''
+				tell application "%s"
+					open file "%s"
+				end tell
+			''' % (self.psAppName, filepath)
+			self.executeAppleScript(scpt)
 
 		return True
 
@@ -645,14 +694,30 @@ class Prism_Photoshop_Functions(object):
 
 		ext = os.path.splitext(outputPath)[1].lower()
 
-		if ext in [".jpg", ".jpeg"]:
-			options = win32com.client.dynamic.Dispatch('Photoshop.JPEGSaveOptions')
-		elif ext in [".png"]:
-			options = win32com.client.dynamic.Dispatch('Photoshop.PNGSaveOptions')
-		elif ext in [".tif", ".tiff"]:
-			options = win32com.client.dynamic.Dispatch('Photoshop.TiffSaveOptions')
+		if self.win:
+			if ext in [".jpg", ".jpeg"]:
+				options = win32com.client.dynamic.Dispatch('Photoshop.JPEGSaveOptions')
+			elif ext in [".png"]:
+				options = win32com.client.dynamic.Dispatch('Photoshop.PNGSaveOptions')
+			elif ext in [".tif", ".tiff"]:
+				options = win32com.client.dynamic.Dispatch('Photoshop.TiffSaveOptions')
 
-		self.psApp.Application.ActiveDocument.SaveAs(outputPath, options, True)
+			self.psApp.Application.ActiveDocument.SaveAs(outputPath, options, True)
+		else:
+			if ext in [".jpg", ".jpeg"]:
+				formatName = "JPEG"
+			elif ext in [".png"]:
+				formatName = "PNG"
+			elif ext in [".tif", ".tiff"]:
+				formatName = "TIFF"
+
+			scpt = '''
+				tell application "%s"
+					save current document in file "%s" as %s with copying
+				end tell
+			''' % (self.psAppName, outputPath, formatName)
+			self.executeAppleScript(scpt)
+
 		self.dlg_export.accept()
 		self.core.copyToClipboard(outputPath)
 
@@ -661,4 +726,7 @@ class Prism_Photoshop_Functions(object):
 		except:
 			pass
 
-		QMessageBox.information(self.core.messageParent, "Export", "Successfully exported the image.\n(Path is in the clipboard)")
+		if os.path.exists(outputPath):
+			QMessageBox.information(self.core.messageParent, "Export", "Successfully exported the image.\n(Path is in the clipboard)")
+		else:
+			QMessageBox.warning(self.core.messageParent, "Export", "Unknown error. Image file doesn't exist:\n\n%s" % outputPath)

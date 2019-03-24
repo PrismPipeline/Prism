@@ -2003,13 +2003,13 @@ class PrismCore():
 
 		taskList = []
 		if os.path.exists(taskPath):
-			taskList = os.listdir(taskPath)
+			taskList = [ x for x in os.listdir(taskPath) if os.path.isdir(os.path.join(taskPath, x))]
 
 		if self.useLocalFiles and "ltaskPath" in locals() and os.path.exists(ltaskPath):
-			taskList += [x for x in os.listdir(ltaskPath) if x not in taskList]
+			taskList += [x for x in os.listdir(ltaskPath) if x not in taskList and os.path.isdir(os.path.join(ltaskPath, x))]
 
 		if "catPath" in locals() and os.path.exists(catPath):
-			taskList += [x for x in os.listdir(catPath) if x not in taskList]
+			taskList += [x for x in os.listdir(catPath) if x not in taskList and os.path.isdir(os.path.join(catPath, x))]
 
 		return taskList
 

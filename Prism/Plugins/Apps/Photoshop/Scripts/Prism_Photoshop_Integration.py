@@ -58,10 +58,7 @@ class Prism_Photoshop_Integration(object):
 		self.core = core
 		self.plugin = plugin
 
-		if platform.system() == "Windows":
-			self.examplePath = str(self.getPhotoshopPath())
-		elif platform.system() == "Darwin":
-			self.examplePath = "/Applications/Adobe Photoshop CC 2019"
+		self.examplePath = str(self.getPhotoshopPath())
 
 
 	def err_decorator(func):
@@ -110,10 +107,18 @@ class Prism_Photoshop_Integration(object):
 	@err_decorator
 	def getPhotoshopPath(self):
 		try:
-			key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\Adobe\\Photoshop", 0, _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY)
-			psVersion = _winreg.EnumKey(key, 0)
-			psKey = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\Adobe\\Photoshop\\" +psVersion, 0, _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY)
-			psPath = (_winreg.QueryValueEx(psKey, "ApplicationPath"))[0]
+			if platform.system() == "Windows":
+				key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\Adobe\\Photoshop", 0, _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY)
+				psVersion = _winreg.EnumKey(key, 0)
+				psKey = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\Adobe\\Photoshop\\" +psVersion, 0, _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY)
+				psPath = (_winreg.QueryValueEx(psKey, "ApplicationPath"))[0]
+			elif platform.system() == "Darwin":
+				for foldercont in os.walk("/Applications"):
+					for folder in reversed(sorted(foldercont[1])):
+						if folder.startswith("Adobe Photoshop"):
+							psPath = os.path.join(foldercont[0], folder)
+							break
+					break
 
 			return psPath
 		except:
@@ -128,8 +133,13 @@ class Prism_Photoshop_Integration(object):
 
 			integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
 
+			if platform.system() == "Windows":
+				osName = "Windows"
+			elif platform.system() == "Darwin":
+				osName = "Mac"
+
 			for i in ["Prism - 1 Tools.jsx", "Prism - 2 Save version.jsx", "Prism - 3 Save comment.jsx", "Prism - 4 Export.jsx", "Prism - 5 ProjectBrowser.jsx", "Prism - 6 Settings.jsx"]:
-				origFile = os.path.join(integrationBase, i)
+				origFile = os.path.join(integrationBase, osName, i)
 				targetFile = os.path.join(photoshoppath, "Presets", "Scripts", i)
 
 				if not os.path.exists(os.path.dirname(targetFile)):

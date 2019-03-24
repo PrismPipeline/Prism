@@ -64,19 +64,20 @@ class Prism_Houdini_Integration(object):
 		self.plugin = plugin
 
 		if platform.system() == "Windows":
-			self.examplePath = os.environ["userprofile"] + "\\Documents\\houdini17.0"
+			self.examplePath = os.environ["userprofile"] + "\\Documents\\houdini17.5"
 		elif platform.system() == "Linux":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = os.path.join("/home", userName, "houdini16.5")
+			self.examplePath = os.path.join("/home", userName, "houdini17.5")
 		elif platform.system() == "Darwin":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = "/Users/%s/Library/Preferences/houdini/16.5" % userName
+			self.examplePath = "/Users/%s/Library/Preferences/houdini/17.5" % userName
 
 		if not os.path.exists(self.examplePath):
 			for i in ["17.5", "17.0", "16.5", "16.0"]:
 				path = self.examplePath[:-4] + i
 				if os.path.exists(path):
 					self.examplePath = path
+					break
 
 
 	def err_decorator(func):
