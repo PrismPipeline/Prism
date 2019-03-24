@@ -3107,6 +3107,8 @@ except Exception as e:
 					os.makedirs(i[0].replace(updateRoot, self.prismRoot))
 
 				shutil.copy2(filepath, filepath.replace(updateRoot, self.prismRoot) )
+				if os.path.splitext(filepath)[1] in [".command", ".sh"]:
+					os.chmod(filepath.replace(updateRoot, self.prismRoot), 0o777)
 
 		if os.path.exists(targetdir):
 			shutil.rmtree(targetdir, ignore_errors=False, onerror=self.handleRemoveReadonly)
