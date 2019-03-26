@@ -41,6 +41,8 @@ except:
 	from PySide.QtGui import *
 	psVersion = 1
 
+import sys
+
 
 class ScreenShot(QDialog):
 	def __init__(self, core):
@@ -122,7 +124,12 @@ class ScreenShot(QDialog):
 			else:
 				screen = QPixmap
 
-			self.imgmap = screen.grabWindow(long(desktop.winId()), rect.x(), rect.y(), rect.width(), rect.height())
+			if sys.version[0] == "2":
+				winID = long(desktop.winId())
+			else:
+				winID = desktop.winId()
+
+			self.imgmap = screen.grabWindow(winID, rect.x(), rect.y(), rect.width(), rect.height())
 			self.close()
 		QWidget.mouseReleaseEvent(self, event)
 
