@@ -1,2 +1,2 @@
-var shellScript = new File('PRISMROOT/Plugins/Apps/Photoshop/Scripts/Prism - 2 Save version_Mac.command');
-shellScript.execute();
+var cmdFile = new File('PRISMROOT/Plugins/Apps/Photoshop/Scripts/Prism - 2 Save version_Mac.command');
+cmdFile.execute();
