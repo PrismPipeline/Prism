@@ -1404,11 +1404,31 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.core.getCurrentFileName().replace("\\","/") == filepath and self.actionCloseAfterLoad.isChecked():
 			self.close()
 
+	@err_decorator
+	def commentDialog(self):
+		try:
+			del sys.modules["SaveComment"]
+		except:
+			pass
+		try:
+			import SaveComment
+		except:
+			modPath = imp.find_module("SaveComment")[1]
+			if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
+				os.remove(modPath)
+			import SaveComment
+		savec = SaveComment.SaveComment(core = self.core)
+		savec.exec_()
+		return savec.e_comment.text()
+
 
 	@err_decorator
 	def createFromCurrent(self):
 
 		fname = self.core.getCurrentFileName()
+		comment = self.commentDialog()
+        if comment == "" or comment is None:
+            comment = "nocomment"
 		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
 			dstname = self.tw_aHierarchy.currentItem().text(1)
 			refresh = self.refreshAFile
@@ -1416,14 +1436,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			prefix = self.tw_aHierarchy.currentItem().text(0)
 			step = self.lw_aPipeline.currentItem().text()
 			dstname = os.path.join(dstname, "Scenefiles", step)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
+			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + comment + self.core.filenameSeperator + self.core.user
 
 		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
 			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
 			refresh = self.refreshSFile
 
 			subcat = self.core.filenameSeperator + self.cursCat
-			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
+			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + comment + self.core.filenameSeperator + self.core.user
+
 
 		if "newfname" in locals():
 			filepath = os.path.join(dstname, newfname)
