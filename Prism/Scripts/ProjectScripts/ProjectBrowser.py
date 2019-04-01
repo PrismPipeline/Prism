@@ -147,6 +147,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.cursStep = None
 		self.cursCat = None
 
+		self.tabLabels = {"Assets": "Assets", "Shots": "Shots", "Files": "Files", "Recent": "Recent"}
+		self.tableColumnLabels = {"Version": "Version", "Comment": "Comment", "Date": "Date", "User": "User", "Name": "Name", "Step": "Step"}
 		self.tw_aHierarchy.setHeaderLabels(["Assets"])
 
 		self.fhbuttons = [self.b_fH01, self.b_fH02, self.b_fH03, self.b_fH04, self.b_fH05, self.b_fH06, self.b_fH07, self.b_fH08, self.b_fH09, self.b_fH10]
@@ -386,35 +388,35 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.actionRefresh.triggered.connect(self.refreshUI)
 		self.menubar.addAction(self.actionRefresh)
 
-		helpMenu = QMenu("Help")
+		self.helpMenu = QMenu("Help")
 
 		self.actionWebsite = QAction("Visit website", self)
 		self.actionWebsite.triggered.connect(lambda: self.core.openWebsite("home"))
-		helpMenu.addAction(self.actionWebsite)
+		self.helpMenu.addAction(self.actionWebsite)
 
 		self.actionWebsite = QAction("Tutorials", self)
 		self.actionWebsite.triggered.connect(lambda:self.core.openWebsite("tutorials"))
-		helpMenu.addAction(self.actionWebsite)
+		self.helpMenu.addAction(self.actionWebsite)
 
 		self.actionWebsite = QAction("Documentation", self)
 		self.actionWebsite.triggered.connect(lambda: self.core.openWebsite("documentation"))
-		helpMenu.addAction(self.actionWebsite)
+		self.helpMenu.addAction(self.actionWebsite)
 
 		self.actionSendFeedback = QAction("Send feedback/feature requests...", self)
 		self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
-		helpMenu.addAction(self.actionSendFeedback)
+		self.helpMenu.addAction(self.actionSendFeedback)
 
 		self.actionCheckVersion = QAction("Check for Prism updates", self)
 		self.actionCheckVersion.triggered.connect(self.core.checkPrismVersion)
-		helpMenu.addAction(self.actionCheckVersion)
+		self.helpMenu.addAction(self.actionCheckVersion)
 
 		self.actionAbout = QAction("About...", self)
 		self.actionAbout.triggered.connect(self.core.showAbout)
-		helpMenu.addAction(self.actionAbout)
+		self.helpMenu.addAction(self.actionAbout)
 	
-		self.menubar.addMenu(helpMenu)
+		self.menubar.addMenu(self.helpMenu)
 
-		self.core.appPlugin.setRCStyle(self, helpMenu)
+		self.core.appPlugin.setRCStyle(self, self.helpMenu)
 
 		self.appFilters = {}
 		for i in self.core.getPluginNames():
@@ -535,10 +537,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.tabOrder["Files"]["order"] = cData["filesOrder"]
 			self.tabOrder["Recent"]["order"] = cData["recentOrder"]
 
-		self.tbw_browser.insertTab(self.tabOrder["Assets"]["order"], self.t_assets, "Assets")
-		self.tbw_browser.insertTab(self.tabOrder["Shots"]["order"], self.t_shots, "Shots")
-		self.tbw_browser.insertTab(self.tabOrder["Files"]["order"], self.t_files, "Files")
-		self.tbw_browser.insertTab(self.tabOrder["Recent"]["order"], self.t_recent, "Recent")
+		self.tbw_browser.insertTab(self.tabOrder["Assets"]["order"], self.t_assets, self.tabLabels["Assets"])
+		self.tbw_browser.insertTab(self.tabOrder["Shots"]["order"], self.t_shots, self.tabLabels["Shots"])
+		self.tbw_browser.insertTab(self.tabOrder["Files"]["order"], self.t_files, self.tabLabels["Files"])
+		self.tbw_browser.insertTab(self.tabOrder["Recent"]["order"], self.t_recent, self.tabLabels["Recent"])
+
+		self.t_assets.setProperty("tabType", "Assets")
+		self.t_shots.setProperty("tabType", "Shots")
+		self.t_files.setProperty("tabType", "Files")
+		self.t_recent.setProperty("tabType", "Recent")
 
 		if not cData["assetsVisible"]:
 			self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_assets))
@@ -585,12 +592,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.core.callback(name="projectBrowser_loadUI", types=["custom" ,"unloadedApps"], args=[self])
 		if cData["current"] is not None and cData["current"] != "" and cData["current"] in self.tabOrder:
 			for i in range(self.tbw_browser.count()):
-				if self.tbw_browser.tabText(i) == cData["current"]:
+				if self.tbw_browser.widget(i).property("tabType") == cData["current"]:
 					self.tbw_browser.setCurrentIndex(i)
 					break
 			self.updateChanged(False)
 
-		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.tabText(self.tbw_browser.currentIndex())]["showRenderings"])
+		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.currentWidget().property("tabType")]["showRenderings"])
 
 		if self.tbw_browser.count() == 0:
 			self.tbw_browser.setVisible(False)
@@ -622,7 +629,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def closeEvent(self, event):
 		tabOrder = []
 		for i in range(self.tbw_browser.count()):
-			tabOrder.append(self.tbw_browser.tabText(i))
+			tabOrder.append(self.tbw_browser.widget(i).property("tabType"))
 
 		if not "Assets" in tabOrder:
 			tabOrder.append("Assets")
@@ -638,11 +645,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		visible = []
 		for i in range(self.tbw_browser.count()):
-			visible.append(self.tbw_browser.tabText(i))
+			visible.append(self.tbw_browser.widget(i).property("tabType"))
 
 		cData = []
 
-		cData.append(['browser', "current", self.tbw_browser.tabText(self.tbw_browser.currentIndex())])
+		cData.append(['browser', "current", self.tbw_browser.widget(self.tbw_browser.currentIndex()).property("tabType")])
 		cData.append(['browser', "assetsOrder", str(tabOrder.index("Assets"))])
 		cData.append(['browser', "shotsOrder", str(tabOrder.index("Shots"))])
 		cData.append(['browser', "filesOrder", str(tabOrder.index("Files"))])
@@ -735,16 +742,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def tabChanged(self, tab):
-		if self.tbw_browser.tabText(tab) == "Assets":
+		if self.tbw_browser.widget(tab).property("tabType") == "Assets":
 			self.refreshAFile()
-		elif self.tbw_browser.tabText(tab) == "Shots":
+		elif self.tbw_browser.widget(tab).property("tabType") == "Shots":
 			self.refreshSFile()
-		elif self.tbw_browser.tabText(tab) == "Files":
+		elif self.tbw_browser.widget(tab).property("tabType") == "Files":
 			self.refreshFCat()
-		elif self.tbw_browser.tabText(tab) == "Recent":
+		elif self.tbw_browser.widget(tab).property("tabType") == "Recent":
 			self.setRecent()
 
-		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.tabText(tab)]["showRenderings"])
+		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.widget(tab).property("tabType")]["showRenderings"])
 
 		if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
 			self.updateTasks()
@@ -752,12 +759,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshUI(self):
-		tab = self.tbw_browser.currentIndex()
-
-		curTab = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+		curTab = self.tbw_browser.currentWidget().property("tabType")
 		curData = [curTab, self.cursShots, self.curRTask, self.curRVersion, self.curRLayer]
 
-		if self.tbw_browser.tabText(tab) == "Assets":
+		if curTab == "Assets":
 			curAssetItem = self.tw_aHierarchy.currentItem()
 			if curAssetItem is None:
 				dstname = self.aBasePath
@@ -773,7 +778,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				dstname = os.path.join(basePath, curStep)
 
 			self.refreshAHierarchy()
-		elif self.tbw_browser.tabText(tab) == "Shots":
+		elif curTab == "Shots":
 			if self.cursShots is None:
 				shot = ""
 			else:
@@ -792,7 +797,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			dstname = os.path.join(self.sBasePath, shot, step, cat)
 
 			self.refreshShots()
-		elif self.tbw_browser.tabText(tab) == "Recent":
+		elif curTab == "Recent":
 			self.setRecent()
 			return
 		else:
@@ -1324,13 +1329,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if hasattr(self.core, "sm"):
 			self.core.sm.close()
 
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
+		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
 			refresh = self.refreshAFile
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
 			refresh = self.refreshSFile
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Files":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Files":
 			refresh = self.refreshFCat
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Recent":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
 			refresh = self.setRecent
 
 		if filepath == "":
@@ -1391,7 +1396,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					msg = QMessageBox(QMessageBox.Warning, "Warning", warnStr, QMessageBox.Ok, parent=self.core.messageParent)
 					msg.exec_()
 
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) != "Files":
+		if self.tbw_browser.currentWidget().property("tabType") != "Files":
 			self.core.addToRecent(filepath)
 			self.setRecent()
 
@@ -1409,7 +1414,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def createFromCurrent(self):
 
 		fname = self.core.getCurrentFileName()
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
+		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
 			dstname = self.tw_aHierarchy.currentItem().text(1)
 			refresh = self.refreshAFile
 
@@ -1418,7 +1423,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			dstname = os.path.join(dstname, "Scenefiles", step)
 			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
 
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
 			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
 			refresh = self.refreshSFile
 
@@ -1585,11 +1590,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def copyfile(self, path, mode = None):
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
+		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
 			self.copiedFile = path
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
 			self.copiedsFile = path 
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Files":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Files":
 			self.fcopymode = mode
 			self.copiedfFile = path
 
@@ -1922,7 +1927,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		twSorting = [self.tw_aFiles.horizontalHeader().sortIndicatorSection(), self.tw_aFiles.horizontalHeader().sortIndicatorOrder()]
 
 		model = QStandardItemModel()
-		model.setHorizontalHeaderLabels(["", "Version", "Comment", "Date", "User"])
+		model.setHorizontalHeaderLabels(["", self.tableColumnLabels["Version"], self.tableColumnLabels["Comment"], self.tableColumnLabels["Date"], self.tableColumnLabels["User"]])
 
 		appfilter = []
 
@@ -2185,7 +2190,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		model = QStandardItemModel()
 
-		model.setHorizontalHeaderLabels(["","Version", "Comment", "Date", "User"])
+		model.setHorizontalHeaderLabels(["", self.tableColumnLabels["Version"], self.tableColumnLabels["Comment"], self.tableColumnLabels["Date"], self.tableColumnLabels["User"]])
 		#example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
 
 		if self.cursCat is not None:
@@ -2537,7 +2542,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def setRecent(self):
 		model = QStandardItemModel()
 
-		model.setHorizontalHeaderLabels(["","Name", "Step", "Version", "Comment", "Date", "User", "Filepath"])
+		model.setHorizontalHeaderLabels(["", self.tableColumnLabels["Name"], self.tableColumnLabels["Step"], self.tableColumnLabels["Version"], self.tableColumnLabels["Comment"], self.tableColumnLabels["Date"], self.tableColumnLabels["User"], "Filepath"])
 		#example filename: Body_mod_v0002_details-added_rfr_.max
 		#example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
 		rSection = "recent_files_" + self.core.projectName
@@ -2663,13 +2668,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshCurrent(self):
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
+		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
 			self.refreshAFile()
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
 			self.refreshSFile()
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Files":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Files":
 			self.refreshFCat()
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Recent":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
 			self.setRecent()
 
 
@@ -2735,7 +2740,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerAssets(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder["Assets"]["order"], self.t_assets, "Assets")
+			self.tbw_browser.insertTab(self.tabOrder["Assets"]["order"], self.t_assets, self.tabLabels["Assets"])
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:
@@ -2747,7 +2752,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerShots(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder["Shots"]["order"], self.t_shots, "Shots")
+			self.tbw_browser.insertTab(self.tabOrder["Shots"]["order"], self.t_shots, self.tabLabels["Shots"])
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:
@@ -2759,7 +2764,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerFiles(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder["Files"]["order"], self.t_files, "Files")
+			self.tbw_browser.insertTab(self.tabOrder["Files"]["order"], self.t_files, self.tabLabels["Files"])
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:
@@ -2772,7 +2777,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def triggerRecent(self, checked=False):
 		if checked:
-			self.tbw_browser.insertTab(self.tabOrder["Recent"]["order"], self.t_recent, "Recent")
+			self.tbw_browser.insertTab(self.tabOrder["Recent"]["order"], self.t_recent, self.tabLabels["Recent"])
 			if self.tbw_browser.count() == 1:
 				self.tbw_browser.setVisible(True)
 		else:
@@ -3025,7 +3030,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			except:
 				QMessageBox.warning(self.core.messageParent, "Copy to global", "Could not delete the local file. Probably it is used by another process.")
 
-			curTab = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+			curTab = self.tbw_browser.currentWidget().property("tabType")
 			curData = [curTab, self.cursShots, self.curRTask, self.curRVersion, self.curRLayer]
 			self.updateTasks()
 			self.showRender(curData[0], curData[1], curData[2], curData[3].replace(" (local)", ""), curData[4])
@@ -3035,9 +3040,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 			self.core.copySceneFile(localPath, dstPath)
 
-			if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
+			if self.tbw_browser.currentWidget().property("tabType") == "Assets":
 				self.refreshAFile()
-			elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
+			elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
 				self.refreshSFile()
 
 
@@ -3219,7 +3224,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshRender(self):
-		curTab = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+		curTab = self.tbw_browser.currentWidget().property("tabType")
 		curData = [curTab, self.cursShots, self.curRTask, self.curRVersion, self.curRLayer]
 		self.updateTasks()
 		self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
@@ -3230,7 +3235,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		mediaTasks = {"3d":[], "2d":[], "playblast":[], "external":[]}
 
 		if entityType is None:
-			entityType = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+			entityType = self.tbw_browser.currentWidget().property("tabType")
 
 		foldercont = []
 		self.renderBasePath = None
@@ -3920,7 +3925,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def saveClicked(self, num):
-		curTab = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+		curTab = self.tbw_browser.currentWidget().property("tabType")
 		if curTab not in ["Assets", "Shots"]:
 			return False
 
@@ -4042,9 +4047,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def showRender(self, tab, shot, task, version, layer):
-		if tab != self.tbw_browser.tabText(self.tbw_browser.currentIndex()):
+		if tab != self.tbw_browser.currentWidget().property("tabType"):
 			for i in range(self.tbw_browser.count()):
-				if self.tbw_browser.tabText(i) == tab:
+				if self.tbw_browser.widget(i).property("tabType") == tab:
 					idx = i
 					break
 			else:
@@ -4191,7 +4196,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			rcmenu.addMenu(cvtMenu)
 			self.core.appPlugin.setRCStyle(self, cvtMenu)
 
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots" and len(mediaPlayback["seq"]) > 0:
+		if self.tbw_browser.currentWidget().property("tabType") == "Shots" and len(mediaPlayback["seq"]) > 0:
 			prvAct = QAction("Set as shotpreview", self)
 			prvAct.triggered.connect(self.setPreview)
 			rcmenu.addAction(prvAct)
@@ -4245,9 +4250,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		refName = ""
 
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
+		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
 			refName += prvData[0] + self.core.filenameSeperator
-		elif self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Shots":
+		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
 			refName += prvData[0] + self.core.filenameSeperator + prvData[1] + self.core.filenameSeperator
 
 		refName += self.curRTask + self.core.filenameSeperator + self.curRVersion
@@ -4442,7 +4447,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		with open(redirectFile, "w") as rfile:
 			rfile.write(targetPath)
 
-		curTab = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+		curTab = self.tbw_browser.currentWidget().property("tabType")
 		curData = [curTab, self.cursShots, taskName + " (external)", versionName, ""]
 		self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
@@ -4502,7 +4507,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			with open(redirectFile, "w") as rfile:
 				rfile.write(self.ep.e_taskPath.text())
 
-			curTab = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+			curTab = self.tbw_browser.currentWidget().property("tabType")
 			curData = [curTab, self.cursShots, self.curRTask, self.ep.e_versionName.text(), ""]
 			self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
@@ -4616,7 +4621,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def addCompare(self):
-		if self.tbw_browser.tabText(self.tbw_browser.currentIndex()) == "Assets":
+		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
 			shotName = "Asset"
 		else:
 			shotName = self.cursShots
@@ -5099,7 +5104,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if mediaPlayback["prvIsSequence"] or videoInput:
 			outputpath = outputpath.replace("%04d", "%04d" % int(startNum))
 
-		curTab = self.tbw_browser.tabText(self.tbw_browser.currentIndex())
+		curTab = self.tbw_browser.currentWidget().property("tabType")
 		curData = [curTab, self.cursShots, self.curRTask, self.curRVersion, self.curRLayer]
 		self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 

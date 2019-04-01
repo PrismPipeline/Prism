@@ -308,7 +308,7 @@ class Prism_PluginEmpty_Functions(object):
 
 	@err_decorator
 	def prjmanPublish(self, origin):
-		if origin.tbw_browser.tabText(origin.tbw_browser.currentIndex()) == "Assets":
+		if origin.tbw_browser.currentWidget().property("tabType") == "Assets":
 			pType = "Asset"
 		else:
 			pType = "Shot"

@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.2"
+			self.version = "v1.2.0.3"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -154,6 +154,7 @@ class PrismCore():
 			self.sceneOpenChecksEnabled = True
 			self.parentWindows = True
 			self.filenameSeperator = "_"
+			self.separateOutputVersionStack = True
 
 			# delete old paths from the path variable
 			for val in sys.path:
@@ -1942,6 +1943,18 @@ class PrismCore():
 
 				if version > highversion:
 					highversion = version
+
+		if not getExisting and not self.separateOutputVersionStack:
+			fileName = self.getCurrentFileName()
+			fnameData = os.path.basename(fileName).split(self.filenameSeperator)
+			if len(fnameData) == 8:
+				hVersion = fnameData[4]
+			elif len(fnameData) == 6:
+				hVersion = fnameData[2]
+			else:
+				hVersion = "v0001"
+
+			return hVersion
 			
 		if getExisting and highversion != 0:
 			return "v" + format(highversion, '04')
@@ -2720,14 +2733,20 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 		fnameData = os.path.basename(fileName).split(self.filenameSeperator)
 		if len(fnameData) == 8:
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "2dRender", taskName))
-			hVersion = self.getHighestTaskVersion(outputPath, getExisting=useLastVersion, ignoreEmpty=ignoreEmpty)
+			if not self.separateOutputVersionStack:
+				hVersion = fnameData[4]
+			else:
+				hVersion = self.getHighestTaskVersion(outputPath, getExisting=useLastVersion, ignoreEmpty=ignoreEmpty)
 			outputFile = fnameData[0] + self.filenameSeperator + fnameData[1] + self.filenameSeperator + taskName + self.filenameSeperator + hVersion + ".####." + fileType
 		elif len(fnameData) == 6:
 			if os.path.join(self.getConfig('paths', "scenes", configPath=self.prismIni), "Assets", "Scenefiles").replace("\\", "/") in fileName:
 				outputPath = os.path.join(self.projectPath, self.getConfig('paths', "scenes", configPath=self.prismIni), "Assets", "Rendering", "2dRender", taskName)
 			else:
 				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Rendering", "2dRender", taskName))
-			hVersion = self.getHighestTaskVersion(outputPath, getExisting=useLastVersion, ignoreEmpty=ignoreEmpty)
+			if not self.separateOutputVersionStack:
+				hVersion = fnameData[2]
+			else:
+				hVersion = self.getHighestTaskVersion(outputPath, getExisting=useLastVersion, ignoreEmpty=ignoreEmpty)
 			
 			outputFile = fnameData[0] + self.filenameSeperator + taskName + self.filenameSeperator + hVersion + ".####." + fileType
 		else:

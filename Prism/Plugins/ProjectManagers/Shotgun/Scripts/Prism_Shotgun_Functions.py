@@ -568,7 +568,7 @@ class Prism_Shotgun_Functions(object):
 
 		import ShotgunPublish
 
-		if origin.tbw_browser.tabText(origin.tbw_browser.currentIndex()) == "Assets":
+		if origin.tbw_browser.currentWidget().property("tabType") == "Assets":
 			pType = "Asset"
 		else:
 			pType = "Shot"
@@ -600,7 +600,7 @@ class Prism_Shotgun_Functions(object):
 		self.core.parentWindow(sgp)
 		sgp.exec_()
 
-		curTab = origin.tbw_browser.tabText(origin.tbw_browser.currentIndex())
+		curTab = origin.tbw_browser.currentWidget().property("tabType")
 		curData = [curTab, origin.cursShots, origin.curRTask, origin.curRVersion, origin.curRLayer]
 		origin.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
