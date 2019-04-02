@@ -194,8 +194,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
 		self.emptypmapPrv = self.createPMap(self.shotPrvXres, self.shotPrvYres)
 		self.refreshFCat()
-		self.setRecent()
 		self.loadLayout()
+		self.setRecent()
 		self.getRVpath()
 		self.getDJVpath()
 		self.getVLCpath()
@@ -2007,7 +2007,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_aFiles.resizeColumnsToContents()
 		self.tw_aFiles.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_aFiles.setColumnWidth(0,10*self.core.uiScaleFactor)
-		self.tw_aFiles.setColumnWidth(1,80*self.core.uiScaleFactor)
+		self.tw_aFiles.setColumnWidth(1,100*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(3,200*self.core.uiScaleFactor)
 		self.tw_aFiles.setColumnWidth(4,100*self.core.uiScaleFactor)
 		
@@ -2290,7 +2290,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_sFiles.resizeColumnsToContents()
 		self.tw_sFiles.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_sFiles.setColumnWidth(0,10*self.core.uiScaleFactor)
-		self.tw_sFiles.setColumnWidth(1,80*self.core.uiScaleFactor)
+		self.tw_sFiles.setColumnWidth(1,100*self.core.uiScaleFactor)
 		self.tw_sFiles.setColumnWidth(3,200*self.core.uiScaleFactor)
 		self.tw_sFiles.setColumnWidth(4,100*self.core.uiScaleFactor)
 		self.tw_sFiles.sortByColumn(twSorting[0], twSorting[1])
@@ -2412,6 +2412,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if self.cursShots is not None:
 				self.es.e_sequence.setText(self.cursShots.split("-")[0])
 				self.es.e_shotName.setFocus()
+
+		self.core.callback(name="onShotDlgOpen", types=["custom"], args=[self, self.es, shotName])
 
 		result = self.es.exec_()
 
@@ -2656,9 +2658,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_recent.resizeColumnsToContents()
 		self.tw_recent.horizontalHeader().setMinimumSectionSize(10)
 		self.tw_recent.setColumnWidth(0,10*self.core.uiScaleFactor)
-		self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
-		self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)
-		self.tw_recent.setColumnWidth(6,50*self.core.uiScaleFactor)
+	#	self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
+	#	self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)
+	#	self.tw_recent.setColumnWidth(6,50*self.core.uiScaleFactor)
 
 		if psVersion == 1:
 			self.tw_recent.horizontalHeader().setResizeMode(0,QHeaderView.Fixed)
@@ -3146,7 +3148,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if endIdx is not None and hierarchy[endIdx] == "Scenefiles":
 					endIdx += 1
 
-				if endIdx is not None and endIdx+2 == len(hierarchy):
+				if endIdx is not None and endIdx < len(hierarchy):
 					stepName = hierarchy[endIdx]
 					fItems = self.lw_aPipeline.findItems(stepName, Qt.MatchExactly)
 					if len(fItems) > 0:

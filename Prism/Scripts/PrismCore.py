@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.3"
+			self.version = "v1.2.0.4"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -2194,6 +2194,8 @@ class PrismCore():
 		if platform.system() == "Windows" and outLength > 255:
 			QMessageBox.warning(self.messageParent, "Could not save the file", "The filepath is longer than 255 characters (%s), which is not supported on Windows." % outLength)
 			return False
+
+		self.callback(name="onAboutToSaveFile", types=["custom"], args=[self, filepath])
 
 		result = self.appPlugin.saveScene(self, filepath)
 		if len(details) > 0:

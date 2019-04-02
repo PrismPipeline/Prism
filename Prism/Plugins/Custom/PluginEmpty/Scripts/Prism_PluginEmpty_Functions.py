@@ -134,6 +134,11 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
+	def onAboutToSaveFile(self, origin, filepath):
+		pass
+
+
+	@err_decorator
 	def onSaveFile(self, origin, filepath):
 		pass
 
@@ -173,6 +178,12 @@ class Prism_PluginEmpty_Functions(object):
 
 	@err_decorator
 	def onCategoryCreated(self, origin, catname, path):
+		pass
+
+
+	@err_decorator
+	def onShotDlgOpen(self, origin, shotDialog, shotName=None):
+		# gets called just before the "Create Shot"/"Edit Shot" dialog opens. Check if "shotName" is None to check if a new shot will be created or if an existing shot will be edited.
 		pass
 
 
