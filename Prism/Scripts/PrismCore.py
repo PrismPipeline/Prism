@@ -1882,12 +1882,12 @@ class PrismCore():
 		sceneDirName = self.getConfig('paths', "scenes", configPath=self.prismIni)
 		if getAssets:
 			sceneDirs.append(os.path.join(self.projectPath, sceneDirName, "Assets"))
-			if localScenes and self.useLocalFiles:
+			if localScenes and self.useLocalFiles and not latestOnly:
 				sceneDirs.append(os.path.join(self.localProjectPath, sceneDirName, "Assets"))
 
 		if getShots:
 			sceneDirs.append(os.path.join(self.projectPath, sceneDirName, "Shots"))
-			if localScenes and self.useLocalFiles:
+			if localScenes and self.useLocalFiles and not latestOnly:
 				sceneDirs.append(os.path.join(self.localProjectPath, sceneDirName, "Shots"))
 
 		fileTypes = []
@@ -1902,7 +1902,7 @@ class PrismCore():
 					continue
 
 				if latestOnly:
-					result = self.getHighestVersion(fcont[0], getExistingPath=True, fileTypes=fileTypes, localVersions=False)
+					result = self.getHighestVersion(fcont[0], getExistingPath=True, fileTypes=fileTypes, localVersions=localScenes)
 					if result:
 						scenes.append(result)
 				else:
