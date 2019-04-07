@@ -1050,7 +1050,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 	@err_decorator
 	def saveStatesToScene(self, param=None):
-		if not self.saveEnabled or not self.isVisible():
+		if not self.saveEnabled:
 			return False
 
 		getattr(self.core.appPlugin, "sm_preSaveToScene", lambda x: None)(self)
@@ -1411,7 +1411,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 					elif k[2] == 3:
 						warnString += warnBase + ("- <font color=\"red\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
 		
-			if warnString != "":
+			if warnString != "" and self.core.uiAvailable:
 				warnDlg = QDialog()
 
 				warnDlg.setWindowTitle("Publish warnings")
@@ -1463,7 +1463,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				sceneSaved = self.core.saveScene(comment=self.e_comment.text(), publish=True, details=details, preview=self.previewImg)
 
 			if not sceneSaved:
-				QMessageBox.warning(self.core.messageParent, actionString, actionString + " canceled")
+				if self.core.uiAvailable:
+					QMessageBox.warning(self.core.messageParent, actionString, actionString + " canceled")
 				return
 
 			self.description = ""
@@ -1535,15 +1536,16 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			if "error" in i["result"][0]:
 				success = False
 
-		if success:
-			QMessageBox.information(self.core.messageParent, actionString, "The %s was successfull." % actionString2)
-		else:
-			infoString = ""
-			for i in self.publishResult:
-				if not "publish paused" in i["result"][0]:
-					infoString += i["result"][0] +"\n"
+		if self.core.uiAvailable:
+			if success:
+				QMessageBox.information(self.core.messageParent, actionString, "The %s was successfull." % actionString2)
+			else:
+				infoString = ""
+				for i in self.publishResult:
+					if not "publish paused" in i["result"][0]:
+						infoString += i["result"][0] +"\n"
 
-			QMessageBox.warning(self.core.messageParent, actionString, "Errors occured during the %s:\n\n" % actionString2 + infoString)
+				QMessageBox.warning(self.core.messageParent, actionString, "Errors occured during the %s:\n\n" % actionString2 + infoString)
 
 		if self.reloadScenefile:
 			self.core.appPlugin.openScene(self, self.core.getCurrentFileName())

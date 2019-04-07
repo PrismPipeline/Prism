@@ -90,7 +90,7 @@ class ImportFileClass(object):
 		self.importPath = importPath
 		self.updatePrefUnits()
 
-		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier
+		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier or not self.core.uiAvailable
 
 		if importPath is None and stateData is None and not createEmptyState:
 			import TaskSelection
@@ -616,6 +616,37 @@ class ImportFileClass(object):
 			self.b_importLatest.setStyleSheet("")
 
 		self.nameChanged(self.e_name.text())
+
+
+	@err_decorator
+	def getCurrentVersion(self):
+		return self.e_file.text().replace("\\", "/")
+
+
+	@err_decorator
+	def getLatestVersion(self):
+		parDir = os.path.dirname(self.e_file.text())
+		if os.path.basename(parDir) in ["centimeter", "meter"]:
+			versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
+			taskPath = os.path.dirname(os.path.dirname(parDir))
+		else:
+			versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
+			taskPath = os.path.dirname(parDir)
+
+		if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
+			self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
+			self.l_latestVersion.setText("-")
+			for i in os.walk(taskPath):
+				folders = i[1]
+				folders.sort()
+				for k in reversed(folders):
+					meterDir = os.path.join(i[0], k, "meter")
+					cmeterDir = os.path.join(i[0], k, "centimeter")
+					if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+						return os.path.join(i[0], k).replace("\\", "/")
+				break
+
+		return ""
 
 
 	@err_decorator

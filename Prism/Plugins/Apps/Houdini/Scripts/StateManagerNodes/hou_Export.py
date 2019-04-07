@@ -258,21 +258,24 @@ class ExportClass(object):
 
 
 	@err_decorator
-	def createNode(self):
+	def createNode(self, nodePath=None):
 		parentNode = None
-		nodePath = None
+		curContext = ""
 		if not self.isNodeValid():
 			if len(hou.selectedNodes()) > 0:
 				curContext = hou.selectedNodes()[0].type().category().name()
 				if len(hou.selectedNodes()[0].outputNames()) > 0:
 					parentNode = hou.selectedNodes()[0]
 			else:
-				paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-				if paneTab is None:
-					return
+				if self.core.uiAvailable:
+					paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+					if paneTab is None:
+						return
 
-				curContext = paneTab.pwd().childTypeCategory().name()
-				nodePath = paneTab.pwd()
+					curContext = paneTab.pwd().childTypeCategory().name()
+					nodePath = paneTab.pwd()
+				elif nodePath is not None:
+					curContext = hou.node(nodePath).type().category().name()
 		else:
 			curContext = self.node.type().category().name()
 			if len(self.node.inputs()) > 0:

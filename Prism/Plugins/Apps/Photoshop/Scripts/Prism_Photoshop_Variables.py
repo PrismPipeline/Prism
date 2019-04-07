@@ -40,7 +40,7 @@ class Prism_Photoshop_Variables(object):
 		self.appShortName = "Photoshop"
 		self.appType = "2d"
 		self.hasQtParent = False
-		self.sceneFormats = [".psd"]
+		self.sceneFormats = [".psd", ".psb"]
 		self.appSpecificFormats = self.sceneFormats
 		self.appColor = [115,172,230]
 		self.appVersionPresets = ["13.0.0"]

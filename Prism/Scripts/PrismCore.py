@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.4"
+			self.version = "v1.2.0.5"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -145,6 +145,8 @@ class PrismCore():
 			self.prismArgs = prismArgs
 			if "silent" in sys.argv:
 				self.prismArgs.append("silent")
+
+			self.uiAvailable = False if "noUI" in self.prismArgs else True
 
 			self.stateData = []
 			self.prjHDAs = []
@@ -535,7 +537,7 @@ class PrismCore():
 
 		if curPrj != "":
 			self.changeProject(curPrj)
-			if not "silent" in self.prismArgs and self.getConfig("globals", "showonstartup", ptype="bool"):
+			if not "silent" in self.prismArgs and self.getConfig("globals", "showonstartup", ptype="bool") and self.uiAvailable:
 				self.projectBrowser()
 
 		if self.getCurrentFileName() != "":
@@ -1105,7 +1107,7 @@ class PrismCore():
 			if self.appPlugin.pluginName != "Standalone":
 				win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
 	
-		if not self.parentWindows:
+		if not self.parentWindows or not self.uiAvailable:
 			return
 			
 		win.setParent(self.messageParent, Qt.Window)
@@ -1228,13 +1230,18 @@ class PrismCore():
 
 				self.sm = StateManager.StateManager(core = self, stateDataPath=stateDataPath)
 
-			self.sm.show()
-			self.sm.collapseFolders()
+			if self.uiAvailable:
+				self.sm.show()
+				self.sm.collapseFolders()
+
 			self.sm.saveStatesToScene()
 
 			if hasattr(self, "sm"):
-				self.sm.activateWindow()
-				self.sm.raise_()
+				if self.uiAvailable:
+					self.sm.activateWindow()
+					self.sm.raise_()
+
+				return self.sm
 
 
 	@err_decorator
@@ -1868,28 +1875,87 @@ class PrismCore():
 
 
 	@err_decorator
-	def getHighestVersion(self, dstname, scenetype):
+	def getScenefiles(self, latestOnly=True, getAssets=True, getShots=True, localScenes=True, apps=[]):
+		scenes = []
+
+		sceneDirs = []
+		sceneDirName = self.getConfig('paths', "scenes", configPath=self.prismIni)
+		if getAssets:
+			sceneDirs.append(os.path.join(self.projectPath, sceneDirName, "Assets"))
+			if localScenes and self.useLocalFiles:
+				sceneDirs.append(os.path.join(self.localProjectPath, sceneDirName, "Assets"))
+
+		if getShots:
+			sceneDirs.append(os.path.join(self.projectPath, sceneDirName, "Shots"))
+			if localScenes and self.useLocalFiles:
+				sceneDirs.append(os.path.join(self.localProjectPath, sceneDirName, "Shots"))
+
+		fileTypes = []
+		for app in apps:
+			ftypes = self.getPluginData(app, "sceneFormats")
+			if ftypes:
+				fileTypes += ftypes
+
+		for bPath in sceneDirs:
+			for fcont in os.walk(bPath):
+				if "/Scenefiles/" not in fcont[0].replace("\\", "/"):
+					continue
+
+				if latestOnly:
+					result = self.getHighestVersion(fcont[0], getExistingPath=True, fileTypes=fileTypes, localVersions=False)
+					if result:
+						scenes.append(result)
+				else:
+					for i in fcont[2]:
+						if os.path.splitext(i)[1] in fileTypes:
+							scenePath = os.path.join(fcont[0], i)
+							scenes.append(scenePath)
+
+		return scenes
+
+
+	@err_decorator
+	def getHighestVersion(self, dstname, scenetype=None, getExistingPath=False, fileTypes="*", localVersions=True):
+		if not scenetype:
+			glbDstname = dstname
+			sceneDirName = self.getConfig('paths', "scenes", configPath=self.prismIni)
+			assetPath = os.path.join(self.projectPath, sceneDirName, "Assets")
+			shotPath = os.path.join(self.projectPath, sceneDirName, "Shots")
+
+			if self.useLocalFiles:
+				glbDstname = dstname.replace(self.localProjectPath, self.projectPath)
+
+			if glbDstname.startswith(assetPath):
+				scenetype = "Asset"
+			elif glbDstname.startswith(shotPath):
+				scenetype = "Shot"
+			else:
+				return 
+
 		if scenetype == "Asset":
 			numvers = 2
 		elif scenetype == "Shot":
 			numvers = 4
 
 		files = []
-		if self.useLocalFiles:
+		if self.useLocalFiles and localVersions:
 			dstname = dstname.replace(self.localProjectPath, self.projectPath)
 
 		for i in os.walk(dstname):
-			files += i[2]
+			files += [os.path.join(i[0], x) for x in i[2]]
 			break
 
-		if self.useLocalFiles:
+		if self.useLocalFiles and localVersions:
 			for i in os.walk(dstname.replace(self.projectPath, self.localProjectPath)):
-				files += i[2]
+				files += [os.path.join(i[0], x) for x in i[2]]
 				break
 			
-		highversion = 0
+		highversion = [0, ""]
 		for i in files:
-			fname = i.split(self.filenameSeperator)
+			if fileTypes != "*" and os.path.splitext(i)[1] not in fileTypes:
+				continue
+
+			fname = os.path.basename(i).split(self.filenameSeperator)
 
 			if (len(fname) == 8 or len(fname) == 6):
 				try:
@@ -1897,11 +1963,13 @@ class PrismCore():
 				except:
 					continue
 
-				if version > highversion:
-					highversion = version
+				if version > highversion[0]:
+					highversion = [version, i]
 			
-
-		return "v" + format(highversion + 1, '04')
+		if getExistingPath:
+			return highversion[1]
+		else:
+			return "v" + format(highversion[0] + 1, '04')
 
 
 	@err_decorator
@@ -2157,7 +2225,8 @@ class PrismCore():
 				return False
 		
 			if not self.fileInPipeline():
-				QMessageBox.warning(self.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
+				if self.uiAvailable:
+					QMessageBox.warning(self.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
 				return False
 				
 			if self.useLocalFiles:
@@ -2541,7 +2610,8 @@ class PrismCore():
 		msgString += "Please update the imports in the State Manager."
 
 		if updates > 0:
-			QMessageBox.information(self.messageParent, "State updates", msgString)
+			if self.uiAvailable:
+				QMessageBox.information(self.messageParent, "State updates", msgString)
 
 
 	def checkFramerange(self):
@@ -2589,13 +2659,14 @@ class PrismCore():
 
 		msgString = "The framerange of the current scene doesn't match the framerange of the shot:\n\nFramerange of current scene:\n%s - %s\n\nFramerange of shot %s:\n%s - %s" % (int(curRange[0]), int(curRange[1]), shotName, shotRange[0], shotRange[1])
 
-		msg = QMessageBox(QMessageBox.Information, "Framerange mismatch", msgString, QMessageBox.Ok)
-		msg.addButton("Set shotrange in scene", QMessageBox.YesRole)
-		self.parentWindow(msg)
-		action = msg.exec_()
+		if self.uiAvailable:
+			msg = QMessageBox(QMessageBox.Information, "Framerange mismatch", msgString, QMessageBox.Ok)
+			msg.addButton("Set shotrange in scene", QMessageBox.YesRole)
+			self.parentWindow(msg)
+			action = msg.exec_()
 
-		if action == 0:
-			self.setFrameRange(shotRange[0], shotRange[1])
+			if action == 0:
+				self.setFrameRange(shotRange[0], shotRange[1])
 
 
 	@err_decorator
@@ -2634,46 +2705,47 @@ class PrismCore():
 
 		vInfo = [["FPS of current scene:", str(curFps)], ["FPS of project", str(pFps)]]
 
-		infoDlg = QDialog()
-		lay_info = QGridLayout()
+		if self.uiAvailable:
+			infoDlg = QDialog()
+			lay_info = QGridLayout()
 
-		msgString = "The FPS of the current scene doesn't match the FPS of the project:"
-		l_title = QLabel(msgString)
+			msgString = "The FPS of the current scene doesn't match the FPS of the project:"
+			l_title = QLabel(msgString)
 
-		infoDlg.setWindowTitle("FPS mismatch")
-		for idx, val in enumerate(vInfo):
-			l_infoName = QLabel(val[0] + ":\t")
-			l_info = QLabel(val[1])
-			lay_info.addWidget(l_infoName)
-			lay_info.addWidget(l_info, idx, 1)
+			infoDlg.setWindowTitle("FPS mismatch")
+			for idx, val in enumerate(vInfo):
+				l_infoName = QLabel(val[0] + ":\t")
+				l_info = QLabel(val[1])
+				lay_info.addWidget(l_infoName)
+				lay_info.addWidget(l_info, idx, 1)
 
-		lay_info.addItem(QSpacerItem(10,10, QSizePolicy.Minimum, QSizePolicy.Expanding))
-		lay_info.addItem(QSpacerItem(10,10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0,2)
+			lay_info.addItem(QSpacerItem(10,10, QSizePolicy.Minimum, QSizePolicy.Expanding))
+			lay_info.addItem(QSpacerItem(10,10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0,2)
 
-		lay_info.setContentsMargins(10,10,10,10)
-		w_info = QWidget()
-		w_info.setLayout(lay_info)
-	
-		bb_info = QDialogButtonBox()
+			lay_info.setContentsMargins(10,10,10,10)
+			w_info = QWidget()
+			w_info.setLayout(lay_info)
+		
+			bb_info = QDialogButtonBox()
 
-		bb_info.addButton("Continue", QDialogButtonBox.RejectRole)
-		bb_info.addButton("Set project FPS in current scene", QDialogButtonBox.AcceptRole)
+			bb_info.addButton("Continue", QDialogButtonBox.RejectRole)
+			bb_info.addButton("Set project FPS in current scene", QDialogButtonBox.AcceptRole)
 
-		bb_info.accepted.connect(infoDlg.accept)
-		bb_info.rejected.connect(infoDlg.reject)
+			bb_info.accepted.connect(infoDlg.accept)
+			bb_info.rejected.connect(infoDlg.reject)
 
-		bLayout = QVBoxLayout()
-		bLayout.addWidget(l_title)
-		bLayout.addWidget(w_info)
-		bLayout.addWidget(bb_info)
-		infoDlg.setLayout(bLayout)
-		infoDlg.setParent(self.messageParent, Qt.Window)
-		infoDlg.resize(460*self.uiScaleFactor, 160*self.uiScaleFactor)
+			bLayout = QVBoxLayout()
+			bLayout.addWidget(l_title)
+			bLayout.addWidget(w_info)
+			bLayout.addWidget(bb_info)
+			infoDlg.setLayout(bLayout)
+			infoDlg.setParent(self.messageParent, Qt.Window)
+			infoDlg.resize(460*self.uiScaleFactor, 160*self.uiScaleFactor)
 
-		action = infoDlg.exec_()
+			action = infoDlg.exec_()
 
-		if action == 1:
-			self.appPlugin.setFPS(self, float(pFps))
+			if action == 1:
+				self.appPlugin.setFPS(self, float(pFps))
 
 
 	@err_decorator

@@ -78,29 +78,33 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def startup(self, origin):
-		for obj in qApp.topLevelWidgets():
-			if obj.objectName() == 'MayaWindow':
-				mayaQtParent = obj
-				break
-		else:
-			return False
+		if self.core.uiAvailable:
+			for obj in qApp.topLevelWidgets():
+				if obj.objectName() == 'MayaWindow':
+					mayaQtParent = obj
+					break
+			else:
+				return False
 
-		try:
-			topLevelShelf = mel.eval('string $m = $gShelfTopLevel')
-		except:
-			return False
+			try:
+				topLevelShelf = mel.eval('string $m = $gShelfTopLevel')
+			except:
+				return False
 
-		if cmds.shelfTabLayout(topLevelShelf, query=True, tabLabelIndex=True) == None:
-			return False
+			if cmds.shelfTabLayout(topLevelShelf, query=True, tabLabelIndex=True) == None:
+				return False
 
 		origin.timer.stop()
 
-		if platform.system() == "Darwin":
-			origin.messageParent = QWidget()
-			origin.messageParent.setParent(mayaQtParent, Qt.Window)
-			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
-		else:
-			origin.messageParent = mayaQtParent
+		if self.core.uiAvailable:
+			if platform.system() == "Darwin":
+				origin.messageParent = QWidget()
+				origin.messageParent.setParent(mayaQtParent, Qt.Window)
+				origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+			else:
+				origin.messageParent = mayaQtParent
+
+			origin.startasThread()
 
 		cmds.loadPlugin( 'AbcExport.mll', quiet=True )
 		cmds.loadPlugin( 'AbcImport.mll', quiet=True )
@@ -108,9 +112,7 @@ class Prism_Maya_Functions(object):
 
 		api.MSceneMessage.addCallback(api.MSceneMessage.kAfterOpen, origin.sceneOpen)
 
-		origin.startasThread()
-
-
+		
 	@err_decorator
 	def autosaveEnabled(self, origin):
 		return cmds.autoSave( q=True, enable=True )
