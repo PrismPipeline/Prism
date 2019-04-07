@@ -308,7 +308,7 @@ class ImportFileClass(object):
 
 				if os.path.exists(impFileName):
 					hou.hda.installFile(impFileName, force_use_assets=True)
-			elif self.node is None or self.fileNode is None or not self.chb_updateOnly.isChecked() or (self.fileNode is not None and (self.fileNode.type().name() == "alembic") == (os.path.splitext(impFileName)[1] != ".abc")) or self.node.type().name() == "subnet":
+			elif self.node is None or (self.fileNode is None and not (os.path.splitext(impFileName)[1] == ".abc" and "_ShotCam_" in impFileName)) or not self.chb_updateOnly.isChecked() or (self.fileNode is not None and (self.fileNode.type().name() == "alembic") == (os.path.splitext(impFileName)[1] != ".abc")) or self.node.type().name() == "subnet":
 				if self.node is not None:
 					try:
 						self.node.destroy()
