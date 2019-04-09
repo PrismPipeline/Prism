@@ -208,7 +208,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.l_preview.setAcceptDrops(True)
 
-
 	#	self.tw_sFiles.setStyleSheet("QTableView,QListView,QHeaderView {color: rgb(199,199,199);background-color: rgb(71,71,71);selection-color: rgb(0,0,0);selection-background-color: rgb(242,138,0);}")
 
 
@@ -597,10 +596,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					break
 			self.updateChanged(False)
 
-		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.currentWidget().property("tabType")]["showRenderings"])
-
 		if self.tbw_browser.count() == 0:
 			self.tbw_browser.setVisible(False)
+		else:
+			self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.currentWidget().property("tabType")]["showRenderings"])
 
 		if cData["autoUpdateRenders"] is not None:
 			self.chb_autoUpdate.setChecked(cData["autoUpdateRenders"])

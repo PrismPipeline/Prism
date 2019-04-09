@@ -79,6 +79,12 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def startup(self, origin):
 		if self.core.uiAvailable:
+			if QApplication.instance() is None:
+				return False
+
+			if not hasattr(qApp, "topLevelWidgets"):
+				return False
+
 			for obj in qApp.topLevelWidgets():
 				if obj.objectName() == 'MayaWindow':
 					mayaQtParent = obj
@@ -587,7 +593,6 @@ class Prism_Maya_Functions(object):
 				expStr = 'AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\"))
 
 				if not origin.chb_exportNamespaces.isChecked():
-					print "strip"
 					expStr = expStr.replace("-stripNamespaces", "")
 
 				mel.eval(expStr)

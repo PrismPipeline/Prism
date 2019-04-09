@@ -186,7 +186,7 @@ class PrismCore():
 
 			if win32Libs not in sys.path:
 				sys.path.append(win32Libs)
-				
+
 			# if no user ini exists, it will be created with default values
 			if not os.path.exists(self.userini):
 				self.createUserPrefs()
@@ -530,14 +530,14 @@ class PrismCore():
 
 		if not "silent" in self.prismArgs:
 			curPrj = self.getConfig("globals", "current project")
-			if curPrj == "" and self.getConfig("globals", "showonstartup", ptype="bool"):
+			if (curPrj is None or curPrj == "") and self.getConfig("globals", "showonstartup", ptype="bool") != False:
 				self.setProject(startup=True, openUi="projectBrowser")
 
 		curPrj = self.getConfig("globals", "current project")
 
 		if curPrj != "":
 			self.changeProject(curPrj)
-			if not "silent" in self.prismArgs and self.getConfig("globals", "showonstartup", ptype="bool") and self.uiAvailable:
+			if not "silent" in self.prismArgs and self.getConfig("globals", "showonstartup", ptype="bool") != False and self.uiAvailable:
 				self.projectBrowser()
 
 		if self.getCurrentFileName() != "":
@@ -2227,6 +2227,9 @@ class PrismCore():
 			if not self.fileInPipeline():
 				if self.uiAvailable:
 					QMessageBox.warning(self.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
+				else:
+					print "Could not save the file. The current file is not inside the Pipeline."
+
 				return False
 				
 			if self.useLocalFiles:
@@ -2667,6 +2670,8 @@ class PrismCore():
 
 			if action == 0:
 				self.setFrameRange(shotRange[0], shotRange[1])
+		else:
+			print msgString
 
 
 	@err_decorator
