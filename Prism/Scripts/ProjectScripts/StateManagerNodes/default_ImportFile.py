@@ -506,7 +506,7 @@ class ImportFileClass(object):
 
 				if not self.core.uiAvailable:
 					action = 0
-					print "delete objects:\n\n%s" message
+					print ("delete objects:\n\n%s" % message)
 				else:
 					msg = QMessageBox(QMessageBox.Question, "Delete state", message, QMessageBox.No)
 					msg.addButton("Yes", QMessageBox.YesRole)

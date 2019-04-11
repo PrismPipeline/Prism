@@ -96,13 +96,13 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 
 		self.scenename = self.core.getCurrentFileName()
 
-		self.enabledCol = self.tw_import.palette().color(self.tw_import.foregroundRole())
+		self.enabledCol = QBrush(self.tw_import.palette().color(self.tw_import.foregroundRole()))
 		self.b_stateFromNode.setVisible(False)
 		self.b_createDependency.setVisible(False)
 
 		self.layout().setContentsMargins(6,6,6,0)
 
-		self.disabledCol = QColor(100,100,100)
+		self.disabledCol = QBrush(QColor(100,100,100))
 		self.styleExists = "QPushButton { border: 1px solid rgb(100,200,100); }"
 		self.styleMissing = "QPushButton { border: 1px solid rgb(200,100,100); }"
 
@@ -1453,6 +1453,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				if action == 0:
 					return
 
+			else:
+				print (warnString)
+
 			details = {}
 			if self.description != "":
 				details = {"description":self.description, "username":self.core.getConfig("globals", "UserName")}
@@ -1536,16 +1539,25 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			if "error" in i["result"][0]:
 				success = False
 
-		if self.core.uiAvailable:
-			if success:
-				QMessageBox.information(self.core.messageParent, actionString, "The %s was successfull." % actionString2)
+		
+		if success:
+			msgStr = "The %s was successfull." % actionString2
+			if self.core.uiAvailable:
+				QMessageBox.information(self.core.messageParent, actionString, msgStr)
 			else:
-				infoString = ""
-				for i in self.publishResult:
-					if not "publish paused" in i["result"][0]:
-						infoString += i["result"][0] +"\n"
+				print (msgStr)
+		else:
+			infoString = ""
+			for i in self.publishResult:
+				if not "publish paused" in i["result"][0]:
+					infoString += i["result"][0] +"\n"
 
-				QMessageBox.warning(self.core.messageParent, actionString, "Errors occured during the %s:\n\n" % actionString2 + infoString)
+			msgStr = "Errors occured during the %s:\n\n" % actionString2 + infoString
+
+			if self.core.uiAvailable:
+				QMessageBox.warning(self.core.messageParent, actionString, msgStr)
+			else:
+				print (msgStr)
 
 		if self.reloadScenefile:
 			self.core.appPlugin.openScene(self, self.core.getCurrentFileName())

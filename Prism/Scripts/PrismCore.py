@@ -2228,7 +2228,7 @@ class PrismCore():
 				if self.uiAvailable:
 					QMessageBox.warning(self.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
 				else:
-					print "Could not save the file. The current file is not inside the Pipeline."
+					print ("Could not save the file. The current file is not inside the Pipeline.")
 
 				return False
 				
@@ -2671,7 +2671,7 @@ class PrismCore():
 			if action == 0:
 				self.setFrameRange(shotRange[0], shotRange[1])
 		else:
-			print msgString
+			print (msgString)
 
 
 	@err_decorator

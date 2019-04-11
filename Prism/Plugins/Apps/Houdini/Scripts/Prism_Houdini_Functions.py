@@ -557,7 +557,8 @@ class Prism_Houdini_Functions(object):
 		if platform.system() == "Darwin":
 			origin.menubar.setNativeMenuBar(False)
 
-		origin.enabledCol = QColor(204,204,204)
+		if self.core.uiAvailable:
+			origin.enabledCol = QBrush(QColor(204,204,204))
 
 		if self.core.uiAvailable:
 			origin.scrollArea.setStyleSheet(hou.qt.styleSheet().replace("QLabel", "QScrollArea"))

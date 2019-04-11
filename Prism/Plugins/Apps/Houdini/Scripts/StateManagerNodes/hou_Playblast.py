@@ -387,6 +387,9 @@ class PlayblastClass(object):
 
 	@err_decorator
 	def executeState(self, parent, useVersion="next"):
+		if not self.core.uiAvailable:
+			return [self.state.text(0) + ": error - Playblasts are not supported without UI."]
+			
 		if self.l_taskName.text() == "":
 			return [self.state.text(0) + ": error - No taskname is given. Skipped the activation of this state."]
 

@@ -1111,13 +1111,17 @@ class ExportClass(object):
 						if self.cb_outType.currentText() == ".hda":
 							HDAoutputName = outputName.replace(".$F4", "")
 							bb = self.chb_blackboxHDA.isChecked()
+							noBackup = hou.applicationVersion()[0] <= 16 and hou.applicationVersion()[1] <= 5 and hou.applicationVersion()[2] <= 185
 							if self.node.canCreateDigitalAsset():
 								typeName = "prism_" + self.l_taskName.text()
 								hda = self.node.createDigitalAsset(typeName , hda_file_name=HDAoutputName, description=self.l_taskName.text(), change_node_type=(not bb))
 								if bb:
 									hou.hda.installFile(HDAoutputName, force_use_assets=True)
 									aInst = self.node.parent().createNode(typeName)
-									aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, create_backup=False, compile_contents=bb, black_box=bb)
+									if noBackup:
+										aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, compile_contents=bb, black_box=bb)
+									else:
+										aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, create_backup=False, compile_contents=bb, black_box=bb)
 									aInst.destroy()
 								else:
 									self.connectNode(hda)
@@ -1143,14 +1147,20 @@ class ExportClass(object):
 									adescr = basedescr + "_" + str(highestVersion + 1)
 
 									tmpPath = HDAoutputName + "tmp"
-									self.node.type().definition().save(file_name=tmpPath, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
+									if noBackup:
+										self.node.type().definition().save(file_name=tmpPath, template_node=self.node, compile_contents=bb, black_box=bb)
+									else:
+										self.node.type().definition().save(file_name=tmpPath, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
 									defs = hou.hda.definitionsInFile(tmpPath)
 									defs[0].copyToHDAFile(HDAoutputName, new_name=aname, new_menu_name=adescr)
 									os.remove(tmpPath)
 									node = self.node.changeNodeType(aname)
 									self.connectNode(node)
 								else:
-									self.node.type().definition().save(file_name=HDAoutputName, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
+									if noBackup:
+										self.node.type().definition().save(file_name=HDAoutputName, template_node=self.node, compile_contents=bb, black_box=bb)
+									else:
+										self.node.type().definition().save(file_name=HDAoutputName, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
 								
 									if self.chb_projectHDA.isChecked():
 										oplib = os.path.join(os.path.dirname(HDAoutputName), "ProjectHDAs.oplib").replace("\\", "/")
