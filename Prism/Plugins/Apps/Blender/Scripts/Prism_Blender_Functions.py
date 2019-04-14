@@ -444,7 +444,10 @@ class Prism_Blender_Functions(object):
 
 		elif origin.cb_outType.currentText() == ".fbx":
 			useAnim = startFrame != endFrame
-			bpy.ops.export_scene.fbx(self.getOverrideContext(origin), filepath=outputName, use_selection=(not origin.chb_wholeScene.isChecked()), use_anim=useAnim, global_scale=0.01)
+			if bpy.app.version >= (2,80,0):
+				bpy.ops.export_scene.fbx(self.getOverrideContext(origin), filepath=outputName, use_selection=(not origin.chb_wholeScene.isChecked()), bake_anim=useAnim, global_scale=0.01)
+			else:
+				bpy.ops.export_scene.fbx(self.getOverrideContext(origin), filepath=outputName, use_selection=(not origin.chb_wholeScene.isChecked()), use_anim=useAnim, global_scale=0.01)
 
 		elif origin.cb_outType.currentText() == ".abc":
 			bpy.ops.wm.alembic_export(self.getOverrideContext(origin), filepath=outputName, start=startFrame, end=endFrame, selected=(not origin.chb_wholeScene.isChecked()), as_background_job=False)
@@ -554,7 +557,7 @@ class Prism_Blender_Functions(object):
 		warnings = []
 
 		if origin.cb_outType.currentText() != "ShotCam":
-			if origin.cb_outType.currentText() == ".fbx" and startFrame != endFrame:
+			if origin.cb_outType.currentText() == ".fbx" and startFrame != endFrame and bpy.app.version < (2,80,0):
 				warnings.append(["FBX animation export seems to be broken in Blender 2.79.", "Please check the exported file for animation offsets.", 2])
 
 		return warnings

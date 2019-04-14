@@ -1661,13 +1661,17 @@ class PrismCore():
 						try:
 							returnData[i] = userConfig.getboolean(cat, param)
 						except:
+							QMessageBox.warning(self.messageParent, "Warning", "Could not read '%s' - '%s' from config\n\n%s" % (cat, param, configPath))
 							returnData[i] = False
+
 					elif vtype == "int":
 						try:
 							returnData[i] = userConfig.getint(cat, param)
 						except:
+							QMessageBox.warning(self.messageParent, "Warning", "Could not read '%s' - '%s' from config %s" % (cat, param, configPath))
 							returnData[i] = 0
 				except:
+					QMessageBox.warning(self.messageParent, "Warning", "Could not read '%s' - '%s' from config %s" % (cat, param, configPath))
 					returnData[i] = None
 			else:
 				returnData[i] = None
@@ -1813,7 +1817,12 @@ class PrismCore():
 		if not os.path.exists(path):
 			return {}
 
-		from ruamel.yaml import YAML
+		try:
+			from ruamel.yaml import YAML
+		except:
+			self.missingModule("ruamel.yaml")
+			return
+
 		yaml=YAML()
 		with open(path, "r") as config:
 			data = yaml.load(config)
@@ -1826,10 +1835,20 @@ class PrismCore():
 		if not os.path.exists(os.path.dirname(path)):
 			os.makedirs(os.path.dirname(path))
 
-		from ruamel.yaml import YAML
+		try:
+			from ruamel.yaml import YAML
+		except:
+			self.missingModule("ruamel.yaml")
+			return
+
 		yaml=YAML()
 		with open(path, "w") as config:
 			yaml.dump(data, config)
+
+
+	@err_decorator
+	def missingModule(self, moduleName):
+		QMessageBox.warning(self.messageParent, "Couldn't load module", "Module \"%s\" couldn't be loaded.\nMake sure you have the latest Prism version installed." % moduleName)
 
 
 	@err_decorator

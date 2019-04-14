@@ -98,6 +98,9 @@ class Prism_Houdini_Functions(object):
 			else:
 				curShelfSet = "shelf_set_1"
 
+			if curShelfSet not in hou.shelves.shelfSets():
+				curShelfSet = hou.shelves.shelfSets()[0]
+
 			curShelves = hou.ShelfSet.shelves(hou.shelves.shelfSets()[curShelfSet])
 
 			shelfName = "prism-v1.0.7"
@@ -144,6 +147,7 @@ class Prism_Houdini_Functions(object):
 			qApp = QApplication.instance()
 			if qApp is None:
 				qApp = QApplication(sys.argv)
+			origin.messageParent = QWidget()
 
 		origin.timer.stop()
 

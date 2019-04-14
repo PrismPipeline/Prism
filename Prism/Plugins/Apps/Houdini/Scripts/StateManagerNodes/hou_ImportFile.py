@@ -347,6 +347,13 @@ class ImportFileClass(object):
 
 						self.node = hou.hipFile.importFBX(impFileName)[0]
 
+						if not self.node:
+							if self.core.uiAvailable:
+								QMessageBox.warning(self.core.messageParent, "ImportFile", "Import failed")
+							self.updateUi()
+							self.stateManager.saveStatesToScene()
+							return
+
 						setGobalFrangeExpr = "tset `(%d-1)/$FPS` `%d/$FPS`" % (tlSettings[1], tlSettings[2])
 						hou.hscript(setGobalFrangeExpr)
 						hou.playbar.setPlaybackRange(tlSettings[1], tlSettings[2])
@@ -481,7 +488,7 @@ class ImportFileClass(object):
 			for i in os.walk(versionPath):
 				if len(i[2]) > 0:
 					for m in i[2]:
-						if os.path.splitext(m)[1] not in [".txt", ".ini"]:
+						if os.path.splitext(m)[1] not in [".txt", ".ini", ".xgen"] and m[0] != ".":
 							splitFile = os.path.splitext(os.path.join(i[0], m))
 							if splitFile[0][-5] != "v":
 								try:

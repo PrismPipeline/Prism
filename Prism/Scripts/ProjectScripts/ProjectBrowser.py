@@ -2915,7 +2915,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				else:
 					return
 			else:
-				QMessageBox.warning(self.core.messageParent,"Warning", "The %s %s already exists" % (ftype, fname))
+				QMessageBox.warning(self.core.messageParent, "Warning", "The %s %s already exists" % (ftype, fname))
 				return
 
 		for i in sFolders:
@@ -2932,7 +2932,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		else:
 			return
 
-		steps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
+		try:
+			steps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
+		except:
+			QMessageBox.warning(self.core.messageParent, "Warning", "Could not read steps from configuration file.\nCheck this file for errors:\n\n%s" % self.core.prismIni)
+			return
+
 		if type(steps) != dict:
 			steps = {}
 

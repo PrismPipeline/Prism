@@ -444,7 +444,10 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 							tmpFiles.append(proxyPath)
 			
 				if proxyPath != "" and os.path.exists(proxyPath) and os.stat(proxyPath).st_size != 0:
-					self.sg.upload("Version", createdVersion['id'], proxyPath, 'sg_uploaded_movie')
+					try:
+						self.sg.upload("Version", createdVersion['id'], proxyPath, 'sg_uploaded_movie')
+					except Exception as e:
+						QMessageBox.warning(self.core.messageParent, "Warning", "Uploading proxy video failed:\n\n%s" % str(e))
 
 			if self.gb_playlist.isChecked():
 				fields = ['id', 'versions']

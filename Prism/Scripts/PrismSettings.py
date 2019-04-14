@@ -421,7 +421,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 							else:
 								raise
 
-					if not os.path.exists(trayStartup):
+					if not os.path.exists(trayStartup) and os.path.exists(trayLnk):
 						shutil.copy2(trayLnk, trayStartup)
 				else:
 					QMessageBox.warning(self, "Prism", "Cannot add Prism to the autostart because this shortcut doesn't exist:\n\n%s\n\nExecute '%s\\Win_Setup_Startmenu.bat' to create the shortcut." % (trayLnk, self.core.fixPath(self.core.prismRoot).replace("/", "\\")))
@@ -436,7 +436,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		elif platform.system() == "Linux":
 			trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
-			trayLnk = "/usr/local/Prism/Tools/PrismTray.desktop"
+			trayLnk = self.core.fixPath(os.path.join(self.core.prismRoot, "Tools", "PrismTray.desktop"))
+
 			if os.path.exists(trayStartup):
 				try:
 					os.remove(trayStartup)
@@ -444,20 +445,20 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 					QMessageBox.warning(self, "Warning", "Permission denied:\n\n%s\n\nTry to execute this tool as root." % trayStartup)
 
 			if self.chb_trayStartup.isChecked():
-				if not os.path.exists(trayStartup):
+				if not os.path.exists(trayStartup) and os.path.exists(trayLnk):
 					shutil.copy2(trayLnk, trayStartup)
 					os.chmod(trayStartup, 0o777)
 
 		elif platform.system() == "Darwin":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
 			trayStartup = "/Users/%s/Library/LaunchAgents/com.user.PrismTray.plist" % userName
-			trayLnk = "/Applications/Prism/Prism/Tools/com.user.PrismTray.plist"
+			trayLnk = self.core.fixPath(os.path.join(self.core.prismRoot, "Tools", "com.user.PrismTray.plist"))
 
 			if os.path.exists(trayStartup):
 				os.remove(trayStartup)
 
 			if self.chb_trayStartup.isChecked():
-				if not os.path.exists(trayStartup):
+				if not os.path.exists(trayStartup) and os.path.exists(trayLnk):
 					shutil.copy2(trayLnk, trayStartup)
 					os.chmod(trayStartup, 0o644)
 					import pwd
@@ -953,9 +954,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 			command = ['%s' % pythonPath, '%s' % slavePath]
 		elif platform.system() == "Linux":
-			command = 'bash /usr/local/Prism/Tools/PrismTray.sh'
+			command = 'bash %s/Tools/PrismTray.sh' % self.core.prismRoot
 		elif platform.system() == "Darwin":
-			command = 'bash /Applications/Prism/Prism/Tools/PrismTray.sh'
+			command = 'bash %s/Tools/PrismTray.sh' % self.core.prismRoot
 
 		subprocess.Popen(command, shell=True)
 
