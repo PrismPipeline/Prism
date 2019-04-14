@@ -1420,14 +1420,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			prefix = self.tw_aHierarchy.currentItem().text(0)
 			step = self.lw_aPipeline.currentItem().text()
 			dstname = os.path.join(dstname, "Scenefiles", step)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
+			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
 
 		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
 			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
 			refresh = self.refreshSFile
 
 			subcat = self.core.filenameSeperator + self.cursCat
-			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
+			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
 
 		if "newfname" in locals():
 			filepath = os.path.join(dstname, newfname)
@@ -1455,6 +1455,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 			self.core.addToRecent(filepath)
 			self.setRecent()
+
 		refresh()
 
 
@@ -1477,7 +1478,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				prefix = self.tw_aHierarchy.currentItem().text(0)
 				step = self.lw_aPipeline.currentItem().text()
 				dstname = os.path.join(dstname, "Scenefiles", step)
-				newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
+				newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
 
 			elif tab == "sf":
 				dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
@@ -1488,7 +1489,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if len(os.path.basename(autobfile).split(self.core.filenameSeperator)) == 8:
 					newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + os.path.basename(autobfile).split(self.core.filenameSeperator)[5] + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
 				else:
-					newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
+					newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
 
 			if "newfname" in locals():
 				filepath = os.path.join(dstname, newfname)
@@ -1545,7 +1546,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			prefix = self.tw_aHierarchy.currentItem().text(0)
 			step = self.lw_aPipeline.currentItem().text()
 			dstname = os.path.join(dstname, "Scenefiles", step)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
+			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
 
 			#example filename: Body_mod_v0002_details-added_rfr_.max
 		elif tab == "sf":
@@ -1554,7 +1555,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			#example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
 			subcat = self.core.filenameSeperator + self.cursCat
 			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat
-			newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user
+			newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
 
 		if "newfname" in locals():
 			ext = os.path.splitext(fname)[1]
@@ -1608,7 +1609,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			step = self.lw_aPipeline.currentItem().text()
 			dstname = os.path.join(dstname, "Scenefiles", step)
 			oldfname = os.path.basename(self.copiedFile).split(self.core.filenameSeperator)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + "nocomment" + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + oldfname[5]
+			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + oldfname[5]
 			dstname = os.path.join(dstname, newfname)
 
 			if self.core.useLocalFiles:
@@ -1644,7 +1645,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			subcat = self.cursCat
 			fname[3] = subcat
 			fname[4] = self.core.getHighestVersion(dstname, "Shot")
-			fname[5] = "nocomment"
+			fname[5] = ""
 			fname[6] = self.core.user
 			newfname = ""
 			for i in fname:

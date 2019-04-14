@@ -149,7 +149,7 @@ class Prism_Fusion_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		try:
 			return self.fusion.GetCurrentComp().Save(filepath)
 		except:

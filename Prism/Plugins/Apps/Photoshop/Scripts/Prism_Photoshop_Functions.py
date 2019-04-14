@@ -158,6 +158,10 @@ class Prism_Photoshop_Functions(object):
 
 				if currentFileName is None:
 					raise
+
+				if currentFileName.endswith("\n"):
+					currentFileName = currentFileName[:-1]
+
 		except:
 			currentFileName = ""
 
@@ -169,11 +173,46 @@ class Prism_Photoshop_Functions(object):
 
 	@err_decorator
 	def getSceneExtension(self, origin):
+		doc = self.core.getCurrentFileName()
+		if doc != "":
+			return os.path.splitext(doc)[1]
+
 		return self.sceneFormats[0]
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def onSaveExtendedOpen(self, origin):
+		origin.l_format = QLabel("Save as:")
+		origin.cb_format = QComboBox()
+		origin.cb_format.addItems(self.sceneFormats)
+		curFilename = self.core.getCurrentFileName()
+		if curFilename:
+			ext = os.path.splitext(curFilename)[1]
+			idx = self.sceneFormats.index(ext)
+			if idx != -1:
+				origin.cb_format.setCurrentIndex(idx)
+		rowIdx = origin.w_details.layout().rowCount()
+		origin.w_details.layout().addWidget(origin.l_format, rowIdx, 0)
+		origin.w_details.layout().addWidget(origin.cb_format, rowIdx, 1)
+
+
+	@err_decorator
+	def onGetSaveExtendedDetails(self, origin, details):
+		details["fileFormat"] = origin.cb_format.currentText()
+
+
+	@err_decorator
+	def getCharID(self, s):
+		return self.psApp.CharIDToTypeID(s)
+
+
+	@err_decorator
+	def getStringID(self, s):
+		return self.psApp.StringIDToTypeID(s)
+
+
+	@err_decorator
+	def saveScene(self, origin, filepath, details={}):
 		try:
 			if self.win:
 				doc = self.psApp.ActiveDocument
@@ -185,16 +224,52 @@ class Prism_Photoshop_Functions(object):
 			QMessageBox.warning(self.core.messageParent, "Warning", "There is no active document in Photoshop.")
 			return
 
+		if "fileFormat" in details:
+			filepath = os.path.splitext(filepath)[0] + details["fileFormat"]
+
 		try:
 			if self.win:
-				doc.SaveAs(filepath) 
+				if os.path.splitext(filepath)[1] == ".psb":
+					desc1 = win32com.client.Dispatch("Photoshop.ActionDescriptor")
+					desc2 = win32com.client.Dispatch("Photoshop.ActionDescriptor")
+					desc2.PutBoolean(self.getStringID('maximizeCompatibility'), True)
+					desc1.PutObject(self.getCharID('As  '), self.getCharID('Pht8'), desc2)
+					desc1.PutPath(self.getCharID('In  '), filepath)
+					desc1.PutBoolean(self.getCharID('LwCs'), True)
+					self.psApp.ExecuteAction(self.getCharID('save'), desc1)
+				else:
+					doc.SaveAs(filepath)
 			else:
-				scpt = '''
-				tell application "%s"
-					save current document in file "%s"
-				end tell
-				''' % (self.psAppName, filepath)
-				doc = self.executeAppleScript(scpt)
+				if os.path.splitext(filepath)[1] == ".psb":
+					scpt = '''
+					tell application "%s"
+						do javascript "
+							var idsave = charIDToTypeID( 'save' );
+							var desc12 = new ActionDescriptor();
+							var idAs = charIDToTypeID( 'As  ' );
+							var desc13 = new ActionDescriptor();
+							var idmaximizeCompatibility = stringIDToTypeID( 'maximizeCompatibility' );
+							desc13.putBoolean( idmaximizeCompatibility, true );
+							var idPhteight = charIDToTypeID( 'Pht8' );
+							desc12.putObject( idAs, idPhteight, desc13 );
+							var idIn = charIDToTypeID( 'In  ' );
+							desc12.putPath( idIn, new File( '%s' ) );
+							var idsaveStage = stringIDToTypeID( 'saveStage' );
+							var idsaveStageType = stringIDToTypeID( 'saveStageType' );
+							var idsaveSucceeded = stringIDToTypeID( 'saveSucceeded' );
+							desc12.putEnumerated( idsaveStage, idsaveStageType, idsaveSucceeded );
+							executeAction( idsave, desc12, DialogModes.NO );
+						" show debugger on runtime error
+					end tell
+					''' % (self.psAppName, filepath)
+					doc = self.executeAppleScript(scpt)
+				else:
+					scpt = '''
+					tell application "%s"
+						save current document in file "%s"
+					end tell
+					''' % (self.psAppName, filepath)
+					doc = self.executeAppleScript(scpt)
 
 				if doc is None:
 					raise
@@ -402,7 +477,7 @@ class Prism_Photoshop_Functions(object):
 		self.dlg_tools.setLayout(lo_tools)
 
 		b_saveVersion = QPushButton("Save Version")
-		b_saveComment = QPushButton("Save Comment")
+		b_saveComment = QPushButton("Save Extended")
 		b_export = QPushButton("Export")
 		b_projectBrowser = QPushButton("Project Browser")
 		b_settings = QPushButton("Settings")
@@ -420,7 +495,7 @@ class Prism_Photoshop_Functions(object):
 		lo_tools.addWidget(b_settings)
 
 		self.core.parentWindow(self.dlg_tools)
-		self.dlg_tools.setWindowTitle("Prism - Photoshop tools")
+		self.dlg_tools.setWindowTitle("Prism")
 
 		self.dlg_tools.show()
 
@@ -473,7 +548,7 @@ class Prism_Photoshop_Functions(object):
 		l_ext = QLabel("Format:")
 		l_ext.setMinimumWidth(110)
 		self.cb_formats = QComboBox()
-		self.cb_formats.addItems([".jpg", ".png", ".tif"])
+		self.cb_formats.addItems([".jpg", ".png", ".tif", ".exr"])
 		self.chb_localOutput = QCheckBox("Local output")
 		lo_task.addWidget(l_task)
 		lo_task.addWidget(self.le_task)
@@ -687,7 +762,7 @@ class Prism_Photoshop_Functions(object):
 			self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=self.core.getCurrentFileName())
 		else:
 			startLocation = os.path.join(self.core.projectPath, self.core.getConfig('paths', "assets", configPath=self.core.prismIni), "Textures")
-			outputPath = QFileDialog.getSaveFileName(self.dlg_export, "Enter output filename", startLocation, "JPEG (*.jpg *.jpeg);;PNG (*.png);;TIFF (*.tif *.tiff)")[0]
+			outputPath = QFileDialog.getSaveFileName(self.dlg_export, "Enter output filename", startLocation, "JPEG (*.jpg *.jpeg);;PNG (*.png);;TIFF (*.tif *.tiff);;OpenEXR (*.exr)")[0]
 
 			if outputPath == "":
 				return
@@ -695,27 +770,90 @@ class Prism_Photoshop_Functions(object):
 		ext = os.path.splitext(outputPath)[1].lower()
 
 		if self.win:
-			if ext in [".jpg", ".jpeg"]:
-				options = win32com.client.dynamic.Dispatch('Photoshop.JPEGSaveOptions')
-			elif ext in [".png"]:
-				options = win32com.client.dynamic.Dispatch('Photoshop.PNGSaveOptions')
-			elif ext in [".tif", ".tiff"]:
-				options = win32com.client.dynamic.Dispatch('Photoshop.TiffSaveOptions')
+			bdepth = self.psApp.Application.ActiveDocument.bitsPerChannel
+			if ext in [".exr"]:
+				if bdepth != 32:
+					QMessageBox.warning(self.core.messageParent, "Export", "To export in this format you need to set the bit depth of your current document to 32.")
+					return
 
-			self.psApp.Application.ActiveDocument.SaveAs(outputPath, options, True)
+				descr = win32com.client.dynamic.Dispatch("Photoshop.ActionDescriptor")
+				descr.PutString( self.getCharID('As  '), "OpenEXR" )
+				descr.PutPath( self.getCharID('In  '), outputPath )
+				descr.PutBoolean( self.getCharID('LwCs'), True )
+				descr.PutBoolean( self.getCharID('Cpy '), True )
+				descr.PutEnumerated( self.getStringID('saveStage'), self.getStringID('saveStageType'), self.getStringID('saveSucceeded') )
+				self.psApp.ExecuteAction( self.getCharID('save'), descr, 3 )
+			else:
+				if bdepth == 32:
+					QMessageBox.warning(self.core.messageParent, "Export", "To export in this format you need to lower the bit depth of your current document.")
+					return
+
+				if ext in [".jpg", ".jpeg"]:
+					options = win32com.client.dynamic.Dispatch('Photoshop.JPEGSaveOptions')
+				elif ext in [".png"]:
+					options = win32com.client.dynamic.Dispatch('Photoshop.PNGSaveOptions')
+				elif ext in [".tif", ".tiff"]:
+					options = win32com.client.dynamic.Dispatch('Photoshop.TiffSaveOptions')
+
+				self.psApp.Application.ActiveDocument.SaveAs(outputPath, options, True)
 		else:
-			if ext in [".jpg", ".jpeg"]:
-				formatName = "JPEG"
-			elif ext in [".png"]:
-				formatName = "PNG"
-			elif ext in [".tif", ".tiff"]:
-				formatName = "TIFF"
+			bdScpt = '''
+					tell application "%s"
+						bits per channel of current document
+					end tell
+				''' % (self.psAppName)
 
-			scpt = '''
-				tell application "%s"
-					save current document in file "%s" as %s with copying
-				end tell
-			''' % (self.psAppName, outputPath, formatName)
+			bdepth = self.executeAppleScript(bdScpt)
+
+			if ext in [".exr"]:
+				if bdepth != "thirty two\n":
+					QMessageBox.warning(self.core.messageParent, "Export", "To export in this format you need to set the bit depth of your current document to 32.")
+					return
+
+				scpt = '''
+					tell application "%s"
+						do javascript "
+							var idsave = charIDToTypeID( 'save' );
+							    var desc26 = new ActionDescriptor();
+							    var idAs = charIDToTypeID( 'As  ' );
+							        var desc27 = new ActionDescriptor();
+							        var idBtDp = charIDToTypeID( 'BtDp' );
+							        desc27.putInteger( idBtDp, 16 );
+							        var idCmpr = charIDToTypeID( 'Cmpr' );
+							        desc27.putInteger( idCmpr, 4 );
+							        var idAChn = charIDToTypeID( 'AChn' );
+							        desc27.putInteger( idAChn, 0 );
+							    var idEXRf = charIDToTypeID( 'EXRf' );
+							    desc26.putObject( idAs, idEXRf, desc27 );
+							    var idIn = charIDToTypeID( 'In  ' );
+							    desc26.putPath( idIn, new File( '%s' ) );
+							    var idCpy = charIDToTypeID( 'Cpy ' );
+							    desc26.putBoolean( idCpy, true );
+							    var idsaveStage = stringIDToTypeID( 'saveStage' );
+							    var idsaveStageType = stringIDToTypeID( 'saveStageType' );
+							    var idsaveSucceeded = stringIDToTypeID( 'saveSucceeded' );
+							    desc26.putEnumerated( idsaveStage, idsaveStageType, idsaveSucceeded );
+							executeAction( idsave, desc26, DialogModes.NO );
+						" show debugger on runtime error
+					end tell
+				''' % (self.psAppName, outputPath)
+			else:
+				if bdepth == "thirty two\n":
+					QMessageBox.warning(self.core.messageParent, "Export", "To export in this format you need to lower the bit depth of your current document.")
+					return
+
+				if ext in [".jpg", ".jpeg"]:
+					formatName = "JPEG"
+				elif ext in [".png"]:
+					formatName = "PNG"
+				elif ext in [".tif", ".tiff"]:
+					formatName = "TIFF"
+
+				scpt = '''
+					tell application "%s"
+						save current document in file "%s" as %s with copying
+					end tell
+				''' % (self.psAppName, outputPath, formatName)
 			self.executeAppleScript(scpt)
 
 		self.dlg_export.accept()

@@ -144,7 +144,7 @@ class Prism_Nuke_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		try:
 			return nuke.scriptSaveAs(filename=filepath)
 		except:

@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.5"
+			self.version = "v1.2.0.6"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -2205,7 +2205,7 @@ class PrismCore():
 
 
 	@err_decorator
-	def saveScene(self, comment = "nocomment", publish=False, versionUp=True, prismReq=True, filepath="", details={}, preview=None):
+	def saveScene(self, comment = "", publish=False, versionUp=True, prismReq=True, filepath="", details={}, preview=None):
 		if filepath == "":
 			curfile = self.getCurrentFileName()
 			filepath = curfile.replace("\\","/")
@@ -2269,7 +2269,7 @@ class PrismCore():
 
 		self.callback(name="onAboutToSaveFile", types=["custom"], args=[self, filepath])
 
-		result = self.appPlugin.saveScene(self, filepath)
+		result = self.appPlugin.saveScene(self, filepath, details)
 		if len(details) > 0:
 			ymlPath = os.path.splitext(filepath)[0] + "info.yml"
 			self.writeYaml(path=ymlPath, data=details)
@@ -2353,7 +2353,7 @@ class PrismCore():
 			else:
 				prvPMap = None
 
-			details = {"description":savec.e_description.toPlainText(), "username":self.getConfig("globals", "UserName")}
+			details = savec.getDetails() or {}
 			self.saveScene(comment=savec.e_comment.text(), details=details, preview=prvPMap)
 
 
@@ -3330,7 +3330,10 @@ except Exception as e:
 
 				if platform.system() in ["Linux", "Darwin"]:
 					if os.path.exists(userErPath):
-						os.chmod(userErPath, 0o777)
+						try:
+							os.chmod(userErPath, 0o777)
+						except:
+							pass
 
 				if os.path.exists(userErPath):
 					with open(userErPath, "a") as erLog:

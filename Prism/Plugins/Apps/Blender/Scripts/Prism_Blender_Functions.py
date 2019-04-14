@@ -154,7 +154,7 @@ class Prism_Blender_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		return bpy.ops.wm.save_as_mainfile(filepath=filepath)
 
 

@@ -138,7 +138,7 @@ class Prism_Photoshop_Integration(object):
 			elif platform.system() == "Darwin":
 				osName = "Mac"
 
-			for i in ["Prism - 1 Tools.jsx", "Prism - 2 Save version.jsx", "Prism - 3 Save comment.jsx", "Prism - 4 Export.jsx", "Prism - 5 ProjectBrowser.jsx", "Prism - 6 Settings.jsx"]:
+			for i in ["Prism - 1 Tools.jsx", "Prism - 2 Save Version.jsx", "Prism - 3 Save Extended.jsx", "Prism - 4 Export.jsx", "Prism - 5 Project Browser.jsx", "Prism - 6 Settings.jsx"]:
 				origFile = os.path.join(integrationBase, osName, i)
 				targetFile = os.path.join(photoshoppath, "Presets", "Scripts", i)
 

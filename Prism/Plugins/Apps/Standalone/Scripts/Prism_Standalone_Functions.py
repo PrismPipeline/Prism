@@ -115,7 +115,7 @@ class Prism_Standalone_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath, underscore=True):
+	def saveScene(self, origin, filepath, details={}, underscore=True):
 		return
 
 

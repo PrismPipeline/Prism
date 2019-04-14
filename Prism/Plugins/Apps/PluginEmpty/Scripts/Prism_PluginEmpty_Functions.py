@@ -134,7 +134,7 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		# save scenefile
 		return True
 

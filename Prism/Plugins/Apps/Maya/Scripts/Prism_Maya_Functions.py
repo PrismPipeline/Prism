@@ -188,7 +188,7 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		cmds.file(rename=filepath)
 		try:
 			return cmds.file(save=True, type="mayaAscii")

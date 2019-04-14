@@ -168,7 +168,7 @@ class Prism_Natron_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		try:
 			return NatronEngine.App.saveProjectAs(self.natronApp, filepath)
 		except:

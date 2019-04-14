@@ -62,6 +62,8 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
 		self.e_comment.textEdited.connect(self.validate)
 		self.b_changePreview.clicked.connect(self.grabArea)
 		self.setEmptyPreview()
+		self.core.callback(name="onSaveExtendedOpen", types=["curApp", "custom"], args=[self])
+		self.resize(0,self.geometry().size().height())
 
 
 	def err_decorator(func):
@@ -129,3 +131,10 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
 		if previewImg is not None:
 			self.l_preview.setPixmap(previewImg.scaled(self.l_preview.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 			self.previewDefined = True
+
+
+	@err_decorator
+	def getDetails(self):
+		details = {"description":self.e_description.toPlainText(), "username":self.core.getConfig("globals", "UserName")}
+		self.core.callback(name="onGetSaveExtendedDetails", types=["curApp", "custom"], args=[self, details])
+		return details
