@@ -300,7 +300,7 @@ class ImportFileClass(object):
 					self.core.appPlugin.sm_import_removeNameSpaces(self)
 
 				if not result:
-					msgStr = "Import failed: %s" impFileName
+					msgStr = "Import failed: %s" % impFileName
 					if self.core.uiAvailable:
 						QMessageBox.warning(self.core.messageParent, "ImportFile", msgStr)
 					else:
@@ -334,7 +334,7 @@ class ImportFileClass(object):
 			for i in os.walk(versionPath):
 				if len(i[2]) > 0:
 					for m in i[2]:
-						if os.path.splitext(i)[1] not in [".txt", ".ini", ".xgen"] and i[0] != ".":
+						if os.path.splitext(m)[1] not in [".txt", ".ini", ".xgen"] and m[0] != ".":
 							fileName = os.path.join(i[0], m)
 
 							if getattr(self.core.appPlugin, "shotcamFormat", ".abc") == ".fbx"  and self.taskName == "ShotCam" and fileName.endswith(".abc") and os.path.exists(fileName[:-3] + "fbx"):

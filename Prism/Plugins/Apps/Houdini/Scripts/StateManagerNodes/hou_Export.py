@@ -168,6 +168,12 @@ class ExportClass(object):
 			if node is None:
 				node = self.findNode(data["connectednode"])
 			self.connectNode(node)
+		if "usetake" in data:
+			self.chb_useTake.setChecked(eval(data["usetake"]))
+		if "take" in data:
+			idx = self.cb_take.findText(data["take"])
+			if idx != -1:
+				self.cb_take.setCurrentIndex(idx)
 		if "outputtypes" in data:
 			self.cb_outType.clear()
 			self.cb_outType.addItems(eval(data["outputtypes"]))
@@ -345,6 +351,8 @@ class ExportClass(object):
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
 		self.cb_outType.activated[str].connect(self.typeChanged)
+		self.chb_useTake.stateChanged.connect(self.useTakeChanged)
+		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
 		self.b_goTo.clicked.connect(self.goToNode)
 		self.b_connect.clicked.connect(self.connectNode)
 		self.chb_saveToExistingHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
@@ -435,6 +443,13 @@ class ExportClass(object):
 		except:
 			self.l_status.setText("Not connected")
 			self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
+
+		curTake = self.cb_take.currentText()
+		self.cb_take.clear()
+		self.cb_take.addItems([x.name() for x in hou.takes.takes()])
+		idx = self.cb_take.findText(curTake)
+		if idx != -1:
+			self.cb_take.setCurrentIndex(idx)
 
 		self.camlist = []
 		for node in hou.node("/").allSubChildren():
@@ -723,6 +738,12 @@ class ExportClass(object):
 
 
 	@err_decorator
+	def useTakeChanged(self, state):
+		self.cb_take.setEnabled(state)
+		self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
 	def rjToggled(self,checked=None):
 		if checked is None:
 			checked = self.gb_submit.isChecked()
@@ -961,6 +982,19 @@ class ExportClass(object):
 			fbx_rop.parm('sopoutput').set(outputName + ".fbx")
 			fbx_rop.parm('startnode').set(self.curCam.path())
 
+			for node in [abc_rop, fbx_rop]:
+				if self.chb_useTake.isChecked():
+					pTake = self.cb_take.currentText()
+					takeLabels = [x.strip() for x in self.node.parm("take").menuLabels()]
+					if pTake in takeLabels:
+						idx = takeLabels.index(pTake)
+						if idx != -1:
+							token = self.node.parm("take").menuItems()[idx]
+							if not self.core.appPlugin.setNodeParm(self.node, "take", val=token):
+								return [self.state.text(0) + ": error - Publish canceled"]
+					else:
+						return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
+
 			abc_rop.render()
 			fbx_rop.render(frame_range=(startFrame,endFrame))
 
@@ -1040,6 +1074,18 @@ class ExportClass(object):
 				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic"]:
 					if not self.core.appPlugin.setNodeParm(self.node, "initsim", val=True):
 						return [self.state.text(0) + ": error - Publish canceled"]
+
+				if self.chb_useTake.isChecked():
+					pTake = self.cb_take.currentText()
+					takeLabels = [x.strip() for x in self.node.parm("take").menuLabels()]
+					if pTake in takeLabels:
+						idx = takeLabels.index(pTake)
+						if idx != -1:
+							token = self.node.parm("take").menuItems()[idx]
+							if not self.core.appPlugin.setNodeParm(self.node, "take", val=token):
+								return [self.state.text(0) + ": error - Publish canceled"]
+					else:
+						return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
 
 			if not os.path.exists(outputPath):
 				os.makedirs(outputPath)
@@ -1228,33 +1274,36 @@ class ExportClass(object):
 
 
 		stateProps = {
-		"statename":self.e_name.text(),
-		"taskname":self.l_taskName.text(),
-		"globalrange":str(self.chb_globalRange.isChecked()),
-		"startframe":self.sp_rangeStart.value(),
-		"endframe":self.sp_rangeEnd.value(),
-		"outputtypes":str(outputTypes),
-		"curoutputtype": self.cb_outType.currentText(),
-		"connectednode": curNode,
-		"unitconvert": str(self.chb_convertExport.isChecked()),
-		"localoutput":str(self.chb_localOutput.isChecked()),
-		"savetoexistinghda":str(self.chb_saveToExistingHDA.isChecked()),
-		"projecthda":str(self.chb_projectHDA.isChecked()),
-		"blackboxhda":str(self.chb_blackboxHDA.isChecked()),
-		"submitrender": str(self.gb_submit.isChecked()),
-		"rjmanager":str(self.cb_manager.currentText()),
-		"rjprio":self.sp_rjPrio.value(),
-		"rjframespertask":self.sp_rjFramesPerTask.value(),
-		"rjtimeout":self.sp_rjTimeout.value(),
-		"rjsuspended": str(self.chb_rjSuspended.isChecked()),
-		"osdependencies": str(self.chb_osDependencies.isChecked()),
-		"osupload": str(self.chb_osUpload.isChecked()),
-		"ospassets": str(self.chb_osPAssets.isChecked()),
-		"osslaves": self.e_osSlaves.text(),
-		"curdlgroup":self.cb_dlGroup.currentText(),
-		"currentcam": str(curCam),
-		"currentscamshot": self.cb_sCamShot.currentText(),
-		"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
-		"stateenabled":str(self.state.checkState(0))}
+			"statename":self.e_name.text(),
+			"taskname":self.l_taskName.text(),
+			"globalrange":str(self.chb_globalRange.isChecked()),
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"usetake":str(self.chb_useTake.isChecked()),
+			"take": self.cb_take.currentText(),
+			"outputtypes":str(outputTypes),
+			"curoutputtype": self.cb_outType.currentText(),
+			"connectednode": curNode,
+			"unitconvert": str(self.chb_convertExport.isChecked()),
+			"localoutput":str(self.chb_localOutput.isChecked()),
+			"savetoexistinghda":str(self.chb_saveToExistingHDA.isChecked()),
+			"projecthda":str(self.chb_projectHDA.isChecked()),
+			"blackboxhda":str(self.chb_blackboxHDA.isChecked()),
+			"submitrender": str(self.gb_submit.isChecked()),
+			"rjmanager":str(self.cb_manager.currentText()),
+			"rjprio":self.sp_rjPrio.value(),
+			"rjframespertask":self.sp_rjFramesPerTask.value(),
+			"rjtimeout":self.sp_rjTimeout.value(),
+			"rjsuspended": str(self.chb_rjSuspended.isChecked()),
+			"osdependencies": str(self.chb_osDependencies.isChecked()),
+			"osupload": str(self.chb_osUpload.isChecked()),
+			"ospassets": str(self.chb_osPAssets.isChecked()),
+			"osslaves": self.e_osSlaves.text(),
+			"curdlgroup":self.cb_dlGroup.currentText(),
+			"currentcam": str(curCam),
+			"currentscamshot": self.cb_sCamShot.currentText(),
+			"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+			"stateenabled":str(self.state.checkState(0))
+		}
 
 		return stateProps

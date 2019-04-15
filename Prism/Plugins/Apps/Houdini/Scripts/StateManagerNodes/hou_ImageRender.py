@@ -182,6 +182,12 @@ class ImageRenderClass(object):
 			self.chb_resOverride.setChecked(res[0])
 			self.sp_resWidth.setValue(res[1])
 			self.sp_resHeight.setValue(res[2])
+		if "usetake" in data:
+			self.chb_useTake.setChecked(eval(data["usetake"]))
+		if "take" in data:
+			idx = self.cb_take.findText(data["take"])
+			if idx != -1:
+				self.cb_take.setCurrentIndex(idx)
 		if "localoutput" in data:
 			self.chb_localOutput.setChecked(eval(data["localoutput"]))
 		if "renderer" in data:
@@ -260,6 +266,8 @@ class ImageRenderClass(object):
 		self.sp_resWidth.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.sp_resHeight.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.b_resPresets.clicked.connect(self.showResPresets)
+		self.chb_useTake.stateChanged.connect(self.useTakeChanged)
+		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.cb_renderer.currentIndexChanged[str].connect(self.rendererChanged)
 		self.b_goTo.clicked.connect(self.goToNode)
@@ -311,6 +319,12 @@ class ImageRenderClass(object):
 		if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
 			self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
+		self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def useTakeChanged(self, state):
+		self.cb_take.setEnabled(state)
 		self.stateManager.saveStatesToScene()
 
 
@@ -433,6 +447,13 @@ class ImageRenderClass(object):
 			self.node = None
 			self.l_status.setText("Not connected")
 			self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
+
+		curTake = self.cb_take.currentText()
+		self.cb_take.clear()
+		self.cb_take.addItems([x.name() for x in hou.takes.takes()])
+		idx = self.cb_take.findText(curTake)
+		if idx != -1:
+			self.cb_take.setCurrentIndex(idx)
 
 		self.refreshPasses()
 
@@ -816,6 +837,18 @@ class ImageRenderClass(object):
 		else:
 			jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
 
+		if self.chb_useTake.isChecked():
+			pTake = self.cb_take.currentText()
+			takeLabels = [x.strip() for x in self.node.parm("take").menuLabels()]
+			if pTake in takeLabels:
+				idx = takeLabels.index(pTake)
+				if idx != -1:
+					token = self.node.parm("take").menuItems()[idx]
+					if not self.core.appPlugin.setNodeParm(self.node, "take", val=token):
+						return [self.state.text(0) + ": error - Publish canceled"]
+			else:
+				return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
+
 		self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
@@ -881,6 +914,36 @@ class ImageRenderClass(object):
 		except:
 			curNode2 = None
 
-		stateProps = {"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange": str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "camoverride": str(self.chb_camOverride.isChecked()), "currentcam": self.cb_cams.currentText(), "resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]), "localoutput": str(self.chb_localOutput.isChecked()), "connectednode": curNode, "connectednode2": curNode2}
-		stateProps.update({"renderer": str(self.cb_renderer.currentText()), "submitrender": str(self.gb_submit.isChecked()), "rjmanager":str(self.cb_manager.currentText()), "rjprio":self.sp_rjPrio.value(), "rjframespertask":self.sp_rjFramesPerTask.value(), "rjtimeout":self.sp_rjTimeout.value(), "rjsuspended": str(self.chb_rjSuspended.isChecked()), "osdependencies": str(self.chb_osDependencies.isChecked()), "osupload": str(self.chb_osUpload.isChecked()), "ospassets": str(self.chb_osPAssets.isChecked()), "osslaves": self.e_osSlaves.text(), "curdlgroup":self.cb_dlGroup.currentText(), "dlconcurrent":self.sp_dlConcurrentTasks.value(), "dlgpupt":self.sp_dlGPUpt.value(), "dlgpudevices":self.le_dlGPUdevices.text(), "lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0))})
+		stateProps = {
+			"statename":self.e_name.text(),
+			"taskname":self.l_taskName.text(),
+			"globalrange": str(self.chb_globalRange.isChecked()),
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"camoverride": str(self.chb_camOverride.isChecked()),
+			"currentcam": self.cb_cams.currentText(),
+			"resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]),
+			"usetake":str(self.chb_useTake.isChecked()),
+			"take": self.cb_take.currentText(),
+			"localoutput": str(self.chb_localOutput.isChecked()),
+			"connectednode": curNode,
+			"connectednode2": curNode2,
+			"renderer": str(self.cb_renderer.currentText()),
+			"submitrender": str(self.gb_submit.isChecked()),
+			"rjmanager":str(self.cb_manager.currentText()),
+			"rjprio":self.sp_rjPrio.value(),
+			"rjframespertask":self.sp_rjFramesPerTask.value(),
+			"rjtimeout":self.sp_rjTimeout.value(),
+			"rjsuspended": str(self.chb_rjSuspended.isChecked()),
+			"osdependencies": str(self.chb_osDependencies.isChecked()),
+			"osupload": str(self.chb_osUpload.isChecked()),
+			"ospassets": str(self.chb_osPAssets.isChecked()),
+			"osslaves": self.e_osSlaves.text(),
+			"curdlgroup":self.cb_dlGroup.currentText(),
+			"dlconcurrent":self.sp_dlConcurrentTasks.value(),
+			"dlgpupt":self.sp_dlGPUpt.value(),
+			"dlgpudevices":self.le_dlGPUdevices.text(),
+			"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+			"stateenabled":str(self.state.checkState(0))
+		}
 		return stateProps
