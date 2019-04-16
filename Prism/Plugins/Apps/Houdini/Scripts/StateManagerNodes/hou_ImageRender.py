@@ -830,13 +830,6 @@ class ImageRenderClass(object):
 			if not result:
 				return result
 
-		hou.hipFile.save()
-
-		if self.chb_globalRange.isChecked():
-			jobFrames = [self.stateManager.sp_rangeStart.value(), self.stateManager.sp_rangeEnd.value()]
-		else:
-			jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
-
 		if self.chb_useTake.isChecked():
 			pTake = self.cb_take.currentText()
 			takeLabels = [x.strip() for x in self.node.parm("take").menuLabels()]
@@ -848,6 +841,13 @@ class ImageRenderClass(object):
 						return [self.state.text(0) + ": error - Publish canceled"]
 			else:
 				return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
+
+		hou.hipFile.save()
+
+		if self.chb_globalRange.isChecked():
+			jobFrames = [self.stateManager.sp_rangeStart.value(), self.stateManager.sp_rangeEnd.value()]
+		else:
+			jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
 
 		self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 

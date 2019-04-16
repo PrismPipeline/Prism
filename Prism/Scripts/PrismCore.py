@@ -191,6 +191,10 @@ class PrismCore():
 			if not os.path.exists(self.userini):
 				self.createUserPrefs()
 
+			self.useOnTop = self.getConfig("globals", "use_always_on_top", ptype="bool")
+			if self.useOnTop is None:
+				self.useOnTop = True
+
 			if sys.argv[-1] == "setupStartMenu":
 				self.prismArgs.pop(self.prismArgs.index("loadProject"))
 
@@ -318,7 +322,7 @@ class PrismCore():
 			pyLibs = os.path.join(self.prismRoot, "PythonLibs", "Python27", "PySide")
 			if pyLibs not in sys.path:
 				sys.path.append(pyLibs)
-			if self.appPlugin.pluginName != "Standalone":
+			if self.appPlugin.pluginName != "Standalone" and self.useOnTop:
 				self.messageParent.setWindowFlags(self.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 		getattr(self.appPlugin, "instantStartup", lambda x:None)(self)
@@ -1104,7 +1108,7 @@ class PrismCore():
 		self.scaleUI(win)
 
 		if not self.appPlugin.hasQtParent:
-			if self.appPlugin.pluginName != "Standalone":
+			if self.appPlugin.pluginName != "Standalone" and self.useOnTop:
 				win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
 	
 		if not self.parentWindows or not self.uiAvailable:
@@ -1112,7 +1116,7 @@ class PrismCore():
 			
 		win.setParent(self.messageParent, Qt.Window)
 
-		if platform.system() == "Darwin":
+		if platform.system() == "Darwin" and self.useOnTop:
 			win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 

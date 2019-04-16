@@ -82,7 +82,7 @@ class Prism_Nuke_Functions(object):
 
 		origin.messageParent = QWidget()
 		origin.messageParent.setParent(nukeQtParent, Qt.Window)
-		if platform.system() != "Windows":
+		if platform.system() != "Windows" and self.core.useOnTop::
 			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 		nuke.menu('Nuke').addCommand( 'Prism/Save Version', origin.saveScene)

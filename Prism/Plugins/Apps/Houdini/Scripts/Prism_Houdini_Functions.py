@@ -80,7 +80,8 @@ class Prism_Houdini_Functions(object):
 			if platform.system() == "Darwin":
 				origin.messageParent = QWidget()
 				origin.messageParent.setParent(hou.ui.mainQtWindow(), Qt.Window)
-				origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+				if self.core.useOnTop:
+					origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 			else:
 				origin.messageParent = hou.ui.mainQtWindow()
 

@@ -801,7 +801,8 @@ class Prism_Fusion_Functions(object):
 		if taskName is None or taskName == "":
 			msg = QMessageBox(QMessageBox.Warning, "Prism Warning", "Please choose a taskname")
 			self.core.parentWindow(msg)
-			msg.setWindowFlags(msg.windowFlags() ^ Qt.WindowStaysOnTopHint)
+			if self.core.useOnTop:
+				msg.setWindowFlags(msg.windowFlags() ^ Qt.WindowStaysOnTopHint)
 			msg.exec_()
 			return ""
 

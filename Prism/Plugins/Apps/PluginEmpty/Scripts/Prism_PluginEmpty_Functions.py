@@ -80,7 +80,8 @@ class Prism_PluginEmpty_Functions(object):
 
 		origin.messageParent = QWidget()
 	#	origin.messageParent.setParent(QtParent, Qt.Window)
-		origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+		if self.core.useOnTop:
+			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 		origin.startasThread()
 

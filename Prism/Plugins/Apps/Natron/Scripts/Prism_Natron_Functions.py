@@ -97,7 +97,8 @@ class Prism_Natron_Functions(object):
 		origin.timer.stop()
 
 		if platform.system() == "Darwin":
-			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+			if self.core.useOnTop:
+				origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 		#else:
 		#	origin.messageParent = QWidget()
