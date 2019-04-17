@@ -3326,7 +3326,7 @@ except Exception as e:
 	def writeErrorLog(self, text):
 		try:
 
-			ptext = "An unknown Prism error occured.\nThe error was logged.\nIf you want to help improve Prism, please send this error to the developer.\n\nYou can contact the pipeline administrator or the developer, if you have any questions on this.\n\n"
+			ptext = "An unknown Prism error occured.\nThe error was logged.\nIf you want to help improve Prism, please send this error to the developer.\n\nYou can contact the pipeline administrator or the developer, if you have any questions on this.\n\nMake sure you use the latest Prism version by using the automatic update option in the Prism Settings.\n\n"
 		#	print (text)
 
 			text += "\n\n"
@@ -3394,6 +3394,9 @@ except Exception as e:
 				b_ok.clicked.connect(msg.accept)
 
 				action = msg.exec_()
+
+				if "UnicodeDecodeError" in text or "UnicodeEncodeError" in text:
+					QMessageBox.information(self.messageParent, "Prism", "The previous error might be caused by the use of special characters (like ö or é). Prism doesn't support this at the moment. Make sure you remove these characters from your filepaths.".decode("utf8"))
 			else:
 				print (text)
 			
@@ -3438,6 +3441,7 @@ except Exception as e:
 		b_ok.clicked.connect(msg.accept)
 
 		action = msg.exec_()
+
 
 
 if __name__ == "__main__":
