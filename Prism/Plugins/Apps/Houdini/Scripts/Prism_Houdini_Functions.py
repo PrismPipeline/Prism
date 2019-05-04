@@ -84,63 +84,13 @@ class Prism_Houdini_Functions(object):
 					origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 			else:
 				origin.messageParent = hou.ui.mainQtWindow()
+		
+			curShelfSet = hou.ui.curDesktop().shelfDock().shelfSets()[0]
+			curShelves = curShelfSet.shelves()
 
-			if "prism" in hou.shelves.shelves():
-				hou.shelves.shelves()["prism"].destroy()
-
-			if hou.shelves.tool("set_project") is not None:
-				hou.shelves.tool("set_project").destroy()
-
-			if hou.shelves.tool("project_browser") is not None:
-				hou.shelves.tool("project_browser").destroy()
-
-			if hou.ui.curDesktop().name() == "Technical":
-				curShelfSet = "shelf_set_td"
-			else:
-				curShelfSet = "shelf_set_1"
-
-			if curShelfSet not in hou.shelves.shelfSets():
-				curShelfSet = hou.shelves.shelfSets()[0]
-
-			curShelves = hou.ShelfSet.shelves(hou.shelves.shelfSets()[curShelfSet])
-
-			shelfName = "prism-v1.0.7"
-
-			if not shelfName in hou.shelves.shelves():
-				news = hou.shelves.newShelf(file_path = hou.shelves.defaultFilePath(), name= shelfName, label="Prism")
-				hou.ShelfSet.setShelves(hou.shelves.shelfSets()[curShelfSet],curShelves + (news,))
-
-				savescript = "import PrismInit\n\nPrismInit.pcore.saveScene()"
-				if hou.shelves.tool("prism_save") is not None:
-					hou.shelves.tool("prism_save").destroy()
-				hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_save", label ="Save Version",help = "\"\"\"Saves the current file to a new version\"\"\"", script= savescript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSave.png" ).replace("\\", "/"))
-
-				savecommentscript = "import PrismInit\n\nPrismInit.pcore.saveWithComment()"
-				if hou.shelves.tool("prism_commentsave") is not None:
-					hou.shelves.tool("prism_commentsave").destroy()
-				hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_commentsave", label ="Save Comment",help = "\"\"\"Saves the current file to a new version with a comment\"\"\"", script= savecommentscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSaveComment.png").replace("\\", "/"))
-
-				browserscript = "import PrismInit\n\nPrismInit.pcore.projectBrowser()"
-				if hou.shelves.tool("prism_browser") is not None:
-					hou.shelves.tool("prism_browser").destroy()
-				hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_browser", label ="Project Browser",help = "\"\"\"Opens the Project Browser\"\"\"", script= browserscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismBrowser.png").replace("\\", "/"))
-
-				managerscript = "import PrismInit\n\nPrismInit.pcore.stateManager()"
-				if hou.shelves.tool("prism_manager") is not None:
-					hou.shelves.tool("prism_manager").destroy()
-				hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_manager", label ="State Manager",help = "\"\"\"Opens the State Manager\"\"\"", script= managerscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismStates.png").replace("\\", "/"))
-
-				prismSettingsscript = "import PrismInit\n\nPrismInit.pcore.prismSettings()"
-				if hou.shelves.tool("prism_settings") is not None:
-					hou.shelves.tool("prism_settings").destroy()
-				hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_settings", label ="Settings",help = "\"\"\"Opens the Prism settings\"\"\"", script= prismSettingsscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSettings.png").replace("\\", "/"))
-
-				hou.Shelf.setTools(hou.shelves.shelves()[shelfName],( hou.shelves.tool("prism_save"), hou.shelves.tool("prism_commentsave"), hou.shelves.tool("prism_browser"), hou.shelves.tool("prism_manager"), hou.shelves.tool("prism_settings")))
-			
-			else:
-				prismShelf = hou.shelves.shelves()[shelfName]
-				if prismShelf not in curShelves:
-					hou.ShelfSet.setShelves(hou.shelves.shelfSets()[curShelfSet],curShelves + (prismShelf,))
+			prismShelf = hou.shelves.shelves()["prism"]
+			if prismShelf not in curShelves:
+				hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
 			
 			origin.startasThread()
 		else:

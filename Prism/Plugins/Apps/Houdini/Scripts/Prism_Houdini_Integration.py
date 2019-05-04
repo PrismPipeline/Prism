@@ -218,6 +218,33 @@ class Prism_Houdini_Integration(object):
 				init.write(initStr)
 
 
+			# shelf
+			shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
+
+			if os.path.exists(shelfpath):
+				os.remove(shelfpath)
+
+			origShelfFile = os.path.join(integrationBase, "Prism.shelf")
+			shutil.copy2(origShelfFile, shelfpath)
+			addedFiles.append(shelfpath)
+
+
+			iconPathSave = os.path.join(houdiniPath, "config", "Icons", "prismSave.png")
+			iconPathSaveComment = os.path.join(houdiniPath, "config", "Icons", "prismSaveComment.png")
+			iconPathBrowser = os.path.join(houdiniPath, "config", "Icons", "prismBrowser.png")
+			iconPathStates = os.path.join(houdiniPath, "config", "Icons", "prismStates.png")
+			iconPathSettings = os.path.join(houdiniPath, "config", "Icons", "prismSettings.png")
+			icons = [iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]
+
+			for icon in icons:
+				if os.path.exists(icon):
+					os.remove(icon)
+
+				origIconFile = os.path.join(integrationBase, os.path.basename(icon))
+				shutil.copy2(origIconFile, icon)
+				addedFiles.append(icon)
+
+
 			# openScene callback
 			openPath = os.path.join(houdiniPath, "scripts", "456.py")
 
@@ -298,7 +325,14 @@ class Prism_Houdini_Integration(object):
 			initPy = os.path.join(installBase, "python2.7libs", "PrismInit.py")
 			initPyc = initPy + "c"
 
-			for i in [initPy, initPyc]:
+			shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
+			iconPathSave = os.path.join(houdiniPath, "config", "Icons", "prismSave.png")
+			iconPathSaveComment = os.path.join(houdiniPath, "config", "Icons", "prismSaveComment.png")
+			iconPathBrowser = os.path.join(houdiniPath, "config", "Icons", "prismBrowser.png")
+			iconPathStates = os.path.join(houdiniPath, "config", "Icons", "prismStates.png")
+			iconPathSettings = os.path.join(houdiniPath, "config", "Icons", "prismSettings.png")
+
+			for i in [initPy, initPyc, shelfpath, iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]:
 				if os.path.exists(i):
 					os.remove(i)
 
