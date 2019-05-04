@@ -816,7 +816,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			name = "Entity"
 		elif tab == "ap":
 			if self.tw_aHierarchy.currentItem() is not None and self.lw_aPipeline.indexAt(event.pos()).data() == None and (self.tw_aHierarchy.currentItem().text(2) == "Asset"):
-				self.createStep("a")
+				self.createStepWindow("a")
 		elif tab == "ss":
 			mIndex = uielement.indexAt(event.pos())
 			if mIndex.data() == None:
@@ -827,7 +827,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					uielement.mouseDClick(event)
 		elif tab == "sp":
 			if self.cursShots is not None and not (len(self.cursShots.split("-")) == 2 and self.cursShots[-1] == "-") and self.lw_sPipeline.indexAt(event.pos()).data() == None:
-				self.createStep("s")
+				self.createStepWindow("s")
 		elif tab == "sc":
 			if self.cursStep is not None and self.lw_sCategory.indexAt(event.pos()).data() == None:
 				name = "Category"
@@ -1104,9 +1104,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if tab in ["ap", "ss", "sp", "sc"]:
 			createAct = QAction("Create " + typename, self)
 			if tab == "ap":
-				createAct.triggered.connect(lambda: self.createStep("a"))
+				createAct.triggered.connect(lambda: self.createStepWindow("a"))
 			elif tab == "sp":
-				createAct.triggered.connect(lambda: self.createStep("s"))
+				createAct.triggered.connect(lambda: self.createStepWindow("s"))
 			elif tab == "ss":
 				createAct.triggered.connect(self.editShot)
 			else:
@@ -2924,7 +2924,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def createStep(self, tab):
+	def createStepWindow(self, tab):
 		if tab == "a":
 			basePath = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles")
 		elif tab == "s":
@@ -2945,29 +2945,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		steps = self.getStep(steps, tab)
 		if steps != False:
 			createdDirs = []
+
+			if tab == "s":
+				entity = "shot"
+			else:
+				entity = "asset"
+
 			for i in steps[0]:
 				dstname = os.path.join(basePath, i)
-
-				if not os.path.exists(dstname):
-					try:
-						os.makedirs(dstname)
-						createdDirs.append(i)
-					except:
-						QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % i))
-
-				if tab == "s":
-					entity = "shot"
-				else:
-					entity = "asset"
-
-				settings = {"createDefaultCategory":tab == "s" and steps[1]}
-
-
-				self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, i, dstname, settings])
-
-				if settings["createDefaultCategory"]:
-					self.createDefaultCat(i, dstname)
-
+				result = self.createStep(i, dstname, steps[1], entity)
+				if result:
+					createdDirs.append(i)
+				
 			if len(createdDirs) != 0:
 				if tab == "a":
 					self.refreshAHierarchy()
@@ -2978,6 +2967,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					for i in range(self.lw_sPipeline.model().rowCount()):
 						if self.lw_sPipeline.model().index(i,0).data() == createdDirs[0]:
 							self.lw_sPipeline.selectionModel().setCurrentIndex( self.lw_sPipeline.model().index(i,0) , QItemSelectionModel.ClearAndSelect)
+
+
+	@err_decorator
+	def createStep(self, stepName, stepPath, createCat, entity):
+		if not os.path.exists(stepPath):
+			try:
+				os.makedirs(stepPath)
+			except:
+				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % stepName))
+				return False
+
+		settings = {"createDefaultCategory":entity == "shot" and createCat}
+
+		self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, stepName, stepPath, settings])
+
+		if settings["createDefaultCategory"]:
+			self.createDefaultCat(stepName, stepPath)
+
+		return True
 
 
 	@err_decorator
