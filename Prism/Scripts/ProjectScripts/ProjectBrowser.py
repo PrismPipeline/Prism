@@ -1384,7 +1384,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if not fileStarted:
 				try:
 					if platform.system() == "Windows":
-						os.startfile(filepath)
+						os.startfile(self.core.fixPath(filepath))
 					elif platform.system() == "Linux":
 						subprocess.Popen(["xdg-open", filepath])
 					elif platform.system() == "Darwin":
