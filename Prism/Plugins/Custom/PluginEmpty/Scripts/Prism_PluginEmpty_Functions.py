@@ -74,7 +74,7 @@ class Prism_PluginEmpty_Functions(object):
 	# the following function are called by Prism at specific events, which are indicated by the function names
 	# you can add your own code to any of these functions.
 	@err_decorator
-	def onProjectCreated(self, origin, path):
+	def onProjectCreated(self, origin, projectPath, projectName):
 		pass
 
 

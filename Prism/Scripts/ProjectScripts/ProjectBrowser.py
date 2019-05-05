@@ -2953,7 +2953,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 			for i in steps[0]:
 				dstname = os.path.join(basePath, i)
-				result = self.createStep(i, dstname, steps[1], entity)
+				result = self.createStep(i, entity, stepPath=dstname, createCat=steps[1])
 				if result:
 					createdDirs.append(i)
 				
@@ -2970,7 +2970,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def createStep(self, stepName, stepPath, createCat, entity):
+	def createStep(self, stepName, entity="shot", entityName="", stepPath="", createCat=True):
+		if not stepPath:
+			if entity == "asset":
+				for i in self.core.getAssetPaths():
+					if os.path.baseName(i) == entityName:
+						stepPath = os.path.join(i, "Scenefiles", stepName)
+						break
+				else:
+					QMessageBox.warning(self.core.messageParent, "Warning", "Asset '%s' doesn't exist. Could not create step." % entityName)
+					return
+
+			elif entity == "shot":
+				stepPath = os.path.join(self.sBasePath, entityName, "Scenefiles", stepName)
+
 		if not os.path.exists(stepPath):
 			try:
 				os.makedirs(stepPath)
@@ -2991,6 +3004,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def createDefaultCat(self, step, path):
 		existingSteps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
+		if step not in existingSteps:
+			QMessageBox.warning(self.core.messageParent, "Warning", "Step '%s' doesn't exist in the project config. Couldn't create default category." % step)
+			return
+
 		catName = existingSteps[step]
 		dstname = os.path.join(path, catName)
 		self.createCategory(catName, dstname)
