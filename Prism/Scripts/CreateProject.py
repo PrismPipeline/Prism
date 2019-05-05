@@ -410,10 +410,10 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
 		self.core.setConfig(data=cData, configPath=inipath)
 
-		self.core.callback(name="onProjectCreated", types=["curApp", "unloadedApps", "custom"], args=[self, path, projectName])
-
 		self.inipath = inipath
 		self.core.changeProject(self.inipath)
+
+		self.core.callback(name="onProjectCreated", types=["curApp", "unloadedApps", "custom"], args=[self, path, projectName])
 
 		self.pc = ProjectCreated.ProjectCreated(self.e_name.text(), core=self.core, basepath=path)
 		self.pc.exec_()
