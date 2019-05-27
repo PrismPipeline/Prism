@@ -357,6 +357,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		cData.append(["globals", "prefer_djv", str(self.chb_preferDJV.isChecked())])
 		cData.append(["globals", "showonstartup", str(self.chb_browserStartup.isChecked())])
+		cData.append(["globals", "checkForUpdates", self.chb_checkForUpdates.isChecked()])
 		cData.append(["globals", "autosave", str(self.chb_autosave.isChecked())])
 		cData.append(["globals", "highdpi", str(self.chb_highDPI.isChecked())])
 
@@ -511,6 +512,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		ucData["username"] = ['globals', "username"]
 		ucData["showonstartup"] = ['globals', "showonstartup", "bool"]
+		ucData["checkForUpdates"] = ['globals', "checkForUpdates", "bool"]
 		ucData["autosave"] = ['globals', "autosave", "bool"]
 		ucData["highdpi"] = ['globals', "highdpi", "bool"]
 		ucData["rvpath"] = ['globals', "rvpath"]
@@ -556,6 +558,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		for i in sorted(loadFunctions):
 			if ucData[i] is not None:
 				loadFunctions[i](ucData[i])
+
+		if ucData["checkForUpdates"] is not None:
+			self.chb_checkForUpdates.setChecked(ucData["checkForUpdates"])
 
 		if ucData["autosave"] is not None:
 			self.chb_autosave.setChecked(ucData["autosave"])

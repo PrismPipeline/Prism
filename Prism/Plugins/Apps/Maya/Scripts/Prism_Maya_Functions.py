@@ -364,8 +364,12 @@ class Prism_Maya_Functions(object):
 	def sm_export_addObjects(self, origin):
 		for i in cmds.ls( selection=True , long = True):
 			if not i in origin.nodes:
-				origin.nodes.append(i)
-				cmds.sets(i, include=origin.l_taskName.text())
+				try:
+					cmds.sets(i, include=origin.l_taskName.text())
+				except Exception as e:
+					QMessageBox.warning(self.core.messageParent, "Warning", "Cannot add object:\n\n%s" % str(e))
+				else:
+					origin.nodes.append(i)
 
 		origin.updateUi()
 		origin.stateManager.saveStatesToScene()
@@ -522,7 +526,9 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_clearSet(self, origin):
-		cmds.sets( clear=origin.l_taskName.text() )
+		setName = origin.l_taskName.text()
+		if self.isNodeValid(origin, setName):
+			cmds.sets( clear=setName )
 
 
 	@err_decorator
@@ -753,7 +759,10 @@ class Prism_Maya_Functions(object):
 						#cmds.xform(i, ws=True, ztp=True, sp=(0,0,0), s=(curScale[0]*sVal, curScale[1]*sVal, curScale[2]*sVal) )
 
 						cmds.currentTime( origin.sp_rangeStart.value(), edit=True )
-						cmds.makeIdentity(i, apply=True, translate=False, rotate=False, scale=True, normal=0, preserveNormals=1)
+						try:
+							cmds.makeIdentity(i, apply=True, translate=False, rotate=False, scale=True, normal=0, preserveNormals=1)
+						except Exception as e:
+							QMessageBox.warning(self.core.messageParent, "Error", "Could not apply the correct scale to the exported objects:\n\n%s" % str(e))
 
 				outputName = os.path.join(os.path.dirname(os.path.dirname(outputName)), "meter", os.path.basename(outputName))
 				if not os.path.exists(os.path.dirname(outputName)):
@@ -1636,7 +1645,7 @@ class Prism_Maya_Functions(object):
 			nodeName = self.getNodeName(origin, i)
 			newName = nodeName.rsplit(":", 1)[-1]
 
-			if newName != nodeName and not (cmds.referenceQuery( i,isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference"):
+			if newName != nodeName and not (cmds.referenceQuery( i,isNodeReferenced=True) or cmds.objectType(i) == "reference"):
 				try:
 					cmds.rename(nodeName, newName)
 				except:

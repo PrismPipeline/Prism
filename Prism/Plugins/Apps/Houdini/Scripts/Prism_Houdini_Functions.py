@@ -88,10 +88,23 @@ class Prism_Houdini_Functions(object):
 			curShelfSet = hou.ui.curDesktop().shelfDock().shelfSets()[0]
 			curShelves = curShelfSet.shelves()
 
-			prismShelf = hou.shelves.shelves()["prism"]
-			if prismShelf not in curShelves:
-				hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
-			
+			try:
+				prismShelf = hou.shelves.shelves()["prism"]
+			except:
+				msgString = "Could not find the Prism shelf.\n\nDo you want to update the Prism integration in Houdini to fix this?"
+				msg = QMessageBox(QMessageBox.Warning, "Prism Warning", msgString, QMessageBox.Ok | QMessageBox.Cancel)
+				self.core.parentWindow(msg)
+				action = msg.exec_()
+
+				if action == QMessageBox.Ok:
+					result = self.writeHoudiniFiles(os.environ["HOUDINI_USER_PREF_DIR"])
+					if result:
+						QMessageBox.information(self.core.messageParent, "Restart", "Successully updated the Prism integration.\n\nAfter the next Houdini restart the Prism shelf will be available.")
+
+			else:
+				if prismShelf not in curShelves:
+					hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
+				
 			origin.startasThread()
 		else:
 			QApplication.addLibraryPath(os.path.join(hou.expandString("$HFS"), "bin", "Qt_plugins"))
@@ -742,7 +755,7 @@ class Prism_Houdini_Functions(object):
 				ropNodes.append(node)
 
 		for i in origin.states:
-			if i.ui.className == "Export" and i.ui.node is not None:
+			if i.ui.className == "Export" and i.ui.node is not None and i.ui.node in ropNodes:
 				ropNodes.remove(i.ui.node)
 
 		for i in ropNodes:

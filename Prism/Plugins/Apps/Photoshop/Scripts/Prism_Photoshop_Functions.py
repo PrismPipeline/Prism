@@ -88,8 +88,12 @@ class Prism_Photoshop_Functions(object):
 		qApp.setWindowIcon(appIcon)
 
 		if self.win:
-			# CS6: .60, CC2015: .90
-			self.psApp = win32com.client.Dispatch("Photoshop.Application")
+			try:
+				# CS6: .60, CC2015: .90
+				self.psApp = win32com.client.Dispatch("Photoshop.Application")
+			except Exception as e:
+				QMessageBox.warning(self.core.messageParent, "Warning", "Could not connect to Photoshop:\n\n%s" % str(e))
+				return False
 		else:
 			self.psAppName = "Adobe Photoshop CC 2019"
 			for foldercont in os.walk("/Applications"):

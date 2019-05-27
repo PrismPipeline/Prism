@@ -548,6 +548,8 @@ class ImageRenderClass(object):
 	def preExecuteState(self):
 		warnings = []
 
+		self.updateUi()
+
 		if self.l_taskName.text() == "":
 			warnings.append(["No taskname is given.", "", 3])
 
@@ -624,7 +626,7 @@ class ImageRenderClass(object):
 			jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
 
 		fileName = self.core.getCurrentFileName()
-		if not self.renderingStarted:	
+		if not self.renderingStarted:
 			if self.l_taskName.text() == "":
 				return [self.state.text(0) + ": error - no taskname is given. Skipped the activation of this state."]
 

@@ -406,7 +406,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.helpMenu.addAction(self.actionSendFeedback)
 
 		self.actionCheckVersion = QAction("Check for Prism updates", self)
-		self.actionCheckVersion.triggered.connect(self.core.checkPrismVersion)
+		self.actionCheckVersion.triggered.connect(self.core.checkForUpdates)
 		self.helpMenu.addAction(self.actionCheckVersion)
 
 		self.actionAbout = QAction("About...", self)
@@ -598,8 +598,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if self.tbw_browser.count() == 0:
 			self.tbw_browser.setVisible(False)
+			self.gb_renderings.setVisible(False)
 		else:
-			self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.currentWidget().property("tabType")]["showRenderings"])
+			if self.actionRenderings.isChecked():
+				self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.currentWidget().property("tabType")]["showRenderings"])
 
 		if cData["autoUpdateRenders"] is not None:
 			self.chb_autoUpdate.setChecked(cData["autoUpdateRenders"])
@@ -648,7 +650,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		cData = []
 
-		cData.append(['browser', "current", self.tbw_browser.widget(self.tbw_browser.currentIndex()).property("tabType")])
+		curW = self.tbw_browser.widget(self.tbw_browser.currentIndex())
+		if curW:
+			currentType = curW.property("tabType")
+		else:
+			currentType = ""
+
+		cData.append(['browser', "current", currentType])
 		cData.append(['browser', "assetsOrder", str(tabOrder.index("Assets"))])
 		cData.append(['browser', "shotsOrder", str(tabOrder.index("Shots"))])
 		cData.append(['browser', "filesOrder", str(tabOrder.index("Files"))])
@@ -741,16 +749,23 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def tabChanged(self, tab):
-		if self.tbw_browser.widget(tab).property("tabType") == "Assets":
-			self.refreshAFile()
-		elif self.tbw_browser.widget(tab).property("tabType") == "Shots":
-			self.refreshSFile()
-		elif self.tbw_browser.widget(tab).property("tabType") == "Files":
-			self.refreshFCat()
-		elif self.tbw_browser.widget(tab).property("tabType") == "Recent":
-			self.setRecent()
+		if not self.tbw_browser.widget(tab):
+			tabType = ""
+			self.gb_renderings.setVisible(False)
+		else:
+			tabType = self.tbw_browser.widget(tab).property("tabType")
 
-		self.gb_renderings.setVisible(self.tabOrder[self.tbw_browser.widget(tab).property("tabType")]["showRenderings"])
+			if tabType == "Assets":
+				self.refreshAFile()
+			elif tabType == "Shots":
+				self.refreshSFile()
+			elif tabType == "Files":
+				self.refreshFCat()
+			elif tabType == "Recent":
+				self.setRecent()
+
+			if self.actionRenderings.isChecked():
+				self.gb_renderings.setVisible(self.tabOrder[tabType]["showRenderings"])
 
 		if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
 			self.updateTasks()
@@ -2790,7 +2805,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def triggerRenderings(self, checked=False):
-		self.gb_renderings.setVisible(checked)
+		if self.tbw_browser.currentWidget() and self.tabOrder[self.tbw_browser.currentWidget().property("tabType")]["showRenderings"]:
+			self.gb_renderings.setVisible(checked)
 
 
 	@err_decorator
@@ -3267,6 +3283,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		mediaTasks = {"3d":[], "2d":[], "playblast":[], "external":[]}
 
 		if entityType is None:
+			if not self.tbw_browser.currentWidget():
+				return mediaTasks
+
 			entityType = self.tbw_browser.currentWidget().property("tabType")
 
 		foldercont = []
@@ -3490,12 +3509,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def getShotMediaPath(self):
 		foldercont = [None, None, None]
 		if len(self.lw_task.selectedItems()) > 1 or len(self.lw_version.selectedItems()) > 1:
+			mediaPlayback = self.mediaPlaybacks["shots"]
+
 			mediaPlayback["l_info"].setText("Multiple items selected")
 			mediaPlayback["l_info"].setToolTip("")
 			mediaPlayback["l_date"].setText("")
 			self.b_addRV.setEnabled(True)
 			self.b_compareRV.setEnabled(True)
 			self.b_combineVersions.setEnabled(True)
+			return ["multiple", None, None]
 		else:
 			self.b_addRV.setEnabled(False)
 			if len(self.compareStates) == 0:
@@ -3572,79 +3594,80 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		mediaBase, mediaFolders, mediaFiles = mediaPlayback["getMediaBase"]()
 
-		if mediaBase is not None:
-			mediaPlayback["basePath"] = mediaBase
-			base = None
-			for i in sorted(mediaFiles):
-				if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".dpx", ".mp4", ".mov"]:
-					base = i
-					break
-
-			if base is not None:
-				baseName, extension = os.path.splitext(base)
+		if mediaBase != "multiple":
+			if mediaBase is not None:
+				mediaPlayback["basePath"] = mediaBase
+				base = None
 				for i in sorted(mediaFiles):
-					if i.startswith(baseName[:-4]) and (i.endswith(extension)):
-						mediaPlayback["seq"].append(i)
+					if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".dpx", ".mp4", ".mov"]:
+						base = i
+						break
 
-				if len(mediaPlayback["seq"]) > 1 and extension not in [".mp4", ".mov"]:
-					mediaPlayback["prvIsSequence"] = True
-					try:
-						mediaPlayback["pstart"] = int(baseName[-4:])
-					except:
-						mediaPlayback["pstart"] = "?"
-
-					try:
-						mediaPlayback["pend"] = int(os.path.splitext(mediaPlayback["seq"][len(mediaPlayback["seq"])-1])[0][-4:])
-					except:
-						mediaPlayback["pend"] = "?"
-
-				else:
-					mediaPlayback["prvIsSequence"] = False
-					mediaPlayback["seq"] = []
-					for i in mediaFiles:
-						if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".dpx", ".mp4", ".mov"]:
+				if base is not None:
+					baseName, extension = os.path.splitext(base)
+					for i in sorted(mediaFiles):
+						if i.startswith(baseName[:-4]) and (i.endswith(extension)):
 							mediaPlayback["seq"].append(i)
 
-				if not (self.curRTask == "" or self.curRVersion == "" or len(mediaPlayback["seq"]) == 0):
-					self.b_addRV.setEnabled(True)
-
-				mediaPlayback["pduration"] = len(mediaPlayback["seq"])
-				imgPath = str(os.path.join(mediaBase, base))
-				if os.path.exists(imgPath) and mediaPlayback["pduration"] == 1 and os.path.splitext(imgPath)[1] in [".mp4", ".mov"]:
-					if os.stat(imgPath).st_size == 0:
-						mediaPlayback["vidPrw"] = "Error"
-					else:
+					if len(mediaPlayback["seq"]) > 1 and extension not in [".mp4", ".mov"]:
+						mediaPlayback["prvIsSequence"] = True
 						try:
-							mediaPlayback["vidPrw"] = imageio.get_reader(imgPath,  'ffmpeg')
+							mediaPlayback["pstart"] = int(baseName[-4:])
 						except:
+							mediaPlayback["pstart"] = "?"
+
+						try:
+							mediaPlayback["pend"] = int(os.path.splitext(mediaPlayback["seq"][len(mediaPlayback["seq"])-1])[0][-4:])
+						except:
+							mediaPlayback["pend"] = "?"
+
+					else:
+						mediaPlayback["prvIsSequence"] = False
+						mediaPlayback["seq"] = []
+						for i in mediaFiles:
+							if os.path.splitext(i)[1] in [".jpg", ".jpeg", ".JPG", ".png", ".tif", ".tiff", ".exr", ".dpx", ".mp4", ".mov"]:
+								mediaPlayback["seq"].append(i)
+
+					if not (self.curRTask == "" or self.curRVersion == "" or len(mediaPlayback["seq"]) == 0):
+						self.b_addRV.setEnabled(True)
+
+					mediaPlayback["pduration"] = len(mediaPlayback["seq"])
+					imgPath = str(os.path.join(mediaBase, base))
+					if os.path.exists(imgPath) and mediaPlayback["pduration"] == 1 and os.path.splitext(imgPath)[1] in [".mp4", ".mov"]:
+						if os.stat(imgPath).st_size == 0:
 							mediaPlayback["vidPrw"] = "Error"
+						else:
+							try:
+								mediaPlayback["vidPrw"] = imageio.get_reader(imgPath,  'ffmpeg')
+							except:
+								mediaPlayback["vidPrw"] = "Error"
 
-					self.updatePrvInfo(imgPath, vidReader=mediaPlayback["vidPrw"], mediaPlayback=mediaPlayback)
+						self.updatePrvInfo(imgPath, vidReader=mediaPlayback["vidPrw"], mediaPlayback=mediaPlayback)
+					else:
+						self.updatePrvInfo(imgPath, mediaPlayback=mediaPlayback)
+
+					if os.path.exists(imgPath):
+						mediaPlayback["timeline"] = QTimeLine(mediaPlayback["pduration"]*40, self)
+						mediaPlayback["timeline"].setFrameRange(0, mediaPlayback["pduration"]-1)
+						mediaPlayback["timeline"].setEasingCurve(QEasingCurve.Linear)
+						mediaPlayback["timeline"].setLoopCount(0)
+						mediaPlayback["timeline"].frameChanged.connect(lambda x: self.changeImg(x, mediaPlayback=mediaPlayback))
+						QPixmapCache.setCacheLimit(2097151)
+						mediaPlayback["curImg"] = 0
+						mediaPlayback["timeline"].start()
+
+
+						if mediaPlayback["tlPaused"]:
+							mediaPlayback["timeline"].setPaused(True)
+							self.changeImg(mediaPlayback=mediaPlayback)
+						elif mediaPlayback["pduration"] < 3:
+							self.changeImg(mediaPlayback=mediaPlayback)
+
+						return True
 				else:
-					self.updatePrvInfo(imgPath, mediaPlayback=mediaPlayback)
-
-				if os.path.exists(imgPath):
-					mediaPlayback["timeline"] = QTimeLine(mediaPlayback["pduration"]*40, self)
-					mediaPlayback["timeline"].setFrameRange(0, mediaPlayback["pduration"]-1)
-					mediaPlayback["timeline"].setEasingCurve(QEasingCurve.Linear)
-					mediaPlayback["timeline"].setLoopCount(0)
-					mediaPlayback["timeline"].frameChanged.connect(lambda x: self.changeImg(x, mediaPlayback=mediaPlayback))
-					QPixmapCache.setCacheLimit(2097151)
-					mediaPlayback["curImg"] = 0
-					mediaPlayback["timeline"].start()
-
-
-					if mediaPlayback["tlPaused"]:
-						mediaPlayback["timeline"].setPaused(True)
-						self.changeImg(mediaPlayback=mediaPlayback)
-					elif mediaPlayback["pduration"] < 3:
-						self.changeImg(mediaPlayback=mediaPlayback)
-
-					return True
+					self.updatePrvInfo(mediaPlayback=mediaPlayback)
 			else:
 				self.updatePrvInfo(mediaPlayback=mediaPlayback)
-		else:
-			self.updatePrvInfo(mediaPlayback=mediaPlayback)
 
 		mediaPlayback["l_preview"].setPixmap(self.emptypmap)
 		mediaPlayback["sl_preview"].setEnabled(False)

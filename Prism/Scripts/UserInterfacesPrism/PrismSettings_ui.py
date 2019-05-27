@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PrismSettings.ui'
 #
-# Created: Sun Jan 27 19:22:29 2019
+# Created: Thu May 23 20:45:25 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -254,6 +254,10 @@ class Ui_dlg_PrismSettings(object):
         spacerItem10 = QtGui.QSpacerItem(457, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout_16.addItem(spacerItem10)
         self.verticalLayout_3.addWidget(self.widget_17)
+        self.chb_checkForUpdates = QtGui.QCheckBox(self.tabWidgetPage4)
+        self.chb_checkForUpdates.setChecked(True)
+        self.chb_checkForUpdates.setObjectName("chb_checkForUpdates")
+        self.verticalLayout_3.addWidget(self.chb_checkForUpdates)
         self.chb_autosave = QtGui.QCheckBox(self.tabWidgetPage4)
         self.chb_autosave.setChecked(True)
         self.chb_autosave.setObjectName("chb_autosave")
@@ -445,6 +449,7 @@ class Ui_dlg_PrismSettings(object):
         self.tw_settings.setTabText(self.tw_settings.indexOf(self.tab_dccApps), QtGui.QApplication.translate("dlg_PrismSettings", "DCC apps", None, QtGui.QApplication.UnicodeUTF8))
         self.b_about.setText(QtGui.QApplication.translate("dlg_PrismSettings", "About", None, QtGui.QApplication.UnicodeUTF8))
         self.b_updatePrism.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Update Prism", None, QtGui.QApplication.UnicodeUTF8))
+        self.chb_checkForUpdates.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Check for updates (once per week)", None, QtGui.QApplication.UnicodeUTF8))
         self.chb_autosave.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Autosave popup", None, QtGui.QApplication.UnicodeUTF8))
         self.chb_browserStartup.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Open Project Browser on application startup", None, QtGui.QApplication.UnicodeUTF8))
         self.chb_trayStartup.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Show Prism tray icon on system startup", None, QtGui.QApplication.UnicodeUTF8))

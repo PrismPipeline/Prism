@@ -32,7 +32,7 @@
 
 
 
-import sys, os, threading, shutil, time, socket, traceback, imp, platform, random, errno, stat
+import sys, os, threading, shutil, time, socket, traceback, imp, platform, random, errno, stat, datetime
 
 #check if python 2 or python 3 is used
 if sys.version[0] == "3":
@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.9"
+			self.version = "v1.2.0.10"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -546,6 +546,8 @@ class PrismCore():
 
 		if self.getCurrentFileName() != "":
 			self.sceneOpen()
+
+		self.autoUpdateCheck()
 
 
 	@err_decorator
@@ -2886,7 +2888,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 
 
 	@err_decorator
-	def convertMedia(self, inputpath, startNum, outputpath):
+	def convertMedia(self, inputpath, startNum, outputpath, outputQuality=None):
 		inputpath = inputpath.replace("\\", "/")
 		inputExt = os.path.splitext(inputpath)[1]
 		videoInput = inputExt in [".mp4", ".mov"]
@@ -2916,10 +2918,20 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 		if not os.path.exists(os.path.dirname(outputpath)):
 			os.makedirs(os.path.dirname(outputpath))
 
+		if not outputQuality:
+			outputQuality = self.getConfig("globals", "media_conversion_quality", configPath=self.prismIni)
+
+			if not outputQuality:
+				outputQuality = "23"
+
 		if videoInput:
 			nProc = subprocess.Popen([ffmpegPath, "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuv420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		else:
-			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", "24", "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			fps = "24"
+			if self.getConfig("globals", "forcefps", configPath=self.prismIni, ptype="bool"):
+				fps = self.getConfig("globals", "fps", configPath=self.prismIni)
+
+			nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", fps, "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		result = nProc.communicate()
 
 		return result
@@ -3076,7 +3088,21 @@ except Exception as e:
 
 
 	@err_decorator
-	def checkPrismVersion(self):
+	def autoUpdateCheck(self):
+		updateEnabled = self.getConfig(cat="globals", param="checkForUpdates")
+		if updateEnabled == False:
+			return
+
+		lastUpdateCheck = self.getConfig(cat="globals", param="lastUpdateCheck")
+		if lastUpdateCheck and (datetime.datetime.now() - datetime.datetime.strptime(lastUpdateCheck, '%Y-%m-%d %H:%M:%S.%f')).total_seconds() < 604.800:
+			return
+
+		self.checkForUpdates(silent=True)
+		self.setConfig(cat="globals", param="lastUpdateCheck", val=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'))
+
+
+	@err_decorator
+	def checkForUpdates(self, silent=False):
 		pStr = """
 try:
 	import os, sys
@@ -3090,12 +3116,15 @@ try:
 		sys.path.insert(0, pyLibs)
 
 	import requests
-	page = requests.get('https://prism-pipeline.com/downloads/', verify=False)
-	#page = requests.get('https://prism-pipeline.com/downloads/')
+	page = requests.get('https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py', verify=False)
 
 	cStr = page.content
-	vCode = 'Latest version: ['
-	latestVersionStr = cStr[cStr.find(vCode)+len(vCode): cStr.find(']', cStr.find('Latest version: ['))]
+	lines = cStr.split('\\n')
+	latestVersionStr = '1'
+	for line in lines:
+		if 'self.version =' in line:
+			latestVersionStr = line[line.find('\\"')+2:-1]
+			break
 
 	sys.stdout.write(latestVersionStr)
 
@@ -3103,18 +3132,13 @@ except Exception as e:
 	sys.stdout.write('failed %%s' %% e)
 """ % (self.prismRoot, self.prismRoot)
 
-		if platform.system() == "Windows":
-			pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
-		else:
-			pythonPath = "python"
-
+		pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
 		result = subprocess.Popen([pythonPath, "-c", pStr], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		stdOutData, stderrdata = result.communicate()
 
-		if "failed" in str(stdOutData) or len(str(stdOutData).split(".")) < 3:
-			msg = QMessageBox(QMessageBox.Information, "Prism", "Unable to connect to www.prism-pipeline.com. Could not check for updates.", QMessageBox.Ok, parent=self.messageParent)
-			msg.setFocus()
-			action = msg.exec_()
+		if "failed" in str(stdOutData) or len(str(stdOutData).split(".")) < 4:
+			if not silent:
+				QMessageBox.information(self.messageParent, "Prism", "Unable to read https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py. Could not check for updates.\n\n(%s)" % stdOutData)
 			return
 
 		if pVersion == 3:
@@ -3126,19 +3150,17 @@ except Exception as e:
 		coreversion = self.version[1:].split(".")
 		curVersion = [int(x) for x in coreversion]
 
-		if curVersion[0] < latestVersion[0] or (curVersion[0] == latestVersion[0] and curVersion[1] < latestVersion[1]) or (curVersion[0] == latestVersion[0] and curVersion[1] == latestVersion[1] and curVersion[2] < latestVersion[2]):
+		if curVersion[0] < latestVersion[0] or (curVersion[0] == latestVersion[0] and curVersion[1] < latestVersion[1]) or (curVersion[0] == latestVersion[0] and curVersion[1] == latestVersion[1] and curVersion[2] < latestVersion[2]) or (curVersion[0] == latestVersion[0] and curVersion[1] == latestVersion[1] and curVersion[2] == latestVersion[2] and curVersion[3] < latestVersion[3]):
 			msg = QMessageBox(QMessageBox.Information, "Prism", "A newer version of Prism is available.\n\nInstalled version:\t%s\nLatest version:\t\tv%s" % (self.version, stdOutData), QMessageBox.Ok, parent=self.messageParent)
-			msg.addButton("Go to downloads page", QMessageBox.YesRole)
-			msg.setFocus()
+			msg.addButton("Update Prism", QMessageBox.YesRole)
 			action = msg.exec_()
 
 			if action == 0:
-				self.openWebsite("downloads")
+				self.updatePrism(source="github")
 
 		else:
-			msg = QMessageBox(QMessageBox.Information, "Prism", "The latest version of Prism is already installed. (%s)" % self.version, QMessageBox.Ok, parent=self.messageParent)
-			msg.setFocus()
-			action = msg.exec_()
+			if not silent:
+				QMessageBox.information(self.messageParent, "Prism", "The latest version of Prism is already installed. (%s)" % self.version)
 
 
 	@err_decorator
@@ -3285,10 +3307,11 @@ except Exception as e:
 	@err_decorator
 	def ffmpegError(self, title, text, result):
 		msg = QMessageBox(QMessageBox.Warning, title, text, QMessageBox.Ok, parent=self.messageParent)
-		msg.addButton("Show ffmpeg output", QMessageBox.YesRole)
+		if result:
+			msg.addButton("Show ffmpeg output", QMessageBox.YesRole)
 		action = msg.exec_()
 
-		if action == 0:
+		if result and action == 0:
 			warnDlg = QDialog()
 
 			warnDlg.setWindowTitle("FFMPEG output")

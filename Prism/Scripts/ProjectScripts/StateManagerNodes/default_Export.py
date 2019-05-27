@@ -273,7 +273,8 @@ class ExportClass(object):
 		actClear = QAction("Clear", self)
 		actClear.triggered.connect(self.clearItems)
 		createMenu.addAction(actClear)
-		
+
+		self.updateUi()		
 		createMenu.exec_(self.lw_objects.mapToGlobal(pos))
 
 
@@ -338,6 +339,7 @@ class ExportClass(object):
 			self.cb_sCamShot.setCurrentIndex(0)
 			self.stateManager.saveStatesToScene()
 
+		selObjects = [x.text() for x in self.lw_objects.selectedItems()]
 		self.lw_objects.clear()
 
 		newObjList = []
@@ -357,6 +359,10 @@ class ExportClass(object):
 			getattr(self.core.appPlugin, "sm_export_colorObjList", lambda x: self.lw_objects.setStyleSheet("QListWidget { border: 3px solid rgb(200,0,0); }") )(self)
 		else:
 			getattr(self.core.appPlugin, "sm_export_unColorObjList", lambda x: self.lw_objects.setStyleSheet("QListWidget { border: 3px solid rgb(114,114,114); }") )(self)
+
+		for i in range(self.lw_objects.count()):
+			if self.lw_objects.item(i).text() in selObjects:
+				self.lw_objects.setCurrentItem(self.lw_objects.item(i))
 
 		self.nodes = newObjList
 

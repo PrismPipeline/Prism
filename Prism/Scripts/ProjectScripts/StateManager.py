@@ -269,7 +269,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		helpMenu.addAction(self.actionSendFeedback)
 
 		self.actionCheckVersion = QAction("Check for Prism updates", self)
-		self.actionCheckVersion.triggered.connect(self.core.checkPrismVersion)
+		self.actionCheckVersion.triggered.connect(self.core.checkForUpdates)
 		helpMenu.addAction(self.actionCheckVersion)
 
 		self.actionAbout = QAction("About...", self)
