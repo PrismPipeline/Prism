@@ -167,6 +167,9 @@ def executeAOVs(origin, outputName):
 			if not origin.core.appPlugin.setNodeParm(origin.node, parm.name(), clear=True):
 				return [origin.state.text(0) + ": error - Publish canceled"]
 
+			if origin.node.parm("RS_outputMultilayerMode").eval() == 1:
+				outPut = ""
+
 			if not origin.core.appPlugin.setNodeParm(origin.node, parm.name(), val=outPut):
 				return [origin.state.text(0) + ": error - Publish canceled"]
 
