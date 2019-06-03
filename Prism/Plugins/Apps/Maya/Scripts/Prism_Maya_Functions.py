@@ -742,8 +742,10 @@ class Prism_Maya_Functions(object):
 							scaleAnimated = True
 							break
 
+					cmds.move(0, 0, 0, i + '.scalePivot', i + '.rotatePivot', absolute=True)
+
 					for k in ["x", "y", "z"]:
-						for m in [".t", ".s"]:
+						for m in [".s"]:
 							connections = cmds.listConnections(i + m + k, c=True, plugs=True)
 							if connections is not None:
 								ucNode = cmds.createNode("unitConversion")
