@@ -742,10 +742,16 @@ class Prism_Maya_Functions(object):
 							scaleAnimated = True
 							break
 
-					cmds.move(0, 0, 0, i + '.scalePivot', i + '.rotatePivot', absolute=True)
+					convertParams = [".s"]
+
+					relatives = cmds.listRelatives(i, shapes=True)
+					if relatives and cmds.objectType( relatives[0], isType='camera' ):
+						convertParams.append(".t")
+					else:
+						cmds.move(0, 0, 0, i + '.scalePivot', i + '.rotatePivot', absolute=True)
 
 					for k in ["x", "y", "z"]:
-						for m in [".s"]:
+						for m in convertParams:
 							connections = cmds.listConnections(i + m + k, c=True, plugs=True)
 							if connections is not None:
 								ucNode = cmds.createNode("unitConversion")

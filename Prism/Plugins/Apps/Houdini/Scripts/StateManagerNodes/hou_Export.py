@@ -1038,7 +1038,7 @@ class ExportClass(object):
 			except:
 				return [self.state.text(0) + ": error - Node is invalid. Skipped the activation of this state."]
 
-			if not self.node.isEditable() and self.cb_outType.currentText() != ".hda":
+			if not (self.node.isEditable() or (self.node.type().name() == "filecache" and self.node.isEditableInsideLockedHDA())) and self.cb_outType.currentText() != ".hda":
 				return [self.state.text(0) + ": error - Node is locked. Skipped the activation of this state."]
 
 			fileName = self.core.getCurrentFileName()
