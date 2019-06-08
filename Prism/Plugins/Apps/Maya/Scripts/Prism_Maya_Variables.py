@@ -34,7 +34,7 @@
 
 class Prism_Maya_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.2.0.0"
+		self.version = "v1.2.0.14"
 		self.pluginName = "Maya"
 		self.pluginType = "App"
 		self.appShortName = "Maya"

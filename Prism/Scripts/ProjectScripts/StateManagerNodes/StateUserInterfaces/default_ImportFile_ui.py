@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_ImportFile.ui'
 #
-# Created: Thu Dec  6 20:52:44 2018
+# Created: Sat Jun  8 16:05:35 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_wg_ImportFile(object):
     def setupUi(self, wg_ImportFile):
         wg_ImportFile.setObjectName("wg_ImportFile")
-        wg_ImportFile.resize(340, 651)
+        wg_ImportFile.resize(340, 680)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -238,6 +238,9 @@ class Ui_wg_ImportFile(object):
         self.lw_objects.setHorizontalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.lw_objects.setObjectName("lw_objects")
         self.verticalLayout_4.addWidget(self.lw_objects)
+        self.b_selectAll = QtGui.QPushButton(self.gb_objects)
+        self.b_selectAll.setObjectName("b_selectAll")
+        self.verticalLayout_4.addWidget(self.b_selectAll)
         self.verticalLayout_2.addWidget(self.gb_objects)
         self.verticalLayout.addWidget(self.gb_import)
 
@@ -270,4 +273,5 @@ class Ui_wg_ImportFile(object):
         self.l_preferUnit.setText(QtGui.QApplication.translate("wg_ImportFile", "Prefer versions in meter:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_trackObjects.setText(QtGui.QApplication.translate("wg_ImportFile", "Keep track of connected objects:", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_objects.setTitle(QtGui.QApplication.translate("wg_ImportFile", "Objects", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_selectAll.setText(QtGui.QApplication.translate("wg_ImportFile", "Select all", None, QtGui.QApplication.UnicodeUTF8))
 

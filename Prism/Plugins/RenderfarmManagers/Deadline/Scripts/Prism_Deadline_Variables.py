@@ -34,7 +34,7 @@
 
 class Prism_Deadline_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.2.0.0"
+		self.version = "v1.2.0.14"
 		self.pluginName = "Deadline"
 		self.pluginType = "RenderfarmManager"
 		self.canOutputLocal = True

@@ -75,6 +75,7 @@ class ImportFileClass(object):
 
 		self.className = "ImportFile"
 		self.listType = "Import"
+		self.stateMode = "ImportFile"
 
 		#self.l_name.setVisible(False)
 		#self.e_name.setVisible(False)
@@ -127,9 +128,18 @@ class ImportFileClass(object):
 
 
 	@err_decorator
+	def setStateMode(self, stateMode):
+		self.stateMode = stateMode
+		self.l_class.setText(stateMode)
+		self.e_name.setText(stateMode)
+
+
+	@err_decorator
 	def loadData(self, data):
 		if "statename" in data:
 			self.e_name.setText(data["statename"])
+		if "statemode" in data:
+			self.setStateMode(data["statemode"])
 		if "filepath" in data:
 			data["filepath"] = getattr(self.core.appPlugin, "sm_import_fixImportPath", lambda x,y:y)(self, data["filepath"])
 			self.e_file.setText(data["filepath"])
@@ -172,6 +182,7 @@ class ImportFileClass(object):
 		self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
 		self.chb_preferUnit.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
+		self.b_selectAll.clicked.connect(self.lw_objects.selectAll)
 
 
 	@err_decorator
@@ -280,12 +291,16 @@ class ImportFileClass(object):
 
 			self.core.callHook("preImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
 
-			result = self.core.appPlugin.sm_import_importToApp(self, doImport=doImport, update=update, impFileName=impFileName)
+			importResult = self.core.appPlugin.sm_import_importToApp(self, doImport=doImport, update=update, impFileName=impFileName)
 
-			if result is None:
+			if importResult is None:
+				result = None
 				doImport = False
 			else:
-				result, doImport = result
+				result = importResult["result"]
+				doImport = importResult["doImport"]
+				if result and "mode" in importResult:
+					self.setStateMode(importResult["mode"])
 
 			if doImport:
 				self.nodeNames = [self.core.appPlugin.getNodeName(self, x) for x in self.nodes]
@@ -410,6 +425,11 @@ class ImportFileClass(object):
 			self.l_curVersion.setText("-")
 			self.l_latestVersion.setText("-")
 
+		isCache = self.stateMode == "ApplyCache"
+		self.f_nameSpaces.setVisible(not isCache)
+		self.f_unitConversion.setVisible(not isCache)
+		self.w_preferUnit.setVisible(not isCache)
+
 		self.lw_objects.clear()
 
 		if self.chb_trackObjects.isChecked():
@@ -497,7 +517,7 @@ class ImportFileClass(object):
 
 	@err_decorator
 	def preDelete(self, item=None, baseText="Do you also want to delete the connected objects?\n\n"):
-		if len(self.nodes) > 0:
+		if len(self.nodes) > 0 and self.stateMode != "ApplyCache":
 			message = baseText
 			validNodes = [ x for x in self.nodes if self.core.appPlugin.isNodeValid(self, x)]
 			if len(validNodes) > 0:
@@ -532,4 +552,17 @@ class ImportFileClass(object):
 					QMessageBox.warning(self.core.messageParent, "Prism", "Cannot save node names because it contains illegal characters:\n\n%s" % (unicode(self.lw_objects.item(i).text())), QMessageBox.Ok)
 
 
-		return {"statename":self.e_name.text(), "filepath": self.e_file.text().replace("\\","\\\\"), "keepedits": str(self.chb_keepRefEdits.isChecked()), "autonamespaces": str(self.chb_autoNameSpaces.isChecked()), "updateabc": str(self.chb_abcPath.isChecked()), "trackobjects": str(self.chb_trackObjects.isChecked()), "preferunit": str(self.chb_preferUnit.isChecked()), "connectednodes": str(connectedNodes), "taskname":self.taskName, "nodenames":str(self.nodeNames), "setname":self.setName}
+		return {
+			"statename":self.e_name.text(),
+			"statemode":self.stateMode,
+			"filepath": self.e_file.text().replace("\\","\\\\"),
+			"keepedits": str(self.chb_keepRefEdits.isChecked()),
+			"autonamespaces": str(self.chb_autoNameSpaces.isChecked()),
+			"updateabc": str(self.chb_abcPath.isChecked()),
+			"trackobjects": str(self.chb_trackObjects.isChecked()),
+			"preferunit": str(self.chb_preferUnit.isChecked()),
+			"connectednodes": str(connectedNodes),
+			"taskname":self.taskName,
+			"nodenames":str(self.nodeNames),
+			"setname":self.setName
+		}

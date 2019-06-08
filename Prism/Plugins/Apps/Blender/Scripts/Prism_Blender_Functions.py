@@ -1049,7 +1049,8 @@ class Prism_Blender_Functions(object):
 
 			result = len(importedNodes) > 0
 
-		return result, doImport
+		return {"result":result, "doImport":doImport}
+		
 
 	@err_decorator
 	def sm_import_disableObjectTracking(self, origin):

@@ -506,7 +506,7 @@ class Prism_PluginEmpty_Functions(object):
 
 	@err_decorator
 	def sm_import_importToApp(self, origin, doImport, update, impFileName):
-		return result, doImport
+		return {"result":result, "doImport":doImport}
 
 
 	@err_decorator

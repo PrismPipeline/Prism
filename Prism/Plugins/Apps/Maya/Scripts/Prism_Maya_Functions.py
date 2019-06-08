@@ -1484,6 +1484,7 @@ class Prism_Maya_Functions(object):
 				rb_reference = QRadioButton("Create reference")
 				rb_reference.setChecked(True)
 				rb_import = QRadioButton("Import objects only")
+				rb_applyCache = QRadioButton("Apply as cache to selected objects")
 				w_namespace = QWidget()
 				nLayout = QHBoxLayout()
 				nLayout.setContentsMargins(0,15,0,0)
@@ -1495,8 +1496,12 @@ class Prism_Maya_Functions(object):
 				nLayout.addWidget(e_namespace)
 				chb_namespace.toggled.connect(lambda x: e_namespace.setEnabled(x))
 				w_namespace.setLayout(nLayout)
-				bb_warn = QDialogButtonBox()
 
+				rb_applyCache.toggled.connect(lambda x: w_namespace.setEnabled(not x))
+				if fileName[1] != ".abc" or len(cmds.ls(selection=True)) == 0:
+					rb_applyCache.setEnabled(False)
+				
+				bb_warn = QDialogButtonBox()
 				bb_warn.addButton("Ok", QDialogButtonBox.AcceptRole)
 				bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
 
@@ -1506,6 +1511,7 @@ class Prism_Maya_Functions(object):
 				bLayout = QVBoxLayout()
 				bLayout.addWidget(rb_reference)
 				bLayout.addWidget(rb_import)
+				bLayout.addWidget(rb_applyCache)
 				bLayout.addWidget(w_namespace)
 				bLayout.addWidget(bb_warn)
 				refDlg.setLayout(bLayout)
@@ -1517,8 +1523,10 @@ class Prism_Maya_Functions(object):
 				if action == 0:
 					doRef = False
 					importOnly = False
+					applyCache = False
 				else:
 					doRef = rb_reference.isChecked()
+					applyCache = rb_applyCache.isChecked()
 					if chb_namespace.isChecked():
 						nSpace = e_namespace.text()
 					else:
@@ -1529,6 +1537,7 @@ class Prism_Maya_Functions(object):
 					nSpace = validNodes[0].rsplit("|", 1)[0].rsplit(":", 1)[0]
 				else:
 					nSpace = ":"
+				applyCache = origin.stateMode == "ApplyCache"
 
 			if fileName[1] == ".ma":
 				rtype = "mayaAscii"
@@ -1570,7 +1579,13 @@ class Prism_Maya_Functions(object):
 				if nSpace == "new":
 					nSpace = fileName[0]
 				
-				importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
+				if applyCache:
+					if update:
+						cmds.select(origin.setName)
+					cmds.AbcImport(impFileName, mode="import", connect= " ".join(cmds.ls(selection=True, long=True)))
+					importedNodes = cmds.ls(selection=True, long=True)
+				else:
+					importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
 
 			importOnly = False
 
@@ -1620,7 +1635,10 @@ class Prism_Maya_Functions(object):
 			cmds.sets(i, include=origin.setName)
 		result = len(importedNodes) > 0
 
-		return result, doImport
+		rDict = {"result":result, "doImport":doImport}
+		rDict["mode"] = "ApplyCache" if applyCache else "ImportFile"
+
+		return rDict
 
 
 	@err_decorator

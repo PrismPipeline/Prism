@@ -34,7 +34,7 @@
 
 class Prism_PluginEmpty_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.2.0.0"
+		self.version = "v1.2.0.14"
 		self.pluginName = "PluginEmpty"
 		self.pluginType = "Custom"
 		self.platforms = ["Windows", "Linux", "Darwin"]
