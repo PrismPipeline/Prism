@@ -1459,6 +1459,7 @@ class Prism_Maya_Functions(object):
 
 		fileName = os.path.splitext(os.path.basename(impFileName))
 		importOnly = True
+		applyCache = False
 		importedNodes = []
 
 		if fileName[1] in [".ma", ".mb", ".abc"]:
