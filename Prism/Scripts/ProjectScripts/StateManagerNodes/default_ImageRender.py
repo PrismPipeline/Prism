@@ -657,12 +657,12 @@ class ImageRenderClass(object):
 			rSettings = {"outputName": outputName}
 
 			self.core.appPlugin.sm_render_preSubmit(self, rSettings)
-			self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":outputName})
+			self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":rSettings["outputName"]})
 
 			self.core.saveScene(versionUp=False, prismReq=False)
 
 			if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-				result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, outputName, parent)
+				result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, rSettings["outputName"], parent)
 			else:
 				result = self.core.appPlugin.sm_render_startLocalRender(self, rSettings["outputName"], rSettings)
 		else:
