@@ -256,3 +256,21 @@ class Prism_PluginEmpty_Functions(object):
 	@err_decorator
 	def postRender(self, *args, **kwargs):
 		pass
+
+
+	@err_decorator
+	def maya_export_abc(self, origin, params):
+		'''
+		origin: reference to the Maya Plugin class
+		params: dict containing the mel command (params["export_cmd"])
+
+		Gets called immediately before Prism exports an alembic file from Maya
+		This function can modify the mel command, which Prism will execute to export the file.
+
+		Example:
+		print params["export_cmd"]
+		>>AbcExport -j "-frameRange 1000 1000 -root |pCube1  -worldSpace -uvWrite -writeVisibility  -file \"D:\\\\Projects\\\\Project\\\\03_Workflow\\\\Shots\\\\maya-001\\\\Export\\\\Box\\\\v0001_comment_rfr\\\\centimeter\\\\shot_maya-001_Box_v0001.abc\"" 
+		
+		Use python string formatting to modify the command:
+		params["export_cmd"] = params["export_cmd"][:-1] + " -attr material" + params["export_cmd"][-1]
+		'''

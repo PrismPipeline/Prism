@@ -29,11 +29,11 @@ Integration     Windows   Linux   Mac OSX    Supported Versions
 3dsMax             X                           2017-2019
 Blender            X                           2.79-2.80
 Fusion             X                           9.02
-Houdini            X        X        X         16.0-17.0
+Houdini            X        X        X         16.0-17.5
 Maya               X        X        X         2016-2019 (earlier versions untested)
 Natron             X        X                  2.13-2.14  (earlier versions untested)
 Nuke               X        X        X         >10.0 (earlier versions unstable)
-Photoshop          X                           CS6, CC (earlier versions untested)
+Photoshop          X                 X         CS6, CC (earlier versions untested)
 Standalone         X        X        X
 ============  ==========  ======  ========   ============================================
 

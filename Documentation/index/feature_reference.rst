@@ -489,3 +489,49 @@ This tab contains a sub-tab for each supported DCC integration plugin. These plu
 **Miscellaneous:**
 
 In this tab you can find some general Prism settings. You can also define explicit paths for RV or DJV, if they couldn't be found automatically by Prism.
+
+
+Plugins
+===================
+
+Overview
+--------------------------------
+Prism uses a plugin structure to manage the integration and communication with external tools. Adding and removing support for an external tools can be done easily by creating or deleting a Prism plugin.
+
+Plugins can also be used to customize any existing features of Prism. It is preferrable to use a plugin, when you want to customize a Prism feature. This allows you to update your Prism version and keeping your customizations. If you would add your custom code to a default Prism script, your code would be lost when you update Prism to a newer version.
+
+Prism comes with a bunch of default plugins, but you can create as many additional plugins as you like. You can also share plugins with other people to give them access to your customizations or added features.
+
+There are four types of Prism plugins:
+
+\begin{itemize}
+\item App Plugin
+
+An App plugin is used to integrate Prism into a DCC app (like Houdini, Maya...)
+
+\item Custom
+
+Plugins of type "Custom" can be used to customize existing Prism features. They contain many callback function, where you can add your custom code, which will be executed by Prism at specific events.
+
+\item ProjectManagers
+
+"ProjectManagers" plugins are used to connect Prism to external project tracking tools like Shotgun.
+
+\item RenderfarmManagers
+
+This plugin type adds support for renderfarm managers like Deadline or Pandora. They show up as an option in the State Manager, so that artists can submit jobs easily.
+\end{itemize}
+
+
+Creating a new plugin
+--------------------------------
+
+\begin{itemize}
+\item Open the Prism Settings dialog and go to the "Plugins" tab.
+\item Click on "Create new plugin", enter a name for your plugin and accept.
+\item That will open the directory where the scripts from the new plugin are located. There you will see a file "Prism_<PLUGINNAME>_Functions.py". Open that file in a text editor
+\item Add your custom code to one of the existing function in that file. For example "onProjectChanged". This function will be called everytime you change the project (that also happens when you launch a DCC app)
+\item Make sure the indentations match with the rest of the file and save the file.
+\item In the Prism Settings click on "Reload all plugins".
+\item Change the Prism project or restart your DCC app to execute the code in the "onProjectChanged".
+\end{itemize}

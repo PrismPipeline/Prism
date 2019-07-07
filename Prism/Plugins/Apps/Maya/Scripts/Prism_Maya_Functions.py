@@ -604,7 +604,10 @@ class Prism_Maya_Functions(object):
 				if not origin.chb_exportNamespaces.isChecked():
 					expStr = expStr.replace("-stripNamespaces", "")
 
-				mel.eval(expStr)
+				cmd = {"export_cmd": expStr}
+				self.core.callback(name="maya_export_abc", types=["custom"], args=[self, cmd])
+
+				mel.eval(cmd["export_cmd"])
 			except Exception as e:
 				if "Conflicting root node names specified" in str(e):
 					fString = "You are trying to export multiple objects with the same name, which is not supported in alembic format.\n\nDo you want to export your objects with namespaces?\nThis may solve the problem."

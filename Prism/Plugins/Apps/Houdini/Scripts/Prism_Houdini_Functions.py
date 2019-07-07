@@ -127,7 +127,7 @@ class Prism_Houdini_Functions(object):
 		job = self.core.projectPath.replace("\\", "/")
 		if job.endswith("/"):
 			job = job[:-1]
-		hou.hscript("set JOB=" + job)
+		hou.hscript("set PRISMJOB=" + job)
 
 
 	@err_decorator
