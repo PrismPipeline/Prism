@@ -319,7 +319,7 @@ class Prism_Shotgun_Functions(object):
 	@err_decorator
 	def pbBrowser_getPublishMenu(self, origin):
 		sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-		if sg is not None and eval(sg) and len(origin.seq) > 0 and pVersion == 2:
+		if sg is not None and eval(sg) and len(origin.mediaPlaybacks["shots"]["seq"]) > 0 and pVersion == 2:
 			sgAct = QAction("Publish to Shotgun", origin)
 			sgAct.triggered.connect(lambda: self.sgPublish(origin))
 			return sgAct
@@ -354,7 +354,7 @@ class Prism_Shotgun_Functions(object):
 			if not authentificated:
 				try:
 					self.sg = shotgun_api3.Shotgun(sgSite, script_name=sgScriptName, api_key=sgApiKey)
-				except ValueError as e:
+				except Exception as e:
 					QMessageBox.warning(self.core.messageParent,"Shotgun", "Could not connect to Shotgun:\n\n%s" % e)
 					return [None, None, None]
 
@@ -568,7 +568,7 @@ class Prism_Shotgun_Functions(object):
 
 		import ShotgunPublish
 
-		if origin.tbw_browser.tabText(origin.tbw_browser.currentIndex()) == "Assets":
+		if origin.tbw_browser.currentWidget().property("tabType") == "Assets":
 			pType = "Asset"
 		else:
 			pType = "Shot"
@@ -579,17 +579,17 @@ class Prism_Shotgun_Functions(object):
 		versionName = origin.curRVersion.replace(" (local)", "")
 
 		imgPaths = []
-		if origin.prvIsSequence or len(origin.seq) == 1:
-			if os.path.splitext(origin.seq[0])[1] in [".mp4", ".mov"]:
-				imgPaths.append([os.path.join(origin.basepath, origin.seq[0]),origin.curImg])
+		if origin.mediaPlaybacks["shots"]["prvIsSequence"] or len(origin.mediaPlaybacks["shots"]["seq"]) == 1:
+			if os.path.splitext(origin.mediaPlaybacks["shots"]["seq"][0])[1] in [".mp4", ".mov"]:
+				imgPaths.append([os.path.join(origin.mediaPlaybacks["shots"]["basePath"], origin.mediaPlaybacks["shots"]["seq"][0]), origin.mediaPlaybacks["shots"]["curImg"]])
 			else:
-				imgPaths.append([os.path.join(origin.basepath, origin.seq[origin.curImg]),0])
+				imgPaths.append([os.path.join(origin.mediaPlaybacks["shots"]["basePath"], origin.mediaPlaybacks["shots"]["seq"][origin.mediaPlaybacks["shots"]["curImg"]]), 0])
 		else:
 			for i in origin.seq:
-				imgPaths.append([os.path.join(origin.basepath, i),0])
+				imgPaths.append([os.path.join(origin.mediaPlaybacks["shots"]["basePath"], i),0])
 
-		if hasattr(origin, "pstart"):
-			sf = origin.pstart
+		if "pstart" in origin.mediaPlaybacks["shots"]:
+			sf = origin.mediaPlaybacks["shots"]["pstart"]
 		else:
 			sf = 0
 
@@ -600,7 +600,7 @@ class Prism_Shotgun_Functions(object):
 		self.core.parentWindow(sgp)
 		sgp.exec_()
 
-		curTab = origin.tbw_browser.tabText(origin.tbw_browser.currentIndex())
+		curTab = origin.tbw_browser.currentWidget().property("tabType")
 		curData = [curTab, origin.cursShots, origin.curRTask, origin.curRVersion, origin.curRLayer]
 		origin.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 

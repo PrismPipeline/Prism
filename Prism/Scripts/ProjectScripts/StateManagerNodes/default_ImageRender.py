@@ -548,6 +548,8 @@ class ImageRenderClass(object):
 	def preExecuteState(self):
 		warnings = []
 
+		self.updateUi()
+
 		if self.l_taskName.text() == "":
 			warnings.append(["No taskname is given.", "", 3])
 
@@ -624,7 +626,7 @@ class ImageRenderClass(object):
 			jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
 
 		fileName = self.core.getCurrentFileName()
-		if not self.renderingStarted:	
+		if not self.renderingStarted:
 			if self.l_taskName.text() == "":
 				return [self.state.text(0) + ": error - no taskname is given. Skipped the activation of this state."]
 
@@ -655,12 +657,12 @@ class ImageRenderClass(object):
 			rSettings = {"outputName": outputName}
 
 			self.core.appPlugin.sm_render_preSubmit(self, rSettings)
-			self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":outputName})
+			self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":rSettings["outputName"]})
 
 			self.core.saveScene(versionUp=False, prismReq=False)
 
 			if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-				result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, outputName, parent)
+				result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, rSettings["outputName"], parent)
 			else:
 				result = self.core.appPlugin.sm_render_startLocalRender(self, rSettings["outputName"], rSettings)
 		else:

@@ -80,7 +80,8 @@ class Prism_PluginEmpty_Functions(object):
 
 		origin.messageParent = QWidget()
 	#	origin.messageParent.setParent(QtParent, Qt.Window)
-		origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+		if self.core.useOnTop:
+			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 		origin.startasThread()
 
@@ -134,7 +135,7 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		# save scenefile
 		return True
 
@@ -505,7 +506,7 @@ class Prism_PluginEmpty_Functions(object):
 
 	@err_decorator
 	def sm_import_importToApp(self, origin, doImport, update, impFileName):
-		return result, doImport
+		return {"result":result, "doImport":doImport}
 
 
 	@err_decorator

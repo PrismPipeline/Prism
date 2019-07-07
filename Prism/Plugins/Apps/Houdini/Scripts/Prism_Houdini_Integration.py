@@ -64,19 +64,20 @@ class Prism_Houdini_Integration(object):
 		self.plugin = plugin
 
 		if platform.system() == "Windows":
-			self.examplePath = os.environ["userprofile"] + "\\Documents\\houdini17.0"
+			self.examplePath = os.environ["userprofile"] + "\\Documents\\houdini17.5"
 		elif platform.system() == "Linux":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = os.path.join("/home", userName, "houdini16.5")
+			self.examplePath = os.path.join("/home", userName, "houdini17.5")
 		elif platform.system() == "Darwin":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = "/Users/%s/Library/Preferences/houdini/16.5" % userName
+			self.examplePath = "/Users/%s/Library/Preferences/houdini/17.5" % userName
 
 		if not os.path.exists(self.examplePath):
 			for i in ["17.5", "17.0", "16.5", "16.0"]:
 				path = self.examplePath[:-4] + i
 				if os.path.exists(path):
 					self.examplePath = path
+					break
 
 
 	def err_decorator(func):
@@ -217,6 +218,33 @@ class Prism_Houdini_Integration(object):
 				init.write(initStr)
 
 
+			# shelf
+			shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
+
+			if os.path.exists(shelfpath):
+				os.remove(shelfpath)
+
+			origShelfFile = os.path.join(integrationBase, "Prism.shelf")
+			shutil.copy2(origShelfFile, shelfpath)
+			addedFiles.append(shelfpath)
+
+
+			iconPathSave = os.path.join(houdiniPath, "config", "Icons", "prismSave.png")
+			iconPathSaveComment = os.path.join(houdiniPath, "config", "Icons", "prismSaveComment.png")
+			iconPathBrowser = os.path.join(houdiniPath, "config", "Icons", "prismBrowser.png")
+			iconPathStates = os.path.join(houdiniPath, "config", "Icons", "prismStates.png")
+			iconPathSettings = os.path.join(houdiniPath, "config", "Icons", "prismSettings.png")
+			icons = [iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]
+
+			for icon in icons:
+				if os.path.exists(icon):
+					os.remove(icon)
+
+				origIconFile = os.path.join(integrationBase, os.path.basename(icon))
+				shutil.copy2(origIconFile, icon)
+				addedFiles.append(icon)
+
+
 			# openScene callback
 			openPath = os.path.join(houdiniPath, "scripts", "456.py")
 
@@ -297,7 +325,14 @@ class Prism_Houdini_Integration(object):
 			initPy = os.path.join(installBase, "python2.7libs", "PrismInit.py")
 			initPyc = initPy + "c"
 
-			for i in [initPy, initPyc]:
+			shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
+			iconPathSave = os.path.join(houdiniPath, "config", "Icons", "prismSave.png")
+			iconPathSaveComment = os.path.join(houdiniPath, "config", "Icons", "prismSaveComment.png")
+			iconPathBrowser = os.path.join(houdiniPath, "config", "Icons", "prismBrowser.png")
+			iconPathStates = os.path.join(houdiniPath, "config", "Icons", "prismStates.png")
+			iconPathSettings = os.path.join(houdiniPath, "config", "Icons", "prismSettings.png")
+
+			for i in [initPy, initPyc, shelfpath, iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]:
 				if os.path.exists(i):
 					os.remove(i)
 

@@ -171,7 +171,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 	@err_decorator
 	def validateText(self, origText, pathUi):
 		if pathUi == self.e_name:
-			allowChars = []
+			allowChars = ["_"]
 		else:
 			allowChars = ["/", "\\", "_", " ", ":"]
 
@@ -384,9 +384,11 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 			if not os.path.exists(i):
 				os.makedirs(i)
 
+		projectName = self.e_name.text()
+
 		cData = []
 
-		cData.append(['globals', 'project_name', (self.e_name.text())])
+		cData.append(['globals', 'project_name', projectName])
 		cData.append(['globals', 'prism_version', self.core.version])
 		cData.append(['globals', "pipeline_steps", str({"mod": "Modeling", "shd": "Shading", "rig": "Rigging", "anm": "Animation", "ren": "Rendering", "rnd": "Research", "sim": "Simulation", "cmp": "Compositing"})])
 		cData.append(['globals', 'uselocalfiles', "False"])
@@ -408,13 +410,10 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
 		self.core.setConfig(data=cData, configPath=inipath)
 
-
-		getattr(self.core.appPlugin, "callback_projectCreated", lambda x1,x2: None)(self, path)
-		for i in self.core.unloadedAppPlugins.values():
-			getattr(i, "callback_projectCreated", lambda x1,x2: None)(self, path)
-
 		self.inipath = inipath
 		self.core.changeProject(self.inipath)
+
+		self.core.callback(name="onProjectCreated", types=["curApp", "unloadedApps", "custom"], args=[self, path, projectName])
 
 		self.pc = ProjectCreated.ProjectCreated(self.e_name.text(), core=self.core, basepath=path)
 		self.pc.exec_()

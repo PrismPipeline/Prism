@@ -95,7 +95,7 @@ class Prism_Houdini_externalAccess_Functions(object):
 
 
 	@err_decorator
-	def callback_projectCreated(self, origin, projectPath):
+	def onProjectCreated(self, origin, projectPath, projectName):
 		hdaDir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "HDAs")
 
 		pHdaPath = os.path.join(projectPath, "00_Pipeline", "HDAs")

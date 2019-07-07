@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>651</height>
+    <height>680</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -676,6 +676,13 @@
            </property>
            <property name="horizontalScrollMode">
             <enum>QAbstractItemView::ScrollPerPixel</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_selectAll">
+           <property name="text">
+            <string>Select all</string>
            </property>
           </widget>
          </item>

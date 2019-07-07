@@ -32,7 +32,7 @@
 
 
 
-import os, sys, platform
+import os, sys
 
 prismRoot = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir))
 
@@ -56,22 +56,26 @@ if qapp == None:
 import PrismCore
 pcore = PrismCore.PrismCore(app="Photoshop")
 
-curPrj = pcore.getConfig("globals", "current project")
-pcore.changeProject(curPrj)
+if hasattr(pcore.appPlugin, "psApp"):
+	curPrj = pcore.getConfig("globals", "current project")
+	pcore.changeProject(curPrj)
 
-result = False
-if sys.argv[1] == "Tools":
-	result = pcore.appPlugin.openPhotoshopTools()
-elif sys.argv[1] == "SaveVersion":
-	pcore.saveScene()
-elif sys.argv[1] == "SaveComment":
-	pcore.saveWithComment()
-elif sys.argv[1] == "Export":
-	result = pcore.appPlugin.exportImage()
-elif sys.argv[1] == "ProjectBrowser":
-	result = pcore.projectBrowser()
-elif sys.argv[1] == "Settings":
-	result = pcore.prismSettings()
+	result = False
+	if sys.argv[1] == "Tools":
+		result = pcore.appPlugin.openPhotoshopTools()
+	elif sys.argv[1] == "SaveVersion":
+		pcore.saveScene()
+	elif sys.argv[1] == "SaveComment":
+		pcore.saveWithComment()
+	elif sys.argv[1] == "Export":
+		result = pcore.appPlugin.exportImage()
+	elif sys.argv[1] == "ProjectBrowser":
+		result = pcore.projectBrowser()
+	elif sys.argv[1] == "Settings":
+		result = pcore.prismSettings()
 
-if result == True:
-    qapp.exec_()
+	if len(sys.argv) > 2:
+		pcore.appPlugin.openScene(origin=pcore, filepath=sys.argv[2])
+
+	if result == True:
+	    qapp.exec_()

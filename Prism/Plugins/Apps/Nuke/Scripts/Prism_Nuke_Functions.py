@@ -82,7 +82,8 @@ class Prism_Nuke_Functions(object):
 
 		origin.messageParent = QWidget()
 		origin.messageParent.setParent(nukeQtParent, Qt.Window)
-		origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+		if platform.system() != "Windows" and self.core.useOnTop:
+			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 		nuke.menu('Nuke').addCommand( 'Prism/Save Version', origin.saveScene)
 		nuke.menu('Nuke').addCommand( 'Prism/Save Comment', origin.saveWithComment)
@@ -143,7 +144,7 @@ class Prism_Nuke_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		try:
 			return nuke.scriptSaveAs(filename=filepath)
 		except:

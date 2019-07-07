@@ -357,6 +357,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		cData.append(["globals", "prefer_djv", str(self.chb_preferDJV.isChecked())])
 		cData.append(["globals", "showonstartup", str(self.chb_browserStartup.isChecked())])
+		cData.append(["globals", "checkForUpdates", self.chb_checkForUpdates.isChecked()])
 		cData.append(["globals", "autosave", str(self.chb_autosave.isChecked())])
 		cData.append(["globals", "highdpi", str(self.chb_highDPI.isChecked())])
 
@@ -421,7 +422,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 							else:
 								raise
 
-					if not os.path.exists(trayStartup):
+					if not os.path.exists(trayStartup) and os.path.exists(trayLnk):
 						shutil.copy2(trayLnk, trayStartup)
 				else:
 					QMessageBox.warning(self, "Prism", "Cannot add Prism to the autostart because this shortcut doesn't exist:\n\n%s\n\nExecute '%s\\Win_Setup_Startmenu.bat' to create the shortcut." % (trayLnk, self.core.fixPath(self.core.prismRoot).replace("/", "\\")))
@@ -434,10 +435,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 					else:
 						raise
 
-
 		elif platform.system() == "Linux":
 			trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
-			trayLnk = "/usr/local/Prism/Tools/PrismTray.desktop"
+			trayLnk = self.core.fixPath(os.path.join(self.core.prismRoot, "Tools", "PrismTray.desktop"))
+
 			if os.path.exists(trayStartup):
 				try:
 					os.remove(trayStartup)
@@ -445,20 +446,20 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 					QMessageBox.warning(self, "Warning", "Permission denied:\n\n%s\n\nTry to execute this tool as root." % trayStartup)
 
 			if self.chb_trayStartup.isChecked():
-				if not os.path.exists(trayStartup):
+				if not os.path.exists(trayStartup) and os.path.exists(trayLnk):
 					shutil.copy2(trayLnk, trayStartup)
 					os.chmod(trayStartup, 0o777)
 
 		elif platform.system() == "Darwin":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
 			trayStartup = "/Users/%s/Library/LaunchAgents/com.user.PrismTray.plist" % userName
-			trayLnk = "/Applications/Prism/Prism/Tools/com.user.PrismTray.plist"
+			trayLnk = self.core.fixPath(os.path.join(self.core.prismRoot, "Tools", "com.user.PrismTray.plist"))
 
 			if os.path.exists(trayStartup):
 				os.remove(trayStartup)
 
 			if self.chb_trayStartup.isChecked():
-				if not os.path.exists(trayStartup):
+				if not os.path.exists(trayStartup) and os.path.exists(trayLnk):
 					shutil.copy2(trayLnk, trayStartup)
 					os.chmod(trayStartup, 0o644)
 					import pwd
@@ -473,7 +474,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	@err_decorator
 	def loadSettings(self):
 		if not os.path.exists(self.core.userini):
-			QMessageBox.warning(self,"loadSettings", "Prism config does not exist.")
+			QMessageBox.warning(self, "Load Settings", "Prism config does not exist.")
 			return
 
 		if hasattr(self.core, "projectName"):
@@ -511,6 +512,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		ucData["username"] = ['globals', "username"]
 		ucData["showonstartup"] = ['globals', "showonstartup", "bool"]
+		ucData["checkForUpdates"] = ['globals', "checkForUpdates", "bool"]
 		ucData["autosave"] = ['globals', "autosave", "bool"]
 		ucData["highdpi"] = ['globals', "highdpi", "bool"]
 		ucData["rvpath"] = ['globals', "rvpath"]
@@ -532,7 +534,13 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 				ucData.update(loadData)
 				loadFunctions.update(pLoadFunctions)
 
-		ucData = self.core.getConfig(data=ucData)
+		result = self.core.getConfig(data=ucData)
+
+		if result is None:
+			QMessageBox.warning(self, "Load Settings", "Loading Prism Settings failed.")
+			return
+
+		ucData = result
 
 		if ucData["username"] is not None:
 			uname = ucData["username"].split()
@@ -550,6 +558,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 		for i in sorted(loadFunctions):
 			if ucData[i] is not None:
 				loadFunctions[i](ucData[i])
+
+		if ucData["checkForUpdates"] is not None:
+			self.chb_checkForUpdates.setChecked(ucData["checkForUpdates"])
 
 		if ucData["autosave"] is not None:
 			self.chb_autosave.setChecked(ucData["autosave"])
@@ -948,9 +959,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 			command = ['%s' % pythonPath, '%s' % slavePath]
 		elif platform.system() == "Linux":
-			command = 'bash /usr/local/Prism/Tools/PrismTray.sh'
+			command = 'bash %s/Tools/PrismTray.sh' % self.core.prismRoot
 		elif platform.system() == "Darwin":
-			command = 'bash /Applications/Prism/Prism/Tools/PrismTray.sh'
+			command = 'bash %s/Tools/PrismTray.sh' % self.core.prismRoot
 
 		subprocess.Popen(command, shell=True)
 

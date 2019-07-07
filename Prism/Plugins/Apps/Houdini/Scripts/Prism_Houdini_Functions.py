@@ -70,76 +70,50 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def startup(self, origin):
-		if not hou.isUIAvailable():
-			return False
+		if self.core.uiAvailable:
+			if not hou.isUIAvailable():
+				return False
 
-		if hou.ui.mainQtWindow() is None:
-			return False
+			if hou.ui.mainQtWindow() is None:
+				return False
+
+			if platform.system() == "Darwin":
+				origin.messageParent = QWidget()
+				origin.messageParent.setParent(hou.ui.mainQtWindow(), Qt.Window)
+				if self.core.useOnTop:
+					origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+			else:
+				origin.messageParent = hou.ui.mainQtWindow()
+		
+			curShelfSet = hou.ui.curDesktop().shelfDock().shelfSets()[0]
+			curShelves = curShelfSet.shelves()
+
+			try:
+				prismShelf = hou.shelves.shelves()["prism"]
+			except:
+				msgString = "Could not find the Prism shelf.\n\nDo you want to update the Prism integration in Houdini to fix this?"
+				msg = QMessageBox(QMessageBox.Warning, "Prism Warning", msgString, QMessageBox.Ok | QMessageBox.Cancel)
+				self.core.parentWindow(msg)
+				action = msg.exec_()
+
+				if action == QMessageBox.Ok:
+					result = self.writeHoudiniFiles(os.environ["HOUDINI_USER_PREF_DIR"])
+					if result:
+						QMessageBox.information(self.core.messageParent, "Restart", "Successully updated the Prism integration.\n\nAfter the next Houdini restart the Prism shelf will be available.")
+
+			else:
+				if prismShelf not in curShelves:
+					hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
+				
+			origin.startasThread()
+		else:
+			QApplication.addLibraryPath(os.path.join(hou.expandString("$HFS"), "bin", "Qt_plugins"))
+			qApp = QApplication.instance()
+			if qApp is None:
+				qApp = QApplication(sys.argv)
+			origin.messageParent = QWidget()
 
 		origin.timer.stop()
-
-		if platform.system() == "Darwin":
-			origin.messageParent = QWidget()
-			origin.messageParent.setParent(hou.ui.mainQtWindow(), Qt.Window)
-			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
-		else:
-			origin.messageParent = hou.ui.mainQtWindow()
-
-		if "prism" in hou.shelves.shelves():
-			hou.shelves.shelves()["prism"].destroy()
-
-		if hou.shelves.tool("set_project") is not None:
-			hou.shelves.tool("set_project").destroy()
-
-		if hou.shelves.tool("project_browser") is not None:
-			hou.shelves.tool("project_browser").destroy()
-
-		if hou.ui.curDesktop().name() == "Technical":
-			curShelfSet = "shelf_set_td"
-		else:
-			curShelfSet = "shelf_set_1"
-
-		curShelves = hou.ShelfSet.shelves(hou.shelves.shelfSets()[curShelfSet])
-
-		shelfName = "prism-v1.0.7"
-
-		if not shelfName in hou.shelves.shelves():
-			news = hou.shelves.newShelf(file_path = hou.shelves.defaultFilePath(), name= shelfName, label="Prism")
-			hou.ShelfSet.setShelves(hou.shelves.shelfSets()[curShelfSet],curShelves + (news,))
-
-			savescript = "import PrismInit\n\nPrismInit.pcore.saveScene()"
-			if hou.shelves.tool("prism_save") is not None:
-				hou.shelves.tool("prism_save").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_save", label ="Save Version",help = "\"\"\"Saves the current file to a new version\"\"\"", script= savescript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSave.png" ).replace("\\", "/"))
-
-			savecommentscript = "import PrismInit\n\nPrismInit.pcore.saveWithComment()"
-			if hou.shelves.tool("prism_commentsave") is not None:
-				hou.shelves.tool("prism_commentsave").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_commentsave", label ="Save Comment",help = "\"\"\"Saves the current file to a new version with a comment\"\"\"", script= savecommentscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSaveComment.png").replace("\\", "/"))
-
-			browserscript = "import PrismInit\n\nPrismInit.pcore.projectBrowser()"
-			if hou.shelves.tool("prism_browser") is not None:
-				hou.shelves.tool("prism_browser").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_browser", label ="Project Browser",help = "\"\"\"Opens the Project Browser\"\"\"", script= browserscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismBrowser.png").replace("\\", "/"))
-
-			managerscript = "import PrismInit\n\nPrismInit.pcore.stateManager()"
-			if hou.shelves.tool("prism_manager") is not None:
-				hou.shelves.tool("prism_manager").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_manager", label ="State Manager",help = "\"\"\"Opens the State Manager\"\"\"", script= managerscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismStates.png").replace("\\", "/"))
-
-			prismSettingsscript = "import PrismInit\n\nPrismInit.pcore.prismSettings()"
-			if hou.shelves.tool("prism_settings") is not None:
-				hou.shelves.tool("prism_settings").destroy()
-			hou.shelves.newTool(file_path=hou.shelves.defaultFilePath(), name = "prism_settings", label ="Settings",help = "\"\"\"Opens the Prism settings\"\"\"", script= prismSettingsscript, icon=os.path.join(origin.prismRoot, "Scripts", "UserInterfacesPrism", "prismSettings.png").replace("\\", "/"))
-
-			hou.Shelf.setTools(hou.shelves.shelves()[shelfName],( hou.shelves.tool("prism_save"), hou.shelves.tool("prism_commentsave"), hou.shelves.tool("prism_browser"), hou.shelves.tool("prism_manager"), hou.shelves.tool("prism_settings")))
-		
-		else:
-			prismShelf = hou.shelves.shelves()[shelfName]
-			if prismShelf not in curShelves:
-				hou.ShelfSet.setShelves(hou.shelves.shelfSets()[curShelfSet],curShelves + (prismShelf,))
-		
-		origin.startasThread()
 
 
 	@err_decorator
@@ -153,7 +127,7 @@ class Prism_Houdini_Functions(object):
 		job = self.core.projectPath.replace("\\", "/")
 		if job.endswith("/"):
 			job = job[:-1]
-		hou.hscript("set JOB=" + job)
+		hou.hscript("set PRISMJOB=" + job)
 
 
 	@err_decorator
@@ -224,7 +198,7 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		filepath = filepath.replace("\\", "/")
 		return hou.hipFile.save(file_name=filepath, save_to_recent_files=True)
 
@@ -340,6 +314,9 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def setRCStyle(self, origin, rcmenu):
+		if not self.core.uiAvailable:
+			return
+
 		if platform.system() == "Darwin":
 			rcmenu.setStyleSheet(hou.ui.mainQtWindow().styleSheet())
 		else:
@@ -435,18 +412,30 @@ class Prism_Houdini_Functions(object):
 				node.parm(parm).set(val)
 		except:
 			curTake = hou.takes.currentTake()
-			if curTake.hasParmTuple(node.parm(parm).tuple()):
-				raise
+			if curTake.hasParmTuple(node.parm(parm).tuple()) or curTake.parent() is None:
+				msgString = "Cannot set this parameter. Probably because it is locked:\n\n%s" % node.parm(parm).path()
+				msg = QMessageBox(QMessageBox.Warning, "Cannot set Parameter", msgString, QMessageBox.Cancel)
+				msg.addButton("Ignore", QMessageBox.YesRole)
+				self.core.parentWindow(msg)
+				action = msg.exec_()
+
+				if action == 0:
+					return True
+				else:
+					return False
 			else:
-				msgString = "The parameter is not included in the current take.\nTo continue the parameter needs to be added to the current take.\n\n%s" % node.parm(parm).path()
+				msgString = "The parameter is not included in the current take.\nTo continue the parameter should be added to the current take.\n\n%s" % node.parm(parm).path()
 				msg = QMessageBox(QMessageBox.Warning, "Locked Parameter", msgString, QMessageBox.Cancel)
 				msg.addButton("Add to current take", QMessageBox.YesRole)
+				msg.addButton("Ignore", QMessageBox.YesRole)
 				self.core.parentWindow(msg)
 				action = msg.exec_()
 
 				if action == 0:
 					curTake.addParmTuple(node.parm(parm).tuple())
 					self.setNodeParm(node, parm, val, clear)
+				elif action == 1:
+					return True
 				else:
 					return False
 
@@ -536,9 +525,11 @@ class Prism_Houdini_Functions(object):
 		if platform.system() == "Darwin":
 			origin.menubar.setNativeMenuBar(False)
 
-		origin.enabledCol = QColor(204,204,204)
+		if self.core.uiAvailable:
+			origin.enabledCol = QBrush(QColor(204,204,204))
 
-		origin.scrollArea.setStyleSheet(hou.qt.styleSheet().replace("QLabel", "QScrollArea"))
+		if self.core.uiAvailable:
+			origin.scrollArea.setStyleSheet(hou.qt.styleSheet().replace("QLabel", "QScrollArea"))
 
 		origin.f_import.setStyleSheet("QFrame { border: 0px; }")
 		origin.f_export.setStyleSheet("QFrame { border: 0px; }")
@@ -670,21 +661,45 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def sm_createRenderPressed(self, origin):
-		if len(hou.selectedNodes()) > 0 and (hou.selectedNodes()[0].type().name() in ["ifd", "Redshift_ROP"]):
-			origin.createPressed("Render")
-			return
+		renderers = self.getRendererPlugins()
+		if len(hou.selectedNodes()) > 0:
+			for i in renderers:
+				if hou.selectedNodes()[0].type().name() in i.ropNames:
+					origin.createPressed("Render")
+					return
 
-		rndMenu = QMenu()
-		mAct = QAction("Mantra", origin)
-		mAct.triggered.connect(lambda: origin.createPressed("Render", renderer="Mantra"))
-		rndMenu.addAction(mAct)
-		mAct = QAction("Redshift", origin)
-		mAct.triggered.connect(lambda: origin.createPressed("Render", renderer="Redshift"))
-		rndMenu.addAction(mAct)
+		if len(renderers) == 1:
+			origin.createPressed("Render", renderer=renderers[0].label)
+		else:
+			rndMenu = QMenu()
+			for i in renderers:
+				mAct = QAction(i.label, origin)
+				mAct.triggered.connect(lambda x=i.label: origin.createPressed("Render", renderer=x))
+				rndMenu.addAction(mAct)
 
-		self.setRCStyle(origin, rndMenu)
+			if rndMenu.isEmpty():
+				origin.createPressed("Render")
+				return False
 
-		rndMenu.exec_(QCursor.pos())
+			self.setRCStyle(origin, rndMenu)
+
+			rndMenu.exec_(QCursor.pos())
+
+
+	@err_decorator
+	def getRendererPlugins(self):
+		for i in ["Prism_Houdini_Renderer_Arnold", "Prism_Houdini_Renderer_Mantra", "Prism_Houdini_Renderer_Redshift", "Prism_Houdini_Renderer_Vray"]:
+			try:
+				del sys.modules[i]
+			except:
+				pass
+
+		import Prism_Houdini_Renderer_Arnold as arnoldRenderer
+		import Prism_Houdini_Renderer_Mantra as mantraRenderer
+		import Prism_Houdini_Renderer_Redshift as redshiftRenderer
+		import Prism_Houdini_Renderer_Vray as vrayRenderer
+
+		return [x for x in [arnoldRenderer, mantraRenderer, redshiftRenderer, vrayRenderer] if x.isActive()]
 
 
 	@err_decorator
@@ -740,7 +755,7 @@ class Prism_Houdini_Functions(object):
 				ropNodes.append(node)
 
 		for i in origin.states:
-			if i.ui.className == "Export" and i.ui.node is not None:
+			if i.ui.className == "Export" and i.ui.node is not None and i.ui.node in ropNodes:
 				ropNodes.remove(i.ui.node)
 
 		for i in ropNodes:

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shelfDocument>
+  <!-- This file contains definitions of shelves, toolbars, and tools.
+ It should not be hand-edited when it is being used by the application.
+ Note, that two definitions of the same element are not allowed in
+ a single file. -->
+
+  <toolshelf name="prism" label="Prism">
+    <memberTool name="prism_save"/>
+    <memberTool name="prism_commentsave"/>
+    <memberTool name="prism_browser"/>
+    <memberTool name="prism_manager"/>
+    <memberTool name="prism_settings"/>
+  </toolshelf>
+
+  <tool name="prism_save" label="Save Version" icon="prismSave.png">
+    <helpText><![CDATA["""Saves the current file to a new version"""]]></helpText>
+    <script scriptType="python"><![CDATA[import PrismInit
+
+PrismInit.pcore.saveScene()]]></script>
+  </tool>
+
+  <tool name="prism_commentsave" label="Save Comment" icon="prismSaveComment.png">
+    <helpText><![CDATA["""Saves the current file to a new version with a comment"""]]></helpText>
+    <script scriptType="python"><![CDATA[import PrismInit
+
+PrismInit.pcore.saveWithComment()]]></script>
+  </tool>
+
+  <tool name="prism_browser" label="Project Browser" icon="prismBrowser.png">
+    <helpText><![CDATA["""Opens the Project Browser"""]]></helpText>
+    <script scriptType="python"><![CDATA[import PrismInit
+
+PrismInit.pcore.projectBrowser()]]></script>
+  </tool>
+
+  <tool name="prism_manager" label="State Manager" icon="prismStates.png">
+    <helpText><![CDATA["""Opens the State Manager"""]]></helpText>
+    <script scriptType="python"><![CDATA[import PrismInit
+
+PrismInit.pcore.stateManager()]]></script>
+  </tool>
+
+  <tool name="prism_settings" label="Settings" icon="prismSettings.png">
+    <helpText><![CDATA["""Opens the Prism settings"""]]></helpText>
+    <script scriptType="python"><![CDATA[import PrismInit
+
+PrismInit.pcore.prismSettings()]]></script>
+  </tool>
+
+</shelfDocument>

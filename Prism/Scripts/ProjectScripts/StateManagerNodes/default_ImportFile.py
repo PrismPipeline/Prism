@@ -75,6 +75,7 @@ class ImportFileClass(object):
 
 		self.className = "ImportFile"
 		self.listType = "Import"
+		self.stateMode = "ImportFile"
 
 		#self.l_name.setVisible(False)
 		#self.e_name.setVisible(False)
@@ -98,7 +99,7 @@ class ImportFileClass(object):
 		self.updatePalette.setColor(QPalette.Button, QColor(200, 100, 0))
 		self.updatePalette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
 
-		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier
+		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier or not self.core.uiAvailable
 
 		if importPath is None and stateData is None and not createEmptyState:
 			import TaskSelection
@@ -127,9 +128,18 @@ class ImportFileClass(object):
 
 
 	@err_decorator
+	def setStateMode(self, stateMode):
+		self.stateMode = stateMode
+		self.l_class.setText(stateMode)
+		self.e_name.setText(stateMode)
+
+
+	@err_decorator
 	def loadData(self, data):
 		if "statename" in data:
 			self.e_name.setText(data["statename"])
+		if "statemode" in data:
+			self.setStateMode(data["statemode"])
 		if "filepath" in data:
 			data["filepath"] = getattr(self.core.appPlugin, "sm_import_fixImportPath", lambda x,y:y)(self, data["filepath"])
 			self.e_file.setText(data["filepath"])
@@ -172,6 +182,7 @@ class ImportFileClass(object):
 		self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
 		self.chb_preferUnit.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
+		self.b_selectAll.clicked.connect(self.lw_objects.selectAll)
 
 
 	@err_decorator
@@ -280,12 +291,16 @@ class ImportFileClass(object):
 
 			self.core.callHook("preImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName})
 
-			result = self.core.appPlugin.sm_import_importToApp(self, doImport=doImport, update=update, impFileName=impFileName)
+			importResult = self.core.appPlugin.sm_import_importToApp(self, doImport=doImport, update=update, impFileName=impFileName)
 
-			if result is None:
+			if importResult is None:
+				result = None
 				doImport = False
 			else:
-				result, doImport = result
+				result = importResult["result"]
+				doImport = importResult["doImport"]
+				if result and "mode" in importResult:
+					self.setStateMode(importResult["mode"])
 
 			if doImport:
 				self.nodeNames = [self.core.appPlugin.getNodeName(self, x) for x in self.nodes]
@@ -300,7 +315,11 @@ class ImportFileClass(object):
 					self.core.appPlugin.sm_import_removeNameSpaces(self)
 
 				if not result:
-					QMessageBox.warning(self.core.messageParent, "ImportFile", "Import failed.")
+					msgStr = "Import failed: %s" % impFileName
+					if self.core.uiAvailable:
+						QMessageBox.warning(self.core.messageParent, "ImportFile", msgStr)
+					else:
+						print (msgStr)
 
 			self.core.callHook("postImport", args={"prismCore":self.core, "scenefile":fileName, "importfile":impFileName, "importedObjects":self.nodeNames})
 
@@ -330,7 +349,7 @@ class ImportFileClass(object):
 			for i in os.walk(versionPath):
 				if len(i[2]) > 0:
 					for m in i[2]:
-						if os.path.splitext(m)[1] not in [".txt", ".ini"]:
+						if os.path.splitext(m)[1] not in [".txt", ".ini", ".xgen"] and m[0] != ".":
 							fileName = os.path.join(i[0], m)
 
 							if getattr(self.core.appPlugin, "shotcamFormat", ".abc") == ".fbx"  and self.taskName == "ShotCam" and fileName.endswith(".abc") and os.path.exists(fileName[:-3] + "fbx"):
@@ -406,6 +425,11 @@ class ImportFileClass(object):
 			self.l_curVersion.setText("-")
 			self.l_latestVersion.setText("-")
 
+		isCache = self.stateMode == "ApplyCache"
+		self.f_nameSpaces.setVisible(not isCache)
+		self.f_unitConversion.setVisible(not isCache)
+		self.w_preferUnit.setVisible(not isCache)
+
 		self.lw_objects.clear()
 
 		if self.chb_trackObjects.isChecked():
@@ -422,6 +446,37 @@ class ImportFileClass(object):
 
 		self.nameChanged(self.e_name.text())
 
+
+	@err_decorator
+	def getCurrentVersion(self):
+		return self.e_file.text().replace("\\", "/")
+
+
+	@err_decorator
+	def getLatestVersion(self):
+		parDir = os.path.dirname(self.e_file.text())
+		if os.path.basename(parDir) in ["centimeter", "meter"]:
+			versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
+			taskPath = os.path.dirname(os.path.dirname(parDir))
+		else:
+			versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
+			taskPath = os.path.dirname(parDir)
+
+		if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
+			self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
+			self.l_latestVersion.setText("-")
+			for i in os.walk(taskPath):
+				folders = i[1]
+				folders.sort()
+				for k in reversed(folders):
+					meterDir = os.path.join(i[0], k, "meter")
+					cmeterDir = os.path.join(i[0], k, "centimeter")
+					if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+						return os.path.join(i[0], k).replace("\\", "/")
+				break
+
+		return ""
+		
 
 	@err_decorator
 	def updatePrefUnits(self):
@@ -462,7 +517,7 @@ class ImportFileClass(object):
 
 	@err_decorator
 	def preDelete(self, item=None, baseText="Do you also want to delete the connected objects?\n\n"):
-		if len(self.nodes) > 0:
+		if len(self.nodes) > 0 and self.stateMode != "ApplyCache":
 			message = baseText
 			validNodes = [ x for x in self.nodes if self.core.appPlugin.isNodeValid(self, x)]
 			if len(validNodes) > 0:
@@ -473,10 +528,14 @@ class ImportFileClass(object):
 					else:
 						message += self.core.appPlugin.getNodeName(self, val) + "\n"
 
-				msg = QMessageBox(QMessageBox.Question, "Delete state", message, QMessageBox.No)
-				msg.addButton("Yes", QMessageBox.YesRole)
-				msg.setParent(self.core.messageParent, Qt.Window)
-				action = msg.exec_()
+				if not self.core.uiAvailable:
+					action = 0
+					print ("delete objects:\n\n%s" % message)
+				else:
+					msg = QMessageBox(QMessageBox.Question, "Delete state", message, QMessageBox.No)
+					msg.addButton("Yes", QMessageBox.YesRole)
+					msg.setParent(self.core.messageParent, Qt.Window)
+					action = msg.exec_()
 
 				if action == 0:
 					self.core.appPlugin.deleteNodes(self, validNodes)
@@ -493,4 +552,17 @@ class ImportFileClass(object):
 					QMessageBox.warning(self.core.messageParent, "Prism", "Cannot save node names because it contains illegal characters:\n\n%s" % (unicode(self.lw_objects.item(i).text())), QMessageBox.Ok)
 
 
-		return {"statename":self.e_name.text(), "filepath": self.e_file.text().replace("\\","\\\\"), "keepedits": str(self.chb_keepRefEdits.isChecked()), "autonamespaces": str(self.chb_autoNameSpaces.isChecked()), "updateabc": str(self.chb_abcPath.isChecked()), "trackobjects": str(self.chb_trackObjects.isChecked()), "preferunit": str(self.chb_preferUnit.isChecked()), "connectednodes": str(connectedNodes), "taskname":self.taskName, "nodenames":str(self.nodeNames), "setname":self.setName}
+		return {
+			"statename":self.e_name.text(),
+			"statemode":self.stateMode,
+			"filepath": self.e_file.text().replace("\\","\\\\"),
+			"keepedits": str(self.chb_keepRefEdits.isChecked()),
+			"autonamespaces": str(self.chb_autoNameSpaces.isChecked()),
+			"updateabc": str(self.chb_abcPath.isChecked()),
+			"trackobjects": str(self.chb_trackObjects.isChecked()),
+			"preferunit": str(self.chb_preferUnit.isChecked()),
+			"connectednodes": str(connectedNodes),
+			"taskname":self.taskName,
+			"nodenames":str(self.nodeNames),
+			"setname":self.setName
+		}

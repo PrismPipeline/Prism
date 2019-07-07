@@ -99,8 +99,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 				i.createAsset_open(self)
 		else:
 			self.w_type.setVisible(False)
-			self.w_options.setVisible(False)
-	
+			
 		self.resize(self.width(), 10)
 
 		self.connectEvents()
@@ -117,6 +116,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
+
+
+	@err_decorator
+	def showEvent(self, event):
+		if self.w_options.layout().count() == 0:
+			self.w_options.setVisible(False)
 
 
 	@err_decorator

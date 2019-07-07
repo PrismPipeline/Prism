@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'default_ImportFile.ui',
 # licensing of 'default_ImportFile.ui' applies.
 #
-# Created: Thu Dec  6 20:52:45 2018
+# Created: Sat Jun  8 16:05:35 2019
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -13,7 +13,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 class Ui_wg_ImportFile(object):
     def setupUi(self, wg_ImportFile):
         wg_ImportFile.setObjectName("wg_ImportFile")
-        wg_ImportFile.resize(340, 651)
+        wg_ImportFile.resize(340, 680)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -239,6 +239,9 @@ class Ui_wg_ImportFile(object):
         self.lw_objects.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
         self.lw_objects.setObjectName("lw_objects")
         self.verticalLayout_4.addWidget(self.lw_objects)
+        self.b_selectAll = QtWidgets.QPushButton(self.gb_objects)
+        self.b_selectAll.setObjectName("b_selectAll")
+        self.verticalLayout_4.addWidget(self.b_selectAll)
         self.verticalLayout_2.addWidget(self.gb_objects)
         self.verticalLayout.addWidget(self.gb_import)
 
@@ -271,4 +274,5 @@ class Ui_wg_ImportFile(object):
         self.l_preferUnit.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Prefer versions in meter:", None, -1))
         self.l_trackObjects.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Keep track of connected objects:", None, -1))
         self.gb_objects.setTitle(QtWidgets.QApplication.translate("wg_ImportFile", "Objects", None, -1))
+        self.b_selectAll.setText(QtWidgets.QApplication.translate("wg_ImportFile", "Select all", None, -1))
 

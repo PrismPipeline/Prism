@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'PrismSettings.ui',
 # licensing of 'PrismSettings.ui' applies.
 #
-# Created: Sun Jan 27 19:22:30 2019
+# Created: Thu May 23 20:45:26 2019
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -255,6 +255,10 @@ class Ui_dlg_PrismSettings(object):
         spacerItem10 = QtWidgets.QSpacerItem(457, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_16.addItem(spacerItem10)
         self.verticalLayout_3.addWidget(self.widget_17)
+        self.chb_checkForUpdates = QtWidgets.QCheckBox(self.tabWidgetPage4)
+        self.chb_checkForUpdates.setChecked(True)
+        self.chb_checkForUpdates.setObjectName("chb_checkForUpdates")
+        self.verticalLayout_3.addWidget(self.chb_checkForUpdates)
         self.chb_autosave = QtWidgets.QCheckBox(self.tabWidgetPage4)
         self.chb_autosave.setChecked(True)
         self.chb_autosave.setObjectName("chb_autosave")
@@ -446,6 +450,7 @@ class Ui_dlg_PrismSettings(object):
         self.tw_settings.setTabText(self.tw_settings.indexOf(self.tab_dccApps), QtWidgets.QApplication.translate("dlg_PrismSettings", "DCC apps", None, -1))
         self.b_about.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "About", None, -1))
         self.b_updatePrism.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Update Prism", None, -1))
+        self.chb_checkForUpdates.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Check for updates (once per week)", None, -1))
         self.chb_autosave.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Autosave popup", None, -1))
         self.chb_browserStartup.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Open Project Browser on application startup", None, -1))
         self.chb_trayStartup.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Show Prism tray icon on system startup", None, -1))

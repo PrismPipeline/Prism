@@ -168,6 +168,12 @@ class ExportClass(object):
 			if node is None:
 				node = self.findNode(data["connectednode"])
 			self.connectNode(node)
+		if "usetake" in data:
+			self.chb_useTake.setChecked(eval(data["usetake"]))
+		if "take" in data:
+			idx = self.cb_take.findText(data["take"])
+			if idx != -1:
+				self.cb_take.setCurrentIndex(idx)
 		if "outputtypes" in data:
 			self.cb_outType.clear()
 			self.cb_outType.addItems(eval(data["outputtypes"]))
@@ -258,21 +264,24 @@ class ExportClass(object):
 
 
 	@err_decorator
-	def createNode(self):
+	def createNode(self, nodePath=None):
 		parentNode = None
-		nodePath = None
+		curContext = ""
 		if not self.isNodeValid():
 			if len(hou.selectedNodes()) > 0:
 				curContext = hou.selectedNodes()[0].type().category().name()
 				if len(hou.selectedNodes()[0].outputNames()) > 0:
 					parentNode = hou.selectedNodes()[0]
 			else:
-				paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-				if paneTab is None:
-					return
+				if self.core.uiAvailable:
+					paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+					if paneTab is None:
+						return
 
-				curContext = paneTab.pwd().childTypeCategory().name()
-				nodePath = paneTab.pwd()
+					curContext = paneTab.pwd().childTypeCategory().name()
+					nodePath = paneTab.pwd()
+				elif nodePath is not None:
+					curContext = hou.node(nodePath).type().category().name()
 		else:
 			curContext = self.node.type().category().name()
 			if len(self.node.inputs()) > 0:
@@ -342,6 +351,8 @@ class ExportClass(object):
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
 		self.cb_outType.activated[str].connect(self.typeChanged)
+		self.chb_useTake.stateChanged.connect(self.useTakeChanged)
+		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
 		self.b_goTo.clicked.connect(self.goToNode)
 		self.b_connect.clicked.connect(self.connectNode)
 		self.chb_saveToExistingHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
@@ -432,6 +443,13 @@ class ExportClass(object):
 		except:
 			self.l_status.setText("Not connected")
 			self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
+
+		curTake = self.cb_take.currentText()
+		self.cb_take.clear()
+		self.cb_take.addItems([x.name() for x in hou.takes.takes()])
+		idx = self.cb_take.findText(curTake)
+		if idx != -1:
+			self.cb_take.setCurrentIndex(idx)
 
 		self.camlist = []
 		for node in hou.node("/").allSubChildren():
@@ -720,6 +738,12 @@ class ExportClass(object):
 
 
 	@err_decorator
+	def useTakeChanged(self, state):
+		self.cb_take.setEnabled(state)
+		self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
 	def rjToggled(self,checked=None):
 		if checked is None:
 			checked = self.gb_submit.isChecked()
@@ -805,7 +829,7 @@ class ExportClass(object):
 				warnings.append(["Node is invalid.", "", 3])
 
 		if not hou.simulationEnabled():
-			warnings.append(["Houdini simulations are disabled.", "", 3])
+			warnings.append(["Simulations are disabled.", "", 2])
 
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
 			warnings += self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_preExecute(self)
@@ -958,6 +982,19 @@ class ExportClass(object):
 			fbx_rop.parm('sopoutput').set(outputName + ".fbx")
 			fbx_rop.parm('startnode').set(self.curCam.path())
 
+			for node in [abc_rop, fbx_rop]:
+				if self.chb_useTake.isChecked():
+					pTake = self.cb_take.currentText()
+					takeLabels = [x.strip() for x in self.node.parm("take").menuLabels()]
+					if pTake in takeLabels:
+						idx = takeLabels.index(pTake)
+						if idx != -1:
+							token = self.node.parm("take").menuItems()[idx]
+							if not self.core.appPlugin.setNodeParm(self.node, "take", val=token):
+								return [self.state.text(0) + ": error - Publish canceled"]
+					else:
+						return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
+
 			abc_rop.render()
 			fbx_rop.render(frame_range=(startFrame,endFrame))
 
@@ -1001,7 +1038,7 @@ class ExportClass(object):
 			except:
 				return [self.state.text(0) + ": error - Node is invalid. Skipped the activation of this state."]
 
-			if not self.node.isEditable() and self.cb_outType.currentText() != ".hda":
+			if not (self.node.isEditable() or (self.node.type().name() == "filecache" and self.node.isEditableInsideLockedHDA())) and self.cb_outType.currentText() != ".hda":
 				return [self.state.text(0) + ": error - Node is locked. Skipped the activation of this state."]
 
 			fileName = self.core.getCurrentFileName()
@@ -1025,8 +1062,11 @@ class ExportClass(object):
 				if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
 					return [self.state.text(0) + ": error - Publish canceled"]
 
-				self.node.parm("f1").set(startFrame)
-				self.node.parm("f2").set(endFrame)
+				if not self.core.appPlugin.setNodeParm(self.node, "f1", val=startFrame):
+					return [self.state.text(0) + ": error - Publish canceled"]
+
+				if not self.core.appPlugin.setNodeParm(self.node, "f2", val=endFrame):
+					return [self.state.text(0) + ": error - Publish canceled"]
 
 				if self.cb_outType.currentText() in [".abc", ".usd"]:
 					outputName = outputName.replace(".$F4", "")
@@ -1034,6 +1074,18 @@ class ExportClass(object):
 				if self.node.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic"]:
 					if not self.core.appPlugin.setNodeParm(self.node, "initsim", val=True):
 						return [self.state.text(0) + ": error - Publish canceled"]
+
+				if self.chb_useTake.isChecked():
+					pTake = self.cb_take.currentText()
+					takeLabels = [x.strip() for x in self.node.parm("take").menuLabels()]
+					if pTake in takeLabels:
+						idx = takeLabels.index(pTake)
+						if idx != -1:
+							token = self.node.parm("take").menuItems()[idx]
+							if not self.core.appPlugin.setNodeParm(self.node, "take", val=token):
+								return [self.state.text(0) + ": error - Publish canceled"]
+					else:
+						return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
 
 			if not os.path.exists(outputPath):
 				os.makedirs(outputPath)
@@ -1094,7 +1146,8 @@ class ExportClass(object):
 				hou.hipFile.save()
 
 				if idx == 1:
-					transformNode.parm("scale").set(100)
+					if not self.core.appPlugin.setNodeParm(transformNode, scale, val=100):
+						return [self.state.text(0) + ": error - Publish canceled"]
 
 				if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
 					result = self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_submitJob(self, outputName, parent)
@@ -1104,13 +1157,17 @@ class ExportClass(object):
 						if self.cb_outType.currentText() == ".hda":
 							HDAoutputName = outputName.replace(".$F4", "")
 							bb = self.chb_blackboxHDA.isChecked()
+							noBackup = hou.applicationVersion()[0] <= 16 and hou.applicationVersion()[1] <= 5 and hou.applicationVersion()[2] <= 185
 							if self.node.canCreateDigitalAsset():
 								typeName = "prism_" + self.l_taskName.text()
 								hda = self.node.createDigitalAsset(typeName , hda_file_name=HDAoutputName, description=self.l_taskName.text(), change_node_type=(not bb))
 								if bb:
 									hou.hda.installFile(HDAoutputName, force_use_assets=True)
 									aInst = self.node.parent().createNode(typeName)
-									aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, create_backup=False, compile_contents=bb, black_box=bb)
+									if noBackup:
+										aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, compile_contents=bb, black_box=bb)
+									else:
+										aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, create_backup=False, compile_contents=bb, black_box=bb)
 									aInst.destroy()
 								else:
 									self.connectNode(hda)
@@ -1136,14 +1193,20 @@ class ExportClass(object):
 									adescr = basedescr + "_" + str(highestVersion + 1)
 
 									tmpPath = HDAoutputName + "tmp"
-									self.node.type().definition().save(file_name=tmpPath, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
+									if noBackup:
+										self.node.type().definition().save(file_name=tmpPath, template_node=self.node, compile_contents=bb, black_box=bb)
+									else:
+										self.node.type().definition().save(file_name=tmpPath, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
 									defs = hou.hda.definitionsInFile(tmpPath)
 									defs[0].copyToHDAFile(HDAoutputName, new_name=aname, new_menu_name=adescr)
 									os.remove(tmpPath)
 									node = self.node.changeNodeType(aname)
 									self.connectNode(node)
 								else:
-									self.node.type().definition().save(file_name=HDAoutputName, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
+									if noBackup:
+										self.node.type().definition().save(file_name=HDAoutputName, template_node=self.node, compile_contents=bb, black_box=bb)
+									else:
+										self.node.type().definition().save(file_name=HDAoutputName, template_node=self.node, create_backup=False, compile_contents=bb, black_box=bb)
 								
 									if self.chb_projectHDA.isChecked():
 										oplib = os.path.join(os.path.dirname(HDAoutputName), "ProjectHDAs.oplib").replace("\\", "/")
@@ -1154,10 +1217,12 @@ class ExportClass(object):
 							self.updateUi()
 						else:
 							self.node.parm("execute").pressButton()
-							if self.node.errors() != () and self.node.errors() != "":
-								erStr = ("%s ERROR - houExportnode %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, self.node.errors()))
+							errs = self.node.errors()
+							if len(errs) > 0:
+								errs = "\n" + "\n\n".join(errs)
+								erStr = ("%s ERROR - houExportnode %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, errs))
 					#			self.core.writeErrorLog(erStr)
-								result = "Execute failed: " + str(self.node.errors())
+								result = "Execute failed: " + errs
 
 						if result == "":
 							if len(os.listdir(outputPath)) > 0:
@@ -1173,7 +1238,8 @@ class ExportClass(object):
 						return [self.state.text(0) + " - unknown error (view console for more information)"]
 
 				if idx == 1:
-					transformNode.parm("scale").set(1)
+					if not self.core.appPlugin.setNodeParm(transformNode, scale, val=1):
+						return [self.state.text(0) + ": error - Publish canceled"]
 
 			self.core.callHook("postExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":outputName})
 
@@ -1208,33 +1274,36 @@ class ExportClass(object):
 
 
 		stateProps = {
-		"statename":self.e_name.text(),
-		"taskname":self.l_taskName.text(),
-		"globalrange":str(self.chb_globalRange.isChecked()),
-		"startframe":self.sp_rangeStart.value(),
-		"endframe":self.sp_rangeEnd.value(),
-		"outputtypes":str(outputTypes),
-		"curoutputtype": self.cb_outType.currentText(),
-		"connectednode": curNode,
-		"unitconvert": str(self.chb_convertExport.isChecked()),
-		"localoutput":str(self.chb_localOutput.isChecked()),
-		"savetoexistinghda":str(self.chb_saveToExistingHDA.isChecked()),
-		"projecthda":str(self.chb_projectHDA.isChecked()),
-		"blackboxhda":str(self.chb_blackboxHDA.isChecked()),
-		"submitrender": str(self.gb_submit.isChecked()),
-		"rjmanager":str(self.cb_manager.currentText()),
-		"rjprio":self.sp_rjPrio.value(),
-		"rjframespertask":self.sp_rjFramesPerTask.value(),
-		"rjtimeout":self.sp_rjTimeout.value(),
-		"rjsuspended": str(self.chb_rjSuspended.isChecked()),
-		"osdependencies": str(self.chb_osDependencies.isChecked()),
-		"osupload": str(self.chb_osUpload.isChecked()),
-		"ospassets": str(self.chb_osPAssets.isChecked()),
-		"osslaves": self.e_osSlaves.text(),
-		"curdlgroup":self.cb_dlGroup.currentText(),
-		"currentcam": str(curCam),
-		"currentscamshot": self.cb_sCamShot.currentText(),
-		"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
-		"stateenabled":str(self.state.checkState(0))}
+			"statename":self.e_name.text(),
+			"taskname":self.l_taskName.text(),
+			"globalrange":str(self.chb_globalRange.isChecked()),
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"usetake":str(self.chb_useTake.isChecked()),
+			"take": self.cb_take.currentText(),
+			"outputtypes":str(outputTypes),
+			"curoutputtype": self.cb_outType.currentText(),
+			"connectednode": curNode,
+			"unitconvert": str(self.chb_convertExport.isChecked()),
+			"localoutput":str(self.chb_localOutput.isChecked()),
+			"savetoexistinghda":str(self.chb_saveToExistingHDA.isChecked()),
+			"projecthda":str(self.chb_projectHDA.isChecked()),
+			"blackboxhda":str(self.chb_blackboxHDA.isChecked()),
+			"submitrender": str(self.gb_submit.isChecked()),
+			"rjmanager":str(self.cb_manager.currentText()),
+			"rjprio":self.sp_rjPrio.value(),
+			"rjframespertask":self.sp_rjFramesPerTask.value(),
+			"rjtimeout":self.sp_rjTimeout.value(),
+			"rjsuspended": str(self.chb_rjSuspended.isChecked()),
+			"osdependencies": str(self.chb_osDependencies.isChecked()),
+			"osupload": str(self.chb_osUpload.isChecked()),
+			"ospassets": str(self.chb_osPAssets.isChecked()),
+			"osslaves": self.e_osSlaves.text(),
+			"curdlgroup":self.cb_dlGroup.currentText(),
+			"currentcam": str(curCam),
+			"currentscamshot": self.cb_sCamShot.currentText(),
+			"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+			"stateenabled":str(self.state.checkState(0))
+		}
 
 		return stateProps

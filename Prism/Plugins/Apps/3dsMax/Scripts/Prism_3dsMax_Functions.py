@@ -125,7 +125,7 @@ class Prism_3dsMax_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		return self.executeScript(origin, "saveMaxFile \"%s\"" % filepath)
 
 
@@ -926,7 +926,7 @@ record != undefined\n\
 				for i in origin.nodes:
 					camLayer.AddToLayer(MaxPlus.INode.GetINodeByHandle(i))
 
-		return result, doImport
+		return {"result":result, "doImport":doImport}
 
 
 	@err_decorator

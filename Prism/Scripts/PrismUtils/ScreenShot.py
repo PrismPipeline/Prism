@@ -41,6 +41,9 @@ except:
 	from PySide.QtGui import *
 	psVersion = 1
 
+import sys, traceback, time
+from functools import wraps
+
 
 class ScreenShot(QDialog):
 	def __init__(self, core):
@@ -73,12 +76,28 @@ class ScreenShot(QDialog):
 		self.setMouseTracking(True)
 
 
+	def err_decorator(func):
+		@wraps(func)
+		def func_wrapper(*args, **kwargs):
+			exc_info = sys.exc_info()
+			try:
+				return func(*args, **kwargs)
+			except Exception as e:
+				exc_type, exc_obj, exc_tb = sys.exc_info()
+				erStr = ("%s ERROR - Screenshot %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				args[0].core.writeErrorLog(erStr)
+
+		return func_wrapper
+
+
+	@err_decorator
 	def mousePressEvent(self, event):
 		self.origin = event.pos()
 		self.rubberband.setGeometry(QRect(self.origin, QSize()))
 		QWidget.mousePressEvent(self, event)
 
 
+	@err_decorator
 	def mouseMoveEvent(self, event):
 		if self.origin is not None:
 			rect = QRect(self.origin, event.pos()).normalized()
@@ -88,6 +107,7 @@ class ScreenShot(QDialog):
 		QWidget.mouseMoveEvent(self, event)
 
 
+	@err_decorator
 	def paintEvent(self, event):
 		painter = QPainter(self)
 
@@ -111,6 +131,7 @@ class ScreenShot(QDialog):
 		QWidget.paintEvent(self, event)
 
 
+	@err_decorator
 	def mouseReleaseEvent(self, event):
 		if self.origin is not None:
 			self.rubberband.hide()
@@ -122,7 +143,14 @@ class ScreenShot(QDialog):
 			else:
 				screen = QPixmap
 
-			self.imgmap = screen.grabWindow(desktop.winId(), rect.x(), rect.y(), rect.width(), rect.height())
+			winID = desktop.winId()
+			if sys.version[0] == "2":
+				try:
+					winID = long(winID)
+				except:
+					pass
+
+			self.imgmap = screen.grabWindow(winID, rect.x(), rect.y(), rect.width(), rect.height())
 			self.close()
 		QWidget.mouseReleaseEvent(self, event)
 

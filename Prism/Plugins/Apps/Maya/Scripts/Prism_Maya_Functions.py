@@ -78,29 +78,42 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def startup(self, origin):
-		for obj in qApp.topLevelWidgets():
-			if obj.objectName() == 'MayaWindow':
-				mayaQtParent = obj
-				break
-		else:
-			return False
+		if self.core.uiAvailable:
+			if QApplication.instance() is None:
+				return False
 
-		try:
-			topLevelShelf = mel.eval('string $m = $gShelfTopLevel')
-		except:
-			return False
+			if not hasattr(qApp, "topLevelWidgets"):
+				return False
 
-		if cmds.shelfTabLayout(topLevelShelf, query=True, tabLabelIndex=True) == None:
-			return False
+			for obj in qApp.topLevelWidgets():
+				if obj.objectName() == 'MayaWindow':
+					mayaQtParent = obj
+					break
+			else:
+				return False
+
+			try:
+				topLevelShelf = mel.eval('string $m = $gShelfTopLevel')
+			except:
+				return False
+
+			if cmds.shelfTabLayout(topLevelShelf, query=True, tabLabelIndex=True) == None:
+				return False
 
 		origin.timer.stop()
 
-		if platform.system() == "Darwin":
-			origin.messageParent = QWidget()
-			origin.messageParent.setParent(mayaQtParent, Qt.Window)
-			origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+		if self.core.uiAvailable:
+			if platform.system() == "Darwin":
+				origin.messageParent = QWidget()
+				origin.messageParent.setParent(mayaQtParent, Qt.Window)
+				if self.core.useOnTop:
+					origin.messageParent.setWindowFlags(origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint)
+			else:
+				origin.messageParent = mayaQtParent
+
+			origin.startasThread()
 		else:
-			origin.messageParent = mayaQtParent
+			origin.messageParent = QWidget()
 
 		cmds.loadPlugin( 'AbcExport.mll', quiet=True )
 		cmds.loadPlugin( 'AbcImport.mll', quiet=True )
@@ -108,9 +121,7 @@ class Prism_Maya_Functions(object):
 
 		api.MSceneMessage.addCallback(api.MSceneMessage.kAfterOpen, origin.sceneOpen)
 
-		origin.startasThread()
-
-
+		
 	@err_decorator
 	def autosaveEnabled(self, origin):
 		return cmds.autoSave( q=True, enable=True )
@@ -180,7 +191,7 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def saveScene(self, origin, filepath):
+	def saveScene(self, origin, filepath, details={}):
 		cmds.file(rename=filepath)
 		try:
 			return cmds.file(save=True, type="mayaAscii")
@@ -353,8 +364,12 @@ class Prism_Maya_Functions(object):
 	def sm_export_addObjects(self, origin):
 		for i in cmds.ls( selection=True , long = True):
 			if not i in origin.nodes:
-				origin.nodes.append(i)
-				cmds.sets(i, include=origin.l_taskName.text())
+				try:
+					cmds.sets(i, include=origin.l_taskName.text())
+				except Exception as e:
+					QMessageBox.warning(self.core.messageParent, "Warning", "Cannot add object:\n\n%s" % str(e))
+				else:
+					origin.nodes.append(i)
 
 		origin.updateUi()
 		origin.stateManager.saveStatesToScene()
@@ -511,7 +526,9 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_clearSet(self, origin):
-		cmds.sets( clear=origin.l_taskName.text() )
+		setName = origin.l_taskName.text()
+		if self.isNodeValid(origin, setName):
+			cmds.sets( clear=setName )
 
 
 	@err_decorator
@@ -585,10 +602,12 @@ class Prism_Maya_Functions(object):
 				expStr = 'AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\\"%s\\\""' % (startFrame, endFrame, rootString, outputName.replace("\\","\\\\\\\\"))
 
 				if not origin.chb_exportNamespaces.isChecked():
-					print "strip"
 					expStr = expStr.replace("-stripNamespaces", "")
 
-				mel.eval(expStr)
+				cmd = {"export_cmd": expStr}
+				self.core.callback(name="maya_export_abc", types=["custom"], args=[self, cmd])
+
+				mel.eval(cmd["export_cmd"])
 			except Exception as e:
 				if "Conflicting root node names specified" in str(e):
 					fString = "You are trying to export multiple objects with the same name, which is not supported in alembic format.\n\nDo you want to export your objects with namespaces?\nThis may solve the problem."
@@ -669,7 +688,11 @@ class Prism_Maya_Functions(object):
 				elif expType == ".mb":
 					typeStr = "mayaBinary"
 				pr = origin.chb_preserveReferences.isChecked()
-				cmds.file(outputName, force=True, exportSelected=True, preserveReferences=pr, type=typeStr)
+				try:
+					cmds.file(outputName, force=True, exportSelected=True, preserveReferences=pr, type=typeStr)
+				except Exception as e:
+					return "Canceled: %s" % str(e)
+
 				for i in expNodes:
 					if cmds.nodeType(i) == "xgmPalette" and cmds.attributeQuery("xgFileName", node=i, exists=True):
 						xgenName = cmds.getAttr(i + ".xgFileName")
@@ -722,8 +745,16 @@ class Prism_Maya_Functions(object):
 							scaleAnimated = True
 							break
 
+					convertParams = [".s"]
+
+					relatives = cmds.listRelatives(i, shapes=True)
+					if relatives and cmds.objectType( relatives[0], isType='camera' ):
+						convertParams.append(".t")
+					else:
+						cmds.move(0, 0, 0, i + '.scalePivot', i + '.rotatePivot', absolute=True)
+
 					for k in ["x", "y", "z"]:
-						for m in [".t", ".s"]:
+						for m in convertParams:
 							connections = cmds.listConnections(i + m + k, c=True, plugs=True)
 							if connections is not None:
 								ucNode = cmds.createNode("unitConversion")
@@ -739,7 +770,10 @@ class Prism_Maya_Functions(object):
 						#cmds.xform(i, ws=True, ztp=True, sp=(0,0,0), s=(curScale[0]*sVal, curScale[1]*sVal, curScale[2]*sVal) )
 
 						cmds.currentTime( origin.sp_rangeStart.value(), edit=True )
-						cmds.makeIdentity(i, apply=True, translate=False, rotate=False, scale=True, normal=0, preserveNormals=1)
+						try:
+							cmds.makeIdentity(i, apply=True, translate=False, rotate=False, scale=True, normal=0, preserveNormals=1)
+						except Exception as e:
+							QMessageBox.warning(self.core.messageParent, "Error", "Could not apply the correct scale to the exported objects:\n\n%s" % str(e))
 
 				outputName = os.path.join(os.path.dirname(os.path.dirname(outputName)), "meter", os.path.basename(outputName))
 				if not os.path.exists(os.path.dirname(outputName)):
@@ -1106,6 +1140,9 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_render_startLocalRender(self, origin, outputName, rSettings):
+		if not self.core.uiAvailable:
+			return "Execute Canceled: Local rendering is supported in the Maya UI only."
+
 		mel.eval ('RenderViewWindow;')
 		mel.eval ('showWindow renderViewWindow;')
 		mel.eval ('tearOffPanel "Render View" "renderWindowPanel" true;')
@@ -1226,6 +1263,8 @@ class Prism_Maya_Functions(object):
 		if "endFrame" in rSettings:
 			cmds.setAttr("defaultRenderGlobals.endFrame", rSettings["endFrame"])
 		if "vr_imageFilePrefix" in rSettings:
+			if rSettings["vr_imageFilePrefix"] is None:
+				rSettings["vr_imageFilePrefix"] = ""
 			cmds.setAttr("vraySettings.fileNamePrefix", rSettings["vr_imageFilePrefix"], type="string")
 		if "vr_sepFolders" in rSettings:
 			cmds.setAttr("vraySettings.relements_separateFolders", rSettings["vr_sepFolders"])
@@ -1417,8 +1456,13 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_import_importToApp(self, origin, doImport, update, impFileName):
+		if not os.path.exists(impFileName):
+			QMessageBox.warning(self.core.messageParent, "ImportFile", "File doesn't exist:\n\n%s" % impFileName)
+			return
+
 		fileName = os.path.splitext(os.path.basename(impFileName))
 		importOnly = True
+		applyCache = False
 		importedNodes = []
 
 		if fileName[1] in [".ma", ".mb", ".abc"]:
@@ -1444,6 +1488,7 @@ class Prism_Maya_Functions(object):
 				rb_reference = QRadioButton("Create reference")
 				rb_reference.setChecked(True)
 				rb_import = QRadioButton("Import objects only")
+				rb_applyCache = QRadioButton("Apply as cache to selected objects")
 				w_namespace = QWidget()
 				nLayout = QHBoxLayout()
 				nLayout.setContentsMargins(0,15,0,0)
@@ -1455,8 +1500,12 @@ class Prism_Maya_Functions(object):
 				nLayout.addWidget(e_namespace)
 				chb_namespace.toggled.connect(lambda x: e_namespace.setEnabled(x))
 				w_namespace.setLayout(nLayout)
-				bb_warn = QDialogButtonBox()
 
+				rb_applyCache.toggled.connect(lambda x: w_namespace.setEnabled(not x))
+				if fileName[1] != ".abc" or len(cmds.ls(selection=True)) == 0:
+					rb_applyCache.setEnabled(False)
+				
+				bb_warn = QDialogButtonBox()
 				bb_warn.addButton("Ok", QDialogButtonBox.AcceptRole)
 				bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
 
@@ -1466,6 +1515,7 @@ class Prism_Maya_Functions(object):
 				bLayout = QVBoxLayout()
 				bLayout.addWidget(rb_reference)
 				bLayout.addWidget(rb_import)
+				bLayout.addWidget(rb_applyCache)
 				bLayout.addWidget(w_namespace)
 				bLayout.addWidget(bb_warn)
 				refDlg.setLayout(bLayout)
@@ -1477,8 +1527,10 @@ class Prism_Maya_Functions(object):
 				if action == 0:
 					doRef = False
 					importOnly = False
+					applyCache = False
 				else:
 					doRef = rb_reference.isChecked()
+					applyCache = rb_applyCache.isChecked()
 					if chb_namespace.isChecked():
 						nSpace = e_namespace.text()
 					else:
@@ -1489,6 +1541,7 @@ class Prism_Maya_Functions(object):
 					nSpace = validNodes[0].rsplit("|", 1)[0].rsplit(":", 1)[0]
 				else:
 					nSpace = ":"
+				applyCache = origin.stateMode == "ApplyCache"
 
 			if fileName[1] == ".ma":
 				rtype = "mayaAscii"
@@ -1530,7 +1583,13 @@ class Prism_Maya_Functions(object):
 				if nSpace == "new":
 					nSpace = fileName[0]
 				
-				importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
+				if applyCache:
+					if update:
+						cmds.select(origin.setName)
+					cmds.AbcImport(impFileName, mode="import", connect= " ".join(cmds.ls(selection=True, long=True)))
+					importedNodes = cmds.ls(selection=True, long=True)
+				else:
+					importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True, type=rtype, mergeNamespacesOnClash=False, namespace=nSpace)
 
 			importOnly = False
 
@@ -1580,7 +1639,10 @@ class Prism_Maya_Functions(object):
 			cmds.sets(i, include=origin.setName)
 		result = len(importedNodes) > 0
 
-		return result, doImport
+		rDict = {"result":result, "doImport":doImport}
+		rDict["mode"] = "ApplyCache" if applyCache else "ImportFile"
+
+		return rDict
 
 
 	@err_decorator
@@ -1613,7 +1675,7 @@ class Prism_Maya_Functions(object):
 			nodeName = self.getNodeName(origin, i)
 			newName = nodeName.rsplit(":", 1)[-1]
 
-			if newName != nodeName and not (cmds.referenceQuery( i,isNodeReferenced=True) or cmds.objectType(validNodes[0]) == "reference"):
+			if newName != nodeName and not (cmds.referenceQuery( i,isNodeReferenced=True) or cmds.objectType(i) == "reference"):
 				try:
 					cmds.rename(nodeName, newName)
 				except:

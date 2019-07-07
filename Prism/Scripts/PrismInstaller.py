@@ -189,7 +189,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
 			#print "Finished"
 
 			if not False in result.values():
-				QMessageBox.warning(self.core.messageParent, "Prism Installation", "Prism was installed successfully.")
+				QMessageBox.information(self.core.messageParent, "Prism Installation", "Prism was installed successfully.")
 			else:
 				msgString = "Some parts failed to install:\n\n"
 				for i in result:

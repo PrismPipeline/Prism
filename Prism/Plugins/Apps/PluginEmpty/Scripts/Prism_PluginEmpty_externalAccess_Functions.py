@@ -108,5 +108,5 @@ class Prism_PluginEmpty_externalAccess_Functions(object):
 
 
 	@err_decorator
-	def callback_projectCreated(self, origin, projectPath):
+	def onProjectCreated(self, origin, projectPath, projectName):
 		pass

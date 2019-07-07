@@ -162,7 +162,8 @@ class Prism_Blender_externalAccess_Functions(object):
 
 	@err_decorator
 	def createProject_startup(self, origin):
-		origin.setWindowFlags(origin.windowFlags() ^ Qt.WindowStaysOnTopHint)
+		if self.core.useOnTop:
+			origin.setWindowFlags(origin.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
 
 	@err_decorator

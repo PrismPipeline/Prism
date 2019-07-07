@@ -711,6 +711,16 @@
             </widget>
            </item>
            <item>
+            <widget class="QCheckBox" name="chb_checkForUpdates">
+             <property name="text">
+              <string>Check for updates (once per week)</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QCheckBox" name="chb_autosave">
              <property name="text">
               <string>Autosave popup</string>

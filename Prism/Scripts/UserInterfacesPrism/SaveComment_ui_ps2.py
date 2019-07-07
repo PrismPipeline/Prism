@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'SaveComment.ui',
 # licensing of 'SaveComment.ui' applies.
 #
-# Created: Sat Feb  9 18:53:58 2019
+# Created: Sat Apr 13 22:28:48 2019
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -16,32 +16,32 @@ class Ui_dlg_SaveComment(object):
         dlg_SaveComment.resize(599, 611)
         self.verticalLayout = QtWidgets.QVBoxLayout(dlg_SaveComment)
         self.verticalLayout.setObjectName("verticalLayout")
-        self.widget = QtWidgets.QWidget(dlg_SaveComment)
-        self.widget.setObjectName("widget")
-        self.gridLayout = QtWidgets.QGridLayout(self.widget)
+        self.w_details = QtWidgets.QWidget(dlg_SaveComment)
+        self.w_details.setObjectName("w_details")
+        self.gridLayout = QtWidgets.QGridLayout(self.w_details)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setObjectName("gridLayout")
-        self.l_preview = QtWidgets.QLabel(self.widget)
+        self.l_preview = QtWidgets.QLabel(self.w_details)
         self.l_preview.setMinimumSize(QtCore.QSize(500, 281))
         self.l_preview.setAlignment(QtCore.Qt.AlignCenter)
         self.l_preview.setObjectName("l_preview")
         self.gridLayout.addWidget(self.l_preview, 4, 1, 1, 1)
-        self.label = QtWidgets.QLabel(self.widget)
+        self.label = QtWidgets.QLabel(self.w_details)
         self.label.setObjectName("label")
         self.gridLayout.addWidget(self.label, 4, 0, 1, 1)
-        self.l_comment = QtWidgets.QLabel(self.widget)
+        self.l_comment = QtWidgets.QLabel(self.w_details)
         self.l_comment.setObjectName("l_comment")
         self.gridLayout.addWidget(self.l_comment, 0, 0, 1, 1)
-        self.e_comment = QtWidgets.QLineEdit(self.widget)
+        self.e_comment = QtWidgets.QLineEdit(self.w_details)
         self.e_comment.setObjectName("e_comment")
         self.gridLayout.addWidget(self.e_comment, 0, 1, 1, 1)
-        self.label_2 = QtWidgets.QLabel(self.widget)
+        self.label_2 = QtWidgets.QLabel(self.w_details)
         self.label_2.setObjectName("label_2")
         self.gridLayout.addWidget(self.label_2, 2, 0, 1, 1)
-        self.e_description = QtWidgets.QTextEdit(self.widget)
+        self.e_description = QtWidgets.QTextEdit(self.w_details)
         self.e_description.setObjectName("e_description")
         self.gridLayout.addWidget(self.e_description, 2, 1, 1, 1)
-        self.verticalLayout.addWidget(self.widget)
+        self.verticalLayout.addWidget(self.w_details)
         self.b_changePreview = QtWidgets.QPushButton(dlg_SaveComment)
         self.b_changePreview.setObjectName("b_changePreview")
         self.verticalLayout.addWidget(self.b_changePreview)
