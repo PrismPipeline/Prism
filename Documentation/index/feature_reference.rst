@@ -506,19 +506,19 @@ There are four types of Prism plugins:
 
 * App Plugin
 
-⋅⋅⋅An App plugin is used to integrate Prism into a DCC app (like Houdini, Maya...)
+   An App plugin is used to integrate Prism into a DCC app (like Houdini, Maya...)
 
 * Custom
 
-⋅⋅⋅Plugins of type "Custom" can be used to customize existing Prism features. They contain many callback function, where you can add your custom code, which will be executed by Prism at specific events.
+   Plugins of type "Custom" can be used to customize existing Prism features. They contain many callback function, where you can add your custom code, which will be executed by Prism at specific events.
 
 * ProjectManagers
 
-⋅⋅⋅"ProjectManagers" plugins are used to connect Prism to external project tracking tools like Shotgun.
+   "ProjectManagers" plugins are used to connect Prism to external project tracking tools like Shotgun.
 
 * RenderfarmManagers
 
-⋅⋅⋅This plugin type adds support for renderfarm managers like Deadline or Pandora. They show up as an option in the State Manager, so that artists can submit jobs easily.
+   This plugin type adds support for renderfarm managers like Deadline or Pandora. They show up as an option in the State Manager, so that artists can submit jobs easily.
 
 
 
