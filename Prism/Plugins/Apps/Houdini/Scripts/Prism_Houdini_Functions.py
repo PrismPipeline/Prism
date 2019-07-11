@@ -129,6 +129,12 @@ class Prism_Houdini_Functions(object):
 			job = job[:-1]
 		hou.hscript("set PRISMJOB=" + job)
 
+		if self.core.useLocalFiles:
+			ljob = self.core.localProjectPath.replace("\\", "/")
+			if ljob.endswith("/"):
+				ljob = ljob[:-1]
+			hou.hscript("set PRISMJOBLOCAL=" + ljob)
+
 
 	@err_decorator
 	def sceneOpen(self, origin):

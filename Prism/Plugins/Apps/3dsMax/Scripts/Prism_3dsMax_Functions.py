@@ -324,8 +324,8 @@ class Prism_3dsMax_Functions(object):
 
 
 	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName):
-		origin.l_taskName.setText(origin.nameWin.e_item.text())
+	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
+		origin.l_taskName.setText(newTaskName)
 
 
 	@err_decorator

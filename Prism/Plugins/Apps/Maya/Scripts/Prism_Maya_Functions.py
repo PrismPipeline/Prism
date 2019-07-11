@@ -361,7 +361,10 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def sm_export_addObjects(self, origin):
+	def sm_export_addObjects(self, origin, objects=""):
+		if objects:
+			cmds.select(objects)
+
 		for i in cmds.ls( selection=True , long = True):
 			if not i in origin.nodes:
 				try:
@@ -515,8 +518,8 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName):
-		origin.l_taskName.setText(cmds.rename(prevTaskName, origin.nameWin.e_item.text()))
+	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
+		origin.l_taskName.setText(cmds.rename(prevTaskName, newTaskName))
 
 
 	@err_decorator

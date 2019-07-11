@@ -308,6 +308,12 @@ class ImageRenderClass(object):
 
 
 	@err_decorator
+	def setTaskname(self, taskname):
+		self.l_taskName.setText(taskname)
+		self.updateUi()
+
+
+	@err_decorator
 	def changeTask(self):
 		import CreateItem
 		self.nameWin = CreateItem.CreateItem(startText=self.l_taskName.text(), showTasks=True, taskType="render", core=self.core)

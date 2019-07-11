@@ -1203,12 +1203,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 			tw = self.tw_aFiles
 			filepath = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles", self.lw_aPipeline.currentItem().text())
+			tabName = "asset"
 		elif tab == "sf":
 			if self.cursStep is None or self.cursCat is None:
 				return
 
 			tw = self.tw_sFiles
 			filepath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
+			tabName = "shot"
 		elif tab == "r":
 			tw = self.tw_recent
 
@@ -1248,11 +1250,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					if i.startswith("EmptyScene_") and os.path.splitext(i)[1] in self.core.getPluginSceneFormats():
 						fName = os.path.splitext(i)[0][11:].replace("_", ".")
 						empAct = QAction(fName, self)
-						empAct.triggered.connect(lambda y=None, x=tab, fname=i: self.createEmpty(x,fname))
+						empAct.triggered.connect(lambda y=None, x=tabName, fname=i: self.createEmptyScene(x, fname))
 						emp.addAction(empAct)
 
 			newPreset = QAction("< Create new preset from current >", self)
-			newPreset.triggered.connect(lambda y=None, x=tab: self.createEmpty(x,"createnew"))
+			newPreset.triggered.connect(lambda y=None, x=tabName: self.createEmptyScene(x, "createnew"))
 			emp.addAction(newPreset)
 			if self.core.appPlugin.pluginName == "Standalone":
 				newPreset.setEnabled(False)
@@ -1531,8 +1533,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def createEmpty(self, tab, fname):
-		if fname == "createnew":
+	def createEmptyScene(self, entity, fileName, entityName=None, step=None, category=None, openFile=True):
+		if fileName == "createnew":
 			emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
 
 			newItem = CreateItem.CreateItem(core=self.core, startText=self.core.appPlugin.pluginName.replace(" ", ""))
@@ -1553,54 +1555,57 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				self.core.saveScene(prismReq=False, filepath=filepath)
 			return
 
+		ext = os.path.splitext(fileName)[1]
 
-		if tab == "a":
-			dstname = self.tw_aHierarchy.currentItem().text(1)
+		if entity == "asset":
 			refresh = self.refreshAFile
-
-			prefix = self.tw_aHierarchy.currentItem().text(0)
-			step = self.lw_aPipeline.currentItem().text()
-			dstname = os.path.join(dstname, "Scenefiles", step)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
-
-			#example filename: Body_mod_v0002_details-added_rfr_.max
-		elif tab == "sf":
-			refresh = self.refreshSFile
-			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
-			#example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
-			subcat = self.core.filenameSeperator + self.cursCat
-			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat
-			newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
-
-		if "newfname" in locals():
-			ext = os.path.splitext(fname)[1]
-			scene = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes", fname)
-
-			newfname += self.core.filenameSeperator + ext
-
-			filepath = os.path.join(dstname, newfname)
-
-			if self.core.useLocalFiles:
-				filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
-
-			if not os.path.exists(os.path.dirname(filepath)):
-				try:
-					os.makedirs(os.path.dirname(filepath))
-				except:
-					QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
-					return None
-
-			filepath = filepath.replace("\\","/")
-
-			shutil.copyfile(scene, filepath)
-			if ext in self.core.appPlugin.sceneFormats:
-				self.core.callback(name="preLoadEmptyScene", types=["curApp", "custom"], args=[self, filepath])
-				self.exeFile(filepath=filepath)
-				self.core.callback(name="postLoadEmptyScene", types=["curApp", "custom"], args=[self, filepath])
+			if entityName:
+				for i in self.core.getAssetPaths():
+					if os.path.basename(i) == entityName:
+						dstname = i
+						break
+				else:
+					return
 			else:
-				self.core.addToRecent(filepath)
-				self.setRecent()
-				refresh()
+				dstname = self.tw_aHierarchy.currentItem().text(1)
+
+			assetName = entityName or self.tw_aHierarchy.currentItem().text(0)
+			step = step or self.lw_aPipeline.currentItem().text()
+			filePath = self.core.generateScenePath("asset", assetName, step, assetPath=dstname, extension=ext)
+		elif entity == "shot":
+			refresh    = self.refreshSFile
+			entityName = entityName or self.cursShots
+			step       = step or self.cursStep
+			category = category or self.cursCat
+			filePath = self.core.generateScenePath("shot", entityName, step, category=category, extension=ext)
+		else:
+			return
+
+		scene = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes", fileName)
+
+		if self.core.useLocalFiles:
+			filePath = filePath.replace(self.core.projectPath, self.core.localProjectPath)
+
+		if not os.path.exists(os.path.dirname(filePath)):
+			try:
+				os.makedirs(os.path.dirname(filePath))
+			except:
+				QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
+				return None
+
+		filePath = filePath.replace("\\","/")
+
+		shutil.copyfile(scene, filePath)
+		if ext in self.core.appPlugin.sceneFormats and openFile:
+			self.core.callback(name="preLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
+			self.exeFile(filepath=filePath)
+			self.core.callback(name="postLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
+		else:
+			self.core.addToRecent(filePath)
+			self.setRecent()
+			refresh()
+
+		return filePath
 
 
 	@err_decorator
@@ -2990,7 +2995,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if not stepPath:
 			if entity == "asset":
 				for i in self.core.getAssetPaths():
-					if os.path.baseName(i) == entityName:
+					if os.path.basename(i) == entityName:
 						stepPath = os.path.join(i, "Scenefiles", stepName)
 						break
 				else:
@@ -3012,9 +3017,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, stepName, stepPath, settings])
 
 		if settings["createDefaultCategory"]:
-			self.createDefaultCat(stepName, stepPath)
+			path = self.createDefaultCat(stepName, stepPath)
+			return path
 
-		return True
+		return stepPath
 
 
 	@err_decorator
@@ -3026,7 +3032,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		catName = existingSteps[step]
 		dstname = os.path.join(path, catName)
-		self.createCategory(catName, dstname)
+		path  = self.createCategory(catName, dstname)
+		return path
 
 
 	@err_decorator
@@ -3036,8 +3043,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				os.makedirs(path)
 			except:
 				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % path))
+				return
 			else:
 				self.core.callback(name="onCategoryCreated", types=["custom"], args=[self, catName, path])
+		
+		return path
 
 
 	@err_decorator

@@ -237,6 +237,13 @@ class ExportClass(object):
 
 
 	@err_decorator
+	def setTaskname(self, taskname):
+		prevTaskName = self.l_taskName.text()
+		self.core.appPlugin.sm_export_setTaskText(self, prevTaskName, taskname)
+		self.updateUi()
+
+
+	@err_decorator
 	def changeTask(self):
 		import CreateItem
 		self.nameWin = CreateItem.CreateItem(startText=self.l_taskName.text(), showTasks=True, taskType="export", core=self.core)
@@ -248,7 +255,7 @@ class ExportClass(object):
 		result = self.nameWin.exec_()
 		
 		if result == 1:
-			self.core.appPlugin.sm_export_setTaskText(self, prevTaskName)
+			self.core.appPlugin.sm_export_setTaskText(self, prevTaskName, self.nameWin.e_item.text())
 			self.b_changeTask.setPalette(self.oldPalette)
 			self.nameChanged(self.e_name.text())
 			self.stateManager.saveStatesToScene()

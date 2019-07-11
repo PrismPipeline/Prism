@@ -348,8 +348,8 @@ class Prism_Blender_Functions(object):
 
 
 	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName):
-		setName = origin.nameWin.e_item.text()
+	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
+		setName = newTaskName
 		extension = 1
 		while setName in self.getGroups() and extension < 999:
 			if "%s_%s" % (setName, extension) not in self.getGroups():

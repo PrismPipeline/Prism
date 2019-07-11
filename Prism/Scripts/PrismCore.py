@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.0.17"
+			self.version = "v1.2.1.0"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1937,6 +1937,36 @@ class PrismCore():
 							scenes.append(scenePath)
 
 		return scenes
+
+
+	@err_decorator
+	def generateScenePath(self, entity, entityName, step, assetPath="", category="", extension=""):
+		if entity == "asset":
+			#example filename: Body_mod_v0002_details-added_rfr_.max
+			assetPath = assetPath.replace(self.pb.aBasePath, "")
+			
+			if self.useLocalFiles:
+				assetPath = assetPath.replace(self.localProjectPath, "")
+
+			if assetPath[0] in ["/", "\\"]:
+				assetPath = assetPath[1:]
+
+			dstname = os.path.join(self.pb.aBasePath, assetPath, "Scenefiles", step)
+			fileName = entityName + self.filenameSeperator + step + self.filenameSeperator + self.getHighestVersion(dstname, "Asset") + self.filenameSeperator + self.filenameSeperator + self.user
+		elif entity == "shot":
+			#example filename: shot_a-0010_mod_main_v0002_details-added_rfr_.max
+			dstname = os.path.join(self.pb.sBasePath, entityName, "Scenefiles", step, category)
+			fileName = "shot" + self.filenameSeperator + entityName + self.filenameSeperator + step + self.filenameSeperator + category
+			fileName += self.filenameSeperator + self.getHighestVersion(dstname, "Shot") + self.filenameSeperator + self.filenameSeperator + self.user
+		else:
+			return ""
+
+		if extension:
+			fileName += self.filenameSeperator + extension
+
+		scenePath = os.path.join(dstname, fileName)
+
+		return scenePath
 
 
 	@err_decorator

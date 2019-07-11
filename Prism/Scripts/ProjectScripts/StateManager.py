@@ -443,6 +443,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			inactivef = self.f_import
 			activef = self.f_export
 
+		inactive.setCurrentIndex(QModelIndex())
+
 		getattr(self.core.appPlugin, "sm_setActivePalette", lambda x1,x2,x3,x4,x5: self.setTreePalette(x2,x3,x4,x5))(self, listWidget, inactive, inactivef, activef)
 
 		self.activeList = listWidget
