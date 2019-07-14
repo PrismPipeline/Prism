@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ProjectBrowser.ui'
 #
-# Created: Thu Feb 14 23:04:08 2019
+# Created: Sun Jul 14 14:41:25 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -50,12 +50,16 @@ class Ui_mw_ProjectBrowser(object):
         self.l_aHierarchy = QtGui.QLabel(self.widget_3)
         self.l_aHierarchy.setObjectName("l_aHierarchy")
         self.verticalLayout_3.addWidget(self.l_aHierarchy)
+        self.e_assetSearch = QtGui.QLineEdit(self.widget_3)
+        self.e_assetSearch.setObjectName("e_assetSearch")
+        self.verticalLayout_3.addWidget(self.e_assetSearch)
         self.tw_aHierarchy = QtGui.QTreeWidget(self.widget_3)
         self.tw_aHierarchy.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.tw_aHierarchy.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.tw_aHierarchy.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.tw_aHierarchy.setObjectName("tw_aHierarchy")
         self.tw_aHierarchy.headerItem().setText(0, "1")
+        self.tw_aHierarchy.header().setVisible(False)
         self.verticalLayout_3.addWidget(self.tw_aHierarchy)
         self.horizontalLayout_3.addWidget(self.widget_3)
         self.widget_12 = QtGui.QWidget(self.t_assets)
@@ -119,17 +123,20 @@ class Ui_mw_ProjectBrowser(object):
         self.horizontalLayout_7.setSpacing(10)
         self.horizontalLayout_7.setContentsMargins(15, 15, 15, 15)
         self.horizontalLayout_7.setObjectName("horizontalLayout_7")
-        self.widget_24 = QtGui.QWidget(self.t_shots)
-        self.widget_24.setMinimumSize(QtCore.QSize(160, 0))
-        self.widget_24.setMaximumSize(QtCore.QSize(160, 16777215))
-        self.widget_24.setObjectName("widget_24")
-        self.verticalLayout_18 = QtGui.QVBoxLayout(self.widget_24)
+        self.w_shots = QtGui.QWidget(self.t_shots)
+        self.w_shots.setMinimumSize(QtCore.QSize(160, 0))
+        self.w_shots.setMaximumSize(QtCore.QSize(160, 16777215))
+        self.w_shots.setObjectName("w_shots")
+        self.verticalLayout_18 = QtGui.QVBoxLayout(self.w_shots)
         self.verticalLayout_18.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_18.setObjectName("verticalLayout_18")
-        self.l_sShot = QtGui.QLabel(self.widget_24)
+        self.l_sShot = QtGui.QLabel(self.w_shots)
         self.l_sShot.setObjectName("l_sShot")
         self.verticalLayout_18.addWidget(self.l_sShot)
-        self.tw_sShot = QtGui.QTreeWidget(self.widget_24)
+        self.e_shotSearch = QtGui.QLineEdit(self.w_shots)
+        self.e_shotSearch.setObjectName("e_shotSearch")
+        self.verticalLayout_18.addWidget(self.e_shotSearch)
+        self.tw_sShot = QtGui.QTreeWidget(self.w_shots)
         self.tw_sShot.setMaximumSize(QtCore.QSize(10000, 16777215))
         self.tw_sShot.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.tw_sShot.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
@@ -139,7 +146,7 @@ class Ui_mw_ProjectBrowser(object):
         self.tw_sShot.headerItem().setText(0, "1")
         self.tw_sShot.header().setVisible(False)
         self.verticalLayout_18.addWidget(self.tw_sShot)
-        self.horizontalLayout_7.addWidget(self.widget_24)
+        self.horizontalLayout_7.addWidget(self.w_shots)
         self.verticalWidget_2 = QtGui.QWidget(self.t_shots)
         self.verticalWidget_2.setMaximumSize(QtCore.QSize(272, 16777215))
         self.verticalWidget_2.setObjectName("verticalWidget_2")
@@ -776,12 +783,14 @@ class Ui_mw_ProjectBrowser(object):
 
     def retranslateUi(self, mw_ProjectBrowser):
         mw_ProjectBrowser.setWindowTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "ProjectBrowser", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_aHierarchy.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Hierarchy:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_aHierarchy.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Assets:", None, QtGui.QApplication.UnicodeUTF8))
+        self.e_assetSearch.setPlaceholderText(QtGui.QApplication.translate("mw_ProjectBrowser", "Seach...", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aStep.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Steps:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aFiles.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Files:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aShow.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Show file types:", None, QtGui.QApplication.UnicodeUTF8))
         self.tbw_browser.setTabText(self.tbw_browser.indexOf(self.t_assets), QtGui.QApplication.translate("mw_ProjectBrowser", "Assets", None, QtGui.QApplication.UnicodeUTF8))
         self.l_sShot.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Shots:", None, QtGui.QApplication.UnicodeUTF8))
+        self.e_shotSearch.setPlaceholderText(QtGui.QApplication.translate("mw_ProjectBrowser", "Search...", None, QtGui.QApplication.UnicodeUTF8))
         self.l_sPipeline.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Steps:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_sCategory.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Categories:", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_3.setTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "Shotinfo", None, QtGui.QApplication.UnicodeUTF8))

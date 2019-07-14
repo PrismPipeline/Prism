@@ -233,6 +233,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_aHierarchy.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"ah")
 		self.tw_aHierarchy.mouseDClick = self.tw_aHierarchy.mouseDoubleClickEvent
 		self.tw_aHierarchy.mouseDoubleClickEvent = lambda x: self.mousedb(x,"ah", self.tw_aHierarchy)
+		self.tw_aHierarchy.keyPressEvent = lambda x: self.keyPressed(x, "assets")
+		self.e_assetSearch.origKeyPressEvent = self.e_assetSearch.keyPressEvent
+		self.e_assetSearch.keyPressEvent = lambda x: self.keyPressed(x, "assetSearch")
 		self.lw_aPipeline.mouseClickEvent = self.lw_aPipeline.mouseReleaseEvent
 		self.lw_aPipeline.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"ap")
 		self.lw_aPipeline.mouseDClick = self.lw_aPipeline.mouseDoubleClickEvent
@@ -246,6 +249,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_sShot.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"ss")
 		self.tw_sShot.mouseDClick = self.tw_sShot.mouseDoubleClickEvent
 		self.tw_sShot.mouseDoubleClickEvent = lambda x: self.mousedb(x,"ss", self.tw_sShot)
+		self.tw_sShot.keyPressEvent = lambda x: self.keyPressed(x, "shots")
+		self.e_shotSearch.origKeyPressEvent = self.e_shotSearch.keyPressEvent
+		self.e_shotSearch.keyPressEvent = lambda x: self.keyPressed(x, "shotSearch")
 		self.lw_sPipeline.mouseClickEvent = self.lw_sPipeline.mouseReleaseEvent
 		self.lw_sPipeline.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"sp")
 		self.lw_sPipeline.mouseDClick = self.lw_sPipeline.mouseDoubleClickEvent
@@ -272,6 +278,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_aHierarchy.itemExpanded.connect(self.refreshAItem)
 		self.tw_aHierarchy.itemCollapsed.connect(self.hItemCollapsed)
 		self.tw_aHierarchy.customContextMenuRequested.connect(lambda x: self.rclCat("ah",x))
+		self.e_assetSearch.textChanged.connect(lambda x: self.refreshAHierarchy())
 		self.lw_aPipeline.currentItemChanged.connect(self.refreshAFile)
 		self.lw_aPipeline.customContextMenuRequested.connect(lambda x: self.rclCat("ap",x))
 		self.tw_aFiles.customContextMenuRequested.connect(lambda x: self.rclFile("a",x))
@@ -285,6 +292,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_sShot.itemExpanded.connect(self.sItemCollapsed)
 		self.tw_sShot.itemCollapsed.connect(self.sItemCollapsed)
 		self.tw_sShot.customContextMenuRequested.connect(lambda x: self.rclCat("ss",x))
+		self.e_shotSearch.textChanged.connect(lambda x: self.refreshShots())
 		self.lw_sPipeline.customContextMenuRequested.connect(lambda x: self.rclCat("sp",x))
 		self.lw_sCategory.customContextMenuRequested.connect(lambda x: self.rclCat("sc",x))
 		self.tw_sFiles.customContextMenuRequested.connect(lambda x: self.rclFile("sf",x))
@@ -624,6 +632,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if cData["expandedSequences" + self.core.projectName] is not None:
 			self.sExpanded = eval(cData["expandedSequences" + self.core.projectName])
+
+		self.e_assetSearch.setVisible(False)
+		self.e_shotSearch.setVisible(False)
 		
 
 	@err_decorator
@@ -938,6 +949,33 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
+	def keyPressed(self, event, entity):
+		if entity in ["assets", "assetSearch"]:
+			etext = self.e_assetSearch
+		elif entity in ["shots", "shotSearch"]:
+			etext = self.e_shotSearch
+
+		if entity in ["assets", "shots"]:
+			if event.key() == Qt.Key_Escape:
+				etext.setVisible(False)
+				etext.setText("")
+				etext.textChanged.emit("")
+			else:
+				etext.setVisible(True)
+				etext.setFocus()
+				etext.keyPressEvent(event)
+		elif entity in ["assetSearch", "shotSearch"]:
+			if event.key() == Qt.Key_Escape:
+				etext.setVisible(False)
+				etext.setText("")
+				etext.textChanged.emit("")
+			else:
+				etext.origKeyPressEvent(event)
+
+		event.accept()
+
+
+	@err_decorator
 	def tableMoveEvent(self, event, table):
 		self.showDetailWin(event, table)
 		if hasattr(self, "detailWin") and self.detailWin.isVisible():
@@ -1052,6 +1090,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def rclCat(self, tab, pos):
 		rcmenu = QMenu()
 		typename = "Category"
+		callbackName = ""
 
 		if tab == "ah":
 			lw = self.tw_aHierarchy
@@ -1061,6 +1100,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			else:
 				path = os.path.dirname(cItem.text(1))
 			typename = "Entity"
+			callbackName = "openPBAssetContextMenu"
 		elif tab == "ap":
 			lw = self.lw_aPipeline
 			curItem = self.tw_aHierarchy.currentItem()
@@ -1071,13 +1111,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				return
 
 			path = os.path.join(curItem.text(1), "Scenefiles")
-
 			typename = "Step"
+			callbackName = "openPBAssetStepContextMenu"
 
 		elif tab == "ss":
 			lw = self.tw_sShot
 			path = self.sBasePath
 			typename = "Shot"
+			callbackName = "openPBShotContextMenu"
 
 		elif tab == "sp":
 			lw = self.lw_sPipeline
@@ -1086,6 +1127,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			else:
 				return False
 			typename = "Step"
+			callbackName = "openPBShotStepContextMenu"
 
 		elif tab == "sc":
 			lw = self.lw_sCategory
@@ -1093,6 +1135,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)
 			else:
 				return False
+
+			callbackName = "openPBShotCategoryContextMenu"
 
 		elif tab == "f":
 			lw = self.lw_fCategory
@@ -1193,7 +1237,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.core.appPlugin.setRCStyle(self, rcmenu)
 
+		if callbackName:
+			self.core.callback(name=callbackName, types=["custom"], args=[self, rcmenu, lw.indexAt(pos)])
+
 		rcmenu.exec_(QCursor.pos())
+
 
 	@err_decorator
 	def rclFile(self, tab, pos):
@@ -1217,8 +1265,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		rcmenu = QMenu()
 
 		if tw.selectedIndexes() != []:
-			irow = tw.selectedIndexes()[0].row()
+			idx = tw.selectedIndexes()[0]
+			irow = idx.row()
 		else:
+			idx = None
 			irow = -1
 		cop = QAction("Copy", self)
 		if irow == -1 :
@@ -1301,7 +1351,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		rcmenu.addAction(copAct)
 
 		self.core.appPlugin.setRCStyle(self, rcmenu)
-		self.core.callback(name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu])
+		self.core.callback(name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu, idx])
 
 		rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
 
@@ -1802,9 +1852,34 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.refreshOmittedEntities()
 
+		self.filteredAssetPaths = self.core.getAssetPaths()
+		if self.e_assetSearch.isVisible():
+			filteredPaths = []
+			for assetPath in self.filteredAssetPaths:
+				assetPath = assetPath.replace(self.aBasePath, "")
+			
+				if self.core.useLocalFiles:
+					assetPath = assetPath.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
+				assetPath = assetPath[1:]
+
+				if self.e_assetSearch.text() in assetPath:
+					filteredPaths.append(assetPath)
+
+			self.filteredAssetPaths = filteredPaths
+
 		for path in dirs:
 			val = os.path.basename(path)
 			if val not in self.omittedEntities["Asset"]:
+				if self.e_assetSearch.isVisible():
+					aPath = path.replace(self.aBasePath, "")
+			
+					if self.core.useLocalFiles:
+						aPath = aPath.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
+					aPath = aPath[1:]
+
+					if len([x for x in self.filteredAssetPaths if aPath in x]) == 0:
+						continue
+
 				item = QTreeWidgetItem([val, path])
 				self.tw_aHierarchy.addTopLevelItem(item)
 				self.refreshAItem(item, expanded=False)
@@ -1823,7 +1898,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if expanded:
 			self.adclick = False
-			if item.text(1) not in self.aExpanded:
+			if item.text(1) not in self.aExpanded and not self.e_assetSearch.isVisible():
 				self.aExpanded.append(item.text(1))
 
 		if self.core.useLocalFiles:
@@ -1857,6 +1932,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						aName = aName.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
 					aName = aName[1:]
 
+					if self.e_assetSearch.isVisible():
+						if len([x for x in self.filteredAssetPaths if aName in x]) == 0:
+							continue
+
 					if os.path.basename(i) not in childs and aName not in self.omittedEntities["Asset"]:
 						child = QTreeWidgetItem([os.path.basename(i), i])
 						item.addChild(child)
@@ -1869,7 +1948,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			iFont.setBold(True)
 			item.setFont(0, iFont)
 
-		if path in self.aExpanded and not expanded:
+		if path in self.aExpanded and not expanded or self.e_assetSearch.isVisible():
 			item.setExpanded(True)
 
 
@@ -2070,6 +2149,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		sequences = []
 		shots = []
+
+		searchFilter = ""
+		if self.e_shotSearch.isVisible():
+			searchFilter = self.e_shotSearch.text()
+
 		for path in sorted(dirs):
 			val = os.path.basename(path)
 			if not val.startswith("_") and val not in self.omittedEntities["Shot"]:
@@ -2080,6 +2164,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				else:
 					seqName = "no sequence"
 					shotName = val
+
+				if searchFilter not in seqName and searchFilter not in shotName:
+					continue
 
 				if shotName != "":
 					shots.append([seqName, shotName, val])
@@ -2105,7 +2192,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		for seqName in sequences:
 			seqItem = QTreeWidgetItem([seqName, seqName + "-"])
 			self.tw_sShot.addTopLevelItem(seqItem)
-			if seqName in self.sExpanded:
+			if seqName in self.sExpanded or self.e_shotSearch.isVisible():
 				seqItem.setExpanded(True)
 
 		for i in shots:
@@ -2130,6 +2217,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def sItemCollapsed(self, item):
+		if self.e_shotSearch.isVisible():
+			return
+
 		self.sdclick = False
 		exp = item.isExpanded()
 
@@ -2487,6 +2577,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					shotItem = sItem.child(k)
 					if shotItem.text(0) == shotName:
 						self.tw_sShot.setCurrentItem(shotItem)
+
+
+	@err_decorator
+	def showShotSearch(self):
+		self.l_shotSearch.setVisible(True)
 
 
 	@err_decorator

@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.0"
+			self.version = "v1.2.1.1"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1946,7 +1946,7 @@ class PrismCore():
 			assetPath = assetPath.replace(self.pb.aBasePath, "")
 			
 			if self.useLocalFiles:
-				assetPath = assetPath.replace(self.localProjectPath, "")
+				assetPath = assetPath.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
 
 			if assetPath[0] in ["/", "\\"]:
 				assetPath = assetPath[1:]
@@ -3162,7 +3162,11 @@ except Exception as e:
 	sys.stdout.write('failed %%s' %% e)
 """ % (self.prismRoot, self.prismRoot)
 
-		pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
+		if platform.system() == "Windows":
+			pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
+		else:
+			pythonPath = "python"
+
 		result = subprocess.Popen([pythonPath, "-c", pStr], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		stdOutData, stderrdata = result.communicate()
 

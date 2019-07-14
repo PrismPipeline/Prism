@@ -59,7 +59,7 @@ class Prism_PluginEmpty_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_PluginEmpty %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_PluginEmpty - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -198,13 +198,49 @@ class Prism_PluginEmpty_Functions(object):
 
 		
 	@err_decorator
-	def openPBFileContextMenu(self, origin, rcmenu):
-		# gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of the Project Browser
+	def openPBFileContextMenu(self, origin, rcmenu, index):
+		# gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of assets or shots in the Project Browser.
 		pass
 
 
 	@err_decorator
 	def openPBListContextMenu(self, origin, rcmenu, listWidget, item, path):
+		# gets called before "rcmenu" get displayed for the "Tasks" and "Versions" list in the Project Browser.
+		pass
+
+
+	@err_decorator
+	def openPBAssetContextMenu(self, origin, rcmenu, index):
+		'''
+		origin: Project Browser instance
+		rcmenu: QMenu object, which can be modified before it gets displayed
+		index: QModelIndex object of the item on which the user clicked. Use index.data() to get the text of the index.
+		'''
+		pass
+
+
+	@err_decorator
+	def openPBAssetStepContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openPBShotContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openPBShotStepContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openPBShotCategoryContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openTrayContextMenu(self, origin, rcmenu):
 		pass
 
 

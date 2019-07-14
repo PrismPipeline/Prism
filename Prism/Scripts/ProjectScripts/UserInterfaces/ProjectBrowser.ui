@@ -115,7 +115,17 @@
                <item>
                 <widget class="QLabel" name="l_aHierarchy">
                  <property name="text">
-                  <string>Hierarchy:</string>
+                  <string>Assets:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="e_assetSearch">
+                 <property name="placeholderText">
+                  <string>Seach...</string>
+                 </property>
+                 <property name="clearButtonEnabled">
+                  <bool>true</bool>
                  </property>
                 </widget>
                </item>
@@ -130,6 +140,9 @@
                  <property name="verticalScrollMode">
                   <enum>QAbstractItemView::ScrollPerPixel</enum>
                  </property>
+                 <attribute name="headerVisible">
+                  <bool>false</bool>
+                 </attribute>
                  <column>
                   <property name="text">
                    <string notr="true">1</string>
@@ -322,7 +335,7 @@
              <number>15</number>
             </property>
             <item>
-             <widget class="QWidget" name="widget_24" native="true">
+             <widget class="QWidget" name="w_shots" native="true">
               <property name="minimumSize">
                <size>
                 <width>160</width>
@@ -352,6 +365,16 @@
                 <widget class="QLabel" name="l_sShot">
                  <property name="text">
                   <string>Shots:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="e_shotSearch">
+                 <property name="placeholderText">
+                  <string>Search...</string>
+                 </property>
+                 <property name="clearButtonEnabled">
+                  <bool>true</bool>
                  </property>
                 </widget>
                </item>

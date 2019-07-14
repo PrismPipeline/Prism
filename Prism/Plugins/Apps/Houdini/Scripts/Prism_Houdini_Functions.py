@@ -62,7 +62,7 @@ class Prism_Houdini_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Houdini %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Houdini - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -85,25 +85,27 @@ class Prism_Houdini_Functions(object):
 			else:
 				origin.messageParent = hou.ui.mainQtWindow()
 		
-			curShelfSet = hou.ui.curDesktop().shelfDock().shelfSets()[0]
-			curShelves = curShelfSet.shelves()
+			shelfSets = hou.ui.curDesktop().shelfDock().shelfSets()
+			if len(shelfSets) > 0:
+				curShelfSet = shelfSets[0]
+				curShelves = curShelfSet.shelves()
 
-			try:
-				prismShelf = hou.shelves.shelves()["prism"]
-			except:
-				msgString = "Could not find the Prism shelf.\n\nDo you want to update the Prism integration in Houdini to fix this?"
-				msg = QMessageBox(QMessageBox.Warning, "Prism Warning", msgString, QMessageBox.Ok | QMessageBox.Cancel)
-				self.core.parentWindow(msg)
-				action = msg.exec_()
+				try:
+					prismShelf = hou.shelves.shelves()["prism"]
+				except:
+					msgString = "Could not find the Prism shelf.\n\nDo you want to update the Prism integration in Houdini to fix this?"
+					msg = QMessageBox(QMessageBox.Warning, "Prism Warning", msgString, QMessageBox.Ok | QMessageBox.Cancel)
+					self.core.parentWindow(msg)
+					action = msg.exec_()
 
-				if action == QMessageBox.Ok:
-					result = self.writeHoudiniFiles(os.environ["HOUDINI_USER_PREF_DIR"])
-					if result:
-						QMessageBox.information(self.core.messageParent, "Restart", "Successully updated the Prism integration.\n\nAfter the next Houdini restart the Prism shelf will be available.")
+					if action == QMessageBox.Ok:
+						result = self.writeHoudiniFiles(os.environ["HOUDINI_USER_PREF_DIR"])
+						if result:
+							QMessageBox.information(self.core.messageParent, "Restart", "Successully updated the Prism integration.\n\nAfter the next Houdini restart the Prism shelf will be available.")
 
-			else:
-				if prismShelf not in curShelves:
-					hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
+				else:
+					if prismShelf not in curShelves:
+						hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
 				
 			origin.startasThread()
 		else:
