@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.1"
+			self.version = "v1.2.1.2"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1946,7 +1946,7 @@ class PrismCore():
 			assetPath = assetPath.replace(self.pb.aBasePath, "")
 			
 			if self.useLocalFiles:
-				assetPath = assetPath.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
+				assetPath = assetPath.replace(self.pb.aBasePath.replace(self.projectPath, self.localProjectPath), "")
 
 			if assetPath[0] in ["/", "\\"]:
 				assetPath = assetPath[1:]
