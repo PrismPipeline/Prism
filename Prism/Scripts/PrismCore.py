@@ -118,7 +118,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.3"
+			self.version = "v1.2.1.4"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -316,7 +316,8 @@ class PrismCore():
 		if not startup:
 			return
 
-		self.messageParent = QWidget()
+		if QApplication.instance() is not None:
+			self.messageParent = QWidget()
 
 		if not self.appPlugin.hasQtParent:
 			self.parentWindows = False
