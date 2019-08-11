@@ -49,7 +49,6 @@ class ScreenShot(QDialog):
 	def __init__(self, core):
 		super(ScreenShot, self).__init__()
 		self.core = core
-		self.core.parentWindow(self)
 
 		self.imgmap = None
 		self.origin = None
