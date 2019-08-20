@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PrismSettings.ui'
 #
-# Created: Thu May 23 20:45:25 2019
+# Created: Wed Aug 14 22:59:05 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -39,10 +39,6 @@ class Ui_dlg_PrismSettings(object):
         self.gridLayout_2 = QtGui.QGridLayout(self.widget)
         self.gridLayout_2.setContentsMargins(9, 9, 9, 9)
         self.gridLayout_2.setObjectName("gridLayout_2")
-        self.l_abbreviation = QtGui.QLabel(self.widget)
-        self.l_abbreviation.setText("")
-        self.l_abbreviation.setObjectName("l_abbreviation")
-        self.gridLayout_2.addWidget(self.l_abbreviation, 2, 2, 1, 1)
         self.e_lname = QtGui.QLineEdit(self.widget)
         self.e_lname.setObjectName("e_lname")
         self.gridLayout_2.addWidget(self.e_lname, 1, 2, 1, 1)
@@ -58,6 +54,9 @@ class Ui_dlg_PrismSettings(object):
         self.e_fname = QtGui.QLineEdit(self.widget)
         self.e_fname.setObjectName("e_fname")
         self.gridLayout_2.addWidget(self.e_fname, 0, 2, 1, 1)
+        self.e_abbreviation = QtGui.QLineEdit(self.widget)
+        self.e_abbreviation.setObjectName("e_abbreviation")
+        self.gridLayout_2.addWidget(self.e_abbreviation, 2, 2, 1, 1)
         self.verticalLayout_7.addWidget(self.widget)
         spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.verticalLayout_7.addItem(spacerItem)

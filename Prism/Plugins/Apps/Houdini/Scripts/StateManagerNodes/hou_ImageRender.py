@@ -752,26 +752,26 @@ class ImageRenderClass(object):
 			hVersion = useVersion.split(self.core.filenameSeperator)[0]
 			pComment = useVersion.split(self.core.filenameSeperator)[1]
 
-		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
-		if len(fnameData) == 8:
+		fnameData = self.core.getScenefileData(fileName)
+		if fnameData["type"] == "shot":
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[5]
+				pComment = fnameData["comment"]
 
 			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
-			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
-		elif len(fnameData) == 6:
+			outputFile = os.path.join( "shot" + self.core.filenameSeperator + fnameData["shotName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
+		elif fnameData["type"] == "asset":
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "3dRender", self.l_taskName.text())
 			else:
 				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[3]
+				pComment = fnameData["comment"]
 
 			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
-			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
+			outputFile = os.path.join( fnameData["assetName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
 		else:
 			return
 

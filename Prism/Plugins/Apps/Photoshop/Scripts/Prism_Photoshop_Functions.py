@@ -515,16 +515,10 @@ class Prism_Photoshop_Functions(object):
 		lo_export = QVBoxLayout()
 		self.dlg_export.setLayout(lo_export)
 
-
 		curfile = self.core.getCurrentFileName()
-		fname = os.path.basename(curfile).split("_")
+		fname = self.core.getScenefileData(curfile)
 
-		if len(fname) == 6:
-			fType = "asset"
-		else:
-			fType = "shot"
-
-		self.rb_task = QRadioButton("Export into current %s" % fType)
+		self.rb_task = QRadioButton("Export into current %s" % fname["type"])
 		self.w_task = QWidget()
 		lo_prismExport = QVBoxLayout()
 		lo_task = QHBoxLayout()
@@ -688,23 +682,22 @@ class Prism_Photoshop_Functions(object):
 			hVersion = useVersion.split("_")[0]
 			pComment = useVersion.split("_")[1]
 
-		fnameData = os.path.basename(fileName).split("_")
-		if len(fnameData) == 8:
+		fnameData = self.core.getScenefileData(fileName)
+		if fnameData["type"] == "shot":
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "2dRender", self.le_task.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 
-			outputFile = os.path.join( fnameData[0] + "_" + fnameData[1] + "_" + self.le_task.text() + "_" + hVersion + extension)
-		elif len(fnameData) == 6:
+			outputFile = os.path.join( "shot" + "_" + fnameData["shotName"] + "_" + self.le_task.text() + "_" + hVersion + extension)
+		elif fnameData["type"] == "asset":
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "2dRender", self.le_task.text())
 			else:
 				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Rendering", "2dRender", self.le_task.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-
 			
-			outputFile = os.path.join( fnameData[0]  + "_" + self.le_task.text() + "_" + hVersion + extension)
+			outputFile = os.path.join( fnameData["assetName"]  + "_" + self.le_task.text() + "_" + hVersion + extension)
 		else:
 			return
 

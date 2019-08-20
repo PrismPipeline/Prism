@@ -114,10 +114,10 @@ class ExportClass(object):
 			self.sp_rangeStart.setValue(startFrame)
 			self.sp_rangeEnd.setValue(startFrame)
 			fileName = self.core.getCurrentFileName()
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fnameData = self.core.getScenefileData(fileName)
 			sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-			if os.path.exists(fileName) and len(fnameData) == 8 and (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)):
-				idx = self.cb_sCamShot.findText(fnameData[1])
+			if os.path.exists(fileName) and fnameData["type"] == "shot" and (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)):
+				idx = self.cb_sCamShot.findText(fnameData["shotName"])
 				if idx != -1:
 					self.cb_sCamShot.setCurrentIndex(idx)
 
@@ -451,13 +451,9 @@ class ExportClass(object):
 			if self.core.useLocalFiles and self.chb_localOutput.isChecked():
 				outputBase = os.path.join(self.core.localProjectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
 
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fnameData = self.core.getScenefileData(fileName)
 
-			if len(fnameData) == 8:
-				comment = fnameData[5]
-			elif len(fnameData) == 6:
-				comment = fnameData[3]
-
+			comment = fnameData["comment"]
 			versionUser = self.core.user
 
 			outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
@@ -500,27 +496,27 @@ class ExportClass(object):
 				if len(versionData) == 3:
 					hVersion, pComment, versionUser = versionData
 
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fnameData = self.core.getScenefileData(fileName)
 
-			if len(fnameData) == 8:
+			if fnameData["type"] == "shot":
 				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Export", self.l_taskName.text()))
 				if hVersion == "":
 					hVersion = self.core.getHighestTaskVersion(outputPath)
-					pComment = fnameData[5]
+					pComment = fnameData["comment"]
 
 				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + versionUser, prefUnit)
-				outputName = os.path.join(outputPath, fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
-			elif len(fnameData) == 6:
+				outputName = os.path.join(outputPath, "shot" + self.core.filenameSeperator + fnameData["shotName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
+			elif fnameData["type"] == "asset":
 				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 					outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Export", self.l_taskName.text())
 				else:
 					outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Export", self.l_taskName.text()))
 				if hVersion == "":
 					hVersion = self.core.getHighestTaskVersion(outputPath)
-					pComment = fnameData[3]
+					pComment = fnameData["comment"]
 
 				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + versionUser, prefUnit)
-				outputName = os.path.join(outputPath, fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
+				outputName = os.path.join(outputPath, fnameData["assetName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
 			else:
 				return
 

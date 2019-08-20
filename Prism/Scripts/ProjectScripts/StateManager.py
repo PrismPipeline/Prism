@@ -210,9 +210,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				self.core.writeErrorLog(erStr)
 
 		fileName = self.core.getCurrentFileName()
-		fileNameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+		fileNameData = self.core.getScenefileData(fileName)
 
-		self.b_shotCam.setEnabled(len(fileNameData) == 8 and fileNameData[0] == "shot")
+		self.b_shotCam.setEnabled(fileNameData["type"] == "shot")
 
 		self.core.callback(name="onStateManagerOpen", types=["curApp", "custom"], args=[self])
 		self.loadLayout()
@@ -988,9 +988,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.tw_import.setCurrentItem(camState)
 		else:
 			fileName = self.core.getCurrentFileName()
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fnameData = self.core.getScenefileData(fileName)
 			sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-			if not (os.path.exists(fileName) and len(fnameData) == 8 and (os.path.join(self.core.projectPath, sceneDir) in fileName or ( self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName))):
+			if not (os.path.exists(fileName) and fnameData["type"] == "shot" and (os.path.join(self.core.projectPath, sceneDir) in fileName or ( self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName))):
 				QMessageBox.warning(self.core.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
 				self.saveEnabled = True
 				return False
@@ -1286,10 +1286,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		shotConfig.read(shotFile)
 
 		fileName = self.core.getCurrentFileName()
-		fileNameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+		fileNameData = self.core.getScenefileData(fileName)
 		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-		if (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)) and len(fileNameData) == 8 and shotConfig.has_option("shotRanges", fileNameData[1]):
-			shotRange = eval(shotConfig.get("shotRanges", fileNameData[1]))
+		if (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)) and fileNameData["type"] == "shot" and shotConfig.has_option("shotRanges", fileNameData["shotName"]):
+			shotRange = eval(shotConfig.get("shotRanges", fileNameData["shotName"]))
 			if type(shotRange) == list and len(shotRange) == 2:
 				self.sp_rangeStart.setValue(shotRange[0])
 				self.sp_rangeEnd.setValue(shotRange[1])
@@ -1543,7 +1543,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 		
 		if success:
-			msgStr = "The %s was successfull." % actionString2
+			msgStr = "The %s was successful." % actionString2
 			if self.core.uiAvailable:
 				QMessageBox.information(self.core.messageParent, actionString, msgStr)
 			else:

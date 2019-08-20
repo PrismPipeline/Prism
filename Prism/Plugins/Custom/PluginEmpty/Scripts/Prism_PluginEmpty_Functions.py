@@ -225,6 +225,11 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
+	def openPBAssetCategoryContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
 	def openPBShotContextMenu(self, origin, rcmenu, index):
 		pass
 
