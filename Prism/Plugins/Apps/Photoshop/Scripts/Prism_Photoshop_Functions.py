@@ -679,8 +679,8 @@ class Prism_Photoshop_Functions(object):
 		hVersion = ""
 		pComment = self.le_comment.text()
 		if useVersion != "next":
-			hVersion = useVersion.split("_")[0]
-			pComment = useVersion.split("_")[1]
+			hVersion = useVersion.split(self.core.filenameSeperator)[0]
+			pComment = useVersion.split(self.core.filenameSeperator)[1]
 
 		fnameData = self.core.getScenefileData(fileName)
 		if fnameData["type"] == "shot":

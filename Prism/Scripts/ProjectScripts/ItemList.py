@@ -73,7 +73,7 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
 		self.tw_steps.setHorizontalHeaderLabels(["Abbreviation", "Step"])
 		self.tw_steps.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
 
-		if entity != "shot":
+		if entity not in ["asset", "shot"] or (entity == "asset" and self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower"):
 			self.chb_category.setVisible(False)
 
 		self.b_addStep.clicked.connect(self.addStep)

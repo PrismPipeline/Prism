@@ -1985,7 +1985,7 @@ class PrismCore():
 			return {"type": "asset", "assetName": fname[0], "step": fname[1], "category": "", "version": fname[2], "comment": fname[3], "user": fname[4], "extension": fname[5]}
 	
 		elif len(fname) == 7:
-			return  {"type": "asset", "assetName": fname[1], "step": fname[2], "category": fname[3], "version": fname[4], "comment": fname[5], "user": fname[6], "extension": fname[7]}
+			return  {"type": "asset", "assetName": fname[0], "step": fname[1], "category": fname[2], "version": fname[3], "comment": fname[4], "user": fname[5], "extension": fname[6]}
 
 		elif len(fname) == 8:
 			return  {"type": "shot", "shotName": fname[1], "step": fname[2], "category": fname[3], "version": fname[4], "comment": fname[5], "user": fname[6], "extension": fname[7]}
@@ -1999,29 +1999,39 @@ class PrismCore():
 		if entity == "asset":
 			#example filename: Body_mod_v0002_details-added_rfr_.max
 			assetPath = assetPath or basePath
-			assetPath = assetPath.replace(self.pb.aBasePath, "")
-			
-			if self.useLocalFiles:
-				assetPath = assetPath.replace(self.pb.aBasePath.replace(self.projectPath, self.localProjectPath), "")
 
-			if assetPath[0] in ["/", "\\"]:
-				assetPath = assetPath[1:]
+			if os.path.basename(os.path.dirname(assetPath)) == "Scenefiles" or os.path.basename(os.path.dirname(os.path.dirname(assetPath))) == "Scenefiles":
+				dstname = assetPath
+			else:
+				assetPath = assetPath.replace(self.pb.aBasePath, "")
+				
+				if self.useLocalFiles:
+					assetPath = assetPath.replace(self.pb.aBasePath.replace(self.projectPath, self.localProjectPath), "")
 
-			dstname = os.path.join(self.pb.aBasePath, assetPath, "Scenefiles", step)
+				if assetPath[0] in ["/", "\\"]:
+					assetPath = assetPath[1:]
+
+				dstname = os.path.join(self.pb.aBasePath, assetPath, "Scenefiles", step)
+
+				if self.compareVersions(self.projectVersion, "v1.2.1.6") != "lower":
+					dstname = os.path.join(dstname, category)
+
 			if self.compareVersions(self.projectVersion, "v1.2.1.6") == "lower":
 				category = ""
 			else:
-				dstname = os.path.join(dstname, category)
-				category = category or "" + self.filenameSeperator
+				category = (category or "") + self.filenameSeperator
 
 			version = version or self.getHighestVersion(dstname, "Asset")
 			user = user or self.user
 
-			fileName = entityName + self.filenameSeperator + step + category + self.filenameSeperator + version + self.filenameSeperator + comment + self.filenameSeperator + user
+			fileName = entityName + self.filenameSeperator + step + self.filenameSeperator + category + version + self.filenameSeperator + comment + self.filenameSeperator + user
 		elif entity == "shot":
 			#example filename: shot_a-0010_mod_main_v0002_details-added_rfr_.max
 			basePath = basePath or self.pb.sBasePath
-			dstname = os.path.join(basePath, entityName, "Scenefiles", step, category)
+			if os.path.basename(os.path.dirname(os.path.dirname(basePath))) == "Scenefiles":
+				dstname = basePath
+			else:
+				dstname = os.path.join(basePath, entityName, "Scenefiles", step, category)
 			version = version or self.getHighestVersion(dstname, "Shot")
 			user = user or self.user
 
@@ -2348,7 +2358,7 @@ class PrismCore():
 		
 			if not self.fileInPipeline():
 				if self.uiAvailable:
-					QMessageBox.warning(self.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
+					QMessageBox.warning(self.messageParent, "Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
 				else:
 					print ("Could not save the file. The current file is not inside the Pipeline.")
 
@@ -2357,30 +2367,44 @@ class PrismCore():
 			if self.useLocalFiles:
 				filepath = self.fixPath(filepath).replace(self.projectPath, self.localProjectPath)
 				if not os.path.exists(os.path.dirname(filepath)):
-					os.makedirs(os.path.dirname(filepath))
+					try:
+						os.makedirs(os.path.dirname(filepath))
+					except Exception as e:
+						title = "Could not save the file"
+						msg = "Could not create this folder:\n\n%s\n\n%s" % (os.path.dirname(filepath), str(e))
+						if self.uiAvailable:
+							QMessageBox.warning(self.messageParent, title, msg)
+						else:
+							print ("%s. %s" % (title, msg))
+
+						return False
 
 			if versionUp:
 				fnameData = self.getScenefileData(curfile)
 				dstname = os.path.dirname(filepath)
 
 				if fnameData["type"] == "asset":
-					filepath = self.core.generateScenePath(
+					fVersion = self.getHighestVersion(dstname, "Asset")
+					filepath = self.generateScenePath(
 															entity="asset",
 															entityName=fnameData["assetName"],
 															step=fnameData["step"],
 															category=fnameData["category"],
 															comment=comment,
+															version=fVersion,
 															basePath=dstname,
 															extension=self.appPlugin.getSceneExtension(self)
 														)
 
 				elif fnameData["type"] == "shot":
-					filepath = self.core.generateScenePath(
+					fVersion = self.getHighestVersion(dstname, "Shot")
+					filepath = self.generateScenePath(
 															entity="shot",
 															entityName=fnameData["shotName"],
 															step=fnameData["step"],
 															category=fnameData["category"],
 															comment=comment,
+															version=fVersion,
 															basePath=dstname,
 															extension=self.appPlugin.getSceneExtension(self)
 														)
@@ -3394,20 +3418,23 @@ except Exception as e:
 		else:
 			PROCNAMES = ['PrismTray.exe', "PrismProjectBrowser.exe", "PrismSettings.exe"]
 			for proc in psutil.process_iter():
-				if proc.name() in PROCNAMES:
-					if proc.pid == os.getpid():
-						continue
+				try:
+					if proc.name() in PROCNAMES:
+						if proc.pid == os.getpid():
+							continue
 
-					p = psutil.Process(proc.pid)
+						p = psutil.Process(proc.pid)
 
-					try:
-						if not 'SYSTEM' in p.username():
-							try:
-								proc.kill()
-							except:
-								pass
-					except:
-						pass
+						try:
+							if not 'SYSTEM' in p.username():
+								try:
+									proc.kill()
+								except:
+									pass
+						except:
+							pass
+				except:
+					pass
 
 		trayPath = os.path.join(self.prismRoot, "Tools", "PrismTray.lnk")
 		if os.path.exists(trayPath):

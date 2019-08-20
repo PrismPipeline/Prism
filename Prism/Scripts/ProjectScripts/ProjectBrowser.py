@@ -207,7 +207,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		getattr(self.core.appPlugin, "projectBrower_loadLibs", lambda x: self.loadLibs())(self)
 		self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
 		self.emptypmapPrv = self.createPMap(self.shotPrvXres, self.shotPrvYres)
-		self.refreshFCat()
+	#	self.refreshFCat()
 		self.loadLayout()
 		self.setRecent()
 		self.getRVpath()
@@ -3345,7 +3345,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % stepName))
 				return False
 
-		settings = {"createDefaultCategory":entity == "shot" and createCat}
+		settings = {"createDefaultCategory": (entity == "shot" or self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") != "lower") and createCat}
 
 		self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, stepName, stepPath, settings])
 
