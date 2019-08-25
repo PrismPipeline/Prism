@@ -3703,10 +3703,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_task.clear()
 
 		mediaTasks = self.getMediaTasks()
-
+		taskNames = []
 		for i in ["3d", "2d", "playblast", "external"]:
-			for k in mediaTasks[i]:
-				self.lw_task.addItem(k[0])
+			taskNames += sorted(list({x[0] for x in mediaTasks[i]}))
+		
+		self.lw_task.addItems(taskNames)
 
 		mIdx = self.lw_task.findItems("main", (Qt.MatchExactly & Qt.MatchCaseSensitive))
 		if len(mIdx) > 0:
@@ -3716,7 +3717,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.lw_task.setCurrentRow(0)
 
 		self.renderRefreshEnabled = True
-
 
 		self.updateVersions()
 

@@ -327,7 +327,7 @@ class PlayblastClass(object):
 
 		fnameData = self.core.getScenefileData(fileName)
 		if fnameData["type"] == "shot":
-			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
+			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Playblasts", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData["comment"]
@@ -338,7 +338,8 @@ class PlayblastClass(object):
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Playblasts", self.l_taskName.text())
 			else:
-				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
+				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Playblasts", self.l_taskName.text())
+				
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData["comment"]

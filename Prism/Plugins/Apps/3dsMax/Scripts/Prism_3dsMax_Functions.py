@@ -718,11 +718,22 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 
 	@err_decorator
 	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-		dlParams["version"] = str(self.executeScript(origin, "maxversion()").GetItem(0)/1000-2+2000)
-		dlParams["plugin"] = "3dsmax"
 		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "3dsmax_plugin_info.job" )
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "3dsmax_submit_info.job" )
-		dlParams["jobComment"] = "Prism-Submission-3dsmax_ImageRender"
+
+		dlParams["jobInfos"]["Plugin"] = "3dsmax"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-3dsmax_ImageRender"
+		dlParams["pluginInfos"]["Version"] = str(self.executeScript(origin, "maxversion()").GetItem(0).GetInt()/1000-2+2000)
+		dlParams["pluginInfos"]["MaxVersionToForce"] = dlParams["pluginInfos"]["Build"]
+		dlParams["pluginInfos"]["PopupHandling"] = "1"
+
+		if origin.chb_resOverride.isChecked():
+			resString = "Render"
+			dlParams["pluginInfos"][resString + "Width"] = str(origin.sp_resWidth.value())
+			dlParams["pluginInfos"][resString + "Height"] = str(origin.sp_resHeight.value())
+
+		if origin.curCam != "Current View":
+			dlParams["pluginInfos"]["Camera"] = self.core.appPlugin.getCamName(origin, origin.curCam)
 
 
 	@err_decorator
@@ -769,19 +780,6 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 	@err_decorator
 	def sm_render_fixOutputPath(self, origin, outputName):
 		return outputName
-
-
-	@err_decorator
-	def sm_render_getDeadlineSubmissionParams(self, origin, dlParams, jobOutputFile):
-		dlParams["MaxVersionToForce"] = dlParams["build"]
-		dlParams["PopupHandling"] = "1"
-
-		if origin.chb_resOverride.isChecked() and "resolution" in dlParams:
-			resString = "Render"
-			dlParams[resString + "Width"] = str(origin.sp_resWidth.value())
-			dlParams[resString + "Height"] = str(origin.sp_resHeight.value())
-
-		return dlParams
 
 
 	@err_decorator

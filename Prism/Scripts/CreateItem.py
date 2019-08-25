@@ -61,7 +61,7 @@ else:
 
 
 class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
-	def __init__(self, startText = "", showTasks=False, taskType="", core=None, getStep=False, showType=False ):
+	def __init__(self, startText = "", showTasks=False, taskType="", core=None, getStep=False, showType=False, allowChars=[], denyChars=[] ):
 		QDialog.__init__(self)
 		self.setupUi(self)
 		self.core = core
@@ -74,6 +74,15 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 			self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
 		self.isTaskName = showTasks
+
+		self.allowChars = allowChars
+		self.denyChars = denyChars
+
+		if not self.allowChars and not self.denyChars:
+			if self.isTaskName:
+				self.allowChars = ["_"]
+				if self.taskType == "Export":
+					self.denyChars = ["-"]					
 
 		if not showTasks:
 			self.b_showTasks.setHidden(True)
@@ -175,13 +184,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
 	@err_decorator
 	def enableOk(self, origText):
-		if self.isTaskName:
-			if self.taskType == "Export":
-				text = self.core.validateStr(origText,allowChars=["_"], denyChars=["-"])
-			else:
-				text = self.core.validateStr(origText,allowChars=["_"])
-		else:
-			text = self.core.validateStr(origText)
+		text = self.core.validateStr(origText, allowChars=self.allowChars, denyChars=self.denyChars)
 
 		if len(text) != len(origText):
 			cpos = self.e_item.cursorPosition()

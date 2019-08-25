@@ -859,14 +859,12 @@ class Prism_Blender_Functions(object):
 
 	@err_decorator
 	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-		del dlParams["version"]
-		del dlParams["camera"]
-		del dlParams["resolution"]
-
-		dlParams["plugin"] = "Blender"
-		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "blender_plugin_info.job" )
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "blender_submit_info.job" )
-		dlParams["jobComment"] = "Prism-Submission-Blender_ImageRender"
+		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "blender_plugin_info.job" )
+
+		dlParams["jobInfos"]["Plugin"] = "Blender"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Blender_ImageRender"
+		dlParams["pluginInfos"]["OutputFile"] = dlParams["jobInfos"]["OutputFilename0"]
 
 
 	@err_decorator
@@ -908,13 +906,6 @@ class Prism_Blender_Functions(object):
 		bpy.ops.wm.save_as_mainfile(filepath=jobFilePath, copy=True)
 		bpy.ops.wm.revert_mainfile()
 		self.core.stateManager()
-
-
-	@err_decorator
-	def sm_render_getDeadlineSubmissionParams(self, origin, dlParams, jobOutputFile):		
-		dlParams["OutputFile"] = jobOutputFile
-
-		return dlParams
 
 
 	@err_decorator

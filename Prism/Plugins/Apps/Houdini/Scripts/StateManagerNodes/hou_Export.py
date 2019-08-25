@@ -901,7 +901,7 @@ class ExportClass(object):
 
 			fnameData = self.core.getScenefileData(fileName)
 			if fnameData["type"] == "shot":
-				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Export", self.l_taskName.text()))
+				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
 				if hVersion == "":
 					hVersion = self.core.getHighestTaskVersion(outputPath)
 					pComment = fnameData["comment"]
@@ -912,7 +912,7 @@ class ExportClass(object):
 				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 					outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Export", self.l_taskName.text())
 				else:
-					outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Export", self.l_taskName.text()))
+					outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
 				if hVersion == "":
 					hVersion = self.core.getHighestTaskVersion(outputPath)
 					pComment = fnameData["comment"]
@@ -1147,7 +1147,7 @@ class ExportClass(object):
 						return [self.state.text(0) + ": error - Publish canceled"]
 
 				if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-					result = self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_submitJob(self, outputName, parent)
+					result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, outputName, parent)
 				else:
 					try:
 						result = ""

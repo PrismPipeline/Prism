@@ -192,7 +192,15 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def getCurrentFileName(self, origin, path=True):
-		return hou.hipFile.path()
+		if path:
+			return hou.hipFile.path()
+		else:
+			return hou.hipFile.basename()
+
+
+	@err_decorator
+	def getCurrentSceneFiles(self, origin):
+		return [self.core.getCurrentFileName()]
 
 
 	@err_decorator
@@ -778,3 +786,24 @@ class Prism_Houdini_Functions(object):
 		self.setRCStyle(origin, ropMenu)
 
 		nodeMenu.exec_(QCursor.pos())
+
+
+	@err_decorator
+	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
+		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "houdini_plugin_info.job" )
+		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "houdini_submit_info.job" )
+
+		dlParams["jobInfos"]["Plugin"] = "Houdini"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Houdini_ImageRender"
+
+		dlParams["pluginInfos"]["OutputDriver"] = origin.node.path()
+		dlParams["pluginInfos"]["IgnoreInputs"] = "True"
+
+		if int(self.core.rfManagers["Deadline"].deadlineCommand( ["-version",] ).split(".")[0][1:]) > 9:
+			dlParams["pluginInfos"]["Version"] = "%s.%s" % (hou.applicationVersion()[0], hou.applicationVersion()[1])
+		else:
+			dlParams["pluginInfos"]["Version"] = hou.applicationVersion()[0]
+
+		if hasattr(origin, "chb_resOverride") and origin.chb_resOverride.isChecked():
+			dlParams["pluginInfos"]["Width"] = origin.sp_resWidth.value()
+			dlParams["pluginInfos"]["Height"] = origin.sp_resHeight.value()

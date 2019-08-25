@@ -332,17 +332,6 @@ class Prism_Pandora_Functions(object):
 
 
 	@err_decorator
-	def sm_houExport_submitJob(self, origin, jobOutputFile, parent):
-		result = self.startSubmission(origin, jobOutputFile, parent)
-
-		if isinstance(result, list) and result[0] == "Success":
-			parent.osSubmittedJobs[origin.state.text(0)] = result[1]
-			return "Result=Success"
-		else:
-			return result.replace("Submission canceled:", "Execute Canceled:")
-
-
-	@err_decorator
 	def sm_houRender_updateUI(self, origin):
 		origin.w_dlGPUpt.setVisible(False)
 		origin.w_dlGPUdevices.setVisible(False)
@@ -404,17 +393,6 @@ class Prism_Pandora_Functions(object):
 
 
 	@err_decorator
-	def sm_houRender_submitJob(self, origin, jobOutputFile, parent):
-		result = self.startSubmission(origin, jobOutputFile, parent)
-
-		if isinstance(result, list) and result[0] == "Success":
-			parent.osSubmittedJobs[origin.state.text(0)] = result[1]
-			return "Result=Success"
-		else:
-			return result.replace("Submission canceled:", "Execute Canceled:")
-		
-
-	@err_decorator
 	def sm_render_updateUI(self, origin):
 		origin.w_dlGPUpt.setVisible(False)
 		origin.w_dlGPUdevices.setVisible(False)
@@ -460,6 +438,9 @@ class Prism_Pandora_Functions(object):
 			self.core.stateManager()
 
 		if isinstance(result, list) and result[0] == "Success":
+			if self.core.appPlugin.pluginName == "Houdini":
+				parent.osSubmittedJobs[origin.state.text(0)] = result[1]
+
 			return "Result=Success"
 		else:
 			return result.replace("Submission canceled:", "Execute Canceled:")

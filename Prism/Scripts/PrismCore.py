@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.6"
+			self.version = "v1.2.1.7"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -355,6 +355,7 @@ class PrismCore():
 
 		self.unloadPlugin(self.appPlugin.pluginName)
 		self.updatePlugins(current=appPlug, startup=False)
+
 
 	@err_decorator
 	def reloadCustomPlugins(self):
@@ -1995,6 +1996,28 @@ class PrismCore():
 
 
 	@err_decorator
+	def getEntityBasePath(self, filepath):
+		basePath = ""
+
+		if self.useLocalFiles and filepath.startswith(self.localProjectPath):
+			prjPath = self.localProjectPath
+		else:
+			prjPath = self.projectPath
+
+		sceneDir = self.getConfig('paths', "scenes", configPath=self.prismIni)
+		if filepath.startswith(os.path.join(prjPath, sceneDir, "Assets")):
+			if self.compareVersions(self.projectVersion, "v1.2.1.6") == "lower":
+				basePath = os.path.join(filepath, os.pardir, os.pardir, os.pardir)
+			else:
+				basePath = os.path.join(filepath, os.pardir, os.pardir, os.pardir, os.pardir)
+
+		elif filepath.startswith(os.path.join(prjPath, sceneDir, "Shots")):
+			basePath = os.path.join(filepath, os.pardir, os.pardir, os.pardir, os.pardir)
+
+		return os.path.abspath(basePath)
+
+
+	@err_decorator
 	def generateScenePath(self, entity, entityName, step, assetPath="", category="", extension="", basePath="", version="", comment="", user=""):
 		if entity == "asset":
 			#example filename: Body_mod_v0002_details-added_rfr_.max
@@ -2184,6 +2207,8 @@ class PrismCore():
 
 			elif fnameData["type"] == "shot" and (shotPath in fname or (self.useLocalFiles and lshotPath in fname)):
 				basePath = os.path.join(shotPath, fnameData["shotName"])
+			else:
+				return taskList
 
 			catPath = os.path.join(basePath, "Scenefiles", fnameData["step"])
 

@@ -869,7 +869,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	def createPlugin(self):
 		import CreateItem
 
-		newPDlg = CreateItem.CreateItem(core=self.core)
+		newPDlg = CreateItem.CreateItem(core=self.core, allowChars=["_"], denyChars=["-"])
 
 		self.core.parentWindow(newPDlg)
 		newPDlg.setWindowTitle("Create Plugin")

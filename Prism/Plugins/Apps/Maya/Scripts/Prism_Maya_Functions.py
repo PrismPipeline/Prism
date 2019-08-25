@@ -1281,16 +1281,26 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-		dlParams["version"] = str(cmds.about(version=True))
-		dlParams["plugin"] = "MayaBatch"
-		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "maya_plugin_info.job" )
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "maya_submit_info.job" )
-		dlParams["jobComment"] = "Prism-Submission-Maya_ImageRender"
+		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "maya_plugin_info.job" )
+
+		dlParams["jobInfos"]["Plugin"] = "MayaBatch"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Maya_ImageRender"
+		dlParams["pluginInfos"]["Version"] = str(cmds.about(version=True))
+		dlParams["pluginInfos"]["OutputFilePath"] = os.path.split(dlParams["jobInfos"]["OutputFilename0"])[0]
+		dlParams["pluginInfos"]["OutputFilePrefix"] = os.path.splitext(os.path.basename(dlParams["jobInfos"]["OutputFilename0"]))[0]
+		dlParams["pluginInfos"]["Renderer"] = self.getCurrentRenderer(origin)
+		
 		rlayers = cmds.ls(type="renderLayer")
 		if len(rlayers) > 1:
-			prefixBase = os.path.splitext(os.path.basename(dlParams["outputfile"]))[0]
+			prefixBase = os.path.splitext(os.path.basename(dlParams["jobInfos"]["OutputFilename0"]))[0]
 			passName = prefixBase.split(self.core.filenameSeperator)[-1]
-			dlParams["filePrefix"] = os.path.join("..", "..", passName, prefixBase)
+			dlParams["pluginInfos"]["OutputFilePrefix"] = os.path.join("..", "..", passName, prefixBase)
+
+		if origin.chb_resOverride.isChecked():
+			resString = "Image"
+			dlParams["pluginInfos"][resString + "Width"] = str(origin.sp_resWidth.value())
+			dlParams["pluginInfos"][resString + "Height"] = str(origin.sp_resHeight.value())
 
 
 	@err_decorator
@@ -1358,21 +1368,6 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def getProgramVersion(self, origin):
 		return cmds.about(version=True)
-
-
-	@err_decorator
-	def sm_render_getDeadlineSubmissionParams(self, origin, dlParams, jobOutputFile):
-		dlParams["Build"] = dlParams["build"]
-		dlParams["OutputFilePath"] = os.path.split(jobOutputFile)[0]
-		dlParams["OutputFilePrefix"] = os.path.splitext(os.path.basename(jobOutputFile))[0]
-		dlParams["Renderer"] = self.getCurrentRenderer(origin)
-
-		if origin.chb_resOverride.isChecked() and "resolution" in dlParams:
-			resString = "Image"
-			dlParams[resString + "Width"] = str(origin.sp_resWidth.value())
-			dlParams[resString + "Height"] = str(origin.sp_resHeight.value())
-
-		return dlParams
 
 
 	@err_decorator

@@ -122,15 +122,6 @@ class Prism_PluginEmpty_Functions(object):
 		warnings = []
 
 		return warnings
-
-
-	@err_decorator
-	def sm_houExport_submitJob(self, origin, jobOutputFile, parent):
-		jobOutputFile = jobOutputFile.replace("$F4", "####")
-
-		# add submission code here
-
-		return "not implemented"
 		
 
 	@err_decorator
@@ -161,11 +152,6 @@ class Prism_PluginEmpty_Functions(object):
 		warnings = []
 
 		return warnings
-
-
-	@err_decorator
-	def sm_houRender_submitJob(self, origin, jobOutputFile, parent):
-		return "not implemented"
 
 
 	@err_decorator

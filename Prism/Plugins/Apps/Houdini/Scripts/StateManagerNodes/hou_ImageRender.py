@@ -754,7 +754,7 @@ class ImageRenderClass(object):
 
 		fnameData = self.core.getScenefileData(fileName)
 		if fnameData["type"] == "shot":
-			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
+			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Rendering", "3dRender", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData["comment"]
@@ -765,7 +765,7 @@ class ImageRenderClass(object):
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "3dRender", self.l_taskName.text())
 			else:
-				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
+				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Rendering", "3dRender", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData["comment"]
@@ -852,7 +852,7 @@ class ImageRenderClass(object):
 		self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-			result = self.core.rfManagers[self.cb_manager.currentText()].sm_houRender_submitJob(self, outputName, parent)
+			result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, outputName, parent)
 		else:
 			if not self.core.appPlugin.setNodeParm(self.node, "trange", val=1):
 				return [self.state.text(0) + ": error - Publish canceled"]

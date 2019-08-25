@@ -315,3 +315,29 @@ class Prism_PluginEmpty_Functions(object):
 		Use python string formatting to modify the command:
 		params["export_cmd"] = params["export_cmd"][:-1] + " -attr material" + params["export_cmd"][-1]
 		'''
+
+	@err_decorator
+	def preSubmit_Deadline(self, origin, jobInfos, pluginInfos, arguments):
+		'''
+		origin: reference to the Deadline plugin class
+		jobInfos: List containing the data that will be written to the JobInfo file. Can be modified.
+		pluginInfos: List containing the data that will be written to the PluginInfo file. Can be modified.
+		arguments: List of arguments that will be send to the Deadline submitter. This contains filepaths to all submitted files (note that they are eventually not created at this point).
+		
+		Gets called before a render or simulation job gets submitted to the Deadline renderfarmmanager.
+		This function can modify the submission parameters.
+
+		Example:
+		jobInfos["PostJobScript"] = "D:/Scripts/Deadline/myPostJobTasks.py"
+
+		You can find more available job parameters here:
+		https://docs.thinkboxsoftware.com/products/deadline/10.0/1_User%20Manual/manual/manual-submission.html
+		'''
+
+
+	@err_decorator
+	def postSubmit_Deadline(self, origin, result):
+		'''
+		origin: reference to the Deadline plugin class
+		result: the return value from the Deadline submission.
+		'''
