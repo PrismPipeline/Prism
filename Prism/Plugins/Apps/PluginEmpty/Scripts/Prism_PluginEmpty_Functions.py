@@ -191,7 +191,7 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		#load scenefile
 		return True
 

@@ -188,11 +188,11 @@ class Prism_3dsMax_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if not filepath.endswith(".max"):
 			return False
 
-		if self.executeScript(origin, "checkforsave()"):
+		if force or self.executeScript(origin, "checkforsave()"):
 			self.executeScript(origin, "loadMaxFile \"%s\"" % filepath)
 
 		return True

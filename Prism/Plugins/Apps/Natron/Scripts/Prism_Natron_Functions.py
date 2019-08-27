@@ -257,7 +257,7 @@ class Prism_Natron_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if os.path.splitext(filepath)[1] not in self.sceneFormats:
 			return False
 

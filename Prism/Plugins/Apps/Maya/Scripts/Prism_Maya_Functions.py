@@ -100,9 +100,8 @@ class Prism_Maya_Functions(object):
 			if cmds.shelfTabLayout(topLevelShelf, query=True, tabLabelIndex=True) == None:
 				return False
 
-		origin.timer.stop()
+			origin.timer.stop()
 
-		if self.core.uiAvailable:
 			if platform.system() == "Darwin":
 				origin.messageParent = QWidget()
 				origin.messageParent.setParent(mayaQtParent, Qt.Window)
@@ -261,12 +260,12 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if not filepath.endswith(".ma") and not filepath.endswith(".mb"):
 			return False
 
 		try:
-			if cmds.file(q=True, modified=True):
+			if cmds.file(q=True, modified=True) and not force:
 				if cmds.file( q=True , exists=True ):
 					scenename = cmds.file( q=True , sceneName=True )
 				else:
@@ -282,7 +281,7 @@ class Prism_Maya_Functions(object):
 				elif option == 'Don\'t Save':
 					cmds.file( filepath, o=True, force=True )
 			else:
-				cmds.file( filepath, o=True )
+				cmds.file( filepath, o=True, force=True )
 		except:
 			pass
 
@@ -1301,6 +1300,9 @@ class Prism_Maya_Functions(object):
 			resString = "Image"
 			dlParams["pluginInfos"][resString + "Width"] = str(origin.sp_resWidth.value())
 			dlParams["pluginInfos"][resString + "Height"] = str(origin.sp_resHeight.value())
+
+		if origin.curCam != "Current View":
+			dlParams["pluginInfos"]["Camera"] = self.core.appPlugin.getCamName(origin, origin.curCam)
 
 
 	@err_decorator

@@ -4,7 +4,7 @@ import sys, pprint
 fname = "SetPath"
 fname = "CreateProject"
 #fname = "SetProject"
-fname = "PrismSettings"
+#fname = "PrismSettings"
 #fname = "ExternalPandoraSubmitter"
 #fname = "ProjectCreated"
 #fname = "PrismInstaller"

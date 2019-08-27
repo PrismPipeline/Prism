@@ -105,7 +105,7 @@ class Prism_Standalone_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		return False
 
 

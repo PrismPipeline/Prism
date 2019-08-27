@@ -151,7 +151,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		self.b_upDir.clicked.connect(self.upDir)
 		self.b_downDir.clicked.connect(self.downDir)
 
-		self.b_create.clicked.connect(self.create)
+		self.b_create.clicked.connect(self.createClicked)
 
 
 	@err_decorator
@@ -294,36 +294,55 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
 
 	@err_decorator
-	def create(self):
+	def create(self, name, path, settings={}):
+		prjName = name
+		prjPath = path
+
+		pipeline_steps = settings.get("pipeline_steps", str({"mod": "Modeling",
+									"shd": "Shading",
+									"rig": "Rigging",
+									"anm": "Animation",
+									"ren": "Rendering",
+									"rnd": "Research",
+									"sim": "Simulation",
+									"cmp": "Compositing"}))
+
+		uselocalfiles = settings.get("uselocalfiles", "False")
+		checkframerange = settings.get("checkframerange", "True")
+		forcefps = settings.get("forcefps", "False")
+		fps = settings.get("fps", "24")
+		forceversions = settings.get("forceversions", "False")
+		filenameseperator = settings.get("filenameseperator", "_")
 
 		#check valid project name
-		if self.e_name.text() == "":
-			QMessageBox.warning(self.core.messageParent,"Warning", "The project name is invalid")
+		if not prjName:
+			self.core.popup("The project name is invalid")
 			return
 
 		#create project folder
-		path = self.e_path.text()
-		self.path = path
-
-		if not os.path.isabs(path):
-			QMessageBox.warning(self.core.messageParent,"Warning", "The project path is invalid")
+		if not os.path.isabs(prjPath):
+			self.core.popup("The project path is invalid")
 			return
 
-		if not os.path.exists(path):
+		if not os.path.exists(prjPath):
 			try:
-				os.makedirs(path)
+				os.makedirs(prjPath)
 			except:
-				QMessageBox.warning(self.core.messageParent,"Warning", "The project folder could not be created")
+				self.core.popup("The project folder could not be created")
 				return
 		else:
-			if not os.listdir(path) == []:
-				mStr = "The project folder is not empty.\nExisting files will be overwritten.\n"
-				msg = QMessageBox(QMessageBox.Warning, "Project setup", mStr, QMessageBox.Cancel)
-				msg.addButton("Continue", QMessageBox.YesRole)
-				self.core.parentWindow(msg)
-				action = msg.exec_()
+			if not os.listdir(prjPath) == []:
+				if self.core.uiAvailable:
+					mStr = "The project folder is not empty.\nExisting files will be overwritten.\n"
+					msg = QMessageBox(QMessageBox.Warning, "Project setup", mStr, QMessageBox.Cancel)
+					msg.addButton("Continue", QMessageBox.YesRole)
+					self.core.parentWindow(msg)
+					action = msg.exec_()
 
-				if action != 0:
+					if action != 0:
+						return
+				else:
+					self.core.popup("Project directory already exists.")
 					return
 
 		model = self.tw_dirStruct.model()
@@ -340,36 +359,36 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
 		for i in req:
 			if i not in [x[1] for x in pfolders]:
-				QMessageBox.warning(self.core.messageParent,"Warning", "Not all required folders are defined")
+				self.core.popup("Not all required folders are defined")
 				return
 
 		# create folders
 
-		pPath = os.path.join(path, "00_Pipeline")
+		pPath = os.path.join(prjPath, "00_Pipeline")
 
 		if os.path.exists(pPath):
 			try:
 				shutil.rmtree(pPath)
 			except:
-				QMessageBox.warning(self.core.messageParent,"Warning", "Could not remove folder \"%s\"" % pPath )
+				self.core.popup("Could not remove folder \"%s\"" % pPath)
 				return
 
 		try:
 			shutil.copytree(os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, "ProjectFiles")), pPath)
 		except Exception as e:
-			QMessageBox.warning(self.core.messageParent,"Warning", "Could not copy folders to %s.\n\n%s" % (pPath, str(e)) )
+			self.core.popup("Could not copy folders to %s.\n\n%s" % (pPath, str(e)))
 			return
 
-		for i in (pf for pf in pfolders if not os.path.exists(os.path.join(path, pf[0]))):
+		for i in (pf for pf in pfolders if not os.path.exists(os.path.join(prjPath, pf[0]))):
 			try:
-				os.makedirs(os.path.join(path, i[0]))
+				os.makedirs(os.path.join(prjPath, i[0]))
 			except:
-				QMessageBox.warning(self.core.messageParent,"Warning", "Could not create folder \"%s\"" % i[0] )
+				self.core.popup("Could not create folder \"%s\"" % i[0])
 				return
 
 		#create ini file
 
-		inipath = os.path.join(path, "00_Pipeline", "pipeline.ini")
+		inipath = os.path.join(pPath, "pipeline.ini")
 		for i in pfolders:
 			if i[1] == "Scenes*":
 				scname = i[0]
@@ -378,25 +397,23 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 			if i[1] == "Dailies":
 				dailiesname = i[0]
 
-		cfolders = [os.path.join(path, scname, "Assets"), os.path.join(path, scname, "Shots"), os.path.join(path, assetname, "Textures"), os.path.join(path, assetname, "HDAs")]
+		cfolders = [os.path.join(prjPath, scname, "Assets"), os.path.join(prjPath, scname, "Shots"), os.path.join(prjPath, assetname, "Textures"), os.path.join(prjPath, assetname, "HDAs")]
 
 		for i in cfolders:
 			if not os.path.exists(i):
 				os.makedirs(i)
 
-		projectName = self.e_name.text()
-
 		cData = []
 
-		cData.append(['globals', 'project_name', projectName])
+		cData.append(['globals', 'project_name', prjName])
 		cData.append(['globals', 'prism_version', self.core.version])
-		cData.append(['globals', "pipeline_steps", str({"mod": "Modeling", "shd": "Shading", "rig": "Rigging", "anm": "Animation", "ren": "Rendering", "rnd": "Research", "sim": "Simulation", "cmp": "Compositing"})])
-		cData.append(['globals', 'uselocalfiles', "False"])
-		cData.append(['globals', 'checkframerange', "True"])
-		cData.append(['globals', 'forcefps', "False"])
-		cData.append(['globals', 'fps', "24"])
-		cData.append(['globals', 'forceversions', "False"])
-		cData.append(['globals', 'filenameseperator', "_"])
+		cData.append(['globals', "pipeline_steps", pipeline_steps])
+		cData.append(['globals', 'uselocalfiles', uselocalfiles])
+		cData.append(['globals', 'checkframerange', checkframerange])
+		cData.append(['globals', 'forcefps', forcefps])
+		cData.append(['globals', 'fps', fps])
+		cData.append(['globals', 'forceversions', forceversions])
+		cData.append(['globals', 'filenameseperator', filenameseperator])
 		cData.append(['paths', 'pipeline', "00_Pipeline"])
 		cData.append(['paths', 'scenes', scname])
 		cData.append(['paths', 'assets', assetname])
@@ -411,20 +428,34 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		self.core.setConfig(data=cData, configPath=inipath)
 
 		self.inipath = inipath
-		self.core.changeProject(self.inipath)
 
-		self.core.callback(name="onProjectCreated", types=["curApp", "unloadedApps", "custom"], args=[self, path, projectName])
+		self.core.callback(name="onProjectCreated", types=["curApp", "unloadedApps", "custom"], args=[self, prjPath, prjName])
+		return True
 
-		self.pc = ProjectCreated.ProjectCreated(self.e_name.text(), core=self.core, basepath=path)
-		self.pc.exec_()
 
-		self.close()
+	@err_decorator
+	def createClicked(self):
+		prjName = self.e_name.text()
+		prjPath = self.e_path.text()
+		result = self.create(name=prjName, path=prjPath)
+
+		if result:
+			self.core.changeProject(self.inipath)
+			self.pc = ProjectCreated.ProjectCreated(prjName, core=self.core, basepath=prjPath)
+			self.pc.exec_()
+
+			self.close()
 
 
 	@err_decorator
 	def closeEvent(self, event):
 		self.setParent(None)
-		
+
+
+
+def createProject(core, name, path, settings={}):
+	cp = CreateProject(core=core)
+	return cp.create(name, path, settings)
 
 
 if __name__ == "__main__":

@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.7"
+			self.version = "v1.2.1.8"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -331,7 +331,8 @@ class PrismCore():
 		if self.appPlugin.pluginName != "Standalone":
 			self.maxwait = 20
 			self.elapsed = 0
-			self.timer = QTimer()
+			if self.uiAvailable:
+				self.timer = QTimer()
 			result = self.startup()
 			if result == False:
 				self.timer.timeout.connect(self.startup)
@@ -526,7 +527,7 @@ class PrismCore():
 	def startup(self):
 		if self.appPlugin.hasQtParent:
 			self.elapsed += 1
-			if self.elapsed > self.maxwait:
+			if self.elapsed > self.maxwait and hasattr(self, "timer"):
 				self.timer.stop()
 
 		result = self.appPlugin.startup(self)
@@ -686,6 +687,12 @@ class PrismCore():
 	def changeProject(self, inipath, openUi="", settingsTab=1):
 		if inipath is None:
 			return
+
+		if os.path.isdir(inipath):
+			if os.path.basename(inipath) == "00_Pipeline":
+				inipath = os.path.join(inipath, "pipeline.ini")
+			else:
+				inipath = os.path.join(inipath, "00_Pipeline", "pipeline.ini")
 			
 		delModules = []
 
@@ -717,6 +724,8 @@ class PrismCore():
 				del self.projectPath
 			if hasattr(self, "useLocalFiles"):
 				del self.useLocalFiles
+
+			self.popup("Couldn't set project. File doesn't exist: %s" % inifile)
 			return
 
 		openPb=False
@@ -1157,7 +1166,7 @@ class PrismCore():
 
 
 	@err_decorator
-	def createProject(self):
+	def createProject(self, name=None, path=None, settings={}):
 		try:
 			del sys.modules["CreateProject"]
 		except:
@@ -1176,8 +1185,11 @@ class PrismCore():
 				os.remove(modPath)
 			import CreateProject
 
-		self.cp = CreateProject.CreateProject(core = self)
-		self.cp.show()
+		if name is not None and path is not None:
+			return CreateProject.createProject(core=self, name=name, path=path, settings=settings)
+		else:
+			self.cp = CreateProject.CreateProject(core=self)
+			self.cp.show()
 
 
 	@err_decorator
@@ -1592,12 +1604,18 @@ class PrismCore():
 			path = QFileDialog.getExistingDirectory(self.messageParent, "Select existing project folder")
 		else:
 			path = QFileDialog.getExistingDirectory(self.messageParent, "Select existing project folder", os.path.abspath(os.path.join(self.prismIni, os.pardir, os.pardir)))
-		if os.path.exists(os.path.join(path, "00_Pipeline", "pipeline.ini")):
+		
+		if os.path.basename(path) == "00_Pipeline":
+			path = os.path.join(path, "pipeline.ini")
+		else:
+			path = os.path.join(path, "00_Pipeline", "pipeline.ini")
+
+		if os.path.exists(path):
 			try:
 				self.sp.close()
 			except:
 				pass
-			self.changeProject(os.path.join(path, "00_Pipeline", "pipeline.ini"), openUi="projectBrowser")
+			self.changeProject(path, openUi="projectBrowser")
 		else:
 			QMessageBox.warning(self.messageParent,"Warning", "Invalid project folder")
 
@@ -3529,8 +3547,25 @@ except Exception as e:
 			action = warnDlg.exec_()
 
 
+	@err_decorator
+	def popup(self, text, title=None, severity="warning"):
+		if title is None:
+			if severity == "warning":
+				title = "Warning"
+			elif severity == "info":
+				title = "Information"
+			elif severity == "error":
+				title == "Error"
+
+		if self.uiAvailable:
+			QMessageBox.warning(self.messageParent, title, text)
+		else:
+			print "%s - %s" % (title, text)
+
+
 	def writeErrorLog(self, text):
 		try:
+			raiseError = False
 
 			ptext = "An unknown Prism error occured.\nThe error was logged.\nIf you want to help improve Prism, please send this error to the developer.\n\nYou can contact the pipeline administrator or the developer, if you have any questions on this.\n\nMake sure you use the latest Prism version by using the automatic update option in the Prism Settings.\n\n"
 		#	print (text)
@@ -3568,7 +3603,7 @@ except Exception as e:
 					with open(userErPath, "a") as erLog:
 						erLog.write(text)
 
-			if hasattr(self, "messageParent"):
+			if hasattr(self, "messageParent") and self.uiAvailable:
 				msg = QDialog()
 
 				msg.setWindowTitle("Error")
@@ -3605,10 +3640,14 @@ except Exception as e:
 					QMessageBox.information(self.messageParent, "Prism", "The previous error might be caused by the use of special characters (like ö or é). Prism doesn't support this at the moment. Make sure you remove these characters from your filepaths.".decode("utf8"))
 			else:
 				print (text)
+				raiseError = True
 			
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			print ("ERROR - writeErrorLog - %s - %s - %s\n\n" % (str(e), exc_type, exc_tb.tb_lineno))
+
+		if raiseError:
+			raise RuntimeError(text)
 
 
 	def sendError(self, errorText):

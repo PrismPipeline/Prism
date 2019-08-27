@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'CreateProject.ui'
 #
-# Created: Thu Jul 12 20:01:55 2018
+# Created: Tue Aug 27 23:27:06 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -31,12 +31,10 @@ class Ui_dlg_createProject(object):
         self.widget_32.setObjectName("widget_32")
         self.verticalLayout_6 = QtGui.QVBoxLayout(self.widget_32)
         self.verticalLayout_6.setContentsMargins(15, 15, 15, 15)
-        self.verticalLayout_6.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_6.setObjectName("verticalLayout_6")
         self.widget = QtGui.QWidget(self.widget_32)
         self.widget.setObjectName("widget")
         self.gridLayout = QtGui.QGridLayout(self.widget)
-        self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setObjectName("gridLayout")
         self.e_path = QtGui.QLineEdit(self.widget)

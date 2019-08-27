@@ -108,14 +108,13 @@ class Prism_Houdini_Functions(object):
 						hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
 				
 			origin.startasThread()
+			origin.timer.stop()
 		else:
 			QApplication.addLibraryPath(os.path.join(hou.expandString("$HFS"), "bin", "Qt_plugins"))
 			qApp = QApplication.instance()
 			if qApp is None:
 				qApp = QApplication(sys.argv)
 			origin.messageParent = QWidget()
-
-		origin.timer.stop()
 
 
 	@err_decorator
@@ -340,7 +339,7 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if not filepath.endswith(".hip") and not filepath.endswith(".hipnc") and not filepath.endswith(".hiplc"):
 			return False
 

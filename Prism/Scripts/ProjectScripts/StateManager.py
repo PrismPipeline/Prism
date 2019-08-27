@@ -1562,7 +1562,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				print (msgStr)
 
 		if self.reloadScenefile:
-			self.core.appPlugin.openScene(self, self.core.getCurrentFileName())
+			self.core.appPlugin.openScene(self, self.core.getCurrentFileName(), force=True)
 
 
 	@err_decorator
