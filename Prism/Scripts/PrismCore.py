@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.8"
+			self.version = "v1.2.1.9"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1231,7 +1231,21 @@ class PrismCore():
 			
 		import webbrowser
 		webbrowser.open(url)
+
+
+	@err_decorator
+	def createEntity(self, entity):
+		if type(entity) != dict:
+			return False
+
+		if entity["type"] == "shot":
+			if not hasattr(self, "pb"):
+				self.projectBrowser(openUi=False)
+
+			result = self.pb.createShotFolders(fname="%s-%s" % (entity["sequence"], entity["name"]), ftype="shot")
 		
+		return result
+
 
 	@err_decorator
 	def stateManager(self, stateDataPath=None, restart=False):
@@ -1309,7 +1323,7 @@ class PrismCore():
 
 
 	@err_decorator
-	def projectBrowser(self):
+	def projectBrowser(self, openUi=True):
 		if not os.path.exists(self.userini):
 			self.createUserPrefs()
 	
@@ -1350,7 +1364,8 @@ class PrismCore():
 					return False
 			
 			self.pb = ProjectBrowser.ProjectBrowser(core = self)
-			self.pb.show()
+			if openUi:
+				self.pb.show()
 
 			return True
 
@@ -3560,7 +3575,7 @@ except Exception as e:
 		if self.uiAvailable:
 			QMessageBox.warning(self.messageParent, title, text)
 		else:
-			print "%s - %s" % (title, text)
+			print ("%s - %s" % (title, text))
 
 
 	def writeErrorLog(self, text):

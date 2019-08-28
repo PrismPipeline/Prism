@@ -873,7 +873,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def mousedb(self, event, tab, uielement):
 		if tab == "ah":
 			cItem = uielement.itemFromIndex(uielement.indexAt(event.pos()))
-			if cItem is not None and cItem.text(2) == "Asset":
+			if cItem is not None and cItem.text(2) == "asset":
 				return
 			name = "Entity"
 		elif tab == "ap":
@@ -1228,19 +1228,19 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			prjMngMenus = []
 			addOmit = False
 			if tab == "ah" or tab == "f":
-				if cItem is not None and cItem.text(2) != "Asset":
+				if cItem is not None and cItem.text(2) != "asset":
 					subcat = QAction("Create entity", self)
 					typename = "Entity"
 					subcat.triggered.connect(lambda: self.createCatWin(tab, typename))
 					rcmenu.addAction(subcat)
-				elif cItem.text(2) == "Asset":
+				elif cItem.text(2) == "asset":
 					for i in self.core.prjManagers.values():
 						prjMngMenu = i.pbBrowser_getAssetMenu(self, iname, cItem.text(1).replace(self.aBasePath, "")[1:])
 						if prjMngMenu is not None:
 							prjMngMenus.append(prjMngMenu)
 
 				oAct = QAction("Omit Asset", self)
-				oAct.triggered.connect(lambda: self.omitEntity("Asset", cItem.text(1).replace(self.aBasePath, "")[1:]))
+				oAct.triggered.connect(lambda: self.omitEntity("asset", cItem.text(1).replace(self.aBasePath, "")[1:]))
 				addOmit = True
 
 				if tab == "f":
@@ -1256,7 +1256,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						prjMngMenus.append(prjMngMenu)
 
 				oAct = QAction("Omit Shot", self)
-				oAct.triggered.connect(lambda: self.omitEntity("Shot", self.cursShots))
+				oAct.triggered.connect(lambda: self.omitEntity("shot", self.cursShots))
 				addOmit = True
 			dirPath = os.path.join(path, iname)
 			if not os.path.exists(dirPath) and self.core.useLocalFiles and os.path.exists(dirPath.replace(self.core.projectPath, self.core.localProjectPath)):
@@ -1889,7 +1889,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		for path in dirs:
 			val = os.path.basename(path)
-			if val not in self.omittedEntities["Asset"]:
+			if val not in self.omittedEntities["asset"]:
 				if self.e_assetSearch.isVisible():
 					aPath = path.replace(self.aBasePath, "")
 			
@@ -1943,9 +1943,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		isAsset = False
 		if "Export" in dirContent and "Playblasts" in dirContent and "Rendering" in dirContent and "Scenefiles" in dirContent:
 			isAsset = True
-			item.setText(2, "Asset")
+			item.setText(2, "asset")
 		else:
-			item.setText(2, "Folder")
+			item.setText(2, "folder")
 			childs = []
 			for i in dirContentPaths:
 				if os.path.isdir(i):
@@ -1958,7 +1958,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						if len([x for x in self.filteredAssetPaths if aName in x]) == 0:
 							continue
 
-					if os.path.basename(i) not in childs and aName not in self.omittedEntities["Asset"]:
+					if os.path.basename(i) not in childs and aName not in self.omittedEntities["asset"]:
 						child = QTreeWidgetItem([os.path.basename(i), i])
 						item.addChild(child)
 						childs.append(os.path.basename(i))
@@ -2180,7 +2180,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def Assetclicked(self, item):
-		if item is not None and item.childCount() == 0 and item.text(0) != None and item.text(2) == "Asset":
+		if item is not None and item.childCount() == 0 and item.text(0) != None and item.text(2) == "asset":
 			self.curAsset = item.text(1)
 		else:
 			self.curAsset = None
@@ -2287,7 +2287,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		for path in sorted(dirs):
 			val = os.path.basename(path)
-			if not val.startswith("_") and val not in self.omittedEntities["Shot"]:
+			if not val.startswith("_") and val not in self.omittedEntities["shot"]:
 				if "-" in val:
 					sname = val.split("-",1)
 					seqName = sname[0]
@@ -2788,7 +2788,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def createShot(self, shotName):
-		self.createShotFolders(shotName, "Shot")
+		self.createShotFolders(shotName, "shot")
 
 		self.refreshShots()
 
@@ -3202,7 +3202,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				self.fhierarchy.append(self.fclickedon)
 		elif tab == "ah" and self.newItem.rb_asset.isChecked():
 			assetPath = os.path.join(path, self.itemName)
-			self.createShotFolders(assetPath, "Asset")
+			self.createShotFolders(assetPath, "asset")
 			self.core.callback(name="onAssetCreated", types=["custom"], args=[self, self.itemName, path, self.newItem])
 			for i in self.core.prjManagers.values():
 				i.assetCreated(self, self.newItem, assetPath)
@@ -3234,7 +3234,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def createShotFolders(self, fname, ftype):
-		if ftype == "Asset":
+		if ftype == "asset":
 			basePath = self.aBasePath
 			fname = fname.replace(self.aBasePath, "")
 			if fname[0] in ["/", "\\"]:
@@ -3242,15 +3242,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		else:
 			basePath = self.sBasePath
 
+		sBase = os.path.join(basePath, fname)
 		sFolders = []
-		sFolders.append(os.path.join(basePath, fname, "Scenefiles"))
-		sFolders.append(os.path.join(basePath, fname, "Export"))
-		sFolders.append(os.path.join(basePath, fname, "Playblasts"))
-		sFolders.append(os.path.join(basePath, fname, "Rendering", "3dRender"))
-		sFolders.append(os.path.join(basePath, fname, "Rendering", "2dRender"))
+		sFolders.append(os.path.join(sBase, "Scenefiles"))
+		sFolders.append(os.path.join(sBase, "Export"))
+		sFolders.append(os.path.join(sBase, "Playblasts"))
+		sFolders.append(os.path.join(sBase, "Rendering", "3dRender"))
+		sFolders.append(os.path.join(sBase, "Rendering", "2dRender"))
 
-		if os.path.exists(os.path.dirname(sFolders[0])):
-			if fname in self.omittedEntities[ftype]:
+		if os.path.exists(sBase):
+			if fname in self.omittedEntities[ftype] and self.core.uiAvailable:
 				msgText = "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?" % (ftype, fname)
 				if psVersion == 1:
 					flags = QMessageBox.StandardButton.Yes
@@ -3268,12 +3269,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				else:
 					return
 			else:
-				QMessageBox.warning(self.core.messageParent, "Warning", "The %s %s already exists" % (ftype, fname))
+				self.core.popup("The %s %s already exists" % (ftype, fname))
 				return
 
 		for i in sFolders:
 			if not os.path.exists(i):
 				os.makedirs(i)
+
+		return sBase
 
 
 	@err_decorator
@@ -3468,25 +3471,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			with open(omitConfig, 'w') as inifile:
 				oconfig.write(inifile)
 
-			if eType == "Asset":
+			if eType == "asset":
 				self.refreshAHierarchy()
-			elif eType == "Shot":
+			elif eType == "shot":
 				self.refreshShots()
 
 
 	@err_decorator
 	def refreshOmittedEntities(self):
-		self.omittedEntities = {"Asset":[], "Shot":[]}
+		self.omittedEntities = {"asset":[], "shot":[]}
 		omitPath = os.path.join(os.path.dirname(self.core.prismIni), "Configs", "omits.ini")
 		if os.path.exists(omitPath):
 			oconfig = ConfigParser()
 			oconfig.read(omitPath)
 
 			if oconfig.has_section("Shot"):
-				self.omittedEntities["Shot"] = [x[1] for x in oconfig.items("Shot")]
+				self.omittedEntities["shot"] = [x[1] for x in oconfig.items("Shot")]
 
 			if oconfig.has_section("Asset"):
-				self.omittedEntities["Asset"] = [x[1] for x in oconfig.items("Asset")]
+				self.omittedEntities["asset"] = [x[1] for x in oconfig.items("Asset")]
 
 
 	@err_decorator
