@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.9"
+			self.version = "v1.2.1.10"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -725,7 +725,7 @@ class PrismCore():
 			if hasattr(self, "useLocalFiles"):
 				del self.useLocalFiles
 
-			self.popup("Couldn't set project. File doesn't exist: %s" % inifile)
+			self.popup("Couldn't set project. File doesn't exist: %s" % inipath)
 			return
 
 		openPb=False
