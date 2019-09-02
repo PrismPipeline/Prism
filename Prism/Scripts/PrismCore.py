@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.10"
+			self.version = "v1.2.1.11"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -809,15 +809,16 @@ class PrismCore():
 		self.checkCommands()
 		self.callback(name="onProjectChanged", types=["curApp", "custom", "prjManagers"], args=[self])
 
-		if openPb or openUi == "projectBrowser":
-			self.projectBrowser()
+		if self.uiAvailable:
+			if openPb or openUi == "projectBrowser":
+				self.projectBrowser()
 
-		if openSm or openUi == "stateManager":
-			self.stateManager()
+			if openSm or openUi == "stateManager":
+				self.stateManager()
 
-		if openPs or openUi == "prismSettings":
-			self.prismSettings()
-			self.ps.tw_settings.setCurrentIndex(settingsTab)
+			if openPs or openUi == "prismSettings":
+				self.prismSettings()
+				self.ps.tw_settings.setCurrentIndex(settingsTab)
 
 
 	@err_decorator
@@ -1238,12 +1239,67 @@ class PrismCore():
 		if type(entity) != dict:
 			return False
 
-		if entity["type"] == "shot":
+		if entity["type"][0] == "project":
+			result = self.createProject(name=entity["name"][0], path=entity["path"][0])
+
+		elif entity["type"][0] == "asset":
 			if not hasattr(self, "pb"):
 				self.projectBrowser(openUi=False)
 
-			result = self.pb.createShotFolders(fname="%s-%s" % (entity["sequence"], entity["name"]), ftype="shot")
-		
+			result = self.pb.createShotFolders(fname="%s/%s" % (entity["hierarchy"][0], entity["name"][0]), ftype="asset")
+
+		elif entity["type"][0] == "shot":
+			if not hasattr(self, "pb"):
+				self.projectBrowser(openUi=False)
+
+			result = self.pb.createShotFolders(fname="%s-%s" % (entity["sequence"][0], entity["name"][0]), ftype="shot")
+
+		elif entity["type"][0] == "step":
+			if not hasattr(self, "pb"):
+				self.projectBrowser(openUi=False)
+
+			if "assetName" in entity:
+				entityType = "asset"
+				entityName = entity["assetName"][0]
+			else:
+				entityType = "shot"
+				entityName = entity["shotName"][0]
+
+			result = self.pb.createStep(stepName=entity["name"][0], entity=entityType, entityName=entityName, createCat=False)
+
+		elif entity["type"][0] == "category":
+			if not hasattr(self, "pb"):
+				self.projectBrowser(openUi=False)
+
+			if "assetName" in entity:
+				entityType = "asset"
+				entityName = entity["assetName"][0]
+				basePath = "%s/%s" % (entity["hierarchy"][0], entityName)
+			else:
+				entityType = "shot"
+				entityName = entity["shotName"][0]
+				basePath = ""
+
+			catPath = os.path.dirname(os.path.dirname(self.generateScenePath(entity=entityType, entityName=entityName, step=entity["step"][0], category=entity["name"][0], basePath=basePath)))
+
+			result = self.pb.createCategory(catName=entity["name"][0], path=catPath)
+
+		elif entity["type"][0] == "scenefile":
+			if not hasattr(self, "pb"):
+				self.projectBrowser(openUi=False)
+
+			if "assetName" in entity:
+				entityType = "asset"
+				entityName = entity["assetName"][0]
+			else:
+				entityType = "shot"
+				entityName = entity["shotName"][0]
+
+			result = self.pb.createEmptyScene(entity=entityType, fileName=entity["source"][0], entityName=entityName, step=entity["step"][0], category=entity["category"][0], comment=entity["comment"][0], openFile=False)
+		else:
+			self.popup("invalid type: " + entity["type"][0])
+			return False
+
 		return result
 
 

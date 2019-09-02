@@ -351,12 +351,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 	@err_decorator
 	def loadData(self):
 		if self.shotName is not None:
-			if "-" in self.shotName:
-				sname = self.shotName.split("-",1)
-				self.e_sequence.setText(sname[0])
-				self.e_shotName.setText(sname[1])
-			else:
-				self.e_shotName.setText(self.shotName)
+			shotName, seqName = self.core.pb.splitShotname(self.shotName)
+			if seqName and seqName != "no sequence":
+				self.e_sequence.setText(seqName)
+			self.e_shotName.setText(shotName)
 
 			shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
 

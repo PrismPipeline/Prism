@@ -527,13 +527,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			if len(tasks) == 0:
 				continue
 
-			if "-" in val:
-				sname = val.split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-			else:
-				seqName = "no sequence"
-				shotName = val
+			shotName, seqName = self.core.pb.splitShotname(val)
 
 			shots.append([seqName, shotName, path])
 			if seqName not in sequences:
@@ -845,13 +839,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				uielement = self.tw_shots
 				entityName = fileNameData[2]
 				self.tbw_entity.setCurrentIndex(1)
-				if "-" in entityName:
-					sname = entityName.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
-					seqName = "no sequence"
-					shotName = entityName
+
+				shotName, seqName = self.core.pb.splitShotname(entityName)
 
 				for i in range(self.tw_shots.topLevelItemCount()):
 					sItem = self.tw_shots.topLevelItem(i)

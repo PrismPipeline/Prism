@@ -891,7 +891,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					uielement.setExpanded(mIndex, not uielement.isExpanded(mIndex))
 					uielement.mouseDClick(event)
 		elif tab == "sp":
-			if self.cursShots is not None and not (len(self.cursShots.split("-")) == 2 and self.cursShots[-1] == "-") and self.lw_sPipeline.indexAt(event.pos()).data() == None:
+			shotName = self.splitShotname(self.cursShots)
+			if shotName and len(shotName) == 2 and shotName[1] and self.lw_sPipeline.indexAt(event.pos()).data() == None:
 				self.createStepWindow("s")
 		elif tab == "sc":
 			if self.cursStep is not None and self.lw_sCategory.indexAt(event.pos()).data() == None:
@@ -1622,7 +1623,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def createEmptyScene(self, entity, fileName, entityName=None, step=None, category=None, openFile=True):
+	def createEmptyScene(self, entity, fileName, entityName=None, step=None, category=None, comment=None, openFile=True):
 		if fileName == "createnew":
 			emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
 
@@ -1645,6 +1646,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			return
 
 		ext = os.path.splitext(fileName)[1]
+		comment = comment or ""
 
 		if entity == "asset":
 			refresh = self.refreshAFile
@@ -1661,17 +1663,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			assetName = entityName or os.path.basename(self.curAsset)
 			step = step or self.curaStep
 			category = category or self.curaCat
-			filePath = self.core.generateScenePath("asset", assetName, step, assetPath=dstname, category=category, extension=ext)
+			filePath = self.core.generateScenePath("asset", assetName, step, assetPath=dstname, category=category, extension=ext, comment=comment)
 		elif entity == "shot":
 			refresh    = self.refreshSFile
 			entityName = entityName or self.cursShots
 			step       = step or self.cursStep
 			category = category or self.cursCat
-			filePath = self.core.generateScenePath("shot", entityName, step, category=category, extension=ext)
+			filePath = self.core.generateScenePath("shot", entityName, step, category=category, extension=ext, comment=comment)
 		else:
 			return
 
-		scene = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes", fileName)
+		if os.path.isabs(fileName):
+			scene = fileName
+		else:
+			scene = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes", fileName)
 
 		if self.core.useLocalFiles:
 			filePath = filePath.replace(self.core.projectPath, self.core.localProjectPath)
@@ -2288,13 +2293,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		for path in sorted(dirs):
 			val = os.path.basename(path)
 			if not val.startswith("_") and val not in self.omittedEntities["shot"]:
-				if "-" in val:
-					sname = val.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
-					seqName = "no sequence"
-					shotName = val
+				shotName, seqName = self.splitShotname(val)
 
 				if searchFilter not in seqName and searchFilter not in shotName:
 					continue
@@ -2312,6 +2311,19 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			sequences.insert(len(sequences), sequences.pop(sequences.index("no sequence")))
 
 		return sequences, shots
+
+
+	@err_decorator
+	def splitShotname(self, shotname):
+		if "-" in shotname:
+			sname = shotname.split("-",1)
+			seqName = sname[0]
+			shotName = sname[1]
+		else:
+			seqName = "no sequence"
+			shotName = shotname
+
+		return shotName, seqName
 
 
 	@err_decorator
@@ -2614,7 +2626,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						startFrame = shotRange[0]
 						endFrame = shotRange[1]
 
-			if len(self.cursShots.split("-")) == 2 and self.cursShots.endswith("-"):
+			shotName, seqName = self.splitShotname(self.cursShots)
+			if not shotName and seqName:
 				rangeText = "Sequence selected"
 			else:
 				rangeText = "Framerange:	%s - %s" % (startFrame, endFrame)
@@ -2656,7 +2669,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			copAct.triggered.connect(lambda: self.captureEntityPreview("asset", self.curAsset))
 			rcmenu.addAction(copAct)
 		else:
-			if not self.cursShots or (len(self.cursShots.split("-")) == 2 and self.cursShots.endswith("-")):
+			shotName, seqName = self.splitShotname(self.cursShots)
+			if not shotName:
 				return
 
 			exp = QAction("Edit shotinfo", self)
@@ -2749,11 +2763,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		import EditShot
 		self.es = EditShot.EditShot(core = self.core, shotName= shotName, sequences=sequs)
 		self.core.parentWindow(self.es)
-		if not shotName or (len(shotName.split("-")) == 2 and shotName.endswith("-")):
+		sName, seqName = self.splitShotname(shotName)
+		if not sName:
 			self.es.setWindowTitle("Create Shot")
 
 			if self.cursShots is not None:
-				self.es.e_sequence.setText(self.cursShots.split("-")[0])
+				self.es.e_sequence.setText(seqName)
 				self.es.e_shotName.setFocus()
 
 		self.core.callback(name="onShotDlgOpen", types=["custom"], args=[self, self.es, shotName])
@@ -2768,13 +2783,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.refreshShots()
 
-		if "-" in self.es.shotName:
-			sname = self.es.shotName.split("-",1)
-			seqName = sname[0]
-			shotName = sname[1]
-		else:
-			seqName = "no sequence"
-			shotName = self.es.shotName
+		shotName, seqName = self.splitShotname(self.es.shotName)
 
 		for i in range(self.tw_sShot.topLevelItemCount()):
 			sItem = self.tw_sShot.topLevelItem(i)
@@ -2792,13 +2801,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.refreshShots()
 
-		if "-" in self.es.shotName:
-			sname = self.es.shotName.split("-",1)
-			seqName = sname[0]
-			shotName = sname[1]
-		else:
-			seqName = "no sequence"
-			shotName = self.es.shotName
+		shotName, seqName = self.splitShotname(self.es.shotName)
 
 		self.core.callback(name="onShotCreated", types=["custom"], args=[self, seqName, shotName])
 
@@ -3270,7 +3273,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					return
 			else:
 				self.core.popup("The %s %s already exists" % (ftype, fname))
-				return
+				return True
 
 		for i in sFolders:
 			if not os.path.exists(i):
@@ -3335,7 +3338,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						stepPath = os.path.join(i, "Scenefiles", stepName)
 						break
 				else:
-					QMessageBox.warning(self.core.messageParent, "Warning", "Asset '%s' doesn't exist. Could not create step." % entityName)
+					self.core.popup("Asset '%s' doesn't exist. Could not create step." % entityName)
 					return
 
 			elif entity == "shot":
@@ -3345,7 +3348,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			try:
 				os.makedirs(stepPath)
 			except:
-				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % stepName))
+				self.core.popup("The directory %s could not be created" % stepName)
 				return False
 
 		settings = {"createDefaultCategory": (entity == "shot" or self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") != "lower") and createCat}
@@ -3374,6 +3377,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def createCategory(self, catName, path):
+		if os.path.basename(path) != catName:
+			path = os.path.join(path, catName)
+
 		if not os.path.exists(path):
 			try:
 				os.makedirs(path)
@@ -3569,13 +3575,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if len(fnameData) > 3:
 					catName = fnameData[3]
 
-				if "-" in shotName:
-					sname = shotName.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
-					seqName = "no sequence"
-					shotName = shotName
+				shotName, seqName = self.splitShotname(shotName)
 
 				for i in range(self.tw_sShot.topLevelItemCount()):
 					sItem = self.tw_sShot.topLevelItem(i)

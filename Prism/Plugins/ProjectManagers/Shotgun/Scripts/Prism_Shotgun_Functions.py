@@ -469,13 +469,9 @@ class Prism_Shotgun_Functions(object):
 		createdShots = []
 		updatedShots = []
 		for shot in shots:
-			if "-" in shot:
-				sname = shot.split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-			else:
+			shotName, seqName = self.core.pb.splitShotname(shot)
+			if seqName == "no sequence":
 				seqName = ""
-				shotName = shot
 
 			shotImgPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % shot)
 			if os.path.exists(shotImgPath):
@@ -626,22 +622,21 @@ class Prism_Shotgun_Functions(object):
 				filters += [
 					['sg_localhierarchy', 'is', assetPath]
 				]
-			elif eType == "Shot" and "-" in shotName:
-				sname = shotName.split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-				seqFilters = [ 
-					['project','is', {'type': 'Project','id': sgPrjId}],
-					['code', 'is', seqName]
-				]
-
-				seq = sg.find_one("Sequence", seqFilters)
-				if seq is not None:
-					filters = [ 
+			elif eType == "Shot":
+				shotName, seqName = self.core.pb.splitShotname(shotName)
+				if seqName and seqName != "no sequence":
+					seqFilters = [ 
 						['project','is', {'type': 'Project','id': sgPrjId}],
-						['code', 'is', shotName],
-						['sg_sequence', 'is', seq]
+						['code', 'is', seqName]
 					]
+
+					seq = sg.find_one("Sequence", seqFilters)
+					if seq is not None:
+						filters = [ 
+							['project','is', {'type': 'Project','id': sgPrjId}],
+							['code', 'is', shotName],
+							['sg_sequence', 'is', seq]
+						]
 
 			shot = sg.find_one(eType, filters)
 			if shot is None:
@@ -952,13 +947,10 @@ class Prism_Shotgun_Functions(object):
 		localShots = []
 		for x in foldercont[1]:
 			if not x.startswith("_") and x not in origin.omittedEntities["Shot"]:
-				if "-" in x:
-					sname = x.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
+				shotName, seqName = self.core.pb.splitShotname(x)
+				if seqName == "no sequence":
 					seqName = ""
-					shotName = x
+
 				localShots.append([x, seqName, shotName])
 
 		createdShots = []

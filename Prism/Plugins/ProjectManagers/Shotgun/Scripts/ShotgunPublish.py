@@ -176,13 +176,9 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 				['entity.%s.code' % self.ptype, 'is', self.cb_shot.currentText()]
 			]
 		elif self.ptype == "Shot":
-			if "-" in self.cb_shot.currentText():
-				sname = self.cb_shot.currentText().split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-			else:
+			shotName, seqName = self.core.pb.splitShotname(self.cb_shot.currentText())
+			if seqName == "no sequence":
 				seqName = ""
-				shotName = self.cb_shot.currentText()
 
 			filters = [ 
 				['project','is', {'type': 'Project','id': self.sgPrjId}],

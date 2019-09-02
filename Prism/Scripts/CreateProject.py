@@ -343,7 +343,10 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 						return
 				else:
 					self.core.popup("Project directory already exists.")
-					return
+					if os.path.exists(os.path.join(prjPath, "00_Pipeline", "pipeline.ini")):
+						return True
+					else:
+						return
 
 		model = self.tw_dirStruct.model()
 		pfolders = []
