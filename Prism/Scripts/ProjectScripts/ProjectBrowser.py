@@ -1685,20 +1685,22 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			try:
 				os.makedirs(os.path.dirname(filePath))
 			except:
-				QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
-				return None
+				self.core.popup("The directory could not be created:\n\n%s" % os.path.dirname(filePath))
+				return
 
 		filePath = filePath.replace("\\","/")
 
 		shutil.copyfile(scene, filePath)
-		if ext in self.core.appPlugin.sceneFormats and openFile:
-			self.core.callback(name="preLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
-			self.exeFile(filepath=filePath)
-			self.core.callback(name="postLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
-		else:
-			self.core.addToRecent(filePath)
-			self.setRecent()
-			refresh()
+
+		if self.core.uiAvailable:
+			if ext in self.core.appPlugin.sceneFormats and openFile:
+				self.core.callback(name="preLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
+				self.exeFile(filepath=filePath)
+				self.core.callback(name="postLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
+			else:
+				self.core.addToRecent(filePath)
+				self.setRecent()
+				refresh()
 
 		return filePath
 
@@ -2796,23 +2798,53 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def createShot(self, shotName):
-		self.createShotFolders(shotName, "shot")
+	def createShot(self, shotName, frameRange=None):
+		result = self.createShotFolders(shotName, "shot")
 
-		self.refreshShots()
+		if result == True or not result:
+			return result
 
-		shotName, seqName = self.splitShotname(self.es.shotName)
+		if frameRange:
+			shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
+
+			if not os.path.exists(os.path.dirname(shotFile)):
+				os.makedirs(os.path.dirname(shotFile))
+
+			if not os.path.exists(shotFile):
+				open(shotFile, 'a').close()
+
+			sconfig = ConfigParser()
+			try:
+				sconfig.read(shotFile)
+			except:
+				pass
+			else:
+				if not sconfig.has_section("shotRanges"):
+					sconfig.add_section("shotRanges")
+
+				sconfig.set("shotRanges", shotName, str(frameRange))
+
+				with open(shotFile, 'w') as inifile:
+					sconfig.write(inifile)
+
+		if self.core.uiAvailable:
+			self.refreshShots()
+
+		shotName, seqName = self.splitShotname(shotName)
 
 		self.core.callback(name="onShotCreated", types=["custom"], args=[self, seqName, shotName])
 
-		for i in range(self.tw_sShot.topLevelItemCount()):
-			sItem = self.tw_sShot.topLevelItem(i)
-			if sItem.text(0) == seqName:
-				sItem.setExpanded(True)
-				for k in range(sItem.childCount()):
-					shotItem = sItem.child(k)
-					if shotItem.text(0) == shotName:
-						self.tw_sShot.setCurrentItem(shotItem)
+		if self.core.uiAvailable:
+			for i in range(self.tw_sShot.topLevelItemCount()):
+				sItem = self.tw_sShot.topLevelItem(i)
+				if sItem.text(0) == seqName:
+					sItem.setExpanded(True)
+					for k in range(sItem.childCount()):
+						shotItem = sItem.child(k)
+						if shotItem.text(0) == shotName:
+							self.tw_sShot.setCurrentItem(shotItem)
+
+		return result
 
 
 	@err_decorator

@@ -95,25 +95,27 @@ except:
 class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 	def __init__(self, core):
 		QDialog.__init__(self)
-		self.setupUi(self)
 		self.core = core
-		self.core.parentWindow(self)
+		if self.core.uiAvailable:
+			self.setupUi(self)
+			self.core.parentWindow(self)
 	
-		self.core.appPlugin.createProject_startup(self)
+			self.core.appPlugin.createProject_startup(self)
 
-		nameTT = "The name of the new project.\nThe project name will be visible at different locations in the Prism user interface."
-		self.l_name.setToolTip(nameTT)
-		self.e_name.setToolTip(nameTT)
-		pathTT = "This is the directory, where the project will be saved.\nThis folder should be empty or should not exist.\nThe project name will NOT be appended automatically to this path."
-		self.l_path.setToolTip(pathTT)
-		self.e_path.setToolTip(pathTT)
-		self.b_browse.setToolTip("Select a folder on the current PC")
-		self.gb_folderStructure.setToolTip("This list defines the top-level folder structure of the project.\nDouble-Click a name or a type to edit an existing folder.\nFoldertypes marked with an \"*\" have to be defined before the project can be created.\nAdditional folders can be created manually later on.")
+			nameTT = "The name of the new project.\nThe project name will be visible at different locations in the Prism user interface."
+			self.l_name.setToolTip(nameTT)
+			self.e_name.setToolTip(nameTT)
+			pathTT = "This is the directory, where the project will be saved.\nThis folder should be empty or should not exist.\nThe project name will NOT be appended automatically to this path."
+			self.l_path.setToolTip(pathTT)
+			self.e_path.setToolTip(pathTT)
+			self.b_browse.setToolTip("Select a folder on the current PC")
+			self.gb_folderStructure.setToolTip("This list defines the top-level folder structure of the project.\nDouble-Click a name or a type to edit an existing folder.\nFoldertypes marked with an \"*\" have to be defined before the project can be created.\nAdditional folders can be created manually later on.")
 
-		self.fillDirStruct()
-		self.connectEvents()
+			self.connectEvents()
 
-		self.e_name.setFocus()
+			self.e_name.setFocus()
+
+		self.setupFolders()
 
 
 	def err_decorator(func):
@@ -192,17 +194,23 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
 
 	@err_decorator
-	def fillDirStruct(self):
-		model = QStandardItemModel()
-		model.setHorizontalHeaderLabels(["Prefix","Name", "Type"])
-		self.tw_dirStruct.setModel(model)
-		self.tw_dirStruct.setColumnWidth(1,300)
+	def setupFolders(self):
+		self.prjFolders = [
+							["01_Management", "Default"],
+							["02_Designs", "Default"],
+							["03_Workflow", "Scenes*"],
+							["04_Assets", "Assets*"],
+							["05_Dailies", "Dailies"]
+						]
 
-		self.addDir("Management", "Default")
-		self.addDir("Designs", "Default")
-		self.addDir("Workflow", "Scenes*")
-		self.addDir("Assets", "Assets*")
-		self.addDir("Dailies", "Dailies")
+		if self.core.uiAvailable:
+			model = QStandardItemModel()
+			model.setHorizontalHeaderLabels(["Prefix","Name", "Type"])
+			self.tw_dirStruct.setModel(model)
+			self.tw_dirStruct.setColumnWidth(1,300)
+
+			for i in self.prjFolders:
+				self.addDir(i[0].split("_", 1)[1], i[1])
 
 
 	@err_decorator
@@ -348,20 +356,21 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 					else:
 						return
 
-		model = self.tw_dirStruct.model()
-		pfolders = []
-
-		#adding numbers to the foldernames
-		for i in range(model.rowCount()):
-			fName = model.index(i,1).data()
-			if fName != "":
-				pfolders.append([model.index(i,0).data() + fName, model.index(i,2).data()])
+		if self.core.uiAvailable:
+			self.prjFolders = []
+			model = self.tw_dirStruct.model()
+			
+			#adding numbers to the foldernames
+			for i in range(model.rowCount()):
+				fName = model.index(i,1).data()
+				if fName != "":
+					self.prjFolders.append([model.index(i,0).data() + fName, model.index(i,2).data()])
 
 		#check if all required folders are defined
 		req = ["Scenes*", "Assets*"]
 
 		for i in req:
-			if i not in [x[1] for x in pfolders]:
+			if i not in [x[1] for x in self.prjFolders]:
 				self.core.popup("Not all required folders are defined")
 				return
 
@@ -382,7 +391,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 			self.core.popup("Could not copy folders to %s.\n\n%s" % (pPath, str(e)))
 			return
 
-		for i in (pf for pf in pfolders if not os.path.exists(os.path.join(prjPath, pf[0]))):
+		for i in (pf for pf in self.prjFolders if not os.path.exists(os.path.join(prjPath, pf[0]))):
 			try:
 				os.makedirs(os.path.join(prjPath, i[0]))
 			except:
@@ -392,7 +401,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		#create ini file
 
 		inipath = os.path.join(pPath, "pipeline.ini")
-		for i in pfolders:
+		for i in self.prjFolders:
 			if i[1] == "Scenes*":
 				scname = i[0]
 			if i[1] == "Assets*":
