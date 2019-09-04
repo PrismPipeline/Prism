@@ -793,7 +793,7 @@ class Prism_Houdini_Functions(object):
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "houdini_submit_info.job" )
 
 		dlParams["jobInfos"]["Plugin"] = "Houdini"
-		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Houdini_ImageRender"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Houdini_%s" % origin.className
 
 		dlParams["pluginInfos"]["OutputDriver"] = origin.node.path()
 		dlParams["pluginInfos"]["IgnoreInputs"] = "True"

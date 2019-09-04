@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.12"
+			self.version = "v1.2.1.13"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1239,12 +1239,17 @@ class PrismCore():
 		if type(entity) != dict:
 			return False
 
-		if not hasattr(self, "pb"):
-			self.projectBrowser(openUi=False)
+		if entity["type"][0] != "project":
+			if not hasattr(self, "pb"):
+				self.projectBrowser(openUi=False)
 
-		self.pb.scenes = self.getConfig('paths', "scenes", configPath=self.prismIni)
-		self.pb.aBasePath = os.path.join(self.projectPath, self.pb.scenes, "Assets")
-		self.pb.sBasePath = os.path.join(self.projectPath, self.pb.scenes, "Shots")
+			if not hasattr(self, "pb"):
+				self.popup("Could not initialize the Project Browser.")
+				return False
+
+			self.pb.scenes = self.getConfig('paths', "scenes", configPath=self.prismIni)
+			self.pb.aBasePath = os.path.join(self.projectPath, self.pb.scenes, "Assets")
+			self.pb.sBasePath = os.path.join(self.projectPath, self.pb.scenes, "Shots")
 
 		if entity["type"][0] == "project":
 			result = self.createProject(name=entity["name"][0], path=entity["path"][0])
@@ -1580,6 +1585,10 @@ class PrismCore():
 
 	@err_decorator
 	def changeUser(self):
+		if not self.uiAvailable:
+			self.popup("No username is defined. Open the Prism Settings and set a username.")
+			return
+
 		if hasattr(self, "user"):
 			del self.user
 
@@ -2523,7 +2532,7 @@ class PrismCore():
 			QMessageBox.warning(self.messageParent, "Could not save the file", "The filepath is longer than 255 characters (%s), which is not supported on Windows." % outLength)
 			return False
 
-		self.callback(name="onAboutToSaveFile", types=["custom"], args=[self, filepath])
+		self.callback(name="onAboutToSaveFile", types=["custom"], args=[self, filepath, versionUp, comment, publish])
 
 		result = self.appPlugin.saveScene(self, filepath, details)
 		if len(details) > 0:
@@ -2533,7 +2542,7 @@ class PrismCore():
 			prvPath = os.path.splitext(filepath)[0] + "preview.jpg"
 			self.savePMap(preview, prvPath)
 
-		self.callback(name="onSaveFile", types=["custom"], args=[self, filepath])
+		self.callback(name="onSaveFile", types=["custom"], args=[self, filepath, versionUp, comment, publish])
 
 		if result == False:
 			return False			
@@ -3446,12 +3455,13 @@ except Exception as e:
 			url = 'https://api.github.com/repos/RichardFrangenberg/Prism/zipball'
 
 			try:
+				import ssl
 				if pVersion == 2:
 					import urllib
-					u = urllib.urlopen(url)
+					u = urllib.urlopen(url, context=ssl._create_unverified_context())
 				else:
 					import urllib.request
-					u = urllib.request.urlopen(url)
+					u = urllib.request.urlopen(url, context=ssl._create_unverified_context())
 			except Exception as e:
 				if "waitmsg" in locals() and waitmsg.isVisible():
 					waitmsg.close()
