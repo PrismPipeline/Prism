@@ -1529,6 +1529,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
 							return
 
 		getattr(self.core.appPlugin, "sm_postExecute", lambda x:None)(self)
+		pubType = "stateExecution" if executeState else "publish"
+		self.core.callback(name="postPublish", types=["custom"], args=[self, pubType])
 
 		self.publishInfos = { "updatedExports": {}, "backgroundRender": None}
 		self.osSubmittedJobs = {}

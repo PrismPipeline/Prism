@@ -139,24 +139,33 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
+	def postPublish(self, origin, publishType):
+		'''
+		origin: 		StateManager instance
+		publishType: 	The type (string) of the publish. 
+						Can be "stateExecution" (state was executed from the context menu) or "publish" (publish button was pressed)
+		'''
+
+
+	@err_decorator
 	def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish):
 		'''
-		origin: PrismCore instance
-		filepath: The filepath of the scenefile, which will be saved
-		versionUp: (bool) True if this save increments the version of that scenefile
-		comment: The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-		isPublish: (bool) True if this save was triggered by a publish
+		origin: 	PrismCore instance
+		filepath: 	The filepath of the scenefile, which will be saved
+		versionUp: 	(bool) True if this save increments the version of that scenefile
+		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
+		isPublish: 	(bool) True if this save was triggered by a publish
 		'''
 
 
 	@err_decorator
 	def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
 		'''
-		origin: PrismCore instance
-		filepath: The filepath of the scenefile, which was saved
-		versionUp: (bool) True if this save increments the version of that scenefile
-		comment: The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-		isPublish: (bool) True if this save was triggered by a publish
+		origin: 	PrismCore instance
+		filepath: 	The filepath of the scenefile, which was saved
+		versionUp: 	(bool) True if this save increments the version of that scenefile
+		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
+		isPublish: 	(bool) True if this save was triggered by a publish
 		'''
 
 
