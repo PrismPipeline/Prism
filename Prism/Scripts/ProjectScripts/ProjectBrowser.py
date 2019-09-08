@@ -2316,14 +2316,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def splitShotname(self, shotname):
-		if "-" in shotname:
-			sname = shotname.split("-",1)
+	def splitShotname(self, shotName):
+		if shotName and "-" in shotName:
+			sname = shotName.split("-",1)
 			seqName = sname[0]
 			shotName = sname[1]
 		else:
 			seqName = "no sequence"
-			shotName = shotname
+			shotName = shotName
 
 		return shotName, seqName
 
@@ -2770,7 +2770,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.es.setWindowTitle("Create Shot")
 
 			if self.cursShots is not None:
-				self.es.e_sequence.setText(seqName)
+				sName, seqName = self.splitShotname(self.cursShots)
+				if seqName != "no sequence":
+					self.es.e_sequence.setText(seqName)
 				self.es.e_shotName.setFocus()
 
 		self.core.callback(name="onShotDlgOpen", types=["custom"], args=[self, self.es, shotName])
