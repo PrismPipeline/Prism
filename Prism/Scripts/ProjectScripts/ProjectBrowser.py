@@ -5441,8 +5441,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			cDJVPath = self.core.getConfig("globals", "djvpath")
 
 			if platform.system() == "Windows":
-				if cDJVPath is not None and os.path.exists(os.path.join(cDJVPath, "bin", "djv_view.exe")):
-					self.djv = os.path.join(cDJVPath, "bin", "djv_view.exe")
+				for i in ["djv_view.exe", "djv.exe"]:
+					djvPath = os.path.join(cDJVPath, "bin", i)
+					if cDJVPath is not None and os.path.exists(djvPath):
+						self.djv = djvPath
+						break
 				else:
 					key = _winreg.OpenKey(
 						_winreg.HKEY_LOCAL_MACHINE,
@@ -5453,8 +5456,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 					self.djv = (_winreg.QueryValue(key, None)).split(" \"%1\"")[0]
 			else:
-				if cDJVPath is not None and os.path.exists(os.path.join(cDJVPath, "bin", "djv_view.sh")):
-					self.djv = os.path.join(cDJVPath, "bin", "djv_view.sh")
+				for i in ["djv_view.sh", "djv.sh"]:
+					djvPath = os.path.join(cDJVPath, "bin", i)
+					if cDJVPath is not None and os.path.exists(djvPath):
+						self.djv = djvPath
+						break
 				else:
 					self.djv = "/usr/local/djv-1.1.0-Linux-64/bin/djv_view.sh"
 
