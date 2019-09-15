@@ -2307,7 +2307,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					sequences.append(seqName)
 
 		sequences = sorted(sequences)
-		shots = sorted(shots)
+		shots = sorted(shots, key=lambda x: self.core.naturalKeys(x[1]))
 
 		if "no sequence" in sequences:
 			sequences.insert(len(sequences), sequences.pop(sequences.index("no sequence")))

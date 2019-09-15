@@ -92,7 +92,7 @@ class ImportFileClass(object):
 
 		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier or not self.core.uiAvailable
 
-		if importPath is None and stateData is None and not createEmptyState:
+		if importPath is None and stateData is None and not createEmptyState and not self.stateManager.standalone:
 			import TaskSelection
 			ts = TaskSelection.TaskSelection(core = core, importState = self)
 
@@ -108,7 +108,7 @@ class ImportFileClass(object):
 
 			if not result:
 				return False
-		elif stateData is None and not createEmptyState:
+		elif stateData is None and not createEmptyState and not self.stateManager.standalone:
 			return False
 
 		self.nameChanged(state.text(0))
@@ -161,15 +161,16 @@ class ImportFileClass(object):
 		self.e_file.editingFinished.connect(self.pathChanged)
 		self.b_browse.clicked.connect(self.browse)
 		self.b_browse.customContextMenuRequested.connect(self.openFolder)
-		self.b_goTo.clicked.connect(self.goToNode)
-		self.b_import.clicked.connect(self.importObject)
-		self.b_objMerge.clicked.connect(self.objMerge)
 		self.b_importLatest.clicked.connect(self.importLatest)
-		self.b_nameSpaces.clicked.connect(self.removeNameSpaces)
-		self.b_unitConversion.clicked.connect(self.unitConvert)
-		self.chb_updateOnly.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_autoNameSpaces.stateChanged.connect(self.autoNameSpaceChanged)
 		self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
+		if not self.stateManager.standalone:
+			self.b_goTo.clicked.connect(self.goToNode)
+			self.b_import.clicked.connect(self.importObject)
+			self.b_objMerge.clicked.connect(self.objMerge)
+			self.b_nameSpaces.clicked.connect(self.removeNameSpaces)
+			self.b_unitConversion.clicked.connect(self.unitConvert)
+			self.chb_updateOnly.stateChanged.connect(self.stateManager.saveStatesToScene)
 
 
 	@err_decorator
@@ -239,13 +240,17 @@ class ImportFileClass(object):
 	@err_decorator
 	def autoNameSpaceChanged(self, checked):
 		self.b_nameSpaces.setEnabled(not checked)
-		if checked:
-			self.removeNameSpaces()
-		self.stateManager.saveStatesToScene()
+		if not self.stateManager.standalone:
+			if checked:
+				self.removeNameSpaces()
+			self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
 	def importObject(self, taskName = None, objMerge=True):
+		if self.stateManager.standalone:
+			return False
+
 		fileName = self.core.getCurrentFileName()
 		impFileName = self.e_file.text().replace("\\", "/")
 

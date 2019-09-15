@@ -265,7 +265,7 @@ class PlayblastClass(object):
 			
 			pmenu.addAction(pAct)
 
-		pmenu.setStyleSheet(self.stateManager.parent().styleSheet())
+		self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
 		pmenu.exec_(QCursor.pos())
 
 

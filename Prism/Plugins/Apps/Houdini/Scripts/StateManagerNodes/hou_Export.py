@@ -99,7 +99,7 @@ class ExportClass(object):
 		if self.cb_manager.count() == 0:
 			self.gb_submit.setVisible(False)
 
-		if node is None:
+		if node is None and not self.stateManager.standalone:
 			if stateData is None:
 				if not self.connectNode():
 					self.createNode()
@@ -265,6 +265,9 @@ class ExportClass(object):
 
 	@err_decorator
 	def createNode(self, nodePath=None):
+		if self.stateManager.standalone:
+			return False
+
 		parentNode = None
 		curContext = ""
 		if not self.isNodeValid():
@@ -353,8 +356,6 @@ class ExportClass(object):
 		self.cb_outType.activated[str].connect(self.typeChanged)
 		self.chb_useTake.stateChanged.connect(self.useTakeChanged)
 		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
-		self.b_goTo.clicked.connect(self.goToNode)
-		self.b_connect.clicked.connect(self.connectNode)
 		self.chb_saveToExistingHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_saveToExistingHDA.stateChanged.connect(lambda x: self.f_localOutput.setEnabled(not x))
 		self.chb_saveToExistingHDA.stateChanged.connect(lambda x: self.w_projectHDA.setEnabled(not x or not self.w_saveToExistingHDA.isEnabled()))
@@ -379,6 +380,9 @@ class ExportClass(object):
 		self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
 		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
 		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
+		if not self.stateManager.standalone:
+			self.b_goTo.clicked.connect(self.goToNode)
+			self.b_connect.clicked.connect(self.connectNode)
 
 
 	@err_decorator

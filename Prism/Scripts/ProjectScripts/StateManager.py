@@ -85,7 +85,7 @@ except:
 
 
 class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
-	def __init__(self, core, stateDataPath=None):
+	def __init__(self, core, stateDataPath=None, forceStates=[], standalone=False):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 
@@ -95,6 +95,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 		self.setWindowTitle("Prism - State Manager - " + self.core.projectName)
 
 		self.scenename = self.core.getCurrentFileName()
+		self.standalone = standalone
 
 		self.enabledCol = QBrush(self.tw_import.palette().color(self.tw_import.foregroundRole()))
 		self.b_stateFromNode.setVisible(False)
@@ -165,7 +166,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 					if stateName.startswith("default_") or stateName.startswith(self.core.appPlugin.appShortName.lower()):
 						stateNameBase = stateNameBase.replace(stateName.split("_", 1)[0] + "_", "")
 
-					if stateNameBase in self.stateTypes:
+					if stateNameBase in self.stateTypes and stateName not in forceStates:
 						continue
 
 					if psVersion == 1:
@@ -951,7 +952,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				parent = None
 
 			self.createState("ImageRender", parent=parent, renderer=renderer)
-
 			self.setListActive(self.tw_export)
 
 		elif stateType == "Playblast":
@@ -1053,6 +1053,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
 	@err_decorator
 	def saveStatesToScene(self, param=None):
 		if not self.saveEnabled:
+			return False
+
+		if self.standalone:
 			return False
 
 		getattr(self.core.appPlugin, "sm_preSaveToScene", lambda x: None)(self)
@@ -1309,7 +1312,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 
 	@err_decorator
-	def publish(self, executeState=False, continuePublish=False, useVersion="next"):
+	def publish(self, executeState=False, continuePublish=False, useVersion="next", states=None):
 		if self.publishPaused and not continuePublish:
 			return
 
@@ -1318,12 +1321,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 		if executeState:
 			self.publishType = "execute"
-			self.execStates = self.getChildStates(self.tw_export.currentItem())
+			self.execStates = states or self.getChildStates(self.tw_export.currentItem())
 			actionString = "Execute"
 			actionString2 = "execution"
 		else:
 			self.publishType = "publish"
-			self.execStates = self.states
+			self.execStates = states or self.states
 			actionString = "Publish"
 			actionString2 = "publish"
 
@@ -1580,4 +1583,37 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 	@err_decorator
 	def getStateProps(self):
-		return {"startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "comment":self.e_comment.text(), "description":self.description}
+		return {
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"comment":self.e_comment.text(),
+			"description":self.description
+		}
+
+def openStateSettings(core, stateType, settings=None):
+	settings = settings or None
+	stateNameBase = stateType.replace(stateType.split("_", 1)[0] + "_", "")
+	sm = StateManager(core, forceStates=[stateType], standalone=True)
+	item = sm.createState(stateNameBase, stateData=settings)
+
+	dlg_settings = QDialog()
+	dlg_settings.setWindowTitle("Statesettings - %s" % stateNameBase)
+	w_settings = QWidget()
+	bb_settings = QDialogButtonBox()
+	bb_settings.addButton("Accept", QDialogButtonBox.AcceptRole)
+	bb_settings.addButton("Cancel", QDialogButtonBox.RejectRole)
+	bb_settings.accepted.connect(dlg_settings.accept)
+	bb_settings.rejected.connect(dlg_settings.reject)
+
+	lo_settings = QVBoxLayout()
+	lo_settings.addWidget(item.ui)
+	lo_settings.addWidget(bb_settings)
+	dlg_settings.setLayout(lo_settings)
+	dlg_settings.setParent(core.messageParent, Qt.Window)
+
+	action = dlg_settings.exec_()
+
+	if action == 0:
+		return
+
+	return item.ui.getStateProps()

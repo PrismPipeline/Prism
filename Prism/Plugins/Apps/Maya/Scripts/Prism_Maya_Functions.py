@@ -900,14 +900,6 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setPalette(origin.warnPalette)
-		else:
-			origin.b_changeTask.setPalette(origin.oldPalette)
-
-
-	@err_decorator
 	def sm_render_refreshPasses(self, origin):
 		curRender = cmds.getAttr( 'defaultRenderGlobals.currentRenderer' )
 		if curRender not in ['arnold', 'vray', 'redshift']:

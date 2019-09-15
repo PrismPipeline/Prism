@@ -270,8 +270,6 @@ class ImageRenderClass(object):
 		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.cb_renderer.currentIndexChanged[str].connect(self.rendererChanged)
-		self.b_goTo.clicked.connect(self.goToNode)
-		self.b_connect.clicked.connect(self.connectNode)
 		self.gb_submit.toggled.connect(self.rjToggled)
 		self.cb_manager.activated.connect(self.managerChanged)
 		self.sp_rjPrio.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -295,6 +293,10 @@ class ImageRenderClass(object):
 		self.b_addPasses.clicked.connect(self.showPasses)
 		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
 		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
+		
+		if not self.stateManager.standalone:
+			self.b_goTo.clicked.connect(self.goToNode)
+			self.b_connect.clicked.connect(self.connectNode)
 
 
 	@err_decorator
@@ -337,7 +339,7 @@ class ImageRenderClass(object):
 	@err_decorator
 	def rendererChanged(self, renderer, create=True):
 		self.curRenderer = [x for x in self.renderers if x.label == renderer][0]
-		if self.node is None or self.node.type().name() not in self.curRenderer.ropNames:
+		if not self.stateManager.standalone and (self.node is None or self.node.type().name() not in self.curRenderer.ropNames):
 			self.deleteNode()
 			if create:
 				self.curRenderer.createROP(self)

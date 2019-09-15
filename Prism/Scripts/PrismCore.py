@@ -32,7 +32,7 @@
 
 
 
-import sys, os, threading, shutil, time, socket, traceback, imp, platform, random, errno, stat, datetime
+import sys, os, threading, shutil, time, socket, traceback, imp, platform, random, errno, stat, datetime, re
 
 #check if python 2 or python 3 is used
 if sys.version[0] == "3":
@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.16"
+			self.version = "v1.2.1.17"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -2454,7 +2454,7 @@ class PrismCore():
 
 
 	@err_decorator
-	def saveScene(self, comment = "", publish=False, versionUp=True, prismReq=True, filepath="", details={}, preview=None):
+	def saveScene(self, comment="", publish=False, versionUp=True, prismReq=True, filepath="", details={}, preview=None):
 		if filepath == "":
 			curfile = self.getCurrentFileName()
 			filepath = curfile.replace("\\","/")
@@ -2789,6 +2789,21 @@ class PrismCore():
 				illegalStrs.append(i)
 
 		return illegalStrs
+
+
+	@err_decorator
+	def atoi(self, text):
+		return int(text) if text.isdigit() else text
+
+
+	@err_decorator
+	def naturalKeys(self, text):
+		return [ self.atoi(c) for c in re.split(r'(\d+)', text) ]
+
+
+	@err_decorator
+	def sortNatural(self, alist):
+		sortedList = sorted(alist, key=self.naturalKeys)
 
 
 	@err_decorator

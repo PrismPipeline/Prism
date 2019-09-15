@@ -324,11 +324,6 @@ class Prism_3dsMax_Functions(object):
 
 
 	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
-		origin.l_taskName.setText(newTaskName)
-
-
-	@err_decorator
 	def sm_export_removeSetItem(self, origin, node):
 		pass
 
@@ -591,14 +586,6 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 	def sm_render_startup(self, origin):
 		origin.sp_rangeStart.setValue(self.executeScript(origin, "animationrange.start.frame"))
 		origin.sp_rangeEnd.setValue(self.executeScript(origin, "animationrange.end.frame"))
-
-
-	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setPalette(origin.warnPalette)
-		else:
-			origin.b_changeTask.setPalette(origin.oldPalette)
 
 
 	@err_decorator

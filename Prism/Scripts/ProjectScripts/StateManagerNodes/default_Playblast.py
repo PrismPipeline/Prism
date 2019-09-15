@@ -122,7 +122,8 @@ class PlayblastClass(object):
 		if "endframe" in data:
 			self.sp_rangeEnd.setValue(int(data["endframe"]))
 		if "currentcam" in data:
-			idx = self.cb_cams.findText(self.core.appPlugin.getCamName(self, data["currentcam"]))
+			camName = getattr(self.core.appPlugin, "getCamName", lambda x, y:"")(self, data["currentcam"])
+			idx = self.cb_cams.findText(camName)
 			if idx > 0:
 				self.curCam = self.camlist[idx-1]
 				self.cb_cams.setCurrentIndex(idx)
@@ -263,6 +264,7 @@ class PlayblastClass(object):
 			pAct.triggered.connect(lambda: self.stateManager.saveStatesToScene())
 			pmenu.addAction(pAct)
 
+		self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
 		pmenu.exec_(QCursor.pos())
 
 
@@ -271,11 +273,13 @@ class PlayblastClass(object):
 		#update Cams
 		self.cb_cams.clear()
 		self.cb_cams.addItem("Don't override")
-		self.camlist = []
+		self.camlist = camNames = []
 
-		self.camlist = self.core.appPlugin.getCamNodes(self)
-	
-		self.cb_cams.addItems([self.core.appPlugin.getCamName(self, i) for i in self.camlist])
+		if not self.stateManager.standalone:
+			self.camlist = self.core.appPlugin.getCamNodes(self)
+			camNames = [self.core.appPlugin.getCamName(self, i) for i in self.camlist]
+
+		self.cb_cams.addItems(camNames)
 
 		if self.curCam in self.camlist:
 			self.cb_cams.setCurrentIndex(self.camlist.index(self.curCam)+1)

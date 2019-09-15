@@ -51,4 +51,5 @@ class Prism_Houdini_Variables(object):
 		self.vrayPasses= ['defaultpasses', "houdini_vray", str([["Diffuse", "diffuse"], ["Reflection", "reflection"], ["Refraction", "refraction"], ["Self Illumination", "illum"], ["Shadow", "shadow"], ["Specular", "specular"], ["Lighting", "lighting"], ["GI", "gi"], ["Z-Depth", "Z"], ["SSS", "sss"], ["Normal", "N"]])]
 		self.renderPasses = [self.mantraPasses, self.redshiftPasses, self.vrayPasses]
 		self.preferredUnit = "meter"
+		self.colorButtonWithStyleSheet = True
 		self.platforms = ["Windows", "Linux", "Darwin"]

@@ -533,6 +533,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			if seqName not in sequences:
 				sequences.append(seqName)
 
+		shots = sorted(shots, key=lambda x: self.core.naturalKeys(x[1]))
+
 		if "no sequence" in sequences:
 			sequences.insert(len(sequences), sequences.pop(sequences.index("no sequence")))
 

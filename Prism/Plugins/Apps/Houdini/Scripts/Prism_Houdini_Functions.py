@@ -171,8 +171,11 @@ class Prism_Houdini_Functions(object):
 		for k in hdaFolders:
 			if os.path.exists(k):
 				for i in os.walk(k):
+					if os.path.basename(i[0]) == "backup":
+						continue
+						
 					for m in i[2]:
-						if os.path.splitext(m)[1] in [".hda", ".hdanc", ".hdalc", ".otl"]:
+						if os.path.splitext(m)[1] in [".hda", ".hdanc", ".hdalc", ".otl", ".otlnc", ".otllc"]:
 							origin.prjHDAs.append(os.path.join(i[0],m).replace("\\", "/"))
 
 		oplib = os.path.join(prjHDAs, "ProjectHDAs.oplib").replace("\\", "/")

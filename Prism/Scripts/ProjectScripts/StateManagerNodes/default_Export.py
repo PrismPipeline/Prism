@@ -100,12 +100,12 @@ class ExportClass(object):
 		self.preDelete = lambda item: self.core.appPlugin.sm_export_preDelete(self)
 
 		self.cb_outType.addItems(self.core.appPlugin.outputFormats)
-		self.core.appPlugin.sm_export_startup(self)
+		getattr(self.core.appPlugin, "sm_export_startup", lambda x: None)(self)
 		self.nameChanged(state.text(0))
 		self.connectEvents()
 
 		if not self.stateManager.loading:
-			self.core.appPlugin.sm_export_addObjects(self)
+			getattr(self.core.appPlugin, "sm_export_addObjects", lambda x: None)(self)
 
 		if stateData is not None:
 			self.loadData(stateData)
@@ -156,7 +156,8 @@ class ExportClass(object):
 		if "additionaloptions" in data:
 			self.chb_additionalOptions.setChecked(eval(data["additionaloptions"]))
 		if "currentcam" in data:
-			idx = self.cb_cam.findText(self.core.appPlugin.getCamName(self, data["currentcam"]))
+			camName = getattr(self.core.appPlugin, "getCamName", lambda x, y:"")(self, data["currentcam"])
+			idx = self.cb_cam.findText(camName)
 			if idx != -1:
 				self.curCam = self.camlist[idx]
 				self.cb_cam.setCurrentIndex(idx)
@@ -194,12 +195,13 @@ class ExportClass(object):
 		self.chb_additionalOptions.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
 		self.lw_objects.customContextMenuRequested.connect(self.rcObjects)
-		self.b_add.clicked.connect(lambda: self.core.appPlugin.sm_export_addObjects(self))
 		self.cb_cam.activated.connect(self.setCam)
 		self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
 		self.b_selectCam.clicked.connect(lambda: self.core.appPlugin.selectCam(self))
 		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
 		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
+		if not self.stateManager.standalone:
+			self.b_add.clicked.connect(lambda: self.core.appPlugin.sm_export_addObjects(self))
 
 
 	@err_decorator
@@ -255,7 +257,8 @@ class ExportClass(object):
 		result = self.nameWin.exec_()
 		
 		if result == 1:
-			self.core.appPlugin.sm_export_setTaskText(self, prevTaskName, self.nameWin.e_item.text())
+			default_func = lambda x1, x2, newTaskName: self.l_taskName.setText(newTaskName)
+			getattr(self.core.appPlugin, "sm_export_setTaskText", default_func)(self, prevTaskName, self.nameWin.e_item.text())
 			self.b_changeTask.setPalette(self.oldPalette)
 			self.nameChanged(self.e_name.text())
 			self.stateManager.saveStatesToScene()
@@ -311,8 +314,12 @@ class ExportClass(object):
 	@err_decorator
 	def updateUi(self):
 		self.cb_cam.clear()
-		self.camlist = self.core.appPlugin.getCamNodes(self)
-		self.cb_cam.addItems([self.core.appPlugin.getCamName(self, i) for i in self.camlist])
+		self.camlist = camNames = []
+		if not self.stateManager.standalone:
+			self.camlist = self.core.appPlugin.getCamNodes(self)
+			camNames = [self.core.appPlugin.getCamName(self, i) for i in self.camlist]
+
+		self.cb_cam.addItems(camNames)
 		if self.curCam in self.camlist:
 			self.cb_cam.setCurrentIndex(self.camlist.index(self.curCam))
 		else:
@@ -351,7 +358,7 @@ class ExportClass(object):
 
 		newObjList = []
 
-		self.core.appPlugin.sm_export_updateObjects(self)
+		getattr(self.core.appPlugin, "sm_export_updateObjects", lambda x: None)(self)
 
 		for node in self.nodes:
 			if self.core.appPlugin.isNodeValid(self, node):

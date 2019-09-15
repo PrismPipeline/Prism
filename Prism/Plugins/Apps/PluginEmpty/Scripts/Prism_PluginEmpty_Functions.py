@@ -304,9 +304,9 @@ class Prism_PluginEmpty_Functions(object):
 		pass
 
 
-	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
-		origin.l_taskName.setText(newTaskName)
+#	@err_decorator
+#	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
+#		origin.l_taskName.setText(newTaskName)
 
 
 	@err_decorator
@@ -390,14 +390,6 @@ class Prism_PluginEmpty_Functions(object):
 		rlayerNames = []
 
 		return rlayerNames
-
-
-	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setPalette(origin.warnPalette)
-		else:
-			origin.b_changeTask.setPalette(origin.oldPalette)
 
 
 	@err_decorator

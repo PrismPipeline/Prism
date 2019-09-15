@@ -351,7 +351,8 @@ class Prism_Deadline_Functions(object):
 
 	@err_decorator
 	def sm_render_updateUI(self, origin):
-		showGPUsettings = "redshift" in self.core.appPlugin.getCurrentRenderer(origin).lower()
+		curRenderer = getattr(self.core.appPlugin, "getCurrentRenderer", lambda x:"")(origin).lower()
+		showGPUsettings = "redshift" in curRenderer if curRenderer else True
 		origin.w_dlGPUpt.setVisible(showGPUsettings)
 		origin.w_dlGPUdevices.setVisible(showGPUsettings)
 
@@ -365,7 +366,8 @@ class Prism_Deadline_Functions(object):
 		origin.f_dlGroup.setVisible(True)
 		origin.w_dlConcurrentTasks.setVisible(True)
 
-		showGPUsettings = "redshift" in self.core.appPlugin.getCurrentRenderer(origin).lower()
+		curRenderer = getattr(self.core.appPlugin, "getCurrentRenderer", lambda x:"")(origin).lower()
+		showGPUsettings = "redshift" in curRenderer if curRenderer else True
 		origin.w_dlGPUpt.setVisible(showGPUsettings)
 		origin.w_dlGPUdevices.setVisible(showGPUsettings)
 

@@ -588,14 +588,6 @@ class Prism_Blender_Functions(object):
 
 
 	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setStyleSheet("QPushButton { background-color: rgb(200,0,0); }")
-		else:
-			origin.b_changeTask.setStyleSheet("")
-
-
-	@err_decorator
 	def sm_render_refreshPasses(self, origin):
 		origin.lw_passes.clear()
 		if bpy.context.scene.node_tree is not None and bpy.context.scene.use_nodes:

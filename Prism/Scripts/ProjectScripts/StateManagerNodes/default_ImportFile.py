@@ -101,7 +101,7 @@ class ImportFileClass(object):
 
 		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier or not self.core.uiAvailable
 
-		if importPath is None and stateData is None and not createEmptyState:
+		if importPath is None and stateData is None and not createEmptyState and not self.stateManager.standalone:
 			import TaskSelection
 			ts = TaskSelection.TaskSelection(core = core, importState = self)
 
@@ -115,10 +115,10 @@ class ImportFileClass(object):
 
 			if not result:
 				return False
-		elif stateData is None and not createEmptyState:
+		elif stateData is None and not createEmptyState and not self.stateManager.standalone:
 			return False
 
-		self.core.appPlugin.sm_import_startup(self)
+		getattr(self.core.appPlugin, "sm_import_startup", lambda x: None)(self)
 		self.connectEvents()
 
 		if stateData is not None:
@@ -173,16 +173,17 @@ class ImportFileClass(object):
 		self.b_browse.customContextMenuRequested.connect(self.openFolder)
 		self.b_import.clicked.connect(self.importObject)
 		self.b_importLatest.clicked.connect(self.importLatest)
-		self.b_nameSpaces.clicked.connect(lambda: self.core.appPlugin.sm_import_removeNameSpaces(self))
-		self.b_unitConversion.clicked.connect(lambda: self.core.appPlugin.sm_import_unitConvert(self))
 		self.chb_keepRefEdits.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_autoNameSpaces.stateChanged.connect(self.autoNameSpaceChanged)
 		self.chb_abcPath.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_trackObjects.toggled.connect(self.updateTrackObjects)
 		self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
 		self.chb_preferUnit.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
 		self.b_selectAll.clicked.connect(self.lw_objects.selectAll)
+		if not self.stateManager.standalone:
+			self.b_nameSpaces.clicked.connect(lambda: self.core.appPlugin.sm_import_removeNameSpaces(self))
+			self.b_unitConversion.clicked.connect(lambda: self.core.appPlugin.sm_import_unitConvert(self))
+			self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
 
 
 	@err_decorator
@@ -230,13 +231,17 @@ class ImportFileClass(object):
 	@err_decorator
 	def autoNameSpaceChanged(self, checked):
 		self.b_nameSpaces.setEnabled(not checked)
-		self.core.appPlugin.sm_import_removeNameSpaces(self)
-		self.stateManager.saveStatesToScene()
+		if not self.stateManager.standalone:
+			self.core.appPlugin.sm_import_removeNameSpaces(self)
+			self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
 	def importObject(self, taskName=None, update=False):
 		result = True
+		if self.stateManager.standalone:
+			return result
+
 		if self.e_file.text() != "":
 			versionInfoPath = os.path.join(os.path.dirname(os.path.dirname(self.e_file.text())), "versioninfo.ini")
 			if os.path.exists(versionInfoPath):
@@ -285,7 +290,7 @@ class ImportFileClass(object):
 					self.e_file.setText(impFileName)
 
 			if self.chb_trackObjects.isChecked():
-				self.core.appPlugin.sm_import_updateObjects(self)
+				getattr(self.core.appPlugin, "sm_import_updateObjects", lambda x: None)(self)
 
 			fileName = self.core.getCurrentFileName()
 
@@ -434,7 +439,7 @@ class ImportFileClass(object):
 
 		if self.chb_trackObjects.isChecked():
 			self.gb_objects.setVisible(True)
-			self.core.appPlugin.sm_import_updateObjects(self)
+			getattr(self.core.appPlugin, "sm_import_updateObjects", lambda x: None)(self)
 
 			for i in self.nodes:
 				item = QListWidgetItem(self.core.appPlugin.getNodeName(self, i))

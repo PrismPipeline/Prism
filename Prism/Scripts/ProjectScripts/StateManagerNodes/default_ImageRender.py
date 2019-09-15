@@ -87,9 +87,9 @@ class ImageRenderClass(object):
 		self.gb_submit.setChecked(False)
 		self.f_renderLayer.setVisible(False)
 
-		self.core.appPlugin.sm_render_startup(self)
+		getattr(self.core.appPlugin, "sm_render_startup", lambda x: None)(self)
 
-		if not self.core.appPlugin.sm_render_isVray(self):
+		if not getattr(self.core.appPlugin, "sm_render_startup", lambda x: False)(self):
 			self.gb_Vray.setVisible(False)
 
 		self.resolutionPresets = ["1920x1080", "1280x720", "640x360", "4000x2000", "2000x1000"]
@@ -103,7 +103,7 @@ class ImageRenderClass(object):
 		self.warnPalette.setColor(QPalette.Button, QColor(200, 0, 0))
 		self.warnPalette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
 		
-		self.core.appPlugin.sm_render_setTaskWarn(self, True)
+		self.setTaskWarn(True)
 
 		self.nameChanged(state.text(0))
 
@@ -125,7 +125,7 @@ class ImageRenderClass(object):
 		if "taskname" in data:
 			self.l_taskName.setText(data["taskname"])
 			if data["taskname"] != "":
-				self.core.appPlugin.sm_render_setTaskWarn(self, False)
+				self.setTaskWarn(False)
 		
 		self.updateUi()
 
@@ -138,7 +138,8 @@ class ImageRenderClass(object):
 		if "endframe" in data:
 			self.sp_rangeEnd.setValue(int(data["endframe"]))
 		if "currentcam" in data:
-			idx = self.cb_cam.findText(self.core.appPlugin.getCamName(self, data["currentcam"]))
+			camName = getattr(self.core.appPlugin, "getCamName", lambda x, y:"")(self, data["currentcam"])
+			idx = self.cb_cam.findText(camName)
 			if idx != -1:
 				self.curCam = self.camlist[idx]
 				self.cb_cam.setCurrentIndex(idx)
@@ -326,7 +327,7 @@ class ImageRenderClass(object):
 		
 		if result == 1:
 			self.l_taskName.setText(self.nameWin.e_item.text())
-			self.core.appPlugin.sm_render_setTaskWarn(self, False)
+			self.setTaskWarn(False)
 			self.nameChanged(self.e_name.text())
 			self.stateManager.saveStatesToScene()
 
@@ -383,10 +384,13 @@ class ImageRenderClass(object):
 
 		#update Cams
 		self.cb_cam.clear()
-		
-		self.camlist = self.core.appPlugin.getCamNodes(self, cur=True)
+		self.camlist = camNames = []
 
-		self.cb_cam.addItems([self.core.appPlugin.getCamName(self, i) for i in self.camlist])
+		if not self.stateManager.standalone:
+			self.camlist = self.core.appPlugin.getCamNodes(self, cur=True)
+			camNames = [self.core.appPlugin.getCamName(self, i) for i in self.camlist]
+
+		self.cb_cam.addItems(camNames)
 
 		if self.curCam in self.camlist:
 			self.cb_cam.setCurrentIndex(self.camlist.index(self.curCam))
@@ -415,12 +419,12 @@ class ImageRenderClass(object):
 
 
 		if self.l_taskName.text() != "":
-			self.core.appPlugin.sm_render_setTaskWarn(self, False)
+			self.setTaskWarn(False)
 
 		if not self.gb_submit.isHidden():
 			self.core.rfManagers[self.cb_manager.currentText()].sm_render_updateUI(self)
 
-		self.core.appPlugin.sm_render_refreshPasses(self)
+		getattr(self.core.appPlugin, "sm_render_refreshPasses", lambda x: None)(self)
 
 		self.nameChanged(self.e_name.text())
 
@@ -478,7 +482,7 @@ class ImageRenderClass(object):
 
 	@err_decorator
 	def showPasses(self):
-		steps = self.core.appPlugin.sm_render_getRenderPasses(self)
+		steps = getattr(self.core.appPlugin, "sm_render_getRenderPasses", lambda x: None)(self)
 		
 		if steps is None or len(steps) == 0:
 			return False
@@ -695,6 +699,21 @@ class ImageRenderClass(object):
 					else:
 						self.core.writeErrorLog(erStr)
 				return [self.state.text(0) + " - error - " + result]
+
+
+	@err_decorator
+	def setTaskWarn(self, warn):
+		useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
+		if warn:
+			if useSS:
+				self.b_changeTask.setStyleSheet("QPushButton { background-color: rgb(200,0,0); }")
+			else:
+				self.b_changeTask.setPalette(self.warnPalette)
+		else:
+			if useSS:
+				self.b_changeTask.setStyleSheet("")
+			else:
+				self.b_changeTask.setPalette(self.oldPalette)
 
 
 	@err_decorator
