@@ -6,6 +6,9 @@ def prismInit(prismArgs=[]):
 	if Dir not in sys.path:
 		sys.path.append(Dir)
 
+	if "hython" in os.path.basename(sys.executable).lower() and "noUI" not in prismArgs:
+		prismArgs.append("noUI")
+
 	import PrismCore
 	pcore = PrismCore.PrismCore(app="Houdini", prismArgs=prismArgs)
 	return pcore
@@ -14,5 +17,3 @@ def prismInit(prismArgs=[]):
 def createPrismCore():
 	global pcore
 	pcore = prismInit()
-
-prismInit()

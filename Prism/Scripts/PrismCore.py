@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.17"
+			self.version = "v1.2.1.18"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -540,7 +540,10 @@ class PrismCore():
 			if (curPrj is None or curPrj == "") and self.getConfig("globals", "showonstartup", ptype="bool") != False:
 				self.setProject(startup=True, openUi="projectBrowser")
 
-		curPrj = self.getConfig("globals", "current project")
+		if "prism_project" in os.environ and os.path.exists(os.environ["prism_project"]):
+			curPrj = os.environ["prism_project"]
+		else:
+			curPrj = self.getConfig("globals", "current project")
 
 		if curPrj != "":
 			self.changeProject(curPrj)
@@ -2342,6 +2345,19 @@ class PrismCore():
 			taskList += [x for x in os.listdir(catPath) if x not in taskList and os.path.isdir(os.path.join(catPath, x))]
 
 		return taskList
+
+
+	@err_decorator
+	def resolve(self, uri, uriType="exportProduct"):
+		from PrismUtils import Resolver
+		if pVersion == 2:
+			reload(Resolver)
+		else:
+			import importlib
+			importlib.reload(Resolver)
+
+		resolver = Resolver.Resolver(self)
+		return resolver.resolvePath(uri, uriType)
 
 
 	@err_decorator

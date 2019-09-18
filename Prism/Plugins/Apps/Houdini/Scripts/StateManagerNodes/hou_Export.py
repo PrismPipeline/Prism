@@ -878,7 +878,7 @@ class ExportClass(object):
 			outputPath = os.path.dirname(outputName)
 			hVersion = ""
 
-		elif self.cb_outType.currentText() == ".hda" and self.node is not None and self.node.type().definition() is not None and self.chb_projectHDA.isChecked():
+		elif self.cb_outType.currentText() == ".hda" and self.node is not None and self.chb_projectHDA.isChecked():
 			outputName = os.path.join(self.core.projectPath, self.core.getConfig('paths', "assets", configPath=self.core.prismIni), "HDAs", self.l_taskName.text() + ".hda")
 			outputPath = os.path.dirname(outputName)
 			hVersion = ""

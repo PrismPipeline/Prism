@@ -420,6 +420,7 @@ class Prism_Deadline_Functions(object):
 		jobInfos["Frames"] = jobFrames
 		jobInfos["ChunkSize"] = jobFamesPerTask
 		jobInfos["OutputFilename0"] = jobOutputFile
+		jobInfos["EnvironmentKeyValue0"] = "prism_project=%s" % self.core.prismIni.replace("\\", "/")
 
 		if origin.chb_rjSuspended.isChecked():
 			jobInfos["InitialStatus"] = "Suspended"
