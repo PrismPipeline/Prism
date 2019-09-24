@@ -653,8 +653,8 @@ class ImageRenderClass(object):
 			if platform.system() == "Windows" and outLength > 255:
 				return [self.state.text(0) + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath." % outLength]
 
-			if not os.path.exists(outputPath):
-				os.makedirs(outputPath)
+			if not os.path.exists(os.path.dirname(outputPath)):
+				os.makedirs(os.path.dirname(outputPath))
 
 			self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
 
@@ -668,6 +668,8 @@ class ImageRenderClass(object):
 			rSettings = {"outputName": outputName}
 
 			self.core.appPlugin.sm_render_preSubmit(self, rSettings)
+			if not os.path.exists(os.path.dirname(rSettings["outputName"])):
+				os.makedirs(os.path.dirname(rSettings["outputName"]))
 			self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":rSettings["outputName"]})
 
 			self.core.saveScene(versionUp=False, prismReq=False)

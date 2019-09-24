@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.18"
+			self.version = "v1.2.1.19"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -2665,6 +2665,9 @@ class PrismCore():
 		targetFile = self.fixPath(targetFile)
 		if origFile == targetFile:
 			return
+
+		if not os.path.exists(os.path.dirname(targetFile)):
+			os.makedirs(os.path.dirname(targetFile))
 
 		shutil.copy2(origFile, targetFile)
 

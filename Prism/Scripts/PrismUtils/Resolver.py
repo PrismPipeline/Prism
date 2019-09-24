@@ -35,7 +35,7 @@ import os, sys, traceback, time
 from functools import wraps
 
 
-class Resolver():
+class Resolver(object):
 	def __init__(self, core):
 		super(Resolver, self).__init__()
 		self.core = core
@@ -77,7 +77,7 @@ class Resolver():
 
 
 	@err_decorator
-	def resolvePath(self, uri, uriType="exportProduct", target="version"):
+	def resolvePath(self, uri, uriType="exportProduct", target="file"):
 		fields = self.resolveFields(uri, uriType)
 
 		path = ""
@@ -99,13 +99,20 @@ class Resolver():
 				continue
 
 			entityPath = os.path.join(path, fields["entityName"])
+			if fields["entity"] == "asset":
+				if not os.path.exists(entityPath) and not "/" in fields["entityName"]:
+					for i in self.core.getAssetPaths():
+						if os.path.basename(i) == fields["entityName"]:
+							entityPath = i
+							break					
+
 			if not os.path.exists(entityPath):
 				continue
 
 			path = entityPath
 
 			if "task" not in fields:
-				if target not in ["task", "version"]:
+				if target not in ["task", "version", "file"]:
 					continue
 
 				taskPath = os.path.join(path, "Export")
@@ -128,7 +135,7 @@ class Resolver():
 			path = taskPath
 
 			if "version" not in fields:
-				if target not in ["version"]:
+				if target not in ["version", "file"]:
 					continue
 
 				if not os.path.exists(path):
@@ -150,5 +157,16 @@ class Resolver():
 				continue
 
 			path = versionPath
+
+			if target not in ["file"]:
+				continue
+
+			for fcont in os.walk(path):
+				for folder in fcont[1]:
+					fpath = os.path.join(fcont[0], folder)
+					
+					for f in os.listdir(fpath):
+						path = os.path.join(fpath, f)
+						continue
 
 		return os.path.normpath(path)
