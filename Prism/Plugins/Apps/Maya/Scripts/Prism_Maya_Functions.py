@@ -886,7 +886,7 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_render_getRenderLayer(self, origin):
-		rlayers = cmds.ls(type="renderLayer")
+		rlayers = [x for x in cmds.ls(type="renderLayer") if x in cmds.listConnections("renderLayerManager")]
 		rlayerNames = []
 		for i in rlayers:
 			if i == "defaultRenderLayer":

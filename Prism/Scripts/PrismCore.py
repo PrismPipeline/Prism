@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.19"
+			self.version = "v1.2.1.20"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -553,7 +553,8 @@ class PrismCore():
 		if self.getCurrentFileName() != "":
 			self.sceneOpen()
 
-		self.autoUpdateCheck()
+		if self.uiAvailable:
+			self.autoUpdateCheck()
 
 
 	@err_decorator

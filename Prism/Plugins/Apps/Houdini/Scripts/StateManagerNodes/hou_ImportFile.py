@@ -221,6 +221,9 @@ class ImportFileClass(object):
 
 	@err_decorator
 	def goToNode(self):
+		if not self.core.uiAvailable:
+			return
+			
 		try:
 			self.node.name()
 		except:
@@ -515,6 +518,9 @@ class ImportFileClass(object):
 
 	@err_decorator
 	def objMerge(self):
+		if not self.core.uiAvailable:
+			return
+
 		paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
 		if paneTab is None:
 			return

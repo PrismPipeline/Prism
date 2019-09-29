@@ -72,6 +72,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 		self.preferredUnit = self.importState.preferredUnit
 
+		if not hasattr(self.core, "pb"):
+			self.core.projectBrowser(openUi=False)
+
 		self.connectEvents()
 
 		self.updateAssets()

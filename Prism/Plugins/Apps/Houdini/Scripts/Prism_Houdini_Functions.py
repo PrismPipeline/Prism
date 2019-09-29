@@ -184,9 +184,12 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def executeScript(self, origin, code):
+	def executeScript(self, origin, code, execute=False):
 		try:
-			return eval(code)
+			if not execute:
+				return eval(code)
+			else:
+				exec(code)
 		except Exception as e:
 			msg = '\npython code:\n%s' % code
 			exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
@@ -429,6 +432,9 @@ class Prism_Houdini_Functions(object):
 			else:
 				node.parm(parm).set(val)
 		except:
+			if not node.parm(parm):
+				return False
+				
 			curTake = hou.takes.currentTake()
 			if curTake.hasParmTuple(node.parm(parm).tuple()) or curTake.parent() is None:
 				msgString = "Cannot set this parameter. Probably because it is locked:\n\n%s" % node.parm(parm).path()

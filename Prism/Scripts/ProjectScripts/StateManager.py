@@ -1400,22 +1400,42 @@ class %s(QWidget, %s.%s, %s.%sClass):
 						warnings.append(curState.ui.preExecuteState())
 
 			warnString = ""
-			for i in warnings:
-				if len(i[1]) == 0:
-					continue
+			if self.core.uiAvailable:
+				for i in warnings:
+					if len(i[1]) == 0:
+						continue
 
-				if i[0] == "":
-					warnBase = ""
-				else:
-					warnString += "- <b>%s</b>\n\n" % i[0]
-					warnBase = "\t"
+					if i[0] == "":
+						warnBase = ""
+					else:
+						warnString += "- <b>%s</b>\n\n" % i[0]
+						warnBase = "\t"
 
-				for k in i[1]:
-					if k[2] == 2:
-						warnString += warnBase + ("- <font color=\"yellow\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
-					elif k[2] == 3:
-						warnString += warnBase + ("- <font color=\"red\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
-		
+					for k in i[1]:
+						if k[2] == 2:
+							warnString += warnBase + ("- <font color=\"yellow\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
+						elif k[2] == 3:
+							warnString += warnBase + ("- <font color=\"red\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
+			else:
+				for i in warnings:
+					if len(i[1]) == 0:
+						continue
+
+					if i[0] == "":
+						warnBase = ""
+					else:
+						warnString += "- %s\n" % i[0]
+						warnBase = "\t"
+
+					for k in i[1]:
+						warnTitle = k[0].replace("\n", "")
+						warnMsg = k[1].replace("\n", "")
+						if k[2] == 2:
+							warnString += warnBase + ("- %s\n  %s" % (warnTitle, warnMsg)).replace("\n", "\n" + warnBase) + "\n"
+						elif k[2] == 3:
+							warnString += warnBase + ("- %s\n  %s" % (warnTitle, warnMsg)).replace("\n", "\n" + warnBase) + "\n"
+			
+
 			if warnString != "" and self.core.uiAvailable:
 				warnDlg = QDialog()
 
@@ -1471,8 +1491,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				sceneSaved = self.core.saveScene(comment=self.e_comment.text(), publish=True, details=details, preview=self.previewImg)
 
 			if not sceneSaved:
-				if self.core.uiAvailable:
-					QMessageBox.warning(self.core.messageParent, actionString, actionString + " canceled")
+				self.core.popup(actionString + " canceled", title=actionString)
 				return
 
 			self.description = ""
@@ -1549,10 +1568,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		
 		if success:
 			msgStr = "The %s was successful." % actionString2
-			if self.core.uiAvailable:
-				QMessageBox.information(self.core.messageParent, actionString, msgStr)
-			else:
-				print (msgStr)
+			self.core.popup(msgStr, title=actionString, severity="info")
 		else:
 			infoString = ""
 			for i in self.publishResult:
@@ -1561,10 +1577,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 			msgStr = "Errors occured during the %s:\n\n" % actionString2 + infoString
 
-			if self.core.uiAvailable:
-				QMessageBox.warning(self.core.messageParent, actionString, msgStr)
-			else:
-				print (msgStr)
+			self.core.popup(msgStr, title=actionString)
 
 		if self.reloadScenefile:
 			self.core.appPlugin.openScene(self, self.core.getCurrentFileName(), force=True)

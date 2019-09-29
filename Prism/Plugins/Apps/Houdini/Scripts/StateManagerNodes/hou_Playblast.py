@@ -274,9 +274,10 @@ class PlayblastClass(object):
 		pbCam = None
 
 		if self.curCam is None:
-			sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
-			if sceneViewer is not None:
-				pbCam = sceneViewer.curViewport().camera()
+			if self.core.uiAvailable:
+				sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
+				if sceneViewer is not None:
+					pbCam = sceneViewer.curViewport().camera()
 		else:
 			pbCam = self.curCam
 

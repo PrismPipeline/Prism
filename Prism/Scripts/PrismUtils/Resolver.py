@@ -93,7 +93,7 @@ class Resolver(object):
 			if fields["entity"] == "asset":
 				path = self.core.getAssetPath()
 			elif fields["entity"] == "shot":
-				path = self.coer.getShotPath()
+				path = self.core.getShotPath()
 
 			if "entityName" not in fields:
 				continue

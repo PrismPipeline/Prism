@@ -1,6 +1,6 @@
 #>>>PrismStart
 import nuke
-if not nuke.env["studio"]:
+if not nuke.env["studio"] and nuke.env.get("gui"):
 	import sys, os
 
 	Dir = os.path.join(PRISMROOT, "Scripts")
