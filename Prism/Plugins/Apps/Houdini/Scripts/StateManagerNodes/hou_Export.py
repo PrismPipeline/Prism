@@ -81,6 +81,17 @@ class ExportClass(object):
 		self.curCam = None
 
 		self.cb_outType.addItems(self.core.appPlugin.outputFormats)
+		self.export_paths = [["global", self.core.projectPath]]
+		if self.core.useLocalFiles:
+			self.export_paths.append(["local", self.core.localProjectPath])
+
+		customPaths = self.core.getConfig('export_paths', getItems=True, configPath=self.core.prismIni)
+		if customPaths:
+			self.export_paths += customPaths
+
+		self.cb_outPath.addItems([x[0] for x in self.export_paths])
+		if len(self.export_paths) < 2:
+			self.w_outPath.setVisible(False)
 
 		self.l_name.setVisible(False)
 		self.e_name.setVisible(False)
@@ -90,7 +101,6 @@ class ExportClass(object):
 		self.w_blackboxHDA.setVisible(False)
 		self.w_projectHDA.setVisible(False)
 		self.gb_submit.setChecked(False)
-		self.f_localOutput.setVisible(self.core.useLocalFiles)
 
 		for i in self.core.rfManagers.values():
 			self.cb_manager.addItem(i.pluginName)
@@ -174,6 +184,10 @@ class ExportClass(object):
 			idx = self.cb_take.findText(data["take"])
 			if idx != -1:
 				self.cb_take.setCurrentIndex(idx)
+		if "curoutputpath" in data:
+			idx = self.cb_outPath.findText(data["curoutputpath"])
+			if idx != -1:
+				self.cb_outPath.setCurrentIndex(idx)
 		if "outputtypes" in data:
 			self.cb_outType.clear()
 			self.cb_outType.addItems(eval(data["outputtypes"]))
@@ -182,8 +196,6 @@ class ExportClass(object):
 			if idx != -1:
 				self.cb_outType.setCurrentIndex(idx)
 				self.typeChanged(self.cb_outType.currentText(), createMissing=False)
-		if "localoutput" in data:
-			self.chb_localOutput.setChecked(eval(data["localoutput"]))
 		if "savetoexistinghda" in data:
 			self.chb_saveToExistingHDA.setChecked(eval(data["savetoexistinghda"]))
 		if "projecthda" in data:
@@ -353,16 +365,16 @@ class ExportClass(object):
 		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
+		self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
 		self.cb_outType.activated[str].connect(self.typeChanged)
 		self.chb_useTake.stateChanged.connect(self.useTakeChanged)
 		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_saveToExistingHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_saveToExistingHDA.stateChanged.connect(lambda x: self.f_localOutput.setEnabled(not x))
+		self.chb_saveToExistingHDA.stateChanged.connect(lambda x: self.w_outPath.setEnabled(not x))
 		self.chb_saveToExistingHDA.stateChanged.connect(lambda x: self.w_projectHDA.setEnabled(not x or not self.w_saveToExistingHDA.isEnabled()))
-		self.chb_projectHDA.stateChanged.connect(lambda x: self.f_localOutput.setEnabled(not x))
+		self.chb_projectHDA.stateChanged.connect(lambda x: self.w_outPath.setEnabled(not x))
 		self.chb_projectHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_blackboxHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_convertExport.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.gb_submit.toggled.connect(self.rjToggled)
 		self.cb_manager.activated.connect(self.managerChanged)
@@ -511,8 +523,6 @@ class ExportClass(object):
 			self.w_blackboxHDA.setEnabled(not self.isNodeValid() or self.node.type().areContentsViewable())
 
 			self.w_projectHDA.setEnabled(not self.w_saveToExistingHDA.isEnabled() or not self.chb_saveToExistingHDA.isChecked())
-
-		self.checkLocalOutput()
 
 		self.nameChanged(self.e_name.text())
 
@@ -751,27 +761,14 @@ class ExportClass(object):
 	def rjToggled(self,checked=None):
 		if checked is None:
 			checked = self.gb_submit.isChecked()
-		self.checkLocalOutput()
 		self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
 	def managerChanged(self, text=None):
-		self.checkLocalOutput()
 		if self.cb_manager.currentText() in self.core.rfManagers:
 			self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_activated(self)
 		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def checkLocalOutput(self):
-		fstate = True
-		if self.cb_outType.currentText() == ".hda":
-			if (self.w_saveToExistingHDA.isEnabled() and self.chb_saveToExistingHDA.isChecked()) or self.chb_projectHDA.isChecked():
-				fstate = False
-		else:
-			fstate = self.gb_submit.isHidden() or not self.gb_submit.isChecked() or (self.gb_submit.isChecked() and self.core.rfManagers[self.cb_manager.currentText()].canOutputLocal)
-		self.f_localOutput.setEnabled(fstate)
 
 
 	@err_decorator
@@ -849,15 +846,9 @@ class ExportClass(object):
 
 		if self.cb_outType.currentText() == "ShotCam":
 			outputBase = os.path.join(self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
-
-			if self.core.useLocalFiles and self.chb_localOutput.isChecked():
-				outputBase = os.path.join(self.core.localProjectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
-
 			fnameData = self.core.getScenefileData(fileName)
 			comment = fnameData["comment"]
-
 			versionUser = self.core.user
-
 			outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
 
 			if useVersion != "next":
@@ -887,14 +878,8 @@ class ExportClass(object):
 			if self.l_taskName.text() == "":
 				return
 
-			basePath = self.core.projectPath
-			if self.core.useLocalFiles:
-				if self.chb_localOutput.isChecked() and (self.gb_submit.isHidden() or not self.gb_submit.isChecked() or (self.gb_submit.isChecked() and self.core.rfManagers[self.cb_manager.currentText()].canOutputLocal)):
-					basePath = self.core.localProjectPath
-					if fileName.startswith(os.path.join(self.core.projectPath, sceneDir)):
-						fileName = fileName.replace(self.core.projectPath, self.core.localProjectPath)
-				elif fileName.startswith(os.path.join(self.core.localProjectPath, sceneDir)):
-					fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
+			if self.core.useLocalFiles and fileName.startswith(self.core.localProjectPath):
+				fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
 
 			versionUser = self.core.user
 			hVersion = ""
@@ -914,7 +899,7 @@ class ExportClass(object):
 				outputName = os.path.join(outputPath, "shot" + self.core.filenameSeperator + fnameData["shotName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4" + self.cb_outType.currentText())
 			elif fnameData["type"] == "asset":
 				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-					outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Export", self.l_taskName.text())
+					outputPath = os.path.join(self.core.projectPath, sceneDir, "Assets", "Export", self.l_taskName.text())
 				else:
 					outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
 				if hVersion == "":
@@ -925,6 +910,12 @@ class ExportClass(object):
 				outputName = os.path.join(outputPath, fnameData["assetName"]  + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4" + self.cb_outType.currentText())
 			else:
 				return
+
+		basePath = self.export_paths[self.cb_outPath.currentIndex()][1]
+		prjPath = os.path.normpath(self.core.projectPath)
+		basePath = os.path.normpath(basePath)
+		outputName = outputName.replace(prjPath, basePath)
+		outputPath = outputPath.replace(prjPath, basePath)
 
 		return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
 
@@ -1282,11 +1273,11 @@ class ExportClass(object):
 			"endframe":self.sp_rangeEnd.value(),
 			"usetake":str(self.chb_useTake.isChecked()),
 			"take": self.cb_take.currentText(),
+			"curoutputpath": self.cb_outPath.currentText(),
 			"outputtypes":str(outputTypes),
 			"curoutputtype": self.cb_outType.currentText(),
 			"connectednode": curNode,
 			"unitconvert": str(self.chb_convertExport.isChecked()),
-			"localoutput":str(self.chb_localOutput.isChecked()),
 			"savetoexistinghda":str(self.chb_saveToExistingHDA.isChecked()),
 			"projecthda":str(self.chb_projectHDA.isChecked()),
 			"blackboxhda":str(self.chb_blackboxHDA.isChecked()),

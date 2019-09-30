@@ -579,6 +579,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 		self.b_getRange.clicked.connect(self.getRange)
 		self.b_setRange.clicked.connect(lambda: self.core.setFrameRange(self.sp_rangeStart.value(), self.sp_rangeEnd.value()))
+		self.b_setRange.customContextMenuRequested.connect(self.setRangeContextMenu)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
 		self.b_publish.clicked.connect(self.publish)
@@ -1131,6 +1132,24 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 
 	@err_decorator
+	def setRangeContextMenu(self, pos):
+		fname = self.core.getCurrentFileName()
+		fnameData = self.core.getScenefileData(fname)
+		if fnameData["type"] != "shot":
+			return
+
+		cMenu = QMenu()
+		actSet = QAction("Set range for current shot", self)
+		start = self.sp_rangeStart.value()
+		end = self.sp_rangeEnd.value()
+		actSet.triggered.connect(lambda x=None: self.core.setShotRange(fnameData["shotName"], start, end))
+		cMenu.addAction(actSet)
+
+		self.core.appPlugin.setRCStyle(self, cMenu)
+		cMenu.exec_(QCursor.pos())
+
+
+	@err_decorator
 	def showDescription(self):
 		descriptionDlg = EnterText.EnterText()
 		descriptionDlg.buttonBox.removeButton(descriptionDlg.buttonBox.buttons()[1])
@@ -1281,22 +1300,16 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 	@err_decorator
 	def getRange(self):
-		shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
-		if not os.path.exists(shotFile):
-			return False
-
-		shotConfig = ConfigParser()
-		shotConfig.read(shotFile)
-
 		fileName = self.core.getCurrentFileName()
 		fileNameData = self.core.getScenefileData(fileName)
-		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-		if (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)) and fileNameData["type"] == "shot" and shotConfig.has_option("shotRanges", fileNameData["shotName"]):
-			shotRange = eval(shotConfig.get("shotRanges", fileNameData["shotName"]))
-			if type(shotRange) == list and len(shotRange) == 2:
-				self.sp_rangeStart.setValue(shotRange[0])
-				self.sp_rangeEnd.setValue(shotRange[1])
-				self.saveStatesToScene()
+		if fileNameData["type"] == "shot":
+			shotRange = self.core.getShotRange(fileNameData["shotName"])
+			if not shotRange:
+				return False
+
+			self.sp_rangeStart.setValue(shotRange[0])
+			self.sp_rangeEnd.setValue(shotRange[1])
+			self.saveStatesToScene()
 
 
 	@err_decorator

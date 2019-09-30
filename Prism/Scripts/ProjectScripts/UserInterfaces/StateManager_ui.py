@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'StateManager.ui'
 #
-# Created: Thu Feb  7 21:32:41 2019
+# Created: Mon Sep 30 23:46:08 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -206,6 +206,7 @@ class Ui_mw_StateManager(object):
         self.b_setRange = QtGui.QPushButton(self.groupBox_3)
         self.b_setRange.setMaximumSize(QtCore.QSize(30, 16777215))
         self.b_setRange.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.b_setRange.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.b_setRange.setAutoDefault(False)
         self.b_setRange.setObjectName("b_setRange")
         self.horizontalLayout_7.addWidget(self.b_setRange)

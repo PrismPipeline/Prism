@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.20"
+			self.version = "v1.2.1.21"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -2468,6 +2468,63 @@ class PrismCore():
 			return assetPaths
 
 		return []
+
+
+	@err_decorator
+	def setShotRange(self, shotName, start, end):
+		shotFile = os.path.join(os.path.dirname(self.prismIni), "Shotinfo", "shotInfo.ini")
+
+		if not os.path.exists(os.path.dirname(shotFile)):
+			os.makedirs(os.path.dirname(shotFile))
+
+		if not os.path.exists(shotFile):
+			open(shotFile, 'a').close()
+
+		saveRange = True
+		sconfig = ConfigParser()
+		while True:
+			try:
+				sconfig.read(shotFile)
+				break
+			except:
+				warnStr = "Could not read the configuration file for the frameranges:\n%s\n\nYou can try to fix this problem manually and then press retry.\nYou can also overwrite this file, which means that the frameranges for all existing shots will be lost.\nYou can also continue without saving the framerange for the current shot." % shotFile
+				msg = QMessageBox(QMessageBox.Warning, "Warning", warnStr, QMessageBox.NoButton, parent=self.messageParent)
+				msg.addButton("Retry", QMessageBox.YesRole)
+				msg.addButton("Overwrite", QMessageBox.YesRole)
+				msg.addButton("Continue", QMessageBox.YesRole)
+				msg.setFocus()
+				action = msg.exec_()
+
+				if action == 0:
+					pass
+				elif action == 1:
+					break
+				elif action == 2:
+					saveRange = False
+					break
+
+		if saveRange:
+			if not sconfig.has_section("shotRanges"):
+				sconfig.add_section("shotRanges")
+
+			sconfig.set("shotRanges", shotName, str([start, end]))
+
+			with open(shotFile, 'w') as inifile:
+				sconfig.write(inifile)
+
+
+	@err_decorator
+	def getShotRange(self, shotName):
+		shotFile = os.path.join(os.path.dirname(self.prismIni), "Shotinfo", "shotInfo.ini")
+
+		if os.path.exists(shotFile):
+			sconfig = ConfigParser()
+			sconfig.read(shotFile)
+
+			if sconfig.has_option("shotRanges", shotName):
+				shotRange = eval(sconfig.get("shotRanges", shotName))
+				if type(shotRange) == list and len(shotRange) == 2:
+					return shotRange
 
 
 	@err_decorator

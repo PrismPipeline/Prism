@@ -2599,41 +2599,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		pmap = None
 
 		if self.cursShots is not None:
-			shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
-
 			startFrame = "?"
 			endFrame = "?"
 
-			if os.path.exists(shotFile):
-				sconfig = ConfigParser()
-				try:
-					sconfig.read(shotFile)
-				except:
-					warnStr = "Could not read the configuration file for the frameranges:\n%s\n\nYou can try to fix this problem manually.\nYou can also reset this file, which means that the frameranges for all existing shots will be lost." % shotFile
-					msg = QMessageBox(QMessageBox.Warning, "Warning", warnStr, QMessageBox.Ok, parent=self.core.messageParent)
-					msg.addButton("Reset", QMessageBox.YesRole)
-					msg.setFocus()
-					action = msg.exec_()
-
-					if action == 0:
-						if not sconfig.has_section("shotRanges"):
-							sconfig.add_section("shotRanges")
-
-						with open(shotFile, 'w') as inifile:
-							sconfig.write(inifile)
-
-				if sconfig.has_option("shotRanges", self.cursShots):
-					shotRange = eval(sconfig.get("shotRanges", self.cursShots))
-					if type(shotRange) == list and len(shotRange) == 2:
-						startFrame = shotRange[0]
-						endFrame = shotRange[1]
+			shotRange = self.core.getShotRange(self.cursShots)
+			if shotRange:
+				startFrame, endFrame = shotRange
 
 			shotName, seqName = self.splitShotname(self.cursShots)
 			if not shotName and seqName:
 				rangeText = "Sequence selected"
 			else:
 				rangeText = "Framerange:	%s - %s" % (startFrame, endFrame)
-
 
 			imgPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % self.cursShots)
 

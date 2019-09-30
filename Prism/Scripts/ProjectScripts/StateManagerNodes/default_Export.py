@@ -93,13 +93,23 @@ class ExportClass(object):
 		self.w_cam.setVisible(False)
 		self.w_sCamShot.setVisible(False)
 		self.w_selectCam.setVisible(False)
-		self.w_localOutput.setVisible(self.core.useLocalFiles)
 
 		self.nodes = []
 
 		self.preDelete = lambda item: self.core.appPlugin.sm_export_preDelete(self)
 
 		self.cb_outType.addItems(self.core.appPlugin.outputFormats)
+		self.export_paths = [["global", self.core.projectPath]]
+		if self.core.useLocalFiles:
+			self.export_paths.append(["local", self.core.localProjectPath])
+
+		customPaths = self.core.getConfig('export_paths', getItems=True, configPath=self.core.prismIni)
+		if customPaths:
+			self.export_paths += customPaths
+
+		self.cb_outPath.addItems([x[0] for x in self.export_paths])
+		if len(self.export_paths) < 2:
+			self.w_outPath.setVisible(False)
 		getattr(self.core.appPlugin, "sm_export_startup", lambda x: None)(self)
 		self.nameChanged(state.text(0))
 		self.connectEvents()
@@ -143,14 +153,16 @@ class ExportClass(object):
 			self.sp_rangeStart.setValue(int(data["startframe"]))
 		if "endframe" in data:
 			self.sp_rangeEnd.setValue(int(data["endframe"]))
+		if "curoutputpath" in data:
+			idx = self.cb_outPath.findText(data["curoutputpath"])
+			if idx != -1:
+				self.cb_outPath.setCurrentIndex(idx)
 		if "curoutputtype" in data:
 			idx = self.cb_outType.findText(data["curoutputtype"])
 			if idx != -1:
 				self.cb_outType.setCurrentIndex(idx)
 		if "wholescene" in data:
 			self.chb_wholeScene.setChecked(eval(data["wholescene"]))
-		if "localoutput" in data:
-			self.chb_localOutput.setChecked(eval(data["localoutput"]))
 		if "unitconvert" in data:
 			self.chb_convertExport.setChecked(eval(data["unitconvert"]))
 		if "additionaloptions" in data:
@@ -188,9 +200,9 @@ class ExportClass(object):
 		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
+		self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
 		self.cb_outType.activated[str].connect(self.typeChanged)
 		self.chb_wholeScene.stateChanged.connect(self.wholeSceneChanged)
-		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_convertExport.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_additionalOptions.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
@@ -453,13 +465,8 @@ class ExportClass(object):
 		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
 
 		if self.cb_outType.currentText() == "ShotCam":
-			outputBase = os.path.join(self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
-
-			if self.core.useLocalFiles and self.chb_localOutput.isChecked():
-				outputBase = os.path.join(self.core.localProjectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
-
+			outputBase = os.path.join(self.core.projectpath, sceneDir, "Shots", self.cb_sCamShot.currentText())
 			fnameData = self.core.getScenefileData(fileName)
-
 			comment = fnameData["comment"]
 			versionUser = self.core.user
 
@@ -487,14 +494,8 @@ class ExportClass(object):
 			else:
 				fileNum = ".####"
 
-			basePath = self.core.projectPath
-			if self.core.useLocalFiles:
-				if self.chb_localOutput.isChecked():
-					basePath = self.core.localProjectPath
-					if fileName.startswith(os.path.join(self.core.projectPath, sceneDir)):
-						fileName = fileName.replace(self.core.projectPath, self.core.localProjectPath)
-				elif fileName.startswith(os.path.join(self.core.localProjectPath, sceneDir)):
-					fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
+			if self.core.useLocalFiles and fileName.startswith(self.core.localProjectPath):
+				fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
 
 			versionUser = self.core.user
 			hVersion = ""
@@ -515,7 +516,7 @@ class ExportClass(object):
 				outputName = os.path.join(outputPath, "shot" + self.core.filenameSeperator + fnameData["shotName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
 			elif fnameData["type"] == "asset":
 				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-					outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Export", self.l_taskName.text())
+					outputPath = os.path.join(self.core.projectPath, sceneDir, "Assets", "Export", self.l_taskName.text())
 				else:
 					outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
 				if hVersion == "":
@@ -526,6 +527,12 @@ class ExportClass(object):
 				outputName = os.path.join(outputPath, fnameData["assetName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
 			else:
 				return
+
+		basePath = self.export_paths[self.cb_outPath.currentIndex()][1]
+		prjPath = os.path.normpath(self.core.projectPath)
+		basePath = os.path.normpath(basePath)
+		outputName = outputName.replace(prjPath, basePath)
+		outputPath = outputPath.replace(prjPath, basePath)
 
 		return outputName, outputPath, hVersion
 
@@ -634,6 +641,21 @@ class ExportClass(object):
 	def getStateProps(self):
 		stateProps = {}
 		stateProps.update(getattr(self.core.appPlugin, "sm_export_getStateProps", lambda x: {})(self))
-		stateProps.update({"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange":str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "unitconvert": str(self.chb_convertExport.isChecked()), "additionaloptions": str(self.chb_additionalOptions.isChecked())})
-		stateProps.update({"curoutputtype": self.cb_outType.currentText(), "wholescene":str(self.chb_wholeScene.isChecked()), "localoutput": str(self.chb_localOutput.isChecked()), "connectednodes": str(self.nodes), "currentcam": str(self.curCam), "currentscamshot": self.cb_sCamShot.currentText(), "lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0))})
+		stateProps.update({
+			"statename":self.e_name.text(),
+		 	"taskname":self.l_taskName.text(),
+		 	"globalrange":str(self.chb_globalRange.isChecked()),
+		 	"startframe":self.sp_rangeStart.value(),
+		 	"endframe":self.sp_rangeEnd.value(),
+		 	"unitconvert": str(self.chb_convertExport.isChecked()),
+		 	"additionaloptions": str(self.chb_additionalOptions.isChecked()),
+		 	"curoutputpath": self.cb_outPath.currentText(),
+		 	"curoutputtype": self.cb_outType.currentText(),
+		 	"wholescene":str(self.chb_wholeScene.isChecked()),
+		 	"connectednodes": str(self.nodes),
+		 	"currentcam": str(self.curCam),
+		 	"currentscamshot": self.cb_sCamShot.currentText(),
+		 	"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+		 	"stateenabled":str(self.state.checkState(0))
+		 })
 		return stateProps
