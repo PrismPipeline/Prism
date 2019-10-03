@@ -149,7 +149,10 @@ class ScreenShot(QDialog):
 				except:
 					pass
 
-			self.imgmap = screen.grabWindow(winID, rect.x(), rect.y(), rect.width(), rect.height())
+			try:
+				self.imgmap = screen.grabWindow(winID, rect.x(), rect.y(), rect.width(), rect.height())
+			except:
+				self.imgmap = screen.grabWindow(int(winID), rect.x(), rect.y(), rect.width(), rect.height())
 			self.close()
 		QWidget.mouseReleaseEvent(self, event)
 

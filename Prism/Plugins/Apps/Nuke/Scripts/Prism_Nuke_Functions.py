@@ -73,7 +73,7 @@ class Prism_Nuke_Functions(object):
 	def startup(self, origin):
 		origin.timer.stop()
 
-		for obj in qApp.topLevelWidgets():
+		for obj in QApplication.topLevelWidgets():
 			if (obj.inherits('QMainWindow') and obj.metaObject().className() == 'Foundry::UI::DockMainWindow'):
 				nukeQtParent = obj
 				break

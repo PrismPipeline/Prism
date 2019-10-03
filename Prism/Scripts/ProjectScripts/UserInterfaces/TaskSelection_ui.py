@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'TaskSelection.ui'
 #
-# Created: Thu Oct 25 01:57:24 2018
+# Created: Wed Oct  2 23:24:30 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -22,7 +22,6 @@ class Ui_dlg_TaskSelection(object):
         self.horizontalLayout_2 = QtGui.QHBoxLayout(self.widget_4)
         self.horizontalLayout_2.setSpacing(6)
         self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.widget = QtGui.QWidget(self.widget_4)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
@@ -33,8 +32,19 @@ class Ui_dlg_TaskSelection(object):
         self.widget.setObjectName("widget")
         self.verticalLayout = QtGui.QVBoxLayout(self.widget)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setObjectName("verticalLayout")
+        self.w_paths = QtGui.QWidget(self.widget)
+        self.w_paths.setObjectName("w_paths")
+        self.horizontalLayout_3 = QtGui.QHBoxLayout(self.w_paths)
+        self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
+        self.l_paths = QtGui.QLabel(self.w_paths)
+        self.l_paths.setObjectName("l_paths")
+        self.horizontalLayout_3.addWidget(self.l_paths)
+        self.cb_paths = QtGui.QComboBox(self.w_paths)
+        self.cb_paths.setObjectName("cb_paths")
+        self.horizontalLayout_3.addWidget(self.cb_paths)
+        self.verticalLayout.addWidget(self.w_paths)
         self.tbw_entity = QtGui.QTabWidget(self.widget)
         self.tbw_entity.setObjectName("tbw_entity")
         self.tab = QtGui.QWidget()
@@ -87,7 +97,6 @@ class Ui_dlg_TaskSelection(object):
         self.widget_2.setObjectName("widget_2")
         self.verticalLayout_3 = QtGui.QVBoxLayout(self.widget_2)
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.label_2 = QtGui.QLabel(self.widget_2)
         self.label_2.setObjectName("label_2")
@@ -106,12 +115,10 @@ class Ui_dlg_TaskSelection(object):
         self.widget_3.setObjectName("widget_3")
         self.verticalLayout_2 = QtGui.QVBoxLayout(self.widget_3)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.widget_5 = QtGui.QWidget(self.widget_3)
         self.widget_5.setObjectName("widget_5")
         self.horizontalLayout = QtGui.QHBoxLayout(self.widget_5)
-        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.l_version = QtGui.QLabel(self.widget_5)
@@ -145,7 +152,8 @@ class Ui_dlg_TaskSelection(object):
         QtCore.QMetaObject.connectSlotsByName(dlg_TaskSelection)
 
     def retranslateUi(self, dlg_TaskSelection):
-        dlg_TaskSelection.setWindowTitle(QtGui.QApplication.translate("dlg_TaskSelection", "Select Task", None, QtGui.QApplication.UnicodeUTF8))
+        dlg_TaskSelection.setWindowTitle(QtGui.QApplication.translate("dlg_TaskSelection", "Import Task", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_paths.setText(QtGui.QApplication.translate("dlg_TaskSelection", "Location:", None, QtGui.QApplication.UnicodeUTF8))
         self.tbw_entity.setTabText(self.tbw_entity.indexOf(self.tab), QtGui.QApplication.translate("dlg_TaskSelection", "Assets", None, QtGui.QApplication.UnicodeUTF8))
         self.tbw_entity.setTabText(self.tbw_entity.indexOf(self.tab_2), QtGui.QApplication.translate("dlg_TaskSelection", "Shots", None, QtGui.QApplication.UnicodeUTF8))
         self.b_custom.setText(QtGui.QApplication.translate("dlg_TaskSelection", "Import custom files", None, QtGui.QApplication.UnicodeUTF8))

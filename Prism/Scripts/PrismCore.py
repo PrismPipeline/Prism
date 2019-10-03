@@ -117,7 +117,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.21"
+			self.version = "v1.2.1.22"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -2396,39 +2396,22 @@ class PrismCore():
 
 	@err_decorator
 	def getAssetPaths(self):
-		aBasePath = os.path.join(self.projectPath, self.getConfig('paths', "scenes", configPath=self.prismIni), "Assets")
-
+		scenesFolder = self.getConfig('paths', "scenes", configPath=self.prismIni)
 		dirs = []
+		aBasePath = os.path.join(self.projectPath, scenesFolder, "Assets")
 
 		for i in os.walk(aBasePath):
 			for k in i[1]:
 				if k in ["Export", "Playblasts", "Rendering", "Scenefiles"]:
 					continue
-				dirs.append(os.path.join(i[0], k))
+
+				adir = os.path.join(i[0], k)
+				dirs.append(adir)
 			break
-
-		if self.useLocalFiles:
-			lBasePath = aBasePath.replace(self.projectPath, self.localProjectPath)
-
-			for i in os.walk(lBasePath):
-				for k in i[1]:
-					if k in ["Export", "Playblasts", "Rendering", "Scenefiles"]:
-						continue
-
-					ldir = os.path.join(i[0], k)
-					if ldir.replace(self.localProjectPath, self.projectPath) not in dirs:
-						dirs.append(ldir)
-				break
-
 
 		assetPaths = []
 		for path in dirs:
-			val = os.path.basename(path)
-			if path == aBasePath or (self.useLocalFiles and path == lBasePath):
-				if aBasePath not in assetPaths:
-					assetPaths.append(aBasePath)
-			else:
-				assetPaths += self.refreshAItem(path)
+			assetPaths += self.refreshAItem(path)
 
 		return assetPaths
 
@@ -2437,20 +2420,12 @@ class PrismCore():
 	def refreshAItem(self, path):
 		self.adclick = False
 
-		if self.useLocalFiles:
-			path = path.replace(self.localProjectPath, self.projectPath)
-			lpath = path.replace(self.projectPath, self.localProjectPath)
-
 		dirContent = []
 		dirContentPaths = []
 
 		if os.path.exists(path):
 			dirContent += os.listdir(path)
 			dirContentPaths += [os.path.join(path,x) for x in os.listdir(path)]
-
-		if self.useLocalFiles and os.path.exists(lpath):
-			dirContent += os.listdir(lpath)
-			dirContentPaths += [os.path.join(lpath,x) for x in os.listdir(lpath)]
 
 		isAsset = False
 		if "Export" in dirContent and "Playblasts" in dirContent and "Rendering" in dirContent and "Scenefiles" in dirContent:
@@ -2881,6 +2856,7 @@ class PrismCore():
 	@err_decorator
 	def sortNatural(self, alist):
 		sortedList = sorted(alist, key=self.naturalKeys)
+		return sortedList
 
 
 	@err_decorator

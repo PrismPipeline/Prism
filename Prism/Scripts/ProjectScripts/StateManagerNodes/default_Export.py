@@ -465,7 +465,7 @@ class ExportClass(object):
 		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
 
 		if self.cb_outType.currentText() == "ShotCam":
-			outputBase = os.path.join(self.core.projectpath, sceneDir, "Shots", self.cb_sCamShot.currentText())
+			outputBase = os.path.join(self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
 			fnameData = self.core.getScenefileData(fileName)
 			comment = fnameData["comment"]
 			versionUser = self.core.user
