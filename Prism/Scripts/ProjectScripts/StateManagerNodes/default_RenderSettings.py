@@ -1,0 +1,303 @@
+# -*- coding: utf-8 -*-
+#
+####################################################
+#
+# PRISM - Pipeline for animation and VFX projects
+#
+# www.prism-pipeline.com
+#
+# contact: contact@prism-pipeline.com
+#
+####################################################
+#
+#
+# Copyright (C) 2016-2019 Richard Frangenberg
+#
+# Licensed under GNU GPL-3.0-or-later
+#
+# This file is part of Prism.
+#
+# Prism is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Prism is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Prism.  If not, see <https://www.gnu.org/licenses/>.
+
+
+
+try:
+	from PySide2.QtCore import *
+	from PySide2.QtGui import *
+	from PySide2.QtWidgets import *
+	psVersion = 2
+except:
+	from PySide.QtCore import *
+	from PySide.QtGui import *
+	psVersion = 1
+
+import sys, os, shutil, time, traceback, platform
+from functools import wraps
+
+if sys.version[0] == "3":
+	from configparser import ConfigParser
+	pVersion = 3
+else:
+	from ConfigParser import ConfigParser
+	pVersion = 2
+
+
+
+class RenderSettingsClass(object):
+	def err_decorator(func):
+		@wraps(func)
+		def func_wrapper(*args, **kwargs):
+			try:
+				return func(*args, **kwargs)
+			except Exception as e:
+				exc_type, exc_obj, exc_tb = sys.exc_info()
+				erStr = ("%s ERROR - sm_default_renderSettings %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				args[0].core.writeErrorLog(erStr)
+
+		return func_wrapper
+
+
+	@classmethod
+	def isActive(cls, core):
+		return core.appPlugin.pluginName in ["Houdini", "Maya"]
+
+
+	@err_decorator
+	def setup(self, state, core, stateManager, node=None, stateData=None):
+		self.state = state
+		self.core = core
+		self.stateManager = stateManager
+
+		self.e_name.setText(state.text(0))
+
+		self.className = "RenderSettings"
+		self.listType = "Export"
+
+		getattr(self.core.appPlugin, "sm_renderSettings_startup", lambda x: None)(self)
+		self.nameChanged(state.text(0))
+		self.editChanged(self.chb_editSettings.isChecked())
+		self.connectEvents()
+
+		if stateData is not None:
+			self.loadData(stateData)
+
+
+	@err_decorator
+	def loadData(self, data):
+		if "statename" in data:
+			self.e_name.setText(data["statename"])
+		if "presetoption" in data:
+			idx = self.cb_presetOption.findText(data["presetoption"])
+			if idx != -1:
+				self.cb_presetOption.setCurrentIndex(idx)
+		if "editsettings" in data:
+			self.chb_editSettings.setChecked(eval(data["editsettings"].replace("PySide.QtCore.", "").replace("PySide2.QtCore.", "")))
+		if "rendersettings" in data:
+			settings = self.core.writeYaml(data=data["rendersettings"])
+			self.te_settings.setPlainText(settings)
+		if "stateenabled" in data:
+			self.state.setCheckState(0, eval(data["stateenabled"].replace("PySide.QtCore.", "").replace("PySide2.QtCore.", "")))
+
+		getattr(self.core.appPlugin, "sm_renderSettings_loadData", lambda x, y: None)(self, data)
+
+
+	@err_decorator
+	def connectEvents(self):
+		self.cb_presetOption.activated.connect(self.stateManager.saveStatesToScene)
+		self.b_loadCurrent.clicked.connect(self.loadCurrent)
+		self.b_resetSettings.clicked.connect(self.resetSettings)
+		self.b_loadPreset.clicked.connect(self.showPresets)
+		self.b_savePreset.clicked.connect(self.savePreset)
+		self.chb_editSettings.stateChanged.connect(self.editChanged)
+		self.te_settings.origFocusOutEvent = self.te_settings.focusOutEvent
+		self.te_settings.focusOutEvent = self.focusOut
+		self.e_name.textChanged.connect(self.nameChanged)
+		self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
+		if not self.stateManager.standalone:
+			self.b_applySettings.clicked.connect(self.applySettings)
+
+
+	@err_decorator
+	def nameChanged(self, text):
+		sText = text
+			
+		if self.state.text(0).endswith(" - disabled"):
+			sText += " - disabled"
+			
+		self.state.setText(0, sText)
+
+
+	@err_decorator
+	def editChanged(self, state):
+		self.w_presetOption.setVisible(not state)
+		self.w_loadCurrent.setVisible(state)
+		self.gb_settings.setVisible(state)
+		self.te_settings.setPlainText("")
+		self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def updateUi(self):
+		curPreset = self.cb_presetOption.currentText()
+		self.cb_presetOption.clear()
+		self.cb_presetOption.addItems(sorted(self.getPresets().keys(), key=lambda x: x.lower()))
+		idx = self.cb_presetOption.findText(curPreset)
+		if idx != -1:
+			self.cb_presetOption.setCurrentIndex(idx)
+		else:
+			self.stateManager.saveStatesToScene()
+		self.nameChanged(self.e_name.text())
+
+
+	@err_decorator
+	def focusOut(self, event):
+		self.stateManager.saveStatesToScene()
+		self.te_settings.origFocusOutEvent(event)
+
+
+	@err_decorator
+	def loadCurrent(self):
+		settings = getattr(self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {})(self)
+		self.te_settings.setPlainText(settings)
+		self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def resetSettings(self):
+		getattr(self.core.appPlugin, "sm_renderSettings_applyDefaultSettings", lambda x: {})(self)
+
+
+	@err_decorator
+	def showPresets(self):
+		presets = self.getPresets()
+		if not presets:
+			self.core.popup("No presets found.")
+			return
+
+		pmenu = QMenu()
+
+		for preset in sorted(presets):
+			add = QAction(preset, self)
+			add.triggered.connect(lambda p=preset: self.loadPreset(presets[p]))
+			pmenu.addAction(add)
+
+		self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
+		pmenu.exec_(QCursor().pos())
+
+
+	@err_decorator
+	def getPresets(self):
+		presets = {}
+		appName = self.core.appPlugin.pluginName
+		presetPath = os.path.join(os.path.dirname(self.core.prismIni), "Presets", "RenderSettings", appName)
+		if not os.path.exists(presetPath):
+			return presets
+
+		for pFile in os.listdir(presetPath):
+			base, ext = os.path.splitext(pFile)
+			if ext != ".yml":
+				continue
+
+			presets[base] = os.path.join(presetPath, pFile)
+
+		return presets
+
+
+	@err_decorator
+	def loadPreset(self, presetPath):
+		preset = self.core.readYaml(presetPath)
+		if "renderSettings" not in preset:
+			return
+
+		settings = self.core.writeYaml(data=preset["renderSettings"])
+		self.te_settings.setPlainText(settings)
+		self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def savePreset(self):
+		result = QInputDialog.getText(self, "Save preset", "Presetname:")
+		if not result[1]:
+			return
+
+		appName = self.core.appPlugin.pluginName
+		presetPath = os.path.join(os.path.dirname(self.core.prismIni), "Presets", "RenderSettings", appName, "%s.yml" % result[0])
+
+		if self.chb_editSettings.isChecked():
+			presetStr = self.te_settings.toPlainText()
+		else:
+			presetStr = getattr(self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {})(self)
+
+		preset = self.core.readYaml(data=presetStr)
+		if preset is None:
+			self.core.popup("Invalid preset syntax.")
+		else:
+			self.core.writeYaml(presetPath, {"renderSettings": preset})
+
+		self.updateUi()
+
+
+	@err_decorator
+	def applySettings(self, settings=None):
+		if self.chb_editSettings.isChecked():
+			if not settings:
+				settings = self.te_settings.toPlainText()
+			preset = self.core.readYaml(data=settings)
+		else:
+			presets = self.getPresets()
+			selPreset = self.cb_presetOption.currentText()
+			if selPreset not in presets:
+				return
+
+			preset = self.core.readYaml(presets[selPreset])
+			if "renderSettings" not in preset:
+				return
+
+			preset = preset["renderSettings"]
+
+		getattr(self.core.appPlugin, "sm_renderSettings_setCurrentSettings", lambda x,y: None)(self, preset)
+
+
+	@err_decorator
+	def preExecuteState(self):
+		warnings = []
+
+		if self.chb_editSettings.isChecked() and not self.te_settings.toPlainText():
+			warnings.append(["No rendersettings are specified.", "", 2])
+
+		warnings += getattr(self.core.appPlugin, "sm_renderSettings_preExecute", lambda x: [])(self)
+
+		return [self.state.text(0), warnings]
+
+
+	@err_decorator
+	def executeState(self, parent, useVersion="next"):
+		self.applySettings()
+		return [self.state.text(0) + " - success"]
+
+
+
+	@err_decorator
+	def getStateProps(self):
+		stateProps = {}
+		stateProps.update(getattr(self.core.appPlugin, "sm_renderSettings_getStateProps", lambda x: {})(self))
+		stateProps.update({
+			"statename": self.e_name.text(),
+			"presetoption": self.cb_presetOption.currentText(),
+			"editsettings": str(self.chb_editSettings.isChecked()),
+			"rendersettings": self.core.readYaml(data=self.te_settings.toPlainText()),
+		 	"stateenabled": str(self.state.checkState(0))
+		})
+
+		return stateProps

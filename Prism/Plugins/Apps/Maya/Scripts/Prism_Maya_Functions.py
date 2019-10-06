@@ -1880,3 +1880,25 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def sm_createRenderPressed(self, origin):
 		origin.createPressed("Render")
+
+
+	@err_decorator
+	def sm_renderSettings_getCurrentSettings(self, origin):
+		import maya.app.renderSetup.model.renderSettings as renderSettings
+		settings = self.core.writeYaml(data=renderSettings.encode())
+		return settings
+
+
+	@err_decorator
+	def sm_renderSettings_setCurrentSettings(self, origin, preset):
+		import maya.app.renderSetup.model.renderSettings as renderSettings
+		try:
+			renderSettings.decode(preset)
+		except:
+			self.core.popup("Failed to set rendersettings.")
+
+
+	@err_decorator
+	def sm_renderSettings_applyDefaultSettings(self, origin):
+		import maya.app.renderSetup.views.renderSetupPreferences as prefs
+		prefs.setDefaultPreset()

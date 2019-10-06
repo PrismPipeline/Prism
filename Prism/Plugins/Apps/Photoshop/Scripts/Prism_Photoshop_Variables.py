@@ -34,7 +34,7 @@
 
 class Prism_Photoshop_Variables(object):
 	def __init__(self, core, plugin):
-		self.version = "v1.2.1.0"
+		self.version = "v1.2.1.23"
 		self.pluginName = "Photoshop"
 		self.pluginType = "App"
 		self.appShortName = "Photoshop"

@@ -188,8 +188,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 						del sys.modules[stateName + "_ui_ps2"]
 					except:
 						pass
-
-
+					
 					try:
 						exec("""
 import %s
@@ -203,7 +202,15 @@ class %s(QWidget, %s.%s, %s.%sClass):
 						validState = False
 
 					if validState:
-						self.stateTypes[stateNameBase] = eval(stateNameBase + "Class")
+						classDef = eval(stateNameBase + "Class")
+						try:
+							if not classDef.isActive(self.core):
+								validState = False
+						except:
+							pass
+						
+						if validState:
+							self.stateTypes[stateNameBase] = classDef
 
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -334,68 +341,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			
 		for i in self.collapsedFolders:
 			i.setExpanded(False)
-
-	@err_decorator
-	def loadStates(self, stateText=None):
-		self.saveEnabled = False
-		self.loading = True
-		if stateText is None:
-			stateText = self.core.appPlugin.sm_readStates(self)
-
-		stateData = None
-		if stateText is not None:
-			buf = StringIO(stateText)
-
-			stateData = []
-
-			stateConfig = ConfigParser()
-			validStateData = False
-			try:
-				stateConfig.readfp(buf)
-				validStateData = True
-			except:
-				QMessageBox.warning(self.core.messageParent,"Load states", "Loading states failed.")
-				stateData = None
-
-			if validStateData:
-				if stateConfig.has_option("publish", "startframe"):
-					self.sp_rangeStart.setValue(stateConfig.getint("publish", "startframe"))
-				if stateConfig.has_option("publish", "endframe"):
-					self.sp_rangeEnd.setValue(stateConfig.getint("publish", "endframe"))
-				if stateConfig.has_option("publish", "comment"):
-					self.e_comment.setText(stateConfig.get("publish", "comment"))
-				if stateConfig.has_option("publish", "description"):
-					self.description = stateConfig.get("publish", "description")
-					if self.description == "":
-						self.b_description.setStyleSheet(self.styleMissing)
-					else:
-						self.b_description.setStyleSheet(self.styleExists)
-
-				for i in stateConfig.sections():
-					if i == "publish":
-						continue
-
-					stateProps = {}
-					stateProps["statename"] = i
-					for k in stateConfig.options(i):
-						stateProps[k] = stateConfig.get(i, k)
-
-					stateData.append(stateProps)
-
-		self.collapsedFolders = []
-
-		if stateData is not None and len(stateData) != 0:
-			loadedStates = []
-			for i in stateData:
-				stateParent = None
-				if i["stateparent"] != "None":
-					stateParent = loadedStates[int(i["stateparent"])-1]
-				state = self.createState(i["stateclass"], parent=stateParent, stateData=i)
-				loadedStates.append(state)
-
-		self.loading = False
-		self.saveEnabled = True
-		self.saveStatesToScene()
 
 
 	@err_decorator
@@ -1052,6 +997,84 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 
 	@err_decorator
+	def loadStates(self, stateText=None):
+		self.saveEnabled = False
+		self.loading = True
+		if stateText is None:
+			stateText = self.core.appPlugin.sm_readStates(self)
+
+		stateData = None
+		if stateText is not None:
+			stateData = []
+			jsonData = self.core.readJson(data=stateText)
+			if jsonData and "states" in jsonData:
+				stateData = jsonData["states"]
+			else:
+				buf = StringIO(stateText)
+				stateConfig = ConfigParser()
+				try:
+					stateConfig.readfp(buf)
+				except:
+					self.core.popup("Loading states failed.", "Prism - Load states")
+					stateData = None
+				else:
+					for i in stateConfig.sections():
+						stateProps = {}
+						stateProps["statename"] = i
+						for k in stateConfig.options(i):
+							stateProps[k] = stateConfig.get(i, k)
+
+						stateData.append(stateProps)
+
+		self.collapsedFolders = []
+
+		if stateData:
+			loadedStates = []
+			for i in stateData:
+				if i["statename"] == "publish":
+					self.loadSettings(i)
+				else:
+					stateParent = None
+					if i["stateparent"] != "None":
+						stateParent = loadedStates[int(i["stateparent"])-1]
+					state = self.createState(i["stateclass"], parent=stateParent, stateData=i)
+					loadedStates.append(state)
+
+		self.loading = False
+		self.saveEnabled = True
+		self.saveStatesToScene()
+
+
+	@err_decorator
+	def loadSettings(self, data):
+		if "startframe" in data:
+			self.sp_rangeStart.setValue(int(data["startframe"]))
+		if "endframe" in data:
+			self.sp_rangeEnd.setValue(int(data["endframe"]))
+		if "comment" in data:
+			self.e_comment.setText(data["comment"])
+		if "description" in data:
+			self.description = data["description"]
+			if self.description == "":
+				self.b_description.setStyleSheet(self.styleMissing)
+			else:
+				self.b_description.setStyleSheet(self.styleExists)
+
+
+	@err_decorator
+	def getSettings(self):
+		stateProps = {}
+		stateProps.update({
+			"statename": "publish",
+			"startframe": str(self.sp_rangeStart.value()),
+		 	"endframe": str(self.sp_rangeEnd.value()),
+		 	"comment": str(self.e_comment.text()),
+		 	"description": self.description,
+		})
+		return stateProps
+
+
+	@err_decorator
 	def saveStatesToScene(self, param=None):
 		if not self.saveEnabled:
 			return False
@@ -1072,26 +1095,19 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.stateData.append([self.tw_export.topLevelItem(i), None])
 			self.appendChildStates(self.stateData[len(self.stateData)-1][0], self.stateData)
 
-		stateConfig = ConfigParser()
-
-		stateConfig.add_section("publish")
-		stateConfig.set("publish", "startframe", str(self.sp_rangeStart.value()))
-		stateConfig.set("publish", "endframe", str(self.sp_rangeEnd.value()))
-		stateConfig.set("publish", "comment", str(self.e_comment.text()))
-		stateConfig.set("publish", "description", self.description)
+		stateData = {"states":[]}
+		stateData["states"].append(self.getSettings())
 
 		for idx, i in enumerate(self.stateData):
-			stateConfig.add_section(str(idx))
-			stateConfig.set(str(idx), "stateparent", str(i[1]))
-			stateConfig.set(str(idx), "stateclass", i[0].ui.className)
-			stateProps = i[0].ui.getStateProps()
-			for k in stateProps:
-				stateConfig.set(str(idx), k, str(stateProps[k]))
+			stateProps = {}
+			stateProps["stateparent"] = str(i[1])
+			stateProps["stateclass"] = i[0].ui.className
+			stateProps.update(i[0].ui.getStateProps())
+			stateData["states"].append(stateProps)
 
-		buf = StringIO()
-		stateConfig.write(buf)
+		stateStr = self.core.writeJson(stateData)
 
-		self.core.appPlugin.sm_saveStates(self, buf.getvalue())
+		self.core.appPlugin.sm_saveStates(self, stateStr)
 
 
 	@err_decorator

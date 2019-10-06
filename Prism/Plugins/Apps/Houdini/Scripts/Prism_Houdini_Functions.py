@@ -815,3 +815,120 @@ class Prism_Houdini_Functions(object):
 		if hasattr(origin, "chb_resOverride") and origin.chb_resOverride.isChecked():
 			dlParams["pluginInfos"]["Width"] = origin.sp_resWidth.value()
 			dlParams["pluginInfos"]["Height"] = origin.sp_resHeight.value()
+
+
+	@err_decorator
+	def sm_renderSettings_getCurrentSettings(self, origin):
+		settings = []
+		node = hou.node(origin.e_node.text())
+		if not node:
+			return settings
+
+		for parm in sorted(node.parms(), key=lambda x: x.name().lower()):
+			setting = {}
+			if len(parm.keyframes()) == 1:
+				setting[parm.name()] = parm.expression() + " [expression]"
+			elif parm.parmTemplate().dataType() == hou.parmData.String:
+				setting[parm.name()] = parm.unexpandedString()
+			else:
+				setting[parm.name()] = parm.eval()
+			settings.append(setting)
+
+		settingsStr = self.core.writeYaml(data=settings)
+		return settingsStr
+
+
+	@err_decorator
+	def sm_renderSettings_setCurrentSettings(self, origin, preset):
+		node = hou.node(origin.e_node.text())
+		if not node:
+			return
+
+		for setting in preset:
+			parm = node.parm(setting.keys()[0])
+			if not parm:
+				continue
+
+			value = setting.values()[0]
+			if type(value) in [str, unicode] and value.endswith(" [expression]"):
+				value = value[:-len(" [expression")]
+				parm.setExpression(value)
+			else:
+				parm.deleteAllKeyframes()
+				try:
+					parm.set(value)
+				except:
+					pass
+
+
+	@err_decorator
+	def sm_renderSettings_applyDefaultSettings(self, origin):
+		node = hou.node(origin.e_node.text())
+		if not node:
+			return
+
+		for parm in node.parms():
+			parm.revertToDefaults()
+
+
+	@err_decorator
+	def sm_renderSettings_startup(self, origin):
+		origin.w_node = QWidget()
+		origin.lo_node = QHBoxLayout()
+		origin.w_node.setLayout(origin.lo_node)
+		origin.l_node = QLabel("Node:")
+		origin.e_node = QLineEdit()
+		origin.e_node.setContextMenuPolicy(Qt.CustomContextMenu)
+		origin.e_node.customContextMenuRequested.connect(lambda x: self.showNodeContext(origin))
+		origin.e_node.editingFinished.connect(origin.stateManager.saveStatesToScene)
+		origin.b_node = hou.qt.NodeChooserButton()
+		origin.b_node.nodeSelected.connect(lambda x: origin.e_node.setText(x.path()))
+		origin.b_node.nodeSelected.connect(origin.stateManager.saveStatesToScene)
+		origin.lo_node.addWidget(origin.l_node)
+		origin.lo_node.addWidget(origin.e_node)
+		origin.lo_node.addWidget(origin.b_node)
+		origin.gb_general.layout().insertWidget(0, origin.w_node)
+
+
+	@err_decorator
+	def sm_renderSettings_loadData(self, origin, data):
+		if "node" in data:
+			origin.e_node.setText(data["node"])
+
+
+	@err_decorator
+	def sm_renderSettings_getStateProps(self, origin):
+		stateProps = {
+			"node": origin.e_node.text()
+		}
+
+		return stateProps
+
+
+	@err_decorator
+	def sm_renderSettings_addSelected(self, origin):
+		if len(hou.selectedNodes()) == 0:
+			return False
+
+		origin.e_node.setText(hou.selectedNodes()[0].path())
+
+
+	@err_decorator
+	def sm_renderSettings_preExecute(self, origin):
+		warnings = []
+
+		if not hou.node(origin.e_node.text()):
+			warnings.append(["Invalid node specified.", "", 2])
+
+		return warnings
+
+
+	@err_decorator
+	def showNodeContext(self, origin):
+		rcMenu = QMenu()
+		mAct = QAction("Add selected", origin)
+		mAct.triggered.connect(lambda: self.sm_renderSettings_addSelected(origin))
+		rcMenu.addAction(mAct)
+
+		self.setRCStyle(origin.stateManager, rcMenu)
+		rcMenu.exec_(QCursor.pos())

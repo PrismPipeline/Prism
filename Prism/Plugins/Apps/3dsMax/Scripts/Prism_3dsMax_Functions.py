@@ -1137,7 +1137,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
 
 	@err_decorator
 	def sm_saveStates(self, origin, buf):
-		self.executeScript(origin, "fileProperties.addProperty #custom \"PrismStates\" \"%s\"" % buf)
+		self.executeScript(origin, "fileProperties.addProperty #custom \"PrismStates\" \"%s\"" % buf.replace("\"", "\\\""))
 
 
 	@err_decorator

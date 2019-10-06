@@ -145,7 +145,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.copiedFile = None
 		self.copiedsFile = None
 		self.copiedfFile = None
-
+		
 		self.dclick = False
 		self.adclick = False
 		self.sdclick = False

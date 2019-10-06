@@ -37,9 +37,11 @@ import sys, os, threading, shutil, time, socket, traceback, imp, platform, rando
 #check if python 2 or python 3 is used
 if sys.version[0] == "3":
 	from configparser import ConfigParser
+	from io import StringIO
 	pVersion = 3
 else:
 	from ConfigParser import ConfigParser
+	from StringIO import StringIO
 	pVersion = 2
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -117,7 +119,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.22"
+			self.version = "v1.2.1.23"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1954,10 +1956,7 @@ class PrismCore():
 
 
 	@err_decorator
-	def readYaml(self, path):
-		if not os.path.exists(path):
-			return {}
-
+	def readYaml(self, path=None, stream=None, data=None):
 		try:
 			from ruamel.yaml import YAML
 		except:
@@ -1965,16 +1964,31 @@ class PrismCore():
 			return
 
 		yaml=YAML()
-		with open(path, "r") as config:
-			data = yaml.load(config)
+		yamlData = []
+		if path:
+			if not os.path.exists(path):
+				return {}
 
-		return data
+			with open(path, "r") as config:
+				yamlData = yaml.load(config)
+		else:
+			if not stream:
+				if not data:
+					return
+				stream = StringIO(data)
+			
+			try:
+				yamlData = yaml.load(stream)
+			except ValueError:
+				return
+
+		return yamlData
 
 
 	@err_decorator
-	def writeYaml(self, path, data):
-		if not os.path.exists(os.path.dirname(path)):
-			os.makedirs(os.path.dirname(path))
+	def writeYaml(self, path=None, data=None, stream=None):
+		if not data:
+			return
 
 		try:
 			from ruamel.yaml import YAML
@@ -1983,8 +1997,60 @@ class PrismCore():
 			return
 
 		yaml=YAML()
-		with open(path, "w") as config:
-			yaml.dump(data, config)
+
+		if path:
+			if not os.path.exists(os.path.dirname(path)):
+				os.makedirs(os.path.dirname(path))
+
+			with open(path, "w") as config:
+				yaml.dump(data, config)
+		else:
+			if not stream:
+				stream = StringIO()
+
+			yaml.dump(data, stream)
+			return stream.getvalue()
+
+
+	@err_decorator
+	def readJson(self, path=None, stream=None, data=None):
+		import json
+		jsonData = []
+		if path:
+			if not os.path.exists(path):
+				return {}
+
+			with open(configPath, 'r') as f:
+				jsonData = json.load(f)
+		else:
+			if not stream:
+				if not data:
+					return
+				stream = StringIO(data)
+			
+			try:
+				jsonData = json.load(stream)
+			except ValueError:
+				return
+
+		return jsonData
+
+	@err_decorator
+	def writeJson(self, data, path=None, stream=None):
+		import json
+
+		if path:
+			if not os.path.exists(os.path.dirname(path)):
+				os.makedirs(os.path.dirname(path))
+
+			with open(path, "w") as config:
+				json.dump(data, config, indent=4)
+		else:
+			if not stream:
+				stream = StringIO()
+
+			json.dump(data, stream, indent=4)
+			return stream.getvalue()
 
 
 	@err_decorator
