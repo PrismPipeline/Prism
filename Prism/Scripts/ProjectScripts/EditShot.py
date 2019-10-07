@@ -232,7 +232,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 		text = self.core.validateStr(origText)
 
 		if editField == self.e_sequence:
-			text = text.replace("-","")
+			text = text.replace(self.core.sequenceSeparator,"")
 
 		if len(text) != len(origText):
 			cpos = editField.cursorPosition()
@@ -281,7 +281,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 		if self.e_sequence.text() == "":
 			newSName = self.e_shotName.text()
 		else:
-			newSName = "%s-%s" %(self.e_sequence.text(), self.e_shotName.text())
+			newSName = "%s%s%s" %(self.e_sequence.text(), self.core.sequenceSeparator, self.e_shotName.text())
 
 		if self.shotName is not None and newSName != self.shotName:
 			msgText = "Are you sure you want to rename this shot from \"%s\" to \"%s\"?\n\nThis will rename all files in the subfolders of the shot, which may cause errors, if these files are referenced somewhere else." % (self.shotName, newSName)

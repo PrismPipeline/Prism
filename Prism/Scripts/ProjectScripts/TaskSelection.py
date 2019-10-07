@@ -658,7 +658,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 					break
 
 			for k in versions:
-				nameData = k[0].split(self.core.filenameSeperator)
+				nameData = k[0].split(self.core.filenameSeparator)
 				
 				if not (len(nameData) == 3 and k[0][0] == "v" and len(nameData[0]) == 5):
 					continue

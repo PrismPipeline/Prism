@@ -119,7 +119,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.24"
+			self.version = "v1.2.1.25"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -156,7 +156,8 @@ class PrismCore():
 			self.smCallbacksRegistered = False
 			self.sceneOpenChecksEnabled = True
 			self.parentWindows = True
-			self.filenameSeperator = "_"
+			self.filenameSeparator = "_"
+			self.sequenceSeparator = "-"
 			self.separateOutputVersionStack = True
 
 			# delete old paths from the path variable
@@ -806,9 +807,18 @@ class PrismCore():
 			if self.getConfig(rSection, "recent" + "%02d" % (i+1)) is None:
 				self.setConfig(rSection, "recent" + "%02d" % (i+1), "")
 
-		sep = self.getConfig("globals", "filenameseperator", configPath=self.prismIni)
-		if sep is not None:
-			self.filenameSeperator = self.validateStr(sep, allowChars=[self.filenameSeperator])
+		sep = self.getConfig("globals", "filenameSeparator", configPath=self.prismIni)
+		if not sep:
+			sep = self.getConfig("globals", "filenameseperator", configPath=self.prismIni)
+		if sep:
+			self.filenameSeparator = self.validateStr(sep, allowChars=[self.filenameSeparator])
+
+		ssep = self.getConfig("globals", "sequenceSeparator", configPath=self.prismIni)
+		if ssep:
+			self.sequenceSeparator = self.validateStr(ssep, allowChars=[self.sequenceSeparator])
+
+		if self.filenameSeparator == self.sequenceSeparator:
+			self.popup("The filenameSeparator and the sequenceSeparator are equal. This will cause problems when working with sequences. Change the project settings to fix this.")
 
 		self.setRecentPrj(inipath)
 		self.checkAppVersion()
@@ -1264,7 +1274,7 @@ class PrismCore():
 			result = self.pb.createShotFolders(fname="%s/%s" % (entity["hierarchy"][0], entity["name"][0]), ftype="asset")
 
 		elif entity["type"][0] == "shot":
-			result = self.pb.createShot(shotName="%s-%s" % (entity["sequence"][0], entity["name"][0]), frameRange=[entity["framerange"][0], entity["framerange"][1]])
+			result = self.pb.createShot(shotName="%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["name"][0]), frameRange=[entity["framerange"][0], entity["framerange"][1]])
 
 		elif entity["type"][0] == "step":
 			if "assetName" in entity:
@@ -1272,7 +1282,7 @@ class PrismCore():
 				entityName = entity["assetName"][0]
 			else:
 				entityType = "shot"
-				entityName = "%s-%s" % (entity["sequence"][0], entity["shotName"][0])
+				entityName = "%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["shotName"][0])
 
 			result = self.pb.createStep(stepName=entity["name"][0], entity=entityType, entityName=entityName, createCat=False)
 
@@ -1283,7 +1293,7 @@ class PrismCore():
 				basePath = "%s/%s" % (entity["hierarchy"][0], entityName)
 			else:
 				entityType = "shot"
-				entityName = "%s-%s" % (entity["sequence"][0], entity["shotName"][0])
+				entityName = "%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["shotName"][0])
 				basePath = ""
 
 			catPath = os.path.dirname(os.path.dirname(self.generateScenePath(entity=entityType, entityName=entityName, step=entity["step"][0], category=entity["name"][0], basePath=basePath)))
@@ -1296,7 +1306,7 @@ class PrismCore():
 				entityName = entity["assetName"][0]
 			else:
 				entityType = "shot"
-				entityName = "%s-%s" % (entity["sequence"][0], entity["shotName"][0])
+				entityName = "%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["shotName"][0])
 
 			result = self.pb.createEmptyScene(entity=entityType, fileName=entity["source"][0], entityName=entityName, step=entity["step"][0], category=entity["category"][0], comment=entity["comment"][0], openFile=False)
 		else:
@@ -2060,7 +2070,7 @@ class PrismCore():
 
 	@err_decorator
 	def validateStr(self, text, allowChars=[], denyChars=[]):
-		invalidChars = [" ", "\\", "/", ":", "*", "?", "\"", "<", ">", "|", "ä", "ö", "ü", "ß", self.filenameSeperator]
+		invalidChars = [" ", "\\", "/", ":", "*", "?", "\"", "<", ">", "|", "ä", "ö", "ü", "ß", self.filenameSeparator]
 		for i in allowChars:
 			if i in invalidChars:
 				invalidChars.remove(i)
@@ -2074,8 +2084,8 @@ class PrismCore():
 		else:
 			validText = ("".join(ch for ch in str(text.encode("ascii", errors="ignore").decode()) if ch not in invalidChars))
 
-		if len(self.filenameSeperator) > 1:
-			validText = validText.replace(self.filenameSeperator, "")
+		if len(self.filenameSeparator) > 1:
+			validText = validText.replace(self.filenameSeparator, "")
 
 		return validText
 
@@ -2142,7 +2152,7 @@ class PrismCore():
 
 	@err_decorator
 	def getScenefileData(self, fileName):
-		fname = os.path.basename(fileName).split(self.filenameSeperator)
+		fname = os.path.basename(fileName).split(self.filenameSeparator)
 
 		if len(fname) == 6:
 			return {"type": "asset", "assetName": fname[0], "step": fname[1], "category": "", "version": fname[2], "comment": fname[3], "user": fname[4], "extension": fname[5]}
@@ -2204,12 +2214,12 @@ class PrismCore():
 			if self.compareVersions(self.projectVersion, "v1.2.1.6") == "lower":
 				category = ""
 			else:
-				category = (category or "") + self.filenameSeperator
+				category = (category or "") + self.filenameSeparator
 
 			version = version or self.getHighestVersion(dstname, "Asset")
 			user = user or self.user
 
-			fileName = entityName + self.filenameSeperator + step + self.filenameSeperator + category + version + self.filenameSeperator + comment + self.filenameSeperator + user
+			fileName = entityName + self.filenameSeparator + step + self.filenameSeparator + category + version + self.filenameSeparator + comment + self.filenameSeparator + user
 		elif entity == "shot":
 			#example filename: shot_a-0010_mod_main_v0002_details-added_rfr_.max
 			basePath = basePath or self.pb.sBasePath
@@ -2220,13 +2230,13 @@ class PrismCore():
 			version = version or self.getHighestVersion(dstname, "Shot")
 			user = user or self.user
 
-			fileName = "shot" + self.filenameSeperator + entityName + self.filenameSeperator + step + self.filenameSeperator + category
-			fileName += self.filenameSeperator + version + self.filenameSeperator + comment + self.filenameSeperator + user
+			fileName = "shot" + self.filenameSeparator + entityName + self.filenameSeparator + step + self.filenameSeparator + category
+			fileName += self.filenameSeparator + version + self.filenameSeparator + comment + self.filenameSeparator + user
 		else:
 			return ""
 
 		if extension:
-			fileName += self.filenameSeperator + extension
+			fileName += self.filenameSeparator + extension
 
 		scenePath = os.path.join(dstname, fileName)
 
@@ -2317,7 +2327,7 @@ class PrismCore():
 			
 		highversion = 0
 		for i in taskDirs:
-			fname = i.split(self.filenameSeperator)
+			fname = i.split(self.filenameSeparator)
 
 			if len(fname) in [1,2,3]:
 				try:
@@ -2987,18 +2997,18 @@ class PrismCore():
 			if not os.path.exists(os.path.dirname(i[0])):
 				continue
 			
-			versionData = os.path.dirname(os.path.dirname(i[0])).rsplit(os.sep, 1)[1].split(self.filenameSeperator)
+			versionData = os.path.dirname(os.path.dirname(i[0])).rsplit(os.sep, 1)[1].split(self.filenameSeparator)
 
 			if len(versionData) != 3 or not self.getConfig('paths', "scenes", configPath=self.prismIni) in i[0]:
 				continue
 
-			curVersion = versionData[0] + self.filenameSeperator + versionData[1] + self.filenameSeperator + versionData[2]
+			curVersion = versionData[0] + self.filenameSeparator + versionData[1] + self.filenameSeparator + versionData[2]
 			latestVersion = None
 			for m in os.walk(os.path.dirname(os.path.dirname(os.path.dirname(i[0])))):
 				folders = m[1]
 				folders.sort()
 				for k in reversed(folders):
-					if len(k.split(self.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.filenameSeperator)[0]) == 5 and len(os.listdir(os.path.join(m[0], k))) > 0:
+					if len(k.split(self.filenameSeparator)) == 3 and k[0] == "v" and len(k.split(self.filenameSeparator)[0]) == 5 and len(os.listdir(os.path.join(m[0], k))) > 0:
 						latestVersion = k
 						break
 				break
@@ -3215,7 +3225,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 				hVersion = fnameData["version"]
 			else:
 				hVersion = self.getHighestTaskVersion(outputPath, getExisting=useLastVersion, ignoreEmpty=ignoreEmpty)
-			outputFile = "shot" + self.filenameSeperator + fnameData["shotName"] + self.filenameSeperator + taskName + self.filenameSeperator + hVersion + ".####." + fileType
+			outputFile = "shot" + self.filenameSeparator + fnameData["shotName"] + self.filenameSeparator + taskName + self.filenameSeparator + hVersion + ".####." + fileType
 		elif fnameData["type"] == "asset":
 			if os.path.join(self.getConfig('paths', "scenes", configPath=self.prismIni), "Assets", "Scenefiles").replace("\\", "/") in fileName:
 				outputPath = os.path.join(self.projectPath, self.getConfig('paths', "scenes", configPath=self.prismIni), "Assets", "Rendering", "2dRender", taskName)
@@ -3226,7 +3236,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 			else:
 				hVersion = self.getHighestTaskVersion(outputPath, getExisting=useLastVersion, ignoreEmpty=ignoreEmpty)
 			
-			outputFile = fnameData["assetName"] + self.filenameSeperator + taskName + self.filenameSeperator + hVersion + ".####." + fileType
+			outputFile = fnameData["assetName"] + self.filenameSeparator + taskName + self.filenameSeparator + hVersion + ".####." + fileType
 		else:
 			outputName = "FileNotInPipeline"
 			outputFile = ""
@@ -3234,7 +3244,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 		if outputFile != "":
 			outputPath = os.path.join(outputPath, hVersion)
 			if comment != "":
-				outputPath += self.filenameSeperator + comment
+				outputPath += self.filenameSeparator + comment
 			outputName = os.path.join(outputPath, outputFile)
 
 		if hasattr(self, "useLocalFiles") and self.useLocalFiles:

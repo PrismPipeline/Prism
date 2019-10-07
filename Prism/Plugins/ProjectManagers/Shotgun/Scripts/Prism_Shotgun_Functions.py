@@ -456,7 +456,7 @@ class Prism_Shotgun_Functions(object):
 			if x['sg_sequence'] is None:
 				shotName = x['code']
 			else:
-				shotName = "%s-%s" % (x['sg_sequence']['name'], x['code'])
+				shotName = "%s%s%s" % (x['sg_sequence']['name'], self.core.sequenceSeparator, x['code'])
 			sgShots[shotName] = x
 
 		fields = ["code", "short_name", "entity_type"]
@@ -780,11 +780,11 @@ class Prism_Shotgun_Functions(object):
 		filters = [ ['project', 'is', {'type': 'Project', 'id': sgPrjId}]]
 		sgShots = {}
 		for x in sg.find("Shot", filters, fields):
-			if self.core.filenameSeperator not in x['code']:
+			if self.core.filenameSeparator not in x['code']:
 				if x['sg_sequence'] is None:
 					shotName = x['code']
 				else:
-					shotName = "%s-%s" % (x['sg_sequence']['name'], x['code'])
+					shotName = "%s%s%s" % (x['sg_sequence']['name'], self.core.sequenceSeparator, x['code'])
 				sgShots[shotName] = x
 
 		fields = ["code", "short_name", 'entity_type']
@@ -873,7 +873,7 @@ class Prism_Shotgun_Functions(object):
 		else:
 			msgString = "No shots were created or updated."
 
-		msgString += "\n\nNote that shots with \"%s\" in their name are getting ignored by Prism." % self.core.filenameSeperator
+		msgString += "\n\nNote that shots with \"%s\" in their name are getting ignored by Prism." % self.core.filenameSeparator
 
 		QMessageBox.information(self.core.messageParent, "Shotgun Sync", msgString)
 
@@ -928,7 +928,7 @@ class Prism_Shotgun_Functions(object):
 			if x['sg_sequence'] is None:
 				shotName = x['code']
 			else:
-				shotName = "%s-%s" % (x['sg_sequence']['name'], x['code'])
+				shotName = "%s%s%s" % (x['sg_sequence']['name'], self.core.sequenceSeparator, x['code'])
 			sgShots[shotName] = x
 
 		fields = ["code", "short_name", "entity_type"]
@@ -1056,7 +1056,7 @@ class Prism_Shotgun_Functions(object):
 				if i["sg_sequence"] == "":
 					createdShotNames.append(i['code'])
 				else:
-					createdShotNames.append("%s-%s" % (i['sg_sequence'], i['code']))
+					createdShotNames.append("%s%s%s" % (i['sg_sequence'], self.core.sequenceSeparator, i['code']))
 
 			createdShotNames.sort()
 			updatedShots.sort()

@@ -957,7 +957,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 			highversion = 0
 			for i in camFolders:
-				fname = i.split(self.core.filenameSeperator)
+				fname = i.split(self.core.filenameSeparator)
 				if len(fname) == 3 and fname[0][0] == "v" and len(fname[0]) == 5 and int(fname[0][1:5]) > highversion:
 					highversion = int(fname[0][1:5])
 					highFolder = i

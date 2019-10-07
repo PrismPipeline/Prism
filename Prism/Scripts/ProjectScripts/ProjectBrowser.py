@@ -2327,8 +2327,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def splitShotname(self, shotName):
-		if shotName and "-" in shotName:
-			sname = shotName.split("-",1)
+		if shotName and self.core.sequenceSeparator in shotName:
+			sname = shotName.split(self.core.sequenceSeparator, 1)
 			seqName = sname[0]
 			shotName = sname[1]
 		else:
@@ -2345,7 +2345,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		sequences, shots = self.getShots()
 
 		for seqName in sequences:
-			seqItem = QTreeWidgetItem([seqName, seqName + "-"])
+			seqItem = QTreeWidgetItem([seqName, seqName + self.core.sequenceSeparator])
 			self.tw_sShot.addTopLevelItem(seqItem)
 			if seqName in self.sExpanded or self.e_shotSearch.isVisible():
 				seqItem.setExpanded(True)
@@ -4683,23 +4683,23 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if not os.path.exists(dailiesFolder):
 			os.makedirs(dailiesFolder)
 
-		prvData = mediaPlayback["seq"][0].split(self.core.filenameSeperator)
+		prvData = mediaPlayback["seq"][0].split(self.core.filenameSeparator)
 
 		refName = ""
 
 		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-			refName += prvData[0] + self.core.filenameSeperator
+			refName += prvData[0] + self.core.filenameSeparator
 		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-			refName += prvData[0] + self.core.filenameSeperator + prvData[1] + self.core.filenameSeperator
+			refName += prvData[0] + self.core.filenameSeparator + prvData[1] + self.core.filenameSeparator
 
-		refName += self.curRTask + self.core.filenameSeperator + self.curRVersion
+		refName += self.curRTask + self.core.filenameSeparator + self.curRVersion
 		if self.curRLayer != "":
-			refName += self.core.filenameSeperator + self.curRLayer
+			refName += self.core.filenameSeparator + self.curRLayer
 
 		sourcePath = os.path.join(mediaPlayback["basePath"], mediaPlayback["seq"][0])
 
 		if platform.system() == "Windows":
-			folderLinkName = refName + self.core.filenameSeperator + "Folder.lnk"
+			folderLinkName = refName + self.core.filenameSeparator + "Folder.lnk"
 			refName += ".lnk"
 
 			seqLnk = os.path.join(dailiesFolder, refName)
@@ -4899,7 +4899,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		highversion = 0
 		cHighVersion = ""
 		for i in dirs:
-			fname = i.split(self.core.filenameSeperator)
+			fname = i.split(self.core.filenameSeparator)
 
 			try:
 				version = int(i[1:])

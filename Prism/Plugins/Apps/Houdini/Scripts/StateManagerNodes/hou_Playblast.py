@@ -358,8 +358,8 @@ class PlayblastClass(object):
 
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split(self.core.filenameSeperator)[0]
-			pComment = useVersion.split(self.core.filenameSeperator)[1]
+			hVersion = useVersion.split(self.core.filenameSeparator)[0]
+			pComment = useVersion.split(self.core.filenameSeparator)[1]
 
 		fnameData = self.core.getScenefileData(fileName)
 		if fnameData["type"] == "shot":
@@ -368,16 +368,16 @@ class PlayblastClass(object):
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
-			outputFile = os.path.join( "shot" + self.core.filenameSeperator + fnameData["shotName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4.jpg" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment)
+			outputFile = os.path.join( "shot" + self.core.filenameSeparator + fnameData["shotName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + ".$F4.jpg" )
 		elif fnameData["type"] == "asset":
 			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Playblasts", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
-			outputFile = os.path.join( fnameData["assetName"] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4.jpg" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment)
+			outputFile = os.path.join( fnameData["assetName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + ".$F4.jpg" )
 		else:
 			return
 
