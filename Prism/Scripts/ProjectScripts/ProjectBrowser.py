@@ -2943,6 +2943,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 			row = []
 			fname = self.core.getScenefileData(i)
+			if fname["type"] == "invalid":
+				continue
 			if os.path.exists(i):
 				if pVersion == 2:
 					item = QStandardItem(unicode("█", "utf-8"))
