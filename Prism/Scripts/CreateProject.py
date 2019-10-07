@@ -321,6 +321,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		fps = settings.get("fps", "24")
 		forceversions = settings.get("forceversions", "False")
 		filenameseparator = settings.get("filenameseparator", "_")
+		sequenceseparator = settings.get("sequenceseparator", "-")
 
 		#check valid project name
 		if not prjName:
@@ -426,6 +427,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 		cData.append(['globals', 'fps', fps])
 		cData.append(['globals', 'forceversions', forceversions])
 		cData.append(['globals', 'filenameseparator', filenameseparator])
+		cData.append(['globals', 'sequenceseparator', sequenceseparator])
 		cData.append(['paths', 'pipeline', "00_Pipeline"])
 		cData.append(['paths', 'scenes', scname])
 		cData.append(['paths', 'assets', assetname])
