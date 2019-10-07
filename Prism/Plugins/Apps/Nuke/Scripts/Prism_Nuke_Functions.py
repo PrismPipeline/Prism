@@ -372,8 +372,9 @@ class Prism_Nuke_Functions(object):
 		nukeBeautyYDistance = 500
 		nukeBackDropFontSize = 100
 		self.nukeIdxNode = None
+		mpb = origin.mediaPlaybacks["shots"]
 
-		passFolder = os.path.dirname(os.path.dirname(os.path.join(origin.basepath, origin.seq[0]))).replace("\\", "/")
+		passFolder = os.path.dirname(os.path.dirname(os.path.join(mpb["basePath"], mpb["seq"][0]))).replace("\\", "/")
 
 		if not os.path.exists(passFolder):
 			return
@@ -439,11 +440,11 @@ class Prism_Nuke_Functions(object):
 			curPassName = os.listdir(curPassPath)[0].split(".")[0]
 
 			if len(os.listdir(curPassPath)) > 1:
-				if not hasattr(origin, "pstart") or not hasattr(origin, "pend") or origin.pstart == "?" or origin.pend == "?":
+				if "pstart" not in mpb or "pend" not in mpb or mpb["pstart"] == "?" or mpb["pend"] == "?":
 					return
 
-				firstFrame = origin.pstart
-				lastFrame = origin.pend
+				firstFrame = mpb["pstart"]
+				lastFrame = mpb["pend"]
 
 				increment = "####"
 				curPassFormat = os.listdir(curPassPath)[0].split(".")[-1]

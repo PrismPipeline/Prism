@@ -393,17 +393,18 @@ class Prism_Photoshop_Functions(object):
 
 	@err_decorator
 	def photoshopImportSource(self, origin):
-		sourceFolder = os.path.dirname(os.path.join(origin.basepath, origin.seq[0])).replace("\\", "/")
+		mpb = origin.mediaPlaybacks["shots"]
+		sourceFolder = os.path.dirname(os.path.join(mpb["basePath"], mpb["seq"][0])).replace("\\", "/")
 		sources = origin.getImgSources(sourceFolder)
 		for curSourcePath in sources:
 
 			if "@@@@" in curSourcePath:
-				if not hasattr(origin, "pstart") or not hasattr(origin, "pend") or origin.pstart == "?" or origin.pend == "?":
+				if "pstart" not in mpb or "pend" not in mpb or mpb["pstart"] == "?" or mpb["pend"] == "?":
 					firstFrame = 0
 					lastFrame = 0
 				else:
-					firstFrame = origin.pstart
-					lastFrame = origin.pend
+					firstFrame = mpb["pstart"]
+					lastFrame = mpb["pend"]
 
 				filePath = curSourcePath.replace("@@@@", "%04d" % firstFrame).replace("\\","/")
 			else:

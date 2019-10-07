@@ -317,19 +317,20 @@ class Prism_PluginEmpty_Functions(object):
 
 		taskName = origin.curRTask.replace(" (playblast)", "").replace(" (2d)", "").replace(" (external)", "")
 		versionName = origin.curRVersion.replace(" (local)", "")
+		mpb = origin.mediaPlaybacks["shots"]
 
 		imgPaths = []
-		if origin.prvIsSequence or len(origin.seq) == 1:
-			if os.path.splitext(origin.seq[0])[1] in [".mp4", ".mov"]:
-				imgPaths.append([os.path.join(origin.basepath, origin.seq[0]),origin.curImg])
+		if mpb["prvIsSequence"] or len(mpb["seq"]) == 1:
+			if os.path.splitext(mpb["seq"][0])[1] in [".mp4", ".mov"]:
+				imgPaths.append([os.path.join(mpb["basePath"], mpb["seq"][0]), mpb["curImg"]])
 			else:
-				imgPaths.append([os.path.join(origin.basepath, origin.seq[origin.curImg]),0])
+				imgPaths.append([os.path.join(mpb["basePath"], mpb["seq"][mpb["curImg"]]),0])
 		else:
-			for i in origin.seq:
-				imgPaths.append([os.path.join(origin.basepath, i),0])
+			for i in mpb["seq"]:
+				imgPaths.append([os.path.join(mpb["basePath"], i),0])
 
-		if hasattr(origin, "pstart"):
-			sf = origin.pstart
+		if "pstart" in mpb:
+			sf = mpb["pstart"]
 		else:
 			sf = 0
 

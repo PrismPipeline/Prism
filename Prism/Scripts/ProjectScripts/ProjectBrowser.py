@@ -192,7 +192,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.renderRefreshEnabled = True
 		self.compareStates = []
-		self.mediaPlaybacks = {"shots": {"name": "shots", "sl_preview": self.sl_preview, "prevCurImg": 0, "l_info": self.l_info, "l_date": self.l_date, "l_preview": self.l_preview, "openRV": False, "getMediaBase": self.getShotMediaPath, "getMediaBaseFolder": self.getShotMediaFolder}}
+		self.mediaPlaybacks = {"shots": {
+			"name": "shots",
+			"sl_preview": self.sl_preview,
+			"prevCurImg": 0,
+			"l_info": self.l_info,
+			"l_date": self.l_date,
+			"l_preview": self.l_preview,
+			"openRV": False,
+			"getMediaBase": self.getShotMediaPath,
+			"getMediaBaseFolder": self.getShotMediaFolder,
+		}}
 
 		self.oiioLoaded = False
 		self.wandLoaded = False
