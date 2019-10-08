@@ -270,7 +270,7 @@ class ImportFileClass(object):
 
 				self.taskName = ""
 				sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/") or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/"))):
+				if len(vName.split(self.core.filenameSeparator)) == 3 and (os.path.join(self.core.projectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/") or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/"))):
 					self.taskName = os.path.basename(os.path.dirname(vPath))
 					if self.taskName == "_ShotCam":
 						self.taskName = "ShotCam"
@@ -373,11 +373,11 @@ class ImportFileClass(object):
 		if os.path.exists(self.e_file.text()):
 			parDir = os.path.dirname(self.e_file.text())
 			if os.path.basename(parDir) in ["centimeter", "meter"]:
-				versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
+				versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeparator)
 			else:
-				versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
+				versionData = os.path.basename(parDir).split(self.core.filenameSeparator)
 
-			fversionData = os.path.basename(self.e_file.text()).split(self.core.filenameSeperator)
+			fversionData = os.path.basename(self.e_file.text()).split(self.core.filenameSeparator)
 			fversion = None
 			for i in fversionData:
 				try:
@@ -393,7 +393,7 @@ class ImportFileClass(object):
 						pass
 						
 			if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
-				self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
+				self.l_curVersion.setText(versionData[0] + self.core.filenameSeparator + versionData[1] + self.core.filenameSeparator + versionData[2])
 				self.l_latestVersion.setText("-")
 				vPath = os.path.dirname(self.e_file.text())
 				if os.path.basename(vPath) in ["centimeter", "meter"]:
@@ -406,7 +406,7 @@ class ImportFileClass(object):
 					for k in reversed(folders):
 						meterDir = os.path.join(i[0], k, "meter")
 						cmeterDir = os.path.join(i[0], k, "centimeter")
-						if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+						if len(k.split(self.core.filenameSeparator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeparator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
 							self.l_latestVersion.setText(k)
 							break
 					break
@@ -461,14 +461,14 @@ class ImportFileClass(object):
 	def getLatestVersion(self):
 		parDir = os.path.dirname(self.e_file.text())
 		if os.path.basename(parDir) in ["centimeter", "meter"]:
-			versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
+			versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeparator)
 			taskPath = os.path.dirname(os.path.dirname(parDir))
 		else:
-			versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
+			versionData = os.path.basename(parDir).split(self.core.filenameSeparator)
 			taskPath = os.path.dirname(parDir)
 
 		if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
-			self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
+			self.l_curVersion.setText(versionData[0] + self.core.filenameSeparator + versionData[1] + self.core.filenameSeparator + versionData[2])
 			self.l_latestVersion.setText("-")
 			for i in os.walk(taskPath):
 				folders = i[1]
@@ -476,7 +476,7 @@ class ImportFileClass(object):
 				for k in reversed(folders):
 					meterDir = os.path.join(i[0], k, "meter")
 					cmeterDir = os.path.join(i[0], k, "centimeter")
-					if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+					if len(k.split(self.core.filenameSeparator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeparator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
 						return os.path.join(i[0], k).replace("\\", "/")
 				break
 

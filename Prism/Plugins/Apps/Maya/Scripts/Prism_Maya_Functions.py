@@ -1292,7 +1292,7 @@ class Prism_Maya_Functions(object):
 		rlayers = cmds.ls(type="renderLayer")
 		if len(rlayers) > 1:
 			prefixBase = os.path.splitext(os.path.basename(dlParams["jobInfos"]["OutputFilename0"]))[0]
-			passName = prefixBase.split(self.core.filenameSeperator)[-1]
+			passName = prefixBase.split(self.core.filenameSeparator)[-1]
 			dlParams["pluginInfos"]["OutputFilePrefix"] = os.path.join("..", "..", passName, prefixBase)
 
 		if origin.chb_resOverride.isChecked():
