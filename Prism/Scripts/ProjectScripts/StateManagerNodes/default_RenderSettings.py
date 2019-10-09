@@ -73,19 +73,48 @@ class RenderSettingsClass(object):
 		return core.appPlugin.pluginName in ["Houdini", "Maya"]
 
 
+	@classmethod
+	def getPresets(cls, core):
+		presets = {}
+		appName = core.appPlugin.pluginName
+		presetPath = os.path.join(os.path.dirname(core.prismIni), "Presets", "RenderSettings", appName)
+		if not os.path.exists(presetPath):
+			return presets
+
+		for pFile in os.listdir(presetPath):
+			base, ext = os.path.splitext(pFile)
+			if ext != ".yml":
+				continue
+
+			presets[base] = os.path.join(presetPath, pFile)
+
+		return presets
+
+
+	@classmethod
+	def applyPreset(cls, core, presetPath, **kwargs):
+		preset = core.readYaml(presetPath)
+		if "renderSettings" not in preset:
+			return
+
+		preset = preset["renderSettings"]
+
+		getattr(core.appPlugin, "sm_renderSettings_setCurrentSettings", lambda x,y: None)(core, preset, **kwargs)
+
+
 	@err_decorator
 	def setup(self, state, core, stateManager, node=None, stateData=None):
 		self.state = state
 		self.core = core
 		self.stateManager = stateManager
 
-		self.e_name.setText(state.text(0))
-
 		self.className = "RenderSettings"
 		self.listType = "Export"
 
 		getattr(self.core.appPlugin, "sm_renderSettings_startup", lambda x: None)(self)
-		self.nameChanged(state.text(0))
+		if state:
+			self.e_name.setText(state.text(0))
+			self.nameChanged(state.text(0))
 		self.editChanged(self.chb_editSettings.isChecked())
 		self.connectEvents()
 
@@ -151,13 +180,14 @@ class RenderSettingsClass(object):
 	def updateUi(self):
 		curPreset = self.cb_presetOption.currentText()
 		self.cb_presetOption.clear()
-		self.cb_presetOption.addItems(sorted(self.getPresets().keys(), key=lambda x: x.lower()))
+		self.cb_presetOption.addItems(sorted(self.getPresets(self.core).keys(), key=lambda x: x.lower()))
 		idx = self.cb_presetOption.findText(curPreset)
 		if idx != -1:
 			self.cb_presetOption.setCurrentIndex(idx)
 		else:
 			self.stateManager.saveStatesToScene()
-		self.nameChanged(self.e_name.text())
+		if self.state:
+			self.nameChanged(self.e_name.text())
 
 
 	@err_decorator
@@ -180,7 +210,7 @@ class RenderSettingsClass(object):
 
 	@err_decorator
 	def showPresets(self):
-		presets = self.getPresets()
+		presets = self.getPresets(self.core)
 		if not presets:
 			self.core.popup("No presets found.")
 			return
@@ -194,24 +224,6 @@ class RenderSettingsClass(object):
 
 		self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
 		pmenu.exec_(QCursor().pos())
-
-
-	@err_decorator
-	def getPresets(self):
-		presets = {}
-		appName = self.core.appPlugin.pluginName
-		presetPath = os.path.join(os.path.dirname(self.core.prismIni), "Presets", "RenderSettings", appName)
-		if not os.path.exists(presetPath):
-			return presets
-
-		for pFile in os.listdir(presetPath):
-			base, ext = os.path.splitext(pFile)
-			if ext != ".yml":
-				continue
-
-			presets[base] = os.path.join(presetPath, pFile)
-
-		return presets
 
 
 	@err_decorator
@@ -254,19 +266,14 @@ class RenderSettingsClass(object):
 			if not settings:
 				settings = self.te_settings.toPlainText()
 			preset = self.core.readYaml(data=settings)
+			getattr(self.core.appPlugin, "sm_renderSettings_setCurrentSettings", lambda x,y: None)(self, preset)
 		else:
-			presets = self.getPresets()
+			presets = self.getPresets(self.core)
 			selPreset = self.cb_presetOption.currentText()
 			if selPreset not in presets:
 				return
 
-			preset = self.core.readYaml(presets[selPreset])
-			if "renderSettings" not in preset:
-				return
-
-			preset = preset["renderSettings"]
-
-		getattr(self.core.appPlugin, "sm_renderSettings_setCurrentSettings", lambda x,y: None)(self, preset)
+			self.applyPreset(self.core, presets[selPreset], state=self)
 
 
 	@err_decorator

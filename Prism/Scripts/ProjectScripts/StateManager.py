@@ -325,6 +325,41 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.b_description.setStyleSheet(self.styleExists)
 		self.b_preview.setStyleSheet(self.styleMissing)
 
+		if "RenderSettings" in self.stateTypes:
+			self.actionRenderSettings = QAction("Rendersettings presets...", self)
+			self.actionRenderSettings.triggered.connect(self.showRenderPresets)
+			self.menuAbout.addSeparator()
+			self.menuAbout.addAction(self.actionRenderSettings)
+
+
+	@err_decorator
+	def showRenderPresets(self):
+		rsUi = self.stateTypes["RenderSettings"]()
+		rsUi.setup(None, self.core, self)
+		rsUi.f_name.setVisible(False)
+		rsUi.chb_editSettings.stateChanged.connect(self.editPresetChanged)
+		rsUi.updateUi()
+		self.dlg_settings = QDialog()
+		self.dlg_settings.setWindowTitle("Rendersettings - Presets")
+		w_settings = QWidget()
+		bb_settings = QDialogButtonBox()
+		bb_settings.addButton("Close", QDialogButtonBox.RejectRole)
+		bb_settings.rejected.connect(self.dlg_settings.reject)
+
+		lo_settings = QVBoxLayout()
+		lo_settings.addWidget(rsUi)
+		lo_settings.addWidget(bb_settings)
+		self.dlg_settings.setLayout(lo_settings)
+		self.core.parentWindow(self.dlg_settings)
+		
+		action = self.dlg_settings.show()
+
+
+	@err_decorator
+	def editPresetChanged(self, state):
+		QCoreApplication.processEvents()
+		self.dlg_settings.resize(0,0)
+
 
 	@err_decorator
 	def setTreePalette(self, listWidget, inactive, inactivef, activef):

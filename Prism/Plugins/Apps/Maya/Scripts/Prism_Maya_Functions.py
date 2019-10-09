@@ -1890,7 +1890,7 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def sm_renderSettings_setCurrentSettings(self, origin, preset):
+	def sm_renderSettings_setCurrentSettings(self, origin, preset, state=None):
 		import maya.app.renderSetup.model.renderSettings as renderSettings
 		try:
 			renderSettings.decode(preset)

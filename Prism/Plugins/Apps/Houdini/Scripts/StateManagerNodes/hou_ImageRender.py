@@ -78,6 +78,12 @@ class ImageRenderClass(object):
 
 		self.e_name.setText(state.text(0))
 
+		self.renderPresets = self.stateManager.stateTypes["RenderSettings"].getPresets(self.core)
+		if self.renderPresets:
+			self.cb_renderPreset.addItems(self.renderPresets.keys())
+		else:
+			self.w_renderPreset.setVisible(False)
+
 		self.camlist = []
 
 		self.renderers = [x for x in self.core.appPlugin.getRendererPlugins() if x.isActive()]
@@ -159,6 +165,14 @@ class ImageRenderClass(object):
 			self.l_taskName.setText(data["taskname"])
 			if data["taskname"] != "":
 				self.b_changeTask.setStyleSheet("")
+		if "renderpresetoverride" in data:
+			res = eval(data["renderpresetoverride"])
+			self.chb_renderPreset.setChecked(res)
+		if "currentrenderpreset" in data:
+			idx = self.cb_renderPreset.findText(data["currentrenderpreset"])
+			if idx != -1:
+				self.cb_renderPreset.setCurrentIndex(idx)
+				self.stateManager.saveStatesToScene()
 		if "globalrange" in data:
 			self.chb_globalRange.setChecked(eval(data["globalrange"]))
 		if "startframe" in data:
@@ -257,6 +271,8 @@ class ImageRenderClass(object):
 		self.e_name.textChanged.connect(self.nameChanged)
 		self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.b_changeTask.clicked.connect(self.changeTask)
+		self.chb_renderPreset.stateChanged.connect(self.presetOverrideChanged)
+		self.cb_renderPreset.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
@@ -403,6 +419,12 @@ class ImageRenderClass(object):
 			self.b_changeTask.setStyleSheet("")
 
 			self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def presetOverrideChanged(self, checked):
+		self.cb_renderPreset.setEnabled(checked)
+		self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
@@ -817,6 +839,9 @@ class ImageRenderClass(object):
 
 		self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
 
+		if self.chb_renderPreset.isChecked():
+			self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()], node=self.node)
+
 		result = self.curRenderer.executeAOVs(self, outputName)
 		if not result:
 			return result
@@ -919,6 +944,8 @@ class ImageRenderClass(object):
 		stateProps = {
 			"statename":self.e_name.text(),
 			"taskname":self.l_taskName.text(),
+			"renderpresetoverride": str(self.chb_renderPreset.isChecked()),
+			"currentrenderpreset": self.cb_renderPreset.currentText(),
 			"globalrange": str(self.chb_globalRange.isChecked()),
 			"startframe":self.sp_rangeStart.value(),
 			"endframe":self.sp_rangeEnd.value(),

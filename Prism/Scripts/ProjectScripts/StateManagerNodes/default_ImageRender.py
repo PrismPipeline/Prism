@@ -82,6 +82,12 @@ class ImageRenderClass(object):
 
 		self.e_name.setText(state.text(0))
 
+		self.renderPresets = self.stateManager.stateTypes["RenderSettings"].getPresets(self.core)
+		if self.renderPresets:
+			self.cb_renderPreset.addItems(self.renderPresets.keys())
+		else:
+			self.w_renderPreset.setVisible(False)
+
 		self.l_name.setVisible(False)
 		self.e_name.setVisible(False)
 		self.gb_submit.setChecked(False)
@@ -131,6 +137,14 @@ class ImageRenderClass(object):
 
 		if "statename" in data:
 			self.e_name.setText(data["statename"])
+		if "renderpresetoverride" in data:
+			res = eval(data["renderpresetoverride"])
+			self.chb_renderPreset.setChecked(res)
+		if "currentrenderpreset" in data:
+			idx = self.cb_renderPreset.findText(data["currentrenderpreset"])
+			if idx != -1:
+				self.cb_renderPreset.setCurrentIndex(idx)
+				self.stateManager.saveStatesToScene()
 		if "globalrange" in data:
 			self.chb_globalRange.setChecked(eval(data["globalrange"]))
 		if "startframe" in data:
@@ -219,6 +233,8 @@ class ImageRenderClass(object):
 		self.e_name.textChanged.connect(self.nameChanged)
 		self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.b_changeTask.clicked.connect(self.changeTask)
+		self.chb_renderPreset.stateChanged.connect(self.presetOverrideChanged)
+		self.cb_renderPreset.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
@@ -330,6 +346,12 @@ class ImageRenderClass(object):
 			self.setTaskWarn(False)
 			self.nameChanged(self.e_name.text())
 			self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def presetOverrideChanged(self, checked):
+		self.cb_renderPreset.setEnabled(checked)
+		self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
@@ -665,6 +687,9 @@ class ImageRenderClass(object):
 
 			self.stateManager.saveStatesToScene()
 
+			if self.chb_renderPreset.isChecked():
+				self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()])
+
 			rSettings = {"outputName": outputName}
 
 			self.core.appPlugin.sm_render_preSubmit(self, rSettings)
@@ -720,6 +745,39 @@ class ImageRenderClass(object):
 
 	@err_decorator
 	def getStateProps(self):
-		stateProps = {"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange":str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "currentcam": str(self.curCam), "resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]), "localoutput": str(self.chb_localOutput.isChecked()), "renderlayer": str(self.cb_renderLayer.currentText()), "vrayoverride":str(self.chb_override.isChecked())}
-		stateProps.update({"vrayminsubdivs":self.sp_minSubdivs.value(), "vraymaxsubdivs":self.sp_maxSubdivs.value(), "vraycthreshold":self.sp_cThres.value(), "vraynthreshold":self.sp_nThres.value(), "submitrender": str(self.gb_submit.isChecked()), "rjmanager":str(self.cb_manager.currentText()), "rjprio":self.sp_rjPrio.value(), "rjframespertask":self.sp_rjFramesPerTask.value(), "rjtimeout":self.sp_rjTimeout.value(), "rjsuspended": str(self.chb_rjSuspended.isChecked()), "osdependencies": str(self.chb_osDependencies.isChecked()), "osupload": str(self.chb_osUpload.isChecked()), "ospassets": str(self.chb_osPAssets.isChecked()), "osslaves": self.e_osSlaves.text(), "curdlgroup":self.cb_dlGroup.currentText(), "dlconcurrent":self.sp_dlConcurrentTasks.value(), "dlgpupt":self.sp_dlGPUpt.value(), "dlgpudevices":self.le_dlGPUdevices.text(), "lastexportpath": self.l_pathLast.text().replace("\\", "/"), "enablepasses": str(self.gb_passes.isChecked()), "stateenabled":str(self.state.checkState(0))})
+		stateProps = {
+			"statename": self.e_name.text(),
+			"taskname": self.l_taskName.text(),
+			"renderpresetoverride": str(self.chb_renderPreset.isChecked()),
+			"currentrenderpreset": self.cb_renderPreset.currentText(),
+			"globalrange": str(self.chb_globalRange.isChecked()),
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"currentcam": str(self.curCam),
+			"resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]),
+			"localoutput": str(self.chb_localOutput.isChecked()),
+			"renderlayer": str(self.cb_renderLayer.currentText()),
+			"vrayoverride": str(self.chb_override.isChecked()),
+			"vrayminsubdivs":self.sp_minSubdivs.value(),
+			"vraymaxsubdivs":self.sp_maxSubdivs.value(),
+			"vraycthreshold":self.sp_cThres.value(),
+			"vraynthreshold":self.sp_nThres.value(),
+			"submitrender": str(self.gb_submit.isChecked()),
+			"rjmanager":str(self.cb_manager.currentText()),
+			"rjprio":self.sp_rjPrio.value(),
+			"rjframespertask":self.sp_rjFramesPerTask.value(),
+			"rjtimeout":self.sp_rjTimeout.value(),
+			"rjsuspended": str(self.chb_rjSuspended.isChecked()),
+			"osdependencies": str(self.chb_osDependencies.isChecked()),
+			"osupload": str(self.chb_osUpload.isChecked()),
+			"ospassets": str(self.chb_osPAssets.isChecked()),
+			"osslaves": self.e_osSlaves.text(),
+			"curdlgroup":self.cb_dlGroup.currentText(),
+			"dlconcurrent":self.sp_dlConcurrentTasks.value(),
+			"dlgpupt":self.sp_dlGPUpt.value(),
+			"dlgpudevices":self.le_dlGPUdevices.text(),
+			"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+			"enablepasses": str(self.gb_passes.isChecked()),
+			"stateenabled":str(self.state.checkState(0))
+		}
 		return stateProps

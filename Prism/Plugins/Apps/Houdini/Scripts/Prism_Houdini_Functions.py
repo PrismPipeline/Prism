@@ -822,7 +822,7 @@ class Prism_Houdini_Functions(object):
 		settings = []
 		node = hou.node(origin.e_node.text())
 		if not node:
-			return settings
+			return ""
 
 		for parm in sorted(node.parms(), key=lambda x: x.name().lower()):
 			setting = {}
@@ -839,8 +839,10 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def sm_renderSettings_setCurrentSettings(self, origin, preset):
-		node = hou.node(origin.e_node.text())
+	def sm_renderSettings_setCurrentSettings(self, origin, preset, state=None, node=None):
+		if not node:
+			if state:
+				node = hou.node(state.e_node.text())
 		if not node:
 			return
 

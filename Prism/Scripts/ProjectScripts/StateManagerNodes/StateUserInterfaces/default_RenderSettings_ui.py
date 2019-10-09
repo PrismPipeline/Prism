@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_RenderSettings.ui'
 #
-# Created: Sun Oct  6 23:59:56 2019
+# Created: Wed Oct  9 23:58:30 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
