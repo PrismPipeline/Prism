@@ -78,7 +78,7 @@ class ImageRenderClass(object):
 
 		self.e_name.setText(state.text(0))
 
-		self.renderPresets = self.stateManager.stateTypes["RenderSettings"].getPresets(self.core)
+		self.renderPresets = self.stateManager.stateTypes["RenderSettings"].getPresets(self.core) if "RenderSettings" in self.stateManager.stateTypes else {}
 		if self.renderPresets:
 			self.cb_renderPreset.addItems(self.renderPresets.keys())
 		else:
@@ -839,7 +839,7 @@ class ImageRenderClass(object):
 
 		self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
 
-		if self.chb_renderPreset.isChecked():
+		if self.chb_renderPreset.isChecked() and "RenderSettings" in self.stateManager.stateTypes:
 			self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()], node=self.node)
 
 		result = self.curRenderer.executeAOVs(self, outputName)
