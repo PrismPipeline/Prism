@@ -818,9 +818,11 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def sm_renderSettings_getCurrentSettings(self, origin):
+	def sm_renderSettings_getCurrentSettings(self, origin, node=None):
 		settings = []
-		node = hou.node(origin.e_node.text())
+		if not node:
+			node = hou.node(origin.e_node.text())
+			
 		if not node:
 			return ""
 

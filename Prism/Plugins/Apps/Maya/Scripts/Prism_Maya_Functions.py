@@ -1275,6 +1275,8 @@ class Prism_Maya_Functions(object):
 			cmds.setAttr("vraySettings.fileNameRenderElementSeparator", rSettings["vr_sepStr"], type="string")
 		if "rs_fileformat" in rSettings:
 			cmds.setAttr("redshiftOptions.imageFormat", rSettings["rs_fileformat"])
+		if "renderSettings" in rSettings:
+			self.sm_renderSettings_setCurrentSettings(origin, self.core.readYaml(data=rSettings["renderSettings"]))
 
 
 	@err_decorator

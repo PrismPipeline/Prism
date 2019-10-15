@@ -687,10 +687,11 @@ class ImageRenderClass(object):
 
 			self.stateManager.saveStatesToScene()
 
-			if self.chb_renderPreset.isChecked() and "RenderSettings" in self.stateManager.stateTypes:
-				self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()])
-
 			rSettings = {"outputName": outputName}
+
+			if self.chb_renderPreset.isChecked() and "RenderSettings" in self.stateManager.stateTypes:
+				rSettings["renderSettings"] = getattr(self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {})(self)
+				self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()])
 
 			self.core.appPlugin.sm_render_preSubmit(self, rSettings)
 			if not os.path.exists(os.path.dirname(rSettings["outputName"])):

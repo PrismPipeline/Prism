@@ -839,7 +839,10 @@ class ImageRenderClass(object):
 
 		self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
 
+		rSettings = {"outputName": outputName}
+
 		if self.chb_renderPreset.isChecked() and "RenderSettings" in self.stateManager.stateTypes:
+			rSettings["renderSettings"] = getattr(self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {})(self, node=self.node)
 			self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()], node=self.node)
 
 		result = self.curRenderer.executeAOVs(self, outputName)
@@ -910,6 +913,8 @@ class ImageRenderClass(object):
 		if not postResult:
 			return postResult
 
+		self.undoRenderSettings(rSettings)
+
 		self.core.callHook("postRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
@@ -925,6 +930,12 @@ class ImageRenderClass(object):
 				return [self.state.text(0) + " - success"]
 			else:
 				return [self.state.text(0) + " - unknown error (files do not exist)"]
+
+
+	@err_decorator
+	def undoRenderSettings(self, rSettings):
+		if "renderSettings" in rSettings:
+			self.core.appPlugin.sm_renderSettings_setCurrentSettings(self, self.core.readYaml(data=rSettings["renderSettings"]), node=self.node)
 
 
 	@err_decorator
