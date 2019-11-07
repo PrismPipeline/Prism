@@ -329,9 +329,10 @@ class PlayblastClass(object):
 		if self.l_taskName.text() == "":
 			warnings.append(["No taskname is given.", "", 3])
 
-		sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
-		if sceneViewer is None:
-			warnings.append(["No Scene View exists.", "A Scene View needs to be open in the Houdini user interface in order to create a playblast.", 3])
+		if self.core.uiAvailable:
+			sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
+			if sceneViewer is None:
+				warnings.append(["No Scene View exists.", "A Scene View needs to be open in the Houdini user interface in order to create a playblast.", 3])
 
 		if hou.licenseCategory() == hou.licenseCategoryType.Apprentice and self.chb_resOverride.isChecked() and (self.sp_resWidth.value() > 1280 or self.sp_resHeight.value() > 720):
 			warnings.append(["The apprentice version of Houdini only allows flipbooks up to 720p.", "The resolution will be reduced to fit this restriction.", 2])
@@ -389,7 +390,7 @@ class PlayblastClass(object):
 	@err_decorator
 	def executeState(self, parent, useVersion="next"):
 		if not self.core.uiAvailable:
-			return [self.state.text(0) + ": error - Playblasts are not supported without UI."]
+			return [self.state.text(0) + ": error - Playblasts are not supported without UI. Use the OpenGL ROP with an ImageRender state instead."]
 			
 		if self.l_taskName.text() == "":
 			return [self.state.text(0) + ": error - No taskname is given. Skipped the activation of this state."]

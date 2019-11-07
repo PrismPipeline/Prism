@@ -119,7 +119,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.31"
+			self.version = "v1.2.1.32"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -443,6 +443,12 @@ class PrismCore():
 			for i in self.unloadedAppPlugins:
 				if i == pluginName:
 					return self.unloadedAppPlugins[i]
+
+			if pluginName in self.prjManagers:
+				return self.prjManagers[pluginName]
+
+			if pluginName in self.customPlugins:
+				return self.customPlugins[pluginName]	
 
 		return None
 
@@ -1274,7 +1280,7 @@ class PrismCore():
 			result = self.pb.createShotFolders(fname="%s/%s" % (entity["hierarchy"][0], entity["name"][0]), ftype="asset")
 
 		elif entity["type"][0] == "shot":
-			result = self.pb.createShot(shotName="%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["name"][0]), frameRange=[entity["framerange"][0], entity["framerange"][1]])
+			result = self.pb.createShot(shotName="%s%s%s" % (entity["sequence"][0], self.sequenceSeparator, entity["name"][0]), frameRange=[entity["framerange"][0], entity["framerange"][1]])
 
 		elif entity["type"][0] == "step":
 			if "assetName" in entity:
@@ -1282,7 +1288,7 @@ class PrismCore():
 				entityName = entity["assetName"][0]
 			else:
 				entityType = "shot"
-				entityName = "%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["shotName"][0])
+				entityName = "%s%s%s" % (entity["sequence"][0], self.sequenceSeparator, entity["shotName"][0])
 
 			result = self.pb.createStep(stepName=entity["name"][0], entity=entityType, entityName=entityName, createCat=False)
 
@@ -1293,7 +1299,7 @@ class PrismCore():
 				basePath = "%s/%s" % (entity["hierarchy"][0], entityName)
 			else:
 				entityType = "shot"
-				entityName = "%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["shotName"][0])
+				entityName = "%s%s%s" % (entity["sequence"][0], self.sequenceSeparator, entity["shotName"][0])
 				basePath = ""
 
 			catPath = os.path.dirname(os.path.dirname(self.generateScenePath(entity=entityType, entityName=entityName, step=entity["step"][0], category=entity["name"][0], basePath=basePath)))
@@ -1306,7 +1312,7 @@ class PrismCore():
 				entityName = entity["assetName"][0]
 			else:
 				entityType = "shot"
-				entityName = "%s%s%s" % (entity["sequence"][0], self.core.sequenceSeparator, entity["shotName"][0])
+				entityName = "%s%s%s" % (entity["sequence"][0], self.sequenceSeparator, entity["shotName"][0])
 
 			result = self.pb.createEmptyScene(entity=entityType, fileName=entity["source"][0], entityName=entityName, step=entity["step"][0], category=entity["category"][0], comment=entity["comment"][0], openFile=False)
 		else:
@@ -3777,7 +3783,12 @@ except Exception as e:
 				title == "Error"
 
 		if self.uiAvailable:
-			QMessageBox.warning(self.messageParent, title, text)
+			if severity == "warning":
+				QMessageBox.warning(self.messageParent, title, text)
+			elif severity == "info":
+				QMessageBox.information(self.messageParent, title, text)
+			elif severity == "error":
+				QMessageBox.critical(self.messageParent, title, text)
 		else:
 			print ("%s - %s" % (title, text))
 

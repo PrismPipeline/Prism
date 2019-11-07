@@ -44,6 +44,12 @@ except:
 	from PySide.QtGui import *
 
 
+try:
+	import hou
+except:
+	pass
+
+
 class Prism_PDG_Functions(object):
 	def __init__(self, core, plugin):
 		self.core = core
@@ -68,7 +74,7 @@ class Prism_PDG_Functions(object):
 	# if returns true, the plugin will be loaded by Prism
 	@err_decorator
 	def isActive(self):
-		return True
+		return "hou" in globals()
 
 
 	# the following function are called by Prism at specific events, which are indicated by the function names
@@ -362,3 +368,96 @@ class Prism_PDG_Functions(object):
 		origin: reference to the Deadline plugin class
 		result: the return value from the Deadline submission.
 		'''
+
+
+	@err_decorator
+	def cookNode(self, pdgCallback, itemHolder, upstreamItems=None):
+		node = hou.nodeBySessionId(pdgCallback.customId)
+		parentNode = node.parent()
+		if parentNode.type().name() == "prism_google_docs":
+			auth = parentNode.parm("authorization").eval()
+			docName = parentNode.parm("document").eval()
+			sheetName = parentNode.parm("sheet").eval()
+			entityType = parentNode.parm("entity").evalAsString()
+			fromRow = parentNode.parm("fromRow").eval()
+			useToRow = parentNode.parm("useToRow").eval()
+			toRow = parentNode.parm("toRow").eval()
+			sequenceCol = ord(parentNode.parm("sequence").eval().lower()) - 96
+			shotCol = ord(parentNode.parm("shot").eval().lower()) - 96
+			startframeCol = ord(parentNode.parm("startframe").eval().lower()) - 96
+			endframeCol = ord(parentNode.parm("endframe").eval().lower()) - 96
+			hierarchyCol = ord(parentNode.parm("hierarchy").eval().lower()) - 96
+			assetCol = ord(parentNode.parm("asset").eval().lower()) - 96
+
+			if not useToRow:
+				toRow = -1
+
+			if entityType == "assets":
+				columns = {"hierarchy":hierarchyCol, "asset":assetCol}
+			else:
+				columns = {"sequence":sequenceCol, "shot":shotCol, "startframe":startframeCol, "endframe":endframeCol}
+			from PrismUtils import GoogleDocs
+			entityData = GoogleDocs.readGDocs(self.core, auth, docName, sheetName, sorted(columns.values()), fromRow, toRow)
+			colNames = sorted(columns.keys(), key=lambda x: columns[x])
+			dataDicts = []
+			for i in entityData:
+				entityDict = {}
+				for name in colNames:
+					entityDict[name] = i[colNames.index(name)]
+				dataDicts.append(entityDict)
+
+			self.createWorkItems(itemHolder, upstreamItems, entityType, dataDicts)
+
+
+	@err_decorator
+	def createWorkItems(self, itemHolder, upstreamItems, entityType, entityData):
+		if entityType == "assets":
+			for entity in entityData:
+				item = itemHolder.addWorkItem()
+				item.data.setString('type', "asset", 0)
+				item.data.setString('hierarchy', entity["hierarchy"], 0)
+				item.data.setString('name', entity["asset"], 0)
+		if entityType == "shots":
+			for entity in entityData:
+				item = itemHolder.addWorkItem()
+				item.data.setString('type', "shot", 0)
+				item.data.setString('sequence', entity["sequence"], 0)
+				item.data.setString('name', entity["shot"], 0)
+				item.data.setString('framerange', entity["startframe"], 0)
+				item.data.setString('framerange', entity["endframe"], 1)
+
+
+	@err_decorator
+	def setupNode(self, entityType, node):
+		if entityType == "fromFile":
+			cNode = node.createOutputNode("prism_create_entity")
+			cNode.parm("entity").set("file")
+		elif entityType == "project":
+			cNode = node.createOutputNode("prism_create_entity")
+			cNode.parm("entity").set("project")
+		elif entityType == "asset":
+			cNode = node.createOutputNode("prism_create_entity")
+			cNode.parm("entity").set("asset")
+		elif entityType == "shot":
+			cNode = node.createOutputNode("prism_create_entity")
+			cNode.parm("entity").set("shot")
+		elif entityType == "step":
+			cNode = node.createOutputNode("prism_create_entity")
+			cNode.parm("entity").set("step")
+		elif entityType == "category":
+			cNode = node.createOutputNode("prism_create_entity")
+			cNode.parm("entity").set("category")
+		elif entityType == "scenefile":
+			cNode = node.createOutputNode("prism_create_entity")
+			cNode.parm("entity").set("scenefile")
+		elif entityType == "write":
+			cNode = node.createOutputNode("prism_write_entity")
+		elif entityType == "setProject":
+			cNode = node.createOutputNode("prism_set_project")
+		else:
+			return
+
+		if QApplication.keyboardModifiers() != Qt.ShiftModifier:
+			cNode.setCurrent(True, clear_all_selected=True)
+
+		return cNode

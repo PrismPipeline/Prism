@@ -724,7 +724,7 @@ class Prism_Shotgun_Functions(object):
 		sgSteps = { x['code'] : x for x in sg.find("Step", [], fields) if x['entity_type'] == "Asset"}
 
 		assets = self.core.getAssetPaths()
-		localAssets = [[os.path.basename(x), x.replace(origin.aBasePath, "")[1:]] for x in assets if x.replace(os.path.join(self.core.fixPath(origin.aBasePath), ""), "") not in origin.omittedEntities["Asset"]]
+		localAssets = [[os.path.basename(x), x.replace(origin.aBasePath, "")[1:]] for x in assets if x.replace(os.path.join(self.core.fixPath(origin.aBasePath), ""), "") not in origin.omittedEntities["asset"]]
 		
 		createdAssets = []
 		updatedAssets = []
@@ -946,7 +946,7 @@ class Prism_Shotgun_Functions(object):
 
 		localShots = []
 		for x in foldercont[1]:
-			if not x.startswith("_") and x not in origin.omittedEntities["Shot"]:
+			if not x.startswith("_") and x not in origin.omittedEntities["shot"]:
 				shotName, seqName = self.core.pb.splitShotname(x)
 				if seqName == "no sequence":
 					seqName = ""
