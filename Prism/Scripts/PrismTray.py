@@ -134,6 +134,9 @@ class PrismTray():
 				if platform.system() == "Darwin" and reason != QSystemTrayIcon.DoubleClick:
 					return
 
+				if platform.system() == "Windows" and reason == QSystemTrayIcon.DoubleClick:
+					return
+
 				self.startBrowser()
 			elif reason == QSystemTrayIcon.Context:
 				curProject = self.core.getConfig("globals", "current project")

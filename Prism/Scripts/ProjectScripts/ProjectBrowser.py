@@ -462,20 +462,32 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.core.appPlugin.setRCStyle(self, self.helpMenu)
 
 		self.appFilters = {}
+
 		for i in self.core.getPluginNames():
 			if len(self.core.getPluginData(i, "sceneFormats")) == 0:
 				continue
 
 			chb_aApp = QCheckBox(i)
 			chb_sApp = QCheckBox(i)
-			chb_aApp.setChecked(True)
-			chb_sApp.setChecked(True)
+			chb_aApp.setChecked(False)
+			chb_sApp.setChecked(False)
 			self.w_aShowFormats.layout().addWidget(chb_aApp)
 			self.w_sShowFormats.layout().addWidget(chb_sApp)
 			setattr(self, "chb_aShow%s" % self.core.getPluginData(i, "appShortName"), chb_aApp)
 			setattr(self, "chb_sShow%s" % self.core.getPluginData(i, "appShortName"), chb_sApp)
 			self.appFilters[i] = {"assetChb": chb_aApp, "shotChb": chb_sApp, "shortName": self.core.getPluginData(i, "appShortName"), "formats": self.core.getPluginData(i, "sceneFormats")}
 	
+		# custom checkbox
+		chb_aApp = QCheckBox("Other")
+		chb_sApp = QCheckBox("Other")
+		chb_aApp.setChecked(True)
+		chb_sApp.setChecked(True)
+		self.w_aShowFormats.layout().addWidget(chb_aApp)
+		self.w_sShowFormats.layout().addWidget(chb_sApp)
+		setattr(self, "chb_aShowOther", chb_aApp)
+		setattr(self, "chb_sShowOther", chb_sApp)
+		self.appFilters["other"] = {"assetChb": chb_aApp, "shotChb": chb_sApp, "shortName": "Other", "formats": "*"}
+
 		cData = {}
 
 		for i in self.appFilters:
@@ -827,7 +839,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshUI(self):
-		curTab = self.tbw_browser.currentWidget().property("tabType")
+		cw = self.tbw_browser.currentWidget()
+		if not cw:
+			self.core.popup("No tabs are currently enabled. Use the \"View\" menu to enable available tabs.")
+			return
+
+		curTab = cw.property("tabType")
 		curData = [curTab, self.cursShots, self.curRTask, self.curRVersion, self.curRLayer]
 
 		if curTab == "Assets":
@@ -1358,7 +1375,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
 			if os.path.exists(emptyDir):
 				for i in sorted(os.listdir(emptyDir)):
-					if i.startswith("EmptyScene_") and os.path.splitext(i)[1] in self.core.getPluginSceneFormats():
+					if i.startswith("EmptyScene_"):
 						fName = os.path.splitext(i)[0][11:].replace("_", ".")
 						empAct = QAction(fName, self)
 						empAct.triggered.connect(lambda y=None, x=tabName, fname=i: self.createEmptyScene(x, fname))
@@ -1666,6 +1683,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						dstname = i
 						break
 				else:
+					self.core.popup("Invalid asset:\n\n%s" % entityName)
 					return
 			else:
 				dstname = self.curAsset
@@ -1681,6 +1699,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			category = category or self.cursCat
 			filePath = self.core.generateScenePath("shot", entityName, step, category=category, extension=ext, comment=comment)
 		else:
+			self.core.popup("Invalid entity:\n\n%s" % entity)
 			return
 
 		if os.path.isabs(fileName):
@@ -2123,7 +2142,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			row = []
 			fname = self.core.getScenefileData(i)
 
-			if fname["type"] == "asset" and fname["extension"] in appfilter:
+			if "extension" not in fname or fname["extension"] not in appfilter and not ("*" in appfilter and (fname["extension"] not in self.core.getPluginSceneFormats() and "info" not in fname["extension"] and "preview" not in fname["extension"])):
+				continue
+
+			if fname["type"] == "asset":
 				publicFile = self.core.useLocalFiles and i.startswith(os.path.join(self.core.projectPath, self.scenes, "Assets"))
 
 				if pVersion == 2:
@@ -2500,7 +2522,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					tmpScene = True
 				except:
 					pass
-				if fname["type"] == "shot" and fname["extension"] in appfilter and not tmpScene:
+
+				if "extension" not in fname or fname["extension"] not in appfilter and not ("*" in appfilter and (fname["extension"] not in self.core.getPluginSceneFormats() and "info" not in fname["extension"] and "preview" not in fname["extension"])):
+					continue
+
+				if fname["type"] == "shot" and not tmpScene:
 					publicFile = self.core.useLocalFiles and i.startswith(os.path.join(self.core.projectPath, self.scenes, "Shots"))
 
 					if pVersion == 2:

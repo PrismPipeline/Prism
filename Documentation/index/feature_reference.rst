@@ -162,6 +162,18 @@ This will remove all Prism integrations and startmenu entry of Prism. Then you c
 In some programs (like Houdini) the Prism shelf needs to be deleted manually. Your projects, scenefiles and renderings will remain unaffected.
 
 
+Updating Prism
+--------------------------------
+
+Unless not otherwise stated in the installation setup, you can update Prism simply by installing another version of Prism. It's not necessary to uninstall the previous version.
+
+The installer which you can find on the downloads page of the Prism website is the latest stable release. If you want to use the latest feature additions and bugfixes you can update your Prism version to the latest "development" version, which is available in the official Prism GitHub repository.
+
+To update your current Prism version to the latest development version, open the Prism Settings dialog, for example from the Windows startmenu or the Prism Tray. In the "Miscellaneous" tab you can find an "Update Prism" button. After you click this button you can select "Update from GitHub", which will download and install the latest Prism development version.
+
+If you encounter problems during the update process, try to update from the standalone Prism Settings dialog and not from inside any DCC app.
+
+
 Integrations
 ===================
 
