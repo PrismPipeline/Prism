@@ -72,7 +72,7 @@ class Prism_Shotgun_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Shotgun %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Shotgun - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -456,7 +456,7 @@ class Prism_Shotgun_Functions(object):
 			if x['sg_sequence'] is None:
 				shotName = x['code']
 			else:
-				shotName = "%s-%s" % (x['sg_sequence']['name'], x['code'])
+				shotName = "%s%s%s" % (x['sg_sequence']['name'], self.core.sequenceSeparator, x['code'])
 			sgShots[shotName] = x
 
 		fields = ["code", "short_name", "entity_type"]
@@ -469,13 +469,9 @@ class Prism_Shotgun_Functions(object):
 		createdShots = []
 		updatedShots = []
 		for shot in shots:
-			if "-" in shot:
-				sname = shot.split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-			else:
+			shotName, seqName = self.core.pb.splitShotname(shot)
+			if seqName == "no sequence":
 				seqName = ""
-				shotName = shot
 
 			shotImgPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % shot)
 			if os.path.exists(shotImgPath):
@@ -626,22 +622,21 @@ class Prism_Shotgun_Functions(object):
 				filters += [
 					['sg_localhierarchy', 'is', assetPath]
 				]
-			elif eType == "Shot" and "-" in shotName:
-				sname = shotName.split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-				seqFilters = [ 
-					['project','is', {'type': 'Project','id': sgPrjId}],
-					['code', 'is', seqName]
-				]
-
-				seq = sg.find_one("Sequence", seqFilters)
-				if seq is not None:
-					filters = [ 
+			elif eType == "Shot":
+				shotName, seqName = self.core.pb.splitShotname(shotName)
+				if seqName and seqName != "no sequence":
+					seqFilters = [ 
 						['project','is', {'type': 'Project','id': sgPrjId}],
-						['code', 'is', shotName],
-						['sg_sequence', 'is', seq]
+						['code', 'is', seqName]
 					]
+
+					seq = sg.find_one("Sequence", seqFilters)
+					if seq is not None:
+						filters = [ 
+							['project','is', {'type': 'Project','id': sgPrjId}],
+							['code', 'is', shotName],
+							['sg_sequence', 'is', seq]
+						]
 
 			shot = sg.find_one(eType, filters)
 			if shot is None:
@@ -729,7 +724,7 @@ class Prism_Shotgun_Functions(object):
 		sgSteps = { x['code'] : x for x in sg.find("Step", [], fields) if x['entity_type'] == "Asset"}
 
 		assets = self.core.getAssetPaths()
-		localAssets = [[os.path.basename(x), x.replace(origin.aBasePath, "")[1:]] for x in assets if x.replace(os.path.join(self.core.fixPath(origin.aBasePath), ""), "") not in origin.omittedEntities["Asset"]]
+		localAssets = [[os.path.basename(x), x.replace(origin.aBasePath, "")[1:]] for x in assets if x.replace(os.path.join(self.core.fixPath(origin.aBasePath), ""), "") not in origin.omittedEntities["asset"]]
 		
 		createdAssets = []
 		updatedAssets = []
@@ -785,11 +780,11 @@ class Prism_Shotgun_Functions(object):
 		filters = [ ['project', 'is', {'type': 'Project', 'id': sgPrjId}]]
 		sgShots = {}
 		for x in sg.find("Shot", filters, fields):
-			if self.core.filenameSeperator not in x['code']:
+			if self.core.filenameSeparator not in x['code']:
 				if x['sg_sequence'] is None:
 					shotName = x['code']
 				else:
-					shotName = "%s-%s" % (x['sg_sequence']['name'], x['code'])
+					shotName = "%s%s%s" % (x['sg_sequence']['name'], self.core.sequenceSeparator, x['code'])
 				sgShots[shotName] = x
 
 		fields = ["code", "short_name", 'entity_type']
@@ -878,7 +873,7 @@ class Prism_Shotgun_Functions(object):
 		else:
 			msgString = "No shots were created or updated."
 
-		msgString += "\n\nNote that shots with \"%s\" in their name are getting ignored by Prism." % self.core.filenameSeperator
+		msgString += "\n\nNote that shots with \"%s\" in their name are getting ignored by Prism." % self.core.filenameSeparator
 
 		QMessageBox.information(self.core.messageParent, "Shotgun Sync", msgString)
 
@@ -933,7 +928,7 @@ class Prism_Shotgun_Functions(object):
 			if x['sg_sequence'] is None:
 				shotName = x['code']
 			else:
-				shotName = "%s-%s" % (x['sg_sequence']['name'], x['code'])
+				shotName = "%s%s%s" % (x['sg_sequence']['name'], self.core.sequenceSeparator, x['code'])
 			sgShots[shotName] = x
 
 		fields = ["code", "short_name", "entity_type"]
@@ -951,14 +946,11 @@ class Prism_Shotgun_Functions(object):
 
 		localShots = []
 		for x in foldercont[1]:
-			if not x.startswith("_") and x not in origin.omittedEntities["Shot"]:
-				if "-" in x:
-					sname = x.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
+			if not x.startswith("_") and x not in origin.omittedEntities["shot"]:
+				shotName, seqName = self.core.pb.splitShotname(x)
+				if seqName == "no sequence":
 					seqName = ""
-					shotName = x
+
 				localShots.append([x, seqName, shotName])
 
 		createdShots = []
@@ -1064,7 +1056,7 @@ class Prism_Shotgun_Functions(object):
 				if i["sg_sequence"] == "":
 					createdShotNames.append(i['code'])
 				else:
-					createdShotNames.append("%s-%s" % (i['sg_sequence'], i['code']))
+					createdShotNames.append("%s%s%s" % (i['sg_sequence'], self.core.sequenceSeparator, i['code']))
 
 			createdShotNames.sort()
 			updatedShots.sort()

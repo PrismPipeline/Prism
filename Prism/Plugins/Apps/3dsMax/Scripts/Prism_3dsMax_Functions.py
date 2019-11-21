@@ -62,7 +62,7 @@ class Prism_3dsMax_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_3dsMax %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_3dsMax - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -188,11 +188,11 @@ class Prism_3dsMax_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if not filepath.endswith(".max"):
 			return False
 
-		if self.executeScript(origin, "checkforsave()"):
+		if force or self.executeScript(origin, "checkforsave()"):
 			self.executeScript(origin, "loadMaxFile \"%s\"" % filepath)
 
 		return True
@@ -321,11 +321,6 @@ class Prism_3dsMax_Functions(object):
 	@err_decorator
 	def sm_export_startup(self, origin):
 		origin.lw_objects.setStyleSheet("QListWidget { background: rgb(100,100,100);}")
-
-
-	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName):
-		origin.l_taskName.setText(origin.nameWin.e_item.text())
 
 
 	@err_decorator
@@ -594,14 +589,6 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 
 
 	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setPalette(origin.warnPalette)
-		else:
-			origin.b_changeTask.setPalette(origin.oldPalette)
-
-
-	@err_decorator
 	def sm_render_refreshPasses(self, origin):
 		origin.lw_passes.clear()
 		elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
@@ -718,11 +705,22 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 
 	@err_decorator
 	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-		dlParams["version"] = str(self.executeScript(origin, "maxversion()").GetItem(0)/1000-2+2000)
-		dlParams["plugin"] = "3dsmax"
 		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "3dsmax_plugin_info.job" )
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "3dsmax_submit_info.job" )
-		dlParams["jobComment"] = "Prism-Submission-3dsmax_ImageRender"
+
+		dlParams["jobInfos"]["Plugin"] = "3dsmax"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-3dsmax_ImageRender"
+		dlParams["pluginInfos"]["Version"] = str(self.executeScript(origin, "maxversion()").GetItem(0).GetInt()/1000-2+2000)
+		dlParams["pluginInfos"]["MaxVersionToForce"] = dlParams["pluginInfos"]["Build"]
+		dlParams["pluginInfos"]["PopupHandling"] = "1"
+
+		if origin.chb_resOverride.isChecked():
+			resString = "Render"
+			dlParams["pluginInfos"][resString + "Width"] = str(origin.sp_resWidth.value())
+			dlParams["pluginInfos"][resString + "Height"] = str(origin.sp_resHeight.value())
+
+		if origin.curCam != "Current View":
+			dlParams["pluginInfos"]["Camera"] = self.core.appPlugin.getCamName(origin, origin.curCam)
 
 
 	@err_decorator
@@ -769,19 +767,6 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 	@err_decorator
 	def sm_render_fixOutputPath(self, origin, outputName):
 		return outputName
-
-
-	@err_decorator
-	def sm_render_getDeadlineSubmissionParams(self, origin, dlParams, jobOutputFile):
-		dlParams["MaxVersionToForce"] = dlParams["build"]
-		dlParams["PopupHandling"] = "1"
-
-		if origin.chb_resOverride.isChecked() and "resolution" in dlParams:
-			resString = "Render"
-			dlParams[resString + "Width"] = str(origin.sp_resWidth.value())
-			dlParams[resString + "Height"] = str(origin.sp_resHeight.value())
-
-		return dlParams
 
 
 	@err_decorator
@@ -1152,7 +1137,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
 
 	@err_decorator
 	def sm_saveStates(self, origin, buf):
-		self.executeScript(origin, "fileProperties.addProperty #custom \"PrismStates\" \"%s\"" % buf)
+		self.executeScript(origin, "fileProperties.addProperty #custom \"PrismStates\" \"%s\"" % buf.replace("\"", "\\\""))
 
 
 	@err_decorator

@@ -36,6 +36,18 @@ import os, sys
 import traceback, time, platform, shutil
 from functools import wraps
 
+try:
+	from PySide2.QtCore import *
+	from PySide2.QtGui import *
+	from PySide2.QtWidgets import *
+	psVersion = 2
+except:
+	from PySide.QtCore import *
+	from PySide.QtGui import *
+	psVersion = 1
+
+
+
 class Prism_Houdini_externalAccess_Functions(object):
 	def __init__(self, core, plugin):
 		self.core = core
@@ -50,7 +62,7 @@ class Prism_Houdini_externalAccess_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Houdini_ext %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Houdini_ext - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -58,17 +70,30 @@ class Prism_Houdini_externalAccess_Functions(object):
 
 	@err_decorator
 	def prismSettings_loadUI(self, origin, tab):
-		pass
+		origin.chb_houPackage = QCheckBox("Use package integration")
+		origin.chb_houPackage.setChecked(True)
+		tab.layout().itemAt(2).widget().layout().insertWidget(1, origin.chb_houPackage)
 
 
 	@err_decorator
 	def prismSettings_saveSettings(self, origin):
-		pass
+		saveData = []
+
+		saveData.append(['houdini', 'use_package_integration', str(origin.chb_houPackage.isChecked())])
+
+		return saveData
 
 	
 	@err_decorator
 	def prismSettings_loadSettings(self, origin):
-		pass
+		loadData = {}
+		loadFunctions = {}
+
+		loadData["hou_usePacakgeIntegration"] = ['houdini', 'use_package_integration', 'bool']
+		loadFunctions["hou_usePacakgeIntegration"] = lambda x: origin.chb_houPackage.setChecked(x)
+
+		return loadData, loadFunctions
+
 
 
 	@err_decorator

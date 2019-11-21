@@ -59,7 +59,7 @@ class Prism_3dsMax_Integration(object):
 		self.plugin = plugin
 
 		if platform.system() == "Windows":
-			self.examplePath = os.environ["localappdata"] + "\\Autodesk\\3dsMax\\2019 - 64bit"
+			self.examplePath = os.environ["localappdata"] + "\\Autodesk\\3dsMax\\2020 - 64bit"
 
 
 	def err_decorator(func):
@@ -70,7 +70,7 @@ class Prism_3dsMax_Integration(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_3dsMax_Integration %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_3dsMax_Integration - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				if hasattr(args[0].core, "writeErrorLog"):
 					args[0].core.writeErrorLog(erStr)
 				else:
@@ -83,34 +83,18 @@ class Prism_3dsMax_Integration(object):
 		execPath = ""
 		if platform.system() == "Windows":
 			try:
-				try:
-					key = _winreg.OpenKey(
-						_winreg.HKEY_LOCAL_MACHINE,
-						"SOFTWARE\\Autodesk\\3dsMax\\21.0",
-						0,
-						_winreg.KEY_READ | _winreg.KEY_WOW64_64KEY
-					)
-
-					installDir = (_winreg.QueryValueEx(key, "Installdir"))[0]
-				except:
+				for i in ["22.0", "21.0", "20.0", "19.0"]:
 					try:
 						key = _winreg.OpenKey(
 							_winreg.HKEY_LOCAL_MACHINE,
-							"SOFTWARE\\Autodesk\\3dsMax\\20.0",
+							"SOFTWARE\\Autodesk\\3dsMax\\%s" % i,
 							0,
 							_winreg.KEY_READ | _winreg.KEY_WOW64_64KEY
 						)
 
 						installDir = (_winreg.QueryValueEx(key, "Installdir"))[0]
 					except:
-						key = _winreg.OpenKey(
-							_winreg.HKEY_LOCAL_MACHINE,
-							"SOFTWARE\\Autodesk\\3dsMax\\19.0",
-							0,
-							_winreg.KEY_READ | _winreg.KEY_WOW64_64KEY
-						)
-
-						installDir = (_winreg.QueryValueEx(key, "Installdir"))[0]
+						pass
 
 				execPath = os.path.join(installDir, "3dsmax.exe")
 			except:
@@ -256,7 +240,12 @@ deleteFile curPath
 	def updateInstallerUI(self, userFolders, pItem):
 		try:
 			if platform.system() == "Windows":
-				maxPath = [[userFolders["LocalAppdata"] + "\\Autodesk\\3dsMax\\2017 - 64bit", "2017"], [userFolders["LocalAppdata"] + "\\Autodesk\\3dsMax\\2018 - 64bit", "2018"], [userFolders["LocalAppdata"] + "\\Autodesk\\3dsMax\\2019 - 64bit", "2019"]]
+				maxPath = [
+					[userFolders["LocalAppdata"] + "\\Autodesk\\3dsMax\\2017 - 64bit", "2017"],
+					[userFolders["LocalAppdata"] + "\\Autodesk\\3dsMax\\2018 - 64bit", "2018"],
+					[userFolders["LocalAppdata"] + "\\Autodesk\\3dsMax\\2019 - 64bit", "2019"],
+					[userFolders["LocalAppdata"] + "\\Autodesk\\3dsMax\\2020 - 64bit", "2020"],
+				]
 
 			maxItem = QTreeWidgetItem(["3dsMax"])
 			maxItem.setCheckState(0, Qt.Checked)

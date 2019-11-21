@@ -96,13 +96,6 @@
               <property name="bottomMargin">
                <number>9</number>
               </property>
-              <item row="2" column="2">
-               <widget class="QLabel" name="l_abbreviation">
-                <property name="text">
-                 <string/>
-                </property>
-               </widget>
-              </item>
               <item row="1" column="2">
                <widget class="QLineEdit" name="e_lname"/>
               </item>
@@ -129,6 +122,9 @@
               </item>
               <item row="0" column="2">
                <widget class="QLineEdit" name="e_fname"/>
+              </item>
+              <item row="2" column="2">
+               <widget class="QLineEdit" name="e_abbreviation"/>
               </item>
              </layout>
             </widget>

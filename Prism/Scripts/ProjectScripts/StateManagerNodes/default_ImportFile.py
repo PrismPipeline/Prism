@@ -101,7 +101,7 @@ class ImportFileClass(object):
 
 		createEmptyState = QApplication.keyboardModifiers() == Qt.ControlModifier or not self.core.uiAvailable
 
-		if importPath is None and stateData is None and not createEmptyState:
+		if importPath is None and stateData is None and not createEmptyState and not self.stateManager.standalone:
 			import TaskSelection
 			ts = TaskSelection.TaskSelection(core = core, importState = self)
 
@@ -115,10 +115,10 @@ class ImportFileClass(object):
 
 			if not result:
 				return False
-		elif stateData is None and not createEmptyState:
+		elif stateData is None and not createEmptyState and not self.stateManager.standalone:
 			return False
 
-		self.core.appPlugin.sm_import_startup(self)
+		getattr(self.core.appPlugin, "sm_import_startup", lambda x: None)(self)
 		self.connectEvents()
 
 		if stateData is not None:
@@ -173,16 +173,17 @@ class ImportFileClass(object):
 		self.b_browse.customContextMenuRequested.connect(self.openFolder)
 		self.b_import.clicked.connect(self.importObject)
 		self.b_importLatest.clicked.connect(self.importLatest)
-		self.b_nameSpaces.clicked.connect(lambda: self.core.appPlugin.sm_import_removeNameSpaces(self))
-		self.b_unitConversion.clicked.connect(lambda: self.core.appPlugin.sm_import_unitConvert(self))
 		self.chb_keepRefEdits.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_autoNameSpaces.stateChanged.connect(self.autoNameSpaceChanged)
 		self.chb_abcPath.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_trackObjects.toggled.connect(self.updateTrackObjects)
 		self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
 		self.chb_preferUnit.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
 		self.b_selectAll.clicked.connect(self.lw_objects.selectAll)
+		if not self.stateManager.standalone:
+			self.b_nameSpaces.clicked.connect(lambda: self.core.appPlugin.sm_import_removeNameSpaces(self))
+			self.b_unitConversion.clicked.connect(lambda: self.core.appPlugin.sm_import_unitConvert(self))
+			self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
 
 
 	@err_decorator
@@ -230,13 +231,17 @@ class ImportFileClass(object):
 	@err_decorator
 	def autoNameSpaceChanged(self, checked):
 		self.b_nameSpaces.setEnabled(not checked)
-		self.core.appPlugin.sm_import_removeNameSpaces(self)
-		self.stateManager.saveStatesToScene()
+		if not self.stateManager.standalone:
+			self.core.appPlugin.sm_import_removeNameSpaces(self)
+			self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
 	def importObject(self, taskName=None, update=False):
 		result = True
+		if self.stateManager.standalone:
+			return result
+
 		if self.e_file.text() != "":
 			versionInfoPath = os.path.join(os.path.dirname(os.path.dirname(self.e_file.text())), "versioninfo.ini")
 			if os.path.exists(versionInfoPath):
@@ -265,7 +270,7 @@ class ImportFileClass(object):
 
 				self.taskName = ""
 				sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-				if len(vName.split(self.core.filenameSeperator)) == 3 and (os.path.join(self.core.projectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/") or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/"))):
+				if len(vName.split(self.core.filenameSeparator)) == 3 and (os.path.join(self.core.projectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/") or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir).replace("\\", "/") in self.e_file.text().replace("\\", "/"))):
 					self.taskName = os.path.basename(os.path.dirname(vPath))
 					if self.taskName == "_ShotCam":
 						self.taskName = "ShotCam"
@@ -285,7 +290,7 @@ class ImportFileClass(object):
 					self.e_file.setText(impFileName)
 
 			if self.chb_trackObjects.isChecked():
-				self.core.appPlugin.sm_import_updateObjects(self)
+				getattr(self.core.appPlugin, "sm_import_updateObjects", lambda x: None)(self)
 
 			fileName = self.core.getCurrentFileName()
 
@@ -368,11 +373,11 @@ class ImportFileClass(object):
 		if os.path.exists(self.e_file.text()):
 			parDir = os.path.dirname(self.e_file.text())
 			if os.path.basename(parDir) in ["centimeter", "meter"]:
-				versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
+				versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeparator)
 			else:
-				versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
+				versionData = os.path.basename(parDir).split(self.core.filenameSeparator)
 
-			fversionData = os.path.basename(self.e_file.text()).split(self.core.filenameSeperator)
+			fversionData = os.path.basename(self.e_file.text()).split(self.core.filenameSeparator)
 			fversion = None
 			for i in fversionData:
 				try:
@@ -388,7 +393,7 @@ class ImportFileClass(object):
 						pass
 						
 			if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
-				self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
+				self.l_curVersion.setText(versionData[0] + self.core.filenameSeparator + versionData[1] + self.core.filenameSeparator + versionData[2])
 				self.l_latestVersion.setText("-")
 				vPath = os.path.dirname(self.e_file.text())
 				if os.path.basename(vPath) in ["centimeter", "meter"]:
@@ -401,7 +406,7 @@ class ImportFileClass(object):
 					for k in reversed(folders):
 						meterDir = os.path.join(i[0], k, "meter")
 						cmeterDir = os.path.join(i[0], k, "centimeter")
-						if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+						if len(k.split(self.core.filenameSeparator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeparator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
 							self.l_latestVersion.setText(k)
 							break
 					break
@@ -434,7 +439,7 @@ class ImportFileClass(object):
 
 		if self.chb_trackObjects.isChecked():
 			self.gb_objects.setVisible(True)
-			self.core.appPlugin.sm_import_updateObjects(self)
+			getattr(self.core.appPlugin, "sm_import_updateObjects", lambda x: None)(self)
 
 			for i in self.nodes:
 				item = QListWidgetItem(self.core.appPlugin.getNodeName(self, i))
@@ -456,14 +461,14 @@ class ImportFileClass(object):
 	def getLatestVersion(self):
 		parDir = os.path.dirname(self.e_file.text())
 		if os.path.basename(parDir) in ["centimeter", "meter"]:
-			versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeperator)
+			versionData = os.path.basename(os.path.dirname(parDir)).split(self.core.filenameSeparator)
 			taskPath = os.path.dirname(os.path.dirname(parDir))
 		else:
-			versionData = os.path.basename(parDir).split(self.core.filenameSeperator)
+			versionData = os.path.basename(parDir).split(self.core.filenameSeparator)
 			taskPath = os.path.dirname(parDir)
 
 		if len(versionData) == 3 and self.core.getConfig('paths', "scenes", configPath=self.core.prismIni) in self.e_file.text():
-			self.l_curVersion.setText(versionData[0] + self.core.filenameSeperator + versionData[1] + self.core.filenameSeperator + versionData[2])
+			self.l_curVersion.setText(versionData[0] + self.core.filenameSeparator + versionData[1] + self.core.filenameSeparator + versionData[2])
 			self.l_latestVersion.setText("-")
 			for i in os.walk(taskPath):
 				folders = i[1]
@@ -471,7 +476,7 @@ class ImportFileClass(object):
 				for k in reversed(folders):
 					meterDir = os.path.join(i[0], k, "meter")
 					cmeterDir = os.path.join(i[0], k, "centimeter")
-					if len(k.split(self.core.filenameSeperator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeperator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
+					if len(k.split(self.core.filenameSeparator)) == 3 and k[0] == "v" and len(k.split(self.core.filenameSeparator)[0]) == 5 and ((os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0) or (os.path.exists(cmeterDir) and len(os.listdir(cmeterDir)) > 0)):
 						return os.path.join(i[0], k).replace("\\", "/")
 				break
 

@@ -134,10 +134,15 @@ class PrismTray():
 				if platform.system() == "Darwin" and reason != QSystemTrayIcon.DoubleClick:
 					return
 
+				if platform.system() == "Windows" and reason == QSystemTrayIcon.DoubleClick:
+					return
+
 				self.startBrowser()
 			elif reason == QSystemTrayIcon.Context:
 				curProject = self.core.getConfig("globals", "current project")
 				self.dailiesAction.setEnabled(curProject is not None and curProject is not "")
+
+				self.core.callback(name="openTrayContextMenu", types=["custom"], args=[self, self.trayIconMenu])
 
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()

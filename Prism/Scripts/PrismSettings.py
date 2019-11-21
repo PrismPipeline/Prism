@@ -145,6 +145,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	def connectEvents(self):
 		self.e_fname.textChanged.connect(lambda x: self.validate(self.e_fname, x))
 		self.e_lname.textChanged.connect(lambda x: self.validate(self.e_lname, x))
+		self.e_abbreviation.textChanged.connect(lambda x: self.validate(self.e_abbreviation, x))
 		self.b_browseLocal.clicked.connect(lambda: self.browse("local"))
 		self.b_browseLocal.customContextMenuRequested.connect(lambda: self.core.openFolder(self.e_localPath.text()))
 		self.e_curPname.textEdited.connect(self.curPnameEdited)
@@ -183,10 +184,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			uiWidget.setText(text)
 			uiWidget.setCursorPosition(cpos-1)
 
-		if len(self.e_fname.text()) > 0 and len(self.e_lname.text()) > 1:
-			self.l_abbreviation.setText((self.e_fname.text()[0] + self.e_lname.text()[:2]).lower())
-		else:
-			self.l_abbreviation.setText("invalid")
+		if uiWidget != self.e_abbreviation:
+			abbrev = self.core.getUserAbbreviation("%s %s" % (self.e_fname.text(), self.e_lname.text()), fromConfig=False)
+			self.e_abbreviation.setText(abbrev)
 
 
 	@err_decorator
@@ -333,7 +333,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 		if len(self.e_fname.text()) > 0 and len(self.e_lname.text()) > 1:
 			cData.append(['globals', "username", (self.e_fname.text() + " " + self.e_lname.text())])
-			self.core.user = (self.e_fname.text()[0] + self.e_lname.text()[:2]).lower()
+			cData.append(['globals', "username_abbreviation", self.e_abbreviation.text()])
+			self.core.user = self.e_abbreviation.text()
 
 		if hasattr(self.core, "projectName") and self.e_localPath.isEnabled():
 			lpath = self.core.fixPath(self.e_localPath.text())
@@ -511,6 +512,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 			ucData["%s_path" % i] = ["dccoverrides", "%s_path" % i]
 
 		ucData["username"] = ['globals', "username"]
+		ucData["username_abbreviation"] = ['globals', "username_abbreviation"]
 		ucData["showonstartup"] = ['globals', "showonstartup", "bool"]
 		ucData["checkForUpdates"] = ['globals', "checkForUpdates", "bool"]
 		ucData["autosave"] = ['globals', "autosave", "bool"]
@@ -551,6 +553,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
 				self.validate(uiWidget=self.e_fname)
 				self.validate(uiWidget =self.e_lname)
+
+		if ucData["username_abbreviation"] is not None:
+			self.e_abbreviation.setText(ucData["username_abbreviation"])
+			self.validate(uiWidget =self.e_abbreviation)
 
 		if ucData["showonstartup"] is not None:
 			self.chb_browserStartup.setChecked(ucData["showonstartup"])
@@ -863,7 +869,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 	def createPlugin(self):
 		import CreateItem
 
-		newPDlg = CreateItem.CreateItem(core=self.core)
+		newPDlg = CreateItem.CreateItem(core=self.core, allowChars=["_"], denyChars=["-"])
 
 		self.core.parentWindow(newPDlg)
 		newPDlg.setWindowTitle("Create Plugin")

@@ -150,7 +150,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 		self.shotList = {}
 		for x in self.sgShots:
 			if 'sg_sequence' in x and x['sg_sequence'] is not None:
-				x['code'] = "%s-%s" % (x['sg_sequence']['name'], x['code'])
+				x['code'] = "%s%s%s" % (x['sg_sequence']['name'], self.core.sequenceSeparator, x['code'])
 
 			if 'sg_localhierarchy' in x and x['sg_localhierarchy'] is not None:
 				self.shotList[x['code']] = x['sg_localhierarchy']
@@ -176,13 +176,9 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 				['entity.%s.code' % self.ptype, 'is', self.cb_shot.currentText()]
 			]
 		elif self.ptype == "Shot":
-			if "-" in self.cb_shot.currentText():
-				sname = self.cb_shot.currentText().split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-			else:
+			shotName, seqName = self.core.pb.splitShotname(self.cb_shot.currentText())
+			if seqName == "no sequence":
 				seqName = ""
-				shotName = self.cb_shot.currentText()
 
 			filters = [ 
 				['project','is', {'type': 'Project','id': self.sgPrjId}],

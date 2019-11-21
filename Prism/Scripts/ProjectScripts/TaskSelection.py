@@ -72,8 +72,25 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 		self.preferredUnit = self.importState.preferredUnit
 
-		self.connectEvents()
+		if not hasattr(self.core, "pb"):
+			self.core.projectBrowser(openUi=False)
 
+		self.export_paths = [["global", self.core.projectPath]]
+		if self.core.useLocalFiles:
+			self.export_paths.append(["local", self.core.localProjectPath])
+
+		customPaths = self.core.getConfig('export_paths', getItems=True, configPath=self.core.prismIni)
+		if customPaths:
+			self.export_paths += customPaths
+
+		if len(self.export_paths) > 1:
+			self.export_paths.insert(0, ["all", "all"])
+		else:
+			self.w_paths.setVisible(False)
+
+		self.cb_paths.addItems([x[0] for x in self.export_paths])
+
+		self.connectEvents()
 		self.updateAssets()
 		self.updateShots()
 
@@ -98,10 +115,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 	@err_decorator
 	def connectEvents(self):
+		self.cb_paths.activated.connect(self.locationChanged)
 		self.tbw_entity.currentChanged.connect(lambda x: self.entityClicked())
 		self.tw_assets.itemExpanded.connect(self.aItemCollapsed)
 		self.tw_assets.itemCollapsed.connect(self.aItemCollapsed)
-		self.tw_assets.itemSelectionChanged.connect(lambda: self.entityClicked("Assets"))
+		self.tw_assets.itemSelectionChanged.connect(self.entityClicked)
 		self.tw_assets.mousePrEvent = self.tw_assets.mousePressEvent
 		self.tw_assets.mousePressEvent = lambda x: self.mouseClickEvent(x,"a")
 		self.tw_assets.mouseClickEvent = self.tw_assets.mouseReleaseEvent
@@ -111,7 +129,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 		self.tw_shots.itemExpanded.connect(self.sItemCollapsed)
 		self.tw_shots.itemCollapsed.connect(self.sItemCollapsed)
-		self.tw_shots.itemSelectionChanged.connect(lambda: self.entityClicked("Shots"))
+		self.tw_shots.itemSelectionChanged.connect(self.entityClicked)
 		self.tw_shots.mousePrEvent = self.tw_shots.mousePressEvent
 		self.tw_shots.mousePressEvent = lambda x: self.mouseClickEvent(x,"s")
 		self.tw_shots.mouseClickEvent = self.tw_shots.mouseReleaseEvent
@@ -230,22 +248,24 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		if listType == "assets":
 			viewUi = self.tw_assets
 			item = self.tw_assets.itemAt(pos)
-			if item is None:
-				self.tw_assets.setCurrentIndex(self.tw_assets.model().createIndex(-1,0))
-				self.updateTasks()
+			if not item or not item.data(0, Qt.UserRole):
+				if not item:
+					self.tw_assets.setCurrentIndex(self.tw_assets.model().createIndex(-1,0))
+					self.updateTasks()
 				path = os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni), "Assets")
 			else:
-				path = item.text(1)
+				path = item.data(0, Qt.UserRole)[0]
 
 		elif listType == "shots":
 			viewUi = self.tw_shots
 			item = self.tw_shots.itemAt(pos)
-			if item is None:
-				self.tw_shots.setCurrentIndex(self.tw_shots.model().createIndex(-1,0))
-				self.updateTasks()
+			if not item or not item.data(0, Qt.UserRole):
+				if not item:
+					self.tw_shots.setCurrentIndex(self.tw_shots.model().createIndex(-1,0))
+					self.updateTasks()
 				path = os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni), "Shots")
 			else:
-				path = item.text(1)
+				path = item.data(0, Qt.UserRole)[0]
 
 		elif listType == "tasks":
 			viewUi = self.lw_tasks
@@ -255,16 +275,18 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			else:
 				entityItem = self.tw_shots.currentItem()
 
-			if entityItem is None:
+			if not entityItem:
 				return
 
-			if item is None:
+			if not item:
 				self.lw_tasks.setCurrentRow(-1)
-				path = os.path.join(entityItem.text(1), "Export")
+				if not entityItem.data(0, Qt.UserRole):
+					return
+				path = os.path.join(entityItem.data(0, Qt.UserRole)[0], "Export")
 				if not os.path.exists(path):
 					return
 			else:
-				path = os.path.join(entityItem.text(1), "Export", self.lw_tasks.currentItem().text().replace("ShotCam", "_ShotCam"))
+				path = item.data(Qt.UserRole)[0]
 
 		elif listType == "versions":
 			viewUi = self.tw_versions
@@ -280,14 +302,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				if self.lw_tasks.currentItem() is None:
 					return
 
-				path = os.path.join(entityItem.text(1), "Export", self.lw_tasks.currentItem().text().replace("ShotCam", "_ShotCam"))
+				path = self.lw_tasks.currentItem().data(Qt.UserRole)[0]
 			else:
 				pathC = self.tw_versions.model().columnCount()-1
 				path = os.path.dirname(self.tw_versions.model().index(row, pathC).data())
 				showInfo = True
-
-		if self.core.useLocalFiles and not os.path.exists(path) and os.path.exists(path.replace(self.core.projectPath, self.core.localProjectPath)):
-			path = path.replace(self.core.projectPath, self.core.localProjectPath)
 
 		rcmenu = QMenu()
 		openex = QAction("Open in Explorer", self)
@@ -332,6 +351,37 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 
 	@err_decorator
+	def locationChanged(self, location):
+		task = version = None
+		row = self.tw_versions.currentIndex().row()
+		pathC = self.tw_versions.model().columnCount()-1
+		path = self.tw_versions.model().index(row, pathC).data()
+		
+		if path:
+			task = self.lw_tasks.currentItem().text()
+			version = self.tw_versions.model().index(row, 0).data()
+		else:
+			item = self.lw_tasks.currentItem()
+			if item and item.data(Qt.UserRole):
+				path = item.data(Qt.UserRole)[0]
+				task = item.text()
+			else:
+				if self.tbw_entity.tabText(self.tbw_entity.currentIndex()) == "Assets":
+					entityItem = self.tw_assets.currentItem()
+				else:
+					entityItem = self.tw_shots.currentItem()
+
+				if entityItem and entityItem.data(0, Qt.UserRole):
+					path = entityItem.data(0, Qt.UserRole)[0]
+
+		self.updateAssets()
+		self.updateShots()
+
+		if not path or not self.navigateToFile(path, task=task, version=version):
+			self.navigateToFile(self.core.getCurrentFileName())
+
+
+	@err_decorator
 	def entityClicked(self, entityType=None):
 		if entityType is None:
 			if self.tbw_entity.tabText(self.tbw_entity.currentIndex()) == "Assets":
@@ -369,10 +419,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 	def updateAssets(self, load=False):
 		self.tw_assets.clear()
 
-		aBasePath = os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni), "Assets")
-
 		omittedAssets = []
-
 		omitPath = os.path.join(os.path.dirname(self.core.prismIni), "Configs", "omits.ini")
 		if os.path.exists(omitPath):
 			oconfig = ConfigParser()
@@ -381,81 +428,87 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			if oconfig.has_section("Asset"):
 				omittedAssets = [x[1] for x in oconfig.items("Asset")]
 
-		if self.core.useLocalFiles:
-			lBasePath = aBasePath.replace(self.core.projectPath, self.core.localProjectPath)
+		basePath = self.export_paths[self.cb_paths.currentIndex()][1]
+		if basePath == "all":
+			basePaths = self.export_paths[1:]
+		else:
+			basePaths = [[self.cb_paths.currentText(), basePath]]
 
+		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
 		assetPaths = self.core.getAssetPaths()
 
-		for i in assetPaths:
-			if i != aBasePath and i.replace(aBasePath + os.sep, "") in omittedAssets:
-				continue
+		for ePath in basePaths:
+			location = ePath[0]
+			basePath = ePath[1]
+			if not basePath.endswith(os.sep):
+				basePath += os.sep
 
-			taskPath = os.path.join(i, "Export")
-			tasks = []
-			for k in os.walk(taskPath):
-				tasks += k[1]
-				break
+			for aPath in assetPaths:
+				assetPath = aPath.replace(self.core.projectPath, basePath)
+				
+				if assetPath != basePath and assetPath.replace(basePath + os.sep, "") in omittedAssets:
+					continue
 
-			if self.core.useLocalFiles:
-				ltaskPath = taskPath.replace(self.core.projectPath, self.core.localProjectPath)
-				for k in os.walk(ltaskPath):
+				taskPath = os.path.join(assetPath, "Export")
+				tasks = []
+				for k in os.walk(taskPath):
 					tasks += k[1]
 					break
 
-			if len(tasks) == 0:
-				continue
+				if len(tasks) == 0:
+					continue
 
-			relPath = i
+				relPath = assetPath.replace(os.path.join(basePath, sceneDir, "Assets"), "")
+				pathData = relPath.split(os.sep)[1:]
 
-			if aBasePath in relPath:
-				relPath = relPath.replace(aBasePath, "")
-			elif self.core.useLocalFiles and lBasePath in relPath:
-				relPath = relPath.replace(lBasePath, "")
-
-			pathData = relPath.split(os.sep)[1:]
-
-			lastItem = None
-			for idx, val in enumerate(pathData):
-				if lastItem is None:
-					for k in range(self.tw_assets.topLevelItemCount()):
-						curItem = self.tw_assets.topLevelItem(k)
-						if curItem.text(0) == val:
-							lastItem = curItem
+				lastItem = None
+				for idx, val in enumerate(pathData):
+					curPath = assetPath.replace(relPath, "")
+					for k in range(idx+1):
+						curPath = os.path.join(curPath, pathData[k])
 
 					if lastItem is None:
-						curPath = i.replace(relPath, "")
-						for k in range(idx+1):
-							curPath = os.path.join(curPath, pathData[k])
-						lastItem = QTreeWidgetItem([val, curPath])
-						self.tw_assets.addTopLevelItem(lastItem)
-				else:
-					newItem = None
-					for k in range(lastItem.childCount()):
-						curItem = lastItem.child(k)
-						if curItem.text(0) == val:
-							newItem = curItem
+						for k in range(self.tw_assets.topLevelItemCount()):
+							curItem = self.tw_assets.topLevelItem(k)
+							if curItem.text(0) == val:
+								lastItem = curItem
+								newData = lastItem.data(0, Qt.UserRole)
+								newData.append(curPath)
+								lastItem.setData(0, Qt.UserRole, newData)
 
-					if newItem is None:
-						curPath = i.replace(relPath, "")
-						for k in range(idx+1):
-							curPath = os.path.join(curPath, pathData[k])
-						newItem = QTreeWidgetItem([val, curPath])
-						lastItem.addChild(newItem)
+						if lastItem is None:
+							lastItem = QTreeWidgetItem([val, curPath])
+							lastItem.setData(0, Qt.UserRole, [curPath])
+							self.tw_assets.addTopLevelItem(lastItem)
+					else:
+						newItem = None
+						for k in range(lastItem.childCount()):
+							curItem = lastItem.child(k)
+							if curItem.text(0) == val:
+								newItem = curItem
+								newData = newItem.data(0, Qt.UserRole)
+								newData.append(curPath)
+								newItem.setData(0, Qt.UserRole, newData)
 
-					lastItem = newItem
+						if newItem is None:
+							newItem = QTreeWidgetItem([val, curPath])
+							newItem.setData(0, Qt.UserRole, [curPath])
+							lastItem.addChild(newItem)
 
-				if idx == (len(pathData)-1):
-					lastItem.setText(2, "Asset")
-					iFont = lastItem.font(0)
-					iFont.setBold(True)
-					lastItem.setFont(0, iFont)
-				else:
-					lastItem.setText(2, "Folder")
+						lastItem = newItem
+
+					if idx == (len(pathData)-1):
+						lastItem.setText(2, "Asset")
+						iFont = lastItem.font(0)
+						iFont.setBold(True)
+						lastItem.setFont(0, iFont)
+					else:
+						lastItem.setText(2, "Folder")
 
 		if self.tw_assets.topLevelItemCount() > 0:
 			self.tw_assets.setCurrentItem(self.tw_assets.topLevelItem(0))
 
-		self.updateTasks()
+		self.entityClicked()
 
 
 	@err_decorator
@@ -472,9 +525,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 	def updateShots(self):
 		self.tw_shots.clear()
 
-		relsPath = os.path.join(self.core.getConfig('paths', "scenes", configPath=self.core.prismIni), "Shots")
-		shotPath = os.path.join(self.core.projectPath, relsPath)
-
 		omittedShots = []
 
 		omitPath = os.path.join(os.path.dirname(self.core.prismIni), "Configs", "omits.ini")
@@ -485,60 +535,51 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			if oconfig.has_section("Shot"):
 				omittedShots = [x[1] for x in oconfig.items("Shot")]
 
-		dirs = []
-		if os.path.exists(shotPath):
-			for i in os.walk(shotPath):
-				dirs += [os.path.join(shotPath, k) for k in i[1]]
-				break
+		basePath = self.export_paths[self.cb_paths.currentIndex()][1]
+		if basePath == "all":
+			basePaths = [x[1] for x in self.export_paths[1:]]
+		else:
+			basePaths = [basePath]
 
-		if self.core.useLocalFiles:
-			lshotPath = os.path.join(self.core.localProjectPath, relsPath)
-			if os.path.exists(lshotPath):
-				for i in os.walk(lshotPath):
-					for k in i[1]:
-						ldir = os.path.join(i[0], k)
-						if ldir.replace(self.core.localProjectPath, self.core.projectPath) not in dirs:
-							dirs.append(ldir)
+		shots = {}
+
+		for basePath in basePaths:
+			relsPath = os.path.join(self.core.getConfig('paths', "scenes", configPath=self.core.prismIni), "Shots")
+			shotPath = os.path.join(basePath, relsPath)
+
+			dirs = []
+			if os.path.exists(shotPath):
+				for i in os.walk(shotPath):
+					dirs += [os.path.join(shotPath, k) for k in i[1]]
 					break
 
-		sequences = []
-		shots = []
-		for path in dirs:
-			val = os.path.basename(path)
-			if val.startswith("_") or val in omittedShots:
-				continue
+			for path in dirs:
+				val = os.path.basename(path)
+				if val.startswith("_") or val in omittedShots:
+					continue
 
-			taskPath = os.path.join(path, "Export")
+				taskPath = os.path.join(path, "Export")
 
-			if self.core.useLocalFiles:
-				taskPath = taskPath.replace(self.core.localProjectPath, self.core.projectPath)
-				ltaskPath = taskPath.replace(self.core.projectPath, self.core.localProjectPath)
-
-			tasks = []
-			for k in os.walk(taskPath):
-				tasks = k[1]
-				break
-
-			if self.core.useLocalFiles:
-				for i in os.walk(ltaskPath):
-					tasks += i[1]
+				tasks = []
+				for k in os.walk(taskPath):
+					tasks = k[1]
 					break
 
-			if len(tasks) == 0:
-				continue
+				if len(tasks) == 0:
+					continue
 
-			if "-" in val:
-				sname = val.split("-",1)
-				seqName = sname[0]
-				shotName = sname[1]
-			else:
-				seqName = "no sequence"
-				shotName = val
+				shotName, seqName = self.core.pb.splitShotname(val)
 
-			shots.append([seqName, shotName, path])
-			if seqName not in sequences:
-				sequences.append(seqName)
+				if seqName not in shots:
+					shots[seqName] = {}
 
+				if shotName not in shots[seqName]:
+					shots[seqName][shotName] = []
+
+				if path not in shots[seqName][shotName]:
+					shots[seqName][shotName].append(path)
+
+		sequences = self.core.sortNatural(shots.keys())
 		if "no sequence" in sequences:
 			sequences.insert(len(sequences), sequences.pop(sequences.index("no sequence")))
 
@@ -546,19 +587,15 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 			seqItem = QTreeWidgetItem([seqName])
 			self.tw_shots.addTopLevelItem(seqItem)
 
-		for i in shots:
-			for k in range(self.tw_shots.topLevelItemCount()):
-				tlItem = self.tw_shots.topLevelItem(k)
-				if tlItem.text(0) == i[0]:
-					seqItem = tlItem
-
-			sItem = QTreeWidgetItem([i[1], i[2]])
-			seqItem.addChild(sItem)
+			for shot in self.core.sortNatural(shots[seqName]):
+				sItem = QTreeWidgetItem([shot])
+				sItem.setData(0, Qt.UserRole, shots[seqName][shot])
+				seqItem.addChild(sItem)
 
 		if self.tw_shots.topLevelItemCount() > 0:
 			self.tw_shots.setCurrentItem(self.tw_shots.topLevelItem(0))
 
-		self.updateTasks()
+		self.entityClicked()
 
 
 	@err_decorator
@@ -570,30 +607,25 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		else:
 			entityItem = self.tw_shots.currentItem()
 
-		if entityItem is not None:
-			taskPath = os.path.join(entityItem.text(1), "Export")
-			if self.core.useLocalFiles:
-				taskPath = taskPath.replace(self.core.localProjectPath, self.core.projectPath)
-				ltaskPath = taskPath.replace(self.core.projectPath, self.core.localProjectPath)
+		if entityItem and entityItem.data(0, Qt.UserRole):
+			taskPaths = [os.path.join(x, "Export") for x in entityItem.data(0, Qt.UserRole) if x]
+			tasks = {}
+			for ePath in taskPaths:
+				for root, folders, files in os.walk(ePath):
+					for folder in folders:
+						if folder not in tasks:
+							tasks[folder] = []
 
-			tasks = []
-			for i in os.walk(taskPath):
-				tasks += i[1]
-				break
-
-			if self.core.useLocalFiles:
-				for i in os.walk(ltaskPath):
-					tasks += i[1]
+						tasks[folder].append(os.path.join(root, folder))
 					break
 
-			tasks = sorted(tasks, key=lambda s: s.lower())
+			taskNames = sorted(tasks.keys(), key=lambda s: s.lower())
 
-			uniqueTasks = []
-			for k in tasks:
-				if k not in uniqueTasks:
-					uniqueTasks.append(k)
-					self.lw_tasks.addItem(k.replace("_ShotCam", "ShotCam"))
-
+			for tn in taskNames:
+				item = QListWidgetItem(tn.replace("_ShotCam", "ShotCam"))
+				item.setData(Qt.UserRole, tasks[tn])
+				self.lw_tasks.addItem(item)
+				
 		if self.lw_tasks.count() > 0:
 			self.lw_tasks.setCurrentRow(0)
 
@@ -606,7 +638,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 		versionLabels = ["Version", "Comment", "Type", "Units", "User", "Date", "Path"]
 
-		if self.core.useLocalFiles:
+		if len(self.export_paths) > 1:
 			versionLabels.insert(4, "Location")
 
 		model.setHorizontalHeaderLabels(versionLabels)
@@ -614,34 +646,21 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		twSorting = [self.tw_versions.horizontalHeader().sortIndicatorSection(), self.tw_versions.horizontalHeader().sortIndicatorOrder()]
 
 		# currentItem() leads to crashes in blender
+		taskItem = self.lw_tasks.currentItem()
 
-		if self.curEntity is not None and self.curTask is not None:
-			if self.tbw_entity.tabText(self.tbw_entity.currentIndex()) == "Assets":
-				entityItem = self.tw_assets.currentItem()
-			else:
-				entityItem = self.tw_shots.currentItem()
-
-			versionPath = os.path.join(entityItem.text(1), "Export", self.curTask.replace("ShotCam", "_ShotCam"))
-			if self.core.useLocalFiles:
-				versionPath = versionPath.replace(self.core.localProjectPath, self.core.projectPath)
-				lversionPath = versionPath.replace(self.core.projectPath, self.core.localProjectPath)
-
+		if taskItem and taskItem.data(Qt.UserRole):
+			versionPaths = [x for x in taskItem.data(Qt.UserRole) if x]
 			versions = []
-			for i in os.walk(versionPath):
-				for k in i[1]:
-					versions += [[k, versionPath]]
-				break
-
-			if self.core.useLocalFiles:
-				for i in os.walk(lversionPath):
+			for vPath in versionPaths:
+				for i in os.walk(vPath):
 					for k in i[1]:
-						versions += [[k, lversionPath]]
+						versions += [[k, vPath]]
 					break
 
 			for k in versions:
-				nameData = k[0].split(self.core.filenameSeperator)
+				nameData = k[0].split(self.core.filenameSeparator)
 				
-				if not (len(nameData) == 3 and k[0][0] == "v" and len(nameData[0]) == 5):
+				if not (len(nameData) == 3 and k[0][0] == "v"):
 					continue
 
 				fileName = [None, None, None]
@@ -709,11 +728,10 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(item)
 
-				if self.core.useLocalFiles:
-					if self.core.localProjectPath in depPath:
-						location = "local"
-					else:
-						location = "global"
+				if len(self.export_paths) > 1:
+					for ePath in self.export_paths:
+						if ePath[1] in depPath:
+							location = ePath[0]
 
 					item = QStandardItem(location)
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -784,21 +802,32 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 
 	@err_decorator
-	def navigateToFile(self, fileName):
+	def navigateToFile(self, fileName, task=None, version=None):
+		if not fileName:
+			return False
+
+		if not os.path.exists(fileName):
+			fileName = os.path.dirname(fileName)
+			if not os.path.exists(fileName):
+				return False
+
 		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-		if os.path.exists(fileName) and (os.path.join(self.core.projectPath, sceneDir) in fileName or ( self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)):
-			relFileName = fileName.replace(os.path.join(self.core.projectPath, sceneDir), "")
-			if self.core.useLocalFiles:
-				relFileName = relFileName.replace(os.path.join(self.core.localProjectPath, sceneDir), "")
+		relFileName = None
+		for ePath in self.export_paths:
+			if os.path.join(ePath[1], sceneDir) in fileName:
+				relFileName = fileName.replace(os.path.join(ePath[1], sceneDir), "")
+				fileExportPath = ePath[1]
+
+		if relFileName:
 			fileNameData = relFileName.split(os.sep)
 
-			if (os.path.join(self.core.projectPath, sceneDir, "Assets") in fileName or ( self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir, "Assets") in fileName)):
+			if os.path.join(fileExportPath, sceneDir, "Assets") in fileName:
 				entityType = "Asset"
 			else:
 				entityType = "Shot"
 
-			taskName = self.importState.taskName
-			versionName = self.importState.l_curVersion.text()
+			taskName = task or self.importState.taskName
+			versionName = version or self.importState.l_curVersion.text()
 
 			if versionName != "-":
 				versionName = versionName[:5]
@@ -810,9 +839,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				entityName = fileNameData[-4]
 				self.tbw_entity.setCurrentIndex(0)
 
-				itemPath = fileName.replace(self.core.projectPath, "")
-				if self.core.useLocalFiles:
-					itemPath = itemPath.replace(self.core.localProjectPath, "")
+				itemPath = fileName.replace(fileExportPath, "")
 				if not itemPath.startswith(os.sep):
 					itemPath = os.sep + itemPath
 				itemPath = itemPath.replace(os.sep + os.path.join( sceneDir, "Assets", "Scenefiles", ""), "")
@@ -845,13 +872,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 				uielement = self.tw_shots
 				entityName = fileNameData[2]
 				self.tbw_entity.setCurrentIndex(1)
-				if "-" in entityName:
-					sname = entityName.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
-					seqName = "no sequence"
-					shotName = entityName
+
+				shotName, seqName = self.core.pb.splitShotname(entityName)
 
 				for i in range(self.tw_shots.topLevelItemCount()):
 					sItem = self.tw_shots.topLevelItem(i)
@@ -885,5 +907,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 						if self.tw_versions.model().index(i,0).data() == versionName:
 							self.tw_versions.selectRow(i)
 							return True
+				return True
 
 		return False

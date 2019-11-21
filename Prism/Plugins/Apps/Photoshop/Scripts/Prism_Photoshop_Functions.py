@@ -65,7 +65,7 @@ class Prism_Photoshop_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Photoshop %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Photoshop - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -393,17 +393,18 @@ class Prism_Photoshop_Functions(object):
 
 	@err_decorator
 	def photoshopImportSource(self, origin):
-		sourceFolder = os.path.dirname(os.path.join(origin.basepath, origin.seq[0])).replace("\\", "/")
+		mpb = origin.mediaPlaybacks["shots"]
+		sourceFolder = os.path.dirname(os.path.join(mpb["basePath"], mpb["seq"][0])).replace("\\", "/")
 		sources = origin.getImgSources(sourceFolder)
 		for curSourcePath in sources:
 
 			if "@@@@" in curSourcePath:
-				if not hasattr(origin, "pstart") or not hasattr(origin, "pend") or origin.pstart == "?" or origin.pend == "?":
+				if "pstart" not in mpb or "pend" not in mpb or mpb["pstart"] == "?" or mpb["pend"] == "?":
 					firstFrame = 0
 					lastFrame = 0
 				else:
-					firstFrame = origin.pstart
-					lastFrame = origin.pend
+					firstFrame = mpb["pstart"]
+					lastFrame = mpb["pend"]
 
 				filePath = curSourcePath.replace("@@@@", "%04d" % firstFrame).replace("\\","/")
 			else:
@@ -515,16 +516,10 @@ class Prism_Photoshop_Functions(object):
 		lo_export = QVBoxLayout()
 		self.dlg_export.setLayout(lo_export)
 
-
 		curfile = self.core.getCurrentFileName()
-		fname = os.path.basename(curfile).split("_")
+		fname = self.core.getScenefileData(curfile)
 
-		if len(fname) == 6:
-			fType = "asset"
-		else:
-			fType = "shot"
-
-		self.rb_task = QRadioButton("Export into current %s" % fType)
+		self.rb_task = QRadioButton("Export into current %s" % fname["type"])
 		self.w_task = QWidget()
 		lo_prismExport = QVBoxLayout()
 		lo_task = QHBoxLayout()
@@ -685,26 +680,25 @@ class Prism_Photoshop_Functions(object):
 		hVersion = ""
 		pComment = self.le_comment.text()
 		if useVersion != "next":
-			hVersion = useVersion.split("_")[0]
-			pComment = useVersion.split("_")[1]
+			hVersion = useVersion.split(self.core.filenameSeparator)[0]
+			pComment = useVersion.split(self.core.filenameSeparator)[1]
 
-		fnameData = os.path.basename(fileName).split("_")
-		if len(fnameData) == 8:
+		fnameData = self.core.getScenefileData(fileName)
+		if fnameData["type"] == "shot":
 			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "2dRender", self.le_task.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 
-			outputFile = os.path.join( fnameData[0] + "_" + fnameData[1] + "_" + self.le_task.text() + "_" + hVersion + extension)
-		elif len(fnameData) == 6:
+			outputFile = os.path.join( "shot" + "_" + fnameData["shotName"] + "_" + self.le_task.text() + "_" + hVersion + extension)
+		elif fnameData["type"] == "asset":
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "2dRender", self.le_task.text())
 			else:
 				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Rendering", "2dRender", self.le_task.text()))
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-
 			
-			outputFile = os.path.join( fnameData[0]  + "_" + self.le_task.text() + "_" + hVersion + extension)
+			outputFile = os.path.join( fnameData["assetName"]  + "_" + self.le_task.text() + "_" + hVersion + extension)
 		else:
 			return
 

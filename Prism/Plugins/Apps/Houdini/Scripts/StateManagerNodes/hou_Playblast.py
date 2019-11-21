@@ -265,7 +265,7 @@ class PlayblastClass(object):
 			
 			pmenu.addAction(pAct)
 
-		pmenu.setStyleSheet(self.stateManager.parent().styleSheet())
+		self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
 		pmenu.exec_(QCursor.pos())
 
 
@@ -274,9 +274,10 @@ class PlayblastClass(object):
 		pbCam = None
 
 		if self.curCam is None:
-			sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
-			if sceneViewer is not None:
-				pbCam = sceneViewer.curViewport().camera()
+			if self.core.uiAvailable:
+				sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
+				if sceneViewer is not None:
+					pbCam = sceneViewer.curViewport().camera()
 		else:
 			pbCam = self.curCam
 
@@ -328,9 +329,10 @@ class PlayblastClass(object):
 		if self.l_taskName.text() == "":
 			warnings.append(["No taskname is given.", "", 3])
 
-		sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
-		if sceneViewer is None:
-			warnings.append(["No Scene View exists.", "A Scene View needs to be open in the Houdini user interface in order to create a playblast.", 3])
+		if self.core.uiAvailable:
+			sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
+			if sceneViewer is None:
+				warnings.append(["No Scene View exists.", "A Scene View needs to be open in the Houdini user interface in order to create a playblast.", 3])
 
 		if hou.licenseCategory() == hou.licenseCategoryType.Apprentice and self.chb_resOverride.isChecked() and (self.sp_resWidth.value() > 1280 or self.sp_resHeight.value() > 720):
 			warnings.append(["The apprentice version of Houdini only allows flipbooks up to 720p.", "The resolution will be reduced to fit this restriction.", 2])
@@ -357,26 +359,26 @@ class PlayblastClass(object):
 
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split(self.core.filenameSeperator)[0]
-			pComment = useVersion.split(self.core.filenameSeperator)[1]
+			hVersion = useVersion.split(self.core.filenameSeparator)[0]
+			pComment = useVersion.split(self.core.filenameSeparator)[1]
 
-		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
-		if len(fnameData) == 8:
-			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
+		fnameData = self.core.getScenefileData(fileName)
+		if fnameData["type"] == "shot":
+			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Playblasts", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[5]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
-			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4.jpg" )
-		elif len(fnameData) == 6:
-			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment)
+			outputFile = os.path.join( "shot" + self.core.filenameSeparator + fnameData["shotName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + ".$F4.jpg" )
+		elif fnameData["type"] == "asset":
+			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Playblasts", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[3]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
-			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + ".$F4.jpg" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment)
+			outputFile = os.path.join( fnameData["assetName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + ".$F4.jpg" )
 		else:
 			return
 
@@ -388,7 +390,7 @@ class PlayblastClass(object):
 	@err_decorator
 	def executeState(self, parent, useVersion="next"):
 		if not self.core.uiAvailable:
-			return [self.state.text(0) + ": error - Playblasts are not supported without UI."]
+			return [self.state.text(0) + ": error - Playblasts are not supported without UI. Use the OpenGL ROP with an ImageRender state instead."]
 			
 		if self.l_taskName.text() == "":
 			return [self.state.text(0) + ": error - No taskname is given. Skipped the activation of this state."]

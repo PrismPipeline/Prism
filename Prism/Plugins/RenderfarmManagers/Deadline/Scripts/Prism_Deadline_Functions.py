@@ -65,7 +65,7 @@ class Prism_Deadline_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Deadline %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Deadline - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -320,100 +320,6 @@ class Prism_Deadline_Functions(object):
 
 
 	@err_decorator
-	def sm_houExport_submitJob(self, origin, jobOutputFile, parent):
-		jobOutputFile = jobOutputFile.replace("$F4", "####")
-
-		homeDir = (self.deadlineCommand( ["-GetCurrentUserHomeDirectory",] ))
-
-		if homeDir == False:
-			return "Execute Canceled: Deadline is not installed"
-
-		homeDir = homeDir.replace( "\r", "" ).replace( "\n", "" )
-
-		dependencies = parent.dependencies
-
-		jobName = os.path.splitext(hou.hipFile.basename())[0] + origin.l_taskName.text()
-		jobComment = "Prism-Submission-Export"
-		jobGroup = origin.cb_dlGroup.currentText()
-		jobPrio = origin.sp_rjPrio.value()
-		jobTimeOut = str(origin.sp_rjTimeout.value())
-		jobMachineLimit = "0"
-		jobFamesPerTask = origin.sp_rjFramesPerTask.value()
-
-		if origin.chb_globalRange.isChecked():
-			jobFrames = str(origin.stateManager.sp_rangeStart.value()) + "-" + str(origin.stateManager.sp_rangeEnd.value())
-		else:
-			jobFrames = str(origin.sp_rangeStart.value()) + "-" + str(origin.sp_rangeEnd.value())
-
-
-		# Create submission info file
-		jobInfoFile = os.path.join(homeDir, "temp", "houdini_submit_info.job" )
-		fileHandle = open( jobInfoFile, "w" )
-
-		fileHandle.write( "Plugin=Houdini\n" )
-		fileHandle.write( "Name=%s\n" % jobName )
-		fileHandle.write( "Comment=%s\n" % jobComment )
-		fileHandle.write( "Group=%s\n" % jobGroup )
-		fileHandle.write( "Priority=%s\n" % jobPrio )
-		fileHandle.write( "TaskTimeoutMinutes=%s\n" % jobTimeOut )
-		fileHandle.write( "MachineLimit=%s\n" % jobMachineLimit )
-		fileHandle.write( "Frames=%s\n" % jobFrames )
-		fileHandle.write( "ChunkSize=%s\n" % jobFamesPerTask )
-		fileHandle.write( "OutputFilename0=%s\n" % jobOutputFile )
-		if origin.chb_rjSuspended.isChecked():
-			fileHandle.write( "InitialStatus=Suspended\n" )
-
-		if len(dependencies) > 0:
-			fileHandle.write( "IsFrameDependent=true\n" )
-			fileHandle.write( "ScriptDependencies=%s\n" % (os.path.join(self.core.projectPath, "00_Pipeline", "Scripts", "DeadlineDependency.py") ))
-		
-		fileHandle.close()
-
-
-		nodeName = origin.node.path()
-		ignoreInputs = "True"
-		hBuild = "64bit"
-
-		# Create plugin info file
-		pluginInfoFile = os.path.join( homeDir, "temp", "houdini_plugin_info.job" )
-		fileHandle = open( pluginInfoFile, "w" )
-
-		fileHandle.write( "OutputDriver=%s\n" % nodeName )
-
-		fileHandle.write( "IgnoreInputs=%s\n" % ignoreInputs )
-
-		#fileHandle.write( "Version=16.0\n" )
-		if int(self.deadlineCommand( ["-version",] ).split(".")[0][1:]) > 9:
-			fileHandle.write( "Version=%s.%s\n" % (hou.applicationVersion()[0], hou.applicationVersion()[1]) )
-		else:
-			fileHandle.write( "Version=%s\n" % hou.applicationVersion()[0] )
-		fileHandle.write( "Build=%s\n" % hBuild )
-		
-		fileHandle.close()
-
-		if len(dependencies) > 0:
-			dependencyFile = os.path.join( homeDir, "temp", "dependencies.txt" )
-			fileHandle = open( dependencyFile, "w" )
-
-			for i in dependencies:
-				fileHandle.write(str(i[0]) + "\n")
-				fileHandle.write(str(i[1]) + "\n")
-
-			fileHandle.close()
-		
-		arguments = []
-		arguments.append( jobInfoFile )
-		arguments.append( pluginInfoFile )
-		arguments.append( hou.hipFile.path() )
-		if "dependencyFile" in locals():
-			arguments.append( dependencyFile )
-			
-		jobResult = self.deadlineCommand( arguments )
-	
-		return jobResult
-
-
-	@err_decorator
 	def sm_houRender_updateUI(self, origin):
 		showGPUsettings = origin.node is not None and origin.node.type().name() == "Redshift_ROP"
 		origin.w_dlGPUpt.setVisible(showGPUsettings)
@@ -444,116 +350,9 @@ class Prism_Deadline_Functions(object):
 
 
 	@err_decorator
-	def sm_houRender_submitJob(self, origin, jobOutputFile, parent):
-		jobOutputFile = jobOutputFile.replace("$F4", "####")
-
-		homeDir = (self.deadlineCommand( ["-GetCurrentUserHomeDirectory",] ))
-
-		if homeDir == False:
-			return "Execute Canceled: Deadline is not installed"
-
-		homeDir = homeDir.replace( "\r", "" ).replace( "\n", "" )
-
-		dependencies = parent.dependencies
-
-		jobName = os.path.splitext(hou.hipFile.basename())[0] + origin.l_taskName.text()
-		jobComment = "Prism-Submission-ImageRender"
-		jobGroup = origin.cb_dlGroup.currentText()
-		jobPrio = origin.sp_rjPrio.value()
-		jobTimeOut = str(origin.sp_rjTimeout.value())
-		jobMachineLimit = "0"
-		jobFamesPerTask = origin.sp_rjFramesPerTask.value()
-		concurrentTasks = origin.sp_dlConcurrentTasks.value()
-
-		if origin.chb_globalRange.isChecked():
-			jobFrames = str(origin.stateManager.sp_rangeStart.value()) + "-" + str(origin.stateManager.sp_rangeEnd.value())
-		else:
-			jobFrames = str(origin.sp_rangeStart.value()) + "-" + str(origin.sp_rangeEnd.value())
-
-
-		# Create submission info file
-		jobInfoFile = os.path.join(homeDir, "temp", "houdini_submit_info.job" )
-		fileHandle = open( jobInfoFile, "w" )
-
-		fileHandle.write( "Plugin=Houdini\n" )
-		fileHandle.write( "Name=%s\n" % jobName )
-		fileHandle.write( "Comment=%s\n" % jobComment )
-		fileHandle.write( "Group=%s\n" % jobGroup )
-		fileHandle.write( "Priority=%s\n" % jobPrio )
-		fileHandle.write( "TaskTimeoutMinutes=%s\n" % jobTimeOut )
-		fileHandle.write( "MachineLimit=%s\n" % jobMachineLimit )
-		fileHandle.write( "Frames=%s\n" % jobFrames )
-		fileHandle.write( "ChunkSize=%s\n" % jobFamesPerTask )
-		fileHandle.write( "OutputFilename0=%s\n" % jobOutputFile )
-		if origin.chb_rjSuspended.isChecked():
-			fileHandle.write( "InitialStatus=Suspended\n" )
-
-		if not origin.w_dlConcurrentTasks.isHidden():
-			fileHandle.write( "ConcurrentTasks=%s\n" % concurrentTasks )
-
-		if len(dependencies) > 0:
-			fileHandle.write( "IsFrameDependent=true\n" )
-			fileHandle.write( "ScriptDependencies=%s\n" % (os.path.join(self.core.projectPath, "00_Pipeline", "Scripts", "DeadlineDependency.py") ))
-		
-		fileHandle.close()
-
-
-		nodeName = origin.node.path()
-		ignoreInputs = "True"
-		hBuild = "64bit"
-
-		# Create plugin info file
-		pluginInfoFile = os.path.join( homeDir, "temp", "houdini_plugin_info.job" )
-		fileHandle = open( pluginInfoFile, "w" )
-
-		fileHandle.write( "OutputDriver=%s\n" % nodeName )
-
-		fileHandle.write( "IgnoreInputs=%s\n" % ignoreInputs )
-
-		#fileHandle.write( "Version=16.0\n" )
-		if int(self.deadlineCommand( ["-version",] ).split(".")[0][1:]) > 9:
-			fileHandle.write( "Version=%s.%s\n" % (hou.applicationVersion()[0], hou.applicationVersion()[1]) )
-		else:
-			fileHandle.write( "Version=%s\n" % hou.applicationVersion()[0] )
-		fileHandle.write( "Build=%s\n" % hBuild )
-
-		if origin.chb_resOverride.isChecked():
-			fileHandle.write( "Width=%s\n" % origin.sp_resWidth.value())
-			fileHandle.write( "Height=%s\n" % origin.sp_resHeight.value())
-
-		if not origin.w_dlGPUpt.isHidden():
-			fileHandle.write( "GPUsPerTask=%s\n" % origin.sp_dlGPUpt.value() )
-
-		if not origin.w_dlGPUdevices.isHidden():
-			fileHandle.write( "GPUsSelectDevices=%s\n" % origin.le_dlGPUdevices.text() )
-		
-		fileHandle.close()
-
-		if len(dependencies) > 0:
-			dependencyFile = os.path.join( homeDir, "temp", "dependencies.txt" )
-			fileHandle = open( dependencyFile, "w" )
-
-			for i in dependencies:
-				fileHandle.write(str(i[0]) + "\n")
-				fileHandle.write(str(i[1]) + "\n")
-
-			fileHandle.close()
-		
-		arguments = []
-		arguments.append( jobInfoFile )
-		arguments.append( pluginInfoFile )
-		arguments.append( hou.hipFile.path() )
-		if "dependencyFile" in locals():
-			arguments.append( dependencyFile )
-			
-		jobResult = self.deadlineCommand( arguments )
-	
-		return jobResult
-
-
-	@err_decorator
 	def sm_render_updateUI(self, origin):
-		showGPUsettings = "redshift" in self.core.appPlugin.getCurrentRenderer(origin).lower()
+		curRenderer = getattr(self.core.appPlugin, "getCurrentRenderer", lambda x:"")(origin).lower()
+		showGPUsettings = "redshift" in curRenderer if curRenderer else True
 		origin.w_dlGPUpt.setVisible(showGPUsettings)
 		origin.w_dlGPUdevices.setVisible(showGPUsettings)
 
@@ -567,7 +366,8 @@ class Prism_Deadline_Functions(object):
 		origin.f_dlGroup.setVisible(True)
 		origin.w_dlConcurrentTasks.setVisible(True)
 
-		showGPUsettings = "redshift" in self.core.appPlugin.getCurrentRenderer(origin).lower()
+		curRenderer = getattr(self.core.appPlugin, "getCurrentRenderer", lambda x:"")(origin).lower()
+		showGPUsettings = "redshift" in curRenderer if curRenderer else True
 		origin.w_dlGPUpt.setVisible(showGPUsettings)
 		origin.w_dlGPUdevices.setVisible(showGPUsettings)
 
@@ -583,6 +383,9 @@ class Prism_Deadline_Functions(object):
 
 	@err_decorator
 	def sm_render_submitJob(self, origin, jobOutputFile, parent):
+		if self.core.appPlugin.pluginName == "Houdini":
+			jobOutputFile = jobOutputFile.replace("$F4", "####")
+
 		homeDir = (self.deadlineCommand( ["-GetCurrentUserHomeDirectory",], background=False )).decode("utf-8")
 
 		if homeDir == False:
@@ -598,64 +401,50 @@ class Prism_Deadline_Functions(object):
 		jobTimeOut = str(origin.sp_rjTimeout.value())
 		jobMachineLimit = "0"
 		jobFamesPerTask = origin.sp_rjFramesPerTask.value()
-		concurrentTasks = origin.sp_dlConcurrentTasks.value()
+		concurrentTasks = 1 if not hasattr(origin, "sp_dlConcurrentTasks") else origin.sp_dlConcurrentTasks.value()
 
 		if origin.chb_globalRange.isChecked():
 			jobFrames = str(origin.stateManager.sp_rangeStart.value()) + "-" + str(origin.stateManager.sp_rangeEnd.value())
 		else:
 			jobFrames = str(origin.sp_rangeStart.value()) + "-" + str(origin.sp_rangeEnd.value())
 
-		dlParams = {"build": "64bit", "version": "", "camera": "", "resolution": "", "plugin": "", "pluginInfoFile": "", "jobInfoFile": "", "jobComment": "", "outputfile": jobOutputFile}
-		self.core.appPlugin.sm_render_getDeadlineParams(origin, dlParams, homeDir)
-
 		# Create submission info file
 		
-		fileHandle = open( dlParams["jobInfoFile"] , "w" )
+		jobInfos = {}
 
-		fileHandle.write( "Plugin=%s\n" % dlParams["plugin"] )
-		fileHandle.write( "Name=%s\n" % jobName )
-		fileHandle.write( "Comment=%s\n" % dlParams["jobComment"] )
-		fileHandle.write( "Group=%s\n" % jobGroup )
-		fileHandle.write( "Priority=%s\n" % jobPrio )
-		fileHandle.write( "TaskTimeoutMinutes=%s\n" % jobTimeOut )
-		fileHandle.write( "MachineLimit=%s\n" % jobMachineLimit )
-		fileHandle.write( "Frames=%s\n" % jobFrames )
-		fileHandle.write( "ChunkSize=%s\n" % jobFamesPerTask )
-		fileHandle.write( "OutputFilename0=%s\n" % jobOutputFile )
+		jobInfos["Name"] = jobName
+		jobInfos["Group"] = jobGroup
+		jobInfos["Priority"] = jobPrio
+		jobInfos["TaskTimeoutMinutes"] = jobTimeOut
+		jobInfos["MachineLimit"] = jobMachineLimit
+		jobInfos["Frames"] = jobFrames
+		jobInfos["ChunkSize"] = jobFamesPerTask
+		jobInfos["OutputFilename0"] = jobOutputFile
+		jobInfos["EnvironmentKeyValue0"] = "prism_project=%s" % self.core.prismIni.replace("\\", "/")
+
 		if origin.chb_rjSuspended.isChecked():
-			fileHandle.write( "InitialStatus=Suspended\n" )
+			jobInfos["InitialStatus"] = "Suspended"
 
-		if not origin.w_dlConcurrentTasks.isHidden():
-			fileHandle.write( "ConcurrentTasks=%s\n" % concurrentTasks )
+		if hasattr(origin, "w_dlConcurrentTasks") and not origin.w_dlConcurrentTasks.isHidden():
+			jobInfos["ConcurrentTasks"] = concurrentTasks
 
 		if len(dependencies) > 0:
-			fileHandle.write( "IsFrameDependent=true\n" )
-			fileHandle.write( "ScriptDependencies=%s\n" % (os.path.join(self.core.projectPath, "00_Pipeline" ,"Scripts", "DeadlineDependency.py") ))
-		
-		fileHandle.close()
+			jobInfos["IsFrameDependent"] = "true"
+			jobInfos["ScriptDependencies"] = os.path.join(self.core.projectPath, "00_Pipeline" ,"Scripts", "DeadlineDependency.py")
 
 		# Create plugin info file
-		
-		fileHandle = open( dlParams["pluginInfoFile"] , "w" )
-		if "filePrefix" in dlParams:
-			fileHandle.write( "OutputFilePrefix=%s\n" % dlParams["filePrefix"] )
-		if "version" in dlParams:
-			fileHandle.write( "Version=%s\n" % dlParams["version"] )
-		if "camera" in dlParams and origin.curCam != "Current View":
-			fileHandle.write( "Camera=%s\n" % self.core.appPlugin.getCamName(origin, origin.curCam) )
 
-		pParams = self.core.appPlugin.sm_render_getDeadlineSubmissionParams(origin, dlParams, jobOutputFile)
+		pluginInfos = {}
+		pluginInfos["Build"] = "64bit"
 
-		for i in pParams:
-			fileHandle.write( "%s=%s\n" % (i, pParams[i]))
+		if hasattr(origin, "w_dlGPUpt") and not origin.w_dlGPUpt.isHidden():
+			pluginInfos["GPUsPerTask"] = origin.sp_dlGPUpt.value()
 
-		if not origin.w_dlGPUpt.isHidden():
-			fileHandle.write( "GPUsPerTask=%s\n" % origin.sp_dlGPUpt.value() )
+		if hasattr(origin, "w_dlGPUdevices") and not origin.w_dlGPUdevices.isHidden():
+			pluginInfos["GPUsSelectDevices"] = origin.le_dlGPUdevices.text()
 
-		if not origin.w_dlGPUdevices.isHidden():
-			fileHandle.write( "GPUsSelectDevices=%s\n" % origin.le_dlGPUdevices.text() )
-		
-		fileHandle.close()
+		dlParams = {"jobInfos": jobInfos, "pluginInfos": pluginInfos, "jobInfoFile": "", "pluginInfoFile": ""}
+		self.core.appPlugin.sm_render_getDeadlineParams(origin, dlParams, homeDir)
 
 		if len(dependencies) > 0:
 			dependencyFile = os.path.join( homeDir, "temp", "dependencies.txt" )
@@ -675,7 +464,19 @@ class Prism_Deadline_Functions(object):
 
 		if "dependencyFile" in locals():
 			arguments.append( dependencyFile )
+
+		self.core.callback(name="preSubmit_Deadline", types=["custom"], args=[self, jobInfos, pluginInfos, arguments])
+
+		with open(dlParams["jobInfoFile"], "w") as fileHandle:
+			for i in jobInfos:
+				fileHandle.write( "%s=%s\n" % (i, jobInfos[i]))
+
+		with open(dlParams["pluginInfoFile"], "w") as fileHandle:
+			for i in pluginInfos:
+				fileHandle.write( "%s=%s\n" % (i, pluginInfos[i]))
 			
 		jobResult = self.deadlineCommand( arguments, background=False ).decode("utf-8") 
-		   
+		
+		self.core.callback(name="postSubmit_Deadline", types=["custom"], args=[self, jobResult])
+
 		return jobResult

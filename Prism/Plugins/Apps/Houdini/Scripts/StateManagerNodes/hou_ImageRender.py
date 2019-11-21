@@ -78,6 +78,12 @@ class ImageRenderClass(object):
 
 		self.e_name.setText(state.text(0))
 
+		self.renderPresets = self.stateManager.stateTypes["RenderSettings"].getPresets(self.core) if "RenderSettings" in self.stateManager.stateTypes else {}
+		if self.renderPresets:
+			self.cb_renderPreset.addItems(self.renderPresets.keys())
+		else:
+			self.w_renderPreset.setVisible(False)
+
 		self.camlist = []
 
 		self.renderers = [x for x in self.core.appPlugin.getRendererPlugins() if x.isActive()]
@@ -159,6 +165,14 @@ class ImageRenderClass(object):
 			self.l_taskName.setText(data["taskname"])
 			if data["taskname"] != "":
 				self.b_changeTask.setStyleSheet("")
+		if "renderpresetoverride" in data:
+			res = eval(data["renderpresetoverride"])
+			self.chb_renderPreset.setChecked(res)
+		if "currentrenderpreset" in data:
+			idx = self.cb_renderPreset.findText(data["currentrenderpreset"])
+			if idx != -1:
+				self.cb_renderPreset.setCurrentIndex(idx)
+				self.stateManager.saveStatesToScene()
 		if "globalrange" in data:
 			self.chb_globalRange.setChecked(eval(data["globalrange"]))
 		if "startframe" in data:
@@ -257,6 +271,8 @@ class ImageRenderClass(object):
 		self.e_name.textChanged.connect(self.nameChanged)
 		self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.b_changeTask.clicked.connect(self.changeTask)
+		self.chb_renderPreset.stateChanged.connect(self.presetOverrideChanged)
+		self.cb_renderPreset.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
@@ -270,8 +286,6 @@ class ImageRenderClass(object):
 		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.cb_renderer.currentIndexChanged[str].connect(self.rendererChanged)
-		self.b_goTo.clicked.connect(self.goToNode)
-		self.b_connect.clicked.connect(self.connectNode)
 		self.gb_submit.toggled.connect(self.rjToggled)
 		self.cb_manager.activated.connect(self.managerChanged)
 		self.sp_rjPrio.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -295,6 +309,10 @@ class ImageRenderClass(object):
 		self.b_addPasses.clicked.connect(self.showPasses)
 		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
 		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
+		
+		if not self.stateManager.standalone:
+			self.b_goTo.clicked.connect(self.goToNode)
+			self.b_connect.clicked.connect(self.connectNode)
 
 
 	@err_decorator
@@ -337,7 +355,7 @@ class ImageRenderClass(object):
 	@err_decorator
 	def rendererChanged(self, renderer, create=True):
 		self.curRenderer = [x for x in self.renderers if x.label == renderer][0]
-		if self.node is None or self.node.type().name() not in self.curRenderer.ropNames:
+		if not self.stateManager.standalone and (self.node is None or self.node.type().name() not in self.curRenderer.ropNames):
 			self.deleteNode()
 			if create:
 				self.curRenderer.createROP(self)
@@ -401,6 +419,12 @@ class ImageRenderClass(object):
 			self.b_changeTask.setStyleSheet("")
 
 			self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def presetOverrideChanged(self, checked):
+		self.cb_renderPreset.setEnabled(checked)
+		self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
@@ -749,29 +773,29 @@ class ImageRenderClass(object):
 
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split(self.core.filenameSeperator)[0]
-			pComment = useVersion.split(self.core.filenameSeperator)[1]
+			hVersion = useVersion.split(self.core.filenameSeparator)[0]
+			pComment = useVersion.split(self.core.filenameSeparator)[1]
 
-		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
-		if len(fnameData) == 8:
-			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
+		fnameData = self.core.getScenefileData(fileName)
+		if fnameData["type"] == "shot":
+			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Rendering", "3dRender", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[5]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
-			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
-		elif len(fnameData) == 6:
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty")
+			outputFile = os.path.join( "shot" + self.core.filenameSeparator + fnameData["shotName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + self.core.filenameSeparator + "beauty.$F4.exr" )
+		elif fnameData["type"] == "asset":
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "3dRender", self.l_taskName.text())
 			else:
-				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
+				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Rendering", "3dRender", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[3]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
-			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty.$F4.exr" )
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty")
+			outputFile = os.path.join( fnameData["assetName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + self.core.filenameSeparator + "beauty.$F4.exr" )
 		else:
 			return
 
@@ -815,6 +839,12 @@ class ImageRenderClass(object):
 
 		self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
 
+		rSettings = {"outputName": outputName}
+
+		if self.chb_renderPreset.isChecked() and "RenderSettings" in self.stateManager.stateTypes:
+			rSettings["renderSettings"] = getattr(self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {})(self, node=self.node)
+			self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()], node=self.node)
+
 		result = self.curRenderer.executeAOVs(self, outputName)
 		if not result:
 			return result
@@ -852,7 +882,7 @@ class ImageRenderClass(object):
 		self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-			result = self.core.rfManagers[self.cb_manager.currentText()].sm_houRender_submitJob(self, outputName, parent)
+			result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, outputName, parent)
 		else:
 			if not self.core.appPlugin.setNodeParm(self.node, "trange", val=1):
 				return [self.state.text(0) + ": error - Publish canceled"]
@@ -883,6 +913,8 @@ class ImageRenderClass(object):
 		if not postResult:
 			return postResult
 
+		self.undoRenderSettings(rSettings)
+
 		self.core.callHook("postRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[0], "outputName":outputName})
 
 		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
@@ -898,6 +930,12 @@ class ImageRenderClass(object):
 				return [self.state.text(0) + " - success"]
 			else:
 				return [self.state.text(0) + " - unknown error (files do not exist)"]
+
+
+	@err_decorator
+	def undoRenderSettings(self, rSettings):
+		if "renderSettings" in rSettings:
+			self.core.appPlugin.sm_renderSettings_setCurrentSettings(self, self.core.readYaml(data=rSettings["renderSettings"]), node=self.node)
 
 
 	@err_decorator
@@ -917,6 +955,8 @@ class ImageRenderClass(object):
 		stateProps = {
 			"statename":self.e_name.text(),
 			"taskname":self.l_taskName.text(),
+			"renderpresetoverride": str(self.chb_renderPreset.isChecked()),
+			"currentrenderpreset": self.cb_renderPreset.currentText(),
 			"globalrange": str(self.chb_globalRange.isChecked()),
 			"startframe":self.sp_rangeStart.value(),
 			"endframe":self.sp_rangeEnd.value(),

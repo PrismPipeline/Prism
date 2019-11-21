@@ -62,7 +62,7 @@ class Prism_Houdini_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Houdini %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Houdini - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -85,35 +85,36 @@ class Prism_Houdini_Functions(object):
 			else:
 				origin.messageParent = hou.ui.mainQtWindow()
 		
-			curShelfSet = hou.ui.curDesktop().shelfDock().shelfSets()[0]
-			curShelves = curShelfSet.shelves()
+			shelfSets = hou.ui.curDesktop().shelfDock().shelfSets()
+			if len(shelfSets) > 0:
+				curShelfSet = shelfSets[0]
+				curShelves = curShelfSet.shelves()
 
-			try:
-				prismShelf = hou.shelves.shelves()["prism"]
-			except:
-				msgString = "Could not find the Prism shelf.\n\nDo you want to update the Prism integration in Houdini to fix this?"
-				msg = QMessageBox(QMessageBox.Warning, "Prism Warning", msgString, QMessageBox.Ok | QMessageBox.Cancel)
-				self.core.parentWindow(msg)
-				action = msg.exec_()
+				try:
+					prismShelf = hou.shelves.shelves()["prism"]
+				except:
+					msgString = "Could not find the Prism shelf.\n\nDo you want to update the Prism integration in Houdini to fix this?"
+					msg = QMessageBox(QMessageBox.Warning, "Prism Warning", msgString, QMessageBox.Ok | QMessageBox.Cancel)
+					self.core.parentWindow(msg)
+					action = msg.exec_()
 
-				if action == QMessageBox.Ok:
-					result = self.writeHoudiniFiles(os.environ["HOUDINI_USER_PREF_DIR"])
-					if result:
-						QMessageBox.information(self.core.messageParent, "Restart", "Successully updated the Prism integration.\n\nAfter the next Houdini restart the Prism shelf will be available.")
+					if action == QMessageBox.Ok:
+						result = self.writeHoudiniFiles(os.environ["HOUDINI_USER_PREF_DIR"])
+						if result:
+							QMessageBox.information(self.core.messageParent, "Restart", "Successully updated the Prism integration.\n\nAfter the next Houdini restart the Prism shelf will be available.")
 
-			else:
-				if prismShelf not in curShelves:
-					hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
+				else:
+					if prismShelf not in curShelves:
+						hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
 				
 			origin.startasThread()
+			origin.timer.stop()
 		else:
 			QApplication.addLibraryPath(os.path.join(hou.expandString("$HFS"), "bin", "Qt_plugins"))
 			qApp = QApplication.instance()
 			if qApp is None:
 				qApp = QApplication(sys.argv)
 			origin.messageParent = QWidget()
-
-		origin.timer.stop()
 
 
 	@err_decorator
@@ -128,6 +129,12 @@ class Prism_Houdini_Functions(object):
 		if job.endswith("/"):
 			job = job[:-1]
 		hou.hscript("set PRISMJOB=" + job)
+
+		if self.core.useLocalFiles:
+			ljob = self.core.localProjectPath.replace("\\", "/")
+			if ljob.endswith("/"):
+				ljob = ljob[:-1]
+			hou.hscript("set PRISMJOBLOCAL=" + ljob)
 
 
 	@err_decorator
@@ -164,8 +171,11 @@ class Prism_Houdini_Functions(object):
 		for k in hdaFolders:
 			if os.path.exists(k):
 				for i in os.walk(k):
+					if os.path.basename(i[0]) == "backup":
+						continue
+						
 					for m in i[2]:
-						if os.path.splitext(m)[1] in [".hda", ".hdanc", ".hdalc", ".otl"]:
+						if os.path.splitext(m)[1] in [".hda", ".hdanc", ".hdalc", ".otl", ".otlnc", ".otllc"]:
 							origin.prjHDAs.append(os.path.join(i[0],m).replace("\\", "/"))
 
 		oplib = os.path.join(prjHDAs, "ProjectHDAs.oplib").replace("\\", "/")
@@ -174,9 +184,12 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def executeScript(self, origin, code):
+	def executeScript(self, origin, code, execute=False):
 		try:
-			return eval(code)
+			if not execute:
+				return eval(code)
+			else:
+				exec(code)
 		except Exception as e:
 			msg = '\npython code:\n%s' % code
 			exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
@@ -184,7 +197,15 @@ class Prism_Houdini_Functions(object):
 
 	@err_decorator
 	def getCurrentFileName(self, origin, path=True):
-		return hou.hipFile.path()
+		if path:
+			return hou.hipFile.path()
+		else:
+			return hou.hipFile.basename()
+
+
+	@err_decorator
+	def getCurrentSceneFiles(self, origin):
+		return [self.core.getCurrentFileName()]
 
 
 	@err_decorator
@@ -324,7 +345,7 @@ class Prism_Houdini_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if not filepath.endswith(".hip") and not filepath.endswith(".hipnc") and not filepath.endswith(".hiplc"):
 			return False
 
@@ -411,6 +432,9 @@ class Prism_Houdini_Functions(object):
 			else:
 				node.parm(parm).set(val)
 		except:
+			if not node.parm(parm):
+				return False
+				
 			curTake = hou.takes.currentTake()
 			if curTake.hasParmTuple(node.parm(parm).tuple()) or curTake.parent() is None:
 				msgString = "Cannot set this parameter. Probably because it is locked:\n\n%s" % node.parm(parm).path()
@@ -770,3 +794,145 @@ class Prism_Houdini_Functions(object):
 		self.setRCStyle(origin, ropMenu)
 
 		nodeMenu.exec_(QCursor.pos())
+
+
+	@err_decorator
+	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
+		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "houdini_plugin_info.job" )
+		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "houdini_submit_info.job" )
+
+		dlParams["jobInfos"]["Plugin"] = "Houdini"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Houdini_%s" % origin.className
+
+		dlParams["pluginInfos"]["OutputDriver"] = origin.node.path()
+		dlParams["pluginInfos"]["IgnoreInputs"] = "True"
+
+		if int(self.core.rfManagers["Deadline"].deadlineCommand( ["-version",] ).split(".")[0][1:]) > 9:
+			dlParams["pluginInfos"]["Version"] = "%s.%s" % (hou.applicationVersion()[0], hou.applicationVersion()[1])
+		else:
+			dlParams["pluginInfos"]["Version"] = hou.applicationVersion()[0]
+
+		if hasattr(origin, "chb_resOverride") and origin.chb_resOverride.isChecked():
+			dlParams["pluginInfos"]["Width"] = origin.sp_resWidth.value()
+			dlParams["pluginInfos"]["Height"] = origin.sp_resHeight.value()
+
+
+	@err_decorator
+	def sm_renderSettings_getCurrentSettings(self, origin, node=None):
+		settings = []
+		if not node:
+			node = hou.node(origin.e_node.text())
+			
+		if not node:
+			return ""
+
+		for parm in sorted(node.parms(), key=lambda x: x.name().lower()):
+			setting = {}
+			if len(parm.keyframes()) == 1:
+				setting[parm.name()] = parm.expression() + " [expression]"
+			elif parm.parmTemplate().dataType() == hou.parmData.String:
+				setting[parm.name()] = parm.unexpandedString()
+			else:
+				setting[parm.name()] = parm.eval()
+			settings.append(setting)
+
+		settingsStr = self.core.writeYaml(data=settings)
+		return settingsStr
+
+
+	@err_decorator
+	def sm_renderSettings_setCurrentSettings(self, origin, preset, state=None, node=None):
+		if not node:
+			if state:
+				node = hou.node(state.e_node.text())
+		if not node:
+			return
+
+		for setting in preset:
+			parm = node.parm(setting.keys()[0])
+			if not parm:
+				continue
+
+			value = setting.values()[0]
+			if type(value) in [str, unicode] and value.endswith(" [expression]"):
+				value = value[:-len(" [expression")]
+				parm.setExpression(value)
+			else:
+				parm.deleteAllKeyframes()
+				try:
+					parm.set(value)
+				except:
+					pass
+
+
+	@err_decorator
+	def sm_renderSettings_applyDefaultSettings(self, origin):
+		node = hou.node(origin.e_node.text())
+		if not node:
+			return
+
+		for parm in node.parms():
+			parm.revertToDefaults()
+
+
+	@err_decorator
+	def sm_renderSettings_startup(self, origin):
+		origin.w_node = QWidget()
+		origin.lo_node = QHBoxLayout()
+		origin.w_node.setLayout(origin.lo_node)
+		origin.l_node = QLabel("Node:")
+		origin.e_node = QLineEdit()
+		origin.e_node.setContextMenuPolicy(Qt.CustomContextMenu)
+		origin.e_node.customContextMenuRequested.connect(lambda x: self.showNodeContext(origin))
+		origin.e_node.editingFinished.connect(origin.stateManager.saveStatesToScene)
+		origin.b_node = hou.qt.NodeChooserButton()
+		origin.b_node.nodeSelected.connect(lambda x: origin.e_node.setText(x.path()))
+		origin.b_node.nodeSelected.connect(origin.stateManager.saveStatesToScene)
+		origin.lo_node.addWidget(origin.l_node)
+		origin.lo_node.addWidget(origin.e_node)
+		origin.lo_node.addWidget(origin.b_node)
+		origin.gb_general.layout().insertWidget(0, origin.w_node)
+
+
+	@err_decorator
+	def sm_renderSettings_loadData(self, origin, data):
+		if "node" in data:
+			origin.e_node.setText(data["node"])
+
+
+	@err_decorator
+	def sm_renderSettings_getStateProps(self, origin):
+		stateProps = {
+			"node": origin.e_node.text()
+		}
+
+		return stateProps
+
+
+	@err_decorator
+	def sm_renderSettings_addSelected(self, origin):
+		if len(hou.selectedNodes()) == 0:
+			return False
+
+		origin.e_node.setText(hou.selectedNodes()[0].path())
+
+
+	@err_decorator
+	def sm_renderSettings_preExecute(self, origin):
+		warnings = []
+
+		if not hou.node(origin.e_node.text()):
+			warnings.append(["Invalid node specified.", "", 2])
+
+		return warnings
+
+
+	@err_decorator
+	def showNodeContext(self, origin):
+		rcMenu = QMenu()
+		mAct = QAction("Add selected", origin)
+		mAct.triggered.connect(lambda: self.sm_renderSettings_addSelected(origin))
+		rcMenu.addAction(mAct)
+
+		self.setRCStyle(origin.stateManager, rcMenu)
+		rcMenu.exec_(QCursor.pos())

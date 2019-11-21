@@ -93,19 +93,29 @@ class ExportClass(object):
 		self.w_cam.setVisible(False)
 		self.w_sCamShot.setVisible(False)
 		self.w_selectCam.setVisible(False)
-		self.w_localOutput.setVisible(self.core.useLocalFiles)
 
 		self.nodes = []
 
 		self.preDelete = lambda item: self.core.appPlugin.sm_export_preDelete(self)
 
 		self.cb_outType.addItems(self.core.appPlugin.outputFormats)
-		self.core.appPlugin.sm_export_startup(self)
+		self.export_paths = [["global", self.core.projectPath]]
+		if self.core.useLocalFiles:
+			self.export_paths.append(["local", self.core.localProjectPath])
+
+		customPaths = self.core.getConfig('export_paths', getItems=True, configPath=self.core.prismIni)
+		if customPaths:
+			self.export_paths += customPaths
+
+		self.cb_outPath.addItems([x[0] for x in self.export_paths])
+		if len(self.export_paths) < 2:
+			self.w_outPath.setVisible(False)
+		getattr(self.core.appPlugin, "sm_export_startup", lambda x: None)(self)
 		self.nameChanged(state.text(0))
 		self.connectEvents()
 
 		if not self.stateManager.loading:
-			self.core.appPlugin.sm_export_addObjects(self)
+			getattr(self.core.appPlugin, "sm_export_addObjects", lambda x: None)(self)
 
 		if stateData is not None:
 			self.loadData(stateData)
@@ -114,10 +124,10 @@ class ExportClass(object):
 			self.sp_rangeStart.setValue(startFrame)
 			self.sp_rangeEnd.setValue(startFrame)
 			fileName = self.core.getCurrentFileName()
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fnameData = self.core.getScenefileData(fileName)
 			sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-			if os.path.exists(fileName) and len(fnameData) == 8 and (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)):
-				idx = self.cb_sCamShot.findText(fnameData[1])
+			if os.path.exists(fileName) and fnameData["type"] == "shot" and (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)):
+				idx = self.cb_sCamShot.findText(fnameData["shotName"])
 				if idx != -1:
 					self.cb_sCamShot.setCurrentIndex(idx)
 
@@ -143,20 +153,23 @@ class ExportClass(object):
 			self.sp_rangeStart.setValue(int(data["startframe"]))
 		if "endframe" in data:
 			self.sp_rangeEnd.setValue(int(data["endframe"]))
+		if "curoutputpath" in data:
+			idx = self.cb_outPath.findText(data["curoutputpath"])
+			if idx != -1:
+				self.cb_outPath.setCurrentIndex(idx)
 		if "curoutputtype" in data:
 			idx = self.cb_outType.findText(data["curoutputtype"])
 			if idx != -1:
 				self.cb_outType.setCurrentIndex(idx)
 		if "wholescene" in data:
 			self.chb_wholeScene.setChecked(eval(data["wholescene"]))
-		if "localoutput" in data:
-			self.chb_localOutput.setChecked(eval(data["localoutput"]))
 		if "unitconvert" in data:
 			self.chb_convertExport.setChecked(eval(data["unitconvert"]))
 		if "additionaloptions" in data:
 			self.chb_additionalOptions.setChecked(eval(data["additionaloptions"]))
 		if "currentcam" in data:
-			idx = self.cb_cam.findText(self.core.appPlugin.getCamName(self, data["currentcam"]))
+			camName = getattr(self.core.appPlugin, "getCamName", lambda x, y:"")(self, data["currentcam"])
+			idx = self.cb_cam.findText(camName)
 			if idx != -1:
 				self.curCam = self.camlist[idx]
 				self.cb_cam.setCurrentIndex(idx)
@@ -187,19 +200,20 @@ class ExportClass(object):
 		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
+		self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
 		self.cb_outType.activated[str].connect(self.typeChanged)
 		self.chb_wholeScene.stateChanged.connect(self.wholeSceneChanged)
-		self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_convertExport.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.chb_additionalOptions.stateChanged.connect(self.stateManager.saveStatesToScene)
 		self.lw_objects.itemSelectionChanged.connect(lambda: self.core.appPlugin.selectNodes(self))
 		self.lw_objects.customContextMenuRequested.connect(self.rcObjects)
-		self.b_add.clicked.connect(lambda: self.core.appPlugin.sm_export_addObjects(self))
 		self.cb_cam.activated.connect(self.setCam)
 		self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
 		self.b_selectCam.clicked.connect(lambda: self.core.appPlugin.selectCam(self))
 		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
 		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
+		if not self.stateManager.standalone:
+			self.b_add.clicked.connect(lambda: self.core.appPlugin.sm_export_addObjects(self))
 
 
 	@err_decorator
@@ -237,6 +251,13 @@ class ExportClass(object):
 
 
 	@err_decorator
+	def setTaskname(self, taskname):
+		prevTaskName = self.l_taskName.text()
+		self.core.appPlugin.sm_export_setTaskText(self, prevTaskName, taskname)
+		self.updateUi()
+
+
+	@err_decorator
 	def changeTask(self):
 		import CreateItem
 		self.nameWin = CreateItem.CreateItem(startText=self.l_taskName.text(), showTasks=True, taskType="export", core=self.core)
@@ -248,7 +269,8 @@ class ExportClass(object):
 		result = self.nameWin.exec_()
 		
 		if result == 1:
-			self.core.appPlugin.sm_export_setTaskText(self, prevTaskName)
+			default_func = lambda x1, x2, newTaskName: self.l_taskName.setText(newTaskName)
+			getattr(self.core.appPlugin, "sm_export_setTaskText", default_func)(self, prevTaskName, self.nameWin.e_item.text())
 			self.b_changeTask.setPalette(self.oldPalette)
 			self.nameChanged(self.e_name.text())
 			self.stateManager.saveStatesToScene()
@@ -304,8 +326,12 @@ class ExportClass(object):
 	@err_decorator
 	def updateUi(self):
 		self.cb_cam.clear()
-		self.camlist = self.core.appPlugin.getCamNodes(self)
-		self.cb_cam.addItems([self.core.appPlugin.getCamName(self, i) for i in self.camlist])
+		self.camlist = camNames = []
+		if not self.stateManager.standalone:
+			self.camlist = self.core.appPlugin.getCamNodes(self)
+			camNames = [self.core.appPlugin.getCamName(self, i) for i in self.camlist]
+
+		self.cb_cam.addItems(camNames)
 		if self.curCam in self.camlist:
 			self.cb_cam.setCurrentIndex(self.camlist.index(self.curCam))
 		else:
@@ -344,7 +370,7 @@ class ExportClass(object):
 
 		newObjList = []
 
-		self.core.appPlugin.sm_export_updateObjects(self)
+		getattr(self.core.appPlugin, "sm_export_updateObjects", lambda x: None)(self)
 
 		for node in self.nodes:
 			if self.core.appPlugin.isNodeValid(self, node):
@@ -440,23 +466,14 @@ class ExportClass(object):
 
 		if self.cb_outType.currentText() == "ShotCam":
 			outputBase = os.path.join(self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
-
-			if self.core.useLocalFiles and self.chb_localOutput.isChecked():
-				outputBase = os.path.join(self.core.localProjectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
-
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
-
-			if len(fnameData) == 8:
-				comment = fnameData[5]
-			elif len(fnameData) == 6:
-				comment = fnameData[3]
-
+			fnameData = self.core.getScenefileData(fileName)
+			comment = fnameData["comment"]
 			versionUser = self.core.user
 
 			outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
 
 			if useVersion != "next":
-				versionData = useVersion.split(self.core.filenameSeperator)
+				versionData = useVersion.split(self.core.filenameSeparator)
 				if len(versionData) == 3:
 					hVersion, comment, versionUser = versionData
 				else:
@@ -465,8 +482,8 @@ class ExportClass(object):
 			if useVersion == "next":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
 				
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + comment + self.core.filenameSeperator + versionUser, prefUnit)
-			outputName = os.path.join(outputPath, "shot" + self.core.filenameSeperator + self.cb_sCamShot.currentText() + self.core.filenameSeperator + "ShotCam" + self.core.filenameSeperator + hVersion)
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + comment + self.core.filenameSeparator + versionUser, prefUnit)
+			outputName = os.path.join(outputPath, "shot" + self.core.filenameSeparator + self.cb_sCamShot.currentText() + self.core.filenameSeparator + "ShotCam" + self.core.filenameSeparator + hVersion)
 
 		else:
 			if self.l_taskName.text() == "":
@@ -477,45 +494,45 @@ class ExportClass(object):
 			else:
 				fileNum = ".####"
 
-			basePath = self.core.projectPath
-			if self.core.useLocalFiles:
-				if self.chb_localOutput.isChecked():
-					basePath = self.core.localProjectPath
-					if fileName.startswith(os.path.join(self.core.projectPath, sceneDir)):
-						fileName = fileName.replace(self.core.projectPath, self.core.localProjectPath)
-				elif fileName.startswith(os.path.join(self.core.localProjectPath, sceneDir)):
-					fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
+			if self.core.useLocalFiles and fileName.startswith(self.core.localProjectPath):
+				fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
 
 			versionUser = self.core.user
 			hVersion = ""
 			if useVersion != "next":
-				versionData = useVersion.split(self.core.filenameSeperator)
+				versionData = useVersion.split(self.core.filenameSeparator)
 				if len(versionData) == 3:
 					hVersion, pComment, versionUser = versionData
 
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fnameData = self.core.getScenefileData(fileName)
 
-			if len(fnameData) == 8:
-				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Export", self.l_taskName.text()))
+			if fnameData["type"] == "shot":
+				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
 				if hVersion == "":
 					hVersion = self.core.getHighestTaskVersion(outputPath)
-					pComment = fnameData[5]
+					pComment = fnameData["comment"]
 
-				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + versionUser, prefUnit)
-				outputName = os.path.join(outputPath, fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
-			elif len(fnameData) == 6:
+				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment + self.core.filenameSeparator + versionUser, prefUnit)
+				outputName = os.path.join(outputPath, "shot" + self.core.filenameSeparator + fnameData["shotName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + fileNum + self.cb_outType.currentText())
+			elif fnameData["type"] == "asset":
 				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-					outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Export", self.l_taskName.text())
+					outputPath = os.path.join(self.core.projectPath, sceneDir, "Assets", "Export", self.l_taskName.text())
 				else:
-					outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Export", self.l_taskName.text()))
+					outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
 				if hVersion == "":
 					hVersion = self.core.getHighestTaskVersion(outputPath)
-					pComment = fnameData[3]
+					pComment = fnameData["comment"]
 
-				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment + self.core.filenameSeperator + versionUser, prefUnit)
-				outputName = os.path.join(outputPath, fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + fileNum + self.cb_outType.currentText())
+				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment + self.core.filenameSeparator + versionUser, prefUnit)
+				outputName = os.path.join(outputPath, fnameData["assetName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + fileNum + self.cb_outType.currentText())
 			else:
 				return
+
+		basePath = self.export_paths[self.cb_outPath.currentIndex()][1]
+		prjPath = os.path.normpath(self.core.projectPath)
+		basePath = os.path.normpath(basePath)
+		outputName = outputName.replace(prjPath, basePath)
+		outputPath = outputPath.replace(prjPath, basePath)
 
 		return outputName, outputPath, hVersion
 
@@ -624,6 +641,21 @@ class ExportClass(object):
 	def getStateProps(self):
 		stateProps = {}
 		stateProps.update(getattr(self.core.appPlugin, "sm_export_getStateProps", lambda x: {})(self))
-		stateProps.update({"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange":str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "unitconvert": str(self.chb_convertExport.isChecked()), "additionaloptions": str(self.chb_additionalOptions.isChecked())})
-		stateProps.update({"curoutputtype": self.cb_outType.currentText(), "wholescene":str(self.chb_wholeScene.isChecked()), "localoutput": str(self.chb_localOutput.isChecked()), "connectednodes": str(self.nodes), "currentcam": str(self.curCam), "currentscamshot": self.cb_sCamShot.currentText(), "lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0))})
+		stateProps.update({
+			"statename":self.e_name.text(),
+		 	"taskname":self.l_taskName.text(),
+		 	"globalrange":str(self.chb_globalRange.isChecked()),
+		 	"startframe":self.sp_rangeStart.value(),
+		 	"endframe":self.sp_rangeEnd.value(),
+		 	"unitconvert": str(self.chb_convertExport.isChecked()),
+		 	"additionaloptions": str(self.chb_additionalOptions.isChecked()),
+		 	"curoutputpath": self.cb_outPath.currentText(),
+		 	"curoutputtype": self.cb_outType.currentText(),
+		 	"wholescene":str(self.chb_wholeScene.isChecked()),
+		 	"connectednodes": str(self.nodes),
+		 	"currentcam": str(self.curCam),
+		 	"currentscamshot": self.cb_sCamShot.currentText(),
+		 	"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+		 	"stateenabled":str(self.state.checkState(0))
+		 })
 		return stateProps

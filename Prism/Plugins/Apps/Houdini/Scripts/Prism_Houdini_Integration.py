@@ -64,16 +64,16 @@ class Prism_Houdini_Integration(object):
 		self.plugin = plugin
 
 		if platform.system() == "Windows":
-			self.examplePath = os.environ["userprofile"] + "\\Documents\\houdini17.5"
+			self.examplePath = os.environ["userprofile"] + "\\Documents\\houdini18.0"
 		elif platform.system() == "Linux":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = os.path.join("/home", userName, "houdini17.5")
+			self.examplePath = os.path.join("/home", userName, "houdini18.0")
 		elif platform.system() == "Darwin":
 			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = "/Users/%s/Library/Preferences/houdini/17.5" % userName
+			self.examplePath = "/Users/%s/Library/Preferences/houdini/18.0" % userName
 
 		if not os.path.exists(self.examplePath):
-			for i in ["17.5", "17.0", "16.5", "16.0"]:
+			for i in ["18.0", "17.5", "17.0", "16.5", "16.0"]:
 				path = self.examplePath[:-4] + i
 				if os.path.exists(path):
 					self.examplePath = path
@@ -88,7 +88,7 @@ class Prism_Houdini_Integration(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Houdini_Integration %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Houdini_Integration - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				if hasattr(args[0].core, "writeErrorLog"):
 					args[0].core.writeErrorLog(erStr)
 				else:
@@ -138,7 +138,11 @@ class Prism_Houdini_Integration(object):
 		if path == "":
 			return False
 
-		result = self.writeHoudiniFiles(path)
+		if type(origin).__name__ == "PrismSettings":
+			package = origin.chb_houPackage.isChecked()
+			result = self.writeHoudiniFiles(path, package=package)
+		else:
+			result = self.writeHoudiniFiles(path)
 
 		if result:
 			QMessageBox.information(self.core.messageParent, "Prism Integration", "Prism integration was added successfully")
@@ -157,7 +161,7 @@ class Prism_Houdini_Integration(object):
 		return result
 
 
-	def writeHoudiniFiles(self, houdiniPath):
+	def writeHoudiniFiles(self, houdiniPath, package=True):
 		try:
 
 			# python rc
@@ -169,136 +173,160 @@ class Prism_Houdini_Integration(object):
 				msg.exec_()
 				return False
 
-			integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
 			addedFiles = []
 
-			origRCFile = os.path.join(integrationBase, "pythonrc.py")
-			with open(origRCFile, 'r') as mFile:
-				initString = mFile.read()
+			if package:
+				integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
 
-			if os.path.exists(pyrc):
-				with open(pyrc, 'r') as rcfile:
-					content = rcfile.read()
-				if not initString in content:
-					if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-						content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + initString
-						with open(pyrc, 'w') as rcfile:
-							rcfile.write(content)
-					else:
-						with open(pyrc, 'a') as rcfile:
-							rcfile.write(initString)
+				packagePath = os.path.join(houdiniPath, "packages", "Prism.json")
+
+				if os.path.exists(packagePath):
+					os.remove(packagePath)
+
+				if not os.path.exists(os.path.dirname(packagePath)):
+					os.makedirs(os.path.dirname(packagePath))
+
+				origpackagePath = os.path.join(integrationBase, "Prism.json")
+				shutil.copy2(origpackagePath, packagePath)
+				addedFiles.append(packagePath)
+
+				with open(packagePath, "r") as init:
+					initStr = init.read()
+
+				with open(packagePath, "w") as init:
+					initStr = initStr.replace("PRISMROOT", "%s" % self.core.prismRoot.replace("\\", "/"))
+					init.write(initStr)
+
 			else:
-				if not os.path.exists(os.path.dirname(pyrc)):
-					os.makedirs(os.path.dirname(pyrc))
+				integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "IntegrationOld")
 
-				with open(pyrc, 'w') as rcfile:
-					rcfile.write(initString)
+				origRCFile = os.path.join(integrationBase, "pythonrc.py")
+				with open(origRCFile, 'r') as mFile:
+					initString = mFile.read()
 
-			addedFiles.append(pyrc)
+				if os.path.exists(pyrc):
+					with open(pyrc, 'r') as rcfile:
+						content = rcfile.read()
+					if not initString in content:
+						if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
+							content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + initString
+							with open(pyrc, 'w') as rcfile:
+								rcfile.write(content)
+						else:
+							with open(pyrc, 'a') as rcfile:
+								rcfile.write(initString)
+				else:
+					if not os.path.exists(os.path.dirname(pyrc)):
+						os.makedirs(os.path.dirname(pyrc))
 
+					with open(pyrc, 'w') as rcfile:
+						rcfile.write(initString)
 
-			# prismInit
-			initpath = os.path.join(os.path.dirname(pyrc), "PrismInit.py")
-
-			if os.path.exists(initpath):
-				os.remove(initpath)
-
-			if os.path.exists(initpath + "c"):
-				os.remove(initpath + "c")
-
-			origInitFile = os.path.join(integrationBase, "PrismInit.py")
-			shutil.copy2(origInitFile, initpath)
-			addedFiles.append(initpath)
-
-			with open(initpath, "r") as init:
-				initStr = init.read()
-
-			with open(initpath, "w") as init:
-				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-				init.write(initStr)
+				addedFiles.append(pyrc)
 
 
-			# shelf
-			shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
+				# prismInit
+				initpath = os.path.join(os.path.dirname(pyrc), "PrismInit.py")
 
-			if os.path.exists(shelfpath):
-				os.remove(shelfpath)
+				if os.path.exists(initpath):
+					os.remove(initpath)
 
-			origShelfFile = os.path.join(integrationBase, "Prism.shelf")
-			shutil.copy2(origShelfFile, shelfpath)
-			addedFiles.append(shelfpath)
+				if os.path.exists(initpath + "c"):
+					os.remove(initpath + "c")
 
+				origInitFile = os.path.join(integrationBase, "PrismInit.py")
+				shutil.copy2(origInitFile, initpath)
+				addedFiles.append(initpath)
 
-			iconPathSave = os.path.join(houdiniPath, "config", "Icons", "prismSave.png")
-			iconPathSaveComment = os.path.join(houdiniPath, "config", "Icons", "prismSaveComment.png")
-			iconPathBrowser = os.path.join(houdiniPath, "config", "Icons", "prismBrowser.png")
-			iconPathStates = os.path.join(houdiniPath, "config", "Icons", "prismStates.png")
-			iconPathSettings = os.path.join(houdiniPath, "config", "Icons", "prismSettings.png")
-			icons = [iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]
+				with open(initpath, "r") as init:
+					initStr = init.read()
 
-			for icon in icons:
-				if os.path.exists(icon):
-					os.remove(icon)
-
-				origIconFile = os.path.join(integrationBase, os.path.basename(icon))
-				shutil.copy2(origIconFile, icon)
-				addedFiles.append(icon)
+				with open(initpath, "w") as init:
+					initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
+					init.write(initStr)
 
 
-			# openScene callback
-			openPath = os.path.join(houdiniPath, "scripts", "456.py")
+				# shelf
+				shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
 
-			origOpenFile = os.path.join(integrationBase, "456.py")
-			with open(origOpenFile, 'r') as mFile:
-				openString = mFile.read()
+				if os.path.exists(shelfpath):
+					os.remove(shelfpath)
 
-			if os.path.exists(openPath):
-				with open(openPath, 'r') as openFile:
-					content = openFile.read()
-
-				if not openString in content:
-					if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-						content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + openString
-						with open(openPath, 'w') as rcfile:
-							rcfile.write(content)
-					else:
-						with open(openPath, 'a') as openFile:
-							openFile.write( "\n" + openString)
-			else:
-				if not os.path.exists(os.path.dirname(openPath)):
-					os.makedirs(os.path.dirname(openPath))
-
-				open(openPath, 'a').close()
-				with open(openPath, 'w') as openFile:
-					openFile.write(openString)
-
-			addedFiles.append(openPath)
+				origShelfFile = os.path.join(integrationBase, "Prism.shelf")
+				shutil.copy2(origShelfFile, shelfpath)
+				addedFiles.append(shelfpath)
 
 
-			# saveScene callback
-			savePath = os.path.join(houdiniPath, "scripts", "afterscenesave.py")
+				iconPathSave = os.path.join(houdiniPath, "config", "Icons", "prismSave.png")
+				iconPathSaveComment = os.path.join(houdiniPath, "config", "Icons", "prismSaveComment.png")
+				iconPathBrowser = os.path.join(houdiniPath, "config", "Icons", "prismBrowser.png")
+				iconPathStates = os.path.join(houdiniPath, "config", "Icons", "prismStates.png")
+				iconPathSettings = os.path.join(houdiniPath, "config", "Icons", "prismSettings.png")
+				icons = [iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]
 
-			origSaveFile = os.path.join(integrationBase, "afterscenesave.py")
-			with open(origSaveFile, 'r') as mFile:
-				saveString = mFile.read()
+				for icon in icons:
+					if os.path.exists(icon):
+						os.remove(icon)
 
-			if os.path.exists(savePath):
-				with open(savePath, 'r') as saveFile:
-					content = saveFile.read()
+					origIconFile = os.path.join(integrationBase, os.path.basename(icon))
+					shutil.copy2(origIconFile, icon)
+					addedFiles.append(icon)
 
-				if not saveString in content:
-					if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-						content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + saveString
-						with open(savePath, 'w') as rcfile:
-							rcfile.write(content)
-					else:
-						with open(savePath, 'a') as saveFile:
-							saveFile.write( "\n" + saveString)
-			else:
-				with open(savePath, 'w') as saveFile:
-					saveFile.write(saveString)
 
-			addedFiles.append(savePath)
+				# openScene callback
+				openPath = os.path.join(houdiniPath, "scripts", "456.py")
+
+				origOpenFile = os.path.join(integrationBase, "456.py")
+				with open(origOpenFile, 'r') as mFile:
+					openString = mFile.read()
+
+				if os.path.exists(openPath):
+					with open(openPath, 'r') as openFile:
+						content = openFile.read()
+
+					if not openString in content:
+						if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
+							content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + openString
+							with open(openPath, 'w') as rcfile:
+								rcfile.write(content)
+						else:
+							with open(openPath, 'a') as openFile:
+								openFile.write( "\n" + openString)
+				else:
+					if not os.path.exists(os.path.dirname(openPath)):
+						os.makedirs(os.path.dirname(openPath))
+
+					open(openPath, 'a').close()
+					with open(openPath, 'w') as openFile:
+						openFile.write(openString)
+
+				addedFiles.append(openPath)
+
+
+				# saveScene callback
+				savePath = os.path.join(houdiniPath, "scripts", "afterscenesave.py")
+
+				origSaveFile = os.path.join(integrationBase, "afterscenesave.py")
+				with open(origSaveFile, 'r') as mFile:
+					saveString = mFile.read()
+
+				if os.path.exists(savePath):
+					with open(savePath, 'r') as saveFile:
+						content = saveFile.read()
+
+					if not saveString in content:
+						if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
+							content = content[:content.find("#>>>PrismStart")] + content[content.find("#<<<PrismEnd")+12:] + saveString
+							with open(savePath, 'w') as rcfile:
+								rcfile.write(content)
+						else:
+							with open(savePath, 'a') as saveFile:
+								saveFile.write( "\n" + saveString)
+				else:
+					with open(savePath, 'w') as saveFile:
+						saveFile.write(saveString)
+
+				addedFiles.append(savePath)
 
 
 			if platform.system() in ["Linux", "Darwin"]:
@@ -325,14 +353,15 @@ class Prism_Houdini_Integration(object):
 			initPy = os.path.join(installBase, "python2.7libs", "PrismInit.py")
 			initPyc = initPy + "c"
 
-			shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
-			iconPathSave = os.path.join(houdiniPath, "config", "Icons", "prismSave.png")
-			iconPathSaveComment = os.path.join(houdiniPath, "config", "Icons", "prismSaveComment.png")
-			iconPathBrowser = os.path.join(houdiniPath, "config", "Icons", "prismBrowser.png")
-			iconPathStates = os.path.join(houdiniPath, "config", "Icons", "prismStates.png")
-			iconPathSettings = os.path.join(houdiniPath, "config", "Icons", "prismSettings.png")
+			packagePath = os.path.join(installBase, "packages", "Prism.json")
+			shelfpath = os.path.join(installBase, "toolbar", "Prism.shelf")
+			iconPathSave = os.path.join(installBase, "config", "Icons", "prismSave.png")
+			iconPathSaveComment = os.path.join(installBase, "config", "Icons", "prismSaveComment.png")
+			iconPathBrowser = os.path.join(installBase, "config", "Icons", "prismBrowser.png")
+			iconPathStates = os.path.join(installBase, "config", "Icons", "prismStates.png")
+			iconPathSettings = os.path.join(installBase, "config", "Icons", "prismSettings.png")
 
-			for i in [initPy, initPyc, shelfpath, iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]:
+			for i in [initPy, initPyc, packagePath, shelfpath, iconPathSave, iconPathSaveComment, iconPathBrowser, iconPathStates, iconPathSettings]:
 				if os.path.exists(i):
 					os.remove(i)
 

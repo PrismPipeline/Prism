@@ -104,6 +104,7 @@ if psVersion == 1:
 else:
 	import ProjectBrowser_ui_ps2 as ProjectBrowser_ui
 
+
 try:
 	import CreateItem
 except:
@@ -111,6 +112,15 @@ except:
 	if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
 		os.remove(modPath)
 	import CreateItem
+
+try:
+	import EnterText
+except:
+	modPath = imp.find_module("EnterText")[1]
+	if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
+		os.remove(modPath)
+	import EnterText
+
 
 
 class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
@@ -135,13 +145,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.copiedFile = None
 		self.copiedsFile = None
 		self.copiedfFile = None
-
+		
 		self.dclick = False
 		self.adclick = False
 		self.sdclick = False
 
 		self.shotPrvXres = 250
 		self.shotPrvYres = 141
+
+		self.curAsset = None
+		self.curaStep = None
+		self.curaCat = None
 
 		self.cursShots = None
 		self.cursStep = None
@@ -178,7 +192,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.renderRefreshEnabled = True
 		self.compareStates = []
-		self.mediaPlaybacks = {"shots": {"name": "shots", "sl_preview": self.sl_preview, "prevCurImg": 0, "l_info": self.l_info, "l_date": self.l_date, "l_preview": self.l_preview, "openRV": False, "getMediaBase": self.getShotMediaPath, "getMediaBaseFolder": self.getShotMediaFolder}}
+		self.mediaPlaybacks = {"shots": {
+			"name": "shots",
+			"sl_preview": self.sl_preview,
+			"prevCurImg": 0,
+			"l_info": self.l_info,
+			"l_date": self.l_date,
+			"l_preview": self.l_preview,
+			"openRV": False,
+			"getMediaBase": self.getShotMediaPath,
+			"getMediaBaseFolder": self.getShotMediaFolder,
+		}}
 
 		self.oiioLoaded = False
 		self.wandLoaded = False
@@ -193,7 +217,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		getattr(self.core.appPlugin, "projectBrower_loadLibs", lambda x: self.loadLibs())(self)
 		self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
 		self.emptypmapPrv = self.createPMap(self.shotPrvXres, self.shotPrvYres)
-		self.refreshFCat()
+	#	self.refreshFCat()
 		self.loadLayout()
 		self.setRecent()
 		self.getRVpath()
@@ -233,10 +257,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_aHierarchy.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"ah")
 		self.tw_aHierarchy.mouseDClick = self.tw_aHierarchy.mouseDoubleClickEvent
 		self.tw_aHierarchy.mouseDoubleClickEvent = lambda x: self.mousedb(x,"ah", self.tw_aHierarchy)
+		self.tw_aHierarchy.keyPressEvent = lambda x: self.keyPressed(x, "assets")
+		self.e_assetSearch.origKeyPressEvent = self.e_assetSearch.keyPressEvent
+		self.e_assetSearch.keyPressEvent = lambda x: self.keyPressed(x, "assetSearch")
 		self.lw_aPipeline.mouseClickEvent = self.lw_aPipeline.mouseReleaseEvent
 		self.lw_aPipeline.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"ap")
 		self.lw_aPipeline.mouseDClick = self.lw_aPipeline.mouseDoubleClickEvent
 		self.lw_aPipeline.mouseDoubleClickEvent = lambda x: self.mousedb(x,"ap", self.lw_aPipeline)
+		self.lw_aCategory.mouseClickEvent = self.lw_aCategory.mouseReleaseEvent
+		self.lw_aCategory.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"ac")
+		self.lw_aCategory.mouseDClick = self.lw_aCategory.mouseDoubleClickEvent
+		self.lw_aCategory.mouseDoubleClickEvent = lambda x: self.mousedb(x,"ac", self.lw_aCategory)
 		self.tw_aFiles.mouseClickEvent = self.tw_aFiles.mouseReleaseEvent
 		self.tw_aFiles.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"af")
 
@@ -246,6 +277,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_sShot.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"ss")
 		self.tw_sShot.mouseDClick = self.tw_sShot.mouseDoubleClickEvent
 		self.tw_sShot.mouseDoubleClickEvent = lambda x: self.mousedb(x,"ss", self.tw_sShot)
+		self.tw_sShot.keyPressEvent = lambda x: self.keyPressed(x, "shots")
+		self.e_shotSearch.origKeyPressEvent = self.e_shotSearch.keyPressEvent
+		self.e_shotSearch.keyPressEvent = lambda x: self.keyPressed(x, "shotSearch")
 		self.lw_sPipeline.mouseClickEvent = self.lw_sPipeline.mouseReleaseEvent
 		self.lw_sPipeline.mouseReleaseEvent = lambda x: self.mouseClickEvent(x,"sp")
 		self.lw_sPipeline.mouseDClick = self.lw_sPipeline.mouseDoubleClickEvent
@@ -272,8 +306,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_aHierarchy.itemExpanded.connect(self.refreshAItem)
 		self.tw_aHierarchy.itemCollapsed.connect(self.hItemCollapsed)
 		self.tw_aHierarchy.customContextMenuRequested.connect(lambda x: self.rclCat("ah",x))
-		self.lw_aPipeline.currentItemChanged.connect(self.refreshAFile)
+		self.e_assetSearch.textChanged.connect(lambda x: self.refreshAHierarchy())
+		self.lw_aPipeline.currentItemChanged.connect(self.aPipelineclicked)
 		self.lw_aPipeline.customContextMenuRequested.connect(lambda x: self.rclCat("ap",x))
+		self.lw_aCategory.currentItemChanged.connect(self.aCatclicked)
+		self.lw_aCategory.customContextMenuRequested.connect(lambda x: self.rclCat("ac",x))
 		self.tw_aFiles.customContextMenuRequested.connect(lambda x: self.rclFile("a",x))
 		self.tw_aFiles.doubleClicked.connect(self.exeFile)
 		self.tw_aFiles.setMouseTracking(True)
@@ -281,11 +318,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_aFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "af")
 		self.tw_aFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "af")
 
+		self.l_assetPreview.mouseDoubleClickEvent = lambda x: self.editAsset(self.curAsset)
+		self.l_assetPreview.customContextMenuRequested.connect(lambda x: self.rclEntityPreview(x, "asset"))
+
 		self.tw_sShot.currentItemChanged.connect(lambda x, y: self.sShotclicked(x))
 		self.tw_sShot.itemExpanded.connect(self.sItemCollapsed)
 		self.tw_sShot.itemCollapsed.connect(self.sItemCollapsed)
 		self.tw_sShot.customContextMenuRequested.connect(lambda x: self.rclCat("ss",x))
+		self.e_shotSearch.textChanged.connect(lambda x: self.refreshShots())
 		self.lw_sPipeline.customContextMenuRequested.connect(lambda x: self.rclCat("sp",x))
+		self.lw_sPipeline.currentItemChanged.connect(self.sPipelineclicked)
+		self.lw_sCategory.currentItemChanged.connect(self.sCatclicked)		
 		self.lw_sCategory.customContextMenuRequested.connect(lambda x: self.rclCat("sc",x))
 		self.tw_sFiles.customContextMenuRequested.connect(lambda x: self.rclFile("sf",x))
 		self.tw_sFiles.doubleClicked.connect(self.exeFile)
@@ -295,6 +338,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.tw_sFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "sf")
 
 		self.l_shotPreview.mouseDoubleClickEvent = lambda x: self.editShot(self.cursShots)
+		self.l_shotPreview.customContextMenuRequested.connect(lambda x: self.rclEntityPreview(x, "shot"))
 
 		self.lw_fCategory.customContextMenuRequested.connect(lambda x: self.rclCat("f",x))
 		self.tw_fFiles.customContextMenuRequested.connect(self.rclfFile)
@@ -418,20 +462,32 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.core.appPlugin.setRCStyle(self, self.helpMenu)
 
 		self.appFilters = {}
+
 		for i in self.core.getPluginNames():
 			if len(self.core.getPluginData(i, "sceneFormats")) == 0:
 				continue
 
 			chb_aApp = QCheckBox(i)
 			chb_sApp = QCheckBox(i)
-			chb_aApp.setChecked(True)
-			chb_sApp.setChecked(True)
+			chb_aApp.setChecked(False)
+			chb_sApp.setChecked(False)
 			self.w_aShowFormats.layout().addWidget(chb_aApp)
 			self.w_sShowFormats.layout().addWidget(chb_sApp)
 			setattr(self, "chb_aShow%s" % self.core.getPluginData(i, "appShortName"), chb_aApp)
 			setattr(self, "chb_sShow%s" % self.core.getPluginData(i, "appShortName"), chb_sApp)
 			self.appFilters[i] = {"assetChb": chb_aApp, "shotChb": chb_sApp, "shortName": self.core.getPluginData(i, "appShortName"), "formats": self.core.getPluginData(i, "sceneFormats")}
 	
+		# custom checkbox
+		chb_aApp = QCheckBox("Other")
+		chb_sApp = QCheckBox("Other")
+		chb_aApp.setChecked(True)
+		chb_sApp.setChecked(True)
+		self.w_aShowFormats.layout().addWidget(chb_aApp)
+		self.w_sShowFormats.layout().addWidget(chb_sApp)
+		setattr(self, "chb_aShowOther", chb_aApp)
+		setattr(self, "chb_sShowOther", chb_sApp)
+		self.appFilters["other"] = {"assetChb": chb_aApp, "shotChb": chb_sApp, "shortName": "Other", "formats": "*"}
+
 		cData = {}
 
 		for i in self.appFilters:
@@ -624,6 +680,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if cData["expandedSequences" + self.core.projectName] is not None:
 			self.sExpanded = eval(cData["expandedSequences" + self.core.projectName])
+
+		self.e_assetSearch.setVisible(False)
+		self.e_shotSearch.setVisible(False)
+
+		if psVersion == 2:
+			self.e_assetSearch.setClearButtonEnabled(True)
+			self.e_shotSearch.setClearButtonEnabled(True)
+
+		if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
+			self.w_aCategory.setVisible(False)
 		
 
 	@err_decorator
@@ -773,7 +839,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshUI(self):
-		curTab = self.tbw_browser.currentWidget().property("tabType")
+		cw = self.tbw_browser.currentWidget()
+		if not cw:
+			self.core.popup("No tabs are currently enabled. Use the \"View\" menu to enable available tabs.")
+			return
+
+		curTab = cw.property("tabType")
 		curData = [curTab, self.cursShots, self.curRTask, self.curRVersion, self.curRLayer]
 
 		if curTab == "Assets":
@@ -781,15 +852,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			if curAssetItem is None:
 				dstname = self.aBasePath
 			else:
-				basePath = curAssetItem.text(1)
-				curStepItem = self.lw_aPipeline.currentItem()
-				if curStepItem is None:
-					curStep = ""
+				basePath = self.tw_aHierarchy.currentItem().text(1)
+				if self.curaStep is None:
+					step = ""
 				else:
-					curStep = os.path.join("Scenefiles", curStepItem.text())
-					if not os.path.exists(os.path.join(basePath, curStep)):
-						curStep = os.path.join("Scenefiles", curStepItem.text())
-				dstname = os.path.join(basePath, curStep)
+					step = os.path.join("Scenefiles", self.curaStep)
+
+				if self.curaCat is None:
+					cat = ""
+				else:
+					cat = self.curaCat
+
+				dstname = os.path.join(basePath, step, cat)
 
 			self.refreshAHierarchy()
 		elif curTab == "Shots":
@@ -826,12 +900,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def mousedb(self, event, tab, uielement):
 		if tab == "ah":
 			cItem = uielement.itemFromIndex(uielement.indexAt(event.pos()))
-			if cItem is not None and cItem.text(2) == "Asset":
+			if cItem is not None and cItem.text(2) == "asset":
 				return
 			name = "Entity"
 		elif tab == "ap":
-			if self.tw_aHierarchy.currentItem() is not None and self.lw_aPipeline.indexAt(event.pos()).data() == None and (self.tw_aHierarchy.currentItem().text(2) == "Asset"):
+			if self.curAsset:
 				self.createStepWindow("a")
+		elif tab == "ac":
+			if self.curaStep is not None and self.lw_aCategory.indexAt(event.pos()).data() == None:
+				name = "Category"
 		elif tab == "ss":
 			mIndex = uielement.indexAt(event.pos())
 			if mIndex.data() == None:
@@ -841,7 +918,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					uielement.setExpanded(mIndex, not uielement.isExpanded(mIndex))
 					uielement.mouseDClick(event)
 		elif tab == "sp":
-			if self.cursShots is not None and not (len(self.cursShots.split("-")) == 2 and self.cursShots[-1] == "-") and self.lw_sPipeline.indexAt(event.pos()).data() == None:
+			shotName = self.splitShotname(self.cursShots)
+			if shotName and len(shotName) == 2 and shotName[1] and self.lw_sPipeline.indexAt(event.pos()).data() == None:
 				self.createStepWindow("s")
 		elif tab == "sc":
 			if self.cursStep is not None and self.lw_sCategory.indexAt(event.pos()).data() == None:
@@ -885,6 +963,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						if index.data() == None:
 							self.lw_aPipeline.setCurrentIndex(self.lw_aPipeline.model().createIndex(-1,0))
 						self.lw_aPipeline.mouseClickEvent(event)
+					elif uielement == "ac":
+						index = self.lw_aCategory.indexAt(event.pos())
+						if index.data() == None:
+							self.lw_aCategory.setCurrentIndex(self.lw_aCategory.model().createIndex(-1,0))
+						self.lw_aCategory.mouseClickEvent(event)
 					elif uielement == "af":
 						index = self.tw_aFiles.indexAt(event.pos())
 						if index.data() == None:
@@ -935,6 +1018,33 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				elif uielement == "ss":
 					self.sdclick = True
 					self.tw_sShot.mousePrEvent(event)
+
+
+	@err_decorator
+	def keyPressed(self, event, entity):
+		if entity in ["assets", "assetSearch"]:
+			etext = self.e_assetSearch
+		elif entity in ["shots", "shotSearch"]:
+			etext = self.e_shotSearch
+
+		if entity in ["assets", "shots"]:
+			if event.key() == Qt.Key_Escape:
+				etext.setVisible(False)
+				etext.setText("")
+				etext.textChanged.emit("")
+			else:
+				etext.setVisible(True)
+				etext.setFocus()
+				etext.keyPressEvent(event)
+		elif entity in ["assetSearch", "shotSearch"]:
+			if event.key() == Qt.Key_Escape:
+				etext.setVisible(False)
+				etext.setText("")
+				etext.textChanged.emit("")
+			else:
+				etext.origKeyPressEvent(event)
+
+		event.accept()
 
 
 	@err_decorator
@@ -1052,6 +1162,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def rclCat(self, tab, pos):
 		rcmenu = QMenu()
 		typename = "Category"
+		callbackName = ""
 
 		if tab == "ah":
 			lw = self.tw_aHierarchy
@@ -1061,23 +1172,31 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			else:
 				path = os.path.dirname(cItem.text(1))
 			typename = "Entity"
+			callbackName = "openPBAssetContextMenu"
 		elif tab == "ap":
 			lw = self.lw_aPipeline
-			curItem = self.tw_aHierarchy.currentItem()
-			if curItem is None:
+
+			if not self.curAsset:
 				return
 
-			if curItem.text(2) != "Asset":
-				return
-
-			path = os.path.join(curItem.text(1), "Scenefiles")
-
+			path = os.path.join(self.curAsset, "Scenefiles")
 			typename = "Step"
+			callbackName = "openPBAssetStepContextMenu"
+
+		elif tab == "ac":
+			lw = self.lw_aCategory
+			if self.curaStep is not None:
+				path = os.path.join( self.curAsset, "Scenefiles", self.curaStep)
+			else:
+				return False
+
+			callbackName = "openPBAssetCategoryContextMenu"
 
 		elif tab == "ss":
 			lw = self.tw_sShot
 			path = self.sBasePath
 			typename = "Shot"
+			callbackName = "openPBShotContextMenu"
 
 		elif tab == "sp":
 			lw = self.lw_sPipeline
@@ -1086,6 +1205,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			else:
 				return False
 			typename = "Step"
+			callbackName = "openPBShotStepContextMenu"
 
 		elif tab == "sc":
 			lw = self.lw_sCategory
@@ -1093,6 +1213,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)
 			else:
 				return False
+
+			callbackName = "openPBShotCategoryContextMenu"
 
 		elif tab == "f":
 			lw = self.lw_fCategory
@@ -1134,19 +1256,19 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			prjMngMenus = []
 			addOmit = False
 			if tab == "ah" or tab == "f":
-				if cItem is not None and cItem.text(2) != "Asset":
+				if cItem is not None and cItem.text(2) != "asset":
 					subcat = QAction("Create entity", self)
 					typename = "Entity"
 					subcat.triggered.connect(lambda: self.createCatWin(tab, typename))
 					rcmenu.addAction(subcat)
-				elif cItem.text(2) == "Asset":
+				elif cItem.text(2) == "asset":
 					for i in self.core.prjManagers.values():
 						prjMngMenu = i.pbBrowser_getAssetMenu(self, iname, cItem.text(1).replace(self.aBasePath, "")[1:])
 						if prjMngMenu is not None:
 							prjMngMenus.append(prjMngMenu)
 
 				oAct = QAction("Omit Asset", self)
-				oAct.triggered.connect(lambda: self.omitEntity("Asset", cItem.text(1).replace(self.aBasePath, "")[1:]))
+				oAct.triggered.connect(lambda: self.omitEntity("asset", cItem.text(1).replace(self.aBasePath, "")[1:]))
 				addOmit = True
 
 				if tab == "f":
@@ -1162,7 +1284,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						prjMngMenus.append(prjMngMenu)
 
 				oAct = QAction("Omit Shot", self)
-				oAct.triggered.connect(lambda: self.omitEntity("Shot", self.cursShots))
+				oAct.triggered.connect(lambda: self.omitEntity("shot", self.cursShots))
 				addOmit = True
 			dirPath = os.path.join(path, iname)
 			if not os.path.exists(dirPath) and self.core.useLocalFiles and os.path.exists(dirPath.replace(self.core.projectPath, self.core.localProjectPath)):
@@ -1193,30 +1315,38 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.core.appPlugin.setRCStyle(self, rcmenu)
 
+		if callbackName:
+			self.core.callback(name=callbackName, types=["custom"], args=[self, rcmenu, lw.indexAt(pos)])
+
 		rcmenu.exec_(QCursor.pos())
+
 
 	@err_decorator
 	def rclFile(self, tab, pos):
 		if tab == "a":
-			if self.lw_aPipeline.currentItem() is None:
+			if self.curaStep is None or self.curaCat is None:
 				return
 
 			tw = self.tw_aFiles
-			filepath = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles", self.lw_aPipeline.currentItem().text())
+			filepath = os.path.join(self.curAsset, "Scenefiles", self.curaStep, self.curaCat)
+			tabName = "asset"
 		elif tab == "sf":
 			if self.cursStep is None or self.cursCat is None:
 				return
 
 			tw = self.tw_sFiles
 			filepath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
+			tabName = "shot"
 		elif tab == "r":
 			tw = self.tw_recent
 
 		rcmenu = QMenu()
 
 		if tw.selectedIndexes() != []:
-			irow = tw.selectedIndexes()[0].row()
+			idx = tw.selectedIndexes()[0]
+			irow = idx.row()
 		else:
+			idx = None
 			irow = -1
 		cop = QAction("Copy", self)
 		if irow == -1 :
@@ -1245,14 +1375,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
 			if os.path.exists(emptyDir):
 				for i in sorted(os.listdir(emptyDir)):
-					if i.startswith("EmptyScene_") and os.path.splitext(i)[1] in self.core.getPluginSceneFormats():
+					if i.startswith("EmptyScene_"):
 						fName = os.path.splitext(i)[0][11:].replace("_", ".")
 						empAct = QAction(fName, self)
-						empAct.triggered.connect(lambda y=None, x=tab, fname=i: self.createEmpty(x,fname))
+						empAct.triggered.connect(lambda y=None, x=tabName, fname=i: self.createEmptyScene(x, fname))
 						emp.addAction(empAct)
 
 			newPreset = QAction("< Create new preset from current >", self)
-			newPreset.triggered.connect(lambda y=None, x=tab: self.createEmpty(x,"createnew"))
+			newPreset.triggered.connect(lambda y=None, x=tabName: self.createEmptyScene(x, "createnew"))
 			emp.addAction(newPreset)
 			if self.core.appPlugin.pluginName == "Standalone":
 				newPreset.setEnabled(False)
@@ -1299,7 +1429,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		rcmenu.addAction(copAct)
 
 		self.core.appPlugin.setRCStyle(self, rcmenu)
-		self.core.callback(name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu])
+		self.core.callback(name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu, idx])
 
 		rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
 
@@ -1426,50 +1556,41 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def createFromCurrent(self):
-
-		fname = self.core.getCurrentFileName()
 		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-			dstname = self.tw_aHierarchy.currentItem().text(1)
+			dstname = self.curAsset
 			refresh = self.refreshAFile
 
-			prefix = self.tw_aHierarchy.currentItem().text(0)
-			step = self.lw_aPipeline.currentItem().text()
-			dstname = os.path.join(dstname, "Scenefiles", step)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
+			prefix = os.path.basename(self.curAsset)
+			filepath = self.core.generateScenePath(entity="asset", entityName=prefix, step=self.curaStep, category=self.curaCat, basePath=dstname, extension=self.core.appPlugin.getSceneExtension(self))
 
 		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
 			refresh = self.refreshSFile
+			filepath = self.core.generateScenePath(entity="shot", entityName=self.cursShots, step=self.cursStep, category=self.cursCat, extension=self.core.appPlugin.getSceneExtension(self))
+		else:
+			return
 
-			subcat = self.core.filenameSeperator + self.cursCat
-			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
+		if self.core.useLocalFiles:
+			filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
 
-		if "newfname" in locals():
-			filepath = os.path.join(dstname, newfname)
+		if not os.path.exists(os.path.dirname(filepath)):
+			try:
+				os.makedirs(os.path.dirname(filepath))
+			except:
+				QMessageBox.warning(self.core.messageParent, "Warning", "The directory could not be created")
+				return None
 
-			if self.core.useLocalFiles:
-				filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
+		filepath = filepath.replace("\\","/")
 
-			if not os.path.exists(os.path.dirname(filepath)):
-				try:
-					os.makedirs(os.path.dirname(filepath))
-				except:
-					QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
-					return None
+		asRunning = hasattr(self.core,  "asThread") and self.core.asThread.isRunning()
+		self.core.startasThread(quit=True)
+	
+		filepath = self.core.saveScene(prismReq=False, filepath=filepath)
+		self.core.sceneOpen()
+		if asRunning:
+			self.core.startasThread()
 
-			filepath = filepath.replace("\\","/")
-			filepath += self.core.filenameSeperator + self.core.appPlugin.getSceneExtension(self)
-
-			asRunning = hasattr(self.core,  "asThread") and self.core.asThread.isRunning()
-			self.core.startasThread(quit=True)
-		
-			filepath = self.core.saveScene(prismReq=False, filepath=filepath)
-			self.core.sceneOpen()
-			if asRunning:
-				self.core.startasThread()
-
-			self.core.addToRecent(filepath)
-			self.setRecent()
+		self.core.addToRecent(filepath)
+		self.setRecent()
 
 		refresh()
 
@@ -1485,54 +1606,52 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		autobfile = QFileDialog.getOpenFileName(self, "Select Autoback File", autobackpath, fileStr)[0]
 
-		if autobfile != "":
-			if tab == "a":
-				dstname = self.tw_aHierarchy.currentItem().text(1)
-				refresh = self.refreshAFile
+		if not autobfile:
+			return
 
-				prefix = self.tw_aHierarchy.currentItem().text(0)
-				step = self.lw_aPipeline.currentItem().text()
-				dstname = os.path.join(dstname, "Scenefiles", step)
-				newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
+		if tab == "a":
+			dstname = self.curAsset
+			refresh = self.refreshAFile
 
-			elif tab == "sf":
-				dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
-				refresh = self.refreshSFile
+			prefix = os.path.basename(self.curAsset)
+			filepath = self.core.generateScenePath(entity="asset", entityName=prefix, step=self.curaStep, extension=os.path.splitext(autobfile)[1], category=self.curaCat, basePath=dstname)
+		elif tab == "sf":
+			refresh = self.refreshSFile
 
-				subcat = self.core.filenameSeperator + self.cursCat
-				newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat
-				if len(os.path.basename(autobfile).split(self.core.filenameSeperator)) == 8:
-					newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + os.path.basename(autobfile).split(self.core.filenameSeperator)[5] + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
-				else:
-					newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + os.path.splitext(autobfile)[1]
+			sceneData = self.core.getScenefileData(autobfile)
+			if sceneData["type"] == "shot":
+				comment = sceneData["comment"]
+			else:
+				comment = ""
 
-			if "newfname" in locals():
-				filepath = os.path.join(dstname, newfname)
+			filepath = self.core.generateScenePath(entity="shot", entityName=self.cursShots, step=self.cursStep, category=self.cursCat, extension=os.path.splitext(autobfile)[1])
+		else:
+			return
 
-				if self.core.useLocalFiles:
-					filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
+		if self.core.useLocalFiles:
+			filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
 
-				if not os.path.exists(os.path.dirname(filepath)):
-					try:
-						os.makedirs(os.path.dirname(filepath))
-					except:
-						QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
-						return None
+		if not os.path.exists(os.path.dirname(filepath)):
+			try:
+				os.makedirs(os.path.dirname(filepath))
+			except:
+				QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
+				return None
 
-				filepath = filepath.replace("\\","/")
+		filepath = filepath.replace("\\","/")
 
-				self.core.copySceneFile(autobfile, filepath)
-				if prog == self.core.appPlugin.pluginName:
-					self.exeFile(filepath=filepath)
-				else:
-					self.core.addToRecent(filepath)
-					self.setRecent()
-					refresh()
+		self.core.copySceneFile(autobfile, filepath)
+		if prog == self.core.appPlugin.pluginName:
+			self.exeFile(filepath=filepath)
+		else:
+			self.core.addToRecent(filepath)
+			self.setRecent()
+			refresh()
 
 
 	@err_decorator
-	def createEmpty(self, tab, fname):
-		if fname == "createnew":
+	def createEmptyScene(self, entity, fileName, entityName=None, step=None, category=None, comment=None, openFile=True):
+		if fileName == "createnew":
 			emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
 
 			newItem = CreateItem.CreateItem(core=self.core, startText=self.core.appPlugin.pluginName.replace(" ", ""))
@@ -1553,54 +1672,66 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				self.core.saveScene(prismReq=False, filepath=filepath)
 			return
 
+		ext = os.path.splitext(fileName)[1]
+		comment = comment or ""
 
-		if tab == "a":
-			dstname = self.tw_aHierarchy.currentItem().text(1)
+		if entity == "asset":
 			refresh = self.refreshAFile
-
-			prefix = self.tw_aHierarchy.currentItem().text(0)
-			step = self.lw_aPipeline.currentItem().text()
-			dstname = os.path.join(dstname, "Scenefiles", step)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
-
-			#example filename: Body_mod_v0002_details-added_rfr_.max
-		elif tab == "sf":
-			refresh = self.refreshSFile
-			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
-			#example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
-			subcat = self.core.filenameSeperator + self.cursCat
-			newfname = "shot" + self.core.filenameSeperator + self.cursShots + self.core.filenameSeperator + self.cursStep + subcat
-			newfname += self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Shot") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user
-
-		if "newfname" in locals():
-			ext = os.path.splitext(fname)[1]
-			scene = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes", fname)
-
-			newfname += self.core.filenameSeperator + ext
-
-			filepath = os.path.join(dstname, newfname)
-
-			if self.core.useLocalFiles:
-				filepath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
-
-			if not os.path.exists(os.path.dirname(filepath)):
-				try:
-					os.makedirs(os.path.dirname(filepath))
-				except:
-					QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
-					return None
-
-			filepath = filepath.replace("\\","/")
-
-			shutil.copyfile(scene, filepath)
-			if ext in self.core.appPlugin.sceneFormats:
-				self.core.callback(name="preLoadEmptyScene", types=["curApp", "custom"], args=[self, filepath])
-				self.exeFile(filepath=filepath)
-				self.core.callback(name="postLoadEmptyScene", types=["curApp", "custom"], args=[self, filepath])
+			if entityName:
+				for i in self.core.getAssetPaths():
+					if os.path.basename(i) == entityName:
+						dstname = i
+						break
+				else:
+					self.core.popup("Invalid asset:\n\n%s" % entityName)
+					return
 			else:
-				self.core.addToRecent(filepath)
+				dstname = self.curAsset
+
+			assetName = entityName or os.path.basename(self.curAsset)
+			step = step or self.curaStep
+			category = category or self.curaCat
+			filePath = self.core.generateScenePath("asset", assetName, step, assetPath=dstname, category=category, extension=ext, comment=comment)
+		elif entity == "shot":
+			refresh    = self.refreshSFile
+			entityName = entityName or self.cursShots
+			step       = step or self.cursStep
+			category = category or self.cursCat
+			filePath = self.core.generateScenePath("shot", entityName, step, category=category, extension=ext, comment=comment)
+		else:
+			self.core.popup("Invalid entity:\n\n%s" % entity)
+			return
+
+		if os.path.isabs(fileName):
+			scene = fileName
+		else:
+			scene = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes", fileName)
+
+		if self.core.useLocalFiles:
+			filePath = filePath.replace(self.core.projectPath, self.core.localProjectPath)
+
+		if not os.path.exists(os.path.dirname(filePath)):
+			try:
+				os.makedirs(os.path.dirname(filePath))
+			except:
+				self.core.popup("The directory could not be created:\n\n%s" % os.path.dirname(filePath))
+				return
+
+		filePath = filePath.replace("\\","/")
+
+		shutil.copyfile(scene, filePath)
+
+		if self.core.uiAvailable:
+			if ext in self.core.appPlugin.sceneFormats and openFile:
+				self.core.callback(name="preLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
+				self.exeFile(filepath=filePath)
+				self.core.callback(name="postLoadEmptyScene", types=["curApp", "custom"], args=[self, filePath])
+			else:
+				self.core.addToRecent(filePath)
 				self.setRecent()
 				refresh()
+
+		return filePath
 
 
 	@err_decorator
@@ -1617,15 +1748,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def pastefile(self, tab):
 		if tab == "a":
-			dstname = self.tw_aHierarchy.currentItem().text(1)
-			refresh = self.refreshAFile
+			dstname = self.curAsset
 
-			prefix = self.tw_aHierarchy.currentItem().text(0)
-			step = self.lw_aPipeline.currentItem().text()
-			dstname = os.path.join(dstname, "Scenefiles", step)
-			oldfname = os.path.basename(self.copiedFile).split(self.core.filenameSeperator)
-			newfname = prefix + self.core.filenameSeperator + step + self.core.filenameSeperator + self.core.getHighestVersion(dstname, "Asset") + self.core.filenameSeperator + self.core.filenameSeperator + self.core.user + self.core.filenameSeperator + oldfname[5]
-			dstname = os.path.join(dstname, newfname)
+			prefix = os.path.basename(self.curAsset)
+			dstname = self.core.generateScenePath(entity="asset", entityName=prefix, step=self.curaStep, category=self.curaCat, extension=os.path.splitext(self.copiedFile)[1], basePath=dstname)
 
 			if self.core.useLocalFiles:
 				dstname = dstname.replace(self.core.projectPath, self.core.localProjectPath)
@@ -1636,7 +1762,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				except:
 					QMessageBox.warning(self.core.messageParent,"Warning", "The directory could not be created")
 					return None
-		
+
 			dstname = dstname.replace("\\","/")
 
 			self.core.copySceneFile(self.copiedFile, dstname)
@@ -1650,23 +1776,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.refreshAFile()
 
 		elif tab == "sf":
-			dstname = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep, self.cursCat)
-
 			oldfname = os.path.basename(self.copiedsFile)
-
-			fname = oldfname.split(self.core.filenameSeperator)
-			fname[1] = self.cursShots
-			fname[2] = self.cursStep
-			subcat = self.cursCat
-			fname[3] = subcat
-			fname[4] = self.core.getHighestVersion(dstname, "Shot")
-			fname[5] = ""
-			fname[6] = self.core.user
-			newfname = ""
-			for i in fname:
-				newfname += i + self.core.filenameSeperator
-			newfname = newfname[:-1]
-			dstname = os.path.join(dstname, newfname)
+			dstname = self.core.generateScenePath(entity="shot", entityName=self.cursShots, step=self.cursStep, category=self.cursCat, extension=os.path.splitext(oldfname)[1])
 
 			if self.core.useLocalFiles:
 				dstname = dstname.replace(self.core.projectPath, self.core.localProjectPath)
@@ -1797,9 +1908,34 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.refreshOmittedEntities()
 
+		self.filteredAssetPaths = self.core.getAssetPaths()
+		if self.e_assetSearch.isVisible():
+			filteredPaths = []
+			for assetPath in self.filteredAssetPaths:
+				assetPath = assetPath.replace(self.aBasePath, "")
+			
+				if self.core.useLocalFiles:
+					assetPath = assetPath.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
+				assetPath = assetPath[1:]
+
+				if self.e_assetSearch.text() in assetPath:
+					filteredPaths.append(assetPath)
+
+			self.filteredAssetPaths = filteredPaths
+
 		for path in dirs:
 			val = os.path.basename(path)
-			if val not in self.omittedEntities["Asset"]:
+			if val not in self.omittedEntities["asset"]:
+				if self.e_assetSearch.isVisible():
+					aPath = path.replace(self.aBasePath, "")
+			
+					if self.core.useLocalFiles:
+						aPath = aPath.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
+					aPath = aPath[1:]
+
+					if len([x for x in self.filteredAssetPaths if aPath in x]) == 0:
+						continue
+
 				item = QTreeWidgetItem([val, path])
 				self.tw_aHierarchy.addTopLevelItem(item)
 				self.refreshAItem(item, expanded=False)
@@ -1807,7 +1943,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.tw_aHierarchy.topLevelItemCount() > 0:
 			self.tw_aHierarchy.setCurrentItem(self.tw_aHierarchy.topLevelItem(0))
 		else:
+			self.curAsset = None
 			self.refreshAStep()
+			self.refreshAssetinfo()
 
 
 	@err_decorator
@@ -1818,7 +1956,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if expanded:
 			self.adclick = False
-			if item.text(1) not in self.aExpanded:
+			if item.text(1) not in self.aExpanded and not self.e_assetSearch.isVisible():
 				self.aExpanded.append(item.text(1))
 
 		if self.core.useLocalFiles:
@@ -1841,9 +1979,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		isAsset = False
 		if "Export" in dirContent and "Playblasts" in dirContent and "Rendering" in dirContent and "Scenefiles" in dirContent:
 			isAsset = True
-			item.setText(2, "Asset")
+			item.setText(2, "asset")
 		else:
-			item.setText(2, "Folder")
+			item.setText(2, "folder")
 			childs = []
 			for i in dirContentPaths:
 				if os.path.isdir(i):
@@ -1852,7 +1990,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 						aName = aName.replace(self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath), "")
 					aName = aName[1:]
 
-					if os.path.basename(i) not in childs and aName not in self.omittedEntities["Asset"]:
+					if self.e_assetSearch.isVisible():
+						if len([x for x in self.filteredAssetPaths if aName in x]) == 0:
+							continue
+
+					if os.path.basename(i) not in childs and aName not in self.omittedEntities["asset"]:
 						child = QTreeWidgetItem([os.path.basename(i), i])
 						item.addChild(child)
 						childs.append(os.path.basename(i))
@@ -1864,7 +2006,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			iFont.setBold(True)
 			item.setFont(0, iFont)
 
-		if path in self.aExpanded and not expanded:
+		if path in self.aExpanded and not expanded or self.e_assetSearch.isVisible():
 			item.setExpanded(True)
 
 
@@ -1879,11 +2021,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def refreshAStep(self, cur=None, prev=None):
 		self.lw_aPipeline.clear()
 
-		if self.tw_aHierarchy.currentItem() is None:
-			self.refreshAFile()
+		if not self.curAsset:
+			self.refreshaCat()
 			return
 
-		path = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles")
+		path = os.path.join(self.curAsset, "Scenefiles")
 
 		if self.core.useLocalFiles:
 			path = path.replace(self.core.localProjectPath, self.core.projectPath)
@@ -1908,6 +2050,48 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if self.lw_aPipeline.count() > 0:
 			self.lw_aPipeline.setCurrentRow(0)
 		else:
+			self.curaStep = None
+			self.refreshaCat()
+
+
+	@err_decorator
+	def refreshaCat(self):
+		self.lw_aCategory.clear()
+
+		if not self.curAsset or not self.curaStep:
+			self.refreshAFile()
+			return
+
+		path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
+
+		if self.core.useLocalFiles:
+			path = path.replace(self.core.localProjectPath, self.core.projectPath)
+			lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
+
+		dirContent = []
+
+		if os.path.exists(path):
+			dirContent += [os.path.join(path,x) for x in os.listdir(path)]
+
+		if self.core.useLocalFiles and os.path.exists(lpath):
+			dirContent += [os.path.join(lpath,x) for x in os.listdir(lpath)]
+
+		addedCats = []
+		for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
+			catName = os.path.basename(i)
+			if os.path.isdir(i) and catName not in addedCats:
+				sItem = QListWidgetItem(catName)
+				self.lw_aCategory.addItem(sItem)
+				addedCats.append(catName)
+
+		if self.lw_aCategory.count() > 0:
+			self.lw_aCategory.setCurrentRow(0)
+		else:
+			if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
+				self.curaCat = "category"
+			else:
+				self.curaCat = None
+			
 			self.refreshAFile()
 
 
@@ -1915,8 +2099,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	def refreshAFile(self, cur=None, prev=None):
 		scenefiles = []
 
-		if self.tw_aHierarchy.currentItem() is not None and self.lw_aPipeline.currentItem() is not None:
-			path = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles", self.lw_aPipeline.currentItem().text())
+		if self.curAsset and self.curaStep and self.curaCat:
+			if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
+				path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
+			else:
+				path = os.path.join(self.curAsset, "Scenefiles", self.curaStep, self.curaCat)
 
 			if self.core.useLocalFiles:
 				path = path.replace(self.core.localProjectPath, self.core.projectPath)
@@ -1953,9 +2140,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		#example filename: Body_mod_v0002_details-added_rfr_.max
 		for i in scenefiles:
 			row = []
-			fname = os.path.basename(i).split(self.core.filenameSeperator)
+			fname = self.core.getScenefileData(i)
 
-			if len(fname) == 6 and fname[5] in appfilter:
+			if "extension" not in fname or fname["extension"] not in appfilter and not ("*" in appfilter and (fname["extension"] not in self.core.getPluginSceneFormats() and "info" not in fname["extension"] and "preview" not in fname["extension"])):
+				continue
+
+			if fname["type"] == "asset":
 				publicFile = self.core.useLocalFiles and i.startswith(os.path.join(self.core.projectPath, self.scenes, "Assets"))
 
 				if pVersion == 2:
@@ -1966,26 +2156,24 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
 				item.setData(i, Qt.UserRole)
 
-				ext = fname[5]
-
 				colorVals = [128,128,128]
-				if ext in self.core.appPlugin.sceneFormats:
+				if fname["extension"] in self.core.appPlugin.sceneFormats:
 					colorVals = self.core.appPlugin.appColor
 				else:
 					for k in self.core.unloadedAppPlugins.values():
-						if ext in k.sceneFormats:
+						if fname["extension"] in k.sceneFormats:
 							colorVals = k.appColor
 
 				item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
 
 				row.append(item)
-				item = QStandardItem(fname[2])
+				item = QStandardItem(fname["version"])
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(item)
-				if fname[3] == "nocomment":
+				if fname["comment"] == "nocomment":
 					item = QStandardItem("")
 				else:
-					item = QStandardItem(fname[3])
+					item = QStandardItem(fname["comment"])
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(QStandardItem(item))
 				filepath = i
@@ -1997,7 +2185,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
 			#	item.setToolTip(cdate)
 				row.append(item)
-				item = QStandardItem(fname[4])
+				item = QStandardItem(fname["user"])
 				item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 				row.append(item)
 
@@ -2031,15 +2219,81 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def Assetclicked(self, item):
-		if item is not None and item.childCount() == 0 and item.text(0) != None:
+		if item is not None and item.childCount() == 0 and item.text(0) != None and item.text(2) == "asset":
 			self.curAsset = item.text(1)
 		else:
 			self.curAsset = None
 
+		self.refreshAssetinfo()
 		self.refreshAStep()
 
 		if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
 			self.updateTasks()
+
+
+	@err_decorator
+	def aPipelineclicked(self, current, prev):
+		if current:
+			self.curaStep = current.text()
+		else:
+			self.curaStep = None
+
+		self.refreshaCat()
+
+
+	@err_decorator
+	def aCatclicked(self, current, prev):
+		if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
+			self.curaCat = "category"
+
+		elif current:
+			self.curaCat = current.text()
+
+		else:
+			self.curaCat = None
+
+		self.refreshAFile()
+
+
+	@err_decorator
+	def refreshAssetinfo(self):
+		pmap = None
+
+		if self.curAsset:
+			assetName = os.path.basename(self.curAsset)
+			assetFile = os.path.join(os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml")
+
+			description = ""
+
+			assetInfos = self.core.readYaml(assetFile)
+			if not assetInfos:
+				assetInfos = {}
+
+			if assetName in assetInfos and "description" in assetInfos[assetName]:
+				description = assetInfos[assetName]["description"]
+
+			imgPath = os.path.join(os.path.dirname(self.core.prismIni), "Assetinfo", "%s_preview.jpg" % assetName)
+
+			if os.path.exists(imgPath):
+				pm = self.getImgPMap(imgPath)
+				if pm.width() > 0 and pm.height() > 0:
+					if (pm.width()/float(pm.height())) > 1.7778:
+						pmap = pm.scaledToWidth(self.shotPrvXres)
+					else:
+						pmap = pm.scaledToHeight(self.shotPrvYres)
+		else:
+			curItem = self.tw_aHierarchy.currentItem()
+			if not curItem:
+				description = "No asset selected"
+			else:
+				description = "Folder selected"
+
+		if pmap is None:
+			pmap = self.emptypmapPrv
+
+		self.l_aDescription.setText(description)
+		self.l_assetPreview.setMinimumSize(pmap.width(), pmap.height())
+		self.l_assetPreview.setPixmap(pmap)
 
 
 	@err_decorator
@@ -2065,16 +2319,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		sequences = []
 		shots = []
+
+		searchFilter = ""
+		if self.e_shotSearch.isVisible():
+			searchFilter = self.e_shotSearch.text()
+
 		for path in sorted(dirs):
 			val = os.path.basename(path)
-			if not val.startswith("_") and val not in self.omittedEntities["Shot"]:
-				if "-" in val:
-					sname = val.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
-					seqName = "no sequence"
-					shotName = val
+			if not val.startswith("_") and val not in self.omittedEntities["shot"]:
+				shotName, seqName = self.splitShotname(val)
+
+				if searchFilter not in seqName and searchFilter not in shotName:
+					continue
 
 				if shotName != "":
 					shots.append([seqName, shotName, val])
@@ -2083,12 +2339,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					sequences.append(seqName)
 
 		sequences = sorted(sequences)
-		shots = sorted(shots)
+		shots = sorted(shots, key=lambda x: self.core.naturalKeys(x[1]))
 
 		if "no sequence" in sequences:
 			sequences.insert(len(sequences), sequences.pop(sequences.index("no sequence")))
 
 		return sequences, shots
+
+
+	@err_decorator
+	def splitShotname(self, shotName):
+		if shotName and self.core.sequenceSeparator in shotName:
+			sname = shotName.split(self.core.sequenceSeparator, 1)
+			seqName = sname[0]
+			shotName = sname[1]
+		else:
+			seqName = "no sequence"
+			shotName = shotName
+
+		return shotName, seqName
 
 
 	@err_decorator
@@ -2098,9 +2367,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		sequences, shots = self.getShots()
 
 		for seqName in sequences:
-			seqItem = QTreeWidgetItem([seqName, seqName + "-"])
+			seqItem = QTreeWidgetItem([seqName, seqName + self.core.sequenceSeparator])
 			self.tw_sShot.addTopLevelItem(seqItem)
-			if seqName in self.sExpanded:
+			if seqName in self.sExpanded or self.e_shotSearch.isVisible():
 				seqItem.setExpanded(True)
 
 		for i in shots:
@@ -2125,6 +2394,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def sItemCollapsed(self, item):
+		if self.e_shotSearch.isVisible():
+			return
+
 		self.sdclick = False
 		exp = item.isExpanded()
 
@@ -2138,62 +2410,73 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshsStep(self, cur=None, prev=None):
-		model = QStandardItemModel()
+		self.lw_sPipeline.clear()
 
-		if self.cursShots is not None:
-			foldercont = ["","",""]
-			for i in os.walk(os.path.join(self.sBasePath, self.cursShots, "Scenefiles")):
-				foldercont = i
-				break
+		if not self.cursShots:
+			self.refreshsCat()
+			return
 
-			for i in sorted(foldercont[1]):
-				item = QStandardItem(i)
-				model.appendRow(item)
+		path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles")
 
-		self.lw_sPipeline.setModel(model)
+		if self.core.useLocalFiles:
+			path = path.replace(self.core.localProjectPath, self.core.projectPath)
+			lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
 
-		selModel = self.lw_sPipeline.selectionModel()
-		selModel.currentRowChanged.connect(lambda x, y: self.sPipelineclicked(x))
+		dirContent = []
 
-		if self.lw_sPipeline.model().rowCount() > 0:
-			idx = self.lw_sPipeline.model().index(0,0)
-			self.lw_sPipeline.selectionModel().setCurrentIndex(idx, QItemSelectionModel.ClearAndSelect)
+		if os.path.exists(path):
+			dirContent += [os.path.join(path,x) for x in os.listdir(path)]
+
+		if self.core.useLocalFiles and os.path.exists(lpath):
+			dirContent += [os.path.join(lpath,x) for x in os.listdir(lpath)]
+
+		addedSteps = []
+		for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
+			stepName = os.path.basename(i)
+			if os.path.isdir(i) and stepName not in addedSteps:
+				sItem = QListWidgetItem(stepName)
+				self.lw_sPipeline.addItem(sItem)
+				addedSteps.append(stepName)
+
+		if self.lw_sPipeline.count() > 0:
+			self.lw_sPipeline.setCurrentRow(0)
 		else:
-			self.cursStep = None
+			self.cursCat = None
 			self.refreshsCat()
 
 
 	@err_decorator
 	def refreshsCat(self):
-		model = QStandardItemModel()
+		self.lw_sCategory.clear()
 
-		if self.cursStep is not None:
-			foldercont = ["","",""]
-			for i in os.walk(os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)):
-				foldercont = i
-				break
-				
-			for i in sorted(foldercont[1]):
-				item = QStandardItem(i)
-				model.appendRow(item)
+		if not self.cursStep:
+			self.refreshSFile()
+			return
 
-		self.lw_sCategory.setModel(model)
+		path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)
 
-		selModel = self.lw_sCategory.selectionModel()
-		selModel.currentRowChanged.connect(lambda x, y: self.sCatclicked(x))
+		if self.core.useLocalFiles:
+			path = path.replace(self.core.localProjectPath, self.core.projectPath)
+			lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
 
-		if self.lw_sCategory.model().rowCount() > 0:
-			idxList = self.lw_sCategory.model().findItems("main")
-			if len(idxList) > 0:
-				idx = self.lw_sCategory.model().indexFromItem(idxList[0])
-			else:
-				idxList = self.lw_sCategory.model().findItems("_main")
-				if len(idxList) > 0:
-					idx = self.lw_sCategory.model().indexFromItem(idxList[0])
-				else:
-					idx = self.lw_sCategory.model().index(0,0)
+		dirContent = []
 
-			self.lw_sCategory.selectionModel().setCurrentIndex(idx, QItemSelectionModel.ClearAndSelect)
+		if os.path.exists(path):
+			dirContent += [os.path.join(path,x) for x in os.listdir(path)]
+
+		if self.core.useLocalFiles and os.path.exists(lpath):
+			dirContent += [os.path.join(lpath,x) for x in os.listdir(lpath)]
+
+		addedCats = []
+		for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
+			catName = os.path.basename(i)
+			if os.path.isdir(i) and catName not in addedCats:
+				sItem = QListWidgetItem(catName)
+				self.lw_sCategory.addItem(sItem)
+				addedCats.append(catName)
+
+		if self.lw_sCategory.count() > 0:
+			self.lw_sCategory.setCurrentRow(0)
 		else:
 			self.cursCat = None
 			self.refreshSFile()
@@ -2232,14 +2515,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 			for i in scenefiles:
 				row = []
-				fname = os.path.basename(i).split(self.core.filenameSeperator)
+				fname = self.core.getScenefileData(i)
 				tmpScene = False
 				try:
-					x = int(fname[7][-5:])
+					x = int(fname["extension"][-5:])
 					tmpScene = True
 				except:
 					pass
-				if len(fname) == 8 and fname[7] in appfilter and not tmpScene:
+
+				if "extension" not in fname or fname["extension"] not in appfilter and not ("*" in appfilter and (fname["extension"] not in self.core.getPluginSceneFormats() and "info" not in fname["extension"] and "preview" not in fname["extension"])):
+					continue
+
+				if fname["type"] == "shot" and not tmpScene:
 					publicFile = self.core.useLocalFiles and i.startswith(os.path.join(self.core.projectPath, self.scenes, "Shots"))
 
 					if pVersion == 2:
@@ -2250,26 +2537,24 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
 					item.setData(i, Qt.UserRole)
 
-					ext = fname[7]
-
 					colorVals = [128,128,128]
-					if ext in self.core.appPlugin.sceneFormats:
+					if fname["extension"] in self.core.appPlugin.sceneFormats:
 						colorVals = self.core.appPlugin.appColor
 					else:
 						for k in self.core.unloadedAppPlugins.values():
-							if ext in k.sceneFormats:
+							if fname["extension"] in k.sceneFormats:
 								colorVals = k.appColor
 
 					item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
 
 					row.append(item)
-					item = QStandardItem(fname[4])
+					item = QStandardItem(fname["version"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					if fname[5] == "nocomment":
+					if fname["comment"] == "nocomment":
 						item = QStandardItem("")
 					else:
-						item = QStandardItem(fname[5])
+						item = QStandardItem(fname["comment"])
 				#	self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
@@ -2281,7 +2566,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
 				#	item.setToolTip(cdate)
 					row.append(item)
-					item = QStandardItem(fname[6])
+					item = QStandardItem(fname["user"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
 
@@ -2326,9 +2611,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def sPipelineclicked(self, index):
-		if index.data() != None:
-			self.cursStep = index.data()
+	def sPipelineclicked(self, current, prev):
+		if current:
+			self.cursStep = current.text()
 		else:
 			self.cursStep = None
 
@@ -2336,9 +2621,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def sCatclicked(self, index):
-		if index.data() != None:
-			self.cursCat = index.data()
+	def sCatclicked(self, current, prev):
+		if current:
+			self.cursCat = current.text()
 		else:
 			self.cursCat = None
 
@@ -2350,40 +2635,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		pmap = None
 
 		if self.cursShots is not None:
-			shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
-
 			startFrame = "?"
 			endFrame = "?"
 
-			if os.path.exists(shotFile):
-				sconfig = ConfigParser()
-				try:
-					sconfig.read(shotFile)
-				except:
-					warnStr = "Could not read the configuration file for the frameranges:\n%s\n\nYou can try to fix this problem manually.\nYou can also reset this file, which means that the frameranges for all existing shots will be lost." % shotFile
-					msg = QMessageBox(QMessageBox.Warning, "Warning", warnStr, QMessageBox.Ok, parent=self.core.messageParent)
-					msg.addButton("Reset", QMessageBox.YesRole)
-					msg.setFocus()
-					action = msg.exec_()
+			shotRange = self.core.getShotRange(self.cursShots)
+			if shotRange:
+				startFrame, endFrame = shotRange
 
-					if action == 0:
-						if not sconfig.has_section("shotRanges"):
-							sconfig.add_section("shotRanges")
-
-						with open(shotFile, 'w') as inifile:
-							sconfig.write(inifile)
-
-				if sconfig.has_option("shotRanges", self.cursShots):
-					shotRange = eval(sconfig.get("shotRanges", self.cursShots))
-					if type(shotRange) == list and len(shotRange) == 2:
-						startFrame = shotRange[0]
-						endFrame = shotRange[1]
-
-			if len(self.cursShots.split("-")) == 2 and self.cursShots.endswith("-"):
+			shotName, seqName = self.splitShotname(self.cursShots)
+			if not shotName and seqName:
 				rangeText = "Sequence selected"
 			else:
 				rangeText = "Framerange:	%s - %s" % (startFrame, endFrame)
-
 
 			imgPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % self.cursShots)
 
@@ -2406,6 +2669,100 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
+	def rclEntityPreview(self, pos, entity):
+		rcmenu = QMenu()
+
+		if entity == "asset":
+			if not self.curAsset:
+				return
+
+			exp = QAction("Edit asset description", self)
+			exp.triggered.connect(lambda: self.editAsset(self.curAsset))
+			rcmenu.addAction(exp)
+
+			copAct = QAction("Capture assetpreview", self)
+			copAct.triggered.connect(lambda: self.captureEntityPreview("asset", self.curAsset))
+			rcmenu.addAction(copAct)
+		else:
+			shotName, seqName = self.splitShotname(self.cursShots)
+			if not shotName:
+				return
+
+			exp = QAction("Edit shotinfo", self)
+			exp.triggered.connect(lambda: self.editShot(self.cursShots))
+			rcmenu.addAction(exp)
+
+			copAct = QAction("Capture shotpreview", self)
+			copAct.triggered.connect(lambda: self.captureEntityPreview("shot", self.cursShots))
+			rcmenu.addAction(copAct)
+
+		self.core.appPlugin.setRCStyle(self, rcmenu)
+		rcmenu.exec_(QCursor.pos())
+
+
+	@err_decorator
+	def captureEntityPreview(self, entity, entityname):
+		if entity == "asset":
+			folderName = "Assetinfo"
+			entityname = os.path.basename(entityname)
+			refresh = self.refreshAssetinfo
+		else:
+			folderName = "Shotinfo"
+			refresh = self.refreshShotinfo
+
+		from PrismUtils import ScreenShot
+		previewImg = ScreenShot.grabScreenArea(self.core)
+
+		if previewImg:
+			if (previewImg.width()/float(previewImg.height())) > 1.7778:
+				pmsmall = previewImg.scaledToWidth(self.shotPrvXres)
+			else:
+				pmsmall = previewImg.scaledToHeight(self.shotPrvYres)
+
+			prvPath = os.path.join(os.path.dirname(self.core.prismIni), folderName, "%s_preview.jpg" % entityname)
+			self.savePMap(pmsmall, prvPath)
+
+			refresh()
+
+
+	@err_decorator
+	def editAsset(self, assetName=None):
+		if not assetName:
+			return
+
+		assetName = os.path.basename(assetName)
+
+		descriptionDlg = EnterText.EnterText()
+		self.core.parentWindow(descriptionDlg)
+		descriptionDlg.setWindowTitle("Enter description")
+		descriptionDlg.l_info.setText("Description:")
+		descriptionDlg.te_text.setPlainText(self.l_aDescription.text())
+
+		c = descriptionDlg.te_text.textCursor()
+		c.setPosition(0);
+		c.setPosition(len(self.l_aDescription.text()), QTextCursor.KeepAnchor)
+		descriptionDlg.te_text.setTextCursor(c)
+
+		result = descriptionDlg.exec_()
+
+		if result:
+			description = descriptionDlg.te_text.toPlainText()
+			self.l_aDescription.setText(description)
+
+			assetFile = os.path.join(os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml")
+			assetInfos = self.core.readYaml(assetFile)
+			if not assetInfos:
+				assetInfos = {}
+
+			if assetName not in assetInfos:
+				assetInfos[assetName] = {}
+
+			assetInfos[assetName]["description"] = description
+
+			self.core.writeYaml(assetFile, assetInfos)
+
+
+	@err_decorator
 	def editShot(self, shotName=None):
 		sequs = []
 		for i in range(self.tw_sShot.topLevelItemCount()):
@@ -2421,11 +2778,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		import EditShot
 		self.es = EditShot.EditShot(core = self.core, shotName= shotName, sequences=sequs)
 		self.core.parentWindow(self.es)
-		if shotName is None:
+		sName, seqName = self.splitShotname(shotName)
+		if not sName:
 			self.es.setWindowTitle("Create Shot")
 
 			if self.cursShots is not None:
-				self.es.e_sequence.setText(self.cursShots.split("-")[0])
+				sName, seqName = self.splitShotname(self.cursShots)
+				if seqName != "no sequence":
+					self.es.e_sequence.setText(seqName)
 				self.es.e_shotName.setFocus()
 
 		self.core.callback(name="onShotDlgOpen", types=["custom"], args=[self, self.es, shotName])
@@ -2440,13 +2800,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.refreshShots()
 
-		if "-" in self.es.shotName:
-			sname = self.es.shotName.split("-",1)
-			seqName = sname[0]
-			shotName = sname[1]
-		else:
-			seqName = "no sequence"
-			shotName = self.es.shotName
+		shotName, seqName = self.splitShotname(self.es.shotName)
 
 		for i in range(self.tw_sShot.topLevelItemCount()):
 			sItem = self.tw_sShot.topLevelItem(i)
@@ -2459,29 +2813,58 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 
 	@err_decorator
-	def createShot(self, shotName):
-		self.createShotFolders(shotName, "Shot")
+	def createShot(self, shotName, frameRange=None):
+		result = self.createShotFolders(shotName, "shot")
 
-		self.refreshShots()
+		if result == True or not result:
+			return result
 
-		if "-" in self.es.shotName:
-			sname = self.es.shotName.split("-",1)
-			seqName = sname[0]
-			shotName = sname[1]
-		else:
-			seqName = "no sequence"
-			shotName = self.es.shotName
+		if frameRange:
+			shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
+
+			if not os.path.exists(os.path.dirname(shotFile)):
+				os.makedirs(os.path.dirname(shotFile))
+
+			if not os.path.exists(shotFile):
+				open(shotFile, 'a').close()
+
+			sconfig = ConfigParser()
+			try:
+				sconfig.read(shotFile)
+			except:
+				pass
+			else:
+				if not sconfig.has_section("shotRanges"):
+					sconfig.add_section("shotRanges")
+
+				sconfig.set("shotRanges", shotName, str(frameRange))
+
+				with open(shotFile, 'w') as inifile:
+					sconfig.write(inifile)
+
+		if self.core.uiAvailable:
+			self.refreshShots()
+
+		shotName, seqName = self.splitShotname(shotName)
 
 		self.core.callback(name="onShotCreated", types=["custom"], args=[self, seqName, shotName])
 
-		for i in range(self.tw_sShot.topLevelItemCount()):
-			sItem = self.tw_sShot.topLevelItem(i)
-			if sItem.text(0) == seqName:
-				sItem.setExpanded(True)
-				for k in range(sItem.childCount()):
-					shotItem = sItem.child(k)
-					if shotItem.text(0) == shotName:
-						self.tw_sShot.setCurrentItem(shotItem)
+		if self.core.uiAvailable:
+			for i in range(self.tw_sShot.topLevelItemCount()):
+				sItem = self.tw_sShot.topLevelItem(i)
+				if sItem.text(0) == seqName:
+					sItem.setExpanded(True)
+					for k in range(sItem.childCount()):
+						shotItem = sItem.child(k)
+						if shotItem.text(0) == shotName:
+							self.tw_sShot.setCurrentItem(shotItem)
+
+		return result
+
+
+	@err_decorator
+	def showShotSearch(self):
+		self.l_shotSearch.setVisible(True)
 
 
 	@err_decorator
@@ -2585,7 +2968,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				continue
 
 			row = []
-			fname = os.path.basename(i).split(self.core.filenameSeperator)
+			fname = self.core.getScenefileData(i)
+			if fname["type"] == "invalid":
+				continue
 			if os.path.exists(i):
 				if pVersion == 2:
 					item = QStandardItem(unicode("█", "utf-8"))
@@ -2595,33 +2980,31 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
 				item.setData(i, Qt.UserRole)
 
-				ext = fname[-1]
-
 				colorVals = [128,128,128]
-				if ext in self.core.appPlugin.sceneFormats:
+				if fname["extension"] in self.core.appPlugin.sceneFormats:
 					colorVals = self.core.appPlugin.appColor
 				else:
 					for k in self.core.unloadedAppPlugins.values():
-						if ext in k.sceneFormats:
+						if fname["extension"] in k.sceneFormats:
 							colorVals = k.appColor
 
 				item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
 
 				row.append(item)
-				if len(fname) == 6:
-					item = QStandardItem(fname[0])
+				if fname["type"] == "asset":
+					item = QStandardItem(fname["assetName"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					item = QStandardItem(fname[1])
+					item = QStandardItem(fname["step"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					item = QStandardItem(fname[2])
+					item = QStandardItem(fname["version"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					if fname[3] == "nocomment":
+					if fname["comment"] == "nocomment":
 						item = QStandardItem("")
 					else:
-						item = QStandardItem(fname[3])
+						item = QStandardItem(fname["comment"])
 					row.append(item)
 					cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
 					cdate = cdate.replace(microsecond = 0)
@@ -2631,23 +3014,23 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
 				#	item.setToolTip(cdate)
 					row.append(item)
-					item = QStandardItem(fname[4])
+					item = QStandardItem(fname["user"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-				elif len(fname) == 8:
-					item = QStandardItem(fname[1])
+				elif fname["type"] == "shot":
+					item = QStandardItem(fname["shotName"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					item = QStandardItem(fname[2])
+					item = QStandardItem(fname["step"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					item = QStandardItem(fname[4])
+					item = QStandardItem(fname["version"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
-					if fname[5] == "nocomment":
+					if fname["comment"] == "nocomment":
 						item = QStandardItem("")
 					else:
-						item = QStandardItem(fname[5])
+						item = QStandardItem(fname["comment"])
 					row.append(item)
 					cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
 					cdate = cdate.replace(microsecond = 0)
@@ -2657,7 +3040,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 					item.setData(QDateTime.fromString( cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0)
 				#	item.setToolTip(cdate)
 					row.append(item)
-					item = QStandardItem(fname[6])
+					item = QStandardItem(fname["user"])
 					item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
 					row.append(item)
 				else:
@@ -2817,7 +3200,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.core.parentWindow(self.newItem)
 		self.newItem.e_item.setFocus()
 		self.newItem.setWindowTitle("Create " + name)
-		self.newItem.l_item.setText(name + " Name:")
+		nameLabel = "Name:" if name == "Entity" else name + " Name:"
+		self.newItem.l_item.setText(nameLabel)
 		self.newItem.buttonBox.accepted.connect(lambda: self.createCat(tab))
 
 		if tab == "ah":
@@ -2841,6 +3225,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				path = self.tw_aHierarchy.currentItem().text(1)
 			refresh = self.refreshAHierarchy
 			uielement = self.tw_aHierarchy
+		elif tab == "ac":
+			path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
+			refresh = self.refreshaCat
+			uielement = self.lw_aCategory
+			self.curaCat = self.itemName
 		elif tab == "sc":
 			path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)
 			refresh = self.refreshsCat
@@ -2865,7 +3254,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				self.fhierarchy.append(self.fclickedon)
 		elif tab == "ah" and self.newItem.rb_asset.isChecked():
 			assetPath = os.path.join(path, self.itemName)
-			self.createShotFolders(assetPath, "Asset")
+			self.createShotFolders(assetPath, "asset")
 			self.core.callback(name="onAssetCreated", types=["custom"], args=[self, self.itemName, path, self.newItem])
 			for i in self.core.prjManagers.values():
 				i.assetCreated(self, self.newItem, assetPath)
@@ -2897,7 +3286,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def createShotFolders(self, fname, ftype):
-		if ftype == "Asset":
+		if ftype == "asset":
 			basePath = self.aBasePath
 			fname = fname.replace(self.aBasePath, "")
 			if fname[0] in ["/", "\\"]:
@@ -2905,15 +3294,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		else:
 			basePath = self.sBasePath
 
+		sBase = os.path.join(basePath, fname)
 		sFolders = []
-		sFolders.append(os.path.join(basePath, fname, "Scenefiles"))
-		sFolders.append(os.path.join(basePath, fname, "Export"))
-		sFolders.append(os.path.join(basePath, fname, "Playblasts"))
-		sFolders.append(os.path.join(basePath, fname, "Rendering", "3dRender"))
-		sFolders.append(os.path.join(basePath, fname, "Rendering", "2dRender"))
+		sFolders.append(os.path.join(sBase, "Scenefiles"))
+		sFolders.append(os.path.join(sBase, "Export"))
+		sFolders.append(os.path.join(sBase, "Playblasts"))
+		sFolders.append(os.path.join(sBase, "Rendering", "3dRender"))
+		sFolders.append(os.path.join(sBase, "Rendering", "2dRender"))
 
-		if os.path.exists(os.path.dirname(sFolders[0])):
-			if fname in self.omittedEntities[ftype]:
+		if os.path.exists(sBase):
+			if fname in self.omittedEntities[ftype] and self.core.uiAvailable:
 				msgText = "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?" % (ftype, fname)
 				if psVersion == 1:
 					flags = QMessageBox.StandardButton.Yes
@@ -2931,18 +3321,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				else:
 					return
 			else:
-				QMessageBox.warning(self.core.messageParent, "Warning", "The %s %s already exists" % (ftype, fname))
-				return
+				self.core.popup("The %s %s already exists" % (ftype, fname))
+				return True
 
 		for i in sFolders:
 			if not os.path.exists(i):
 				os.makedirs(i)
 
+		return sBase
+
 
 	@err_decorator
 	def createStepWindow(self, tab):
 		if tab == "a":
-			basePath = os.path.join(self.tw_aHierarchy.currentItem().text(1), "Scenefiles")
+			basePath = os.path.join(self.curAsset, "Scenefiles")
 		elif tab == "s":
 			basePath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles")
 		else:
@@ -2975,6 +3367,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				
 			if len(createdDirs) != 0:
 				if tab == "a":
+					self.curaStep = createdDirs[0]
 					self.refreshAHierarchy()
 					self.navigateToCurrent(path=dstname)
 				elif tab == "s":
@@ -2990,11 +3383,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if not stepPath:
 			if entity == "asset":
 				for i in self.core.getAssetPaths():
-					if os.path.baseName(i) == entityName:
+					if os.path.basename(i) == entityName:
 						stepPath = os.path.join(i, "Scenefiles", stepName)
 						break
 				else:
-					QMessageBox.warning(self.core.messageParent, "Warning", "Asset '%s' doesn't exist. Could not create step." % entityName)
+					self.core.popup("Asset '%s' doesn't exist. Could not create step." % entityName)
 					return
 
 			elif entity == "shot":
@@ -3004,17 +3397,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			try:
 				os.makedirs(stepPath)
 			except:
-				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % stepName))
+				self.core.popup("The directory %s could not be created" % stepName)
 				return False
 
-		settings = {"createDefaultCategory":entity == "shot" and createCat}
+		settings = {"createDefaultCategory": (entity == "shot" or self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") != "lower") and createCat}
 
 		self.core.callback(name="onStepCreated", types=["custom"], args=[self, entity, stepName, stepPath, settings])
 
 		if settings["createDefaultCategory"]:
-			self.createDefaultCat(stepName, stepPath)
+			path = self.createDefaultCat(stepName, stepPath)
+			return path
 
-		return True
+		return stepPath
 
 
 	@err_decorator
@@ -3026,18 +3420,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		catName = existingSteps[step]
 		dstname = os.path.join(path, catName)
-		self.createCategory(catName, dstname)
+		path  = self.createCategory(catName, dstname)
+		return path
 
 
 	@err_decorator
 	def createCategory(self, catName, path):
+		if os.path.basename(path) != catName:
+			path = os.path.join(path, catName)
+
 		if not os.path.exists(path):
 			try:
 				os.makedirs(path)
 			except:
 				QMessageBox.warning(self.core.messageParent,"Warning", ("The directory %s could not be created" % path))
+				return
 			else:
 				self.core.callback(name="onCategoryCreated", types=["custom"], args=[self, catName, path])
+		
+		return path
 
 
 	@err_decorator
@@ -3125,38 +3526,38 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			with open(omitConfig, 'w') as inifile:
 				oconfig.write(inifile)
 
-			if eType == "Asset":
+			if eType == "asset":
 				self.refreshAHierarchy()
-			elif eType == "Shot":
+			elif eType == "shot":
 				self.refreshShots()
 
 
 	@err_decorator
 	def refreshOmittedEntities(self):
-		self.omittedEntities = {"Asset":[], "Shot":[]}
+		self.omittedEntities = {"asset":[], "shot":[]}
 		omitPath = os.path.join(os.path.dirname(self.core.prismIni), "Configs", "omits.ini")
 		if os.path.exists(omitPath):
 			oconfig = ConfigParser()
 			oconfig.read(omitPath)
 
 			if oconfig.has_section("Shot"):
-				self.omittedEntities["Shot"] = [x[1] for x in oconfig.items("Shot")]
+				self.omittedEntities["shot"] = [x[1] for x in oconfig.items("Shot")]
 
 			if oconfig.has_section("Asset"):
-				self.omittedEntities["Asset"] = [x[1] for x in oconfig.items("Asset")]
+				self.omittedEntities["asset"] = [x[1] for x in oconfig.items("Asset")]
 
 
 	@err_decorator
 	def navigateToCurrent(self, path=None):
 		if path is None:
 			fileName = self.core.getCurrentFileName()
-			fileNameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fileNameData = self.core.getScenefileData(fileName)
 		else:
 			fileName = path
-			fileNameData = []
+			fileNameData = {"type":"invalid"}
 
 		if os.path.join(self.core.projectPath, self.scenes) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.scenes) in fileName):
-			if len(fileNameData) == 6 or self.aBasePath in fileName or (self.core.useLocalFiles and (self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath) in fileName)):
+			if fileNameData["type"] == "asset" or self.aBasePath in fileName or (self.core.useLocalFiles and (self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath) in fileName)):
 				itemPath = fileName.replace(self.core.projectPath, "")
 				if self.core.useLocalFiles:
 					itemPath = itemPath.replace(self.core.localProjectPath, "")
@@ -3206,7 +3607,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 									self.tw_aFiles.selectRow(idx.row())
 									break
 
-			elif (len(fileNameData) == 8 or self.sBasePath in fileName or (self.core.useLocalFiles and self.sBasePath.replace(self.core.projectPath, self.core.localProjectPath) in fileName)) and self.tw_sShot.topLevelItemCount() > 0:
+			elif (fileNameData["type"] == "shot" or self.sBasePath in fileName or (self.core.useLocalFiles and self.sBasePath.replace(self.core.projectPath, self.core.localProjectPath) in fileName)) and self.tw_sShot.topLevelItemCount() > 0:
 				fnamePath = fileName.replace(self.sBasePath, "")
 				if self.core.useLocalFiles:
 					lbase = self.sBasePath.replace(self.core.projectPath, self.core.localProjectPath)
@@ -3223,13 +3624,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				if len(fnameData) > 3:
 					catName = fnameData[3]
 
-				if "-" in shotName:
-					sname = shotName.split("-",1)
-					seqName = sname[0]
-					shotName = sname[1]
-				else:
-					seqName = "no sequence"
-					shotName = shotName
+				shotName, seqName = self.splitShotname(shotName)
 
 				for i in range(self.tw_sShot.topLevelItemCount()):
 					sItem = self.tw_sShot.topLevelItem(i)
@@ -3293,8 +3688,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		if entityName is None:
 			if entityType == "Assets":
-				if self.tw_aHierarchy.currentItem() is not None and self.tw_aHierarchy.currentItem().text(2) == "Asset":
-					self.renderBasePath = self.tw_aHierarchy.currentItem().text(1)
+				if self.curAsset:
+					self.renderBasePath = self.curAsset
 			elif entityType == "Shots" and self.cursShots is not None:
 				self.renderBasePath = os.path.join(self.core.projectPath, self.scenes, "Shots", self.cursShots)
 		else:
@@ -3360,10 +3755,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_task.clear()
 
 		mediaTasks = self.getMediaTasks()
-
+		taskNames = []
 		for i in ["3d", "2d", "playblast", "external"]:
-			for k in mediaTasks[i]:
-				self.lw_task.addItem(k[0])
+			taskNames += sorted(list({x[0] for x in mediaTasks[i]}))
+		
+		self.lw_task.addItems(taskNames)
 
 		mIdx = self.lw_task.findItems("main", (Qt.MatchExactly & Qt.MatchCaseSensitive))
 		if len(mIdx) > 0:
@@ -3373,7 +3769,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			self.lw_task.setCurrentRow(0)
 
 		self.renderRefreshEnabled = True
-
 
 		self.updateVersions()
 
@@ -3806,6 +4201,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def savePMap(self, pmap, path):
+		if not os.path.exists(os.path.dirname(path)):
+			os.makedirs(os.path.dirname(path))
+
 		if platform.system() == "Windows":
 			pmap.save(path, "JPG")
 		else:
@@ -4251,10 +4649,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			rcmenu.addMenu(cvtMenu)
 			self.core.appPlugin.setRCStyle(self, cvtMenu)
 
-		if self.tbw_browser.currentWidget().property("tabType") == "Shots" and len(mediaPlayback["seq"]) > 0:
-			prvAct = QAction("Set as shotpreview", self)
-			prvAct.triggered.connect(self.setPreview)
-			rcmenu.addAction(prvAct)
+		if len(mediaPlayback["seq"]) > 0:
+			if self.tbw_browser.currentWidget().property("tabType") == "Assets":
+				prvAct = QAction("Set as assetpreview", self)
+				prvAct.triggered.connect(self.setPreview)
+				rcmenu.addAction(prvAct)
+
+			elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
+				prvAct = QAction("Set as shotpreview", self)
+				prvAct.triggered.connect(self.setPreview)
+				rcmenu.addAction(prvAct)
 
 		if len(mediaPlayback["seq"]) > 0 and not self.curRVersion.endswith(" (local)") and self.core.getConfig('paths', "dailies", configPath=self.core.prismIni) is not None:
 			dliAct = QAction("Send to dailies", self)
@@ -4272,10 +4676,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def setPreview(self):
-		prvPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % self.cursShots)
+		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
+			folderName = "Assetinfo"
+			entityName = self.curAsset
+			refresh = self.refreshAssetinfo
+		else:
+			folderName = "Shotinfo"
+			entityName = self.cursShots
+			refresh = self.refreshShotinfo
 
-		if not os.path.exists(os.path.dirname(prvPath)):
-			os.makedirs(os.path.dirname(prvPath))
+		prvPath = os.path.join(os.path.dirname(self.core.prismIni), folderName, "%s_preview.jpg" % entityName)
 
 		pm = self.l_preview.pixmap()
 		if (pm.width()/float(pm.height())) > 1.7778:
@@ -4285,7 +4695,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 		self.savePMap(pmap, prvPath)
 
-		self.refreshShotinfo()
+		refresh()
 
 
 	@err_decorator
@@ -4301,23 +4711,23 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		if not os.path.exists(dailiesFolder):
 			os.makedirs(dailiesFolder)
 
-		prvData = mediaPlayback["seq"][0].split(self.core.filenameSeperator)
+		prvData = mediaPlayback["seq"][0].split(self.core.filenameSeparator)
 
 		refName = ""
 
 		if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-			refName += prvData[0] + self.core.filenameSeperator
+			refName += prvData[0] + self.core.filenameSeparator
 		elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-			refName += prvData[0] + self.core.filenameSeperator + prvData[1] + self.core.filenameSeperator
+			refName += prvData[0] + self.core.filenameSeparator + prvData[1] + self.core.filenameSeparator
 
-		refName += self.curRTask + self.core.filenameSeperator + self.curRVersion
+		refName += self.curRTask + self.core.filenameSeparator + self.curRVersion
 		if self.curRLayer != "":
-			refName += self.core.filenameSeperator + self.curRLayer
+			refName += self.core.filenameSeparator + self.curRLayer
 
 		sourcePath = os.path.join(mediaPlayback["basePath"], mediaPlayback["seq"][0])
 
 		if platform.system() == "Windows":
-			folderLinkName = refName + self.core.filenameSeperator + "Folder.lnk"
+			folderLinkName = refName + self.core.filenameSeparator + "Folder.lnk"
 			refName += ".lnk"
 
 			seqLnk = os.path.join(dailiesFolder, refName)
@@ -4517,7 +4927,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		highversion = 0
 		cHighVersion = ""
 		for i in dirs:
-			fname = i.split(self.core.filenameSeperator)
+			fname = i.split(self.core.filenameSeparator)
 
 			try:
 				version = int(i[1:])
@@ -5046,8 +5456,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			cDJVPath = self.core.getConfig("globals", "djvpath")
 
 			if platform.system() == "Windows":
-				if cDJVPath is not None and os.path.exists(os.path.join(cDJVPath, "bin", "djv_view.exe")):
-					self.djv = os.path.join(cDJVPath, "bin", "djv_view.exe")
+				for i in ["djv_view.exe", "djv.exe"]:
+					djvPath = os.path.join(cDJVPath, "bin", i)
+					if cDJVPath is not None and os.path.exists(djvPath):
+						self.djv = djvPath
+						break
 				else:
 					key = _winreg.OpenKey(
 						_winreg.HKEY_LOCAL_MACHINE,
@@ -5058,8 +5471,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 					self.djv = (_winreg.QueryValue(key, None)).split(" \"%1\"")[0]
 			else:
-				if cDJVPath is not None and os.path.exists(os.path.join(cDJVPath, "bin", "djv_view.sh")):
-					self.djv = os.path.join(cDJVPath, "bin", "djv_view.sh")
+				for i in ["djv_view.sh", "djv.sh"]:
+					djvPath = os.path.join(cDJVPath, "bin", i)
+					if cDJVPath is not None and os.path.exists(djvPath):
+						self.djv = djvPath
+						break
 				else:
 					self.djv = "/usr/local/djv-1.1.0-Linux-64/bin/djv_view.sh"
 

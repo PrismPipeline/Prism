@@ -623,6 +623,9 @@
                       <property name="focusPolicy">
                        <enum>Qt::NoFocus</enum>
                       </property>
+                      <property name="contextMenuPolicy">
+                       <enum>Qt::CustomContextMenu</enum>
+                      </property>
                       <property name="toolTip">
                        <string>Set the framerange defined on the left to the timeline</string>
                       </property>

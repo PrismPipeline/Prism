@@ -61,7 +61,7 @@ class Prism_PluginEmpty_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_PluginEmpty %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_PluginEmpty - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -191,7 +191,7 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		#load scenefile
 		return True
 
@@ -304,9 +304,9 @@ class Prism_PluginEmpty_Functions(object):
 		pass
 
 
-	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName):
-		origin.l_taskName.setText(origin.nameWin.e_item.text())
+#	@err_decorator
+#	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
+#		origin.l_taskName.setText(newTaskName)
 
 
 	@err_decorator
@@ -390,14 +390,6 @@ class Prism_PluginEmpty_Functions(object):
 		rlayerNames = []
 
 		return rlayerNames
-
-
-	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setPalette(origin.warnPalette)
-		else:
-			origin.b_changeTask.setPalette(origin.oldPalette)
 
 
 	@err_decorator

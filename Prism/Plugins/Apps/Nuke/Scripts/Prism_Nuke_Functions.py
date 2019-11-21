@@ -63,7 +63,7 @@ class Prism_Nuke_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Nuke %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Nuke - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -73,7 +73,7 @@ class Prism_Nuke_Functions(object):
 	def startup(self, origin):
 		origin.timer.stop()
 
-		for obj in qApp.topLevelWidgets():
+		for obj in QApplication.topLevelWidgets():
 			if (obj.inherits('QMainWindow') and obj.metaObject().className() == 'Foundry::UI::DockMainWindow'):
 				nukeQtParent = obj
 				break
@@ -281,7 +281,7 @@ class Prism_Nuke_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if os.path.splitext(filepath)[1] not in self.sceneFormats:
 			return False
 
@@ -372,8 +372,9 @@ class Prism_Nuke_Functions(object):
 		nukeBeautyYDistance = 500
 		nukeBackDropFontSize = 100
 		self.nukeIdxNode = None
+		mpb = origin.mediaPlaybacks["shots"]
 
-		passFolder = os.path.dirname(os.path.dirname(os.path.join(origin.basepath, origin.seq[0]))).replace("\\", "/")
+		passFolder = os.path.dirname(os.path.dirname(os.path.join(mpb["basePath"], mpb["seq"][0]))).replace("\\", "/")
 
 		if not os.path.exists(passFolder):
 			return
@@ -439,11 +440,11 @@ class Prism_Nuke_Functions(object):
 			curPassName = os.listdir(curPassPath)[0].split(".")[0]
 
 			if len(os.listdir(curPassPath)) > 1:
-				if not hasattr(origin, "pstart") or not hasattr(origin, "pend") or origin.pstart == "?" or origin.pend == "?":
+				if "pstart" not in mpb or "pend" not in mpb or mpb["pstart"] == "?" or mpb["pend"] == "?":
 					return
 
-				firstFrame = origin.pstart
-				lastFrame = origin.pend
+				firstFrame = mpb["pstart"]
+				lastFrame = mpb["pend"]
 
 				increment = "####"
 				curPassFormat = os.listdir(curPassPath)[0].split(".")[-1]

@@ -59,7 +59,7 @@ class Prism_PluginEmpty_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_PluginEmpty %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_PluginEmpty - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -139,13 +139,34 @@ class Prism_PluginEmpty_Functions(object):
 
 
 	@err_decorator
-	def onAboutToSaveFile(self, origin, filepath):
-		pass
+	def postPublish(self, origin, publishType):
+		'''
+		origin: 		StateManager instance
+		publishType: 	The type (string) of the publish. 
+						Can be "stateExecution" (state was executed from the context menu) or "publish" (publish button was pressed)
+		'''
 
 
 	@err_decorator
-	def onSaveFile(self, origin, filepath):
-		pass
+	def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish):
+		'''
+		origin: 	PrismCore instance
+		filepath: 	The filepath of the scenefile, which will be saved
+		versionUp: 	(bool) True if this save increments the version of that scenefile
+		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
+		isPublish: 	(bool) True if this save was triggered by a publish
+		'''
+
+
+	@err_decorator
+	def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
+		'''
+		origin: 	PrismCore instance
+		filepath: 	The filepath of the scenefile, which was saved
+		versionUp: 	(bool) True if this save increments the version of that scenefile
+		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
+		isPublish: 	(bool) True if this save was triggered by a publish
+		'''
 
 
 	@err_decorator
@@ -198,13 +219,54 @@ class Prism_PluginEmpty_Functions(object):
 
 		
 	@err_decorator
-	def openPBFileContextMenu(self, origin, rcmenu):
-		# gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of the Project Browser
+	def openPBFileContextMenu(self, origin, rcmenu, index):
+		# gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of assets or shots in the Project Browser.
 		pass
 
 
 	@err_decorator
 	def openPBListContextMenu(self, origin, rcmenu, listWidget, item, path):
+		# gets called before "rcmenu" get displayed for the "Tasks" and "Versions" list in the Project Browser.
+		pass
+
+
+	@err_decorator
+	def openPBAssetContextMenu(self, origin, rcmenu, index):
+		'''
+		origin: Project Browser instance
+		rcmenu: QMenu object, which can be modified before it gets displayed
+		index: QModelIndex object of the item on which the user clicked. Use index.data() to get the text of the index.
+		'''
+		pass
+
+
+	@err_decorator
+	def openPBAssetStepContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openPBAssetCategoryContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openPBShotContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openPBShotStepContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openPBShotCategoryContextMenu(self, origin, rcmenu, index):
+		pass
+
+
+	@err_decorator
+	def openTrayContextMenu(self, origin, rcmenu):
 		pass
 
 
@@ -273,4 +335,30 @@ class Prism_PluginEmpty_Functions(object):
 		
 		Use python string formatting to modify the command:
 		params["export_cmd"] = params["export_cmd"][:-1] + " -attr material" + params["export_cmd"][-1]
+		'''
+
+	@err_decorator
+	def preSubmit_Deadline(self, origin, jobInfos, pluginInfos, arguments):
+		'''
+		origin: reference to the Deadline plugin class
+		jobInfos: List containing the data that will be written to the JobInfo file. Can be modified.
+		pluginInfos: List containing the data that will be written to the PluginInfo file. Can be modified.
+		arguments: List of arguments that will be send to the Deadline submitter. This contains filepaths to all submitted files (note that they are eventually not created at this point).
+		
+		Gets called before a render or simulation job gets submitted to the Deadline renderfarmmanager.
+		This function can modify the submission parameters.
+
+		Example:
+		jobInfos["PostJobScript"] = "D:/Scripts/Deadline/myPostJobTasks.py"
+
+		You can find more available job parameters here:
+		https://docs.thinkboxsoftware.com/products/deadline/10.0/1_User%20Manual/manual/manual-submission.html
+		'''
+
+
+	@err_decorator
+	def postSubmit_Deadline(self, origin, result):
+		'''
+		origin: reference to the Deadline plugin class
+		result: the return value from the Deadline submission.
 		'''

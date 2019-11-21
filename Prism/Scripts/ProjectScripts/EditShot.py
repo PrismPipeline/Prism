@@ -232,7 +232,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 		text = self.core.validateStr(origText)
 
 		if editField == self.e_sequence:
-			text = text.replace("-","")
+			text = text.replace(self.core.sequenceSeparator,"")
 
 		if len(text) != len(origText):
 			cpos = editField.cursorPosition()
@@ -278,18 +278,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 			msg.exec_()
 			return False
 
-		shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
-
-		if not os.path.exists(os.path.dirname(shotFile)):
-			os.makedirs(os.path.dirname(shotFile))
-
-		if not os.path.exists(shotFile):
-			open(shotFile, 'a').close()
-
 		if self.e_sequence.text() == "":
 			newSName = self.e_shotName.text()
 		else:
-			newSName = "%s-%s" %(self.e_sequence.text(), self.e_shotName.text())
+			newSName = "%s%s%s" %(self.e_sequence.text(), self.core.sequenceSeparator, self.e_shotName.text())
 
 		if self.shotName is not None and newSName != self.shotName:
 			msgText = "Are you sure you want to rename this shot from \"%s\" to \"%s\"?\n\nThis will rename all files in the subfolders of the shot, which may cause errors, if these files are referenced somewhere else." % (self.shotName, newSName)
@@ -305,38 +297,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 				self.core.checkCommands()
 
 		self.shotName = newSName
-
-		saveRange = True
-		sconfig = ConfigParser()
-		while True:
-			try:
-				sconfig.read(shotFile)
-				break
-			except:
-				warnStr = "Could not read the configuration file for the frameranges:\n%s\n\nYou can try to fix this problem manually and then press retry.\nYou can also overwrite this file, which means that the frameranges for all existing shots will be lost.\nYou can also continue without saving the framerange for the current shot." % shotFile
-				msg = QMessageBox(QMessageBox.Warning, "Warning", warnStr, QMessageBox.NoButton, parent=self.core.messageParent)
-				msg.addButton("Retry", QMessageBox.YesRole)
-				msg.addButton("Overwrite", QMessageBox.YesRole)
-				msg.addButton("Continue", QMessageBox.YesRole)
-				msg.setFocus()
-				action = msg.exec_()
-
-				if action == 0:
-					pass
-				elif action == 1:
-					break
-				elif action == 2:
-					saveRange = False
-					break
-
-		if saveRange:
-			if not sconfig.has_section("shotRanges"):
-				sconfig.add_section("shotRanges")
-
-			sconfig.set("shotRanges", self.shotName, str([self.sp_startFrame.value(), self.sp_endFrame.value()]))
-
-			with open(shotFile, 'w') as inifile:
-				sconfig.write(inifile)
+		self.core.setShotRange(self.shotName, self.sp_startFrame.value(), self.sp_endFrame.value())
 
 		if hasattr(self, "pmap"):
 			prvPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % self.shotName)
@@ -351,25 +312,15 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 	@err_decorator
 	def loadData(self):
 		if self.shotName is not None:
-			if "-" in self.shotName:
-				sname = self.shotName.split("-",1)
-				self.e_sequence.setText(sname[0])
-				self.e_shotName.setText(sname[1])
-			else:
-				self.e_shotName.setText(self.shotName)
+			shotName, seqName = self.core.pb.splitShotname(self.shotName)
+			if seqName and seqName != "no sequence":
+				self.e_sequence.setText(seqName)
+			self.e_shotName.setText(shotName)
 
-			shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
-
-			if os.path.exists(shotFile):
-				sconfig = ConfigParser()
-				sconfig.read(shotFile)
-
-				if sconfig.has_option("shotRanges", self.shotName):
-					shotRange = eval(sconfig.get("shotRanges", self.shotName))
-					if type(shotRange) == list and len(shotRange) == 2:
-						self.sp_startFrame.setValue(shotRange[0])
-						self.sp_endFrame.setValue(shotRange[1])
-
+			shotRange = self.core.getShotRange(self.shotName)
+			if shotRange:
+				self.sp_startFrame.setValue(shotRange[0])
+				self.sp_endFrame.setValue(shotRange[1])
 
 			imgPath = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "%s_preview.jpg" % self.shotName)
 		else:

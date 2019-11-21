@@ -93,7 +93,7 @@ class Prism_Blender_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Blender %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Blender - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -213,7 +213,7 @@ class Prism_Blender_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if not filepath.endswith(".blend"):
 			return False
 
@@ -348,8 +348,8 @@ class Prism_Blender_Functions(object):
 
 
 	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName):
-		setName = origin.nameWin.e_item.text()
+	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
+		setName = newTaskName
 		extension = 1
 		while setName in self.getGroups() and extension < 999:
 			if "%s_%s" % (setName, extension) not in self.getGroups():
@@ -585,14 +585,6 @@ class Prism_Blender_Functions(object):
 		origin.b_resPresets.setMaximumHeight(500*self.core.uiScaleFactor)
 
 		origin.b_osSlaves.setMinimumWidth(50*self.core.uiScaleFactor)
-
-
-	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setStyleSheet("QPushButton { background-color: rgb(200,0,0); }")
-		else:
-			origin.b_changeTask.setStyleSheet("")
 
 
 	@err_decorator
@@ -859,14 +851,12 @@ class Prism_Blender_Functions(object):
 
 	@err_decorator
 	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-		del dlParams["version"]
-		del dlParams["camera"]
-		del dlParams["resolution"]
-
-		dlParams["plugin"] = "Blender"
-		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "blender_plugin_info.job" )
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "blender_submit_info.job" )
-		dlParams["jobComment"] = "Prism-Submission-Blender_ImageRender"
+		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "blender_plugin_info.job" )
+
+		dlParams["jobInfos"]["Plugin"] = "Blender"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Blender_ImageRender"
+		dlParams["pluginInfos"]["OutputFile"] = dlParams["jobInfos"]["OutputFilename0"]
 
 
 	@err_decorator
@@ -908,13 +898,6 @@ class Prism_Blender_Functions(object):
 		bpy.ops.wm.save_as_mainfile(filepath=jobFilePath, copy=True)
 		bpy.ops.wm.revert_mainfile()
 		self.core.stateManager()
-
-
-	@err_decorator
-	def sm_render_getDeadlineSubmissionParams(self, origin, dlParams, jobOutputFile):		
-		dlParams["OutputFile"] = jobOutputFile
-
-		return dlParams
 
 
 	@err_decorator

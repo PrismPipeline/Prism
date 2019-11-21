@@ -85,7 +85,7 @@ except:
 
 
 class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
-	def __init__(self, core, stateDataPath=None):
+	def __init__(self, core, stateDataPath=None, forceStates=[], standalone=False):
 		QMainWindow.__init__(self)
 		self.setupUi(self)
 
@@ -95,6 +95,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 		self.setWindowTitle("Prism - State Manager - " + self.core.projectName)
 
 		self.scenename = self.core.getCurrentFileName()
+		self.standalone = standalone
 
 		self.enabledCol = QBrush(self.tw_import.palette().color(self.tw_import.foregroundRole()))
 		self.b_stateFromNode.setVisible(False)
@@ -165,7 +166,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 					if stateName.startswith("default_") or stateName.startswith(self.core.appPlugin.appShortName.lower()):
 						stateNameBase = stateNameBase.replace(stateName.split("_", 1)[0] + "_", "")
 
-					if stateNameBase in self.stateTypes:
+					if stateNameBase in self.stateTypes and stateName not in forceStates:
 						continue
 
 					if psVersion == 1:
@@ -187,8 +188,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 						del sys.modules[stateName + "_ui_ps2"]
 					except:
 						pass
-
-
+					
 					try:
 						exec("""
 import %s
@@ -202,7 +202,15 @@ class %s(QWidget, %s.%s, %s.%sClass):
 						validState = False
 
 					if validState:
-						self.stateTypes[stateNameBase] = eval(stateNameBase + "Class")
+						classDef = eval(stateNameBase + "Class")
+						try:
+							if not classDef.isActive(self.core):
+								validState = False
+						except:
+							pass
+						
+						if validState:
+							self.stateTypes[stateNameBase] = classDef
 
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -210,9 +218,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				self.core.writeErrorLog(erStr)
 
 		fileName = self.core.getCurrentFileName()
-		fileNameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+		fileNameData = self.core.getScenefileData(fileName)
 
-		self.b_shotCam.setEnabled(len(fileNameData) == 8 and fileNameData[0] == "shot")
+		self.b_shotCam.setEnabled(fileNameData["type"] == "shot")
 
 		self.core.callback(name="onStateManagerOpen", types=["curApp", "custom"], args=[self])
 		self.loadLayout()
@@ -317,6 +325,41 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.b_description.setStyleSheet(self.styleExists)
 		self.b_preview.setStyleSheet(self.styleMissing)
 
+		if "RenderSettings" in self.stateTypes:
+			self.actionRenderSettings = QAction("Rendersettings presets...", self)
+			self.actionRenderSettings.triggered.connect(self.showRenderPresets)
+			self.menuAbout.addSeparator()
+			self.menuAbout.addAction(self.actionRenderSettings)
+
+
+	@err_decorator
+	def showRenderPresets(self):
+		rsUi = self.stateTypes["RenderSettings"]()
+		rsUi.setup(None, self.core, self)
+		rsUi.f_name.setVisible(False)
+		rsUi.chb_editSettings.stateChanged.connect(self.editPresetChanged)
+		rsUi.updateUi()
+		self.dlg_settings = QDialog()
+		self.dlg_settings.setWindowTitle("Rendersettings - Presets")
+		w_settings = QWidget()
+		bb_settings = QDialogButtonBox()
+		bb_settings.addButton("Close", QDialogButtonBox.RejectRole)
+		bb_settings.rejected.connect(self.dlg_settings.reject)
+
+		lo_settings = QVBoxLayout()
+		lo_settings.addWidget(rsUi)
+		lo_settings.addWidget(bb_settings)
+		self.dlg_settings.setLayout(lo_settings)
+		self.core.parentWindow(self.dlg_settings)
+		
+		action = self.dlg_settings.show()
+
+
+	@err_decorator
+	def editPresetChanged(self, state):
+		QCoreApplication.processEvents()
+		self.dlg_settings.resize(0,0)
+
 
 	@err_decorator
 	def setTreePalette(self, listWidget, inactive, inactivef, activef):
@@ -333,68 +376,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			
 		for i in self.collapsedFolders:
 			i.setExpanded(False)
-
-	@err_decorator
-	def loadStates(self, stateText=None):
-		self.saveEnabled = False
-		self.loading = True
-		if stateText is None:
-			stateText = self.core.appPlugin.sm_readStates(self)
-
-		stateData = None
-		if stateText is not None:
-			buf = StringIO(stateText)
-
-			stateData = []
-
-			stateConfig = ConfigParser()
-			validStateData = False
-			try:
-				stateConfig.readfp(buf)
-				validStateData = True
-			except:
-				QMessageBox.warning(self.core.messageParent,"Load states", "Loading states failed.")
-				stateData = None
-
-			if validStateData:
-				if stateConfig.has_option("publish", "startframe"):
-					self.sp_rangeStart.setValue(stateConfig.getint("publish", "startframe"))
-				if stateConfig.has_option("publish", "endframe"):
-					self.sp_rangeEnd.setValue(stateConfig.getint("publish", "endframe"))
-				if stateConfig.has_option("publish", "comment"):
-					self.e_comment.setText(stateConfig.get("publish", "comment"))
-				if stateConfig.has_option("publish", "description"):
-					self.description = stateConfig.get("publish", "description")
-					if self.description == "":
-						self.b_description.setStyleSheet(self.styleMissing)
-					else:
-						self.b_description.setStyleSheet(self.styleExists)
-
-				for i in stateConfig.sections():
-					if i == "publish":
-						continue
-
-					stateProps = {}
-					stateProps["statename"] = i
-					for k in stateConfig.options(i):
-						stateProps[k] = stateConfig.get(i, k)
-
-					stateData.append(stateProps)
-
-		self.collapsedFolders = []
-
-		if stateData is not None and len(stateData) != 0:
-			loadedStates = []
-			for i in stateData:
-				stateParent = None
-				if i["stateparent"] != "None":
-					stateParent = loadedStates[int(i["stateparent"])-1]
-				state = self.createState(i["stateclass"], parent=stateParent, stateData=i)
-				loadedStates.append(state)
-
-		self.loading = False
-		self.saveEnabled = True
-		self.saveStatesToScene()
 
 
 	@err_decorator
@@ -442,6 +423,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			inactive = self.tw_import
 			inactivef = self.f_import
 			activef = self.f_export
+
+		inactive.setCurrentIndex(QModelIndex())
 
 		getattr(self.core.appPlugin, "sm_setActivePalette", lambda x1,x2,x3,x4,x5: self.setTreePalette(x2,x3,x4,x5))(self, listWidget, inactive, inactivef, activef)
 
@@ -576,6 +559,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 		self.b_getRange.clicked.connect(self.getRange)
 		self.b_setRange.clicked.connect(lambda: self.core.setFrameRange(self.sp_rangeStart.value(), self.sp_rangeEnd.value()))
+		self.b_setRange.customContextMenuRequested.connect(self.setRangeContextMenu)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
 		self.b_publish.clicked.connect(self.publish)
@@ -949,7 +933,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				parent = None
 
 			self.createState("ImageRender", parent=parent, renderer=renderer)
-
 			self.setListActive(self.tw_export)
 
 		elif stateType == "Playblast":
@@ -986,9 +969,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.tw_import.setCurrentItem(camState)
 		else:
 			fileName = self.core.getCurrentFileName()
-			fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
+			fnameData = self.core.getScenefileData(fileName)
 			sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-			if not (os.path.exists(fileName) and len(fnameData) == 8 and (os.path.join(self.core.projectPath, sceneDir) in fileName or ( self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName))):
+			if not (os.path.exists(fileName) and fnameData["type"] == "shot" and (os.path.join(self.core.projectPath, sceneDir) in fileName or ( self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName))):
 				QMessageBox.warning(self.core.messageParent,"Could not save the file", "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.")
 				self.saveEnabled = True
 				return False
@@ -1009,7 +992,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 			highversion = 0
 			for i in camFolders:
-				fname = i.split(self.core.filenameSeperator)
+				fname = i.split(self.core.filenameSeparator)
 				if len(fname) == 3 and fname[0][0] == "v" and len(fname[0]) == 5 and int(fname[0][1:5]) > highversion:
 					highversion = int(fname[0][1:5])
 					highFolder = i
@@ -1049,8 +1032,89 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 
 	@err_decorator
+	def loadStates(self, stateText=None):
+		self.saveEnabled = False
+		self.loading = True
+		if stateText is None:
+			stateText = self.core.appPlugin.sm_readStates(self)
+
+		stateData = None
+		if stateText is not None:
+			stateData = []
+			jsonData = self.core.readJson(data=stateText)
+			if jsonData and "states" in jsonData:
+				stateData = jsonData["states"]
+			else:
+				buf = StringIO(stateText)
+				stateConfig = ConfigParser()
+				try:
+					stateConfig.readfp(buf)
+				except:
+					self.core.popup("Loading states failed.", "Prism - Load states")
+					stateData = None
+				else:
+					for i in stateConfig.sections():
+						stateProps = {}
+						stateProps["statename"] = i
+						for k in stateConfig.options(i):
+							stateProps[k] = stateConfig.get(i, k)
+
+						stateData.append(stateProps)
+
+		self.collapsedFolders = []
+
+		if stateData:
+			loadedStates = []
+			for i in stateData:
+				if i["statename"] == "publish":
+					self.loadSettings(i)
+				else:
+					stateParent = None
+					if i["stateparent"] != "None":
+						stateParent = loadedStates[int(i["stateparent"])-1]
+					state = self.createState(i["stateclass"], parent=stateParent, stateData=i)
+					loadedStates.append(state)
+
+		self.loading = False
+		self.saveEnabled = True
+		self.saveStatesToScene()
+
+
+	@err_decorator
+	def loadSettings(self, data):
+		if "startframe" in data:
+			self.sp_rangeStart.setValue(int(data["startframe"]))
+		if "endframe" in data:
+			self.sp_rangeEnd.setValue(int(data["endframe"]))
+		if "comment" in data:
+			self.e_comment.setText(data["comment"])
+		if "description" in data:
+			self.description = data["description"]
+			if self.description == "":
+				self.b_description.setStyleSheet(self.styleMissing)
+			else:
+				self.b_description.setStyleSheet(self.styleExists)
+
+
+	@err_decorator
+	def getSettings(self):
+		stateProps = {}
+		stateProps.update({
+			"statename": "publish",
+			"startframe": str(self.sp_rangeStart.value()),
+		 	"endframe": str(self.sp_rangeEnd.value()),
+		 	"comment": str(self.e_comment.text()),
+		 	"description": self.description,
+		})
+		return stateProps
+
+
+	@err_decorator
 	def saveStatesToScene(self, param=None):
 		if not self.saveEnabled:
+			return False
+
+		if self.standalone:
 			return False
 
 		getattr(self.core.appPlugin, "sm_preSaveToScene", lambda x: None)(self)
@@ -1066,26 +1130,19 @@ class %s(QWidget, %s.%s, %s.%sClass):
 			self.stateData.append([self.tw_export.topLevelItem(i), None])
 			self.appendChildStates(self.stateData[len(self.stateData)-1][0], self.stateData)
 
-		stateConfig = ConfigParser()
-
-		stateConfig.add_section("publish")
-		stateConfig.set("publish", "startframe", str(self.sp_rangeStart.value()))
-		stateConfig.set("publish", "endframe", str(self.sp_rangeEnd.value()))
-		stateConfig.set("publish", "comment", str(self.e_comment.text()))
-		stateConfig.set("publish", "description", self.description)
+		stateData = {"states":[]}
+		stateData["states"].append(self.getSettings())
 
 		for idx, i in enumerate(self.stateData):
-			stateConfig.add_section(str(idx))
-			stateConfig.set(str(idx), "stateparent", str(i[1]))
-			stateConfig.set(str(idx), "stateclass", i[0].ui.className)
-			stateProps = i[0].ui.getStateProps()
-			for k in stateProps:
-				stateConfig.set(str(idx), k, str(stateProps[k]))
+			stateProps = {}
+			stateProps["stateparent"] = str(i[1])
+			stateProps["stateclass"] = i[0].ui.className
+			stateProps.update(i[0].ui.getStateProps())
+			stateData["states"].append(stateProps)
 
-		buf = StringIO()
-		stateConfig.write(buf)
+		stateStr = self.core.writeJson(stateData)
 
-		self.core.appPlugin.sm_saveStates(self, buf.getvalue())
+		self.core.appPlugin.sm_saveStates(self, stateStr)
 
 
 	@err_decorator
@@ -1123,6 +1180,24 @@ class %s(QWidget, %s.%s, %s.%sClass):
 		else:
 			self.b_publish.setEnabled(False)
 			self.b_publish.setText("Publish - (%s more chars needed in comment)" % (1+minLength - len(text)))
+
+
+	@err_decorator
+	def setRangeContextMenu(self, pos):
+		fname = self.core.getCurrentFileName()
+		fnameData = self.core.getScenefileData(fname)
+		if fnameData["type"] != "shot":
+			return
+
+		cMenu = QMenu()
+		actSet = QAction("Set range for current shot", self)
+		start = self.sp_rangeStart.value()
+		end = self.sp_rangeEnd.value()
+		actSet.triggered.connect(lambda x=None: self.core.setShotRange(fnameData["shotName"], start, end))
+		cMenu.addAction(actSet)
+
+		self.core.appPlugin.setRCStyle(self, cMenu)
+		cMenu.exec_(QCursor.pos())
 
 
 	@err_decorator
@@ -1276,22 +1351,16 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 	@err_decorator
 	def getRange(self):
-		shotFile = os.path.join(os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini")
-		if not os.path.exists(shotFile):
-			return False
-
-		shotConfig = ConfigParser()
-		shotConfig.read(shotFile)
-
 		fileName = self.core.getCurrentFileName()
-		fileNameData = os.path.basename(fileName).split(self.core.filenameSeperator)
-		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-		if (os.path.join(self.core.projectPath, sceneDir) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, sceneDir) in fileName)) and len(fileNameData) == 8 and shotConfig.has_option("shotRanges", fileNameData[1]):
-			shotRange = eval(shotConfig.get("shotRanges", fileNameData[1]))
-			if type(shotRange) == list and len(shotRange) == 2:
-				self.sp_rangeStart.setValue(shotRange[0])
-				self.sp_rangeEnd.setValue(shotRange[1])
-				self.saveStatesToScene()
+		fileNameData = self.core.getScenefileData(fileName)
+		if fileNameData["type"] == "shot":
+			shotRange = self.core.getShotRange(fileNameData["shotName"])
+			if not shotRange:
+				return False
+
+			self.sp_rangeStart.setValue(shotRange[0])
+			self.sp_rangeEnd.setValue(shotRange[1])
+			self.saveStatesToScene()
 
 
 	@err_decorator
@@ -1307,7 +1376,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 
 	@err_decorator
-	def publish(self, executeState=False, continuePublish=False, useVersion="next"):
+	def publish(self, executeState=False, continuePublish=False, useVersion="next", states=None):
 		if self.publishPaused and not continuePublish:
 			return
 
@@ -1316,12 +1385,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 		if executeState:
 			self.publishType = "execute"
-			self.execStates = self.getChildStates(self.tw_export.currentItem())
+			self.execStates = states or self.getChildStates(self.tw_export.currentItem())
 			actionString = "Execute"
 			actionString2 = "execution"
 		else:
 			self.publishType = "publish"
-			self.execStates = self.states
+			self.execStates = states or self.states
 			actionString = "Publish"
 			actionString2 = "publish"
 
@@ -1395,22 +1464,42 @@ class %s(QWidget, %s.%s, %s.%sClass):
 						warnings.append(curState.ui.preExecuteState())
 
 			warnString = ""
-			for i in warnings:
-				if len(i[1]) == 0:
-					continue
+			if self.core.uiAvailable:
+				for i in warnings:
+					if len(i[1]) == 0:
+						continue
 
-				if i[0] == "":
-					warnBase = ""
-				else:
-					warnString += "- <b>%s</b>\n\n" % i[0]
-					warnBase = "\t"
+					if i[0] == "":
+						warnBase = ""
+					else:
+						warnString += "- <b>%s</b>\n\n" % i[0]
+						warnBase = "\t"
 
-				for k in i[1]:
-					if k[2] == 2:
-						warnString += warnBase + ("- <font color=\"yellow\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
-					elif k[2] == 3:
-						warnString += warnBase + ("- <font color=\"red\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
-		
+					for k in i[1]:
+						if k[2] == 2:
+							warnString += warnBase + ("- <font color=\"yellow\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
+						elif k[2] == 3:
+							warnString += warnBase + ("- <font color=\"red\">%s</font>\n  %s\n" % (k[0], k[1])).replace("\n", "\n" + warnBase) + "\n"
+			else:
+				for i in warnings:
+					if len(i[1]) == 0:
+						continue
+
+					if i[0] == "":
+						warnBase = ""
+					else:
+						warnString += "- %s\n" % i[0]
+						warnBase = "\t"
+
+					for k in i[1]:
+						warnTitle = k[0].replace("\n", "")
+						warnMsg = k[1].replace("\n", "")
+						if k[2] == 2:
+							warnString += warnBase + ("- %s\n  %s" % (warnTitle, warnMsg)).replace("\n", "\n" + warnBase) + "\n"
+						elif k[2] == 3:
+							warnString += warnBase + ("- %s\n  %s" % (warnTitle, warnMsg)).replace("\n", "\n" + warnBase) + "\n"
+			
+
 			if warnString != "" and self.core.uiAvailable:
 				warnDlg = QDialog()
 
@@ -1466,8 +1555,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 				sceneSaved = self.core.saveScene(comment=self.e_comment.text(), publish=True, details=details, preview=self.previewImg)
 
 			if not sceneSaved:
-				if self.core.uiAvailable:
-					QMessageBox.warning(self.core.messageParent, actionString, actionString + " canceled")
+				self.core.popup(actionString + " canceled", title=actionString)
 				return
 
 			self.description = ""
@@ -1527,6 +1615,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
 							return
 
 		getattr(self.core.appPlugin, "sm_postExecute", lambda x:None)(self)
+		pubType = "stateExecution" if executeState else "publish"
+		self.core.callback(name="postPublish", types=["custom"], args=[self, pubType])
 
 		self.publishInfos = { "updatedExports": {}, "backgroundRender": None}
 		self.osSubmittedJobs = {}
@@ -1541,11 +1631,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 		
 		if success:
-			msgStr = "The %s was successfull." % actionString2
-			if self.core.uiAvailable:
-				QMessageBox.information(self.core.messageParent, actionString, msgStr)
-			else:
-				print (msgStr)
+			msgStr = "The %s was successful." % actionString2
+			self.core.popup(msgStr, title=actionString, severity="info")
 		else:
 			infoString = ""
 			for i in self.publishResult:
@@ -1554,13 +1641,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 			msgStr = "Errors occured during the %s:\n\n" % actionString2 + infoString
 
-			if self.core.uiAvailable:
-				QMessageBox.warning(self.core.messageParent, actionString, msgStr)
-			else:
-				print (msgStr)
+			self.core.popup(msgStr, title=actionString)
 
 		if self.reloadScenefile:
-			self.core.appPlugin.openScene(self, self.core.getCurrentFileName())
+			self.core.appPlugin.openScene(self, self.core.getCurrentFileName(), force=True)
 
 
 	@err_decorator
@@ -1576,4 +1660,37 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
 	@err_decorator
 	def getStateProps(self):
-		return {"startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "comment":self.e_comment.text(), "description":self.description}
+		return {
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"comment":self.e_comment.text(),
+			"description":self.description
+		}
+
+def openStateSettings(core, stateType, settings=None):
+	settings = settings or None
+	stateNameBase = stateType.replace(stateType.split("_", 1)[0] + "_", "")
+	sm = StateManager(core, forceStates=[stateType], standalone=True)
+	item = sm.createState(stateNameBase, stateData=settings)
+
+	dlg_settings = QDialog()
+	dlg_settings.setWindowTitle("Statesettings - %s" % stateNameBase)
+	w_settings = QWidget()
+	bb_settings = QDialogButtonBox()
+	bb_settings.addButton("Accept", QDialogButtonBox.AcceptRole)
+	bb_settings.addButton("Cancel", QDialogButtonBox.RejectRole)
+	bb_settings.accepted.connect(dlg_settings.accept)
+	bb_settings.rejected.connect(dlg_settings.reject)
+
+	lo_settings = QVBoxLayout()
+	lo_settings.addWidget(item.ui)
+	lo_settings.addWidget(bb_settings)
+	dlg_settings.setLayout(lo_settings)
+	dlg_settings.setParent(core.messageParent, Qt.Window)
+
+	action = dlg_settings.exec_()
+
+	if action == 0:
+		return
+
+	return item.ui.getStateProps()

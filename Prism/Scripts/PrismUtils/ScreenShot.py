@@ -49,7 +49,6 @@ class ScreenShot(QDialog):
 	def __init__(self, core):
 		super(ScreenShot, self).__init__()
 		self.core = core
-		self.core.parentWindow(self)
 
 		self.imgmap = None
 		self.origin = None
@@ -150,7 +149,10 @@ class ScreenShot(QDialog):
 				except:
 					pass
 
-			self.imgmap = screen.grabWindow(winID, rect.x(), rect.y(), rect.width(), rect.height())
+			try:
+				self.imgmap = screen.grabWindow(winID, rect.x(), rect.y(), rect.width(), rect.height())
+			except:
+				self.imgmap = screen.grabWindow(int(winID), rect.x(), rect.y(), rect.width(), rect.height())
 			self.close()
 		QWidget.mouseReleaseEvent(self, event)
 

@@ -122,7 +122,8 @@ class PlayblastClass(object):
 		if "endframe" in data:
 			self.sp_rangeEnd.setValue(int(data["endframe"]))
 		if "currentcam" in data:
-			idx = self.cb_cams.findText(self.core.appPlugin.getCamName(self, data["currentcam"]))
+			camName = getattr(self.core.appPlugin, "getCamName", lambda x, y:"")(self, data["currentcam"])
+			idx = self.cb_cams.findText(camName)
 			if idx > 0:
 				self.curCam = self.camlist[idx-1]
 				self.cb_cams.setCurrentIndex(idx)
@@ -217,6 +218,12 @@ class PlayblastClass(object):
 
 
 	@err_decorator
+	def setTaskname(self, taskname):
+		self.l_taskName.setText(taskname)
+		self.updateUi()
+
+
+	@err_decorator
 	def changeTask(self):
 		import CreateItem
 		self.nameWin = CreateItem.CreateItem(startText=self.l_taskName.text(), showTasks=True, taskType="playblast", core=self.core)
@@ -257,6 +264,7 @@ class PlayblastClass(object):
 			pAct.triggered.connect(lambda: self.stateManager.saveStatesToScene())
 			pmenu.addAction(pAct)
 
+		self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
 		pmenu.exec_(QCursor.pos())
 
 
@@ -265,11 +273,13 @@ class PlayblastClass(object):
 		#update Cams
 		self.cb_cams.clear()
 		self.cb_cams.addItem("Don't override")
-		self.camlist = []
+		self.camlist = camNames = []
 
-		self.camlist = self.core.appPlugin.getCamNodes(self)
-	
-		self.cb_cams.addItems([self.core.appPlugin.getCamName(self, i) for i in self.camlist])
+		if not self.stateManager.standalone:
+			self.camlist = self.core.appPlugin.getCamNodes(self)
+			camNames = [self.core.appPlugin.getCamName(self, i) for i in self.camlist]
+
+		self.cb_cams.addItems(camNames)
 
 		if self.curCam in self.camlist:
 			self.cb_cams.setCurrentIndex(self.camlist.index(self.curCam)+1)
@@ -316,29 +326,30 @@ class PlayblastClass(object):
 
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split(self.core.filenameSeperator)[0]
-			pComment = useVersion.split(self.core.filenameSeperator)[1]
+			hVersion = useVersion.split(self.core.filenameSeparator)[0]
+			pComment = useVersion.split(self.core.filenameSeparator)[1]
 
-		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
-		if len(fnameData) == 8:
-			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
+		fnameData = self.core.getScenefileData(fileName)
+		if fnameData["type"] == "shot":
+			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Playblasts", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[5]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
-			outputFile = os.path.join( fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + "..jpg")
-		elif len(fnameData) == 6:
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment)
+			outputFile = os.path.join( "shot" + self.core.filenameSeparator + fnameData["shotName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + "..jpg")
+		elif fnameData["type"] == "asset":
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Playblasts", self.l_taskName.text())
 			else:
-				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Playblasts", self.l_taskName.text()))
+				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Playblasts", self.l_taskName.text())
+				
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[3]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment)
-			outputFile = os.path.join( fnameData[0]  + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + "..jpg")
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment)
+			outputFile = os.path.join( fnameData["assetName"]  + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + "..jpg")
 		else:
 			return
 
@@ -349,8 +360,8 @@ class PlayblastClass(object):
 
 	@err_decorator
 	def executeState(self, parent, useVersion="next"):
-		if not self.core.uiAvailable:
-			return [self.state.text(0) + ": error - Playblasts are not supported without UI."]
+	#	if not self.core.uiAvailable:
+	#		return [self.state.text(0) + ": error - Playblasts are not supported without UI."]
 
 		if self.l_taskName.text() == "":
 			return [self.state.text(0) + ": error - No taskname is given. Skipped the activation of this state."]

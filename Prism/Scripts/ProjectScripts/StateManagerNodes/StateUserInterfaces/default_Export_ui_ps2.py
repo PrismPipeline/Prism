@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'default_Export.ui'
+# Form implementation generated from reading ui file 'default_Export.ui',
+# licensing of 'default_Export.ui' applies.
 #
-# Created: Mon Oct 22 21:55:27 2018
-#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
+# Created: Mon Sep 30 22:36:29 2019
+#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -111,6 +112,22 @@ class Ui_wg_Export(object):
         self.sp_rangeEnd.setObjectName("sp_rangeEnd")
         self.horizontalLayout_6.addWidget(self.sp_rangeEnd)
         self.verticalLayout_2.addWidget(self.w_range)
+        self.w_outPath = QtWidgets.QWidget(self.gb_export)
+        self.w_outPath.setObjectName("w_outPath")
+        self.horizontalLayout_11 = QtWidgets.QHBoxLayout(self.w_outPath)
+        self.horizontalLayout_11.setSpacing(0)
+        self.horizontalLayout_11.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout_11.setObjectName("horizontalLayout_11")
+        self.l_outPath = QtWidgets.QLabel(self.w_outPath)
+        self.l_outPath.setObjectName("l_outPath")
+        self.horizontalLayout_11.addWidget(self.l_outPath)
+        spacerItem2 = QtWidgets.QSpacerItem(113, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_11.addItem(spacerItem2)
+        self.cb_outPath = QtWidgets.QComboBox(self.w_outPath)
+        self.cb_outPath.setMinimumSize(QtCore.QSize(124, 0))
+        self.cb_outPath.setObjectName("cb_outPath")
+        self.horizontalLayout_11.addWidget(self.cb_outPath)
+        self.verticalLayout_2.addWidget(self.w_outPath)
         self.w_outType = QtWidgets.QWidget(self.gb_export)
         self.w_outType.setObjectName("w_outType")
         self.horizontalLayout_9 = QtWidgets.QHBoxLayout(self.w_outType)
@@ -120,8 +137,8 @@ class Ui_wg_Export(object):
         self.l_outType = QtWidgets.QLabel(self.w_outType)
         self.l_outType.setObjectName("l_outType")
         self.horizontalLayout_9.addWidget(self.l_outType)
-        spacerItem2 = QtWidgets.QSpacerItem(113, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_9.addItem(spacerItem2)
+        spacerItem3 = QtWidgets.QSpacerItem(113, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_9.addItem(spacerItem3)
         self.cb_outType = QtWidgets.QComboBox(self.w_outType)
         self.cb_outType.setMinimumSize(QtCore.QSize(124, 0))
         self.cb_outType.setObjectName("cb_outType")
@@ -168,22 +185,6 @@ class Ui_wg_Export(object):
         self.b_selectCam.setObjectName("b_selectCam")
         self.horizontalLayout_2.addWidget(self.b_selectCam)
         self.verticalLayout_2.addWidget(self.w_selectCam)
-        self.w_localOutput = QtWidgets.QWidget(self.gb_export)
-        self.w_localOutput.setObjectName("w_localOutput")
-        self.horizontalLayout_13 = QtWidgets.QHBoxLayout(self.w_localOutput)
-        self.horizontalLayout_13.setSpacing(0)
-        self.horizontalLayout_13.setContentsMargins(9, 0, 9, 0)
-        self.horizontalLayout_13.setObjectName("horizontalLayout_13")
-        self.l_localOutput = QtWidgets.QLabel(self.w_localOutput)
-        self.l_localOutput.setObjectName("l_localOutput")
-        self.horizontalLayout_13.addWidget(self.l_localOutput)
-        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_13.addItem(spacerItem3)
-        self.chb_localOutput = QtWidgets.QCheckBox(self.w_localOutput)
-        self.chb_localOutput.setText("")
-        self.chb_localOutput.setObjectName("chb_localOutput")
-        self.horizontalLayout_13.addWidget(self.chb_localOutput)
-        self.verticalLayout_2.addWidget(self.w_localOutput)
         self.w_convertExport = QtWidgets.QWidget(self.gb_export)
         self.w_convertExport.setObjectName("w_convertExport")
         self.horizontalLayout_14 = QtWidgets.QHBoxLayout(self.w_convertExport)
@@ -271,7 +272,6 @@ class Ui_wg_Export(object):
         self.widget.setObjectName("widget")
         self.horizontalLayout_10 = QtWidgets.QHBoxLayout(self.widget)
         self.horizontalLayout_10.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout_10.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_10.setObjectName("horizontalLayout_10")
         self.b_openLast = QtWidgets.QPushButton(self.widget)
         self.b_openLast.setEnabled(False)
@@ -301,11 +301,11 @@ class Ui_wg_Export(object):
         self.chb_globalRange.setText(QtWidgets.QApplication.translate("wg_Export", "global", None, -1))
         self.l_rangeStart.setText(QtWidgets.QApplication.translate("wg_Export", "from:", None, -1))
         self.l_rangeEnd.setText(QtWidgets.QApplication.translate("wg_Export", "to:", None, -1))
+        self.l_outPath.setText(QtWidgets.QApplication.translate("wg_Export", "Outputpath:", None, -1))
         self.l_outType.setText(QtWidgets.QApplication.translate("wg_Export", "Outputtype:", None, -1))
         self.l_cam.setText(QtWidgets.QApplication.translate("wg_Export", "Camera:", None, -1))
         self.l_sCamShot.setText(QtWidgets.QApplication.translate("wg_Export", "Shot:", None, -1))
         self.b_selectCam.setText(QtWidgets.QApplication.translate("wg_Export", "Select", None, -1))
-        self.l_localOutput.setText(QtWidgets.QApplication.translate("wg_Export", "Local output:", None, -1))
         self.l_convertExport.setText(QtWidgets.QApplication.translate("wg_Export", "Additional export in meters:", None, -1))
         self.l_additionalOptions.setText(QtWidgets.QApplication.translate("wg_Export", "Show additional options on publish:", None, -1))
         self.l_wholeScene.setText(QtWidgets.QApplication.translate("wg_Export", "Export whole Scene:", None, -1))

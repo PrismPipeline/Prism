@@ -82,14 +82,20 @@ class ImageRenderClass(object):
 
 		self.e_name.setText(state.text(0))
 
+		self.renderPresets = self.stateManager.stateTypes["RenderSettings"].getPresets(self.core) if "RenderSettings" in self.stateManager.stateTypes else {}
+		if self.renderPresets:
+			self.cb_renderPreset.addItems(self.renderPresets.keys())
+		else:
+			self.w_renderPreset.setVisible(False)
+
 		self.l_name.setVisible(False)
 		self.e_name.setVisible(False)
 		self.gb_submit.setChecked(False)
 		self.f_renderLayer.setVisible(False)
 
-		self.core.appPlugin.sm_render_startup(self)
+		getattr(self.core.appPlugin, "sm_render_startup", lambda x: None)(self)
 
-		if not self.core.appPlugin.sm_render_isVray(self):
+		if not getattr(self.core.appPlugin, "sm_render_startup", lambda x: False)(self):
 			self.gb_Vray.setVisible(False)
 
 		self.resolutionPresets = ["1920x1080", "1280x720", "640x360", "4000x2000", "2000x1000"]
@@ -103,7 +109,7 @@ class ImageRenderClass(object):
 		self.warnPalette.setColor(QPalette.Button, QColor(200, 0, 0))
 		self.warnPalette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
 		
-		self.core.appPlugin.sm_render_setTaskWarn(self, True)
+		self.setTaskWarn(True)
 
 		self.nameChanged(state.text(0))
 
@@ -125,12 +131,20 @@ class ImageRenderClass(object):
 		if "taskname" in data:
 			self.l_taskName.setText(data["taskname"])
 			if data["taskname"] != "":
-				self.core.appPlugin.sm_render_setTaskWarn(self, False)
+				self.setTaskWarn(False)
 		
 		self.updateUi()
 
 		if "statename" in data:
 			self.e_name.setText(data["statename"])
+		if "renderpresetoverride" in data:
+			res = eval(data["renderpresetoverride"])
+			self.chb_renderPreset.setChecked(res)
+		if "currentrenderpreset" in data:
+			idx = self.cb_renderPreset.findText(data["currentrenderpreset"])
+			if idx != -1:
+				self.cb_renderPreset.setCurrentIndex(idx)
+				self.stateManager.saveStatesToScene()
 		if "globalrange" in data:
 			self.chb_globalRange.setChecked(eval(data["globalrange"]))
 		if "startframe" in data:
@@ -138,7 +152,8 @@ class ImageRenderClass(object):
 		if "endframe" in data:
 			self.sp_rangeEnd.setValue(int(data["endframe"]))
 		if "currentcam" in data:
-			idx = self.cb_cam.findText(self.core.appPlugin.getCamName(self, data["currentcam"]))
+			camName = getattr(self.core.appPlugin, "getCamName", lambda x, y:"")(self, data["currentcam"])
+			idx = self.cb_cam.findText(camName)
 			if idx != -1:
 				self.curCam = self.camlist[idx]
 				self.cb_cam.setCurrentIndex(idx)
@@ -218,6 +233,8 @@ class ImageRenderClass(object):
 		self.e_name.textChanged.connect(self.nameChanged)
 		self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
 		self.b_changeTask.clicked.connect(self.changeTask)
+		self.chb_renderPreset.stateChanged.connect(self.presetOverrideChanged)
+		self.cb_renderPreset.activated.connect(self.stateManager.saveStatesToScene)
 		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
 		self.sp_rangeStart.editingFinished.connect(self.startChanged)
 		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
@@ -308,6 +325,12 @@ class ImageRenderClass(object):
 
 
 	@err_decorator
+	def setTaskname(self, taskname):
+		self.l_taskName.setText(taskname)
+		self.updateUi()
+
+
+	@err_decorator
 	def changeTask(self):
 		import CreateItem
 		self.nameWin = CreateItem.CreateItem(startText=self.l_taskName.text(), showTasks=True, taskType="render", core=self.core)
@@ -320,9 +343,15 @@ class ImageRenderClass(object):
 		
 		if result == 1:
 			self.l_taskName.setText(self.nameWin.e_item.text())
-			self.core.appPlugin.sm_render_setTaskWarn(self, False)
+			self.setTaskWarn(False)
 			self.nameChanged(self.e_name.text())
 			self.stateManager.saveStatesToScene()
+
+
+	@err_decorator
+	def presetOverrideChanged(self, checked):
+		self.cb_renderPreset.setEnabled(checked)
+		self.stateManager.saveStatesToScene()
 
 
 	@err_decorator
@@ -377,10 +406,13 @@ class ImageRenderClass(object):
 
 		#update Cams
 		self.cb_cam.clear()
-		
-		self.camlist = self.core.appPlugin.getCamNodes(self, cur=True)
+		self.camlist = camNames = []
 
-		self.cb_cam.addItems([self.core.appPlugin.getCamName(self, i) for i in self.camlist])
+		if not self.stateManager.standalone:
+			self.camlist = self.core.appPlugin.getCamNodes(self, cur=True)
+			camNames = [self.core.appPlugin.getCamName(self, i) for i in self.camlist]
+
+		self.cb_cam.addItems(camNames)
 
 		if self.curCam in self.camlist:
 			self.cb_cam.setCurrentIndex(self.camlist.index(self.curCam))
@@ -409,12 +441,12 @@ class ImageRenderClass(object):
 
 
 		if self.l_taskName.text() != "":
-			self.core.appPlugin.sm_render_setTaskWarn(self, False)
+			self.setTaskWarn(False)
 
 		if not self.gb_submit.isHidden():
 			self.core.rfManagers[self.cb_manager.currentText()].sm_render_updateUI(self)
 
-		self.core.appPlugin.sm_render_refreshPasses(self)
+		getattr(self.core.appPlugin, "sm_render_refreshPasses", lambda x: None)(self)
 
 		self.nameChanged(self.e_name.text())
 
@@ -472,7 +504,7 @@ class ImageRenderClass(object):
 
 	@err_decorator
 	def showPasses(self):
-		steps = self.core.appPlugin.sm_render_getRenderPasses(self)
+		steps = getattr(self.core.appPlugin, "sm_render_getRenderPasses", lambda x: None)(self)
 		
 		if steps is None or len(steps) == 0:
 			return False
@@ -587,29 +619,30 @@ class ImageRenderClass(object):
 		outputFile = ""
 		hVersion = ""
 		if useVersion != "next":
-			hVersion = useVersion.split(self.core.filenameSeperator)[0]
-			pComment = useVersion.split(self.core.filenameSeperator)[1]
+			hVersion = useVersion.split(self.core.filenameSeparator)[0]
+			pComment = useVersion.split(self.core.filenameSeparator)[1]
 
-		fnameData = os.path.basename(fileName).split(self.core.filenameSeperator)
-		if len(fnameData) == 8:
-			outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
+		fnameData = self.core.getScenefileData(fileName)
+		if fnameData["type"] == "shot":
+			outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Rendering", "3dRender", self.l_taskName.text())
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[5]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
-			outputFile = fnameData[0] + self.core.filenameSeperator + fnameData[1] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty..exr" 
-		elif len(fnameData) == 6:
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty")
+			outputFile = "shot" + self.core.filenameSeparator + fnameData["shotName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + self.core.filenameSeparator + "beauty..exr" 
+		elif fnameData["type"] == "asset":
 			if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
 				outputPath = os.path.join(self.core.fixPath(basePath), sceneDir, "Assets", "Rendering", "3dRender", self.l_taskName.text())
 			else:
-				outputPath = os.path.abspath(os.path.join(fileName, os.pardir, os.pardir, os.pardir, "Rendering", "3dRender", self.l_taskName.text()))
+				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Rendering", "3dRender", self.l_taskName.text())
+				
 			if hVersion == "":
 				hVersion = self.core.getHighestTaskVersion(outputPath)
-				pComment = fnameData[3]
+				pComment = fnameData["comment"]
 
-			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeperator + pComment, "beauty")
-			outputFile = fnameData[0] + self.core.filenameSeperator + self.l_taskName.text() + self.core.filenameSeperator + hVersion + self.core.filenameSeperator + "beauty..exr"
+			outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty")
+			outputFile = fnameData["assetName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + self.core.filenameSeparator + "beauty..exr"
 		
 		outputName = os.path.join(outputPath, outputFile)
 		outputName = self.core.appPlugin.sm_render_fixOutputPath(self, outputName)
@@ -642,8 +675,8 @@ class ImageRenderClass(object):
 			if platform.system() == "Windows" and outLength > 255:
 				return [self.state.text(0) + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath." % outLength]
 
-			if not os.path.exists(outputPath):
-				os.makedirs(outputPath)
+			if not os.path.exists(os.path.dirname(outputPath)):
+				os.makedirs(os.path.dirname(outputPath))
 
 			self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName)
 
@@ -656,7 +689,13 @@ class ImageRenderClass(object):
 
 			rSettings = {"outputName": outputName}
 
+			if self.chb_renderPreset.isChecked() and "RenderSettings" in self.stateManager.stateTypes:
+				rSettings["renderSettings"] = getattr(self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {})(self)
+				self.stateManager.stateTypes["RenderSettings"].applyPreset(self.core, self.renderPresets[self.cb_renderPreset.currentText()])
+
 			self.core.appPlugin.sm_render_preSubmit(self, rSettings)
+			if not os.path.exists(os.path.dirname(rSettings["outputName"])):
+				os.makedirs(os.path.dirname(rSettings["outputName"]))
 			self.core.callHook("preRender", args={"prismCore":self.core, "scenefile":fileName, "startFrame":jobFrames[0], "endFrame":jobFrames[1], "outputName":rSettings["outputName"]})
 
 			self.core.saveScene(versionUp=False, prismReq=False)
@@ -691,7 +730,55 @@ class ImageRenderClass(object):
 
 
 	@err_decorator
+	def setTaskWarn(self, warn):
+		useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
+		if warn:
+			if useSS:
+				self.b_changeTask.setStyleSheet("QPushButton { background-color: rgb(200,0,0); }")
+			else:
+				self.b_changeTask.setPalette(self.warnPalette)
+		else:
+			if useSS:
+				self.b_changeTask.setStyleSheet("")
+			else:
+				self.b_changeTask.setPalette(self.oldPalette)
+
+
+	@err_decorator
 	def getStateProps(self):
-		stateProps = {"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange":str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "currentcam": str(self.curCam), "resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]), "localoutput": str(self.chb_localOutput.isChecked()), "renderlayer": str(self.cb_renderLayer.currentText()), "vrayoverride":str(self.chb_override.isChecked())}
-		stateProps.update({"vrayminsubdivs":self.sp_minSubdivs.value(), "vraymaxsubdivs":self.sp_maxSubdivs.value(), "vraycthreshold":self.sp_cThres.value(), "vraynthreshold":self.sp_nThres.value(), "submitrender": str(self.gb_submit.isChecked()), "rjmanager":str(self.cb_manager.currentText()), "rjprio":self.sp_rjPrio.value(), "rjframespertask":self.sp_rjFramesPerTask.value(), "rjtimeout":self.sp_rjTimeout.value(), "rjsuspended": str(self.chb_rjSuspended.isChecked()), "osdependencies": str(self.chb_osDependencies.isChecked()), "osupload": str(self.chb_osUpload.isChecked()), "ospassets": str(self.chb_osPAssets.isChecked()), "osslaves": self.e_osSlaves.text(), "curdlgroup":self.cb_dlGroup.currentText(), "dlconcurrent":self.sp_dlConcurrentTasks.value(), "dlgpupt":self.sp_dlGPUpt.value(), "dlgpudevices":self.le_dlGPUdevices.text(), "lastexportpath": self.l_pathLast.text().replace("\\", "/"), "enablepasses": str(self.gb_passes.isChecked()), "stateenabled":str(self.state.checkState(0))})
+		stateProps = {
+			"statename": self.e_name.text(),
+			"taskname": self.l_taskName.text(),
+			"renderpresetoverride": str(self.chb_renderPreset.isChecked()),
+			"currentrenderpreset": self.cb_renderPreset.currentText(),
+			"globalrange": str(self.chb_globalRange.isChecked()),
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"currentcam": str(self.curCam),
+			"resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]),
+			"localoutput": str(self.chb_localOutput.isChecked()),
+			"renderlayer": str(self.cb_renderLayer.currentText()),
+			"vrayoverride": str(self.chb_override.isChecked()),
+			"vrayminsubdivs":self.sp_minSubdivs.value(),
+			"vraymaxsubdivs":self.sp_maxSubdivs.value(),
+			"vraycthreshold":self.sp_cThres.value(),
+			"vraynthreshold":self.sp_nThres.value(),
+			"submitrender": str(self.gb_submit.isChecked()),
+			"rjmanager":str(self.cb_manager.currentText()),
+			"rjprio":self.sp_rjPrio.value(),
+			"rjframespertask":self.sp_rjFramesPerTask.value(),
+			"rjtimeout":self.sp_rjTimeout.value(),
+			"rjsuspended": str(self.chb_rjSuspended.isChecked()),
+			"osdependencies": str(self.chb_osDependencies.isChecked()),
+			"osupload": str(self.chb_osUpload.isChecked()),
+			"ospassets": str(self.chb_osPAssets.isChecked()),
+			"osslaves": self.e_osSlaves.text(),
+			"curdlgroup":self.cb_dlGroup.currentText(),
+			"dlconcurrent":self.sp_dlConcurrentTasks.value(),
+			"dlgpupt":self.sp_dlGPUpt.value(),
+			"dlgpudevices":self.le_dlGPUdevices.text(),
+			"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+			"enablepasses": str(self.gb_passes.isChecked()),
+			"stateenabled":str(self.state.checkState(0))
+		}
 		return stateProps

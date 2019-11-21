@@ -88,7 +88,7 @@ class Prism_Pandora_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Pandora %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Pandora - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -332,17 +332,6 @@ class Prism_Pandora_Functions(object):
 
 
 	@err_decorator
-	def sm_houExport_submitJob(self, origin, jobOutputFile, parent):
-		result = self.startSubmission(origin, jobOutputFile, parent)
-
-		if isinstance(result, list) and result[0] == "Success":
-			parent.osSubmittedJobs[origin.state.text(0)] = result[1]
-			return "Result=Success"
-		else:
-			return result.replace("Submission canceled:", "Execute Canceled:")
-
-
-	@err_decorator
 	def sm_houRender_updateUI(self, origin):
 		origin.w_dlGPUpt.setVisible(False)
 		origin.w_dlGPUdevices.setVisible(False)
@@ -404,17 +393,6 @@ class Prism_Pandora_Functions(object):
 
 
 	@err_decorator
-	def sm_houRender_submitJob(self, origin, jobOutputFile, parent):
-		result = self.startSubmission(origin, jobOutputFile, parent)
-
-		if isinstance(result, list) and result[0] == "Success":
-			parent.osSubmittedJobs[origin.state.text(0)] = result[1]
-			return "Result=Success"
-		else:
-			return result.replace("Submission canceled:", "Execute Canceled:")
-		
-
-	@err_decorator
 	def sm_render_updateUI(self, origin):
 		origin.w_dlGPUpt.setVisible(False)
 		origin.w_dlGPUdevices.setVisible(False)
@@ -460,6 +438,9 @@ class Prism_Pandora_Functions(object):
 			self.core.stateManager()
 
 		if isinstance(result, list) and result[0] == "Success":
+			if self.core.appPlugin.pluginName == "Houdini":
+				parent.osSubmittedJobs[origin.state.text(0)] = result[1]
+
 			return "Result=Success"
 		else:
 			return result.replace("Submission canceled:", "Execute Canceled:")

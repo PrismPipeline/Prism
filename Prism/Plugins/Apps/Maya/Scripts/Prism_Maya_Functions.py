@@ -70,7 +70,7 @@ class Prism_Maya_Functions(object):
 				return func(*args, **kwargs)
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Maya %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
+				erStr = ("%s ERROR - Prism_Plugin_Maya - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
 				args[0].core.writeErrorLog(erStr)
 
 		return func_wrapper
@@ -100,9 +100,8 @@ class Prism_Maya_Functions(object):
 			if cmds.shelfTabLayout(topLevelShelf, query=True, tabLabelIndex=True) == None:
 				return False
 
-		origin.timer.stop()
+			origin.timer.stop()
 
-		if self.core.uiAvailable:
 			if platform.system() == "Darwin":
 				origin.messageParent = QWidget()
 				origin.messageParent.setParent(mayaQtParent, Qt.Window)
@@ -261,12 +260,12 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def openScene(self, origin, filepath):
+	def openScene(self, origin, filepath, force=False):
 		if not filepath.endswith(".ma") and not filepath.endswith(".mb"):
 			return False
 
 		try:
-			if cmds.file(q=True, modified=True):
+			if cmds.file(q=True, modified=True) and not force:
 				if cmds.file( q=True , exists=True ):
 					scenename = cmds.file( q=True , sceneName=True )
 				else:
@@ -282,7 +281,7 @@ class Prism_Maya_Functions(object):
 				elif option == 'Don\'t Save':
 					cmds.file( filepath, o=True, force=True )
 			else:
-				cmds.file( filepath, o=True )
+				cmds.file( filepath, o=True, force=True )
 		except:
 			pass
 
@@ -361,7 +360,10 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def sm_export_addObjects(self, origin):
+	def sm_export_addObjects(self, origin, objects=""):
+		if objects:
+			cmds.select(objects)
+
 		for i in cmds.ls( selection=True , long = True):
 			if not i in origin.nodes:
 				try:
@@ -515,8 +517,8 @@ class Prism_Maya_Functions(object):
 
 
 	@err_decorator
-	def sm_export_setTaskText(self, origin, prevTaskName):
-		origin.l_taskName.setText(cmds.rename(prevTaskName, origin.nameWin.e_item.text()))
+	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
+		origin.l_taskName.setText(cmds.rename(prevTaskName, newTaskName))
 
 
 	@err_decorator
@@ -884,7 +886,7 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_render_getRenderLayer(self, origin):
-		rlayers = cmds.ls(type="renderLayer")
+		rlayers = [x for x in cmds.ls(type="renderLayer") if x in cmds.listConnections("renderLayerManager")]
 		rlayerNames = []
 		for i in rlayers:
 			if i == "defaultRenderLayer":
@@ -895,14 +897,6 @@ class Prism_Maya_Functions(object):
 				rlayerNames.append(i)
 
 		return rlayerNames
-
-
-	@err_decorator
-	def sm_render_setTaskWarn(self, origin, warn):
-		if warn:
-			origin.b_changeTask.setPalette(origin.warnPalette)
-		else:
-			origin.b_changeTask.setPalette(origin.oldPalette)
 
 
 	@err_decorator
@@ -1048,7 +1042,8 @@ class Prism_Maya_Functions(object):
 
 			aAovs = maovs.AOVInterface().getAOVNodes(names=True)
 			aAovs = [x for x in aAovs if cmds.getAttr(x[1] + '.enabled')]
-			if cmds.getAttr("defaultArnoldRenderOptions.aovMode") != 0 and len(aAovs) > 0:
+			multichannel = cmds.getAttr("defaultArnoldDriver.mergeAOVs") == 1 
+			if cmds.getAttr("defaultArnoldRenderOptions.aovMode") != 0 and not multichannel and len(aAovs) > 0:
 				outputPrefix = "../" + outputPrefix
 			#	if len(rlayers) > 1:
 			#		outputPrefix = "../" + outputPrefix
@@ -1083,13 +1078,15 @@ class Prism_Maya_Functions(object):
 			rSettings["vr_sepRGBA"] = cmds.getAttr("vraySettings.relements_separateRGBA")
 			rSettings["vr_animation"] = cmds.getAttr("vraySettings.animType")
 
-			cmds.setAttr("vraySettings.imageFormatStr", "exr", type="string")
+			multichannel = cmds.getAttr("vraySettings.imageFormatStr") not in ["exr (multichannel)", "exr (deep)"]
+			if not multichannel:
+				cmds.setAttr("vraySettings.imageFormatStr", "exr", type="string")
 			cmds.setAttr("vraySettings.animType", 1)
 
 			aovs = cmds.ls(type='VRayRenderElement')
 			aovs = [x for x in aovs if cmds.getAttr(x + '.enabled')]
 
-			if cmds.getAttr("vraySettings.relements_enableall") != 0 and len(aovs) > 0:
+			if cmds.getAttr("vraySettings.relements_enableall") != 0 and not multichannel and len(aovs) > 0:
 				try:
 					shutil.rmtree(os.path.dirname(rSettings["outputName"]))
 				except:
@@ -1120,7 +1117,11 @@ class Prism_Maya_Functions(object):
 
 			aovs = cmds.ls(type='RedshiftAOV')
 			aovs = [[cmds.getAttr(x + ".name"), x] for x in aovs if cmds.getAttr(x + '.enabled')]
+			for aov in aovs:
+				if cmds.getAttr(aov[1] + ".aovType") == "Beauty":
+					rSettings["outputName"] = rSettings["outputName"].replace("beauty", aov[0])
 
+			#multichannel = cmds.getAttr("redshiftOptions.exrForceMultilayer") == 1
 			if cmds.getAttr("redshiftOptions.aovGlobalEnableMode") != 0 and len(aovs) > 0:
 				for i in aovs:
 					cmds.setAttr(i[1] + ".filePrefix", "<BeautyPath>/../<RenderPass>/%s" % os.path.basename(outputPrefix).replace("beauty", i[0]), type="string")
@@ -1274,20 +1275,35 @@ class Prism_Maya_Functions(object):
 			cmds.setAttr("vraySettings.fileNameRenderElementSeparator", rSettings["vr_sepStr"], type="string")
 		if "rs_fileformat" in rSettings:
 			cmds.setAttr("redshiftOptions.imageFormat", rSettings["rs_fileformat"])
+		if "renderSettings" in rSettings:
+			self.sm_renderSettings_setCurrentSettings(origin, self.core.readYaml(data=rSettings["renderSettings"]))
 
 
 	@err_decorator
 	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-		dlParams["version"] = str(cmds.about(version=True))
-		dlParams["plugin"] = "MayaBatch"
-		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "maya_plugin_info.job" )
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "maya_submit_info.job" )
-		dlParams["jobComment"] = "Prism-Submission-Maya_ImageRender"
+		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "maya_plugin_info.job" )
+
+		dlParams["jobInfos"]["Plugin"] = "MayaBatch"
+		dlParams["jobInfos"]["Comment"] = "Prism-Submission-Maya_ImageRender"
+		dlParams["pluginInfos"]["Version"] = str(cmds.about(version=True))
+		dlParams["pluginInfos"]["OutputFilePath"] = os.path.split(dlParams["jobInfos"]["OutputFilename0"])[0]
+		dlParams["pluginInfos"]["OutputFilePrefix"] = os.path.splitext(os.path.basename(dlParams["jobInfos"]["OutputFilename0"]))[0]
+		dlParams["pluginInfos"]["Renderer"] = self.getCurrentRenderer(origin)
+		
 		rlayers = cmds.ls(type="renderLayer")
 		if len(rlayers) > 1:
-			prefixBase = os.path.splitext(os.path.basename(dlParams["outputfile"]))[0]
-			passName = prefixBase.split(self.core.filenameSeperator)[-1]
-			dlParams["filePrefix"] = os.path.join("..", "..", passName, prefixBase)
+			prefixBase = os.path.splitext(os.path.basename(dlParams["jobInfos"]["OutputFilename0"]))[0]
+			passName = prefixBase.split(self.core.filenameSeparator)[-1]
+			dlParams["pluginInfos"]["OutputFilePrefix"] = os.path.join("..", "..", passName, prefixBase)
+
+		if origin.chb_resOverride.isChecked():
+			resString = "Image"
+			dlParams["pluginInfos"][resString + "Width"] = str(origin.sp_resWidth.value())
+			dlParams["pluginInfos"][resString + "Height"] = str(origin.sp_resHeight.value())
+
+		if origin.curCam != "Current View":
+			dlParams["pluginInfos"]["Camera"] = self.core.appPlugin.getCamName(origin, origin.curCam)
 
 
 	@err_decorator
@@ -1355,21 +1371,6 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def getProgramVersion(self, origin):
 		return cmds.about(version=True)
-
-
-	@err_decorator
-	def sm_render_getDeadlineSubmissionParams(self, origin, dlParams, jobOutputFile):
-		dlParams["Build"] = dlParams["build"]
-		dlParams["OutputFilePath"] = os.path.split(jobOutputFile)[0]
-		dlParams["OutputFilePrefix"] = os.path.splitext(os.path.basename(jobOutputFile))[0]
-		dlParams["Renderer"] = self.getCurrentRenderer(origin)
-
-		if origin.chb_resOverride.isChecked() and "resolution" in dlParams:
-			resString = "Image"
-			dlParams[resString + "Width"] = str(origin.sp_resWidth.value())
-			dlParams[resString + "Height"] = str(origin.sp_resHeight.value())
-
-		return dlParams
 
 
 	@err_decorator
@@ -1482,57 +1483,72 @@ class Prism_Maya_Functions(object):
 
 			validNodes = [ x for x in origin.nodes if self.isNodeValid(origin, x)]
 			if not update or len(validNodes) == 0:
-				refDlg = QDialog()
-
-				refDlg.setWindowTitle("Create Reference")
-				rb_reference = QRadioButton("Create reference")
-				rb_reference.setChecked(True)
-				rb_import = QRadioButton("Import objects only")
-				rb_applyCache = QRadioButton("Apply as cache to selected objects")
-				w_namespace = QWidget()
-				nLayout = QHBoxLayout()
-				nLayout.setContentsMargins(0,15,0,0)
-				chb_namespace = QCheckBox("Create namespace")
-				chb_namespace.setChecked(True)
-				e_namespace = QLineEdit()
-				e_namespace.setText(fileName[0])
-				nLayout.addWidget(chb_namespace)
-				nLayout.addWidget(e_namespace)
-				chb_namespace.toggled.connect(lambda x: e_namespace.setEnabled(x))
-				w_namespace.setLayout(nLayout)
-
-				rb_applyCache.toggled.connect(lambda x: w_namespace.setEnabled(not x))
-				if fileName[1] != ".abc" or len(cmds.ls(selection=True)) == 0:
-					rb_applyCache.setEnabled(False)
+				# default settings
+				mode = "reference"
+				useNamespace = True
+				namespace = fileName[0]
 				
-				bb_warn = QDialogButtonBox()
-				bb_warn.addButton("Ok", QDialogButtonBox.AcceptRole)
-				bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
+				if self.core.uiAvailable:
+					refDlg = QDialog()
 
-				bb_warn.accepted.connect(refDlg.accept)
-				bb_warn.rejected.connect(refDlg.reject)
+					refDlg.setWindowTitle("Create Reference")
+					rb_reference = QRadioButton("Create reference")
+					rb_reference.setChecked(mode=="reference")
+					rb_import = QRadioButton("Import objects only")
+					rb_reference.setChecked(mode=="import")
+					rb_applyCache = QRadioButton("Apply as cache to selected objects")
+					rb_reference.setChecked(mode=="applyCache")
+					w_namespace = QWidget()
+					nLayout = QHBoxLayout()
+					nLayout.setContentsMargins(0,15,0,0)
+					chb_namespace = QCheckBox("Create namespace")
+					chb_namespace.setChecked(useNamespace)
+					e_namespace = QLineEdit()
+					e_namespace.setText(namespace)
+					nLayout.addWidget(chb_namespace)
+					nLayout.addWidget(e_namespace)
+					chb_namespace.toggled.connect(lambda x: e_namespace.setEnabled(x))
+					w_namespace.setLayout(nLayout)
 
-				bLayout = QVBoxLayout()
-				bLayout.addWidget(rb_reference)
-				bLayout.addWidget(rb_import)
-				bLayout.addWidget(rb_applyCache)
-				bLayout.addWidget(w_namespace)
-				bLayout.addWidget(bb_warn)
-				refDlg.setLayout(bLayout)
-				refDlg.setParent(self.core.messageParent, Qt.Window)
-				refDlg.resize(400,100)
+					rb_applyCache.toggled.connect(lambda x: w_namespace.setEnabled(not x))
+					if fileName[1] != ".abc" or len(cmds.ls(selection=True)) == 0:
+						rb_applyCache.setEnabled(False)
+					
+					bb_warn = QDialogButtonBox()
+					bb_warn.addButton("Ok", QDialogButtonBox.AcceptRole)
+					bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
 
-				action = refDlg.exec_()
+					bb_warn.accepted.connect(refDlg.accept)
+					bb_warn.rejected.connect(refDlg.reject)
 
-				if action == 0:
-					doRef = False
-					importOnly = False
-					applyCache = False
+					bLayout = QVBoxLayout()
+					bLayout.addWidget(rb_reference)
+					bLayout.addWidget(rb_import)
+					bLayout.addWidget(rb_applyCache)
+					bLayout.addWidget(w_namespace)
+					bLayout.addWidget(bb_warn)
+					refDlg.setLayout(bLayout)
+					refDlg.setParent(self.core.messageParent, Qt.Window)
+					refDlg.resize(400,100)
+
+					action = refDlg.exec_()
+
+					if action == 0:
+						doRef = False
+						importOnly = False
+						applyCache = False
+					else:
+						doRef = rb_reference.isChecked()
+						applyCache = rb_applyCache.isChecked()
+						if chb_namespace.isChecked():
+							nSpace = e_namespace.text()
+						else:
+							nSpace = ":"
 				else:
-					doRef = rb_reference.isChecked()
-					applyCache = rb_applyCache.isChecked()
-					if chb_namespace.isChecked():
-						nSpace = e_namespace.text()
+					doRef = mode == "reference"
+					applyCache = mode == "applyCache"
+					if useNamespace:
+						nSpace = namespace
 					else:
 						nSpace = ":"
 			else:
@@ -1619,7 +1635,8 @@ class Prism_Maya_Functions(object):
 					importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True)
 				except Exception as e:
 					importedNodes = []
-					QMessageBox.warning(self.core.messageParent, "Import error", "An error occured while importing the file:\n\n%s\n\n%s" % (impFileName, str(e)))
+					msg = "An error occured while importing the file:\n\n%s\n\n%s" % (impFileName, str(e))
+					self.core.popup(msg, title="Import error")
 
 		for i in importedNodes:
 			cams = cmds.listCameras()
@@ -1719,33 +1736,34 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
-		if origin.curCam is not None and self.isNodeValid(origin, origin.curCam):
-			cmds.lookThru(origin.curCam)
-			pbCam = origin.curCam
-		else:
-			view = OpenMayaUI.M3dView.active3dView()
-			cam = api.MDagPath()
-			view.getCamera(cam)
-			pbCam = cam.fullPathName()
-
 		self.pbSceneSettings = {}
-		self.pbSceneSettings["pbCam"] = pbCam
-		self.pbSceneSettings["filmFit"] = cmds.getAttr(pbCam + ".filmFit")
-		self.pbSceneSettings["filmGate"] = cmds.getAttr(pbCam + ".displayFilmGate")
-		self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
-		self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
+		if self.core.uiAvailable:
+			if origin.curCam is not None and self.isNodeValid(origin, origin.curCam):
+				cmds.lookThru(origin.curCam)
+				pbCam = origin.curCam
+			else:
+				view = OpenMayaUI.M3dView.active3dView()
+				cam = api.MDagPath()
+				view.getCamera(cam)
+				pbCam = cam.fullPathName()
 
-		try: cmds.setAttr(pbCam + ".filmFit", 3)
-		except: pass
+			self.pbSceneSettings["pbCam"] = pbCam
+			self.pbSceneSettings["filmFit"] = cmds.getAttr(pbCam + ".filmFit")
+			self.pbSceneSettings["filmGate"] = cmds.getAttr(pbCam + ".displayFilmGate")
+			self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
+			self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
 
-		try: cmds.setAttr(pbCam + ".displayFilmGate", False)
-		except: pass
+			try: cmds.setAttr(pbCam + ".filmFit", 3)
+			except: pass
 
-		try: cmds.setAttr(pbCam + ".displayResolution", False)
-		except: pass
+			try: cmds.setAttr(pbCam + ".displayFilmGate", False)
+			except: pass
 
-		try: cmds.setAttr(pbCam + ".overscan", 1.0)
-		except: pass
+			try: cmds.setAttr(pbCam + ".displayResolution", False)
+			except: pass
+
+			try: cmds.setAttr(pbCam + ".overscan", 1.0)
+			except: pass
 
 		#set image format to jpeg
 		cmds.setAttr("defaultRenderGlobals.imageFormat", 8)
@@ -1865,3 +1883,25 @@ class Prism_Maya_Functions(object):
 	@err_decorator
 	def sm_createRenderPressed(self, origin):
 		origin.createPressed("Render")
+
+
+	@err_decorator
+	def sm_renderSettings_getCurrentSettings(self, origin):
+		import maya.app.renderSetup.model.renderSettings as renderSettings
+		settings = self.core.writeYaml(data=renderSettings.encode())
+		return settings
+
+
+	@err_decorator
+	def sm_renderSettings_setCurrentSettings(self, origin, preset, state=None):
+		import maya.app.renderSetup.model.renderSettings as renderSettings
+		try:
+			renderSettings.decode(preset)
+		except:
+			self.core.popup("Failed to set rendersettings.")
+
+
+	@err_decorator
+	def sm_renderSettings_applyDefaultSettings(self, origin):
+		import maya.app.renderSetup.views.renderSetupPreferences as prefs
+		prefs.setDefaultPreset()
