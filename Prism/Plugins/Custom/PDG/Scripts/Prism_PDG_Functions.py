@@ -454,7 +454,12 @@ class Prism_PDG_Functions(object):
 			cNode = node.createOutputNode("prism_write_entity")
 		elif entityType == "setProject":
 			cNode = node.createOutputNode("prism_set_project")
+		elif entityType == "create_state":
+			cNode = node.createOutputNode("prism_create_state")
+		elif entityType == "write_states":
+			cNode = node.createOutputNode("prism_write_states")
 		else:
+			self.core.popup("Invalid type: %s" % entityType)
 			return
 
 		if QApplication.keyboardModifiers() != Qt.ShiftModifier:
