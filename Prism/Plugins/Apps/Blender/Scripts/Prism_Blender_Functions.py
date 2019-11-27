@@ -276,7 +276,34 @@ class Prism_Blender_Functions(object):
 			obj.select = select
 			bpy.context.scene.objects.active = obj
 		else:
-			obj.select_set(select)
+			curlayer = bpy.context.window_manager.windows[0].view_layer
+			if obj not in list(curlayer.objects):
+				obj_layer = None
+				for vlayer in list(bpy.context.scene.view_layers):
+					if obj in list(vlayer.objects):
+						obj_layer = vlayer
+						break
+
+				if obj_layer:
+					msgText = "The object '%s' is not on the current viewlayer, but it's on viewlayer '%s'.\nOnly objects on the current viewlayer can be selected, which is necessary to process this object.\n\nHow do you want to coninue?" % (obj.name, obj_layer.name)
+					msg = QMessageBox(QMessageBox.Question, "Prism", msgText)
+					msg.addButton("Set viewlayer '%s' active" % obj_layer.name, QMessageBox.YesRole)
+					msg.addButton("Skip object '%s'" % obj.name, QMessageBox.YesRole)
+
+					self.core.parentWindow(msg)
+					action = msg.exec_()
+					print (action)
+
+					if action == 0:
+						bpy.context.window_manager.windows[0].view_layer = obj_layer
+						curlayer = obj_layer
+					elif action == 1:
+						return
+				else:
+					self.core.popup("The object '%s' is not on the current viewlayer and couldn't be found on any other viewlayer. This object can't be selected and will be skipped in the current process." % obj.name)
+					return
+
+			obj.select_set(select, view_layer=curlayer)
 			bpy.context.view_layer.objects.active = obj
 
 

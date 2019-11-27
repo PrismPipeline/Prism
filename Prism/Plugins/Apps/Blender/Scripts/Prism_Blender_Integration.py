@@ -128,7 +128,7 @@ class Prism_Blender_Integration(object):
 			)
 			blenderPath = (_winreg.QueryValueEx(key, "" ))[0].split(" \"%1\"")[0].replace("\"", "")
 
-			vpath = os.path.join(os.path.dirname(blenderPath), "2.79")
+			vpath = os.path.join(os.path.dirname(blenderPath), "2.81")
 
 			if os.path.exists(vpath):
 				return vpath

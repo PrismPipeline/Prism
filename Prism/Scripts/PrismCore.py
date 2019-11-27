@@ -119,7 +119,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.34"
+			self.version = "v1.2.1.35"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -3776,11 +3776,11 @@ except Exception as e:
 	def popup(self, text, title=None, severity="warning"):
 		if title is None:
 			if severity == "warning":
-				title = "Warning"
+				title = "Prism - Warning"
 			elif severity == "info":
-				title = "Information"
+				title = "Prism - Information"
 			elif severity == "error":
-				title == "Error"
+				title == "Prism - Error"
 
 		if self.uiAvailable:
 			if severity == "warning":
