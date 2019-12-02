@@ -73,8 +73,10 @@ class Prism_Deadline_Functions(object):
 
 	@err_decorator
 	def isActive(self):
-		return len(self.getDeadlineGroups()) > 0
-
+		try:
+			return len(self.getDeadlineGroups()) > 0
+		except:
+			return False
 
 	@err_decorator
 	def deadlineCommand(self, arguments, background=True, readStdout=True):

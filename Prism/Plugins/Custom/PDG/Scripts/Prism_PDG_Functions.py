@@ -32,7 +32,7 @@
 
 
 
-import os, sys, traceback, time, subprocess
+import os, sys, traceback, time, subprocess, threading
 from functools import wraps
 
 try:
@@ -77,336 +77,37 @@ class Prism_PDG_Functions(object):
 		return "hou" in globals()
 
 
-	# the following function are called by Prism at specific events, which are indicated by the function names
-	# you can add your own code to any of these functions.
 	@err_decorator
-	def onProjectCreated(self, origin, projectPath, projectName):
-		pass
-
-
-	@err_decorator
-	def onProjectChanged(self, origin):
-		pass
-
-
-	@err_decorator
-	def projectBrowser_loadUI(self, origin):
-		pass
-
-
-	@err_decorator
-	def onProjectBrowserStartup(self, origin):
-		pass
-
-
-	@err_decorator
-	def onProjectBrowserClose(self, origin):
-		pass
-
-
-	@err_decorator
-	def onPrismSettingsOpen(self, origin):
-		pass
-
-
-	@err_decorator
-	def onPrismSettingsSave(self, origin):
-		pass
-
-
-	@err_decorator
-	def onStateManagerOpen(self, origin):
-		pass
-
-
-	@err_decorator
-	def onStateManagerClose(self, origin):
-		pass
-
-
-	@err_decorator
-	def onSelectTaskOpen(self, origin):
-		pass
-
-
-	@err_decorator
-	def onStateCreated(self, origin):
-		pass
-
-
-	@err_decorator
-	def onStateDeleted(self, origin):
-		pass
-
-
-	@err_decorator
-	def onPublish(self, origin):
-		pass
-
-
-	@err_decorator
-	def postPublish(self, origin, publishType):
-		'''
-		origin: 		StateManager instance
-		publishType: 	The type (string) of the publish. 
-						Can be "stateExecution" (state was executed from the context menu) or "publish" (publish button was pressed)
-		'''
-
-
-	@err_decorator
-	def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish):
-		'''
-		origin: 	PrismCore instance
-		filepath: 	The filepath of the scenefile, which will be saved
-		versionUp: 	(bool) True if this save increments the version of that scenefile
-		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-		isPublish: 	(bool) True if this save was triggered by a publish
-		'''
-
-
-	@err_decorator
-	def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
-		'''
-		origin: 	PrismCore instance
-		filepath: 	The filepath of the scenefile, which was saved
-		versionUp: 	(bool) True if this save increments the version of that scenefile
-		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-		isPublish: 	(bool) True if this save was triggered by a publish
-		'''
-
-
-	@err_decorator
-	def onSceneOpen(self, origin, filepath):
-		# called when a scenefile gets opened from the Project Browser. Gets NOT called when a scenefile is loaded manually from the file menu in a DCC app.
-		pass
-
-
-	@err_decorator
-	def onAssetDlgOpen(self, origin, assetDialog):
-		pass
-
-
-	@err_decorator
-	def onAssetCreated(self, origin, assetName, assetPath, assetDialog=None):
-		pass
-
-
-	@err_decorator
-	def onStepDlgOpen(self, origin, dialog):
-		pass
-
-
-	@err_decorator
-	def onStepCreated(self, origin, entity, stepname, path, settings):
-		# entity: "asset" or "shot"
-		# settings: dictionary containing "createDefaultCategory", which holds a boolean (settings["createDefaultCategory"])
-		pass
-
-
-	@err_decorator
-	def onCategroyDlgOpen(self, origin, catDialog):
-		pass
-
-
-	@err_decorator
-	def onCategoryCreated(self, origin, catname, path):
-		pass
-
-
-	@err_decorator
-	def onShotDlgOpen(self, origin, shotDialog, shotName=None):
-		# gets called just before the "Create Shot"/"Edit Shot" dialog opens. Check if "shotName" is None to check if a new shot will be created or if an existing shot will be edited.
-		pass
-
-
-	@err_decorator
-	def onShotCreated(self, origin, sequenceName, shotName):
-		pass
-
-		
-	@err_decorator
-	def openPBFileContextMenu(self, origin, rcmenu, index):
-		# gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of assets or shots in the Project Browser.
-		pass
-
-
-	@err_decorator
-	def openPBListContextMenu(self, origin, rcmenu, listWidget, item, path):
-		# gets called before "rcmenu" get displayed for the "Tasks" and "Versions" list in the Project Browser.
-		pass
-
-
-	@err_decorator
-	def openPBAssetContextMenu(self, origin, rcmenu, index):
-		'''
-		origin: Project Browser instance
-		rcmenu: QMenu object, which can be modified before it gets displayed
-		index: QModelIndex object of the item on which the user clicked. Use index.data() to get the text of the index.
-		'''
-		pass
-
-
-	@err_decorator
-	def openPBAssetStepContextMenu(self, origin, rcmenu, index):
-		pass
-
-
-	@err_decorator
-	def openPBAssetCategoryContextMenu(self, origin, rcmenu, index):
-		pass
-
-
-	@err_decorator
-	def openPBShotContextMenu(self, origin, rcmenu, index):
-		pass
-
-
-	@err_decorator
-	def openPBShotStepContextMenu(self, origin, rcmenu, index):
-		pass
-
-
-	@err_decorator
-	def openPBShotCategoryContextMenu(self, origin, rcmenu, index):
-		pass
-
-
-	@err_decorator
-	def openTrayContextMenu(self, origin, rcmenu):
-		pass
-
-
-	@err_decorator
-	def preLoadEmptyScene(self, origin, filepath):
-		pass
-
-
-	@err_decorator
-	def postLoadEmptyScene(self, origin, filepath):
-		pass
-
-
-	@err_decorator
-	def preImport(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def postImport(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def preExport(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def postExport(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def prePlayblast(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def postPlayblast(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def preRender(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def postRender(self, *args, **kwargs):
-		pass
-
-
-	@err_decorator
-	def maya_export_abc(self, origin, params):
-		'''
-		origin: reference to the Maya Plugin class
-		params: dict containing the mel command (params["export_cmd"])
-
-		Gets called immediately before Prism exports an alembic file from Maya
-		This function can modify the mel command, which Prism will execute to export the file.
-
-		Example:
-		print params["export_cmd"]
-		>>AbcExport -j "-frameRange 1000 1000 -root |pCube1  -worldSpace -uvWrite -writeVisibility  -file \"D:\\\\Projects\\\\Project\\\\03_Workflow\\\\Shots\\\\maya-001\\\\Export\\\\Box\\\\v0001_comment_rfr\\\\centimeter\\\\shot_maya-001_Box_v0001.abc\"" 
-		
-		Use python string formatting to modify the command:
-		params["export_cmd"] = params["export_cmd"][:-1] + " -attr material" + params["export_cmd"][-1]
-		'''
-
-	@err_decorator
-	def preSubmit_Deadline(self, origin, jobInfos, pluginInfos, arguments):
-		'''
-		origin: reference to the Deadline plugin class
-		jobInfos: List containing the data that will be written to the JobInfo file. Can be modified.
-		pluginInfos: List containing the data that will be written to the PluginInfo file. Can be modified.
-		arguments: List of arguments that will be send to the Deadline submitter. This contains filepaths to all submitted files (note that they are eventually not created at this point).
-		
-		Gets called before a render or simulation job gets submitted to the Deadline renderfarmmanager.
-		This function can modify the submission parameters.
-
-		Example:
-		jobInfos["PostJobScript"] = "D:/Scripts/Deadline/myPostJobTasks.py"
-
-		You can find more available job parameters here:
-		https://docs.thinkboxsoftware.com/products/deadline/10.0/1_User%20Manual/manual/manual-submission.html
-		'''
-
-
-	@err_decorator
-	def postSubmit_Deadline(self, origin, result):
-		'''
-		origin: reference to the Deadline plugin class
-		result: the return value from the Deadline submission.
-		'''
-
-
-	@err_decorator
-	def cookNode(self, pdgCallback, itemHolder, upstreamItems=None):
-		node = hou.nodeBySessionId(pdgCallback.customId)
-		parentNode = node.parent()
-		if parentNode.type().name() == "prism_google_docs":
-			auth = parentNode.parm("authorization").eval()
-			docName = parentNode.parm("document").eval()
-			sheetName = parentNode.parm("sheet").eval()
-			entityType = parentNode.parm("entity").evalAsString()
-			fromRow = parentNode.parm("fromRow").eval()
-			useToRow = parentNode.parm("useToRow").eval()
-			toRow = parentNode.parm("toRow").eval()
-			sequenceCol = ord(parentNode.parm("sequence").eval().lower()) - 96
-			shotCol = ord(parentNode.parm("shot").eval().lower()) - 96
-			startframeCol = ord(parentNode.parm("startframe").eval().lower()) - 96
-			endframeCol = ord(parentNode.parm("endframe").eval().lower()) - 96
-			hierarchyCol = ord(parentNode.parm("hierarchy").eval().lower()) - 96
-			assetCol = ord(parentNode.parm("asset").eval().lower()) - 96
-
-			if not useToRow:
-				toRow = -1
-
-			if entityType == "assets":
-				columns = {"hierarchy":hierarchyCol, "asset":assetCol}
+	def cookNode(self, **kwargs):
+
+		if not hasattr(threading, "__mylock"):
+			threading.__mylock = threading.Lock()
+
+		with threading.__mylock:
+			result = None
+			self.core.uiAvailable = False
+
+			if kwargs["nodeType"] == "google_docs":
+				self.readGoogleDocs(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
+			elif kwargs["nodeType"] == "createEntity":
+				self.createEntity(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
+			elif kwargs["nodeType"] == "writeEntity":
+				result = self.writeEntity(workItem=kwargs["workItem"])
+			elif kwargs["nodeType"] == "combineStates":
+				self.combineStates(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
+			elif kwargs["nodeType"] == "createState":
+				self.createState(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
+			elif kwargs["nodeType"] == "writeStates":
+				self.writeStates(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
+			elif kwargs["nodeType"] == "createDependencies":
+				self.createDependencies(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"])
+			elif kwargs["nodeType"] == "setProject":
+				self.setProject(workItem=kwargs["workItem"])
 			else:
-				columns = {"sequence":sequenceCol, "shot":shotCol, "startframe":startframeCol, "endframe":endframeCol}
-			from PrismUtils import GoogleDocs
-			entityData = GoogleDocs.readGDocs(self.core, auth, docName, sheetName, sorted(columns.values()), fromRow, toRow)
-			colNames = sorted(columns.keys(), key=lambda x: columns[x])
-			dataDicts = []
-			for i in entityData:
-				entityDict = {}
-				for name in colNames:
-					entityDict[name] = i[colNames.index(name)]
-				dataDicts.append(entityDict)
+				self.core.popup("Unknown nodetype: %s" % kwargs["nodeType"])
 
-			self.createWorkItems(itemHolder, upstreamItems, entityType, dataDicts)
+			self.core.uiAvailable = True
+			return result
 
 
 	@err_decorator
@@ -466,3 +167,524 @@ class Prism_PDG_Functions(object):
 			cNode.setCurrent(True, clear_all_selected=True)
 
 		return cNode
+
+
+	@err_decorator
+	def readGoogleDocs(self, pdgCallback, itemHolder, upstreamItems):
+		node = hou.nodeBySessionId(pdgCallback.customId)
+		parentNode = node.parent()
+		auth = parentNode.parm("authorization").eval()
+		docName = parentNode.parm("document").eval()
+		sheetName = parentNode.parm("sheet").eval()
+		entityType = parentNode.parm("entity").evalAsString()
+		fromRow = parentNode.parm("fromRow").eval()
+		useToRow = parentNode.parm("useToRow").eval()
+		toRow = parentNode.parm("toRow").eval()
+		sequenceCol = ord(parentNode.parm("sequence").eval().lower()) - 96
+		shotCol = ord(parentNode.parm("shot").eval().lower()) - 96
+		startframeCol = ord(parentNode.parm("startframe").eval().lower()) - 96
+		endframeCol = ord(parentNode.parm("endframe").eval().lower()) - 96
+		hierarchyCol = ord(parentNode.parm("hierarchy").eval().lower()) - 96
+		assetCol = ord(parentNode.parm("asset").eval().lower()) - 96
+
+		if not useToRow:
+			toRow = -1
+
+		if entityType == "assets":
+			columns = {"hierarchy":hierarchyCol, "asset":assetCol}
+		else:
+			columns = {"sequence":sequenceCol, "shot":shotCol, "startframe":startframeCol, "endframe":endframeCol}
+		from PrismUtils import GoogleDocs
+		entityData = GoogleDocs.readGDocs(self.core, auth, docName, sheetName, sorted(columns.values()), fromRow, toRow)
+		colNames = sorted(columns.keys(), key=lambda x: columns[x])
+		dataDicts = []
+		for i in entityData:
+			entityDict = {}
+			for name in colNames:
+				entityDict[name] = i[colNames.index(name)]
+			dataDicts.append(entityDict)
+
+		self.createWorkItems(itemHolder, upstreamItems, entityType, dataDicts)
+
+
+	@err_decorator
+	def createEntity(self, pdgCallback, itemHolder, upstreamItems):
+		entity = pdgCallback["entity"].evaluate()
+
+		if entity == 0:
+			filepath = pdgCallback["definitionfile"].evaluate()
+			
+			if os.path.exists(filepath):
+				with open(filepath, 'r') as f:
+					defData = json.load(f)
+				
+				if "ASSETS" in defData:
+					for assetCat in defData["ASSETS"]:
+						for asset in defData["ASSETS"][assetCat]:
+							item = itemHolder.addWorkItem()
+							item.data.setString('type', "asset", 0)
+							item.data.setString('hierarchy', assetCat, 0)
+							item.data.setString('name', asset, 0)
+			
+				if "SHOTS" in defData:
+					for seq in defData["SHOTS"]:
+						for shot in defData["SHOTS"][seq]:
+							item = itemHolder.addWorkItem()
+							item.data.setString('type', "shot", 0)
+							item.data.setString('sequence', seq, 0)
+							item.data.setString('name', shot, 0)
+
+		elif entity == 1:
+			if upstreamItems:
+				for upstreamItem in upstreamItems:
+					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+					item.data.setString('type', "project", 0)
+					path = pdgCallback["projectPath"].evaluate(upstreamItem) or upstreamItem.data.stringData("path", 0) or ""
+					name = pdgCallback["projectName"].evaluate(upstreamItem) or upstreamItem.data.stringData("name", 0) or ""
+					item.data.setString('path', path, 0)
+					item.data.setString('name', name, 0)
+			else:
+				item = itemHolder.addWorkItem()
+				item.data.setString('type', "project", 0)
+				item.data.setString('path', pdgCallback["projectPath"].evaluate(), 0)
+				item.data.setString('name', pdgCallback["projectName"].evaluate(), 0)
+
+		elif entity == 2:
+			if upstreamItems:
+				for upstreamItem in upstreamItems:
+					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+					item.data.setString('type', "asset", 0)
+					if upstreamItem.data.stringData("hierarchy", 0):
+						path = "%s/%s" % (upstreamItem.data.stringData("hierarchy", 0), pdgCallback["assetHierarchy"].evaluate(upstreamItem))
+					else:
+						path = pdgCallback["assetHierarchy"].evaluate(upstreamItem)
+					name = pdgCallback["assetName"].evaluate(upstreamItem) or upstreamItem.data.stringData("name", 0) or ""
+					item.data.setString('hierarchy', path, 0)
+					item.data.setString('name', name, 0)
+			else:
+				item = itemHolder.addWorkItem()
+				item.data.setString('type', "asset", 0)
+				item.data.setString('hierarchy', pdgCallback["assetHierarchy"].evaluate(), 0)
+				item.data.setString('name', pdgCallback["assetName"].evaluate(), 0)
+			
+		elif entity == 3:
+			if upstreamItems:
+				for upstreamItem in upstreamItems:
+					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+					item.data.setString('type', "shot", 0)
+					path = pdgCallback["sequence"].evaluate(upstreamItem) or upstreamItem.data.stringData("sequence", 0) or ""
+					name = pdgCallback["shotName"].evaluate(upstreamItem) or upstreamItem.data.stringData("name", 0) or ""
+					if pdgCallback["useRange"].evaluate(upstreamItem):
+						rangeStart = str(pdgCallback["shotrange"].evaluate(upstreamItem)[0])
+						rangeEnd = str(pdgCallback["shotrange"].evaluate(upstreamItem)[1])
+						item.data.setString('framerange', rangeStart, 0)
+						item.data.setString('framerange', rangeEnd, 1)
+					item.data.setString('sequence', path, 0)
+					item.data.setString('name', name, 0)
+			else:
+				item = itemHolder.addWorkItem()
+				item.data.setString('type', "shot", 0)
+				item.data.setString('sequence', pdgCallback["sequence"].evaluate(), 0)
+				item.data.setString('name', pdgCallback["shotName"].evaluate(), 0)
+				if pdgCallback["useRange"].evaluate():
+					item.data.setString('framerange', pdgCallback["shotrange"].evaluate()[0], 0)
+					item.data.setString('framerange', pdgCallback["shotrange"].evaluate()[1], 1)
+			
+		elif entity == 4:
+			for upstreamItem in upstreamItems:
+				curType = upstreamItem.data.stringData("type", 0)
+				if curType in ["asset", "shot"]:
+					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+					item.data.setString('type', "step", 0)
+					item.data.setString('%sName' % curType, upstreamItem.data.stringData("name", 0), 0)
+					item.data.setString('name', pdgCallback["stepName"].evaluate(upstreamItem), 0)
+					
+		elif entity == 5:
+			for upstreamItem in upstreamItems:
+				curType = upstreamItem.data.stringData("type", 0)
+				if curType in ["step"]:
+					if pdgCallback["defaultCategory"].evaluate(upstreamItem):
+						import ast
+						try:
+							steps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
+						except:
+							continue
+
+						if type(steps) != dict:
+							steps = {}
+						
+						steps = {validSteps: steps[validSteps] for validSteps in steps}
+						stepName = upstreamItem.data.stringData("name", 0)
+						if stepName not in steps:
+							continue
+				
+						catName = steps[stepName]
+					else:
+						catName = pdgCallback["categoryName"].evaluate(upstreamItem)
+				
+					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+					item.data.setString('type', "category", 0)
+					item.data.setString('step', upstreamItem.data.stringData("name", 0), 0)
+					item.data.setString('name', catName, 0)
+					
+		elif entity == 6:
+			for upstreamItem in upstreamItems:
+				curType = upstreamItem.data.stringData("type", 0)
+				if curType in ["category"]:
+					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+					item.data.setString('type', "scenefile", 0)
+					item.data.setString('category', upstreamItem.data.stringData("name", 0), 0)
+					item.data.setString('source', pdgCallback["scenefileSource"].evaluate(upstreamItem), 0)
+					item.data.setString('comment', pdgCallback["scenefileComment"].evaluate(upstreamItem), 0)
+
+
+	@err_decorator
+	def writeEntity(self, workItem):
+		result = self.core.createEntity(entity=workItem.data.allDataMap)
+
+		if workItem.attrib("type") == "scenefile":
+			workItem.addResultData(result, "scenePath", 0)
+
+		return result
+
+
+	@err_decorator
+	def combineStates(self, pdgCallback, itemHolder, upstreamItems):
+		parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
+		unique = parentNode.parm("uniqueEntities").eval()
+		combineStates = parentNode.parm("combineStates").eval()
+
+		entities = []
+
+		up_items = upstreamItems
+		for item in up_items:
+			if not unique:
+				data = item.data.allDataMap
+				states = data.get("states", [])
+				entities.append({"item":item, "states":states})
+				continue
+				
+			for e in entities:
+				itemData = item.data.allDataMap
+				eData = e["item"].data.allDataMap
+				
+				iStates = itemData.pop("states", None) or []
+				eStates = eData.pop("states", None) or []
+				if itemData == eData:
+					if combineStates:
+						e["states"] += iStates
+					break
+			else:
+				data = item.data.allDataMap
+				states = data.get("states", [])
+				entities.append({"item":item, "states":states})
+			
+		for e in entities:
+			item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True,
+					parent=e["item"])
+			if "states" in e:
+				item.data.setStringArray("states", e["states"])
+
+	@err_decorator
+	def createState(self, pdgCallback, itemHolder, upstreamItems):
+		parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
+		className = parentNode.parm("stateType").menuItems()[parentNode.parm("stateType").eval()]
+		execute = parentNode.parm("execState").eval()
+		usePreScript = parentNode.parm("usePreScript").eval()
+		preScript = parentNode.parm("preScript").eval()
+		usePostScript = parentNode.parm("usePostScript").eval()
+		postScript = parentNode.parm("postScript").eval()
+		settings = parentNode.parm("stateSettings").eval().replace("\n", "")
+		imports = []
+
+		if className in ["default_ImportFile", "hou_ImportFile"] and parentNode.parm("importFromInput").eval():
+			for upstreamItem in upstreamItems:
+				if upstreamItem.data.intData("second_input", 0):
+					states = upstreamItem.data.stringDataArray("states")
+					if not parentNode.parm("ignoreInputEntity").eval():
+						assetName = upstreamItem.data.stringData("assetName", 0)
+						shotName = upstreamItem.data.stringData("shotName", 0)
+					if states:
+						for state in states:
+							stateData = eval(state)
+							if "settings" in stateData:
+								stateDict = eval("{%s}" % stateData["settings"].replace("=", ":"))
+								if parentNode.parm("ignoreInputEntity").eval():
+									if "taskname" in stateDict and stateDict["taskname"] not in imports:
+										imports.append(stateDict["taskname"])
+								else:
+									if assetName:
+										entity = "asset"
+										entityName = assetName
+									elif shotName:
+										entity = "shot"
+										entityName = shotName
+									elif "imports" in stateData:
+										imports += stateData["imports"]
+									else:
+										continue
+										
+									if "taskname" in stateDict:
+										imports.append("%s|%s|%s" % (entity, entityName, stateDict["taskname"]))
+					  
+		for upstreamItem in upstreamItems:
+			if upstreamItem.data.intData("second_input", 0):
+				continue
+				
+			item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True,
+				parent=upstreamItem)
+
+			curStates = item.data.dataArray("states") or []
+			
+			stateData = {"stateType": className, "execute": execute, "settings": settings}
+			
+			if execute:
+				if usePreScript:
+					stateData["preScript"] = preScript.replace("\n", ";")
+				if usePostScript:
+					stateData["postScript"] = postScript.replace("\n", ";")
+					
+			if imports:
+				if parentNode.parm("ignoreInputEntity").eval():
+					assetName = upstreamItem.data.stringData("assetName", 0)
+					shotName = upstreamItem.data.stringData("shotName", 0)
+					
+					if assetName:
+						entity = "asset"
+						entityName = assetName
+					elif shotName:
+						entity = "shot"
+						entityName = shotName
+					else:
+						continue
+					
+					lImports = [ "%s|%s|%s" % (entity, entityName, x) for x in imports]
+				else:
+					lImports = imports
+
+				stateData["imports"] = lImports
+				
+			curStates.append(str(stateData))
+			item.data.setStringArray("states", curStates)
+
+
+	@err_decorator
+	def createDependencies(self, pdgCallback, itemHolder):
+		parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
+		className = "hou_ImportFile"
+		execute = 1
+		settings = ""
+		dependencyStr = parentNode.parm("dependencies").eval()
+		dependencies = dependencyStr.split("\n")
+		imports = []
+					  
+		for dep in dependencies:
+			if len(dep) == 0:
+				continue
+				
+			if dep[0] == "#":
+				continue
+				
+			imports.append(dep)
+			
+		item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True)
+
+		stateData = {"stateType": className, "execute": execute, "settings": settings}
+		if imports:
+			stateData["imports"] = imports
+
+		item.data.setStringArray("states", [str(stateData)])
+
+
+	@err_decorator
+	def setProject(self, workItem):
+		typeStr = strData(workItem, "type")
+		if typeStr != "project":
+			return
+
+		prjPath = strData(workItem, "path")
+		self.core.changeProject(prjPath)
+
+
+	@err_decorator
+	def writeStates(self, pdgCallback, itemHolder, upstreamItems):
+		workItems = upstreamItems[0].partitionItems,
+		mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
+		mpy = mayaPath or "C:/Program Files/Autodesk/Maya2018/bin/mayapy.exe"
+		hython = os.path.join(os.environ["HB"], "hython.exe")
+		mayaPaths = []
+		houPaths = []
+		sceneStates = []
+		for workItem in workItems:
+			path = workItem.resultDataForTag("scenePath")
+			states = workItem.data.stringDataArray("states")
+			if not path or not states:
+				continue
+
+			if os.path.splitext(path[0][0])[1] in self.core.getPluginData("Maya", "sceneFormats"):
+				mayaPaths.append(path[0][0])
+				sceneStates = map(lambda x: eval(x.replace("\\", "\\\\\\\\\\")), states)
+			elif os.path.splitext(path[0][0])[1] in self.core.getPluginData("Houdini", "sceneFormats"):
+				houPaths.append(path[0][0])
+				sceneStates = map(lambda x: eval(x.replace("\\", "\\\\\\")), states)
+
+		procs = []
+		if mayaPaths:
+			mayaCmd = self.getMayaCmd(mayaPaths, sceneStates)
+			procs.append({"executable": mpy, "command": mayaCmd})
+
+		if houPaths:
+			houCmd = self.getHoudiniCmd(houPaths, sceneStates)
+			procs.append({"executable": hython, "command": houCmd})
+
+
+		stdout = ""
+		for i in procs:
+			if True: #if `@debug`:
+				print "starting %s" % os.path.basename(i["executable"])
+				proc = subprocess.Popen([i["executable"], "-c", i["command"]], stdout=subprocess.PIPE)
+				for line in proc.stdout:
+					line = "[stdout] %s" % line.replace("\n", "")
+					sys.stdout.write(line)
+					stdout += line
+					
+				proc.wait()
+			else:
+				proc = subprocess.Popen([i["executable"], "-c", i["command"]])
+				stdout, stderr = proc.communicate()
+				
+		if "Scene was processed successfully" not in stdout:
+			return False
+		else:
+			print "Completed state creations."
+
+		return True
+
+
+	@err_decorator
+	def getMayaCmd(self, mayaPaths, sceneStates):
+		cmd = """
+import sys
+from PySide2.QtCore import *
+from PySide2.QtWidgets import *
+QApplication(sys.argv)
+
+import maya.standalone
+maya.standalone.initialize()
+import maya.cmds as cmds
+
+import PrismInit
+pcore = PrismInit.prismInit(prismArgs=["noUI"])
+scenePaths = eval("%s")
+print "processing scenes: %%s" %% scenePaths
+for scenePath in scenePaths:
+	try:
+		cmds.file( scenePath, o=True, force=True, ignoreVersion=True )
+	except:
+		if pcore.getCurrentFileName() == "":
+			print "Couldn't load file. Loading all plugins and trying again."
+			cmds.loadPlugin( allPlugins=True )
+			cmds.file( scenePath, o=True, force=True, ignoreVersion=True )
+
+	if pcore.getCurrentFileName() == "":
+		print ("failed to load file: %%s" %% scenePath)
+	else:
+		print ("loaded file: %%s" %% scenePath)
+		
+		stateManager = pcore.stateManager()
+		states = eval(\"\"\"%s\"\"\")
+		for idx, state in enumerate(states):
+			settings = state["settings"]
+			try:
+				settings = eval("{%%s}" %% settings.replace("=", ":"))
+			except Exception as e:
+				settings = {}
+				
+			if "imports" in state and state["imports"]:
+				settings["filepath"] = pcore.resolve(state["imports"][0])
+			
+			if "preScript" in state:
+				pcore.appPlugin.executeScript(pcore, state["preScript"], execute=True)
+				
+			stateNameBase = state["stateType"].replace(state["stateType"].split("_", 1)[0] + "_", "")
+			stateItem = stateManager.createState(stateNameBase, stateData=settings)
+			if state["execute"]:
+				if stateItem.ui.listType == "Import":
+					getattr(stateItem.ui, "importObject", lambda: None)()
+				elif stateItem.ui.listType == "Export":
+					stateManager.publish(executeState=True, states=[stateItem])
+				print "executed state %%s: %%s" %% (idx, stateNameBase)
+				
+			if "postScript" in state:
+				pcore.appPlugin.executeScript(pcore, state["postScript"], execute=True)
+				
+		pcore.saveScene(versionUp=False)
+		
+	print "Scene was processed successfully"
+
+		""" % (mayaPaths, sceneStates)
+		return cmd
+
+
+	@err_decorator
+	def getHoudiniCmd(self, houPaths, sceneStates):
+		cmd = """
+import os, sys
+import hou
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
+        
+QApplication.addLibraryPath(os.path.join(hou.expandString("$HFS"), "bin", "Qt_plugins"))
+qApp = QApplication.instance()
+if qApp is None:
+    qApp = QApplication(sys.argv)
+    
+import PrismInit
+pcore = PrismInit.prismInit(prismArgs=["noUI"])
+
+scenePaths = eval("%s")
+print "processing scenes: %%s" %% scenePaths
+for scenePath in scenePaths:
+	hou.hipFile.load(file_name=scenePath, ignore_load_warnings=True)
+
+	if pcore.getCurrentFileName() == "":
+		print ("failed to load file: %%s" %% scenePath)
+	else:
+		print ("loaded file: %%s" %% scenePath)
+		
+		stateManager = pcore.stateManager()
+		states = eval(\"\"\"%s\"\"\")
+		for idx, state in enumerate(states):
+			settings = state["settings"]
+			try:
+				settings = eval("{%%s}" %% settings.replace("=", ":"))
+			except Exception as e:
+				settings = {}
+				
+			if "imports" in state and state["imports"]:
+				settings["filepath"] = pcore.resolve(state["imports"][0])
+			
+			if "preScript" in state:
+				print state["preScript"]
+				pcore.appPlugin.executeScript(pcore, state["preScript"], execute=True)
+				
+			stateNameBase = state["stateType"].replace(state["stateType"].split("_", 1)[0] + "_", "")
+			stateItem = stateManager.createState(stateNameBase, stateData=settings)
+
+			if "postScript" in state:
+				pcore.appPlugin.executeScript(pcore, state["postScript"], execute=True)
+				
+			if state["execute"]:
+				if stateItem.ui.listType == "Import":
+					getattr(stateItem.ui, "importObject", lambda: None)()
+				elif stateItem.ui.listType == "Export":
+					stateManager.publish(executeState=True, states=[stateItem])
+				print "executed state %%s: %%s" %% (idx, stateNameBase)
+				
+		pcore.saveScene(versionUp=False)
+		
+	print "Scene was processed successfully"
+
+		""" % (houPaths, sceneStates)
+		return cmd

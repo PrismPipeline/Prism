@@ -705,12 +705,15 @@ sHelper.scale = [sVal, sVal, sVal]""" % i)
 
 	@err_decorator
 	def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-		dlParams["pluginInfoFile"] = os.path.join( homeDir, "temp", "3dsmax_plugin_info.job" )
+		maxversion = self.executeScript(origin, "maxversion()").GetItem(0)
+		if type(maxversion) != int:
+			maxversion = maxversion.GetInt()
+		dlParams["pluginInfoFile"] = os.path.join(homeDir, "temp", "3dsmax_plugin_info.job" )
 		dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "3dsmax_submit_info.job" )
 
 		dlParams["jobInfos"]["Plugin"] = "3dsmax"
 		dlParams["jobInfos"]["Comment"] = "Prism-Submission-3dsmax_ImageRender"
-		dlParams["pluginInfos"]["Version"] = str(self.executeScript(origin, "maxversion()").GetItem(0).GetInt()/1000-2+2000)
+		dlParams["pluginInfos"]["Version"] = str(maxversion/1000-2+2000)
 		dlParams["pluginInfos"]["MaxVersionToForce"] = dlParams["pluginInfos"]["Build"]
 		dlParams["pluginInfos"]["PopupHandling"] = "1"
 
