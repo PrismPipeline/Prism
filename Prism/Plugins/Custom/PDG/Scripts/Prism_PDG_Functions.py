@@ -132,34 +132,34 @@ class Prism_PDG_Functions(object):
 	@err_decorator
 	def setupNode(self, entityType, node):
 		if entityType == "fromFile":
-			cNode = node.createOutputNode("prism_create_entity")
+			cNode = node.createOutputNode("prism::create_entity")
 			cNode.parm("entity").set("file")
 		elif entityType == "project":
-			cNode = node.createOutputNode("prism_create_entity")
+			cNode = node.createOutputNode("prism::create_entity")
 			cNode.parm("entity").set("project")
 		elif entityType == "asset":
-			cNode = node.createOutputNode("prism_create_entity")
+			cNode = node.createOutputNode("prism::create_entity")
 			cNode.parm("entity").set("asset")
 		elif entityType == "shot":
-			cNode = node.createOutputNode("prism_create_entity")
+			cNode = node.createOutputNode("prism::create_entity")
 			cNode.parm("entity").set("shot")
 		elif entityType == "step":
-			cNode = node.createOutputNode("prism_create_entity")
+			cNode = node.createOutputNode("prism::create_entity")
 			cNode.parm("entity").set("step")
 		elif entityType == "category":
-			cNode = node.createOutputNode("prism_create_entity")
+			cNode = node.createOutputNode("prism::create_entity")
 			cNode.parm("entity").set("category")
 		elif entityType == "scenefile":
-			cNode = node.createOutputNode("prism_create_entity")
+			cNode = node.createOutputNode("prism::create_entity")
 			cNode.parm("entity").set("scenefile")
 		elif entityType == "write":
-			cNode = node.createOutputNode("prism_write_entity")
+			cNode = node.createOutputNode("prism::write_entity")
 		elif entityType == "setProject":
-			cNode = node.createOutputNode("prism_set_project")
+			cNode = node.createOutputNode("prism::set_project")
 		elif entityType == "create_state":
-			cNode = node.createOutputNode("prism_create_state")
+			cNode = node.createOutputNode("prism::create_state")
 		elif entityType == "write_states":
-			cNode = node.createOutputNode("prism_write_states")
+			cNode = node.createOutputNode("prism::write_states")
 		else:
 			self.core.popup("Invalid type: %s" % entityType)
 			return
