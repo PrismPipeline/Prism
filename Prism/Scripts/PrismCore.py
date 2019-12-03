@@ -119,7 +119,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.36"
+			self.version = "v1.2.1.37"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1259,6 +1259,10 @@ class PrismCore():
 	@err_decorator
 	def createEntity(self, entity):
 		if type(entity) != dict:
+			return False
+
+		if "type" not in entity:
+			self.popup("(createEntity) invalid entity: %s" % str(entity))
 			return False
 
 		if entity["type"][0] != "project":

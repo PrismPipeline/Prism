@@ -46,6 +46,7 @@ except:
 
 try:
 	import hou
+	import pdg
 except:
 	pass
 
@@ -98,7 +99,7 @@ class Prism_PDG_Functions(object):
 			elif kwargs["nodeType"] == "createState":
 				self.createState(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
 			elif kwargs["nodeType"] == "writeStates":
-				self.writeStates(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
+				result = self.writeStates(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"], upstreamItems=kwargs["upstreamItems"])
 			elif kwargs["nodeType"] == "createDependencies":
 				self.createDependencies(pdgCallback=kwargs["pdgCallback"], itemHolder=kwargs["itemHolder"])
 			elif kwargs["nodeType"] == "setProject":
@@ -209,10 +210,11 @@ class Prism_PDG_Functions(object):
 
 	@err_decorator
 	def createEntity(self, pdgCallback, itemHolder, upstreamItems):
-		entity = pdgCallback["entity"].evaluate()
+		parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
+		entity = parentNode.parm("entity").eval()
 
 		if entity == 0:
-			filepath = pdgCallback["definitionfile"].evaluate()
+			filepath = parentNode.parm("definitionfile").eval()
 			
 			if os.path.exists(filepath):
 				with open(filepath, 'r') as f:
@@ -239,15 +241,15 @@ class Prism_PDG_Functions(object):
 				for upstreamItem in upstreamItems:
 					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
 					item.data.setString('type', "project", 0)
-					path = pdgCallback["projectPath"].evaluate(upstreamItem) or upstreamItem.data.stringData("path", 0) or ""
-					name = pdgCallback["projectName"].evaluate(upstreamItem) or upstreamItem.data.stringData("name", 0) or ""
+					path = parentNode.parm("projectPath").eval() or upstreamItem.data.stringData("path", 0) or ""
+					name = parentNode.parm("projectName").eval() or upstreamItem.data.stringData("name", 0) or ""
 					item.data.setString('path', path, 0)
 					item.data.setString('name', name, 0)
 			else:
 				item = itemHolder.addWorkItem()
 				item.data.setString('type', "project", 0)
-				item.data.setString('path', pdgCallback["projectPath"].evaluate(), 0)
-				item.data.setString('name', pdgCallback["projectName"].evaluate(), 0)
+				item.data.setString('path', parentNode.parm("projectPath").eval(), 0)
+				item.data.setString('name', parentNode.parm("projectName").eval(), 0)
 
 		elif entity == 2:
 			if upstreamItems:
@@ -255,28 +257,28 @@ class Prism_PDG_Functions(object):
 					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
 					item.data.setString('type', "asset", 0)
 					if upstreamItem.data.stringData("hierarchy", 0):
-						path = "%s/%s" % (upstreamItem.data.stringData("hierarchy", 0), pdgCallback["assetHierarchy"].evaluate(upstreamItem))
+						path = "%s/%s" % (upstreamItem.data.stringData("hierarchy", 0), parentNode.parm("assetHierarchy").eval())
 					else:
-						path = pdgCallback["assetHierarchy"].evaluate(upstreamItem)
-					name = pdgCallback["assetName"].evaluate(upstreamItem) or upstreamItem.data.stringData("name", 0) or ""
+						path = parentNode.parm("assetHierarchy").eval()
+					name = parentNode.parm("assetName").eval() or upstreamItem.data.stringData("name", 0) or ""
 					item.data.setString('hierarchy', path, 0)
 					item.data.setString('name', name, 0)
 			else:
 				item = itemHolder.addWorkItem()
 				item.data.setString('type', "asset", 0)
-				item.data.setString('hierarchy', pdgCallback["assetHierarchy"].evaluate(), 0)
-				item.data.setString('name', pdgCallback["assetName"].evaluate(), 0)
+				item.data.setString('hierarchy', parentNode.parm("assetHierarchy").eval(), 0)
+				item.data.setString('name', parentNode.parm("assetName").eval(), 0)
 			
 		elif entity == 3:
 			if upstreamItems:
 				for upstreamItem in upstreamItems:
 					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
 					item.data.setString('type', "shot", 0)
-					path = pdgCallback["sequence"].evaluate(upstreamItem) or upstreamItem.data.stringData("sequence", 0) or ""
-					name = pdgCallback["shotName"].evaluate(upstreamItem) or upstreamItem.data.stringData("name", 0) or ""
-					if pdgCallback["useRange"].evaluate(upstreamItem):
-						rangeStart = str(pdgCallback["shotrange"].evaluate(upstreamItem)[0])
-						rangeEnd = str(pdgCallback["shotrange"].evaluate(upstreamItem)[1])
+					path = parentNode.parm("sequence").eval() or upstreamItem.data.stringData("sequence", 0) or ""
+					name = parentNode.parm("shotName").eval() or upstreamItem.data.stringData("name", 0) or ""
+					if parentNode.parm("useRange").eval():
+						rangeStart = str(parentNode.parm("shotrangex").evalAsString())
+						rangeEnd = str(parentNode.parm("shotrangey").evalAsString())
 						item.data.setString('framerange', rangeStart, 0)
 						item.data.setString('framerange', rangeEnd, 1)
 					item.data.setString('sequence', path, 0)
@@ -284,11 +286,11 @@ class Prism_PDG_Functions(object):
 			else:
 				item = itemHolder.addWorkItem()
 				item.data.setString('type', "shot", 0)
-				item.data.setString('sequence', pdgCallback["sequence"].evaluate(), 0)
-				item.data.setString('name', pdgCallback["shotName"].evaluate(), 0)
-				if pdgCallback["useRange"].evaluate():
-					item.data.setString('framerange', pdgCallback["shotrange"].evaluate()[0], 0)
-					item.data.setString('framerange', pdgCallback["shotrange"].evaluate()[1], 1)
+				item.data.setString('sequence', parentNode.parm("sequence").eval(), 0)
+				item.data.setString('name', parentNode.parm("shotName").eval(), 0)
+				if parentNode.parm("useRange").eval():
+					item.data.setString('framerange', parentNode.parm("shotrangex").evalAsString(), 0)
+					item.data.setString('framerange', parentNode.parm("shotrangey").evalAsString(), 1)
 			
 		elif entity == 4:
 			for upstreamItem in upstreamItems:
@@ -297,13 +299,13 @@ class Prism_PDG_Functions(object):
 					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
 					item.data.setString('type', "step", 0)
 					item.data.setString('%sName' % curType, upstreamItem.data.stringData("name", 0), 0)
-					item.data.setString('name', pdgCallback["stepName"].evaluate(upstreamItem), 0)
+					item.data.setString('name', parentNode.parm("stepName").eval(), 0)
 					
 		elif entity == 5:
 			for upstreamItem in upstreamItems:
 				curType = upstreamItem.data.stringData("type", 0)
 				if curType in ["step"]:
-					if pdgCallback["defaultCategory"].evaluate(upstreamItem):
+					if parentNode.parm("defaultCategory").eval():
 						import ast
 						try:
 							steps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
@@ -320,7 +322,7 @@ class Prism_PDG_Functions(object):
 				
 						catName = steps[stepName]
 					else:
-						catName = pdgCallback["categoryName"].evaluate(upstreamItem)
+						catName = parentNode.parm("categoryName").eval()
 				
 					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
 					item.data.setString('type', "category", 0)
@@ -334,16 +336,21 @@ class Prism_PDG_Functions(object):
 					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
 					item.data.setString('type', "scenefile", 0)
 					item.data.setString('category', upstreamItem.data.stringData("name", 0), 0)
-					item.data.setString('source', pdgCallback["scenefileSource"].evaluate(upstreamItem), 0)
-					item.data.setString('comment', pdgCallback["scenefileComment"].evaluate(upstreamItem), 0)
+					item.data.setString('source', parentNode.parm("scenefileSource").eval(), 0)
+					item.data.setString('comment', parentNode.parm("scenefileComment").eval(), 0)
 
 
 	@err_decorator
 	def writeEntity(self, workItem):
-		result = self.core.createEntity(entity=workItem.data.allDataMap)
+		data = workItem.data.allDataMap
+		if "type" not in data:
+			return "Error - invalid workitem"
 
-		if workItem.attrib("type") == "scenefile":
-			workItem.addResultData(result, "scenePath", 0)
+		result = self.core.createEntity(entity=data)
+
+		if workItem.attrib("type").value() == "scenefile":
+			# workItem.addResultData(result, "scenePath", 0)
+			workItem.setStringAttrib("scenePath", result, 0)
 
 		return result
 
@@ -434,9 +441,16 @@ class Prism_PDG_Functions(object):
 			item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True,
 				parent=upstreamItem)
 
+			overrideSettings = ""
+			for orId in range(parentNode.parm("overrideSettings").eval()):
+				with item.makeActive():
+					orSetting = parentNode.parm("orSetting%s" % (orId+1)).eval()
+					orVal = parentNode.parm("orValue%s" % (orId+1)).eval()
+
+				overrideSettings += "\"%s\" = \"%s\"," % (orSetting, orVal)
+
 			curStates = item.data.dataArray("states") or []
-			
-			stateData = {"stateType": className, "execute": execute, "settings": settings}
+			stateData = {"stateType": className, "execute": execute, "settings": settings, "overrideSettings": overrideSettings}
 			
 			if execute:
 				if usePreScript:
@@ -498,27 +512,32 @@ class Prism_PDG_Functions(object):
 
 	@err_decorator
 	def setProject(self, workItem):
-		typeStr = strData(workItem, "type")
+		typeStr = workItem.attrib("type").value()
 		if typeStr != "project":
 			return
 
-		prjPath = strData(workItem, "path")
+		prjPath = workItem.attrib("path").value()
 		self.core.changeProject(prjPath)
 
 
 	@err_decorator
 	def writeStates(self, pdgCallback, itemHolder, upstreamItems):
-		workItems = upstreamItems[0].partitionItems,
 		mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
 		mpy = mayaPath or "C:/Program Files/Autodesk/Maya2018/bin/mayapy.exe"
 		hython = os.path.join(os.environ["HB"], "hython.exe")
 		mayaPaths = []
 		houPaths = []
 		sceneStates = []
-		for workItem in workItems:
-			path = workItem.resultDataForTag("scenePath")
+		for workItem in upstreamItems:
+			# path = workItem.resultDataForTag("scenePath")
+			path = [[workItem.data.stringData("scenePath", 0)]]
+			if not path:
+				self.core.popup("Unable to write states. Workitem doesn't contain a scenepath.")
+				continue
+
 			states = workItem.data.stringDataArray("states")
-			if not path or not states:
+			if not states:
+				self.core.popup("Unable to write states. Workitem doesn't contain states.")
 				continue
 
 			if os.path.splitext(path[0][0])[1] in self.core.getPluginData("Maya", "sceneFormats"):
@@ -552,6 +571,10 @@ class Prism_PDG_Functions(object):
 			else:
 				proc = subprocess.Popen([i["executable"], "-c", i["command"]])
 				stdout, stderr = proc.communicate()
+
+		for upstreamItem in upstreamItems:
+			item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+			item.eraseAttrib("states")
 				
 		if "Scene was processed successfully" not in stdout:
 			return False
@@ -599,6 +622,15 @@ for scenePath in scenePaths:
 				settings = eval("{%%s}" %% settings.replace("=", ":"))
 			except Exception as e:
 				settings = {}
+
+			if "overrideSettings" in state:
+				orSettings = state["overrideSettings"]
+				try:
+					orSettings = eval("{%%s}" %% orSettings.replace("=", ":"))
+				except Exception as e:
+					orSettings = {}
+
+				settings.update(orSettings)
 				
 			if "imports" in state and state["imports"]:
 				settings["filepath"] = pcore.resolve(state["imports"][0])
@@ -618,7 +650,7 @@ for scenePath in scenePaths:
 			if "postScript" in state:
 				pcore.appPlugin.executeScript(pcore, state["postScript"], execute=True)
 				
-		pcore.saveScene(versionUp=False)
+		pcore.saveScene(comment=\"state added (PDG)\", versionUp=True)
 		
 	print "Scene was processed successfully"
 
@@ -634,12 +666,12 @@ import hou
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-        
+		
 QApplication.addLibraryPath(os.path.join(hou.expandString("$HFS"), "bin", "Qt_plugins"))
 qApp = QApplication.instance()
 if qApp is None:
-    qApp = QApplication(sys.argv)
-    
+	qApp = QApplication(sys.argv)
+	
 import PrismInit
 pcore = PrismInit.prismInit(prismArgs=["noUI"])
 
@@ -661,12 +693,21 @@ for scenePath in scenePaths:
 				settings = eval("{%%s}" %% settings.replace("=", ":"))
 			except Exception as e:
 				settings = {}
+
+			if "overrideSettings" in state:
+				orSettings = state["overrideSettings"]
+				try:
+					orSettings = eval("{%%s}" %% orSettings.replace("=", ":"))
+				except Exception as e:
+					orSettings = {}
+
+				settings.update(orSettings)
 				
 			if "imports" in state and state["imports"]:
 				settings["filepath"] = pcore.resolve(state["imports"][0])
 			
 			if "preScript" in state:
-				print state["preScript"]
+				print("Pre-creation script: " + state["preScript"])
 				pcore.appPlugin.executeScript(pcore, state["preScript"], execute=True)
 				
 			stateNameBase = state["stateType"].replace(state["stateType"].split("_", 1)[0] + "_", "")
@@ -682,7 +723,7 @@ for scenePath in scenePaths:
 					stateManager.publish(executeState=True, states=[stateItem])
 				print "executed state %%s: %%s" %% (idx, stateNameBase)
 				
-		pcore.saveScene(versionUp=False)
+		pcore.saveScene(comment=\"state added (PDG)\", versionUp=True)
 		
 	print "Scene was processed successfully"
 

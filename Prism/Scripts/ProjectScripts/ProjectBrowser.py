@@ -3835,6 +3835,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 			for i in foldercont:
 				self.cb_layer.addItem(i)
 
+		self.cb_layer.blockSignals(True)
 		bIdx = self.cb_layer.findText("beauty")
 		if bIdx != -1:
 			self.cb_layer.setCurrentIndex(bIdx)
@@ -3844,6 +3845,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 				self.cb_layer.setCurrentIndex(bIdx)
 			else:
 				self.cb_layer.setCurrentIndex(0)
+		self.cb_layer.blockSignals(False)
 
 		if self.cb_layer.currentIndex() != -1:
 			self.curRLayer = self.cb_layer.currentText()

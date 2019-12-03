@@ -98,7 +98,18 @@ class ExportClass(object):
 
 		self.preDelete = lambda item: self.core.appPlugin.sm_export_preDelete(self)
 
-		self.cb_outType.addItems(self.core.appPlugin.outputFormats)
+		if self.stateManager.standalone:
+			outputFormats = []
+			if self.core.appPlugin.pluginName != "Houdini":
+				outputFormats += list(self.core.appPlugin.outputFormats)
+			for i in self.core.unloadedAppPlugins.values():
+				if i.pluginName != "Houdini":
+					outputFormats += getattr(i, "outputFormats", [])
+			outputFormats = sorted(set(outputFormats))
+		else:
+			outputFormats = self.core.appPlugin.outputFormats
+
+		self.cb_outType.addItems(outputFormats)
 		self.export_paths = [["global", self.core.projectPath]]
 		if self.core.useLocalFiles:
 			self.export_paths.append(["local", self.core.localProjectPath])
