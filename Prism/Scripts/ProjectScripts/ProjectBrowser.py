@@ -328,7 +328,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.e_shotSearch.textChanged.connect(lambda x: self.refreshShots())
 		self.lw_sPipeline.customContextMenuRequested.connect(lambda x: self.rclCat("sp",x))
 		self.lw_sPipeline.currentItemChanged.connect(self.sPipelineclicked)
-		self.lw_sCategory.currentItemChanged.connect(self.sCatclicked)		
+		self.lw_sCategory.currentItemChanged.connect(self.sCatclicked)
 		self.lw_sCategory.customContextMenuRequested.connect(lambda x: self.rclCat("sc",x))
 		self.tw_sFiles.customContextMenuRequested.connect(lambda x: self.rclFile("sf",x))
 		self.tw_sFiles.doubleClicked.connect(self.exeFile)
@@ -1881,7 +1881,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshAHierarchy(self, load=False):
+		self.tw_aHierarchy.blockSignals(True)
 		self.tw_aHierarchy.clear()
+		self.tw_aHierarchy.blockSignals(False)
 
 		if self.core.useLocalFiles:
 			lBasePath = self.aBasePath.replace(self.core.projectPath, self.core.localProjectPath)
@@ -2019,7 +2021,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshAStep(self, cur=None, prev=None):
+		self.lw_aPipeline.blockSignals(True)
 		self.lw_aPipeline.clear()
+		self.lw_aPipeline.blockSignals(False)
 
 		if not self.curAsset:
 			self.refreshaCat()
@@ -2056,7 +2060,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshaCat(self):
+		self.lw_aCategory.blockSignals(True)
 		self.lw_aCategory.clear()
+		self.lw_aCategory.blockSignals(False)
 
 		if not self.curAsset or not self.curaStep:
 			self.refreshAFile()
@@ -2098,7 +2104,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def refreshAFile(self, cur=None, prev=None):
 		scenefiles = []
-
 		if self.curAsset and self.curaStep and self.curaCat:
 			if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
 				path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
@@ -2362,7 +2367,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshShots(self):
+		self.lw_sPipeline.blockSignals(True)
 		self.tw_sShot.clear()
+		self.lw_sPipeline.blockSignals(False)
 
 		sequences, shots = self.getShots()
 
@@ -2410,7 +2417,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshsStep(self, cur=None, prev=None):
+		self.lw_sPipeline.blockSignals(True)
 		self.lw_sPipeline.clear()
+		self.lw_sPipeline.blockSignals(False)
 
 		if not self.cursShots:
 			self.refreshsCat()
@@ -2447,7 +2456,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
 	@err_decorator
 	def refreshsCat(self):
+		self.lw_sCategory.blockSignals(True)
 		self.lw_sCategory.clear()
+		self.lw_sCategory.blockSignals(False)
 
 		if not self.cursStep:
 			self.refreshSFile()
@@ -2485,7 +2496,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 	@err_decorator
 	def refreshSFile(self, parm=None):
 		twSorting = [self.tw_sFiles.horizontalHeader().sortIndicatorSection(), self.tw_sFiles.horizontalHeader().sortIndicatorOrder()]
-
 		model = QStandardItemModel()
 
 		model.setHorizontalHeaderLabels(["", self.tableColumnLabels["Version"], self.tableColumnLabels["Comment"], self.tableColumnLabels["Date"], self.tableColumnLabels["User"]])

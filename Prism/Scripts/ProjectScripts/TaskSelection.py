@@ -75,13 +75,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 		if not hasattr(self.core, "pb"):
 			self.core.projectBrowser(openUi=False)
 
-		self.export_paths = [["global", self.core.projectPath]]
-		if self.core.useLocalFiles:
-			self.export_paths.append(["local", self.core.localProjectPath])
-
-		customPaths = self.core.getConfig('export_paths', getItems=True, configPath=self.core.prismIni)
-		if customPaths:
-			self.export_paths += customPaths
+		self.export_paths = self.core.getExportPaths()
 
 		if len(self.export_paths) > 1:
 			self.export_paths.insert(0, ["all", "all"])

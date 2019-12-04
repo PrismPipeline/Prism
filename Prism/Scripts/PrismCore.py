@@ -119,7 +119,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.37"
+			self.version = "v1.2.1.38"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -2311,21 +2311,14 @@ class PrismCore():
 	@err_decorator
 	def getHighestTaskVersion(self, dstname, getExisting=False, ignoreEmpty=False):
 		taskDirs = []
-		if self.useLocalFiles:
-			dstname = dstname.replace(self.localProjectPath, self.projectPath)
+		outPaths = [x[1] for x in self.getExportPaths()]
 
-		for i in os.walk(dstname):
-			if ignoreEmpty:
-				for k in i[1]:
-					exFiles = os.listdir(os.path.join(i[0], k))
-					if len(exFiles) > 1 or (len(exFiles) == 1 and exFiles[0] != "versioninfo.ini"):
-						taskDirs.append(k)
-			else:
-				taskDirs += i[1]
-			break
+		for path in outPaths:
+			dstname = dstname.replace(path, self.projectPath)
 
-		if self.useLocalFiles:
-			for i in os.walk(dstname.replace(self.projectPath, self.localProjectPath)):
+		for path in outPaths:
+			opath = dstname.replace(self.projectPath, path)
+			for i in os.walk(opath):
 				if ignoreEmpty:
 					for k in i[1]:
 						exFiles = os.listdir(os.path.join(i[0], k))
@@ -2339,7 +2332,7 @@ class PrismCore():
 		for i in taskDirs:
 			fname = i.split(self.filenameSeparator)
 
-			if len(fname) in [1,2,3]:
+			if len(fname) in [1, 2, 3]:
 				try:
 					version = int(fname[0][1:5])
 				except:
@@ -2360,7 +2353,7 @@ class PrismCore():
 			
 		if getExisting and highversion != 0:
 			return "v" + format(highversion, '04')
-		else:		
+		else:
 			return "v" + format(highversion + 1, '04')
 
 
@@ -2432,6 +2425,21 @@ class PrismCore():
 			taskList += [x for x in os.listdir(catPath) if x not in taskList and os.path.isdir(os.path.join(catPath, x))]
 
 		return taskList
+
+
+	@err_decorator
+	def getExportPaths(self):
+		export_paths = [["global", self.projectPath]]
+		if self.useLocalFiles:
+			export_paths.append(["local", self.localProjectPath])
+
+		customPaths = self.getConfig('export_paths', getItems=True, configPath=self.prismIni)
+		if customPaths:
+			export_paths += customPaths
+
+		export_paths = [[x[0], os.path.normpath(x[1])] for x in export_paths]
+
+		return export_paths
 
 
 	@err_decorator
