@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'default_Playblast.ui',
 # licensing of 'default_Playblast.ui' applies.
 #
-# Created: Sat Dec  8 20:05:38 2018
+# Created: Sun Dec  8 23:49:41 2019
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -43,11 +43,11 @@ class Ui_wg_Playblast(object):
         self.l_class.setObjectName("l_class")
         self.horizontalLayout_4.addWidget(self.l_class)
         self.verticalLayout.addWidget(self.widget_4)
-        self.groupBox = QtWidgets.QGroupBox(wg_Playblast)
-        self.groupBox.setObjectName("groupBox")
-        self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.groupBox)
+        self.gb_playblast = QtWidgets.QGroupBox(wg_Playblast)
+        self.gb_playblast.setObjectName("gb_playblast")
+        self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.gb_playblast)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
-        self.widget_10 = QtWidgets.QWidget(self.groupBox)
+        self.widget_10 = QtWidgets.QWidget(self.gb_playblast)
         self.widget_10.setObjectName("widget_10")
         self.horizontalLayout_10 = QtWidgets.QHBoxLayout(self.widget_10)
         self.horizontalLayout_10.setContentsMargins(9, 0, 9, 0)
@@ -71,7 +71,7 @@ class Ui_wg_Playblast(object):
         self.b_changeTask.setObjectName("b_changeTask")
         self.horizontalLayout_10.addWidget(self.b_changeTask)
         self.verticalLayout_2.addWidget(self.widget_10)
-        self.widget_2 = QtWidgets.QWidget(self.groupBox)
+        self.widget_2 = QtWidgets.QWidget(self.gb_playblast)
         self.widget_2.setObjectName("widget_2")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.widget_2)
         self.horizontalLayout.setSpacing(0)
@@ -106,7 +106,7 @@ class Ui_wg_Playblast(object):
         self.sp_rangeEnd.setObjectName("sp_rangeEnd")
         self.horizontalLayout.addWidget(self.sp_rangeEnd)
         self.verticalLayout_2.addWidget(self.widget_2)
-        self.widget = QtWidgets.QWidget(self.groupBox)
+        self.widget = QtWidgets.QWidget(self.gb_playblast)
         self.widget.setObjectName("widget")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout(self.widget)
         self.horizontalLayout_2.setSpacing(0)
@@ -122,7 +122,7 @@ class Ui_wg_Playblast(object):
         self.cb_cams.setObjectName("cb_cams")
         self.horizontalLayout_2.addWidget(self.cb_cams)
         self.verticalLayout_2.addWidget(self.widget)
-        self.f_resolution = QtWidgets.QWidget(self.groupBox)
+        self.f_resolution = QtWidgets.QWidget(self.gb_playblast)
         self.f_resolution.setObjectName("f_resolution")
         self.horizontalLayout_9 = QtWidgets.QHBoxLayout(self.f_resolution)
         self.horizontalLayout_9.setSpacing(6)
@@ -160,7 +160,7 @@ class Ui_wg_Playblast(object):
         self.b_resPresets.setObjectName("b_resPresets")
         self.horizontalLayout_9.addWidget(self.b_resPresets)
         self.verticalLayout_2.addWidget(self.f_resolution)
-        self.f_localOutput = QtWidgets.QWidget(self.groupBox)
+        self.f_localOutput = QtWidgets.QWidget(self.gb_playblast)
         self.f_localOutput.setObjectName("f_localOutput")
         self.horizontalLayout_16 = QtWidgets.QHBoxLayout(self.f_localOutput)
         self.horizontalLayout_16.setContentsMargins(9, 0, 9, 0)
@@ -176,7 +176,7 @@ class Ui_wg_Playblast(object):
         self.chb_localOutput.setObjectName("chb_localOutput")
         self.horizontalLayout_16.addWidget(self.chb_localOutput)
         self.verticalLayout_2.addWidget(self.f_localOutput)
-        self.widget_5 = QtWidgets.QWidget(self.groupBox)
+        self.widget_5 = QtWidgets.QWidget(self.gb_playblast)
         self.widget_5.setObjectName("widget_5")
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout(self.widget_5)
         self.horizontalLayout_3.setSpacing(0)
@@ -192,7 +192,7 @@ class Ui_wg_Playblast(object):
         self.cb_formats.setObjectName("cb_formats")
         self.horizontalLayout_3.addWidget(self.cb_formats)
         self.verticalLayout_2.addWidget(self.widget_5)
-        self.verticalLayout.addWidget(self.groupBox)
+        self.verticalLayout.addWidget(self.gb_playblast)
         self.groupBox_3 = QtWidgets.QGroupBox(wg_Playblast)
         self.groupBox_3.setCheckable(False)
         self.groupBox_3.setChecked(False)
@@ -228,7 +228,7 @@ class Ui_wg_Playblast(object):
         wg_Playblast.setWindowTitle(QtWidgets.QApplication.translate("wg_Playblast", "Playblast", None, -1))
         self.l_name.setText(QtWidgets.QApplication.translate("wg_Playblast", "Name:", None, -1))
         self.l_class.setText(QtWidgets.QApplication.translate("wg_Playblast", "Playblast", None, -1))
-        self.groupBox.setTitle(QtWidgets.QApplication.translate("wg_Playblast", "General", None, -1))
+        self.gb_playblast.setTitle(QtWidgets.QApplication.translate("wg_Playblast", "General", None, -1))
         self.label_2.setText(QtWidgets.QApplication.translate("wg_Playblast", "Taskname:", None, -1))
         self.b_changeTask.setText(QtWidgets.QApplication.translate("wg_Playblast", "change", None, -1))
         self.label_3.setText(QtWidgets.QApplication.translate("wg_Playblast", "Framerange:", None, -1))

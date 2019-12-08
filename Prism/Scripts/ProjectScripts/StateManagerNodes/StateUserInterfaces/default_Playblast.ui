@@ -86,7 +86,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="groupBox">
+    <widget class="QGroupBox" name="gb_playblast">
      <property name="title">
       <string>General</string>
      </property>

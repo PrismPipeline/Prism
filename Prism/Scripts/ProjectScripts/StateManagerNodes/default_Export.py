@@ -110,14 +110,7 @@ class ExportClass(object):
 			outputFormats = self.core.appPlugin.outputFormats
 
 		self.cb_outType.addItems(outputFormats)
-		self.export_paths = [["global", self.core.projectPath]]
-		if self.core.useLocalFiles:
-			self.export_paths.append(["local", self.core.localProjectPath])
-
-		customPaths = self.core.getConfig('export_paths', getItems=True, configPath=self.core.prismIni)
-		if customPaths:
-			self.export_paths += customPaths
-
+		self.export_paths = self.core.getExportPaths()
 		self.cb_outPath.addItems([x[0] for x in self.export_paths])
 		if len(self.export_paths) < 2:
 			self.w_outPath.setVisible(False)

@@ -119,7 +119,7 @@ class PrismCore():
 
 		try:
 			# set some general variables
-			self.version = "v1.2.1.38"
+			self.version = "v1.2.1.39"
 
 			self.prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__))).replace("\\", "/")
 
@@ -1284,7 +1284,8 @@ class PrismCore():
 			result = self.pb.createShotFolders(fname="%s/%s" % (entity["hierarchy"][0], entity["name"][0]), ftype="asset")
 
 		elif entity["type"][0] == "shot":
-			result = self.pb.createShot(shotName="%s%s%s" % (entity["sequence"][0], self.sequenceSeparator, entity["name"][0]), frameRange=[entity["framerange"][0], entity["framerange"][1]])
+			frameRange = [entity["framerange"][0], entity["framerange"][1]] if "frameRange" in entity else None
+			result = self.pb.createShot(shotName="%s%s%s" % (entity["sequence"][0], self.sequenceSeparator, entity["name"][0]), frameRange=frameRange)
 
 		elif entity["type"][0] == "step":
 			if "assetName" in entity:

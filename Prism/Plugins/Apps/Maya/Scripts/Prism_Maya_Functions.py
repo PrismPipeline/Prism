@@ -848,7 +848,13 @@ class Prism_Maya_Functions(object):
 
 	@err_decorator
 	def sm_export_getStateProps(self, origin):
-		stateProps = {"exportnamespaces":str(origin.chb_exportNamespaces.isChecked()), "importreferences":str(origin.chb_importReferences.isChecked()), "deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()), "deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked()), "preserveReferences":str(origin.chb_preserveReferences.isChecked())}
+		stateProps = {
+			"exportnamespaces": str(origin.chb_exportNamespaces.isChecked()),
+			"importreferences":str(origin.chb_importReferences.isChecked()),
+			"deleteunknownnodes":str(origin.chb_deleteUnknownNodes.isChecked()),
+			"deletedisplaylayers":str(origin.chb_deleteDisplayLayers.isChecked()),
+			"preserveReferences":str(origin.chb_preserveReferences.isChecked()),
+		}
 
 		return stateProps
 
@@ -1733,6 +1739,42 @@ class Prism_Maya_Functions(object):
 		origin.sp_rangeStart.setValue(frange[0])
 		origin.sp_rangeEnd.setValue(frange[1])
 
+		origin.w_useRecommendedSettings = QWidget()
+		origin.lo_useRecommendedSettings = QHBoxLayout()
+		origin.lo_useRecommendedSettings.setContentsMargins(9,0,9,0)
+		origin.w_useRecommendedSettings.setLayout(origin.lo_useRecommendedSettings)
+		origin.l_useRecommendedSettings = QLabel("Use recommended Settings:")
+		spacer = QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Expanding)
+		origin.chb_useRecommendedSettings = QCheckBox() 
+		origin.chb_useRecommendedSettings.setChecked(True)
+		origin.lo_useRecommendedSettings.addWidget(origin.l_useRecommendedSettings)
+		origin.lo_useRecommendedSettings.addSpacerItem(spacer)
+		origin.lo_useRecommendedSettings.addWidget(origin.chb_useRecommendedSettings)
+		origin.w_useRecommendedSettings.setToolTip("""Recommended playblast settings:
+Fit Resolution Gate: Fill
+Display Film Gate: False
+Display Resolution: True
+Overscan: 1.0
+""")
+
+		origin.gb_playblast.layout().insertWidget(5, origin.w_useRecommendedSettings)
+		origin.chb_useRecommendedSettings.stateChanged.connect(origin.stateManager.saveStatesToScene)
+
+
+	@err_decorator
+	def sm_playblast_loadData(self, origin, data):
+		if "useRecommendedSettings" in data:
+			origin.chb_useRecommendedSettings.setChecked(eval(data["useRecommendedSettings"]))
+
+
+	@err_decorator
+	def sm_playblast_getStateProps(self, origin):
+		stateProps = {
+			"useRecommendedSettings": str(origin.chb_useRecommendedSettings.isChecked()),
+		}
+
+		return stateProps
+
 
 	@err_decorator
 	def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
@@ -1748,22 +1790,24 @@ class Prism_Maya_Functions(object):
 				pbCam = cam.fullPathName()
 
 			self.pbSceneSettings["pbCam"] = pbCam
-			self.pbSceneSettings["filmFit"] = cmds.getAttr(pbCam + ".filmFit")
-			self.pbSceneSettings["filmGate"] = cmds.getAttr(pbCam + ".displayFilmGate")
-			self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
-			self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
 
-			try: cmds.setAttr(pbCam + ".filmFit", 3)
-			except: pass
+			if origin.chb_useRecommendedSettings.isChecked():
+				self.pbSceneSettings["filmFit"] = cmds.getAttr(pbCam + ".filmFit")
+				self.pbSceneSettings["filmGate"] = cmds.getAttr(pbCam + ".displayFilmGate")
+				self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
+				self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
 
-			try: cmds.setAttr(pbCam + ".displayFilmGate", False)
-			except: pass
+				try: cmds.setAttr(pbCam + ".filmFit", 1)
+				except: pass
 
-			try: cmds.setAttr(pbCam + ".displayResolution", False)
-			except: pass
+				try: cmds.setAttr(pbCam + ".displayFilmGate", False)
+				except: pass
 
-			try: cmds.setAttr(pbCam + ".overscan", 1.0)
-			except: pass
+				try: cmds.setAttr(pbCam + ".displayResolution", True)
+				except: pass
+
+				try: cmds.setAttr(pbCam + ".overscan", 1.0)
+				except: pass
 
 		#set image format to jpeg
 		cmds.setAttr("defaultRenderGlobals.imageFormat", 8)

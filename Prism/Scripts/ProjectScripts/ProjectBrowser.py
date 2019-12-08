@@ -2026,6 +2026,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_aPipeline.blockSignals(False)
 
 		if not self.curAsset:
+			self.curaStep = None
 			self.refreshaCat()
 			return
 
@@ -2065,6 +2066,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_aCategory.blockSignals(False)
 
 		if not self.curAsset or not self.curaStep:
+			if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
+				self.curaCat = "category"
+			else:
+				self.curaCat = None
+
 			self.refreshAFile()
 			return
 
@@ -2422,6 +2428,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_sPipeline.blockSignals(False)
 
 		if not self.cursShots:
+			self.cursCat = None
 			self.refreshsCat()
 			return
 
@@ -2461,6 +2468,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 		self.lw_sCategory.blockSignals(False)
 
 		if not self.cursStep:
+			self.cursCat = None
 			self.refreshSFile()
 			return
 

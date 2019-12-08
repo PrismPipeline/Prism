@@ -454,9 +454,9 @@ class Prism_PDG_Functions(object):
 			
 			if execute:
 				if usePreScript:
-					stateData["preScript"] = preScript.replace("\n", ";")
+					stateData["preScript"] = preScript.replace("\n", "\\n")
 				if usePostScript:
-					stateData["postScript"] = postScript.replace("\n", ";")
+					stateData["postScript"] = postScript.replace("\n", "\\n")
 					
 			if imports:
 				if parentNode.parm("ignoreInputEntity").eval():

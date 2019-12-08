@@ -89,7 +89,7 @@ class PlayblastClass(object):
 		self.outputformats = ["jpg", "mp4"]
 
 		self.cb_formats.addItems(self.outputformats)
-
+		getattr(self.core.appPlugin, "sm_playblast_startup", lambda x: None)(self)
 		self.connectEvents()
 
 		self.oldPalette = self.b_changeTask.palette()
@@ -148,6 +148,8 @@ class PlayblastClass(object):
 			self.b_copyLast.setEnabled(not pathIsNone)
 		if "stateenabled" in data:
 			self.state.setCheckState(0, eval(data["stateenabled"].replace("PySide.QtCore.", "").replace("PySide2.QtCore.", "")))
+
+		getattr(self.core.appPlugin, "sm_playblast_loadData", lambda x, y: None)(self, data)
 
 
 	@err_decorator
@@ -457,6 +459,19 @@ class PlayblastClass(object):
 
 	@err_decorator
 	def getStateProps(self):
-		stateProps = {"statename":self.e_name.text(), "taskname":self.l_taskName.text(), "globalrange": str(self.chb_globalRange.isChecked()), "startframe":self.sp_rangeStart.value(), "endframe":self.sp_rangeEnd.value(), "currentcam": str(self.curCam), "resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]), "localoutput": str(self.chb_localOutput.isChecked())}
-		stateProps.update({"lastexportpath": self.l_pathLast.text().replace("\\", "/"), "stateenabled":str(self.state.checkState(0)), "outputformat": str(self.cb_formats.currentText())})
+		stateProps = {}
+		stateProps.update(getattr(self.core.appPlugin, "sm_playblast_getStateProps", lambda x: {})(self))
+		stateProps.update({
+			"statename":self.e_name.text(),
+			"taskname":self.l_taskName.text(),
+			"globalrange": str(self.chb_globalRange.isChecked()),
+			"startframe":self.sp_rangeStart.value(),
+			"endframe":self.sp_rangeEnd.value(),
+			"currentcam": str(self.curCam),
+			"resoverride": str([self.chb_resOverride.isChecked(), self.sp_resWidth.value(), self.sp_resHeight.value()]),
+			"localoutput": str(self.chb_localOutput.isChecked()),
+			"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+			"stateenabled":str(self.state.checkState(0)),
+			"outputformat": str(self.cb_formats.currentText()),
+		})
 		return stateProps
