@@ -1753,8 +1753,9 @@ class Prism_Maya_Functions(object):
 		origin.w_useRecommendedSettings.setToolTip("""Recommended playblast settings:
 Fit Resolution Gate: Fill
 Display Film Gate: False
-Display Resolution: True
+Display Resolution: False
 Overscan: 1.0
+Show only polygon objects in viewport.
 """)
 
 		origin.gb_playblast.layout().insertWidget(5, origin.w_useRecommendedSettings)
@@ -1797,23 +1798,29 @@ Overscan: 1.0
 				self.pbSceneSettings["resGate"] = cmds.getAttr(pbCam + ".displayResolution")
 				self.pbSceneSettings["overscan"] = cmds.getAttr(pbCam + ".overscan")
 
+				vpName = cmds.getPanel(type = 'modelPanel')[-1]
+				self.pbSceneSettings["visObjects"] = "string $editorName = \"modelPanel4\";\n" + cmds.modelEditor( vpName, q=True, stateString=True )
+
 				try: cmds.setAttr(pbCam + ".filmFit", 1)
 				except: pass
 
 				try: cmds.setAttr(pbCam + ".displayFilmGate", False)
 				except: pass
 
-				try: cmds.setAttr(pbCam + ".displayResolution", True)
+				try: cmds.setAttr(pbCam + ".displayResolution", False)
 				except: pass
 
 				try: cmds.setAttr(pbCam + ".overscan", 1.0)
 				except: pass
 
+				cmds.modelEditor(vpName, e=True, allObjects=False)
+				cmds.modelEditor(vpName, e=True, polymeshes=True)
+
 		#set image format to jpeg
 		cmds.setAttr("defaultRenderGlobals.imageFormat", 8)
 		outputName = outputName[:-5]
 
-		cmdString = "cmds.playblast( startTime=%s, endTime=%s, format=\"image\", percent=100, viewer=False, forceOverwrite=True, offScreen=True, filename=\"%s\"" % (jobFrames[0], jobFrames[1], outputName.replace("\\", "\\\\"))
+		cmdString = "cmds.playblast( startTime=%s, endTime=%s, format=\"image\", percent=100, viewer=False, forceOverwrite=True, offScreen=True, showOrnaments=False, filename=\"%s\"" % (jobFrames[0], jobFrames[1], outputName.replace("\\", "\\\\"))
 		
 		if origin.chb_resOverride.isChecked():
 			cmdString += ", width=%s, height=%s" % (origin.sp_resWidth.value(), origin.sp_resHeight.value())
@@ -1848,6 +1855,9 @@ Overscan: 1.0
 			except: pass
 		if "overscan" in self.pbSceneSettings:
 			try: cmds.setAttr(self.pbSceneSettings["pbCam"] + ".overscan", self.pbSceneSettings["overscan"])
+			except: pass
+		if "visObjects" in self.pbSceneSettings:
+			try: mel.eval(self.pbSceneSettings["visObjects"])
 			except: pass
 
 

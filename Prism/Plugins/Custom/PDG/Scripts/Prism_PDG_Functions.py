@@ -239,12 +239,13 @@ class Prism_PDG_Functions(object):
 		elif entity == 1:
 			if upstreamItems:
 				for upstreamItem in upstreamItems:
-					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
-					item.data.setString('type', "project", 0)
-					path = parentNode.parm("projectPath").eval() or upstreamItem.data.stringData("path", 0) or ""
-					name = parentNode.parm("projectName").eval() or upstreamItem.data.stringData("name", 0) or ""
-					item.data.setString('path', path, 0)
-					item.data.setString('name', name, 0)
+					with upstreamItem.makeActive():
+						item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+						item.data.setString('type', "project", 0)
+						path = parentNode.parm("projectPath").eval() or upstreamItem.data.stringData("path", 0) or ""
+						name = parentNode.parm("projectName").eval() or upstreamItem.data.stringData("name", 0) or ""
+						item.data.setString('path', path, 0)
+						item.data.setString('name', name, 0)
 			else:
 				item = itemHolder.addWorkItem()
 				item.data.setString('type', "project", 0)
@@ -254,15 +255,16 @@ class Prism_PDG_Functions(object):
 		elif entity == 2:
 			if upstreamItems:
 				for upstreamItem in upstreamItems:
-					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
-					item.data.setString('type', "asset", 0)
-					if upstreamItem.data.stringData("hierarchy", 0):
-						path = "%s/%s" % (upstreamItem.data.stringData("hierarchy", 0), parentNode.parm("assetHierarchy").eval())
-					else:
-						path = parentNode.parm("assetHierarchy").eval()
-					name = parentNode.parm("assetName").eval() or upstreamItem.data.stringData("name", 0) or ""
-					item.data.setString('hierarchy', path, 0)
-					item.data.setString('name', name, 0)
+					with upstreamItem.makeActive():
+						item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+						item.data.setString('type', "asset", 0)
+						if upstreamItem.data.stringData("hierarchy", 0):
+							path = "%s/%s" % (upstreamItem.data.stringData("hierarchy", 0), parentNode.parm("assetHierarchy").eval())
+						else:
+							path = parentNode.parm("assetHierarchy").eval()
+						name = parentNode.parm("assetName").eval() or upstreamItem.data.stringData("name", 0) or ""
+						item.data.setString('hierarchy', path, 0)
+						item.data.setString('name', name, 0)
 			else:
 				item = itemHolder.addWorkItem()
 				item.data.setString('type', "asset", 0)
@@ -272,17 +274,18 @@ class Prism_PDG_Functions(object):
 		elif entity == 3:
 			if upstreamItems:
 				for upstreamItem in upstreamItems:
-					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
-					item.data.setString('type', "shot", 0)
-					path = parentNode.parm("sequence").eval() or upstreamItem.data.stringData("sequence", 0) or ""
-					name = parentNode.parm("shotName").eval() or upstreamItem.data.stringData("name", 0) or ""
-					if parentNode.parm("useRange").eval():
-						rangeStart = str(parentNode.parm("shotrangex").evalAsString())
-						rangeEnd = str(parentNode.parm("shotrangey").evalAsString())
-						item.data.setString('framerange', rangeStart, 0)
-						item.data.setString('framerange', rangeEnd, 1)
-					item.data.setString('sequence', path, 0)
-					item.data.setString('name', name, 0)
+					with upstreamItem.makeActive():
+						item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+						item.data.setString('type', "shot", 0)
+						path = parentNode.parm("sequence").eval() or upstreamItem.data.stringData("sequence", 0) or ""
+						name = parentNode.parm("shotName").eval() or upstreamItem.data.stringData("name", 0) or ""
+						if parentNode.parm("useRange").eval():
+							rangeStart = str(parentNode.parm("shotrangex").evalAsString())
+							rangeEnd = str(parentNode.parm("shotrangey").evalAsString())
+							item.data.setString('framerange', rangeStart, 0)
+							item.data.setString('framerange', rangeEnd, 1)
+						item.data.setString('sequence', path, 0)
+						item.data.setString('name', name, 0)
 			else:
 				item = itemHolder.addWorkItem()
 				item.data.setString('type', "shot", 0)
@@ -294,50 +297,53 @@ class Prism_PDG_Functions(object):
 			
 		elif entity == 4:
 			for upstreamItem in upstreamItems:
-				curType = upstreamItem.data.stringData("type", 0)
-				if curType in ["asset", "shot"]:
-					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
-					item.data.setString('type', "step", 0)
-					item.data.setString('%sName' % curType, upstreamItem.data.stringData("name", 0), 0)
-					item.data.setString('name', parentNode.parm("stepName").eval(), 0)
+				with upstreamItem.makeActive():
+					curType = upstreamItem.data.stringData("type", 0)
+					if curType in ["asset", "shot"]:
+						item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+						item.data.setString('type', "step", 0)
+						item.data.setString('%sName' % curType, upstreamItem.data.stringData("name", 0), 0)
+						item.data.setString('name', parentNode.parm("stepName").eval(), 0)
 					
 		elif entity == 5:
 			for upstreamItem in upstreamItems:
-				curType = upstreamItem.data.stringData("type", 0)
-				if curType in ["step"]:
-					if parentNode.parm("defaultCategory").eval():
-						import ast
-						try:
-							steps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
-						except:
-							continue
+				with upstreamItem.makeActive():
+					curType = upstreamItem.data.stringData("type", 0)
+					if curType in ["step"]:
+						if parentNode.parm("defaultCategory").eval():
+							import ast
+							try:
+								steps = ast.literal_eval(self.core.getConfig('globals', "pipeline_steps", configPath=self.core.prismIni))
+							except:
+								continue
 
-						if type(steps) != dict:
-							steps = {}
-						
-						steps = {validSteps: steps[validSteps] for validSteps in steps}
-						stepName = upstreamItem.data.stringData("name", 0)
-						if stepName not in steps:
-							continue
-				
-						catName = steps[stepName]
-					else:
-						catName = parentNode.parm("categoryName").eval()
-				
-					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
-					item.data.setString('type', "category", 0)
-					item.data.setString('step', upstreamItem.data.stringData("name", 0), 0)
-					item.data.setString('name', catName, 0)
+							if type(steps) != dict:
+								steps = {}
+							
+							steps = {validSteps: steps[validSteps] for validSteps in steps}
+							stepName = upstreamItem.data.stringData("name", 0)
+							if stepName not in steps:
+								continue
+					
+							catName = steps[stepName]
+						else:
+							catName = parentNode.parm("categoryName").eval()
+					
+						item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+						item.data.setString('type', "category", 0)
+						item.data.setString('step', upstreamItem.data.stringData("name", 0), 0)
+						item.data.setString('name', catName, 0)
 					
 		elif entity == 6:
 			for upstreamItem in upstreamItems:
-				curType = upstreamItem.data.stringData("type", 0)
-				if curType in ["category"]:
-					item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
-					item.data.setString('type', "scenefile", 0)
-					item.data.setString('category', upstreamItem.data.stringData("name", 0), 0)
-					item.data.setString('source', parentNode.parm("scenefileSource").eval(), 0)
-					item.data.setString('comment', parentNode.parm("scenefileComment").eval(), 0)
+				with upstreamItem.makeActive():
+					curType = upstreamItem.data.stringData("type", 0)
+					if curType in ["category"]:
+						item = itemHolder.addWorkItem(cloneResultData=True, preserveType=True, parent=upstreamItem)
+						item.data.setString('type', "scenefile", 0)
+						item.data.setString('category', upstreamItem.data.stringData("name", 0), 0)
+						item.data.setString('source', parentNode.parm("scenefileSource").eval(), 0)
+						item.data.setString('comment', parentNode.parm("scenefileComment").eval(), 0)
 
 
 	@err_decorator
@@ -560,7 +566,7 @@ class Prism_PDG_Functions(object):
 		stdout = ""
 		for i in procs:
 			if True: #if `@debug`:
-				print "starting %s" % os.path.basename(i["executable"])
+				print ("starting %s" % os.path.basename(i["executable"]))
 				proc = subprocess.Popen([i["executable"], "-c", i["command"]], stdout=subprocess.PIPE)
 				for line in proc.stdout:
 					line = "[stdout] %s" % line.replace("\n", "")
@@ -579,7 +585,7 @@ class Prism_PDG_Functions(object):
 		if "Scene was processed successfully" not in stdout:
 			return False
 		else:
-			print "Completed state creations."
+			print ("Completed state creations.")
 
 		return True
 
