@@ -7,5 +7,5 @@ if omya.MGlobal.mayaState() != omya.MGlobal.kBatch:
 		import PrismInit
 		pcore = PrismInit.prismInit()
 	except:
-		print "Error occured while loading pcore"
+		print("Error occured while loading pcore")
 #<<<PrismEnd

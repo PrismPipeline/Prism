@@ -332,7 +332,7 @@ def force_elevated():
 			rc = win32process.GetExitCodeProcess(procHandle)
 
 	except Exception as ex:
-		print ex
+		print(ex)
 
 
 def startInstaller_Windows():

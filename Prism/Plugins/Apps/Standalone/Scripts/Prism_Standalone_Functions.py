@@ -234,7 +234,7 @@ class Prism_Standalone_Functions(object):
 				shutil.copy2(pMenuSource, pMenuTarget)
 				os.chmod(pMenuTarget, 0o777)
 			else:
-				print "could not create Prism startmenu entry"
+				print("could not create Prism startmenu entry")
 
 			if os.path.exists(pbLnk):
 				userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
@@ -328,7 +328,7 @@ class Prism_Standalone_Functions(object):
 					shutil.copy2(trayLnk, trayStartup)
 					os.chmod(trayStartup, 0o777)
 			else:
-				print "could not create PrismTray autostart entry"
+				print("could not create PrismTray autostart entry")
 
 			if trayStartMenu != "":
 				if os.path.exists(os.path.dirname(trayStartMenu)):
@@ -344,7 +344,7 @@ class Prism_Standalone_Functions(object):
 						shutil.copy2(trayLnk, trayStartMenu)
 						os.chmod(trayStartMenu, 0o777)
 				else:
-					print "could not create PrismTray startmenu entry"
+					print("could not create PrismTray startmenu entry")
 
 		if pbStartMenu != "":
 			if os.path.exists(pbLnk) and os.path.exists(os.path.dirname(pbStartMenu)):
@@ -360,7 +360,7 @@ class Prism_Standalone_Functions(object):
 					shutil.copy2(pbLnk, pbStartMenu)
 					os.chmod(pbStartMenu, 0o777)
 			else:
-				print "could not create PrismProjectBrowser startmenu entry"
+				print("could not create PrismProjectBrowser startmenu entry")
 
 		if settingsStartMenu != "":
 			if os.path.exists(settingsLnk) and os.path.exists(os.path.dirname(settingsStartMenu)):
@@ -376,7 +376,7 @@ class Prism_Standalone_Functions(object):
 					shutil.copy2(settingsLnk, settingsStartMenu)
 					os.chmod(settingsStartMenu, 0o777)
 			else:
-				print "could not create PrismSettings startmenu entry"
+				print("could not create PrismSettings startmenu entry")
 
 		if platform.system() == "Darwin":
 			trayLnk = os.path.join(self.core.prismRoot, "Tools", "Templates", "Prism Tray.app")

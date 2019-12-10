@@ -59,7 +59,7 @@ def err_decorator(func):
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			erStr = ("%s ERROR - Prism PySide2 Setup %s:\n\n%s" % (time.strftime("%d/%m/%y %X"), ''.join(traceback.format_stack()), traceback.format_exc()))
-			print erStr
+			print(erStr)
 			QMessageBox.warning(QWidget(), "Prism", erStr)
 
 	return func_wrapper
