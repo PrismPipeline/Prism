@@ -31,11 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Pandora_Variables import Prism_Pandora_Variables
 from Prism_Pandora_Functions import Prism_Pandora_Functions
 
+
 class Prism_Pandora(Prism_Pandora_Variables, Prism_Pandora_Functions):
-	def __init__(self, core):
-		Prism_Pandora_Variables.__init__(self, core, self)
-		Prism_Pandora_Functions.__init__(self, core, self)
+    def __init__(self, core):
+        Prism_Pandora_Variables.__init__(self, core, self)
+        Prism_Pandora_Functions.__init__(self, core, self)

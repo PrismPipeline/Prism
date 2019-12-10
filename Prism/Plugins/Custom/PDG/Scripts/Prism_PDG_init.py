@@ -31,11 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_PDG_Variables import Prism_PDG_Variables
 from Prism_PDG_Functions import Prism_PDG_Functions
 
+
 class Prism_PDG(Prism_PDG_Variables, Prism_PDG_Functions):
-	def __init__(self, core):
-		Prism_PDG_Variables.__init__(self, core, self)
-		Prism_PDG_Functions.__init__(self, core, self)
+    def __init__(self, core):
+        Prism_PDG_Variables.__init__(self, core, self)
+        Prism_PDG_Functions.__init__(self, core, self)

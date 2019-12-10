@@ -31,218 +31,270 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 import os, sys
 import traceback, time, platform, shutil, socket
 from functools import wraps
+
 if platform.system() == "Windows":
-	if sys.version[0] == "3":
-		import winreg as _winreg
-	else:
-		import _winreg
+    if sys.version[0] == "3":
+        import winreg as _winreg
+    else:
+        import _winreg
+
 
 class Prism_PluginEmpty_Integration(object):
-	def __init__(self, core, plugin):
-		self.core = core
-		self.plugin = plugin
+    def __init__(self, core, plugin):
+        self.core = core
+        self.plugin = plugin
 
-		if platform.system() == "Windows":
-			self.examplePath = os.environ["userprofile"] + "\\Documents\\PluginEmpty\\2019"
-		elif platform.system() == "Linux":
-			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = os.path.join("/home", userName, "PluginEmpty", "2019")
-		elif platform.system() == "Darwin":
-			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = "/Users/%s/Library/Preferences/Autodesk/PluginEmpty/2019" % userName
+        if platform.system() == "Windows":
+            self.examplePath = (
+                os.environ["userprofile"] + "\\Documents\\PluginEmpty\\2019"
+            )
+        elif platform.system() == "Linux":
+            userName = (
+                os.environ["SUDO_USER"]
+                if "SUDO_USER" in os.environ
+                else os.environ["USER"]
+            )
+            self.examplePath = os.path.join("/home", userName, "PluginEmpty", "2019")
+        elif platform.system() == "Darwin":
+            userName = (
+                os.environ["SUDO_USER"]
+                if "SUDO_USER" in os.environ
+                else os.environ["USER"]
+            )
+            self.examplePath = (
+                "/Users/%s/Library/Preferences/Autodesk/PluginEmpty/2019" % userName
+            )
 
+    def err_decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            exc_info = sys.exc_info()
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                erStr = (
+                    "%s ERROR - Prism_Plugin_PluginEmpty_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
+                    % (
+                        time.strftime("%d/%m/%y %X"),
+                        args[0].core.version,
+                        args[0].plugin.version,
+                        "".join(traceback.format_stack()),
+                        traceback.format_exc(),
+                    )
+                )
+                if hasattr(args[0].core, "writeErrorLog"):
+                    args[0].core.writeErrorLog(erStr)
+                else:
+                    QMessageBox.warning(
+                        args[0].core.messageParent, "Prism Integration", erStr
+                    )
 
-	def err_decorator(func):
-		@wraps(func)
-		def func_wrapper(*args, **kwargs):
-			exc_info = sys.exc_info()
-			try:
-				return func(*args, **kwargs)
-			except Exception as e:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_PluginEmpty_Integration - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
-				if hasattr(args[0].core, "writeErrorLog"):
-					args[0].core.writeErrorLog(erStr)
-				else:
-					QMessageBox.warning(args[0].core.messageParent, "Prism Integration", erStr)
+        return func_wrapper
 
-		return func_wrapper
+    @err_decorator
+    def getExecutable(self):
+        execPath = ""
+        if platform.system() == "Windows":
+            defaultpath = os.path.join(self.getPluginEmptyPath(), "PluginEmpty.exe")
+            if os.path.exists(defaultpath):
+                execPath = defaultpath
 
+        return execPath
 
-	@err_decorator
-	def getExecutable(self):
-		execPath = ""
-		if platform.system() == "Windows":
-			defaultpath = os.path.join(self.getPluginEmptyPath(), "PluginEmpty.exe")
-			if os.path.exists(defaultpath):
-				execPath = defaultpath
+    @err_decorator
+    def getPluginEmptyPath(self):
+        # get executable path
+        return ""
 
-		return execPath
+    @err_decorator
+    def integrationAdd(self, origin):
+        path = QFileDialog.getExistingDirectory(
+            self.core.messageParent,
+            "Select PluginEmpty folder",
+            os.path.dirname(self.examplePath),
+        )
 
+        if path == "":
+            return False
 
-	@err_decorator
-	def getPluginEmptyPath(self):
-		# get executable path
-		return ""
+        result = self.writePluginEmptyFiles(path)
 
+        if result:
+            QMessageBox.information(
+                self.core.messageParent,
+                "Prism Integration",
+                "Prism integration was added successfully",
+            )
+            return path
 
-	@err_decorator
-	def integrationAdd(self, origin):
-		path = QFileDialog.getExistingDirectory(self.core.messageParent, "Select PluginEmpty folder", os.path.dirname(self.examplePath))
+        return result
 
-		if path == "":
-			return False
+    @err_decorator
+    def integrationRemove(self, origin, installPath):
+        result = self.removeIntegration(installPath)
 
-		result = self.writePluginEmptyFiles(path)
+        if result:
+            QMessageBox.information(
+                self.core.messageParent,
+                "Prism Integration",
+                "Prism integration was removed successfully",
+            )
 
-		if result:
-			QMessageBox.information(self.core.messageParent, "Prism Integration", "Prism integration was added successfully")
-			return path
+        return result
 
-		return result
+    def writePluginEmptyFiles(self, pluginPath):
+        try:
+            integrationBase = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "Integration"
+            )
+            addedFiles = []
 
+            initpath = os.path.join(pluginPath, "scripts", "PrismInit.py")
 
-	@err_decorator
-	def integrationRemove(self, origin, installPath):
-		result = self.removeIntegration(installPath)
+            if os.path.exists(initpath):
+                os.remove(initpath)
 
-		if result:
-			QMessageBox.information(self.core.messageParent, "Prism Integration", "Prism integration was removed successfully")
+            if os.path.exists(initpath + "c"):
+                os.remove(initpath + "c")
 
-		return result
+            origInitFile = os.path.join(integrationBase, "PrismInit.py")
+            shutil.copy2(origInitFile, initpath)
+            addedFiles.append(initpath)
 
+            with open(initpath, "r") as init:
+                initStr = init.read()
 
-	def writePluginEmptyFiles(self, pluginPath):
-		try:
-			integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
-			addedFiles = []
+            with open(initpath, "w") as init:
+                initStr = initStr.replace(
+                    "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+                )
+                init.write(initStr)
 
-			initpath = os.path.join(pluginPath, "scripts", "PrismInit.py")
+            if platform.system() in ["Linux", "Darwin"]:
+                for i in addedFiles:
+                    os.chmod(i, 0o777)
 
-			if os.path.exists(initpath):
-				os.remove(initpath)
+            return True
 
-			if os.path.exists(initpath + "c"):
-				os.remove(initpath + "c")
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
 
-			origInitFile = os.path.join(integrationBase, "PrismInit.py")
-			shutil.copy2(origInitFile, initpath)
-			addedFiles.append(initpath)
+            msgStr = (
+                "Errors occurred during the installation of the PluginEmpty integration.\nThe installation is possibly incomplete.\n\n%s\n%s\n%s"
+                % (str(e), exc_type, exc_tb.tb_lineno)
+            )
+            msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-			with open(initpath, "r") as init:
-				initStr = init.read()
+            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            return False
 
-			with open(initpath, "w") as init:
-				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-				init.write(initStr)
+    def removeIntegration(self, installPath):
+        try:
+            initPy = os.path.join(installPath, "scripts", "PrismInit.py")
+            initPyc = os.path.join(installPath, "scripts", "PrismInit.pyc")
+            shelfpath = os.path.join(installPath, "prefs", "shelves", "shelf_Prism.mel")
 
-			if platform.system() in ["Linux", "Darwin"]:
-				for i in addedFiles:
-					os.chmod(i, 0o777)
+            for i in [initPy, initPyc, shelfpath]:
+                if os.path.exists(i):
+                    os.remove(i)
 
-			return True
+            userSetup = os.path.join(installPath, "scripts", "userSetup.py")
 
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
+            if os.path.exists(userSetup):
+                with open(userSetup, "r") as usFile:
+                    text = usFile.read()
 
-			msgStr = "Errors occurred during the installation of the PluginEmpty integration.\nThe installation is possibly incomplete.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno)
-			msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
+                if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
+                    text = (
+                        text[: text.find("#>>>PrismStart")]
+                        + text[text.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
+                    )
 
-			QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
-			return False
+                    otherChars = [x for x in text if x != " "]
+                    if len(otherChars) == 0:
+                        os.remove(userSetup)
+                    else:
+                        with open(userSetup, "w") as usFile:
+                            usFile.write(text)
 
+            return True
 
-	def removeIntegration(self, installPath):
-		try:
-			initPy = os.path.join(installPath, "scripts", "PrismInit.py")
-			initPyc = os.path.join(installPath, "scripts", "PrismInit.pyc")
-			shelfpath = os.path.join(installPath, "prefs", "shelves", "shelf_Prism.mel")
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
 
-			for i in [initPy, initPyc, shelfpath]:
-				if os.path.exists(i):
-					os.remove(i)
+            msgStr = (
+                "Errors occurred during the removal of the PluginEmpty integration.\n\n%s\n%s\n%s"
+                % (str(e), exc_type, exc_tb.tb_lineno)
+            )
+            msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-			userSetup = os.path.join(installPath, "scripts", "userSetup.py")
+            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            return False
 
-			if os.path.exists(userSetup):
-				with open(userSetup, "r") as usFile:
-					text = usFile.read()
+    def updateInstallerUI(self, userFolders, pItem):
+        try:
+            pluginItem = QTreeWidgetItem(["Houdini"])
+            pItem.addChild(pluginItem)
 
-				if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
-					text = text[:text.find("#>>>PrismStart")] + text[text.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
+            pluginPath = self.examplePath
 
-					otherChars = [x for x in text if x != " "]
-					if len(otherChars) == 0:
-						os.remove(userSetup)
-					else:
-						with open(userSetup, "w") as usFile:
-							usFile.write(text)
+            if pluginPath != None and os.path.exists(pluginPath):
+                pluginItem.setCheckState(0, Qt.Checked)
+                pluginItem.setText(1, pluginPath)
+                pluginItem.setToolTip(0, pluginPath)
+            else:
+                pluginItem.setCheckState(0, Qt.Unchecked)
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            msg = QMessageBox.warning(
+                self.core.messageParent,
+                "Prism Installation",
+                "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s"
+                % (__file__, str(e), exc_type, exc_tb.tb_lineno),
+            )
+            return False
 
-			return True
+    def installerExecute(self, pluginItem, result, locFile):
+        try:
+            pluginPaths = []
+            installLocs = []
 
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
+            if pluginItem.checkState(0) != Qt.Checked:
+                return installLocs
 
-			msgStr = "Errors occurred during the removal of the PluginEmpty integration.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno)
-			msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
+            for i in range(pluginItem.childCount()):
+                item = pluginItem.child(i)
+                if item.checkState(0) == Qt.Checked and os.path.exists(item.text(1)):
+                    pluginPaths.append(item.text(1))
 
-			QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
-			return False
+            for i in pluginPaths:
+                result["PluginEmpty integration"] = self.writePluginEmptyFiles(i)
+                if result["PluginEmpty integration"]:
+                    installLocs.append(i)
 
-
-	def updateInstallerUI(self, userFolders, pItem):
-		try:
-			pluginItem = QTreeWidgetItem(["Houdini"])
-			pItem.addChild(pluginItem)
-
-			pluginPath = self.examplePath
-
-			if pluginPath != None and os.path.exists(pluginPath):
-				pluginItem.setCheckState(0, Qt.Checked)
-				pluginItem.setText(1, pluginPath)
-				pluginItem.setToolTip(0, pluginPath)
-			else:
-				pluginItem.setCheckState(0, Qt.Unchecked)
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			msg = QMessageBox.warning(self.core.messageParent, "Prism Installation", "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s" % (__file__, str(e), exc_type, exc_tb.tb_lineno))
-			return False
-
-
-	def installerExecute(self, pluginItem, result, locFile):
-		try:
-			pluginPaths = []
-			installLocs = []
-
-			if pluginItem.checkState(0) != Qt.Checked:
-				return installLocs
-
-			for i in range(pluginItem.childCount()):
-				item = pluginItem.child(i)
-				if item.checkState(0) == Qt.Checked and os.path.exists(item.text(1)):
-					pluginPaths.append(item.text(1))
-
-			for i in pluginPaths:
-				result["PluginEmpty integration"] = self.writePluginEmptyFiles(i)
-				if result["PluginEmpty integration"]:
-					installLocs.append(i)
-
-			return installLocs
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			msg = QMessageBox.warning(self.core.messageParent, "Prism Installation", "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s" % (__file__, str(e), exc_type, exc_tb.tb_lineno))
-			return False
+            return installLocs
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            msg = QMessageBox.warning(
+                self.core.messageParent,
+                "Prism Installation",
+                "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s"
+                % (__file__, str(e), exc_type, exc_tb.tb_lineno),
+            )
+            return False

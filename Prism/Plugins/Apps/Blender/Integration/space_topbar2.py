@@ -1,5 +1,4 @@
-
-#>>>PrismStart
+# >>>PrismStart
 class TOPBAR_MT_prism(Menu):
     bl_label = "Prism"
 
@@ -20,4 +19,6 @@ class TOPBAR_MT_prism(Menu):
 
         row = layout.row()
         row.operator("object.prism_settings")
-#<<<PrismEnd
+
+
+# <<<PrismEnd

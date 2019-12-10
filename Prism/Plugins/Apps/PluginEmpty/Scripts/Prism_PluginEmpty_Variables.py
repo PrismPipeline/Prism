@@ -31,20 +31,19 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_PluginEmpty_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.23"
-		self.pluginName = "PluginEmpty"
-		self.pluginType = "App"
-		self.appShortName = "PluginEmpty"
-		self.appType = "3d"
-		self.hasQtParent = True
-		self.sceneFormats = [".format"]
-		self.appSpecificFormats = self.sceneFormats
-		self.outputFormats = [".abc", ".obj", ".fbx", "ShotCam"]
-		self.appColor = [255,255,255]
-		self.appVersionPresets = ["1.0", "1.1"]
-		self.renderPasses = []
-		self.preferredUnit = "centimeter"
-		self.platforms = ["Windows", "Linux", "Darwin"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.23"
+        self.pluginName = "PluginEmpty"
+        self.pluginType = "App"
+        self.appShortName = "PluginEmpty"
+        self.appType = "3d"
+        self.hasQtParent = True
+        self.sceneFormats = [".format"]
+        self.appSpecificFormats = self.sceneFormats
+        self.outputFormats = [".abc", ".obj", ".fbx", "ShotCam"]
+        self.appColor = [255, 255, 255]
+        self.appVersionPresets = ["1.0", "1.1"]
+        self.renderPasses = []
+        self.preferredUnit = "centimeter"
+        self.platforms = ["Windows", "Linux", "Darwin"]

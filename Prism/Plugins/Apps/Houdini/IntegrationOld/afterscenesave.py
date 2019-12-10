@@ -1,7 +1,8 @@
-#>>>PrismStart
+# >>>PrismStart
 try:
-	import PrismInit
-	PrismInit.pcore.scenefileSaved()
+    import PrismInit
+
+    PrismInit.pcore.scenefileSaved()
 except:
-	pass
-#<<<PrismEnd
+    pass
+# <<<PrismEnd

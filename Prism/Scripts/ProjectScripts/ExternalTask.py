@@ -31,95 +31,102 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 if psVersion == 1:
-	from UserInterfaces import ExternalTask_ui
+    from UserInterfaces import ExternalTask_ui
 else:
-	from UserInterfaces import ExternalTask_ui_ps2 as ExternalTask_ui
+    from UserInterfaces import ExternalTask_ui_ps2 as ExternalTask_ui
 
 import sys, os
+
 if sys.version[0] == "3":
-	pVersion = 3
+    pVersion = 3
 else:
-	pVersion = 2
+    pVersion = 2
 
 
 class ExternalTask(QDialog, ExternalTask_ui.Ui_dlg_ExternalTask):
-	def __init__(self, core, startText = ""):
-		QDialog.__init__(self)
-		self.setupUi(self)
-		self.core = core
+    def __init__(self, core, startText=""):
+        QDialog.__init__(self)
+        self.setupUi(self)
+        self.core = core
 
-		self.core.parentWindow(self)
+        self.core.parentWindow(self)
 
-		self.e_versionName.setText("v0001")
+        self.e_versionName.setText("v0001")
 
-		self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-		self.connectEvents()
+        self.connectEvents()
 
+    def connectEvents(self):
+        self.b_browseFolder.clicked.connect(self.browseFolder)
+        self.b_browseFile.clicked.connect(self.browseFile)
+        self.b_browseFolder.customContextMenuRequested.connect(self.openFolder)
+        self.b_browseFile.customContextMenuRequested.connect(self.openFolder)
+        self.e_taskPath.textChanged.connect(lambda x: self.enableOk(x, self.e_taskPath))
+        self.e_taskName.textChanged.connect(lambda x: self.enableOk(x, self.e_taskName))
+        self.e_versionName.textChanged.connect(
+            lambda x: self.enableOk(x, self.e_versionName)
+        )
 
-	def connectEvents(self):
-		self.b_browseFolder.clicked.connect(self.browseFolder)
-		self.b_browseFile.clicked.connect(self.browseFile)
-		self.b_browseFolder.customContextMenuRequested.connect(self.openFolder)
-		self.b_browseFile.customContextMenuRequested.connect(self.openFolder)
-		self.e_taskPath.textChanged.connect(lambda x: self.enableOk(x, self.e_taskPath))
-		self.e_taskName.textChanged.connect(lambda x: self.enableOk(x, self.e_taskName))
-		self.e_versionName.textChanged.connect(lambda x: self.enableOk(x, self.e_versionName))
+    def browseFolder(self):
+        if self.e_taskPath.text() == "":
+            startpath = self.core.projectPath
+        else:
+            startpath = self.e_taskPath.text()
 
+        selectedPath = QFileDialog.getExistingDirectory(
+            self, "Select external folder", startpath
+        )
 
-	def browseFolder(self):
-		if self.e_taskPath.text() == "":
-			startpath = self.core.projectPath
-		else:
-			startpath = self.e_taskPath.text()
+        if selectedPath != "":
+            self.e_taskPath.setText(selectedPath.replace("\\", "/"))
 
-		selectedPath = QFileDialog.getExistingDirectory(self, "Select external folder", startpath)
+    def browseFile(self):
+        if self.e_taskPath.text() == "":
+            startpath = self.core.projectPath
+        else:
+            startpath = self.e_taskPath.text()
 
-		if selectedPath != "":
-			self.e_taskPath.setText(selectedPath.replace("\\","/"))
+        selectedFile = QFileDialog.getOpenFileName(
+            self, "Select external file", startpath
+        )[0]
 
+        if selectedFile != "":
+            self.e_taskPath.setText(selectedFile.replace("\\", "/"))
 
-	def browseFile(self):
-		if self.e_taskPath.text() == "":
-			startpath = self.core.projectPath
-		else:
-			startpath = self.e_taskPath.text()
+    def openFolder(self):
+        path = self.e_taskPath.text()
+        self.core.openFolder(path)
 
-		selectedFile = QFileDialog.getOpenFileName(self, "Select external file", startpath)[0]
+    def enableOk(self, origText, editWidget):
+        if editWidget == self.e_taskPath:
+            text = origText
+        else:
+            text = self.core.validateStr(origText)
 
-		if selectedFile != "":
-			self.e_taskPath.setText(selectedFile.replace("\\","/"))
+        if len(text) != len(origText):
+            cpos = editWidget.cursorPosition()
+            editWidget.setText(text)
+            editWidget.setCursorPosition(cpos - 1)
 
-
-	def openFolder(self):
-		path = self.e_taskPath.text()
-		self.core.openFolder(path)
-
-
-	def enableOk(self, origText, editWidget):
-		if editWidget == self.e_taskPath:
-			text = origText
-		else:
-			text = self.core.validateStr(origText)
-
-		if len(text) != len(origText):
-			cpos = editWidget.cursorPosition()
-			editWidget.setText(text)
-			editWidget.setCursorPosition(cpos-1)
-
-		if self.e_taskPath.text() != "" and self.e_taskName.text() != "" and self.e_versionName.text() != "":
-			self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
-		else:
-			self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        if (
+            self.e_taskPath.text() != ""
+            and self.e_taskName.text() != ""
+            and self.e_versionName.text() != ""
+        ):
+            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+        else:
+            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)

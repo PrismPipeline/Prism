@@ -31,7 +31,6 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_Standalone_externalAccess_Functions(object):
-	def __init__(self, core, plugin):
-		pass
+    def __init__(self, core, plugin):
+        pass

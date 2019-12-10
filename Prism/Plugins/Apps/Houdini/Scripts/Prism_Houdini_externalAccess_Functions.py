@@ -31,108 +31,133 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 import os, sys
 import traceback, time, platform, shutil
 from functools import wraps
 
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
-except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
 
+    psVersion = 2
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 
 class Prism_Houdini_externalAccess_Functions(object):
-	def __init__(self, core, plugin):
-		self.core = core
-		self.plugin = plugin
+    def __init__(self, core, plugin):
+        self.core = core
+        self.plugin = plugin
 
+    def err_decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            exc_info = sys.exc_info()
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                erStr = (
+                    "%s ERROR - Prism_Plugin_Houdini_ext - Core: %s - Plugin: %s:\n%s\n\n%s"
+                    % (
+                        time.strftime("%d/%m/%y %X"),
+                        args[0].core.version,
+                        args[0].plugin.version,
+                        "".join(traceback.format_stack()),
+                        traceback.format_exc(),
+                    )
+                )
+                args[0].core.writeErrorLog(erStr)
 
-	def err_decorator(func):
-		@wraps(func)
-		def func_wrapper(*args, **kwargs):
-			exc_info = sys.exc_info()
-			try:
-				return func(*args, **kwargs)
-			except Exception as e:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Houdini_ext - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
-				args[0].core.writeErrorLog(erStr)
+        return func_wrapper
 
-		return func_wrapper
+    @err_decorator
+    def prismSettings_loadUI(self, origin, tab):
+        origin.chb_houPackage = QCheckBox("Use package integration")
+        origin.chb_houPackage.setChecked(True)
+        tab.layout().itemAt(2).widget().layout().insertWidget(1, origin.chb_houPackage)
 
+    @err_decorator
+    def prismSettings_saveSettings(self, origin):
+        saveData = []
 
-	@err_decorator
-	def prismSettings_loadUI(self, origin, tab):
-		origin.chb_houPackage = QCheckBox("Use package integration")
-		origin.chb_houPackage.setChecked(True)
-		tab.layout().itemAt(2).widget().layout().insertWidget(1, origin.chb_houPackage)
+        saveData.append(
+            [
+                "houdini",
+                "use_package_integration",
+                str(origin.chb_houPackage.isChecked()),
+            ]
+        )
 
+        return saveData
 
-	@err_decorator
-	def prismSettings_saveSettings(self, origin):
-		saveData = []
+    @err_decorator
+    def prismSettings_loadSettings(self, origin):
+        loadData = {}
+        loadFunctions = {}
 
-		saveData.append(['houdini', 'use_package_integration', str(origin.chb_houPackage.isChecked())])
+        loadData["hou_usePacakgeIntegration"] = [
+            "houdini",
+            "use_package_integration",
+            "bool",
+        ]
+        loadFunctions[
+            "hou_usePacakgeIntegration"
+        ] = lambda x: origin.chb_houPackage.setChecked(x)
 
-		return saveData
+        return loadData, loadFunctions
 
-	
-	@err_decorator
-	def prismSettings_loadSettings(self, origin):
-		loadData = {}
-		loadFunctions = {}
+    @err_decorator
+    def getAutobackPath(self, origin, tab):
+        if platform.system() == "Windows":
+            autobackpath = os.path.join(
+                os.getenv("LocalAppdata"), "Temp", "houdini_temp"
+            )
+        else:
+            if tab == "a":
+                autobackpath = os.path.join(
+                    origin.tw_aHierarchy.currentItem().text(1),
+                    "Scenefiles",
+                    origin.lw_aPipeline.currentItem().text(),
+                )
+            elif tab == "sf":
+                autobackpath = os.path.join(
+                    origin.sBasePath,
+                    origin.cursShots,
+                    "Scenefiles",
+                    origin.cursStep,
+                    origin.cursCat,
+                )
 
-		loadData["hou_usePacakgeIntegration"] = ['houdini', 'use_package_integration', 'bool']
-		loadFunctions["hou_usePacakgeIntegration"] = lambda x: origin.chb_houPackage.setChecked(x)
+        if not os.path.exists(autobackpath):
+            autobackpath = os.path.dirname(autobackpath)
 
-		return loadData, loadFunctions
+        fileStr = "Houdini Scene File ("
+        for i in self.sceneFormats:
+            fileStr += "*%s " % i
 
+        fileStr += ")"
 
+        return autobackpath, fileStr
 
-	@err_decorator
-	def getAutobackPath(self, origin, tab):
-		if platform.system() == "Windows":
-			autobackpath = os.path.join(os.getenv('LocalAppdata'), "Temp", "houdini_temp")
-		else:
-			if tab == "a":
-				autobackpath = os.path.join(origin.tw_aHierarchy.currentItem().text(1), "Scenefiles", origin.lw_aPipeline.currentItem().text())
-			elif tab == "sf":
-				autobackpath = os.path.join(origin.sBasePath, origin.cursShots, "Scenefiles", origin.cursStep, origin.cursCat)
+    @err_decorator
+    def onProjectCreated(self, origin, projectPath, projectName):
+        hdaDir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "HDAs")
 
+        pHdaPath = os.path.join(projectPath, "00_Pipeline", "HDAs")
 
-		if not os.path.exists(autobackpath):
-			autobackpath = os.path.dirname(autobackpath)
+        if not os.path.exists(pHdaPath):
+            os.makedirs(pHdaPath)
 
-		fileStr = "Houdini Scene File ("
-		for i in self.sceneFormats:
-			fileStr += "*%s " % i
+        for i in os.listdir(hdaDir):
+            if os.path.splitext(i)[1] not in [".hda", ".otl"]:
+                continue
 
-		fileStr += ")"
+            origPath = os.path.join(hdaDir, i)
+            targetPath = os.path.join(pHdaPath, i)
 
-		return autobackpath, fileStr
-
-
-	@err_decorator
-	def onProjectCreated(self, origin, projectPath, projectName):
-		hdaDir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "HDAs")
-
-		pHdaPath = os.path.join(projectPath, "00_Pipeline", "HDAs")
-
-		if not os.path.exists(pHdaPath):
-			os.makedirs(pHdaPath)
-
-		for i in os.listdir(hdaDir):
-			if os.path.splitext(i)[1] not in [".hda", ".otl"]:
-				continue
-
-			origPath = os.path.join(hdaDir, i)
-			targetPath = os.path.join(pHdaPath, i)
-
-			shutil.copy2(origPath, targetPath)
+            shutil.copy2(origPath, targetPath)

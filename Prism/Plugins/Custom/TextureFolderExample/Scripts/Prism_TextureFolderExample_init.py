@@ -31,11 +31,13 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_TextureFolderExample_Variables import Prism_TextureFolderExample_Variables
 from Prism_TextureFolderExample_Functions import Prism_TextureFolderExample_Functions
 
-class Prism_TextureFolderExample(Prism_TextureFolderExample_Variables, Prism_TextureFolderExample_Functions):
-	def __init__(self, core):
-		Prism_TextureFolderExample_Variables.__init__(self, core, self)
-		Prism_TextureFolderExample_Functions.__init__(self, core, self)
+
+class Prism_TextureFolderExample(
+    Prism_TextureFolderExample_Variables, Prism_TextureFolderExample_Functions
+):
+    def __init__(self, core):
+        Prism_TextureFolderExample_Variables.__init__(self, core, self)
+        Prism_TextureFolderExample_Functions.__init__(self, core, self)

@@ -15,22 +15,28 @@ try:
 except ImportError:
     pass
 
+
 def getPluginID():
     return "WritePrism"
+
 
 def getLabel():
     return "WritePrism"
 
+
 def getVersion():
     return 1
+
 
 def getIconPath():
     return "WritePrism.png"
 
+
 def getGrouping():
     return ""
 
-def createInstance(app,group):
+
+def createInstance(app, group):
     # Create all nodes in the group
 
     # Create the parameters of the group node the same way we did for all internal nodes
@@ -40,7 +46,6 @@ def createInstance(app,group):
     if param is not None:
         param.setValue("writePrismParamChanged")
         del param
-
 
     # Create the user parameters
     lastNode.prismPage = lastNode.createPageParam("prismPage", "Prism")
@@ -105,7 +110,9 @@ def createInstance(app,group):
     lastNode.prismPage.addParam(param)
 
     # Set param properties
-    param.setHelp("When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it\'s not possible, the channel will be filled with 0.")
+    param.setHelp(
+        "When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it's not possible, the channel will be filled with 0."
+    )
     param.setAddNewLine(False)
     param.setAnimationEnabled(False)
     lastNode.WritePrismBaseNatronOfxParamProcessR = param
@@ -119,7 +126,9 @@ def createInstance(app,group):
     lastNode.prismPage.addParam(param)
 
     # Set param properties
-    param.setHelp("When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it\'s not possible, the channel will be filled with 0.")
+    param.setHelp(
+        "When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it's not possible, the channel will be filled with 0."
+    )
     param.setAddNewLine(False)
     param.setAnimationEnabled(False)
     lastNode.WritePrismBaseNatronOfxParamProcessG = param
@@ -133,7 +142,9 @@ def createInstance(app,group):
     lastNode.prismPage.addParam(param)
 
     # Set param properties
-    param.setHelp("When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it\'s not possible, the channel will be filled with 0.")
+    param.setHelp(
+        "When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it's not possible, the channel will be filled with 0."
+    )
     param.setAddNewLine(False)
     param.setAnimationEnabled(False)
     lastNode.WritePrismBaseNatronOfxParamProcessB = param
@@ -147,7 +158,9 @@ def createInstance(app,group):
     lastNode.prismPage.addParam(param)
 
     # Set param properties
-    param.setHelp("When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it\'s not possible, the channel will be filled with 0.")
+    param.setHelp(
+        "When checked, this channel of the layer will be written to the file otherwise it will be skipped. Most file formats will pack the channels into the first N channels of the file. If for some reason it's not possible, the channel will be filled with 0."
+    )
     param.setAddNewLine(False)
     param.setAnimationEnabled(False)
     lastNode.WritePrismBaseNatronOfxParamProcessA = param
@@ -221,10 +234,7 @@ def createInstance(app,group):
     del param
 
     param = lastNode.createChoiceParam("outputFormat", "Output format")
-    entries = [ ("exr", ""),
-    ("jpg", ""),
-    ("png", ""),
-    ("tiff", "")]
+    entries = [("exr", ""), ("jpg", ""), ("png", ""), ("tiff", "")]
     param.setOptions(entries)
     del entries
 
@@ -299,7 +309,9 @@ def createInstance(app,group):
     lastNode.b_startRender = param
     del param
 
-    param = lastNode.createButtonParam("b_startRenderLastVersion", "Render as previous version")
+    param = lastNode.createButtonParam(
+        "b_startRenderLastVersion", "Render as previous version"
+    )
 
     # Add the param to the page
     lastNode.prismPage.addParam(param)
@@ -312,7 +324,7 @@ def createInstance(app,group):
     del param
 
     # Refresh the GUI with the newly created parameters
-    lastNode.setPagesOrder(['prismPage', 'Node', 'Settings'])
+    lastNode.setPagesOrder(["prismPage", "Node", "Settings"])
     lastNode.refreshUserParamsGUI()
     del lastNode
 
@@ -350,7 +362,6 @@ def createInstance(app,group):
         param.setValue(True)
         del param
 
-
     # Create the user parameters
     lastNode.Prism = lastNode.createPageParam("Prism", "Prism")
     param = lastNode.createStringParam("prismTask", "Task")
@@ -368,7 +379,7 @@ def createInstance(app,group):
     del param
 
     # Refresh the GUI with the newly created parameters
-    lastNode.setPagesOrder(['Controls', 'Node', 'Info', 'Prism'])
+    lastNode.setPagesOrder(["Controls", "Node", "Info", "Prism"])
     lastNode.refreshUserParamsGUI()
     del lastNode
     # End of node "WritePrismBase"
@@ -417,5 +428,9 @@ def createInstance(app,group):
         extModule = sys.modules["WritePrismExt"]
     except KeyError:
         extModule = None
-    if extModule is not None and hasattr(extModule ,"createInstanceExt") and hasattr(extModule.createInstanceExt,"__call__"):
-        extModule.createInstanceExt(app,group)
+    if (
+        extModule is not None
+        and hasattr(extModule, "createInstanceExt")
+        and hasattr(extModule.createInstanceExt, "__call__")
+    ):
+        extModule.createInstanceExt(app, group)

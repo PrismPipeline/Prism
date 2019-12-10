@@ -31,11 +31,10 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_Pandora_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.0"
-		self.pluginName = "Pandora"
-		self.pluginType = "RenderfarmManager"
-		self.canOutputLocal = True
-		self.platforms = ["Windows"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.0"
+        self.pluginName = "Pandora"
+        self.pluginType = "RenderfarmManager"
+        self.canOutputLocal = True
+        self.platforms = ["Windows"]

@@ -31,14 +31,17 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Natron_Variables import Prism_Natron_Variables
 from Prism_Natron_externalAccess_Functions import Prism_Natron_externalAccess_Functions
 from Prism_Natron_Integration import Prism_Natron_Integration
 
 
-class Prism_Natron_unloaded(Prism_Natron_Variables, Prism_Natron_externalAccess_Functions, Prism_Natron_Integration):
-	def __init__(self, core):
-		Prism_Natron_Variables.__init__(self, core, self)
-		Prism_Natron_externalAccess_Functions.__init__(self, core, self)
-		Prism_Natron_Integration.__init__(self, core, self)
+class Prism_Natron_unloaded(
+    Prism_Natron_Variables,
+    Prism_Natron_externalAccess_Functions,
+    Prism_Natron_Integration,
+):
+    def __init__(self, core):
+        Prism_Natron_Variables.__init__(self, core, self)
+        Prism_Natron_externalAccess_Functions.__init__(self, core, self)
+        Prism_Natron_Integration.__init__(self, core, self)

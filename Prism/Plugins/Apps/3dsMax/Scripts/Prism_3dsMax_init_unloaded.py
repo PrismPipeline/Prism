@@ -31,13 +31,17 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_3dsMax_Variables import Prism_3dsMax_Variables
 from Prism_3dsMax_externalAccess_Functions import Prism_3dsMax_externalAccess_Functions
 from Prism_3dsMax_Integration import Prism_3dsMax_Integration
 
-class Prism_3dsMax_unloaded(Prism_3dsMax_Variables, Prism_3dsMax_externalAccess_Functions, Prism_3dsMax_Integration):
-	def __init__(self, core):
-		Prism_3dsMax_Variables.__init__(self, core, self)
-		Prism_3dsMax_externalAccess_Functions.__init__(self, core, self)
-		Prism_3dsMax_Integration.__init__(self, core, self)
+
+class Prism_3dsMax_unloaded(
+    Prism_3dsMax_Variables,
+    Prism_3dsMax_externalAccess_Functions,
+    Prism_3dsMax_Integration,
+):
+    def __init__(self, core):
+        Prism_3dsMax_Variables.__init__(self, core, self)
+        Prism_3dsMax_externalAccess_Functions.__init__(self, core, self)
+        Prism_3dsMax_Integration.__init__(self, core, self)

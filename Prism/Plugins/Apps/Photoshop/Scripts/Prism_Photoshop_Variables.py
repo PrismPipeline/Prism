@@ -31,19 +31,18 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_Photoshop_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.23"
-		self.pluginName = "Photoshop"
-		self.pluginType = "App"
-		self.appShortName = "Photoshop"
-		self.appType = "2d"
-		self.hasQtParent = False
-		self.sceneFormats = [".psd", ".psb"]
-		self.appSpecificFormats = self.sceneFormats
-		self.appColor = [115,172,230]
-		self.appVersionPresets = ["13.0.0"]
-		self.hasFrameRange = False
-		self.canOverrideExecuteable = False
-		self.platforms = ["Windows", "Darwin"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.23"
+        self.pluginName = "Photoshop"
+        self.pluginType = "App"
+        self.appShortName = "Photoshop"
+        self.appType = "2d"
+        self.hasQtParent = False
+        self.sceneFormats = [".psd", ".psb"]
+        self.appSpecificFormats = self.sceneFormats
+        self.appColor = [115, 172, 230]
+        self.appVersionPresets = ["13.0.0"]
+        self.hasFrameRange = False
+        self.canOverrideExecuteable = False
+        self.platforms = ["Windows", "Darwin"]

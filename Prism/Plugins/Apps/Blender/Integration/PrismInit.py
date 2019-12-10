@@ -31,194 +31,228 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 import sys, os, bpy
 
 prismRoot = PRISMROOT
 
 if sys.version_info[0] == 3 and sys.version_info[1] == 5:
-	libFolder = "Python35"
+    libFolder = "Python35"
 if sys.version_info[0] == 3 and sys.version_info[1] == 7:
-	libFolder = "Python37"
+    libFolder = "Python37"
 
 sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python3"))
 sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libFolder).replace("\\", "/"))
 sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
 
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
 except:
-	if not bpy.app.background:
-		import platform, subprocess
-		dScript = os.path.join(prismRoot, "Plugins", "Apps", "Blender", "Scripts", "Download_PySide2.py")
+    if not bpy.app.background:
+        import platform, subprocess
 
-		if platform.system() == "Windows":
-			pythonPath = os.path.join(prismRoot, "Python27", "pythonw.exe")
-		else:
-			pythonPath = "python"
+        dScript = os.path.join(
+            prismRoot, "Plugins", "Apps", "Blender", "Scripts", "Download_PySide2.py"
+        )
 
-		result = subprocess.Popen([pythonPath, dScript, libFolder], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		stdOutData, stderrdata = result.communicate()
+        if platform.system() == "Windows":
+            pythonPath = os.path.join(prismRoot, "Python27", "pythonw.exe")
+        else:
+            pythonPath = "python"
 
-		import site, importlib
-		importlib.reload(site)
+        result = subprocess.Popen(
+            [pythonPath, dScript, libFolder],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdOutData, stderrdata = result.communicate()
 
-		from PySide2.QtCore import *
-		from PySide2.QtGui import *
-		from PySide2.QtWidgets import *
+        import site, importlib
+
+        importlib.reload(site)
+
+        from PySide2.QtCore import *
+        from PySide2.QtGui import *
+        from PySide2.QtWidgets import *
 
 from bpy.app.handlers import persistent
 
+
 def prismInit():
-	import PrismCore
-	pcore = PrismCore.PrismCore(app="Blender")
-	return pcore
+    import PrismCore
+
+    pcore = PrismCore.PrismCore(app="Blender")
+    return pcore
 
 
 @persistent
 def sceneUnload(dummy):
-	pcore.sceneUnload()
+    pcore.sceneUnload()
 
 
 @persistent
 def sceneSave(dummy):
-	pcore.scenefileSaved()
+    pcore.scenefileSaved()
 
 
 @persistent
 def sceneOpen(dummy):
-	pcore.sceneOpen()
+    pcore.sceneOpen()
 
 
 class PrismSave(bpy.types.Operator):
-	bl_idname = "object.prism_save"
-	bl_label = "Save"
+    bl_idname = "object.prism_save"
+    bl_label = "Save"
 
-	def execute(self, context):
-		pcore.saveScene()
-		return {'FINISHED'}
+    def execute(self, context):
+        pcore.saveScene()
+        return {"FINISHED"}
 
 
 class PrismSaveComment(bpy.types.Operator):
-	bl_idname = "object.prism_savecomment"
-	bl_label = "Save Comment"
+    bl_idname = "object.prism_savecomment"
+    bl_label = "Save Comment"
 
-	def execute(self, context):
-		pcore.saveWithComment()
-		return {'FINISHED'}
+    def execute(self, context):
+        pcore.saveWithComment()
+        return {"FINISHED"}
 
 
 class PrismProjectBrowser(bpy.types.Operator):
-	bl_idname = "object.prism_browser"
-	bl_label = "Project Browser"
+    bl_idname = "object.prism_browser"
+    bl_label = "Project Browser"
 
-	def execute(self, context):
-		pcore.projectBrowser()
-		return {'FINISHED'}
+    def execute(self, context):
+        pcore.projectBrowser()
+        return {"FINISHED"}
 
 
 class PrismStateManager(bpy.types.Operator):
-	bl_idname = "object.prism_manager"
-	bl_label = "State Manager"
+    bl_idname = "object.prism_manager"
+    bl_label = "State Manager"
 
-	def execute(self, context):
-		pcore.stateManager()
-		return {'FINISHED'}
+    def execute(self, context):
+        pcore.stateManager()
+        return {"FINISHED"}
 
 
 class PrismSettings(bpy.types.Operator):
-	bl_idname = "object.prism_settings"
-	bl_label = "Prism Settings"
+    bl_idname = "object.prism_settings"
+    bl_label = "Prism Settings"
 
-	def execute(self, context):
-		pcore.prismSettings()
-		return {'FINISHED'}
+    def execute(self, context):
+        pcore.prismSettings()
+        return {"FINISHED"}
 
-if bpy.app.version < (2,80,0):
-	Region = "TOOLS"
+
+if bpy.app.version < (2, 80, 0):
+    Region = "TOOLS"
 else:
-	Region = "UI"
+    Region = "UI"
+
 
 class PrismPanel(bpy.types.Panel):
-	bl_label = "Prism Tools"
-	bl_idname = "prismToolsPanel"
-	bl_space_type = 'VIEW_3D'
-	bl_region_type = Region
-	bl_category = "Prism"
+    bl_label = "Prism Tools"
+    bl_idname = "prismToolsPanel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = Region
+    bl_category = "Prism"
 
-	def draw(self, context):
-		layout = self.layout
+    def draw(self, context):
+        layout = self.layout
 
-		row = layout.row()
-		row.operator("object.prism_save")
+        row = layout.row()
+        row.operator("object.prism_save")
 
-		row = layout.row()
-		row.operator("object.prism_savecomment")
+        row = layout.row()
+        row.operator("object.prism_savecomment")
 
-		row = layout.row()
-		row.operator("object.prism_browser")
+        row = layout.row()
+        row.operator("object.prism_browser")
 
-		row = layout.row()
-		row.operator("object.prism_manager")
+        row = layout.row()
+        row.operator("object.prism_manager")
 
-		row = layout.row()
-		row.operator("object.prism_settings")
+        row = layout.row()
+        row.operator("object.prism_settings")
 
 
 def register():
-	if bpy.app.background:
-		return
+    if bpy.app.background:
+        return
 
-	try:
-		qapp = QApplication.instance()
-		if qapp == None:
-			qapp = QApplication(sys.argv)
+    try:
+        qapp = QApplication.instance()
+        if qapp == None:
+            qapp = QApplication(sys.argv)
 
-		if bpy.app.version < (2,80,0):
-			qssFile = os.path.join(prismRoot, "Plugins", "Apps", "Blender", "UserInterfaces", "BlenderStyleSheet", "Blender2.79.qss")
-		else:
-			qssFile = os.path.join(prismRoot, "Plugins", "Apps", "Blender", "UserInterfaces", "BlenderStyleSheet", "Blender2.8.qss")
+        if bpy.app.version < (2, 80, 0):
+            qssFile = os.path.join(
+                prismRoot,
+                "Plugins",
+                "Apps",
+                "Blender",
+                "UserInterfaces",
+                "BlenderStyleSheet",
+                "Blender2.79.qss",
+            )
+        else:
+            qssFile = os.path.join(
+                prismRoot,
+                "Plugins",
+                "Apps",
+                "Blender",
+                "UserInterfaces",
+                "BlenderStyleSheet",
+                "Blender2.8.qss",
+            )
 
-		with (open(qssFile, "r")) as ssFile:
-			ssheet = ssFile.read()
+        with (open(qssFile, "r")) as ssFile:
+            ssheet = ssFile.read()
 
-		ssheet = ssheet.replace("qss:", os.path.dirname(qssFile).replace("\\", "/") + "/")
-		qapp.setStyleSheet(ssheet)
-		appIcon = QIcon(os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png"))
-		qapp.setWindowIcon(appIcon)
+        ssheet = ssheet.replace(
+            "qss:", os.path.dirname(qssFile).replace("\\", "/") + "/"
+        )
+        qapp.setStyleSheet(ssheet)
+        appIcon = QIcon(
+            os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
+        )
+        qapp.setWindowIcon(appIcon)
 
-		global pcore
-		pcore = prismInit()
-		bpy.utils.register_class(PrismSave)
-		bpy.utils.register_class(PrismSaveComment)
-		bpy.utils.register_class(PrismProjectBrowser)
-		bpy.utils.register_class(PrismStateManager)
-		bpy.utils.register_class(PrismSettings)
-		#bpy.utils.register_class(PrismPanel)
+        global pcore
+        pcore = prismInit()
+        bpy.utils.register_class(PrismSave)
+        bpy.utils.register_class(PrismSaveComment)
+        bpy.utils.register_class(PrismProjectBrowser)
+        bpy.utils.register_class(PrismStateManager)
+        bpy.utils.register_class(PrismSettings)
+        # bpy.utils.register_class(PrismPanel)
 
-		bpy.app.handlers.load_pre.append(sceneUnload)
-		bpy.app.handlers.save_post.append(sceneSave)
-		bpy.app.handlers.load_post.append(sceneOpen)
+        bpy.app.handlers.load_pre.append(sceneUnload)
+        bpy.app.handlers.save_post.append(sceneSave)
+        bpy.app.handlers.load_post.append(sceneOpen)
 
-
-	except Exception as e:
-		exc_type, exc_obj, exc_tb = sys.exc_info()
-		print ("ERROR - PrismInit - %s - %s - %s\n\n" % (str(e), exc_type, exc_tb.tb_lineno))
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        print(
+            "ERROR - PrismInit - %s - %s - %s\n\n"
+            % (str(e), exc_type, exc_tb.tb_lineno)
+        )
 
 
 def unregister():
-	if bpy.app.background:
-		return
-	
-	bpy.utils.unregister_class(PrismSave)
-	bpy.utils.unregister_class(PrismSaveComment)
-	bpy.utils.unregister_class(PrismProjectBrowser)
-	bpy.utils.unregister_class(PrismStateManager)
-	bpy.utils.unregister_class(PrismSettings)
-	#bpy.utils.unregister_class(PrismPanel)
+    if bpy.app.background:
+        return
 
-	bpy.app.handlers.load_pre.remove(sceneUnload)
-	bpy.app.handlers.save_post.remove(sceneSave)
-	bpy.app.handlers.load_post.remove(sceneOpen)
+    bpy.utils.unregister_class(PrismSave)
+    bpy.utils.unregister_class(PrismSaveComment)
+    bpy.utils.unregister_class(PrismProjectBrowser)
+    bpy.utils.unregister_class(PrismStateManager)
+    bpy.utils.unregister_class(PrismSettings)
+    # bpy.utils.unregister_class(PrismPanel)
+
+    bpy.app.handlers.load_pre.remove(sceneUnload)
+    bpy.app.handlers.save_post.remove(sceneSave)
+    bpy.app.handlers.load_post.remove(sceneOpen)

@@ -31,16 +31,20 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Fusion_Variables import Prism_Fusion_Variables
 from Prism_Fusion_externalAccess_Functions import Prism_Fusion_externalAccess_Functions
 from Prism_Fusion_Functions import Prism_Fusion_Functions
 from Prism_Fusion_Integration import Prism_Fusion_Integration
 
 
-class Prism_Plugin_Fusion(Prism_Fusion_Variables, Prism_Fusion_externalAccess_Functions, Prism_Fusion_Functions, Prism_Fusion_Integration):
-	def __init__(self, core):
-		Prism_Fusion_Variables.__init__(self, core, self)
-		Prism_Fusion_externalAccess_Functions.__init__(self, core, self)
-		Prism_Fusion_Functions.__init__(self, core, self)
-		Prism_Fusion_Integration.__init__(self, core, self)
+class Prism_Plugin_Fusion(
+    Prism_Fusion_Variables,
+    Prism_Fusion_externalAccess_Functions,
+    Prism_Fusion_Functions,
+    Prism_Fusion_Integration,
+):
+    def __init__(self, core):
+        Prism_Fusion_Variables.__init__(self, core, self)
+        Prism_Fusion_externalAccess_Functions.__init__(self, core, self)
+        Prism_Fusion_Functions.__init__(self, core, self)
+        Prism_Fusion_Integration.__init__(self, core, self)

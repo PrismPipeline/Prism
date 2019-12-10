@@ -31,14 +31,19 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Photoshop_Variables import Prism_Photoshop_Variables
-from Prism_Photoshop_externalAccess_Functions import Prism_Photoshop_externalAccess_Functions
+from Prism_Photoshop_externalAccess_Functions import (
+    Prism_Photoshop_externalAccess_Functions,
+)
 from Prism_Photoshop_Integration import Prism_Photoshop_Integration
 
 
-class Prism_Photoshop_unloaded(Prism_Photoshop_Variables, Prism_Photoshop_externalAccess_Functions, Prism_Photoshop_Integration):
-	def __init__(self, core):
-		Prism_Photoshop_Variables.__init__(self, core, self)
-		Prism_Photoshop_externalAccess_Functions.__init__(self, core, self)
-		Prism_Photoshop_Integration.__init__(self, core, self)
+class Prism_Photoshop_unloaded(
+    Prism_Photoshop_Variables,
+    Prism_Photoshop_externalAccess_Functions,
+    Prism_Photoshop_Integration,
+):
+    def __init__(self, core):
+        Prism_Photoshop_Variables.__init__(self, core, self)
+        Prism_Photoshop_externalAccess_Functions.__init__(self, core, self)
+        Prism_Photoshop_Integration.__init__(self, core, self)

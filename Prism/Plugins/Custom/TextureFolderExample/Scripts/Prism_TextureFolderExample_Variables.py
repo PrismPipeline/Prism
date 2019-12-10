@@ -31,10 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_TextureFolderExample_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.0"
-		self.pluginName = "TextureFolderExample"
-		self.pluginType = "Custom"
-		self.platforms = ["Windows", "Linux", "Darwin"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.0"
+        self.pluginName = "TextureFolderExample"
+        self.pluginType = "Custom"
+        self.platforms = ["Windows", "Linux", "Darwin"]

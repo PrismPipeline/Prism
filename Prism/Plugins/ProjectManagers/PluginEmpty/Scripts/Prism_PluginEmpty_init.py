@@ -31,11 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_PluginEmpty_Variables import Prism_PluginEmpty_Variables
 from Prism_PluginEmpty_Functions import Prism_PluginEmpty_Functions
 
+
 class Prism_PluginEmpty(Prism_PluginEmpty_Variables, Prism_PluginEmpty_Functions):
-	def __init__(self, core):
-		Prism_PluginEmpty_Variables.__init__(self, core, self)
-		Prism_PluginEmpty_Functions.__init__(self, core, self)
+    def __init__(self, core):
+        Prism_PluginEmpty_Variables.__init__(self, core, self)
+        Prism_PluginEmpty_Functions.__init__(self, core, self)

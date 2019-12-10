@@ -31,11 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Shotgun_Variables import Prism_Shotgun_Variables
 from Prism_Shotgun_Functions import Prism_Shotgun_Functions
 
+
 class Prism_Shotgun(Prism_Shotgun_Variables, Prism_Shotgun_Functions):
-	def __init__(self, core):
-		Prism_Shotgun_Variables.__init__(self, core, self)
-		Prism_Shotgun_Functions.__init__(self, core, self)
+    def __init__(self, core):
+        Prism_Shotgun_Variables.__init__(self, core, self)
+        Prism_Shotgun_Functions.__init__(self, core, self)

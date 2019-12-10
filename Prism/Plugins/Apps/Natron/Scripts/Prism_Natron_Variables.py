@@ -31,17 +31,16 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_Natron_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.23"
-		self.pluginName = "Natron"
-		self.pluginType = "App"
-		self.appShortName = "Natron"
-		self.appType = "2d"
-		self.hasQtParent = True
-		self.sceneFormats = [".ntp"]
-		self.appSpecificFormats = self.sceneFormats
-		self.appColor = [210,210,210]
-		self.appVersionPresets = ["2.3.13"]
-		self.platforms = ["Windows", "Linux"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.23"
+        self.pluginName = "Natron"
+        self.pluginType = "App"
+        self.appShortName = "Natron"
+        self.appType = "2d"
+        self.hasQtParent = True
+        self.sceneFormats = [".ntp"]
+        self.appSpecificFormats = self.sceneFormats
+        self.appColor = [210, 210, 210]
+        self.appVersionPresets = ["2.3.13"]
+        self.platforms = ["Windows", "Linux"]

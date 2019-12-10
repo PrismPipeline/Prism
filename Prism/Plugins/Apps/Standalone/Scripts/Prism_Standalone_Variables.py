@@ -31,14 +31,13 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_Standalone_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.23"
-		self.pluginName = "Standalone"
-		self.pluginType = "App"
-		self.appShortName = "So"
-		self.appType = "standalone"
-		self.hasQtParent = False
-		self.sceneFormats = []
-		self.platforms = ["Windows", "Linux", "Darwin"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.23"
+        self.pluginName = "Standalone"
+        self.pluginType = "App"
+        self.appShortName = "So"
+        self.appType = "standalone"
+        self.hasQtParent = False
+        self.sceneFormats = []
+        self.platforms = ["Windows", "Linux", "Darwin"]

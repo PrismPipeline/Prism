@@ -31,11 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Deadline_Variables import Prism_Deadline_Variables
 from Prism_Deadline_Functions import Prism_Deadline_Functions
 
+
 class Prism_Deadline(Prism_Deadline_Variables, Prism_Deadline_Functions):
-	def __init__(self, core):
-		Prism_Deadline_Variables.__init__(self, core, self)
-		Prism_Deadline_Functions.__init__(self, core, self)
+    def __init__(self, core):
+        Prism_Deadline_Variables.__init__(self, core, self)
+        Prism_Deadline_Functions.__init__(self, core, self)

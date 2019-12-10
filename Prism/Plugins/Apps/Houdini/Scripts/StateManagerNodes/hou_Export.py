@@ -31,1311 +31,1762 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 import sys, os, shutil, time, traceback, platform
 from ConfigParser import ConfigParser
 from functools import wraps
 
 try:
-	import hou
+    import hou
 except:
-	pass
+    pass
 
 
 class ExportClass(object):
-	def err_decorator(func):
-		@wraps(func)
-		def func_wrapper(*args, **kwargs):
-			try:
-				return func(*args, **kwargs)
-			except Exception as e:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - hou_Export %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
-				args[0].core.writeErrorLog(erStr)
-
-		return func_wrapper
-
-
-	@err_decorator
-	def setup(self, state, core, stateManager, node=None, stateData=None):
-		self.state = state
-		self.core = core
-		self.stateManager = stateManager
-
-		self.e_name.setText(state.text(0))
-
-		self.className = "Export"
-		self.listType = "Export"
-
-		self.node = None
-		self.curCam = None
-
-		self.cb_outType.addItems(self.core.appPlugin.outputFormats)
-		self.export_paths = self.core.getExportPaths()
-
-		self.cb_outPath.addItems([x[0] for x in self.export_paths])
-		if len(self.export_paths) < 2:
-			self.w_outPath.setVisible(False)
-
-		self.l_name.setVisible(False)
-		self.e_name.setVisible(False)
-		self.f_cam.setVisible(False)
-		self.w_sCamShot.setVisible(False)
-		self.w_saveToExistingHDA.setVisible(False)
-		self.w_blackboxHDA.setVisible(False)
-		self.w_projectHDA.setVisible(False)
-		self.gb_submit.setChecked(False)
-
-		self.nodeTypes = {
-				"rop_geometry": {"outputparm": "sopoutput"},
-				"rop_alembic": {"outputparm": "filename"},
-				"rop_dop": {"outputparm": "dopoutput"},
-				"rop_comp": {"outputparm": "copoutput"},
-				"filecache": {"outputparm": "file"},
-				"geometry": {"outputparm": "sopoutput"},
-				"alembic": {"outputparm": "filename"},
-				"pixar::usdrop": {"outputparm": "usdfile"},
-				"usd": {"outputparm": "lopoutput"},
-				"Redshift_Proxy_Output": {"outputparm": "RS_archive_file"},
-		}
-
-		for i in self.core.rfManagers.values():
-			self.cb_manager.addItem(i.pluginName)
-			i.sm_houExport_startup(self)
-
-		if self.cb_manager.count() == 0:
-			self.gb_submit.setVisible(False)
-
-		if node is None and not self.stateManager.standalone:
-			if stateData is None:
-				if not self.connectNode():
-					self.createNode()
-		else:
-			self.node = node
-
-		if self.node is not None and self.node.parm("f1") is not None:
-			self.sp_rangeStart.setValue(self.node.parm("f1").eval())
-			self.sp_rangeEnd.setValue(self.node.parm("f2").eval())
-
-			idx = -1
-			if self.node.type().name() in ["rop_alembic", "alembic"]:
-				idx = self.cb_outType.findText(".abc")
-			elif self.node.type().name() in ["pixar::usdrop", "usd"]:
-				idx = self.cb_outType.findText(".usd")
-			elif self.node.type().name() in ["Redshift_Proxy_Output"]:
-				idx = self.cb_outType.findText(".rs")
-			
-			if idx != -1:
-				self.cb_outType.setCurrentIndex(idx)
-				self.typeChanged(self.cb_outType.currentText())
-		elif stateData is None:
-			self.sp_rangeStart.setValue(hou.playbar.playbackRange()[0])
-			self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
-
-		self.nameChanged(state.text(0))
-
-		self.managerChanged(True)
-
-		self.connectEvents()
-
-		self.b_changeTask.setStyleSheet("QPushButton { background-color: rgb(150,0,0); }")
-		self.core.appPlugin.fixStyleSheet(self.gb_submit)
-
-		self.e_osSlaves.setText("All")
-
-		if stateData is not None:
-			self.loadData(stateData)
-		else:
-			fileName = self.core.getCurrentFileName()
-			fnameData = self.core.getScenefileData(fileName)
-			if os.path.exists(fileName) and fnameData["type"] == "shot" and (os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in fileName or (self.core.useLocalFiles and os.path.join(self.core.localProjectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)) in fileName)):
-				idx = self.cb_sCamShot.findText(fnameData["shotName"])
-				if idx != -1:
-					self.cb_sCamShot.setCurrentIndex(idx)
-
-
-	@err_decorator
-	def loadData(self, data):
-		self.updateUi()
-
-		if "statename" in data:
-			self.e_name.setText(data["statename"])
-		if "taskname" in data:
-			self.l_taskName.setText(data["taskname"])
-			if data["taskname"] != "":
-				self.b_changeTask.setStyleSheet("")
-		if "globalrange" in data:
-			self.chb_globalRange.setChecked(eval(data["globalrange"]))
-		if "startframe" in data:
-			self.sp_rangeStart.setValue(int(data["startframe"]))
-		if "endframe" in data:
-			self.sp_rangeEnd.setValue(int(data["endframe"]))
-		if "connectednode" in data:
-			node = hou.node(data["connectednode"])
-			if node is None:
-				node = self.findNode(data["connectednode"])
-			self.connectNode(node)
-		if "usetake" in data:
-			self.chb_useTake.setChecked(eval(data["usetake"]))
-		if "take" in data:
-			idx = self.cb_take.findText(data["take"])
-			if idx != -1:
-				self.cb_take.setCurrentIndex(idx)
-		if "curoutputpath" in data:
-			idx = self.cb_outPath.findText(data["curoutputpath"])
-			if idx != -1:
-				self.cb_outPath.setCurrentIndex(idx)
-		if "outputtypes" in data:
-			self.cb_outType.clear()
-			self.cb_outType.addItems(eval(data["outputtypes"]))
-		if "curoutputtype" in data:
-			idx = self.cb_outType.findText(data["curoutputtype"])
-			if idx != -1:
-				self.cb_outType.setCurrentIndex(idx)
-				self.typeChanged(self.cb_outType.currentText(), createMissing=False)
-		if "savetoexistinghda" in data:
-			self.chb_saveToExistingHDA.setChecked(eval(data["savetoexistinghda"]))
-		if "projecthda" in data:
-			self.chb_projectHDA.setChecked(eval(data["projecthda"]))
-		if "blackboxhda" in data:
-			self.chb_blackboxHDA.setChecked(eval(data["blackboxhda"]))
-		if "unitconvert" in data:
-			self.chb_convertExport.setChecked(eval(data["unitconvert"]))
-		if "submitrender" in data:
-			self.gb_submit.setChecked(eval(data["submitrender"]))
-		if "rjmanager" in data:
-			idx = self.cb_manager.findText(data["rjmanager"])
-			if idx != -1:
-				self.cb_manager.setCurrentIndex(idx)
-			self.managerChanged(True)
-		if "rjprio" in data:
-			self.sp_rjPrio.setValue(int(data["rjprio"]))
-		if "rjframespertask" in data:
-			self.sp_rjFramesPerTask.setValue(int(data["rjframespertask"]))
-		if "rjtimeout" in data:
-			self.sp_rjTimeout.setValue(int(data["rjtimeout"]))
-		if "rjsuspended" in data:
-			self.chb_rjSuspended.setChecked(eval(data["rjsuspended"]))
-		if "osdependencies" in data:
-			self.chb_osDependencies.setChecked(eval(data["osdependencies"]))
-		if "osupload" in data:
-			self.chb_osUpload.setChecked(eval(data["osupload"]))
-		if "ospassets" in data:
-			self.chb_osPAssets.setChecked(eval(data["ospassets"]))
-		if "osslaves" in data:
-			self.e_osSlaves.setText(data["osslaves"])
-		if "curdlgroup" in data:
-			idx = self.cb_dlGroup.findText(data["curdlgroup"])
-			if idx != -1:
-				self.cb_dlGroup.setCurrentIndex(idx)
-		if "currentcam" in data:
-			idx = self.cb_cam.findText(data["currentcam"])
-			if idx != -1:
-				self.curCam = self.camlist[idx]
-				if self.cb_outType.currentText() == "ShotCam":
-					self.nameChanged(self.e_name.text())
-		if "currentscamshot" in data:
-			idx = self.cb_sCamShot.findText(data["currentscamshot"])
-			if idx != -1:
-				self.cb_sCamShot.setCurrentIndex(idx)
-		if "lastexportpath" in data:
-			lePath = self.core.fixPath(data["lastexportpath"])
-
-			self.l_pathLast.setText(lePath)
-			self.l_pathLast.setToolTip(lePath)
-			pathIsNone = self.l_pathLast.text() == "None"
-			self.b_openLast.setEnabled(not pathIsNone)
-			self.b_copyLast.setEnabled(not pathIsNone)
-		if "stateenabled" in data:
-			self.state.setCheckState(0, eval(data["stateenabled"].replace("PySide.QtCore.", "").replace("PySide2.QtCore.", "")))
-
-		self.nameChanged(self.e_name.text())
-
-
-	@err_decorator
-	def findNode(self, path):
-		for node in hou.node("/").allSubChildren():
-			if node.userData("PrismPath") is not None and node.userData("PrismPath") == path:
-				node.setUserData("PrismPath", node.path())
-				return node
-
-		return None
-
-
-	@err_decorator
-	def isNodeValid(self):
-		try:
-			validTST = self.node.name()
-		except:
-			self.node = None
-
-		return (self.node is not None)
-
-
-	@err_decorator
-	def createNode(self, nodePath=None):
-		if self.stateManager.standalone:
-			return False
-
-		parentNode = None
-		curContext = ""
-		if not self.isNodeValid():
-			if len(hou.selectedNodes()) > 0:
-				curContext = hou.selectedNodes()[0].type().category().name()
-				if len(hou.selectedNodes()[0].outputNames()) > 0:
-					parentNode = hou.selectedNodes()[0]
-			else:
-				if self.core.uiAvailable:
-					paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-					if paneTab is None:
-						return
-
-					curContext = paneTab.pwd().childTypeCategory().name()
-					nodePath = paneTab.pwd()
-				elif nodePath is not None:
-					curContext = hou.node(nodePath).type().category().name()
-		else:
-			curContext = self.node.type().category().name()
-			if len(self.node.inputs()) > 0:
-				parentNode = self.node.inputs()[0]
-			else:
-				nodePath = self.node.parent()
-
-			if self.node.type().name() in [
-				"rop_geometry",
-				"rop_alembic",
-				"rop_dop",
-				"rop_comp",
-				"filecache",
-				"geometry",
-				"alembic",
-				"pixar::usdrop",
-				"usd",
-				"Redshift_Proxy_Output",
-			]:
-				try:
-					self.node.destroy()
-				except:
-					pass
-
-			self.node = None
-
-		ropType = ""
-		if curContext == "Cop2":
-			ropType = "rop_comp"
-		elif curContext == "Dop":
-			ropType = "rop_dop"
-		elif curContext == "Sop":
-			ropType = "rop_geometry"
-		elif curContext == "Driver":
-			ropType = "geometry"
-
-		if self.cb_outType.currentText() == ".abc":
-			if curContext == "Sop":
-				ropType = "rop_alembic"
-			else:
-				ropType = "alembic"
-		elif self.cb_outType.currentText() == ".hda":
-			ropType = ""
-		elif self.cb_outType.currentText() == ".usd":
-			ropType = "usd"
-		elif self.cb_outType.currentText() == ".rs":
-			ropType = "Redshift_Proxy_Output"
-
-		if ropType != "" and nodePath is not None and not nodePath.isInsideLockedHDA() and not nodePath.isLockedHDA():
-			try:
-				self.node = nodePath.createNode(ropType)
-			except:
-				pass
-			else:
-				paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-				if paneTab is not None:
-					self.node.setPosition(paneTab.visibleBounds().center())
-				self.node.moveToGoodPosition()
-		elif ropType != "" and parentNode is not None and not (parentNode.parent().isInsideLockedHDA()):
-			try:
-				self.node = parentNode.createOutputNode(ropType)
-			except:
-				pass
-			else:
-				self.node.moveToGoodPosition()
-
-		if self.isNodeValid():
-			self.goToNode()
-		self.updateUi()
-
-
-	@err_decorator
-	def connectEvents(self):
-		self.e_name.textChanged.connect(self.nameChanged)
-		self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
-		self.b_changeTask.clicked.connect(self.changeTask)
-		self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
-		self.sp_rangeStart.editingFinished.connect(self.startChanged)
-		self.sp_rangeEnd.editingFinished.connect(self.endChanged)
-		self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
-		self.cb_outType.activated[str].connect(self.typeChanged)
-		self.chb_useTake.stateChanged.connect(self.useTakeChanged)
-		self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
-		self.chb_saveToExistingHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_saveToExistingHDA.stateChanged.connect(lambda x: self.w_outPath.setEnabled(not x))
-		self.chb_saveToExistingHDA.stateChanged.connect(lambda x: self.w_projectHDA.setEnabled(not x or not self.w_saveToExistingHDA.isEnabled()))
-		self.chb_projectHDA.stateChanged.connect(lambda x: self.w_outPath.setEnabled(not x))
-		self.chb_projectHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_blackboxHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_convertExport.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.gb_submit.toggled.connect(self.rjToggled)
-		self.cb_manager.activated.connect(self.managerChanged)
-		self.sp_rjPrio.editingFinished.connect(self.stateManager.saveStatesToScene)
-		self.sp_rjFramesPerTask.editingFinished.connect(self.stateManager.saveStatesToScene)
-		self.sp_rjTimeout.editingFinished.connect(self.stateManager.saveStatesToScene)
-		self.chb_rjSuspended.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_osDependencies.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_osUpload.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.chb_osPAssets.stateChanged.connect(self.stateManager.saveStatesToScene)
-		self.e_osSlaves.editingFinished.connect(self.stateManager.saveStatesToScene)
-		self.b_osSlaves.clicked.connect(self.openSlaves)
-		self.cb_dlGroup.activated.connect(self.stateManager.saveStatesToScene)
-		self.cb_cam.activated.connect(self.setCam)
-		self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
-		self.b_openLast.clicked.connect(lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text())))
-		self.b_copyLast.clicked.connect(lambda: self.core.copyToClipboard(self.l_pathLast.text()))
-		if not self.stateManager.standalone:
-			self.b_goTo.clicked.connect(self.goToNode)
-			self.b_connect.clicked.connect(self.connectNode)
-
-
-	@err_decorator
-	def rangeTypeChanged(self, state):
-		self.l_rangeStart.setEnabled(not state)
-		self.l_rangeEnd.setEnabled(not state)
-		self.sp_rangeStart.setEnabled(not state)
-		self.sp_rangeEnd.setEnabled(not state)
-
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def nameChanged(self, text):
-		if self.cb_outType.currentText() == "ShotCam":
-			sText = text + " - Shotcam (%s)" % (self.curCam)
-		else:
-			try:
-				sText = text + " - %s (%s)" % (self.l_taskName.text(), self.node)
-			except:
-				sText = text + " - %s (None)" % self.l_taskName.text()
-
-		if self.state.text(0).endswith(" - disabled"):
-			sText += " - disabled"
-			
-		self.state.setText(0, sText)
-
-
-	@err_decorator
-	def changeTask(self):
-		import CreateItem
-		self.nameWin = CreateItem.CreateItem(startText=self.l_taskName.text(), showTasks=True, taskType="export", core=self.core)
-		self.core.parentWindow(self.nameWin)
-		self.nameWin.setWindowTitle("Change Taskname")
-		self.nameWin.l_item.setText("Taskname:")
-		self.nameWin.e_item.selectAll()
-		result = self.nameWin.exec_()
-		
-		if result == 1:
-			self.l_taskName.setText(self.nameWin.e_item.text())
-			self.nameChanged(self.e_name.text())
-
-			self.b_changeTask.setStyleSheet("")
-
-			self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def setCam(self, index):
-		self.curCam = self.camlist[index]
-		self.nameChanged(self.e_name.text())
-
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def updateUi(self):
-		try:
-			self.node.name()
-			self.l_status.setText(self.node.name())
-			self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
-		except:
-			self.l_status.setText("Not connected")
-			self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
-
-		curTake = self.cb_take.currentText()
-		self.cb_take.clear()
-		self.cb_take.addItems([x.name() for x in hou.takes.takes()])
-		idx = self.cb_take.findText(curTake)
-		if idx != -1:
-			self.cb_take.setCurrentIndex(idx)
-
-		self.camlist = []
-		for node in hou.node("/").allSubChildren():
-
-			if node.type().name() == "cam" and node.name() != "ipr_camera":
-				self.camlist.append(node)
-
-		self.cb_cam.clear()
-		self.cb_cam.addItems([str(i) for i in self.camlist])
-
-		try:
-			self.curCam.name()
-		except:
-			self.curCam = None
-
-		if self.curCam in self.camlist:
-			self.cb_cam.setCurrentIndex(self.camlist.index(self.curCam))
-		else:
-			self.cb_cam.setCurrentIndex(0)
-			if len(self.camlist) > 0:
-				self.curCam = self.camlist[0]
-			else:
-				self.curCam = None
-			self.stateManager.saveStatesToScene()
-
-		curShot = self.cb_sCamShot.currentText()
-		self.cb_sCamShot.clear()
-		shotPath = os.path.join(self.core.projectPath, self.core.getConfig('paths', "scenes", configPath=self.core.prismIni), "Shots")
-		shotNames = []
-		omittedShots = []
-
-		omitPath = os.path.join(os.path.dirname(self.core.prismIni), "Configs", "omits.ini")
-		if os.path.exists(omitPath):
-			oconfig = ConfigParser()
-			oconfig.read(omitPath)
-
-			if oconfig.has_section("Shot"):
-				omittedShots = [x[1] for x in oconfig.items("Shot")]
-
-		if os.path.exists(shotPath):
-			shotNames += [x for x in os.listdir(shotPath) if not x.startswith("_") and x not in omittedShots]
-		self.cb_sCamShot.addItems(shotNames)
-		if curShot in shotNames:
-			self.cb_sCamShot.setCurrentIndex(shotNames.index(curShot))
-		else:
-			self.cb_sCamShot.setCurrentIndex(0)
-			self.stateManager.saveStatesToScene()
-
-		if self.cb_outType.currentText() == ".hda":
-			if self.isNodeValid() and (self.node.canCreateDigitalAsset() or self.node.type().definition() is not None):
-				self.w_saveToExistingHDA.setEnabled(self.node.type().definition() is not None)
-			else:
-				self.w_saveToExistingHDA.setEnabled(True)
-
-			self.w_blackboxHDA.setEnabled(not self.isNodeValid() or self.node.type().areContentsViewable())
-
-			self.w_projectHDA.setEnabled(not self.w_saveToExistingHDA.isEnabled() or not self.chb_saveToExistingHDA.isChecked())
-
-		self.nameChanged(self.e_name.text())
-
-
-	@err_decorator
-	def typeChanged(self, idx, createMissing=True):
-		self.isNodeValid()
-
-		if idx == ".abc":
-			self.f_cam.setVisible(False)
-			self.w_sCamShot.setVisible(False)
-			self.w_saveToExistingHDA.setVisible(False)
-			self.w_blackboxHDA.setVisible(False)
-			self.w_projectHDA.setVisible(False)
-			self.f_taskName.setVisible(True)
-			self.f_status.setVisible(True)
-			self.f_connect.setVisible(True)
-			self.f_frameRange.setVisible(True)
-			self.f_convertExport.setVisible(True)
-			if self.cb_manager.count() > 0:
-				self.gb_submit.setVisible(True)
-			if (self.node is None or self.node.type().name() not in ["rop_alembic", "alembic", "wedge"]) and createMissing:
-				self.createNode()
-		elif idx == ".hda":
-			self.f_cam.setVisible(False)
-			self.w_sCamShot.setVisible(False)
-			self.w_saveToExistingHDA.setVisible(True)
-			self.w_blackboxHDA.setVisible(True)
-			self.w_projectHDA.setVisible(True)
-			self.f_taskName.setVisible(True)
-			self.f_status.setVisible(True)
-			self.f_connect.setVisible(True)
-			self.f_frameRange.setVisible(False)
-			self.f_convertExport.setVisible(False)
-			self.gb_submit.setVisible(False)
-			if (self.node is None or (self.node is not None and not (self.node.canCreateDigitalAsset()) or self.node.type().definition() is not None)) and createMissing:
-				self.createNode()
-		elif idx == ".usd":
-			self.f_cam.setVisible(False)
-			self.w_sCamShot.setVisible(False)
-			self.w_saveToExistingHDA.setVisible(False)
-			self.w_blackboxHDA.setVisible(False)
-			self.w_projectHDA.setVisible(False)
-			self.f_taskName.setVisible(True)
-			self.f_status.setVisible(True)
-			self.f_connect.setVisible(True)
-			self.f_frameRange.setVisible(True)
-			self.f_convertExport.setVisible(True)
-			if self.cb_manager.count() > 0:
-				self.gb_submit.setVisible(True)
-			if (self.node is None or self.node.type().name() not in ["pixar::usdrop", "usd", "wedge"]) and createMissing:
-				self.createNode()
-		elif idx == ".rs":
-			self.f_cam.setVisible(False)
-			self.w_sCamShot.setVisible(False)
-			self.w_saveToExistingHDA.setVisible(False)
-			self.w_blackboxHDA.setVisible(False)
-			self.w_projectHDA.setVisible(False)
-			self.f_taskName.setVisible(True)
-			self.f_status.setVisible(True)
-			self.f_connect.setVisible(True)
-			self.f_frameRange.setVisible(True)
-			self.f_convertExport.setVisible(True)
-			if self.cb_manager.count() > 0:
-				self.gb_submit.setVisible(True)
-			if (self.node is None or self.node.type().name() not in ["Redshift_Proxy_Output", "wedge"]) and createMissing:
-				self.createNode()
-		elif idx == "ShotCam":
-			self.f_cam.setVisible(True)
-			self.w_sCamShot.setVisible(True)
-			self.w_saveToExistingHDA.setVisible(False)
-			self.w_blackboxHDA.setVisible(False)
-			self.w_projectHDA.setVisible(False)
-			self.f_taskName.setVisible(False)
-			self.f_status.setVisible(False)
-			self.f_connect.setVisible(False)
-			self.f_frameRange.setVisible(True)
-			self.f_convertExport.setVisible(True)
-			self.gb_submit.setVisible(False)
-		elif idx == "other":
-			self.f_cam.setVisible(False)
-			self.w_sCamShot.setVisible(False)
-			self.w_saveToExistingHDA.setVisible(False)
-			self.w_blackboxHDA.setVisible(False)
-			self.w_projectHDA.setVisible(False)
-			self.f_taskName.setVisible(True)
-			self.f_status.setVisible(True)
-			self.f_connect.setVisible(True)
-			self.f_frameRange.setVisible(True)
-			self.f_convertExport.setVisible(True)
-			if self.cb_manager.count() > 0:
-				self.gb_submit.setVisible(True)
-
-			import CreateItem
-
-			typeWin = CreateItem.CreateItem(core=self.core)
-			typeWin.setModal(True)
-			self.core.parentWindow(typeWin)
-			typeWin.setWindowTitle("Outputtype")
-			typeWin.l_item.setText("Outputtype:")
-			typeWin.exec_()
-
-			if hasattr(typeWin, "itemName"):
-				if self.cb_outType.findText(typeWin.itemName) == -1:
-					self.cb_outType.insertItem(self.cb_outType.count()-1, typeWin.itemName)
-
-				if typeWin.itemName == "other":
-					self.cb_outType.setCurrentIndex(0)
-				else:
-					self.cb_outType.setCurrentIndex(self.cb_outType.findText(typeWin.itemName))
-					
-			else:
-				self.cb_outType.setCurrentIndex(0)
-
-			if (self.node is None or self.node.type().name() in ["rop_alembic", "alembic", "pixar::usdrop", "usd", "Redshift_Proxy_Output"] or self.node.canCreateDigitalAsset() or self.node.type().definition() is not None) and createMissing:
-				self.createNode()
-			
-		else:
-			self.f_cam.setVisible(False)
-			self.w_sCamShot.setVisible(False)
-			self.w_saveToExistingHDA.setVisible(False)
-			self.w_blackboxHDA.setVisible(False)
-			self.w_projectHDA.setVisible(False)
-			self.f_taskName.setVisible(True)
-			self.f_status.setVisible(True)
-			self.f_connect.setVisible(True)
-			self.f_frameRange.setVisible(True)
-			self.f_convertExport.setVisible(True)
-			if self.cb_manager.count() > 0:
-				self.gb_submit.setVisible(True)
-			if (
-				self.node is None or self.node.type().name() in ["rop_alembic", "alembic", "pixar::usdrop", "usd", "Redshift_Proxy_Output"]
-				or self.node.canCreateDigitalAsset()
-				or (self.node.type().definition() is not None and self.node.type().name() not in ["wedge"])
-			) and createMissing:
-				self.createNode()
-
-
-		self.rjToggled()
-		self.updateUi()
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def goToNode(self):
-		try:
-			self.node.name()
-		except:
-			self.createNode()
-
-		try:
-			self.node.name()
-		except:
-			self.updateUi()
-			return False
-
-		self.node.setCurrent(True, clear_all_selected=True)
-		paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-		if paneTab is not None:
-			paneTab.frameSelection()
-
-
-	@err_decorator
-	def connectNode(self, node=None):
-		if node is None:
-			if len(hou.selectedNodes()) == 0:
-				return False
-
-			node = hou.selectedNodes()[0]
-
-		typeName = node.type().name()
-		if (typeName in ["rop_geometry", "rop_dop", "rop_comp", "rop_alembic", "filecache", 'pixar::usdrop', "usd", "Redshift_Proxy_Output"]
-			or (node.type().category().name() == "Driver" and typeName in ["geometry", "alembic", "wedge"])
-			or node.canCreateDigitalAsset()
-			or node.type().definition() is not None
-		):
-			self.node = node
-
-			extension = ""
-			if typeName in self.nodeTypes:
-				outVal = self.node.parm(self.nodeTypes[typeName]["outputparm"]).eval()
-
-			if typeName in ["rop_dop", "rop_comp", "rop_alembic", "pixar::usdrop", "usd", "Redshift_Proxy_Output"]:
-				extension = os.path.splitext(outVal)[1]
-			elif typeName in ["rop_geometry", "filecache"]:
-				if outVal.endswith(".bgeo.sc"):
-					extension = ".bgeo.sc"
-				else:
-					extension = os.path.splitext(outVal)[1]
-
-			elif typeName == "geometry" and self.node.type().category().name() == "Driver":
-				if outVal.endswith(".bgeo.sc"):
-					extension = ".bgeo.sc"
-				else:
-					extension = os.path.splitext(outVal)[1]
-			elif typeName == "alembic" and self.node.type().category().name() == "Driver":
-				extension = os.path.splitext(outVal)[1]
-			elif typeName == "wedge" and self.node.type().category().name() == "Driver":
-				rop = self.getWedgeROP(self.node)
-				if rop:
-					extension = os.path.splitext(self.nodeTypes[rop.type().name()]["outputparm"])[1]
-				else:
-					extension = ".bgeo.sc"
-			elif self.node.canCreateDigitalAsset() or self.node.type().definition() is not None:
-				extension = ".hda"
-
-			if self.cb_outType.findText(extension) != -1:
-				self.cb_outType.setCurrentIndex(self.cb_outType.findText(extension))
-				self.typeChanged(self.cb_outType.currentText(), createMissing=False)
-
-			self.nameChanged(self.e_name.text())
-			self.updateUi()
-			self.stateManager.saveStatesToScene()
-			return True
-
-		return False
-
-
-	@err_decorator
-	def getWedgeROP(self, wedge):
-		if wedge.inputs():
-			return wedge.inputs()[0]
-		else:
-			node = hou.node(wedge.parm("driver").eval())
-			if node.type().name() in self.nodeTypes:
-				return node
-
-
-	@err_decorator
-	def startChanged(self):
-		if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
-			self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
-
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def endChanged(self):
-		if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
-			self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
-
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def useTakeChanged(self, state):
-		self.cb_take.setEnabled(state)
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def rjToggled(self,checked=None):
-		if checked is None:
-			checked = self.gb_submit.isChecked()
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def managerChanged(self, text=None):
-		if self.cb_manager.currentText() in self.core.rfManagers:
-			self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_activated(self)
-		self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def openSlaves(self):
-		try:
-			del sys.modules["SlaveAssignment"]
-		except:
-			pass
-
-		import SlaveAssignment
-		self.sa = SlaveAssignment.SlaveAssignment(core = self.core, curSlaves = self.e_osSlaves.text())
-		result = self.sa.exec_()
-
-		if result == 1:
-			selSlaves = ""
-			if self.sa.rb_exclude.isChecked():
-				selSlaves = "exclude "
-			if self.sa.rb_all.isChecked():
-				selSlaves += "All"
-			elif self.sa.rb_group.isChecked():
-				selSlaves += "groups: "
-				for i in self.sa.activeGroups:
-					selSlaves += i + ", "
-
-				if selSlaves.endswith(", "):
-					selSlaves = selSlaves[:-2]
-
-			elif self.sa.rb_custom.isChecked():
-				slavesList = [x.text() for x in self.sa.lw_slaves.selectedItems()]
-				for i in slavesList:
-					selSlaves += i + ", "
-
-				if selSlaves.endswith(", "):
-					selSlaves = selSlaves[:-2]
-
-			self.e_osSlaves.setText(selSlaves)
-			self.stateManager.saveStatesToScene()
-
-
-	@err_decorator
-	def preDelete(self, item, silent=False):
-		self.core.appPlugin.sm_preDelete(self, item, silent)
-
-
-	@err_decorator
-	def preExecuteState(self):
-		warnings = []
-
-		if self.cb_outType.currentText() == "ShotCam":
-			if self.curCam is None:
-				warnings.append(["No camera specified.", "", 3])
-		else:
-			if self.l_taskName.text() == "":
-				warnings.append(["No taskname is given.", "", 3])
-
-			try:
-				self.node.name()
-			except:
-				warnings.append(["Node is invalid.", "", 3])
-
-		if not hou.simulationEnabled():
-			warnings.append(["Simulations are disabled.", "", 2])
-
-		if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-			warnings += self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_preExecute(self)
-			
-		return [self.state.text(0), warnings]
-
-
-	@err_decorator
-	def getOutputName(self, useVersion="next"):
-		fileName = self.core.getCurrentFileName()
-		prefUnit = "meter"
-		sceneDir = self.core.getConfig('paths', "scenes", configPath=self.core.prismIni)
-
-		if self.cb_outType.currentText() == "ShotCam":
-			outputBase = os.path.join(self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText())
-			fnameData = self.core.getScenefileData(fileName)
-			comment = fnameData["comment"]
-			versionUser = self.core.user
-			outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
-
-			if useVersion != "next":
-				versionData = useVersion.split(self.core.filenameSeparator)
-				if len(versionData) == 3:
-					hVersion, comment, versionUser = versionData
-				else:
-					useVersion == "next"
-
-			if useVersion == "next":
-				hVersion = self.core.getHighestTaskVersion(outputPath)
-
-			outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeparator + comment + self.core.filenameSeparator + versionUser, prefUnit)
-			outputName = os.path.join(outputPath, "shot" + self.core.filenameSeparator + self.cb_sCamShot.currentText() + self.core.filenameSeparator + "ShotCam" + self.core.filenameSeparator + hVersion)
-
-		elif self.cb_outType.currentText() == ".hda" and self.node is not None and self.node.type().definition() is not None and self.chb_saveToExistingHDA.isChecked():
-			outputName = self.node.type().definition().libraryFilePath()
-			outputPath = os.path.dirname(outputName)
-			hVersion = ""
-
-		elif self.cb_outType.currentText() == ".hda" and self.node is not None and self.chb_projectHDA.isChecked():
-			outputName = os.path.join(self.core.projectPath, self.core.getConfig('paths', "assets", configPath=self.core.prismIni), "HDAs", self.l_taskName.text() + ".hda")
-			outputPath = os.path.dirname(outputName)
-			hVersion = ""
-
-		else:
-			if self.l_taskName.text() == "":
-				return
-
-			if self.core.useLocalFiles and fileName.startswith(self.core.localProjectPath):
-				fileName = fileName.replace(self.core.localProjectPath, self.core.projectPath)
-
-			versionUser = self.core.user
-			hVersion = ""
-			if useVersion != "next":
-				versionData = useVersion.split(self.core.filenameSeparator)
-				if len(versionData) == 3:
-					hVersion, pComment, versionUser = versionData
-
-			fnameData = self.core.getScenefileData(fileName)
-			if fnameData["type"] == "shot":
-				outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
-				if hVersion == "":
-					hVersion = self.core.getHighestTaskVersion(outputPath)
-					pComment = fnameData["comment"]
-
-				hVersion = (hVersion + "-wedge`$WEDGENUM`") if self.node.type().name() == "wedge" else hVersion
-
-				outputPath = os.path.join(outputPath, hVersion + self.core.filenameSeparator + pComment + self.core.filenameSeparator + versionUser, prefUnit)
-				outputName = os.path.join(outputPath, "shot" + self.core.filenameSeparator + fnameData["shotName"] + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + ".$F4" + self.cb_outType.currentText())
-			elif fnameData["type"] == "asset":
-				if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-					outputPath = os.path.join(self.core.projectPath, sceneDir, "Assets", "Export", self.l_taskName.text())
-				else:
-					outputPath = os.path.join(self.core.getEntityBasePath(fileName), "Export", self.l_taskName.text())
-				if hVersion == "":
-					hVersion = self.core.getHighestTaskVersion(outputPath)
-					pComment = fnameData["comment"]
-
-				outputPath = os.path.join( outputPath, hVersion + self.core.filenameSeparator + pComment + self.core.filenameSeparator + versionUser, prefUnit)
-				outputName = os.path.join(outputPath, fnameData["assetName"]  + self.core.filenameSeparator + self.l_taskName.text() + self.core.filenameSeparator + hVersion + ".$F4" + self.cb_outType.currentText())
-			else:
-				return
-
-		basePath = self.export_paths[self.cb_outPath.currentIndex()][1]
-		prjPath = os.path.normpath(self.core.projectPath)
-		basePath = os.path.normpath(basePath)
-		outputName = outputName.replace(prjPath, basePath)
-		outputPath = outputPath.replace(prjPath, basePath)
-
-		return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
-
-
-	@err_decorator
-	def executeState(self, parent, useVersion="next"):
-		if self.chb_globalRange.isChecked():
-			startFrame = self.stateManager.sp_rangeStart.value()
-			endFrame = self.stateManager.sp_rangeEnd.value()
-		else:
-			startFrame = self.sp_rangeStart.value()
-			endFrame = self.sp_rangeEnd.value()
-
-		if self.cb_outType.currentText() == "ShotCam":
-			if self.curCam is None:
-				return [self.state.text(0) + ": error - No camera specified. Skipped the activation of this state."]
-
-			if self.cb_sCamShot.currentText() == "":
-				return [self.state.text(0) + ": error - No Shot specified. Skipped the activation of this state."]
-
-			fileName = self.core.getCurrentFileName()
-
-			outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
-
-			outLength = len(outputName)
-			if platform.system() == "Windows" and outLength > 255:
-				return [self.state.text(0) + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath." % outLength]
-
-			if not os.path.exists(outputPath):
-				os.makedirs(outputPath)
-
-			self.core.callHook("preExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":outputName})
-
-			self.core.saveVersionInfo(location=os.path.dirname(outputPath), version=hVersion, origin=fileName, fps=startFrame!=endFrame)
-
-			if self.chb_convertExport.isChecked():
-				inputCons = self.curCam.inputConnections()
-				if len(inputCons) > 0 and inputCons[0].inputNode().type().name() == "null" and inputCons[0].inputNode().name() == "SCALEOVERRIDE":
-					transformNode = inputCons[0].inputNode()
-				else:
-					transformNode = self.curCam.createInputNode(0, "null", "SCALEOVERRIDE")
-					for i in inputCons:
-						transformNode.setInput(0, i.inputNode(), i.inputIndex())
-
-			abc_rop = hou.node('/out').createNode('alembic')
-
-			abc_rop.parm('trange').set(1)
-			abc_rop.parm('f1').set(startFrame)
-			abc_rop.parm('f2').set(endFrame)
-			abc_rop.parm('filename').set(outputName + ".abc")
-			abc_rop.parm('root').set(self.curCam.parent().path())
-			abc_rop.parm('objects').set(self.curCam.name())
-
-
-			fbx_rop = hou.node('/out').createNode('filmboxfbx')
-			fbx_rop.parm('sopoutput').set(outputName + ".fbx")
-			fbx_rop.parm('startnode').set(self.curCam.path())
-
-			for node in [abc_rop, fbx_rop]:
-				if self.chb_useTake.isChecked():
-					pTake = self.cb_take.currentText()
-					takeLabels = [x.strip() for x in self.node.parm("take").menuLabels()]
-					if pTake in takeLabels:
-						idx = takeLabels.index(pTake)
-						if idx != -1:
-							token = self.node.parm("take").menuItems()[idx]
-							if not self.core.appPlugin.setNodeParm(self.node, "take", val=token):
-								return [self.state.text(0) + ": error - Publish canceled"]
-					else:
-						return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
-
-			abc_rop.render()
-			fbx_rop.render(frame_range=(startFrame,endFrame))
-
-			if self.chb_convertExport.isChecked():
-				transformNode.parm("scale").set(100)
-
-				outputName = os.path.join(os.path.dirname(os.path.dirname(outputName)), "centimeter", os.path.basename(outputName))
-				if not os.path.exists(os.path.dirname(outputName)):
-					os.makedirs(os.path.dirname(outputName))
-
-				abc_rop.parm('filename').set(outputName + ".abc")
-				abc_rop.render()
-				fbx_rop.parm('sopoutput').set(outputName + ".fbx")
-				fbx_rop.render(frame_range=(startFrame,endFrame))
-
-				transformNode.destroy()
-
-			abc_rop.destroy()
-			fbx_rop.destroy()
-
-			self.l_pathLast.setText(outputName)
-			self.l_pathLast.setToolTip(outputName)
-			self.b_openLast.setEnabled(True)
-			self.b_copyLast.setEnabled(True)
-
-			self.core.callHook("postExport", args={
-				"prismCore": self.core,
-				"scenefile": fileName,
-				"startFrame": startFrame,
-				"endFrame": endFrame,
-				"outputName": outputName
-			})
-
-			self.stateManager.saveStatesToScene()
-
-			if os.path.exists(outputName + ".abc") and os.path.exists(outputName + ".fbx"):
-				return [self.state.text(0) + " - success"]
-			else:
-				return [self.state.text(0) + " - error"]
-
-		else:
-			if self.l_taskName.text() == "":
-				return [self.state.text(0) + ": error - No taskname is given. Skipped the activation of this state."]
-
-			try:
-				self.node.name()
-			except:
-				return [self.state.text(0) + ": error - Node is invalid. Skipped the activation of this state."]
-
-			if (
-				not (self.node.isEditable() or (self.node.type().name() in ["filecache", "wedge"] and self.node.isEditableInsideLockedHDA()))
-				and self.cb_outType.currentText() != ".hda"
-			):
-				return [self.state.text(0) + ": error - Node is locked. Skipped the activation of this state."]
-
-			if self.node.type().name() == "wedge":
-				ropNode = self.getWedgeROP(self.node)
-				if not ropNode:
-					return [self.state.text(0) + ": error - No valid ROP is connected to the Wedge node. Skipped the activation of this state."]
-			else:
-				ropNode = self.node
-
-			fileName = self.core.getCurrentFileName()
-
-			outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
-
-			outLength = len(outputName)
-			if platform.system() == "Windows" and outLength > 255:
-				return [self.state.text(0) + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath." % outLength]
-
-			if self.cb_outType.currentText() in [".abc", ".usd", ".hda"]:
-				outputName = outputName.replace(".$F4", "")
-
-			if self.cb_outType.currentText() == ".hda":
-				if not ropNode.canCreateDigitalAsset() and ropNode.type().definition() is None:
-					return [self.state.text(0) + ": error - Cannot create a digital asset from this node: %s" % ropNode.path()]
-			else:
-				if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
-					return [self.state.text(0) + ": error - Publish canceled"]
-
-				if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
-					return [self.state.text(0) + ": error - Publish canceled"]
-
-				if not self.core.appPlugin.setNodeParm(ropNode, "f2", clear=True):
-					return [self.state.text(0) + ": error - Publish canceled"]
-
-				if not self.core.appPlugin.setNodeParm(ropNode, "f1", val=startFrame):
-					return [self.state.text(0) + ": error - Publish canceled"]
-
-				if not self.core.appPlugin.setNodeParm(ropNode, "f2", val=endFrame):
-					return [self.state.text(0) + ": error - Publish canceled"]
-
-				if ropNode.type().name() in ["rop_geometry", "rop_alembic", "rop_dop", "geometry", "filecache", "alembic"]:
-					if not self.core.appPlugin.setNodeParm(ropNode, "initsim", val=True):
-						return [self.state.text(0) + ": error - Publish canceled"]
-
-				if self.chb_useTake.isChecked():
-					pTake = self.cb_take.currentText()
-					takeLabels = [x.strip() for x in ropNode.parm("take").menuLabels()]
-					if pTake in takeLabels:
-						idx = takeLabels.index(pTake)
-						if idx != -1:
-							token = ropNode.parm("take").menuItems()[idx]
-							if not self.core.appPlugin.setNodeParm(ropNode, "take", val=token):
-								return [self.state.text(0) + ": error - Publish canceled"]
-					else:
-						return [self.state.text(0) + ": error - take '%s' doesn't exist." % pTake]
-
-			expandedOutputPath = hou.expandString(outputPath)
-			expandedOutputName = hou.expandString(outputName)
-			if not os.path.exists(expandedOutputPath):
-				os.makedirs(expandedOutputPath)
-
-			self.core.callHook("preExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":expandedOutputName})
-
-			self.core.saveVersionInfo(location=os.path.dirname(expandedOutputPath), version=hVersion, origin=fileName, fps=startFrame!=endFrame)
-
-			outputNames = [outputName]
-			if not self.chb_convertExport.isHidden() and self.chb_convertExport.isChecked():
-				inputCons = ropNode.inputConnections()
-				if len(inputCons) > 0 and inputCons[0].inputNode().type().name() == "xform" and inputCons[0].inputNode().name() == "SCALEOVERRIDE":
-					transformNode = inputCons[0].inputNode()
-				else:
-					transformNode = ropNode.createInputNode(0, "xform", "SCALEOVERRIDE")
-					for i in inputCons:
-						transformNode.setInput(0, i.inputNode(), i.inputIndex())
-
-				outputNames.append(os.path.join(os.path.dirname(os.path.dirname(expandedOutputName)), "centimeter", os.path.basename(expandedOutputName)))
-				if not os.path.exists(os.path.dirname(outputNames[1])):
-					os.makedirs(os.path.dirname(outputNames[1]))
-
-			self.l_pathLast.setText(outputNames[0])
-			self.l_pathLast.setToolTip(outputNames[0])
-			self.b_openLast.setEnabled(True)
-			self.b_copyLast.setEnabled(True)
-
-			self.stateManager.saveStatesToScene()
-
-			for idx, outputName in enumerate(outputNames):
-				outputName = outputName.replace("\\", "/")
-				expandedOutputName = hou.expandString(outputName)
-				parmName = False
-
-				if ropNode.type().name() in self.nodeTypes:
-					parmName = self.nodeTypes[ropNode.type().name()]["outputparm"]
-
-				if parmName != False:
-					self.stateManager.publishInfos["updatedExports"][ropNode.parm(parmName).unexpandedString()] = outputName
-
-					if not self.core.appPlugin.setNodeParm(ropNode, parmName, val=outputName):
-						return [self.state.text(0) + ": error - Publish canceled"]
-
-				hou.hipFile.save()
-
-				if idx == 1:
-					if not self.core.appPlugin.setNodeParm(transformNode, scale, val=100):
-						return [self.state.text(0) + ": error - Publish canceled"]
-
-				if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-					result = self.core.rfManagers[self.cb_manager.currentText()].sm_render_submitJob(self, outputName, parent)
-				else:
-					try:
-						result = ""
-						if self.cb_outType.currentText() == ".hda":
-							HDAoutputName = outputName
-							bb = self.chb_blackboxHDA.isChecked()
-							noBackup = hou.applicationVersion()[0] <= 16 and hou.applicationVersion()[1] <= 5 and hou.applicationVersion()[2] <= 185
-							if ropNode.canCreateDigitalAsset():
-								typeName = "prism_" + self.l_taskName.text()
-								hda = ropNode.createDigitalAsset(typeName , hda_file_name=HDAoutputName, description=self.l_taskName.text(), change_node_type=(not bb))
-								if bb:
-									hou.hda.installFile(HDAoutputName, force_use_assets=True)
-									aInst = ropNode.parent().createNode(typeName)
-									if noBackup:
-										aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, compile_contents=bb, black_box=bb)
-									else:
-										aInst.type().definition().save(file_name=HDAoutputName, template_node=aInst, create_backup=False, compile_contents=bb, black_box=bb)
-									aInst.destroy()
-								else:
-									self.connectNode(hda)
-							else:
-								if self.chb_saveToExistingHDA.isChecked():
-									defs = hou.hda.definitionsInFile(HDAoutputName)
-									highestVersion = 0
-									basename = ropNode.type().name()
-									basedescr = ropNode.type().description()
-									for i in defs:
-										name = i.nodeTypeName()
-										v = name.split("_")[-1]
-										if sys.version[0] == "2":
-											v = unicode(v)
-
-										if v.isnumeric():
-											if int(v) > highestVersion:
-												highestVersion = int(v)
-												basename = name.rsplit("_", 1)[0]
-												basedescr = i.description().rsplit("_", 1)[0]
-
-									aname = basename + "_" + str(highestVersion + 1)
-									adescr = basedescr + "_" + str(highestVersion + 1)
-
-									tmpPath = HDAoutputName + "tmp"
-									if noBackup:
-										ropNode.type().definition().save(file_name=tmpPath, template_node=ropNode, compile_contents=bb, black_box=bb)
-									else:
-										ropNode.type().definition().save(file_name=tmpPath, template_node=ropNode, create_backup=False, compile_contents=bb, black_box=bb)
-									defs = hou.hda.definitionsInFile(tmpPath)
-									defs[0].copyToHDAFile(HDAoutputName, new_name=aname, new_menu_name=adescr)
-									os.remove(tmpPath)
-									node = ropNode.changeNodeType(aname)
-									self.connectNode(node)
-								else:
-									if noBackup:
-										ropNode.type().definition().save(file_name=HDAoutputName, template_node=ropNode, compile_contents=bb, black_box=bb)
-									else:
-										ropNode.type().definition().save(file_name=HDAoutputName, template_node=ropNode, create_backup=False, compile_contents=bb, black_box=bb)
-								
-									if self.chb_projectHDA.isChecked():
-										oplib = os.path.join(os.path.dirname(HDAoutputName), "ProjectHDAs.oplib").replace("\\", "/")
-										hou.hda.installFile(HDAoutputName, oplib, force_use_assets=True)
-									else:
-										hou.hda.installFile(HDAoutputName, force_use_assets=True)
-
-							self.updateUi()
-						else:
-							self.node.parm("execute").pressButton()
-							errs = self.node.errors()
-							if len(errs) > 0:
-								errs = "\n" + "\n\n".join(errs)
-								erStr = ("%s ERROR - houExportnode %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, errs))
-					#			self.core.writeErrorLog(erStr)
-								result = "Execute failed: " + errs
-
-						if result == "":
-							if len(os.listdir(os.path.dirname(expandedOutputName))) > 0:
-								result = "Result=Success"
-							else:
-								result = "unknown error (files do not exist)"
-
-					except Exception as e:
-						exc_type, exc_obj, exc_tb = sys.exc_info()
-						erStr = ("%s ERROR - houExport %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, traceback.format_exc()))
-						self.core.writeErrorLog(erStr)
-
-						return [self.state.text(0) + " - unknown error (view console for more information)"]
-
-				if idx == 1:
-					if not self.core.appPlugin.setNodeParm(transformNode, scale, val=1):
-						return [self.state.text(0) + ": error - Publish canceled"]
-
-			self.core.callHook("postExport", args={"prismCore":self.core, "scenefile":fileName, "startFrame":startFrame, "endFrame":endFrame, "outputName":expandedOutputName})
-
-			if "Result=Success" in result:
-				return [self.state.text(0) + " - success"]
-			else:
-				erStr = ("%s ERROR - houExportPublish %s:\n%s" % (time.strftime("%d/%m/%y %X"), self.core.version, result))
-				if result == "unknown error (files do not exist)":
-					QMessageBox.warning(self.core.messageParent, "Warning", "No files were created during the rendering. If you think this is a Prism bug please report it in the forum:\nwww.prism-pipeline.com/forum/\nor write a mail to contact@prism-pipeline.com")
-				elif not result.startswith("Execute Canceled") and not result.startswith("Execute failed"):
-					self.core.writeErrorLog(erStr)
-				return [self.state.text(0) + " - error - " + result]
-
-
-	@err_decorator
-	def getStateProps(self):
-		outputTypes = []
-		for i in range(self.cb_outType.count()):
-			outputTypes.append(str(self.cb_outType.itemText(i)))
-
-		try:
-			curNode = self.node.path()
-			self.node.setUserData("PrismPath", curNode)
-		except:
-			curNode = None
-
-		self.curCam
-		try:
-			curCam = self.curCam.name()
-		except:
-			curCam = None
-
-
-		stateProps = {
-			"statename":self.e_name.text(),
-			"taskname":self.l_taskName.text(),
-			"globalrange":str(self.chb_globalRange.isChecked()),
-			"startframe":self.sp_rangeStart.value(),
-			"endframe":self.sp_rangeEnd.value(),
-			"usetake":str(self.chb_useTake.isChecked()),
-			"take": self.cb_take.currentText(),
-			"curoutputpath": self.cb_outPath.currentText(),
-			"outputtypes":str(outputTypes),
-			"curoutputtype": self.cb_outType.currentText(),
-			"connectednode": curNode,
-			"unitconvert": str(self.chb_convertExport.isChecked()),
-			"savetoexistinghda":str(self.chb_saveToExistingHDA.isChecked()),
-			"projecthda":str(self.chb_projectHDA.isChecked()),
-			"blackboxhda":str(self.chb_blackboxHDA.isChecked()),
-			"submitrender": str(self.gb_submit.isChecked()),
-			"rjmanager":str(self.cb_manager.currentText()),
-			"rjprio":self.sp_rjPrio.value(),
-			"rjframespertask":self.sp_rjFramesPerTask.value(),
-			"rjtimeout":self.sp_rjTimeout.value(),
-			"rjsuspended": str(self.chb_rjSuspended.isChecked()),
-			"osdependencies": str(self.chb_osDependencies.isChecked()),
-			"osupload": str(self.chb_osUpload.isChecked()),
-			"ospassets": str(self.chb_osPAssets.isChecked()),
-			"osslaves": self.e_osSlaves.text(),
-			"curdlgroup":self.cb_dlGroup.currentText(),
-			"currentcam": str(curCam),
-			"currentscamshot": self.cb_sCamShot.currentText(),
-			"lastexportpath": self.l_pathLast.text().replace("\\", "/"),
-			"stateenabled":str(self.state.checkState(0))
-		}
-
-		return stateProps
+    def err_decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                erStr = "%s ERROR - hou_Export %s:\n%s\n\n%s" % (
+                    time.strftime("%d/%m/%y %X"),
+                    args[0].core.version,
+                    "".join(traceback.format_stack()),
+                    traceback.format_exc(),
+                )
+                args[0].core.writeErrorLog(erStr)
+
+        return func_wrapper
+
+    @err_decorator
+    def setup(self, state, core, stateManager, node=None, stateData=None):
+        self.state = state
+        self.core = core
+        self.stateManager = stateManager
+
+        self.e_name.setText(state.text(0))
+
+        self.className = "Export"
+        self.listType = "Export"
+
+        self.node = None
+        self.curCam = None
+
+        self.cb_outType.addItems(self.core.appPlugin.outputFormats)
+        self.export_paths = self.core.getExportPaths()
+
+        self.cb_outPath.addItems([x[0] for x in self.export_paths])
+        if len(self.export_paths) < 2:
+            self.w_outPath.setVisible(False)
+
+        self.l_name.setVisible(False)
+        self.e_name.setVisible(False)
+        self.f_cam.setVisible(False)
+        self.w_sCamShot.setVisible(False)
+        self.w_saveToExistingHDA.setVisible(False)
+        self.w_blackboxHDA.setVisible(False)
+        self.w_projectHDA.setVisible(False)
+        self.gb_submit.setChecked(False)
+
+        self.nodeTypes = {
+            "rop_geometry": {"outputparm": "sopoutput"},
+            "rop_alembic": {"outputparm": "filename"},
+            "rop_dop": {"outputparm": "dopoutput"},
+            "rop_comp": {"outputparm": "copoutput"},
+            "filecache": {"outputparm": "file"},
+            "geometry": {"outputparm": "sopoutput"},
+            "alembic": {"outputparm": "filename"},
+            "pixar::usdrop": {"outputparm": "usdfile"},
+            "usd": {"outputparm": "lopoutput"},
+            "Redshift_Proxy_Output": {"outputparm": "RS_archive_file"},
+        }
+
+        for i in self.core.rfManagers.values():
+            self.cb_manager.addItem(i.pluginName)
+            i.sm_houExport_startup(self)
+
+        if self.cb_manager.count() == 0:
+            self.gb_submit.setVisible(False)
+
+        if node is None and not self.stateManager.standalone:
+            if stateData is None:
+                if not self.connectNode():
+                    self.createNode()
+        else:
+            self.node = node
+
+        if self.node is not None and self.node.parm("f1") is not None:
+            self.sp_rangeStart.setValue(self.node.parm("f1").eval())
+            self.sp_rangeEnd.setValue(self.node.parm("f2").eval())
+
+            idx = -1
+            if self.node.type().name() in ["rop_alembic", "alembic"]:
+                idx = self.cb_outType.findText(".abc")
+            elif self.node.type().name() in ["pixar::usdrop", "usd"]:
+                idx = self.cb_outType.findText(".usd")
+            elif self.node.type().name() in ["Redshift_Proxy_Output"]:
+                idx = self.cb_outType.findText(".rs")
+
+            if idx != -1:
+                self.cb_outType.setCurrentIndex(idx)
+                self.typeChanged(self.cb_outType.currentText())
+        elif stateData is None:
+            self.sp_rangeStart.setValue(hou.playbar.playbackRange()[0])
+            self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
+
+        self.nameChanged(state.text(0))
+
+        self.managerChanged(True)
+
+        self.connectEvents()
+
+        self.b_changeTask.setStyleSheet(
+            "QPushButton { background-color: rgb(150,0,0); }"
+        )
+        self.core.appPlugin.fixStyleSheet(self.gb_submit)
+
+        self.e_osSlaves.setText("All")
+
+        if stateData is not None:
+            self.loadData(stateData)
+        else:
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if (
+                os.path.exists(fileName)
+                and fnameData["type"] == "shot"
+                and (
+                    os.path.join(
+                        self.core.projectPath,
+                        self.core.getConfig(
+                            "paths", "scenes", configPath=self.core.prismIni
+                        ),
+                    )
+                    in fileName
+                    or (
+                        self.core.useLocalFiles
+                        and os.path.join(
+                            self.core.localProjectPath,
+                            self.core.getConfig(
+                                "paths", "scenes", configPath=self.core.prismIni
+                            ),
+                        )
+                        in fileName
+                    )
+                )
+            ):
+                idx = self.cb_sCamShot.findText(fnameData["shotName"])
+                if idx != -1:
+                    self.cb_sCamShot.setCurrentIndex(idx)
+
+    @err_decorator
+    def loadData(self, data):
+        self.updateUi()
+
+        if "statename" in data:
+            self.e_name.setText(data["statename"])
+        if "taskname" in data:
+            self.l_taskName.setText(data["taskname"])
+            if data["taskname"] != "":
+                self.b_changeTask.setStyleSheet("")
+        if "globalrange" in data:
+            self.chb_globalRange.setChecked(eval(data["globalrange"]))
+        if "startframe" in data:
+            self.sp_rangeStart.setValue(int(data["startframe"]))
+        if "endframe" in data:
+            self.sp_rangeEnd.setValue(int(data["endframe"]))
+        if "connectednode" in data:
+            node = hou.node(data["connectednode"])
+            if node is None:
+                node = self.findNode(data["connectednode"])
+            self.connectNode(node)
+        if "usetake" in data:
+            self.chb_useTake.setChecked(eval(data["usetake"]))
+        if "take" in data:
+            idx = self.cb_take.findText(data["take"])
+            if idx != -1:
+                self.cb_take.setCurrentIndex(idx)
+        if "curoutputpath" in data:
+            idx = self.cb_outPath.findText(data["curoutputpath"])
+            if idx != -1:
+                self.cb_outPath.setCurrentIndex(idx)
+        if "outputtypes" in data:
+            self.cb_outType.clear()
+            self.cb_outType.addItems(eval(data["outputtypes"]))
+        if "curoutputtype" in data:
+            idx = self.cb_outType.findText(data["curoutputtype"])
+            if idx != -1:
+                self.cb_outType.setCurrentIndex(idx)
+                self.typeChanged(self.cb_outType.currentText(), createMissing=False)
+        if "savetoexistinghda" in data:
+            self.chb_saveToExistingHDA.setChecked(eval(data["savetoexistinghda"]))
+        if "projecthda" in data:
+            self.chb_projectHDA.setChecked(eval(data["projecthda"]))
+        if "blackboxhda" in data:
+            self.chb_blackboxHDA.setChecked(eval(data["blackboxhda"]))
+        if "unitconvert" in data:
+            self.chb_convertExport.setChecked(eval(data["unitconvert"]))
+        if "submitrender" in data:
+            self.gb_submit.setChecked(eval(data["submitrender"]))
+        if "rjmanager" in data:
+            idx = self.cb_manager.findText(data["rjmanager"])
+            if idx != -1:
+                self.cb_manager.setCurrentIndex(idx)
+            self.managerChanged(True)
+        if "rjprio" in data:
+            self.sp_rjPrio.setValue(int(data["rjprio"]))
+        if "rjframespertask" in data:
+            self.sp_rjFramesPerTask.setValue(int(data["rjframespertask"]))
+        if "rjtimeout" in data:
+            self.sp_rjTimeout.setValue(int(data["rjtimeout"]))
+        if "rjsuspended" in data:
+            self.chb_rjSuspended.setChecked(eval(data["rjsuspended"]))
+        if "osdependencies" in data:
+            self.chb_osDependencies.setChecked(eval(data["osdependencies"]))
+        if "osupload" in data:
+            self.chb_osUpload.setChecked(eval(data["osupload"]))
+        if "ospassets" in data:
+            self.chb_osPAssets.setChecked(eval(data["ospassets"]))
+        if "osslaves" in data:
+            self.e_osSlaves.setText(data["osslaves"])
+        if "curdlgroup" in data:
+            idx = self.cb_dlGroup.findText(data["curdlgroup"])
+            if idx != -1:
+                self.cb_dlGroup.setCurrentIndex(idx)
+        if "currentcam" in data:
+            idx = self.cb_cam.findText(data["currentcam"])
+            if idx != -1:
+                self.curCam = self.camlist[idx]
+                if self.cb_outType.currentText() == "ShotCam":
+                    self.nameChanged(self.e_name.text())
+        if "currentscamshot" in data:
+            idx = self.cb_sCamShot.findText(data["currentscamshot"])
+            if idx != -1:
+                self.cb_sCamShot.setCurrentIndex(idx)
+        if "lastexportpath" in data:
+            lePath = self.core.fixPath(data["lastexportpath"])
+
+            self.l_pathLast.setText(lePath)
+            self.l_pathLast.setToolTip(lePath)
+            pathIsNone = self.l_pathLast.text() == "None"
+            self.b_openLast.setEnabled(not pathIsNone)
+            self.b_copyLast.setEnabled(not pathIsNone)
+        if "stateenabled" in data:
+            self.state.setCheckState(
+                0,
+                eval(
+                    data["stateenabled"]
+                    .replace("PySide.QtCore.", "")
+                    .replace("PySide2.QtCore.", "")
+                ),
+            )
+
+        self.nameChanged(self.e_name.text())
+
+    @err_decorator
+    def findNode(self, path):
+        for node in hou.node("/").allSubChildren():
+            if (
+                node.userData("PrismPath") is not None
+                and node.userData("PrismPath") == path
+            ):
+                node.setUserData("PrismPath", node.path())
+                return node
+
+        return None
+
+    @err_decorator
+    def isNodeValid(self):
+        try:
+            validTST = self.node.name()
+        except:
+            self.node = None
+
+        return self.node is not None
+
+    @err_decorator
+    def createNode(self, nodePath=None):
+        if self.stateManager.standalone:
+            return False
+
+        parentNode = None
+        curContext = ""
+        if not self.isNodeValid():
+            if len(hou.selectedNodes()) > 0:
+                curContext = hou.selectedNodes()[0].type().category().name()
+                if len(hou.selectedNodes()[0].outputNames()) > 0:
+                    parentNode = hou.selectedNodes()[0]
+            else:
+                if self.core.uiAvailable:
+                    paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+                    if paneTab is None:
+                        return
+
+                    curContext = paneTab.pwd().childTypeCategory().name()
+                    nodePath = paneTab.pwd()
+                elif nodePath is not None:
+                    curContext = hou.node(nodePath).type().category().name()
+        else:
+            curContext = self.node.type().category().name()
+            if len(self.node.inputs()) > 0:
+                parentNode = self.node.inputs()[0]
+            else:
+                nodePath = self.node.parent()
+
+            if self.node.type().name() in [
+                "rop_geometry",
+                "rop_alembic",
+                "rop_dop",
+                "rop_comp",
+                "filecache",
+                "geometry",
+                "alembic",
+                "pixar::usdrop",
+                "usd",
+                "Redshift_Proxy_Output",
+            ]:
+                try:
+                    self.node.destroy()
+                except:
+                    pass
+
+            self.node = None
+
+        ropType = ""
+        if curContext == "Cop2":
+            ropType = "rop_comp"
+        elif curContext == "Dop":
+            ropType = "rop_dop"
+        elif curContext == "Sop":
+            ropType = "rop_geometry"
+        elif curContext == "Driver":
+            ropType = "geometry"
+
+        if self.cb_outType.currentText() == ".abc":
+            if curContext == "Sop":
+                ropType = "rop_alembic"
+            else:
+                ropType = "alembic"
+        elif self.cb_outType.currentText() == ".hda":
+            ropType = ""
+        elif self.cb_outType.currentText() == ".usd":
+            ropType = "usd"
+        elif self.cb_outType.currentText() == ".rs":
+            ropType = "Redshift_Proxy_Output"
+
+        if (
+            ropType != ""
+            and nodePath is not None
+            and not nodePath.isInsideLockedHDA()
+            and not nodePath.isLockedHDA()
+        ):
+            try:
+                self.node = nodePath.createNode(ropType)
+            except:
+                pass
+            else:
+                paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+                if paneTab is not None:
+                    self.node.setPosition(paneTab.visibleBounds().center())
+                self.node.moveToGoodPosition()
+        elif (
+            ropType != ""
+            and parentNode is not None
+            and not (parentNode.parent().isInsideLockedHDA())
+        ):
+            try:
+                self.node = parentNode.createOutputNode(ropType)
+            except:
+                pass
+            else:
+                self.node.moveToGoodPosition()
+
+        if self.isNodeValid():
+            self.goToNode()
+        self.updateUi()
+
+    @err_decorator
+    def connectEvents(self):
+        self.e_name.textChanged.connect(self.nameChanged)
+        self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
+        self.b_changeTask.clicked.connect(self.changeTask)
+        self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
+        self.sp_rangeStart.editingFinished.connect(self.startChanged)
+        self.sp_rangeEnd.editingFinished.connect(self.endChanged)
+        self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
+        self.cb_outType.activated[str].connect(self.typeChanged)
+        self.chb_useTake.stateChanged.connect(self.useTakeChanged)
+        self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
+        self.chb_saveToExistingHDA.stateChanged.connect(
+            self.stateManager.saveStatesToScene
+        )
+        self.chb_saveToExistingHDA.stateChanged.connect(
+            lambda x: self.w_outPath.setEnabled(not x)
+        )
+        self.chb_saveToExistingHDA.stateChanged.connect(
+            lambda x: self.w_projectHDA.setEnabled(
+                not x or not self.w_saveToExistingHDA.isEnabled()
+            )
+        )
+        self.chb_projectHDA.stateChanged.connect(
+            lambda x: self.w_outPath.setEnabled(not x)
+        )
+        self.chb_projectHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_blackboxHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_convertExport.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.gb_submit.toggled.connect(self.rjToggled)
+        self.cb_manager.activated.connect(self.managerChanged)
+        self.sp_rjPrio.editingFinished.connect(self.stateManager.saveStatesToScene)
+        self.sp_rjFramesPerTask.editingFinished.connect(
+            self.stateManager.saveStatesToScene
+        )
+        self.sp_rjTimeout.editingFinished.connect(self.stateManager.saveStatesToScene)
+        self.chb_rjSuspended.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_osDependencies.stateChanged.connect(
+            self.stateManager.saveStatesToScene
+        )
+        self.chb_osUpload.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_osPAssets.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.e_osSlaves.editingFinished.connect(self.stateManager.saveStatesToScene)
+        self.b_osSlaves.clicked.connect(self.openSlaves)
+        self.cb_dlGroup.activated.connect(self.stateManager.saveStatesToScene)
+        self.cb_cam.activated.connect(self.setCam)
+        self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
+        self.b_openLast.clicked.connect(
+            lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text()))
+        )
+        self.b_copyLast.clicked.connect(
+            lambda: self.core.copyToClipboard(self.l_pathLast.text())
+        )
+        if not self.stateManager.standalone:
+            self.b_goTo.clicked.connect(self.goToNode)
+            self.b_connect.clicked.connect(self.connectNode)
+
+    @err_decorator
+    def rangeTypeChanged(self, state):
+        self.l_rangeStart.setEnabled(not state)
+        self.l_rangeEnd.setEnabled(not state)
+        self.sp_rangeStart.setEnabled(not state)
+        self.sp_rangeEnd.setEnabled(not state)
+
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def nameChanged(self, text):
+        if self.cb_outType.currentText() == "ShotCam":
+            sText = text + " - Shotcam (%s)" % (self.curCam)
+        else:
+            try:
+                sText = text + " - %s (%s)" % (self.l_taskName.text(), self.node)
+            except:
+                sText = text + " - %s (None)" % self.l_taskName.text()
+
+        if self.state.text(0).endswith(" - disabled"):
+            sText += " - disabled"
+
+        self.state.setText(0, sText)
+
+    @err_decorator
+    def changeTask(self):
+        import CreateItem
+
+        self.nameWin = CreateItem.CreateItem(
+            startText=self.l_taskName.text(),
+            showTasks=True,
+            taskType="export",
+            core=self.core,
+        )
+        self.core.parentWindow(self.nameWin)
+        self.nameWin.setWindowTitle("Change Taskname")
+        self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.e_item.selectAll()
+        result = self.nameWin.exec_()
+
+        if result == 1:
+            self.l_taskName.setText(self.nameWin.e_item.text())
+            self.nameChanged(self.e_name.text())
+
+            self.b_changeTask.setStyleSheet("")
+
+            self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def setCam(self, index):
+        self.curCam = self.camlist[index]
+        self.nameChanged(self.e_name.text())
+
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def updateUi(self):
+        try:
+            self.node.name()
+            self.l_status.setText(self.node.name())
+            self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
+        except:
+            self.l_status.setText("Not connected")
+            self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
+
+        curTake = self.cb_take.currentText()
+        self.cb_take.clear()
+        self.cb_take.addItems([x.name() for x in hou.takes.takes()])
+        idx = self.cb_take.findText(curTake)
+        if idx != -1:
+            self.cb_take.setCurrentIndex(idx)
+
+        self.camlist = []
+        for node in hou.node("/").allSubChildren():
+
+            if node.type().name() == "cam" and node.name() != "ipr_camera":
+                self.camlist.append(node)
+
+        self.cb_cam.clear()
+        self.cb_cam.addItems([str(i) for i in self.camlist])
+
+        try:
+            self.curCam.name()
+        except:
+            self.curCam = None
+
+        if self.curCam in self.camlist:
+            self.cb_cam.setCurrentIndex(self.camlist.index(self.curCam))
+        else:
+            self.cb_cam.setCurrentIndex(0)
+            if len(self.camlist) > 0:
+                self.curCam = self.camlist[0]
+            else:
+                self.curCam = None
+            self.stateManager.saveStatesToScene()
+
+        curShot = self.cb_sCamShot.currentText()
+        self.cb_sCamShot.clear()
+        shotPath = os.path.join(
+            self.core.projectPath,
+            self.core.getConfig("paths", "scenes", configPath=self.core.prismIni),
+            "Shots",
+        )
+        shotNames = []
+        omittedShots = []
+
+        omitPath = os.path.join(
+            os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
+        )
+        if os.path.exists(omitPath):
+            oconfig = ConfigParser()
+            oconfig.read(omitPath)
+
+            if oconfig.has_section("Shot"):
+                omittedShots = [x[1] for x in oconfig.items("Shot")]
+
+        if os.path.exists(shotPath):
+            shotNames += [
+                x
+                for x in os.listdir(shotPath)
+                if not x.startswith("_") and x not in omittedShots
+            ]
+        self.cb_sCamShot.addItems(shotNames)
+        if curShot in shotNames:
+            self.cb_sCamShot.setCurrentIndex(shotNames.index(curShot))
+        else:
+            self.cb_sCamShot.setCurrentIndex(0)
+            self.stateManager.saveStatesToScene()
+
+        if self.cb_outType.currentText() == ".hda":
+            if self.isNodeValid() and (
+                self.node.canCreateDigitalAsset()
+                or self.node.type().definition() is not None
+            ):
+                self.w_saveToExistingHDA.setEnabled(
+                    self.node.type().definition() is not None
+                )
+            else:
+                self.w_saveToExistingHDA.setEnabled(True)
+
+            self.w_blackboxHDA.setEnabled(
+                not self.isNodeValid() or self.node.type().areContentsViewable()
+            )
+
+            self.w_projectHDA.setEnabled(
+                not self.w_saveToExistingHDA.isEnabled()
+                or not self.chb_saveToExistingHDA.isChecked()
+            )
+
+        self.nameChanged(self.e_name.text())
+
+    @err_decorator
+    def typeChanged(self, idx, createMissing=True):
+        self.isNodeValid()
+
+        if idx == ".abc":
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.w_saveToExistingHDA.setVisible(False)
+            self.w_blackboxHDA.setVisible(False)
+            self.w_projectHDA.setVisible(False)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(True)
+            self.f_connect.setVisible(True)
+            self.f_frameRange.setVisible(True)
+            self.f_convertExport.setVisible(True)
+            if self.cb_manager.count() > 0:
+                self.gb_submit.setVisible(True)
+            if (
+                self.node is None
+                or self.node.type().name() not in ["rop_alembic", "alembic", "wedge"]
+            ) and createMissing:
+                self.createNode()
+        elif idx == ".hda":
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.w_saveToExistingHDA.setVisible(True)
+            self.w_blackboxHDA.setVisible(True)
+            self.w_projectHDA.setVisible(True)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(True)
+            self.f_connect.setVisible(True)
+            self.f_frameRange.setVisible(False)
+            self.f_convertExport.setVisible(False)
+            self.gb_submit.setVisible(False)
+            if (
+                self.node is None
+                or (
+                    self.node is not None
+                    and not (self.node.canCreateDigitalAsset())
+                    or self.node.type().definition() is not None
+                )
+            ) and createMissing:
+                self.createNode()
+        elif idx == ".usd":
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.w_saveToExistingHDA.setVisible(False)
+            self.w_blackboxHDA.setVisible(False)
+            self.w_projectHDA.setVisible(False)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(True)
+            self.f_connect.setVisible(True)
+            self.f_frameRange.setVisible(True)
+            self.f_convertExport.setVisible(True)
+            if self.cb_manager.count() > 0:
+                self.gb_submit.setVisible(True)
+            if (
+                self.node is None
+                or self.node.type().name() not in ["pixar::usdrop", "usd", "wedge"]
+            ) and createMissing:
+                self.createNode()
+        elif idx == ".rs":
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.w_saveToExistingHDA.setVisible(False)
+            self.w_blackboxHDA.setVisible(False)
+            self.w_projectHDA.setVisible(False)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(True)
+            self.f_connect.setVisible(True)
+            self.f_frameRange.setVisible(True)
+            self.f_convertExport.setVisible(True)
+            if self.cb_manager.count() > 0:
+                self.gb_submit.setVisible(True)
+            if (
+                self.node is None
+                or self.node.type().name() not in ["Redshift_Proxy_Output", "wedge"]
+            ) and createMissing:
+                self.createNode()
+        elif idx == "ShotCam":
+            self.f_cam.setVisible(True)
+            self.w_sCamShot.setVisible(True)
+            self.w_saveToExistingHDA.setVisible(False)
+            self.w_blackboxHDA.setVisible(False)
+            self.w_projectHDA.setVisible(False)
+            self.f_taskName.setVisible(False)
+            self.f_status.setVisible(False)
+            self.f_connect.setVisible(False)
+            self.f_frameRange.setVisible(True)
+            self.f_convertExport.setVisible(True)
+            self.gb_submit.setVisible(False)
+        elif idx == "other":
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.w_saveToExistingHDA.setVisible(False)
+            self.w_blackboxHDA.setVisible(False)
+            self.w_projectHDA.setVisible(False)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(True)
+            self.f_connect.setVisible(True)
+            self.f_frameRange.setVisible(True)
+            self.f_convertExport.setVisible(True)
+            if self.cb_manager.count() > 0:
+                self.gb_submit.setVisible(True)
+
+            import CreateItem
+
+            typeWin = CreateItem.CreateItem(core=self.core)
+            typeWin.setModal(True)
+            self.core.parentWindow(typeWin)
+            typeWin.setWindowTitle("Outputtype")
+            typeWin.l_item.setText("Outputtype:")
+            typeWin.exec_()
+
+            if hasattr(typeWin, "itemName"):
+                if self.cb_outType.findText(typeWin.itemName) == -1:
+                    self.cb_outType.insertItem(
+                        self.cb_outType.count() - 1, typeWin.itemName
+                    )
+
+                if typeWin.itemName == "other":
+                    self.cb_outType.setCurrentIndex(0)
+                else:
+                    self.cb_outType.setCurrentIndex(
+                        self.cb_outType.findText(typeWin.itemName)
+                    )
+
+            else:
+                self.cb_outType.setCurrentIndex(0)
+
+            if (
+                self.node is None
+                or self.node.type().name()
+                in [
+                    "rop_alembic",
+                    "alembic",
+                    "pixar::usdrop",
+                    "usd",
+                    "Redshift_Proxy_Output",
+                ]
+                or self.node.canCreateDigitalAsset()
+                or self.node.type().definition() is not None
+            ) and createMissing:
+                self.createNode()
+
+        else:
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.w_saveToExistingHDA.setVisible(False)
+            self.w_blackboxHDA.setVisible(False)
+            self.w_projectHDA.setVisible(False)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(True)
+            self.f_connect.setVisible(True)
+            self.f_frameRange.setVisible(True)
+            self.f_convertExport.setVisible(True)
+            if self.cb_manager.count() > 0:
+                self.gb_submit.setVisible(True)
+            if (
+                self.node is None
+                or self.node.type().name()
+                in [
+                    "rop_alembic",
+                    "alembic",
+                    "pixar::usdrop",
+                    "usd",
+                    "Redshift_Proxy_Output",
+                ]
+                or self.node.canCreateDigitalAsset()
+                or (
+                    self.node.type().definition() is not None
+                    and self.node.type().name() not in ["wedge"]
+                )
+            ) and createMissing:
+                self.createNode()
+
+        self.rjToggled()
+        self.updateUi()
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def goToNode(self):
+        try:
+            self.node.name()
+        except:
+            self.createNode()
+
+        try:
+            self.node.name()
+        except:
+            self.updateUi()
+            return False
+
+        self.node.setCurrent(True, clear_all_selected=True)
+        paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+        if paneTab is not None:
+            paneTab.frameSelection()
+
+    @err_decorator
+    def connectNode(self, node=None):
+        if node is None:
+            if len(hou.selectedNodes()) == 0:
+                return False
+
+            node = hou.selectedNodes()[0]
+
+        typeName = node.type().name()
+        if (
+            typeName
+            in [
+                "rop_geometry",
+                "rop_dop",
+                "rop_comp",
+                "rop_alembic",
+                "filecache",
+                "pixar::usdrop",
+                "usd",
+                "Redshift_Proxy_Output",
+            ]
+            or (
+                node.type().category().name() == "Driver"
+                and typeName in ["geometry", "alembic", "wedge"]
+            )
+            or node.canCreateDigitalAsset()
+            or node.type().definition() is not None
+        ):
+            self.node = node
+
+            extension = ""
+            if typeName in self.nodeTypes:
+                outVal = self.node.parm(self.nodeTypes[typeName]["outputparm"]).eval()
+
+            if typeName in [
+                "rop_dop",
+                "rop_comp",
+                "rop_alembic",
+                "pixar::usdrop",
+                "usd",
+                "Redshift_Proxy_Output",
+            ]:
+                extension = os.path.splitext(outVal)[1]
+            elif typeName in ["rop_geometry", "filecache"]:
+                if outVal.endswith(".bgeo.sc"):
+                    extension = ".bgeo.sc"
+                else:
+                    extension = os.path.splitext(outVal)[1]
+
+            elif (
+                typeName == "geometry"
+                and self.node.type().category().name() == "Driver"
+            ):
+                if outVal.endswith(".bgeo.sc"):
+                    extension = ".bgeo.sc"
+                else:
+                    extension = os.path.splitext(outVal)[1]
+            elif (
+                typeName == "alembic" and self.node.type().category().name() == "Driver"
+            ):
+                extension = os.path.splitext(outVal)[1]
+            elif typeName == "wedge" and self.node.type().category().name() == "Driver":
+                rop = self.getWedgeROP(self.node)
+                if rop:
+                    extension = os.path.splitext(
+                        self.nodeTypes[rop.type().name()]["outputparm"]
+                    )[1]
+                else:
+                    extension = ".bgeo.sc"
+            elif (
+                self.node.canCreateDigitalAsset()
+                or self.node.type().definition() is not None
+            ):
+                extension = ".hda"
+
+            if self.cb_outType.findText(extension) != -1:
+                self.cb_outType.setCurrentIndex(self.cb_outType.findText(extension))
+                self.typeChanged(self.cb_outType.currentText(), createMissing=False)
+
+            self.nameChanged(self.e_name.text())
+            self.updateUi()
+            self.stateManager.saveStatesToScene()
+            return True
+
+        return False
+
+    @err_decorator
+    def getWedgeROP(self, wedge):
+        if wedge.inputs():
+            return wedge.inputs()[0]
+        else:
+            node = hou.node(wedge.parm("driver").eval())
+            if node.type().name() in self.nodeTypes:
+                return node
+
+    @err_decorator
+    def startChanged(self):
+        if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
+            self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
+
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def endChanged(self):
+        if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
+            self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
+
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def useTakeChanged(self, state):
+        self.cb_take.setEnabled(state)
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def rjToggled(self, checked=None):
+        if checked is None:
+            checked = self.gb_submit.isChecked()
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def managerChanged(self, text=None):
+        if self.cb_manager.currentText() in self.core.rfManagers:
+            self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_activated(
+                self
+            )
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def openSlaves(self):
+        try:
+            del sys.modules["SlaveAssignment"]
+        except:
+            pass
+
+        import SlaveAssignment
+
+        self.sa = SlaveAssignment.SlaveAssignment(
+            core=self.core, curSlaves=self.e_osSlaves.text()
+        )
+        result = self.sa.exec_()
+
+        if result == 1:
+            selSlaves = ""
+            if self.sa.rb_exclude.isChecked():
+                selSlaves = "exclude "
+            if self.sa.rb_all.isChecked():
+                selSlaves += "All"
+            elif self.sa.rb_group.isChecked():
+                selSlaves += "groups: "
+                for i in self.sa.activeGroups:
+                    selSlaves += i + ", "
+
+                if selSlaves.endswith(", "):
+                    selSlaves = selSlaves[:-2]
+
+            elif self.sa.rb_custom.isChecked():
+                slavesList = [x.text() for x in self.sa.lw_slaves.selectedItems()]
+                for i in slavesList:
+                    selSlaves += i + ", "
+
+                if selSlaves.endswith(", "):
+                    selSlaves = selSlaves[:-2]
+
+            self.e_osSlaves.setText(selSlaves)
+            self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def preDelete(self, item, silent=False):
+        self.core.appPlugin.sm_preDelete(self, item, silent)
+
+    @err_decorator
+    def preExecuteState(self):
+        warnings = []
+
+        if self.cb_outType.currentText() == "ShotCam":
+            if self.curCam is None:
+                warnings.append(["No camera specified.", "", 3])
+        else:
+            if self.l_taskName.text() == "":
+                warnings.append(["No taskname is given.", "", 3])
+
+            try:
+                self.node.name()
+            except:
+                warnings.append(["Node is invalid.", "", 3])
+
+        if not hou.simulationEnabled():
+            warnings.append(["Simulations are disabled.", "", 2])
+
+        if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
+            warnings += self.core.rfManagers[
+                self.cb_manager.currentText()
+            ].sm_houExport_preExecute(self)
+
+        return [self.state.text(0), warnings]
+
+    @err_decorator
+    def getOutputName(self, useVersion="next"):
+        fileName = self.core.getCurrentFileName()
+        prefUnit = "meter"
+        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
+
+        if self.cb_outType.currentText() == "ShotCam":
+            outputBase = os.path.join(
+                self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText()
+            )
+            fnameData = self.core.getScenefileData(fileName)
+            comment = fnameData["comment"]
+            versionUser = self.core.user
+            outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
+
+            if useVersion != "next":
+                versionData = useVersion.split(self.core.filenameSeparator)
+                if len(versionData) == 3:
+                    hVersion, comment, versionUser = versionData
+                else:
+                    useVersion == "next"
+
+            if useVersion == "next":
+                hVersion = self.core.getHighestTaskVersion(outputPath)
+
+            outputPath = os.path.join(
+                outputPath,
+                hVersion
+                + self.core.filenameSeparator
+                + comment
+                + self.core.filenameSeparator
+                + versionUser,
+                prefUnit,
+            )
+            outputName = os.path.join(
+                outputPath,
+                "shot"
+                + self.core.filenameSeparator
+                + self.cb_sCamShot.currentText()
+                + self.core.filenameSeparator
+                + "ShotCam"
+                + self.core.filenameSeparator
+                + hVersion,
+            )
+
+        elif (
+            self.cb_outType.currentText() == ".hda"
+            and self.node is not None
+            and self.node.type().definition() is not None
+            and self.chb_saveToExistingHDA.isChecked()
+        ):
+            outputName = self.node.type().definition().libraryFilePath()
+            outputPath = os.path.dirname(outputName)
+            hVersion = ""
+
+        elif (
+            self.cb_outType.currentText() == ".hda"
+            and self.node is not None
+            and self.chb_projectHDA.isChecked()
+        ):
+            outputName = os.path.join(
+                self.core.projectPath,
+                self.core.getConfig("paths", "assets", configPath=self.core.prismIni),
+                "HDAs",
+                self.l_taskName.text() + ".hda",
+            )
+            outputPath = os.path.dirname(outputName)
+            hVersion = ""
+
+        else:
+            if self.l_taskName.text() == "":
+                return
+
+            if self.core.useLocalFiles and fileName.startswith(
+                self.core.localProjectPath
+            ):
+                fileName = fileName.replace(
+                    self.core.localProjectPath, self.core.projectPath
+                )
+
+            versionUser = self.core.user
+            hVersion = ""
+            if useVersion != "next":
+                versionData = useVersion.split(self.core.filenameSeparator)
+                if len(versionData) == 3:
+                    hVersion, pComment, versionUser = versionData
+
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData["type"] == "shot":
+                outputPath = os.path.join(
+                    self.core.getEntityBasePath(fileName),
+                    "Export",
+                    self.l_taskName.text(),
+                )
+                if hVersion == "":
+                    hVersion = self.core.getHighestTaskVersion(outputPath)
+                    pComment = fnameData["comment"]
+
+                hVersion = (
+                    (hVersion + "-wedge`$WEDGENUM`")
+                    if self.node.type().name() == "wedge"
+                    else hVersion
+                )
+
+                outputPath = os.path.join(
+                    outputPath,
+                    hVersion
+                    + self.core.filenameSeparator
+                    + pComment
+                    + self.core.filenameSeparator
+                    + versionUser,
+                    prefUnit,
+                )
+                outputName = os.path.join(
+                    outputPath,
+                    "shot"
+                    + self.core.filenameSeparator
+                    + fnameData["shotName"]
+                    + self.core.filenameSeparator
+                    + self.l_taskName.text()
+                    + self.core.filenameSeparator
+                    + hVersion
+                    + ".$F4"
+                    + self.cb_outType.currentText(),
+                )
+            elif fnameData["type"] == "asset":
+                if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
+                    outputPath = os.path.join(
+                        self.core.projectPath,
+                        sceneDir,
+                        "Assets",
+                        "Export",
+                        self.l_taskName.text(),
+                    )
+                else:
+                    outputPath = os.path.join(
+                        self.core.getEntityBasePath(fileName),
+                        "Export",
+                        self.l_taskName.text(),
+                    )
+                if hVersion == "":
+                    hVersion = self.core.getHighestTaskVersion(outputPath)
+                    pComment = fnameData["comment"]
+
+                outputPath = os.path.join(
+                    outputPath,
+                    hVersion
+                    + self.core.filenameSeparator
+                    + pComment
+                    + self.core.filenameSeparator
+                    + versionUser,
+                    prefUnit,
+                )
+                outputName = os.path.join(
+                    outputPath,
+                    fnameData["assetName"]
+                    + self.core.filenameSeparator
+                    + self.l_taskName.text()
+                    + self.core.filenameSeparator
+                    + hVersion
+                    + ".$F4"
+                    + self.cb_outType.currentText(),
+                )
+            else:
+                return
+
+        basePath = self.export_paths[self.cb_outPath.currentIndex()][1]
+        prjPath = os.path.normpath(self.core.projectPath)
+        basePath = os.path.normpath(basePath)
+        outputName = outputName.replace(prjPath, basePath)
+        outputPath = outputPath.replace(prjPath, basePath)
+
+        return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
+
+    @err_decorator
+    def executeState(self, parent, useVersion="next"):
+        if self.chb_globalRange.isChecked():
+            startFrame = self.stateManager.sp_rangeStart.value()
+            endFrame = self.stateManager.sp_rangeEnd.value()
+        else:
+            startFrame = self.sp_rangeStart.value()
+            endFrame = self.sp_rangeEnd.value()
+
+        if self.cb_outType.currentText() == "ShotCam":
+            if self.curCam is None:
+                return [
+                    self.state.text(0)
+                    + ": error - No camera specified. Skipped the activation of this state."
+                ]
+
+            if self.cb_sCamShot.currentText() == "":
+                return [
+                    self.state.text(0)
+                    + ": error - No Shot specified. Skipped the activation of this state."
+                ]
+
+            fileName = self.core.getCurrentFileName()
+
+            outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
+
+            outLength = len(outputName)
+            if platform.system() == "Windows" and outLength > 255:
+                return [
+                    self.state.text(0)
+                    + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
+                    % outLength
+                ]
+
+            if not os.path.exists(outputPath):
+                os.makedirs(outputPath)
+
+            self.core.callHook(
+                "preExport",
+                args={
+                    "prismCore": self.core,
+                    "scenefile": fileName,
+                    "startFrame": startFrame,
+                    "endFrame": endFrame,
+                    "outputName": outputName,
+                },
+            )
+
+            self.core.saveVersionInfo(
+                location=os.path.dirname(outputPath),
+                version=hVersion,
+                origin=fileName,
+                fps=startFrame != endFrame,
+            )
+
+            if self.chb_convertExport.isChecked():
+                inputCons = self.curCam.inputConnections()
+                if (
+                    len(inputCons) > 0
+                    and inputCons[0].inputNode().type().name() == "null"
+                    and inputCons[0].inputNode().name() == "SCALEOVERRIDE"
+                ):
+                    transformNode = inputCons[0].inputNode()
+                else:
+                    transformNode = self.curCam.createInputNode(
+                        0, "null", "SCALEOVERRIDE"
+                    )
+                    for i in inputCons:
+                        transformNode.setInput(0, i.inputNode(), i.inputIndex())
+
+            abc_rop = hou.node("/out").createNode("alembic")
+
+            abc_rop.parm("trange").set(1)
+            abc_rop.parm("f1").set(startFrame)
+            abc_rop.parm("f2").set(endFrame)
+            abc_rop.parm("filename").set(outputName + ".abc")
+            abc_rop.parm("root").set(self.curCam.parent().path())
+            abc_rop.parm("objects").set(self.curCam.name())
+
+            fbx_rop = hou.node("/out").createNode("filmboxfbx")
+            fbx_rop.parm("sopoutput").set(outputName + ".fbx")
+            fbx_rop.parm("startnode").set(self.curCam.path())
+
+            for node in [abc_rop, fbx_rop]:
+                if self.chb_useTake.isChecked():
+                    pTake = self.cb_take.currentText()
+                    takeLabels = [
+                        x.strip() for x in self.node.parm("take").menuLabels()
+                    ]
+                    if pTake in takeLabels:
+                        idx = takeLabels.index(pTake)
+                        if idx != -1:
+                            token = self.node.parm("take").menuItems()[idx]
+                            if not self.core.appPlugin.setNodeParm(
+                                self.node, "take", val=token
+                            ):
+                                return [
+                                    self.state.text(0) + ": error - Publish canceled"
+                                ]
+                    else:
+                        return [
+                            self.state.text(0)
+                            + ": error - take '%s' doesn't exist." % pTake
+                        ]
+
+            abc_rop.render()
+            fbx_rop.render(frame_range=(startFrame, endFrame))
+
+            if self.chb_convertExport.isChecked():
+                transformNode.parm("scale").set(100)
+
+                outputName = os.path.join(
+                    os.path.dirname(os.path.dirname(outputName)),
+                    "centimeter",
+                    os.path.basename(outputName),
+                )
+                if not os.path.exists(os.path.dirname(outputName)):
+                    os.makedirs(os.path.dirname(outputName))
+
+                abc_rop.parm("filename").set(outputName + ".abc")
+                abc_rop.render()
+                fbx_rop.parm("sopoutput").set(outputName + ".fbx")
+                fbx_rop.render(frame_range=(startFrame, endFrame))
+
+                transformNode.destroy()
+
+            abc_rop.destroy()
+            fbx_rop.destroy()
+
+            self.l_pathLast.setText(outputName)
+            self.l_pathLast.setToolTip(outputName)
+            self.b_openLast.setEnabled(True)
+            self.b_copyLast.setEnabled(True)
+
+            self.core.callHook(
+                "postExport",
+                args={
+                    "prismCore": self.core,
+                    "scenefile": fileName,
+                    "startFrame": startFrame,
+                    "endFrame": endFrame,
+                    "outputName": outputName,
+                },
+            )
+
+            self.stateManager.saveStatesToScene()
+
+            if os.path.exists(outputName + ".abc") and os.path.exists(
+                outputName + ".fbx"
+            ):
+                return [self.state.text(0) + " - success"]
+            else:
+                return [self.state.text(0) + " - error"]
+
+        else:
+            if self.l_taskName.text() == "":
+                return [
+                    self.state.text(0)
+                    + ": error - No taskname is given. Skipped the activation of this state."
+                ]
+
+            try:
+                self.node.name()
+            except:
+                return [
+                    self.state.text(0)
+                    + ": error - Node is invalid. Skipped the activation of this state."
+                ]
+
+            if (
+                not (
+                    self.node.isEditable()
+                    or (
+                        self.node.type().name() in ["filecache", "wedge"]
+                        and self.node.isEditableInsideLockedHDA()
+                    )
+                )
+                and self.cb_outType.currentText() != ".hda"
+            ):
+                return [
+                    self.state.text(0)
+                    + ": error - Node is locked. Skipped the activation of this state."
+                ]
+
+            if self.node.type().name() == "wedge":
+                ropNode = self.getWedgeROP(self.node)
+                if not ropNode:
+                    return [
+                        self.state.text(0)
+                        + ": error - No valid ROP is connected to the Wedge node. Skipped the activation of this state."
+                    ]
+            else:
+                ropNode = self.node
+
+            fileName = self.core.getCurrentFileName()
+
+            outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
+
+            outLength = len(outputName)
+            if platform.system() == "Windows" and outLength > 255:
+                return [
+                    self.state.text(0)
+                    + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
+                    % outLength
+                ]
+
+            if self.cb_outType.currentText() in [".abc", ".usd", ".hda"]:
+                outputName = outputName.replace(".$F4", "")
+
+            if self.cb_outType.currentText() == ".hda":
+                if (
+                    not ropNode.canCreateDigitalAsset()
+                    and ropNode.type().definition() is None
+                ):
+                    return [
+                        self.state.text(0)
+                        + ": error - Cannot create a digital asset from this node: %s"
+                        % ropNode.path()
+                    ]
+            else:
+                if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
+                    return [self.state.text(0) + ": error - Publish canceled"]
+
+                if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
+                    return [self.state.text(0) + ": error - Publish canceled"]
+
+                if not self.core.appPlugin.setNodeParm(ropNode, "f2", clear=True):
+                    return [self.state.text(0) + ": error - Publish canceled"]
+
+                if not self.core.appPlugin.setNodeParm(ropNode, "f1", val=startFrame):
+                    return [self.state.text(0) + ": error - Publish canceled"]
+
+                if not self.core.appPlugin.setNodeParm(ropNode, "f2", val=endFrame):
+                    return [self.state.text(0) + ": error - Publish canceled"]
+
+                if ropNode.type().name() in [
+                    "rop_geometry",
+                    "rop_alembic",
+                    "rop_dop",
+                    "geometry",
+                    "filecache",
+                    "alembic",
+                ]:
+                    if not self.core.appPlugin.setNodeParm(
+                        ropNode, "initsim", val=True
+                    ):
+                        return [self.state.text(0) + ": error - Publish canceled"]
+
+                if self.chb_useTake.isChecked():
+                    pTake = self.cb_take.currentText()
+                    takeLabels = [x.strip() for x in ropNode.parm("take").menuLabels()]
+                    if pTake in takeLabels:
+                        idx = takeLabels.index(pTake)
+                        if idx != -1:
+                            token = ropNode.parm("take").menuItems()[idx]
+                            if not self.core.appPlugin.setNodeParm(
+                                ropNode, "take", val=token
+                            ):
+                                return [
+                                    self.state.text(0) + ": error - Publish canceled"
+                                ]
+                    else:
+                        return [
+                            self.state.text(0)
+                            + ": error - take '%s' doesn't exist." % pTake
+                        ]
+
+            expandedOutputPath = hou.expandString(outputPath)
+            expandedOutputName = hou.expandString(outputName)
+            if not os.path.exists(expandedOutputPath):
+                os.makedirs(expandedOutputPath)
+
+            self.core.callHook(
+                "preExport",
+                args={
+                    "prismCore": self.core,
+                    "scenefile": fileName,
+                    "startFrame": startFrame,
+                    "endFrame": endFrame,
+                    "outputName": expandedOutputName,
+                },
+            )
+
+            self.core.saveVersionInfo(
+                location=os.path.dirname(expandedOutputPath),
+                version=hVersion,
+                origin=fileName,
+                fps=startFrame != endFrame,
+            )
+
+            outputNames = [outputName]
+            if (
+                not self.chb_convertExport.isHidden()
+                and self.chb_convertExport.isChecked()
+            ):
+                inputCons = ropNode.inputConnections()
+                if (
+                    len(inputCons) > 0
+                    and inputCons[0].inputNode().type().name() == "xform"
+                    and inputCons[0].inputNode().name() == "SCALEOVERRIDE"
+                ):
+                    transformNode = inputCons[0].inputNode()
+                else:
+                    transformNode = ropNode.createInputNode(0, "xform", "SCALEOVERRIDE")
+                    for i in inputCons:
+                        transformNode.setInput(0, i.inputNode(), i.inputIndex())
+
+                outputNames.append(
+                    os.path.join(
+                        os.path.dirname(os.path.dirname(expandedOutputName)),
+                        "centimeter",
+                        os.path.basename(expandedOutputName),
+                    )
+                )
+                if not os.path.exists(os.path.dirname(outputNames[1])):
+                    os.makedirs(os.path.dirname(outputNames[1]))
+
+            self.l_pathLast.setText(outputNames[0])
+            self.l_pathLast.setToolTip(outputNames[0])
+            self.b_openLast.setEnabled(True)
+            self.b_copyLast.setEnabled(True)
+
+            self.stateManager.saveStatesToScene()
+
+            for idx, outputName in enumerate(outputNames):
+                outputName = outputName.replace("\\", "/")
+                expandedOutputName = hou.expandString(outputName)
+                parmName = False
+
+                if ropNode.type().name() in self.nodeTypes:
+                    parmName = self.nodeTypes[ropNode.type().name()]["outputparm"]
+
+                if parmName != False:
+                    self.stateManager.publishInfos["updatedExports"][
+                        ropNode.parm(parmName).unexpandedString()
+                    ] = outputName
+
+                    if not self.core.appPlugin.setNodeParm(
+                        ropNode, parmName, val=outputName
+                    ):
+                        return [self.state.text(0) + ": error - Publish canceled"]
+
+                hou.hipFile.save()
+
+                if idx == 1:
+                    if not self.core.appPlugin.setNodeParm(
+                        transformNode, scale, val=100
+                    ):
+                        return [self.state.text(0) + ": error - Publish canceled"]
+
+                if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
+                    result = self.core.rfManagers[
+                        self.cb_manager.currentText()
+                    ].sm_render_submitJob(self, outputName, parent)
+                else:
+                    try:
+                        result = ""
+                        if self.cb_outType.currentText() == ".hda":
+                            HDAoutputName = outputName
+                            bb = self.chb_blackboxHDA.isChecked()
+                            noBackup = (
+                                hou.applicationVersion()[0] <= 16
+                                and hou.applicationVersion()[1] <= 5
+                                and hou.applicationVersion()[2] <= 185
+                            )
+                            if ropNode.canCreateDigitalAsset():
+                                typeName = "prism_" + self.l_taskName.text()
+                                hda = ropNode.createDigitalAsset(
+                                    typeName,
+                                    hda_file_name=HDAoutputName,
+                                    description=self.l_taskName.text(),
+                                    change_node_type=(not bb),
+                                )
+                                if bb:
+                                    hou.hda.installFile(
+                                        HDAoutputName, force_use_assets=True
+                                    )
+                                    aInst = ropNode.parent().createNode(typeName)
+                                    if noBackup:
+                                        aInst.type().definition().save(
+                                            file_name=HDAoutputName,
+                                            template_node=aInst,
+                                            compile_contents=bb,
+                                            black_box=bb,
+                                        )
+                                    else:
+                                        aInst.type().definition().save(
+                                            file_name=HDAoutputName,
+                                            template_node=aInst,
+                                            create_backup=False,
+                                            compile_contents=bb,
+                                            black_box=bb,
+                                        )
+                                    aInst.destroy()
+                                else:
+                                    self.connectNode(hda)
+                            else:
+                                if self.chb_saveToExistingHDA.isChecked():
+                                    defs = hou.hda.definitionsInFile(HDAoutputName)
+                                    highestVersion = 0
+                                    basename = ropNode.type().name()
+                                    basedescr = ropNode.type().description()
+                                    for i in defs:
+                                        name = i.nodeTypeName()
+                                        v = name.split("_")[-1]
+                                        if sys.version[0] == "2":
+                                            v = unicode(v)
+
+                                        if v.isnumeric():
+                                            if int(v) > highestVersion:
+                                                highestVersion = int(v)
+                                                basename = name.rsplit("_", 1)[0]
+                                                basedescr = i.description().rsplit(
+                                                    "_", 1
+                                                )[0]
+
+                                    aname = basename + "_" + str(highestVersion + 1)
+                                    adescr = basedescr + "_" + str(highestVersion + 1)
+
+                                    tmpPath = HDAoutputName + "tmp"
+                                    if noBackup:
+                                        ropNode.type().definition().save(
+                                            file_name=tmpPath,
+                                            template_node=ropNode,
+                                            compile_contents=bb,
+                                            black_box=bb,
+                                        )
+                                    else:
+                                        ropNode.type().definition().save(
+                                            file_name=tmpPath,
+                                            template_node=ropNode,
+                                            create_backup=False,
+                                            compile_contents=bb,
+                                            black_box=bb,
+                                        )
+                                    defs = hou.hda.definitionsInFile(tmpPath)
+                                    defs[0].copyToHDAFile(
+                                        HDAoutputName,
+                                        new_name=aname,
+                                        new_menu_name=adescr,
+                                    )
+                                    os.remove(tmpPath)
+                                    node = ropNode.changeNodeType(aname)
+                                    self.connectNode(node)
+                                else:
+                                    if noBackup:
+                                        ropNode.type().definition().save(
+                                            file_name=HDAoutputName,
+                                            template_node=ropNode,
+                                            compile_contents=bb,
+                                            black_box=bb,
+                                        )
+                                    else:
+                                        ropNode.type().definition().save(
+                                            file_name=HDAoutputName,
+                                            template_node=ropNode,
+                                            create_backup=False,
+                                            compile_contents=bb,
+                                            black_box=bb,
+                                        )
+
+                                    if self.chb_projectHDA.isChecked():
+                                        oplib = os.path.join(
+                                            os.path.dirname(HDAoutputName),
+                                            "ProjectHDAs.oplib",
+                                        ).replace("\\", "/")
+                                        hou.hda.installFile(
+                                            HDAoutputName, oplib, force_use_assets=True
+                                        )
+                                    else:
+                                        hou.hda.installFile(
+                                            HDAoutputName, force_use_assets=True
+                                        )
+
+                            self.updateUi()
+                        else:
+                            self.node.parm("execute").pressButton()
+                            errs = self.node.errors()
+                            if len(errs) > 0:
+                                errs = "\n" + "\n\n".join(errs)
+                                erStr = "%s ERROR - houExportnode %s:\n%s" % (
+                                    time.strftime("%d/%m/%y %X"),
+                                    self.core.version,
+                                    errs,
+                                )
+                                # 			self.core.writeErrorLog(erStr)
+                                result = "Execute failed: " + errs
+
+                        if result == "":
+                            if len(os.listdir(os.path.dirname(expandedOutputName))) > 0:
+                                result = "Result=Success"
+                            else:
+                                result = "unknown error (files do not exist)"
+
+                    except Exception as e:
+                        exc_type, exc_obj, exc_tb = sys.exc_info()
+                        erStr = "%s ERROR - houExport %s:\n%s" % (
+                            time.strftime("%d/%m/%y %X"),
+                            self.core.version,
+                            traceback.format_exc(),
+                        )
+                        self.core.writeErrorLog(erStr)
+
+                        return [
+                            self.state.text(0)
+                            + " - unknown error (view console for more information)"
+                        ]
+
+                if idx == 1:
+                    if not self.core.appPlugin.setNodeParm(transformNode, scale, val=1):
+                        return [self.state.text(0) + ": error - Publish canceled"]
+
+            self.core.callHook(
+                "postExport",
+                args={
+                    "prismCore": self.core,
+                    "scenefile": fileName,
+                    "startFrame": startFrame,
+                    "endFrame": endFrame,
+                    "outputName": expandedOutputName,
+                },
+            )
+
+            if "Result=Success" in result:
+                return [self.state.text(0) + " - success"]
+            else:
+                erStr = "%s ERROR - houExportPublish %s:\n%s" % (
+                    time.strftime("%d/%m/%y %X"),
+                    self.core.version,
+                    result,
+                )
+                if result == "unknown error (files do not exist)":
+                    QMessageBox.warning(
+                        self.core.messageParent,
+                        "Warning",
+                        "No files were created during the rendering. If you think this is a Prism bug please report it in the forum:\nwww.prism-pipeline.com/forum/\nor write a mail to contact@prism-pipeline.com",
+                    )
+                elif not result.startswith(
+                    "Execute Canceled"
+                ) and not result.startswith("Execute failed"):
+                    self.core.writeErrorLog(erStr)
+                return [self.state.text(0) + " - error - " + result]
+
+    @err_decorator
+    def getStateProps(self):
+        outputTypes = []
+        for i in range(self.cb_outType.count()):
+            outputTypes.append(str(self.cb_outType.itemText(i)))
+
+        try:
+            curNode = self.node.path()
+            self.node.setUserData("PrismPath", curNode)
+        except:
+            curNode = None
+
+        self.curCam
+        try:
+            curCam = self.curCam.name()
+        except:
+            curCam = None
+
+        stateProps = {
+            "statename": self.e_name.text(),
+            "taskname": self.l_taskName.text(),
+            "globalrange": str(self.chb_globalRange.isChecked()),
+            "startframe": self.sp_rangeStart.value(),
+            "endframe": self.sp_rangeEnd.value(),
+            "usetake": str(self.chb_useTake.isChecked()),
+            "take": self.cb_take.currentText(),
+            "curoutputpath": self.cb_outPath.currentText(),
+            "outputtypes": str(outputTypes),
+            "curoutputtype": self.cb_outType.currentText(),
+            "connectednode": curNode,
+            "unitconvert": str(self.chb_convertExport.isChecked()),
+            "savetoexistinghda": str(self.chb_saveToExistingHDA.isChecked()),
+            "projecthda": str(self.chb_projectHDA.isChecked()),
+            "blackboxhda": str(self.chb_blackboxHDA.isChecked()),
+            "submitrender": str(self.gb_submit.isChecked()),
+            "rjmanager": str(self.cb_manager.currentText()),
+            "rjprio": self.sp_rjPrio.value(),
+            "rjframespertask": self.sp_rjFramesPerTask.value(),
+            "rjtimeout": self.sp_rjTimeout.value(),
+            "rjsuspended": str(self.chb_rjSuspended.isChecked()),
+            "osdependencies": str(self.chb_osDependencies.isChecked()),
+            "osupload": str(self.chb_osUpload.isChecked()),
+            "ospassets": str(self.chb_osPAssets.isChecked()),
+            "osslaves": self.e_osSlaves.text(),
+            "curdlgroup": self.cb_dlGroup.currentText(),
+            "currentcam": str(curCam),
+            "currentscamshot": self.cb_sCamShot.currentText(),
+            "lastexportpath": self.l_pathLast.text().replace("\\", "/"),
+            "stateenabled": str(self.state.checkState(0)),
+        }
+
+        return stateProps

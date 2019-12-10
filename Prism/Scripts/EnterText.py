@@ -31,26 +31,27 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 import sys, os
 
 if psVersion == 1:
-	from UserInterfacesPrism import EnterText_ui
+    from UserInterfacesPrism import EnterText_ui
 else:
-	from UserInterfacesPrism import EnterText_ui_ps2 as EnterText_ui
+    from UserInterfacesPrism import EnterText_ui_ps2 as EnterText_ui
 
 
 class EnterText(QDialog, EnterText_ui.Ui_dlg_EnterText):
-	def __init__(self):
-		QDialog.__init__(self)
-		self.setupUi(self)
+    def __init__(self):
+        QDialog.__init__(self)
+        self.setupUi(self)

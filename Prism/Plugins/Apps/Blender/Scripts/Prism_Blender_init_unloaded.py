@@ -31,14 +31,19 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Blender_Variables import Prism_Blender_Variables
-from Prism_Blender_externalAccess_Functions import Prism_Blender_externalAccess_Functions
+from Prism_Blender_externalAccess_Functions import (
+    Prism_Blender_externalAccess_Functions,
+)
 from Prism_Blender_Integration import Prism_Blender_Integration
 
 
-class Prism_Blender_unloaded(Prism_Blender_Variables, Prism_Blender_externalAccess_Functions, Prism_Blender_Integration):
-	def __init__(self, core):
-		Prism_Blender_Variables.__init__(self, core, self)
-		Prism_Blender_externalAccess_Functions.__init__(self, core, self)
-		Prism_Blender_Integration.__init__(self, core, self)
+class Prism_Blender_unloaded(
+    Prism_Blender_Variables,
+    Prism_Blender_externalAccess_Functions,
+    Prism_Blender_Integration,
+):
+    def __init__(self, core):
+        Prism_Blender_Variables.__init__(self, core, self)
+        Prism_Blender_externalAccess_Functions.__init__(self, core, self)
+        Prism_Blender_Integration.__init__(self, core, self)

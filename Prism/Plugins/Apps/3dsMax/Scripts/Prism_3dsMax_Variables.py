@@ -31,23 +31,63 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_3dsMax_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.23"
-		self.pluginName = "3dsMax"
-		self.pluginType = "App"
-		self.appShortName = "Max"
-		self.appType = "3d"
-		self.hasQtParent = True
-		self.sceneFormats = [".max"]
-		self.appSpecificFormats = self.sceneFormats
-		self.outputFormats = [".abc", ".obj", ".fbx", ".max", "ShotCam"]
-		self.appColor = [0,170,170]
-		self.appVersionPresets = ["21,0,0,845", "20,4,0,4254", "19,3,533"]
-		scanlinePasses = ['defaultpasses', 'max_scanline', str(["diffuseRenderElement", "emissionRenderElement", "Lighting", "Material_ID", "MatteRenderElement", "Object_ID", "reflectionRenderElement", "refractionRenderElement", "Self_Illumination", "ShadowRenderElement", "specularRenderElement", "velocity", "ZRenderElement"])]
-		vrayPasses = ['defaultpasses', 'max_vray', str(["MultiMatteElement", "VRayCaustics", "VRayExtraTex", "VRayGlobalIllumination", "VRayLighting", "VRayLightSelect", "VRayNormals", "VRayReflection", "VRayRefraction", "VRaySelfIllumination", "VRayShadows", "VRaySpecular", "VRayVelocity", "VRayZDepth"])]
-		self.renderPasses = [scanlinePasses, vrayPasses]
-		self.shotcamFormat = ".fbx"
-		self.preferredUnit = "centimeter"
-		self.platforms = ["Windows"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.23"
+        self.pluginName = "3dsMax"
+        self.pluginType = "App"
+        self.appShortName = "Max"
+        self.appType = "3d"
+        self.hasQtParent = True
+        self.sceneFormats = [".max"]
+        self.appSpecificFormats = self.sceneFormats
+        self.outputFormats = [".abc", ".obj", ".fbx", ".max", "ShotCam"]
+        self.appColor = [0, 170, 170]
+        self.appVersionPresets = ["21,0,0,845", "20,4,0,4254", "19,3,533"]
+        scanlinePasses = [
+            "defaultpasses",
+            "max_scanline",
+            str(
+                [
+                    "diffuseRenderElement",
+                    "emissionRenderElement",
+                    "Lighting",
+                    "Material_ID",
+                    "MatteRenderElement",
+                    "Object_ID",
+                    "reflectionRenderElement",
+                    "refractionRenderElement",
+                    "Self_Illumination",
+                    "ShadowRenderElement",
+                    "specularRenderElement",
+                    "velocity",
+                    "ZRenderElement",
+                ]
+            ),
+        ]
+        vrayPasses = [
+            "defaultpasses",
+            "max_vray",
+            str(
+                [
+                    "MultiMatteElement",
+                    "VRayCaustics",
+                    "VRayExtraTex",
+                    "VRayGlobalIllumination",
+                    "VRayLighting",
+                    "VRayLightSelect",
+                    "VRayNormals",
+                    "VRayReflection",
+                    "VRayRefraction",
+                    "VRaySelfIllumination",
+                    "VRayShadows",
+                    "VRaySpecular",
+                    "VRayVelocity",
+                    "VRayZDepth",
+                ]
+            ),
+        ]
+        self.renderPasses = [scanlinePasses, vrayPasses]
+        self.shotcamFormat = ".fbx"
+        self.preferredUnit = "centimeter"
+        self.platforms = ["Windows"]

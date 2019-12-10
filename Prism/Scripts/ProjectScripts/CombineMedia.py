@@ -31,260 +31,351 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 import sys, os, time, platform, traceback, subprocess
 from functools import wraps
 
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 if psVersion == 1:
-	import CombineMedia_ui
+    import CombineMedia_ui
 else:
-	import CombineMedia_ui_ps2 as CombineMedia_ui
-
+    import CombineMedia_ui_ps2 as CombineMedia_ui
 
 
 class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
-	def __init__(self, core, ctype):
-		QDialog.__init__(self)
-		self.setupUi(self)
-		self.core = core
-		self.core.parentWindow(self)
-		self.ctype = ctype
+    def __init__(self, core, ctype):
+        QDialog.__init__(self)
+        self.setupUi(self)
+        self.core = core
+        self.core.parentWindow(self)
+        self.ctype = ctype
 
-		dailiesName = self.core.getConfig('paths', "dailies", configPath=self.core.prismIni)
-		if dailiesName is not None:
-			curDate = time.strftime("%Y_%m_%d", time.localtime())
-			outputpreset = os.path.join(self.core.projectPath, dailiesName, curDate, self.core.getConfig("globals", "UserName"), "combined_video.mp4")
-			self.e_output.setText(outputpreset)
+        dailiesName = self.core.getConfig(
+            "paths", "dailies", configPath=self.core.prismIni
+        )
+        if dailiesName is not None:
+            curDate = time.strftime("%Y_%m_%d", time.localtime())
+            outputpreset = os.path.join(
+                self.core.projectPath,
+                dailiesName,
+                curDate,
+                self.core.getConfig("globals", "UserName"),
+                "combined_video.mp4",
+            )
+            self.e_output.setText(outputpreset)
 
-		self.e_task.setText("Combined-Video")
-		self.taskList = self.core.getTaskNames("external", basePath=self.core.pb.renderBasePath)
+        self.e_task.setText("Combined-Video")
+        self.taskList = self.core.getTaskNames(
+            "external", basePath=self.core.pb.renderBasePath
+        )
 
-		if len(self.taskList) == 0:
-			self.b_tasks.setHidden(True)
+        if len(self.taskList) == 0:
+            self.b_tasks.setHidden(True)
 
-		if self.core.pb.renderBasePath is None:
-			self.l_task.setEnabled(False)
-			self.chb_task.setChecked(False)
-			self.chb_task.setEnabled(False)
-			self.e_task.setEnabled(False)
+        if self.core.pb.renderBasePath is None:
+            self.l_task.setEnabled(False)
+            self.chb_task.setChecked(False)
+            self.chb_task.setEnabled(False)
+            self.e_task.setEnabled(False)
 
-		self.connectEvents()
-		self.e_output.setFocus()
+        self.connectEvents()
+        self.e_output.setFocus()
 
+    def err_decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            exc_info = sys.exc_info()
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                erStr = "%s ERROR - MediaCombine %s:\n%s\n\n%s" % (
+                    time.strftime("%d/%m/%y %X"),
+                    args[0].core.version,
+                    "".join(traceback.format_stack()),
+                    traceback.format_exc(),
+                )
+                args[0].core.writeErrorLog(erStr)
 
-	def err_decorator(func):
-		@wraps(func)
-		def func_wrapper(*args, **kwargs):
-			exc_info = sys.exc_info()
-			try:
-				return func(*args, **kwargs)
-			except Exception as e:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - MediaCombine %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
-				args[0].core.writeErrorLog(erStr)
+        return func_wrapper
 
-		return func_wrapper
+    @err_decorator
+    def connectEvents(self):
+        self.b_browse.clicked.connect(self.browseCombineOutputFile)
+        self.b_browse.customContextMenuRequested.connect(
+            lambda: self.core.openFolder(self.e_output.text())
+        )
 
+        self.chb_task.toggled.connect(lambda x: self.e_task.setEnabled(x))
+        self.chb_task.toggled.connect(lambda x: self.b_tasks.setEnabled(x))
+        self.b_tasks.clicked.connect(self.showTasks)
+        self.accepted.connect(self.combine)
 
-	@err_decorator
-	def connectEvents(self):
-		self.b_browse.clicked.connect(self.browseCombineOutputFile)
-		self.b_browse.customContextMenuRequested.connect(lambda: self.core.openFolder(self.e_output.text()))
+    @err_decorator
+    def showTasks(self):
+        tmenu = QMenu()
 
-		self.chb_task.toggled.connect(lambda x: self.e_task.setEnabled(x))
-		self.chb_task.toggled.connect(lambda x: self.b_tasks.setEnabled(x))
-		self.b_tasks.clicked.connect(self.showTasks)
-		self.accepted.connect(self.combine)
+        for i in self.taskList:
+            tAct = QAction(i, self)
+            tAct.triggered.connect(lambda x=None, t=i: self.e_task.setText(t))
+            tmenu.addAction(tAct)
 
+        self.core.appPlugin.setRCStyle(self, tmenu)
 
-	@err_decorator
-	def showTasks(self):
-		tmenu = QMenu()
+        tmenu.exec_(QCursor.pos())
 
-		for i in self.taskList:
-			tAct = QAction(i, self)
-			tAct.triggered.connect(lambda x=None, t=i: self.e_task.setText(t))
-			tmenu.addAction(tAct)
+    @err_decorator
+    def combine(self):
+        output = self.e_output.text()
 
-		self.core.appPlugin.setRCStyle(self, tmenu)
+        if not os.path.exists(os.path.dirname(output)):
+            try:
+                os.makedirs(os.path.dirname(output))
+            except:
+                QMessageBox.warning(
+                    self.core.messageParent,
+                    "Video combine",
+                    "Could not create outputfolder %s" % os.path.dirname(output),
+                )
+                return
 
-		tmenu.exec_(QCursor.pos())
+        ffmpegIsInstalled = False
+        if platform.system() == "Windows":
+            ffmpegPath = os.path.join(
+                self.core.prismRoot, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
+            )
+            if os.path.exists(ffmpegPath):
+                ffmpegIsInstalled = True
+        elif platform.system() == "Linux":
+            ffmpegPath = "ffmpeg"
+            try:
+                subprocess.Popen([ffmpegPath])
+                ffmpegIsInstalled = True
+            except:
+                pass
+        elif platform.system() == "Darwin":
+            ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "ffmpeg")
+            if os.path.exists(ffmpegPath):
+                ffmpegIsInstalled = True
 
+        if not ffmpegIsInstalled:
+            QMessageBox.critical(
+                self.core.messageParent,
+                "Video combine",
+                "Could not find %s" % ffmpegPath,
+            )
+            return
 
-	@err_decorator
-	def combine(self):
-		output = self.e_output.text()
+        if len(self.core.pb.compareStates) > 0:
+            cStates = self.core.pb.compareStates
+        else:
+            cStates = self.core.pb.getCurRenders()[0]
 
-		if not os.path.exists(os.path.dirname(output)):
-			try:
-				os.makedirs(os.path.dirname(output))
-			except:
-				QMessageBox.warning(self.core.messageParent, "Video combine", "Could not create outputfolder %s" % os.path.dirname(output))
-				return
+        if self.ctype in ["layout", "sequence"]:
+            cStates = reversed(cStates)
 
-		ffmpegIsInstalled = False
-		if platform.system() == "Windows":
-			ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "FFmpeg" ,"bin", "ffmpeg.exe")
-			if os.path.exists(ffmpegPath):
-				ffmpegIsInstalled = True
-		elif platform.system() == "Linux":
-			ffmpegPath = "ffmpeg"
-			try:
-				subprocess.Popen([ffmpegPath])
-				ffmpegIsInstalled = True
-			except:
-				pass
-		elif platform.system() == "Darwin":
-			ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "ffmpeg")
-			if os.path.exists(ffmpegPath):
-				ffmpegIsInstalled = True
+        tmpFiles = []
+        sources = []
+        combineInputs = []
+        tw = th = 0
+        stdout = ""
+        stderr = ""
 
-		if not ffmpegIsInstalled:
-			QMessageBox.critical(self.core.messageParent, "Video combine", "Could not find %s" % ffmpegPath)
-			return
+        for i in cStates:
+            if os.path.isfile(i):
+                inputpath = i
+            else:
+                inputpath = self.core.pb.getImgSources(i, getFirstFile=True)
+                if len(inputpath) == 0:
+                    continue
 
-		if len(self.core.pb.compareStates) > 0:
-			cStates = self.core.pb.compareStates
-		else:
-			cStates = self.core.pb.getCurRenders()[0]
+                inputpath = inputpath[0]
 
-		if self.ctype in ["layout", "sequence"]:
-			cStates = reversed(cStates)
+            iw, ih = self.core.pb.getMediaResolution(inputpath)
+            if iw == "?" or ih == "?":
+                continue
 
-		tmpFiles = []
-		sources = []
-		combineInputs = []
-		tw = th = 0
-		stdout = ""
-		stderr = ""
+            if iw > tw:
+                tw = iw
+            if ih > th:
+                th = ih
 
-		for i in cStates:
-			if os.path.isfile(i):
-				inputpath = i
-			else:
-				inputpath = self.core.pb.getImgSources(i, getFirstFile=True)
-				if len(inputpath) == 0:
-					continue
+            inputExt = os.path.splitext(inputpath)[1]
 
-				inputpath = inputpath[0]
+            isSequence = not inputExt in [".mp4", ".mov"]
 
-			iw, ih = self.core.pb.getMediaResolution(inputpath)
-			if iw == "?" or ih == "?":
-				continue
+            if isSequence:
+                outputpath = os.path.splitext(inputpath)[0][:-5] + ".mp4"
+                if not os.path.exists(os.path.dirname(outputpath)):
+                    os.makedirs(os.path.dirname(outputpath))
 
-			if iw > tw:
-				tw = iw
-			if ih > th:
-				th = ih
+                startNum = os.path.splitext(inputpath)[0][-4:]
+                inputpath = os.path.splitext(inputpath)[0][:-4] + "%04d" + inputExt
+                nProc = subprocess.Popen(
+                    [
+                        ffmpegPath,
+                        "-start_number",
+                        startNum,
+                        "-framerate",
+                        "24",
+                        "-apply_trc",
+                        "iec61966_2_1",
+                        "-i",
+                        inputpath,
+                        "-pix_fmt",
+                        "yuva420p",
+                        "-start_number",
+                        startNum,
+                        outputpath,
+                        "-y",
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                result = nProc.communicate()
+                stdout += result[0]
+                stderr += result[1]
+                if not os.path.exists(outputpath) or os.stat(outputpath).st_size == 0:
+                    continue
 
-			inputExt = os.path.splitext(inputpath)[1]
+                tmpFiles.append(outputpath)
+                inputpath = outputpath
 
-			isSequence = not inputExt in [".mp4", ".mov"]
+            sources.append([inputpath, iw, ih])
 
-			if isSequence:
-				outputpath = os.path.splitext(inputpath)[0][:-5] + ".mp4"
-				if not os.path.exists(os.path.dirname(outputpath)):
-					os.makedirs(os.path.dirname(outputpath))
-				
-				startNum = os.path.splitext(inputpath)[0][-4:]
-				inputpath = os.path.splitext(inputpath)[0][:-4] + "%04d" + inputExt
-				nProc = subprocess.Popen([ffmpegPath, "-start_number", startNum, "-framerate", "24", "-apply_trc", "iec61966_2_1", "-i", inputpath, "-pix_fmt", "yuva420p", "-start_number", startNum, outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-				result = nProc.communicate()
-				stdout += result[0]
-				stderr += result[1]
-				if not os.path.exists(outputpath) or os.stat(outputpath).st_size == 0:
-					continue
+        for i in sources:
+            inputpath = i[0]
 
-				tmpFiles.append(outputpath)
-				inputpath = outputpath
+            outputpath = os.path.splitext(inputpath)[0] + "_converted.mp4"
+            outputpathts = os.path.splitext(inputpath)[0] + "_converted.ts"
 
-			sources.append([inputpath, iw, ih])
+            iw = i[1]
+            ih = i[2]
 
-		for i in sources:
-			inputpath = i[0]
+            newW = iw * min(tw / iw, th / ih)
+            newH = ih * min(tw / iw, th / ih)
 
-			outputpath = os.path.splitext(inputpath)[0] + "_converted.mp4"
-			outputpathts = os.path.splitext(inputpath)[0] + "_converted.ts"
+            pad = "%s:%s:%s:%s" % (
+                tw,
+                th,
+                (tw - iw * min(tw / iw, th / ih)) / 2,
+                (th - ih * min(tw / iw, th / ih)) / 2,
+            )
 
-			iw = i[1]
-			ih = i[2]
+            nProc = subprocess.Popen(
+                [
+                    ffmpegPath,
+                    "-i",
+                    inputpath,
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-vf",
+                    "scale=%s:%s, pad=%s" % (newW, newH, pad),
+                    outputpath,
+                    "-y",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            result = nProc.communicate()
+            stdout += result[0]
+            stderr += result[1]
+            nProc = subprocess.Popen(
+                [
+                    ffmpegPath,
+                    "-i",
+                    outputpath,
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c",
+                    "copy",
+                    "-bsf:v",
+                    "h264_mp4toannexb",
+                    outputpathts,
+                    "-y",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            result = nProc.communicate()
+            stdout += result[0]
+            stderr += result[1]
 
-			newW = iw*min(tw/iw,th/ih)
-			newH = ih*min(tw/iw,th/ih)
+            tmpFiles.append(outputpath)
+            tmpFiles.append(outputpathts)
 
-			pad = "%s:%s:%s:%s" % (tw, th, (tw-iw*min(tw/iw,th/ih))/2, (th-ih*min(tw/iw,th/ih))/2)
+            if os.path.exists(outputpathts):
+                combineInputs.append(outputpathts)
 
-			nProc = subprocess.Popen([ffmpegPath, "-i", inputpath, "-pix_fmt", "yuv420p", "-vf", "scale=%s:%s, pad=%s" % (newW, newH, pad), outputpath, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			result = nProc.communicate()
-			stdout += result[0]
-			stderr += result[1]
-			nProc = subprocess.Popen([ffmpegPath, "-i", outputpath, "-pix_fmt", "yuv420p", "-c", "copy", "-bsf:v", "h264_mp4toannexb", outputpathts, "-y"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			result = nProc.communicate()
-			stdout += result[0]
-			stderr += result[1]
+        if self.ctype == "sequence":
+            args = [ffmpegPath]
+            filterStr = ""
+            for idx, i in enumerate(combineInputs):
+                args += ["-i", i]
+                filterStr += "[%s:0]" % idx
+            args += ["-filter_complex"]
+            filterStr += "concat=n=%s:v=1:a=0 [v]" % len(combineInputs)
+            args += [filterStr, "-map", "[v]", "-pix_fmt", "yuv420p", output, "-y"]
+            nProc = subprocess.call(args)
+        # 	elif self.ctype == "layout":
+        # 	elif self.ctype == "stack":
+        # 	elif self.ctype == "stackDif":
 
-			tmpFiles.append(outputpath)
-			tmpFiles.append(outputpathts)
+        if self.chb_task.isChecked() and self.e_task.text() != "":
+            versionBase = os.path.join(
+                self.core.pb.renderBasePath, "Rendering", "external", self.e_task.text()
+            )
+            newVersion = self.core.getHighestTaskVersion(versionBase)
+            self.core.pb.createExternalTask(
+                data={
+                    "taskName": self.e_task.text(),
+                    "versionName": newVersion,
+                    "targetPath": output,
+                }
+            )
 
-			if os.path.exists(outputpathts):
-				combineInputs.append(outputpathts)
+        for k in tmpFiles:
+            try:
+                os.remove(k)
+            except:
+                pass
 
-		if self.ctype == "sequence":
-			args = [ffmpegPath]
-			filterStr = ""
-			for idx, i in enumerate(combineInputs):
-				args += ["-i", i]
-				filterStr += "[%s:0]" % idx
-			args += ["-filter_complex"]
-			filterStr += "concat=n=%s:v=1:a=0 [v]" % len(combineInputs)
-			args += [filterStr, "-map", "[v]", "-pix_fmt", "yuv420p", output, "-y"]
-			nProc = subprocess.call(args)
-	#	elif self.ctype == "layout":
-	#	elif self.ctype == "stack":
-	#	elif self.ctype == "stackDif":
+        if os.path.exists(output):
+            self.core.copyToClipboard(output)
+            QMessageBox.information(
+                self.core.messageParent,
+                "Media combine",
+                "The video was created successfully. (path is in clipboard)",
+            )
+        else:
+            self.core.ffmpegError(
+                "Media combine", "The video could not be created.", [stdout, stderr]
+            )
 
-		if self.chb_task.isChecked() and self.e_task.text() != "":
-			versionBase = os.path.join(self.core.pb.renderBasePath, "Rendering", "external", self.e_task.text())
-			newVersion = self.core.getHighestTaskVersion(versionBase)
-			self.core.pb.createExternalTask(data={"taskName":self.e_task.text(), "versionName":newVersion, "targetPath":output})
+    @err_decorator
+    def browseCombineOutputFile(self):
+        path = QFileDialog.getSaveFileName(
+            self, "Select Outputfile", self.e_output.text(), "Video (*.mp4)"
+        )[0]
+        if path != "":
+            self.e_output.setText(path)
 
-		for k in tmpFiles:
-			try:
-				os.remove(k)
-			except:
-				pass
+    @err_decorator
+    def getTasks(self):
+        taskList = self.core.getTaskNames(self.taskType)
 
-		if os.path.exists(output):
-			self.core.copyToClipboard(output)
-			QMessageBox.information(self.core.messageParent,"Media combine", "The video was created successfully. (path is in clipboard)")
-		else:
-			self.core.ffmpegError("Media combine", "The video could not be created.", [stdout, stderr])
-
-
-
-	@err_decorator
-	def browseCombineOutputFile(self):
-		path = QFileDialog.getSaveFileName(self, "Select Outputfile", self.e_output.text(), "Video (*.mp4)")[0]
-		if path != "":
-			self.e_output.setText(path)
-
-
-	@err_decorator
-	def getTasks(self):
-		taskList = self.core.getTaskNames(self.taskType)
-
-		if len(self.taskList) == 0:
-			self.b_showTasks.setHidden(True)
-		else:
-			if "_ShotCam" in self.taskList:
-				self.taskList.remove("_ShotCam")
+        if len(self.taskList) == 0:
+            self.b_showTasks.setHidden(True)
+        else:
+            if "_ShotCam" in self.taskList:
+                self.taskList.remove("_ShotCam")

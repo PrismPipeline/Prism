@@ -31,51 +31,55 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 import os, sys
 
-prismRoot = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir))
+prismRoot = os.path.abspath(
+    os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir)
+)
 
 sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
 sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 qapp = QApplication.instance()
 if qapp == None:
     qapp = QApplication(sys.argv)
 
 import PrismCore
+
 pcore = PrismCore.PrismCore(app="Photoshop")
 
 if hasattr(pcore.appPlugin, "psApp"):
-	curPrj = pcore.getConfig("globals", "current project")
-	pcore.changeProject(curPrj)
+    curPrj = pcore.getConfig("globals", "current project")
+    pcore.changeProject(curPrj)
 
-	result = False
-	if sys.argv[1] == "Tools":
-		result = pcore.appPlugin.openPhotoshopTools()
-	elif sys.argv[1] == "SaveVersion":
-		pcore.saveScene()
-	elif sys.argv[1] == "SaveComment":
-		pcore.saveWithComment()
-	elif sys.argv[1] == "Export":
-		result = pcore.appPlugin.exportImage()
-	elif sys.argv[1] == "ProjectBrowser":
-		result = pcore.projectBrowser()
-	elif sys.argv[1] == "Settings":
-		result = pcore.prismSettings()
+    result = False
+    if sys.argv[1] == "Tools":
+        result = pcore.appPlugin.openPhotoshopTools()
+    elif sys.argv[1] == "SaveVersion":
+        pcore.saveScene()
+    elif sys.argv[1] == "SaveComment":
+        pcore.saveWithComment()
+    elif sys.argv[1] == "Export":
+        result = pcore.appPlugin.exportImage()
+    elif sys.argv[1] == "ProjectBrowser":
+        result = pcore.projectBrowser()
+    elif sys.argv[1] == "Settings":
+        result = pcore.prismSettings()
 
-	if len(sys.argv) > 2:
-		pcore.appPlugin.openScene(origin=pcore, filepath=sys.argv[2])
+    if len(sys.argv) > 2:
+        pcore.appPlugin.openScene(origin=pcore, filepath=sys.argv[2])
 
-	if result == True:
-	    qapp.exec_()
+    if result == True:
+        qapp.exec_()

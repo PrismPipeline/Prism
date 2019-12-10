@@ -32,21 +32,25 @@
 
 
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 import os, sys, traceback, time
 from functools import wraps
 
-gLibs = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir, os.pardir, "PythonLibs", "GoogleDocs"))
+gLibs = os.path.abspath(
+    os.path.join(__file__, os.pardir, os.pardir, os.pardir, "PythonLibs", "GoogleDocs")
+)
 if gLibs not in sys.path:
-	sys.path.append(gLibs)
+    sys.path.append(gLibs)
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -54,59 +58,64 @@ import pprint
 
 
 class GoogleDocs(QDialog):
-	def __init__(self, core, authorizationfile):
-		super(GoogleDocs, self).__init__()
-		self.core = core
-		self.authorize(authorizationfile)
+    def __init__(self, core, authorizationfile):
+        super(GoogleDocs, self).__init__()
+        self.core = core
+        self.authorize(authorizationfile)
 
+    def err_decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            exc_info = sys.exc_info()
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                erStr = "%s ERROR - GoogleDocs %s:\n%s\n\n%s" % (
+                    time.strftime("%d/%m/%y %X"),
+                    args[0].core.version,
+                    "".join(traceback.format_stack()),
+                    traceback.format_exc(),
+                )
+                args[0].core.writeErrorLog(erStr)
 
-	def err_decorator(func):
-		@wraps(func)
-		def func_wrapper(*args, **kwargs):
-			exc_info = sys.exc_info()
-			try:
-				return func(*args, **kwargs)
-			except Exception as e:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - GoogleDocs %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
-				args[0].core.writeErrorLog(erStr)
+        return func_wrapper
 
-		return func_wrapper
+    @err_decorator
+    def authorize(self, authorizationfile):
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = ServiceAccountCredentials.from_json_keyfile_name(
+            authorizationfile, scope
+        )
+        self.client = gspread.authorize(creds)
 
+    @err_decorator
+    def getRows(self, docName, sheetName, columns, fromRow=-1, toRow=-1):
+        sheet = self.client.open(docName).worksheet(sheetName)
+        colVals = []
+        for col in columns:
+            colVals.append(sheet.col_values(col))
 
-	@err_decorator
-	def authorize(self, authorizationfile):
-		scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
-		creds = ServiceAccountCredentials.from_json_keyfile_name(authorizationfile, scope)
-		self.client = gspread.authorize(creds)
-		
+        if not colVals:
+            return
 
+        entities = []
+        rows = range(len(colVals[0]))
+        if toRow != -1:
+            rows = rows[:(toRow)]
+        if fromRow != -1:
+            rows = rows[(fromRow - 1) :]
+        for i in rows:
+            entity = [x[i] if len(x) > i else "" for x in colVals]
+            entities.append(entity)
 
-	@err_decorator
-	def getRows(self, docName, sheetName, columns, fromRow=-1, toRow=-1):
-		sheet = self.client.open(docName).worksheet(sheetName)
-		colVals = []
-		for col in columns:
-			colVals.append(sheet.col_values(col))
-
-		if not colVals:
-			return
-
-		entities = []
-		rows = range(len(colVals[0]))
-		if toRow != -1:
-			rows = rows[:(toRow)]
-		if fromRow != -1:
-			rows = rows[(fromRow-1):]
-		for i in rows:
-			entity = [x[i] if len(x) > i else "" for x in colVals]
-			entities.append(entity)
-
-		return entities
-
+        return entities
 
 
 def readGDocs(core, authorizationfile, docName, sheetName, columns, fromRow, toRow):
-	gd = GoogleDocs(core, authorizationfile)
-	data = gd.getRows(docName, sheetName, columns, fromRow, toRow)
-	return data
+    gd = GoogleDocs(core, authorizationfile)
+    data = gd.getRows(docName, sheetName, columns, fromRow, toRow)
+    return data

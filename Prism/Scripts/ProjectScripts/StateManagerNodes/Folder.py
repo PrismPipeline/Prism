@@ -31,102 +31,123 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
 except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 import sys, os
 
 
 class FolderClass(object):
-	def setup(self, state, core, stateManager, stateData=None, listType=None):
-		self.state = state
-		self.stateManager = stateManager
-		self.e_name.setText(state.text(0))
+    def setup(self, state, core, stateManager, stateData=None, listType=None):
+        self.state = state
+        self.stateManager = stateManager
+        self.e_name.setText(state.text(0))
 
-		self.className = "Folder"
+        self.className = "Folder"
 
-		if listType is None:
-			if stateManager.activeList == stateManager.tw_import:
-				listType = "Import"
-			else:
-				listType = "Export"
+        if listType is None:
+            if stateManager.activeList == stateManager.tw_import:
+                listType = "Import"
+            else:
+                listType = "Export"
 
-		self.listType = listType
+        self.listType = listType
 
-		self.connectEvents()
+        self.connectEvents()
 
-		if stateData is not None:
-			self.loadData(stateData)
+        if stateData is not None:
+            self.loadData(stateData)
 
-	def loadData(self, data):
-		if "statename" in data:
-			self.e_name.setText(data["statename"])
-		if "listtype" in data:
-			self.listType = data["listtype"]
-		if "stateenabled" in data and self.listType == "Export":
-			self.state.setCheckState(0, eval(data["stateenabled"].replace("PySide.QtCore.", "").replace("PySide2.QtCore.", "")))
-		if "stateexpanded" in data:
-			if not eval(data["stateexpanded"]):
-				self.stateManager.collapsedFolders.append(self.state)
+    def loadData(self, data):
+        if "statename" in data:
+            self.e_name.setText(data["statename"])
+        if "listtype" in data:
+            self.listType = data["listtype"]
+        if "stateenabled" in data and self.listType == "Export":
+            self.state.setCheckState(
+                0,
+                eval(
+                    data["stateenabled"]
+                    .replace("PySide.QtCore.", "")
+                    .replace("PySide2.QtCore.", "")
+                ),
+            )
+        if "stateexpanded" in data:
+            if not eval(data["stateexpanded"]):
+                self.stateManager.collapsedFolders.append(self.state)
 
-	def connectEvents(self):
-		self.e_name.textChanged.connect(self.nameChanged)
-		self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
+    def connectEvents(self):
+        self.e_name.textChanged.connect(self.nameChanged)
+        self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
 
-	def nameChanged(self, text):
-		self.state.setText(0, text)
+    def nameChanged(self, text):
+        self.state.setText(0, text)
 
-	def updateUi(self):
-		return True
+    def updateUi(self):
+        return True
 
-	def preExecuteState(self):
-		warnings = []
+    def preExecuteState(self):
+        warnings = []
 
-		for i in range(self.state.childCount()):
-			if self.state.child(i).checkState(0) == Qt.Checked:
-				warnings += self.state.child(i).ui.preExecuteState()
+        for i in range(self.state.childCount()):
+            if self.state.child(i).checkState(0) == Qt.Checked:
+                warnings += self.state.child(i).ui.preExecuteState()
 
-		return warnings
+        return warnings
 
+    def executeState(self, parent, useVersion="next"):
+        result = []
+        self.osSubmittedJobs = {}
+        self.osDependencies = []
+        self.dependencies = []
 
-	def executeState(self, parent, useVersion="next"):
-		result = []
-		self.osSubmittedJobs = {}
-		self.osDependencies = []
-		self.dependencies = []
+        for i in range(self.state.childCount()):
+            curState = self.state.child(i)
+            if self.state.child(i).checkState(0) == Qt.Checked and curState in set(
+                self.stateManager.execStates
+            ):
+                if self.state.child(i).ui.className in [
+                    "ImageRender",
+                    "Export",
+                    "Playblast",
+                    "Folder",
+                ]:
+                    exResult = self.state.child(i).ui.executeState(
+                        parent=self, useVersion=useVersion
+                    )
+                else:
+                    exResult = self.state.child(i).ui.executeState(parent=self)
 
-		for i in range(self.state.childCount()):
-			curState = self.state.child(i)
-			if self.state.child(i).checkState(0) == Qt.Checked and curState in set(self.stateManager.execStates):
-				if self.state.child(i).ui.className in ["ImageRender", "Export", "Playblast", "Folder"]:		
-					exResult = (self.state.child(i).ui.executeState(parent=self, useVersion=useVersion))
-				else:
-					exResult = (self.state.child(i).ui.executeState(parent=self))
+                if curState.ui.className == "Folder":
+                    result += exResult
 
-				if curState.ui.className == "Folder":
-					result += exResult
+                    for k in exResult:
+                        if "publish paused" in k["result"][0]:
+                            return result
+                else:
+                    result.append({"state": curState.ui, "result": exResult})
 
-					for k in exResult:
-						if "publish paused" in k["result"][0]:
-							return result
-				else:
-					result.append({"state": curState.ui, "result":exResult})
+                    if "publish paused" in exResult[0]:
+                        return result
 
-					if "publish paused" in exResult[0]:
-						return result
+        self.osSubmittedJobs = {}
+        self.osDependencies = []
+        self.dependencies = []
+        return result
 
-		self.osSubmittedJobs = {}
-		self.osDependencies = []
-		self.dependencies = []
-		return result
-
-	def getStateProps(self):
-		return {"statename": self.e_name.text(), "listtype": self.listType, "stateenabled":str(self.state.checkState(0)), "stateexpanded":self.state.isExpanded()}
+    def getStateProps(self):
+        return {
+            "statename": self.e_name.text(),
+            "listtype": self.listType,
+            "stateenabled": str(self.state.checkState(0)),
+            "stateexpanded": self.state.isExpanded(),
+        }

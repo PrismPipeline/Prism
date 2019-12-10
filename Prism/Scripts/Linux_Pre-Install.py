@@ -36,19 +36,25 @@ pysideInstalled = True
 pyside2Installed = True
 
 try:
-	from PySide2.QtCore import *
+    from PySide2.QtCore import *
 except:
-	pyside2Installed = False
+    pyside2Installed = False
 
 
 try:
-	from PySide.QtCore import *
+    from PySide.QtCore import *
 except:
-	pysideInstalled = False
+    pysideInstalled = False
 
 if not pysideInstalled and not pyside2Installed:
-	libPath = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "PythonLibs", "lib-inactive")
-	libtPath = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "PythonLibs", "lib")
+    libPath = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "PythonLibs",
+        "lib-inactive",
+    )
+    libtPath = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "PythonLibs", "lib"
+    )
 
-	if os.path.exists(libPath) and not os.path.exists(libtPath):
-		os.rename(libPath, libtPath)
+    if os.path.exists(libPath) and not os.path.exists(libtPath):
+        os.rename(libPath, libtPath)

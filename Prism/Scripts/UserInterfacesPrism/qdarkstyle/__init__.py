@@ -36,7 +36,7 @@ __version__ = "2.3.0"
 
 
 def _logger():
-    return logging.getLogger('qdarkstyle')
+    return logging.getLogger("qdarkstyle")
 
 
 def load_stylesheet(pyside=True):
@@ -64,22 +64,21 @@ def load_stylesheet(pyside=True):
 
     f = QFile(":qdarkstyle/style.qss")
     if not f.exists():
-        _logger().error("Unable to load stylesheet, file not found in "
-                        "resources")
+        _logger().error("Unable to load stylesheet, file not found in " "resources")
         return ""
     else:
         f.open(QFile.ReadOnly | QFile.Text)
         ts = QTextStream(f)
         stylesheet = ts.readAll()
-        if platform.system().lower() == 'darwin':  # see issue #12 on github
-            mac_fix = '''
+        if platform.system().lower() == "darwin":  # see issue #12 on github
+            mac_fix = """
             QDockWidget::title
             {
                 background-color: #31363b;
                 text-align: center;
                 height: 12px;
             }
-            '''
+            """
             stylesheet += mac_fix
         return stylesheet
 
@@ -100,21 +99,20 @@ def load_stylesheet_pyqt5():
 
     f = QFile(":qdarkstyle/style.qss")
     if not f.exists():
-        _logger().error("Unable to load stylesheet, file not found in "
-                        "resources")
+        _logger().error("Unable to load stylesheet, file not found in " "resources")
         return ""
     else:
         f.open(QFile.ReadOnly | QFile.Text)
         ts = QTextStream(f)
         stylesheet = ts.readAll()
-        if platform.system().lower() == 'darwin':  # see issue #12 on github
-            mac_fix = '''
+        if platform.system().lower() == "darwin":  # see issue #12 on github
+            mac_fix = """
             QDockWidget::title
             {
                 background-color: #31363b;
                 text-align: center;
                 height: 12px;
             }
-            '''
+            """
             stylesheet += mac_fix
         return stylesheet

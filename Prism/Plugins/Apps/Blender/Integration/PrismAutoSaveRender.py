@@ -31,7 +31,6 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 import sys, os, bpy, platform
 from bpy.app.handlers import persistent
 from configparser import ConfigParser
@@ -39,84 +38,101 @@ from configparser import ConfigParser
 
 @persistent
 def saveRender(scene):
-	userConfig = ConfigParser()
-	configPath = os.path.join(os.environ["userprofile"], "Documents", "Prism", "Prism.ini")
-	userConfig.read(configPath)
+    userConfig = ConfigParser()
+    configPath = os.path.join(
+        os.environ["userprofile"], "Documents", "Prism", "Prism.ini"
+    )
+    userConfig.read(configPath)
 
-	saveActive = userConfig.has_option('blender', "autosaverender") and userConfig.getboolean('blender', "autosaverender")
-	if not saveActive:
-		return
+    saveActive = userConfig.has_option(
+        "blender", "autosaverender"
+    ) and userConfig.getboolean("blender", "autosaverender")
+    if not saveActive:
+        return
 
-	if "PrismIsRendering" in bpy.context.scene and bpy.context.scene["PrismIsRendering"]:
-		return
+    if (
+        "PrismIsRendering" in bpy.context.scene
+        and bpy.context.scene["PrismIsRendering"]
+    ):
+        return
 
-	if userConfig.has_option('blender', "autosaveperproject") and userConfig.getboolean('blender', "autosaveperproject"):
-		if not (userConfig.has_option('globals', "current project") and os.path.exists(userConfig.get('globals', "current project"))):
-			return
+    if userConfig.has_option("blender", "autosaveperproject") and userConfig.getboolean(
+        "blender", "autosaveperproject"
+    ):
+        if not (
+            userConfig.has_option("globals", "current project")
+            and os.path.exists(userConfig.get("globals", "current project"))
+        ):
+            return
 
-		prjConfig = ConfigParser()
-		prjConfig.read(userConfig.get('globals', "current project"))
+        prjConfig = ConfigParser()
+        prjConfig.read(userConfig.get("globals", "current project"))
 
-		if not prjConfig.has_option('globals', "project_name"): 
-			return
+        if not prjConfig.has_option("globals", "project_name"):
+            return
 
-		prjName = prjConfig.get('globals', "project_name")
+        prjName = prjConfig.get("globals", "project_name")
 
-		if not userConfig.has_option('blender', "autosavepath_%s" % prjName): 
-			return
+        if not userConfig.has_option("blender", "autosavepath_%s" % prjName):
+            return
 
-		savePath = userConfig.get('blender', "autosavepath_%s" % prjName)
+        savePath = userConfig.get("blender", "autosavepath_%s" % prjName)
 
-	elif userConfig.has_option('blender', "autosavepath"):
-		savePath = userConfig.get('blender', "autosavepath")
-	else:
-		return
+    elif userConfig.has_option("blender", "autosavepath"):
+        savePath = userConfig.get("blender", "autosavepath")
+    else:
+        return
 
-	if not os.path.exists(savePath):
-		try:
-			os.makedirs(savePath)
-		except:
-			return
+    if not os.path.exists(savePath):
+        try:
+            os.makedirs(savePath)
+        except:
+            return
 
-	if not os.path.exists(savePath):
-		return
+    if not os.path.exists(savePath):
+        return
 
-	fileName = os.path.splitext(os.path.basename(bpy.data.filepath))[0]
+    fileName = os.path.splitext(os.path.basename(bpy.data.filepath))[0]
 
-	renderFiles = [x for x in os.listdir(savePath) if x.startswith(fileName) and os.path.splitext(x)[1] == ".png"]
+    renderFiles = [
+        x
+        for x in os.listdir(savePath)
+        if x.startswith(fileName) and os.path.splitext(x)[1] == ".png"
+    ]
 
-	highversion = 0
-	for i in renderFiles:
-		try:
-			vNum = int(i[-8:-4])
-		except:
-			continue
+    highversion = 0
+    for i in renderFiles:
+        try:
+            vNum = int(i[-8:-4])
+        except:
+            continue
 
-		if vNum > highversion:
-			highversion = vNum
-				
-	fileName = os.path.join(savePath, fileName) + "{:04d}.png".format(highversion+1)
+        if vNum > highversion:
+            highversion = vNum
 
-	prevFormat = scene.render.image_settings.file_format
-	scene.render.image_settings.file_format = "PNG"
+    fileName = os.path.join(savePath, fileName) + "{:04d}.png".format(highversion + 1)
 
-	rndImage = bpy.data.images['Render Result']
+    prevFormat = scene.render.image_settings.file_format
+    scene.render.image_settings.file_format = "PNG"
 
-	if not rndImage:
-		return
+    rndImage = bpy.data.images["Render Result"]
 
-	rndImage.save_render(fileName)
-	scene.render.image_settings.file_format = prevFormat
-	
+    if not rndImage:
+        return
+
+    rndImage.save_render(fileName)
+    scene.render.image_settings.file_format = prevFormat
+
 
 def register():
-	if bpy.app.background:
-		return
+    if bpy.app.background:
+        return
 
-	bpy.app.handlers.render_post.append(saveRender)
+    bpy.app.handlers.render_post.append(saveRender)
+
 
 def unregister():
-	if bpy.app.background:
-		return
-	
-	bpy.app.handlers.render_post.remove(saveRender)
+    if bpy.app.background:
+        return
+
+    bpy.app.handlers.render_post.remove(saveRender)

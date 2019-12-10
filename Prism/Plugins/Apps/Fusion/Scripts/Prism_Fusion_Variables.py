@@ -31,17 +31,16 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 class Prism_Fusion_Variables(object):
-	def __init__(self, core, plugin):
-		self.version = "v1.2.1.23"
-		self.pluginName = "Fusion"
-		self.pluginType = "App"
-		self.appShortName = "Fusion"
-		self.appType = "2d"
-		self.hasQtParent = False
-		self.sceneFormats = [".comp"]
-		self.appSpecificFormats = self.sceneFormats
-		self.appColor = [134,96,166]
-		self.appVersionPresets = ["9.02"]
-		self.platforms = ["Windows"]
+    def __init__(self, core, plugin):
+        self.version = "v1.2.1.23"
+        self.pluginName = "Fusion"
+        self.pluginType = "App"
+        self.appShortName = "Fusion"
+        self.appType = "2d"
+        self.hasQtParent = False
+        self.sceneFormats = [".comp"]
+        self.appSpecificFormats = self.sceneFormats
+        self.appColor = [134, 96, 166]
+        self.appVersionPresets = ["9.02"]
+        self.platforms = ["Windows"]

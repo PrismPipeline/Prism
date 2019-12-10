@@ -31,16 +31,20 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_Maya_Variables import Prism_Maya_Variables
 from Prism_Maya_externalAccess_Functions import Prism_Maya_externalAccess_Functions
 from Prism_Maya_Functions import Prism_Maya_Functions
 from Prism_Maya_Integration import Prism_Maya_Integration
 
 
-class Prism_Plugin_Maya(Prism_Maya_Variables, Prism_Maya_externalAccess_Functions, Prism_Maya_Functions, Prism_Maya_Integration):
-	def __init__(self, core):
-		Prism_Maya_Variables.__init__(self, core, self)
-		Prism_Maya_externalAccess_Functions.__init__(self, core, self)
-		Prism_Maya_Functions.__init__(self, core, self)
-		Prism_Maya_Integration.__init__(self, core, self)
+class Prism_Plugin_Maya(
+    Prism_Maya_Variables,
+    Prism_Maya_externalAccess_Functions,
+    Prism_Maya_Functions,
+    Prism_Maya_Integration,
+):
+    def __init__(self, core):
+        Prism_Maya_Variables.__init__(self, core, self)
+        Prism_Maya_externalAccess_Functions.__init__(self, core, self)
+        Prism_Maya_Functions.__init__(self, core, self)
+        Prism_Maya_Integration.__init__(self, core, self)
