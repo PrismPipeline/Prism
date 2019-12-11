@@ -2973,7 +2973,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.lw_sPipeline.blockSignals(False)
 
         if not self.cursShots:
-            self.cursCat = None
+            self.cursStep = None
             self.refreshsCat()
             return
 
@@ -3002,7 +3002,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.lw_sPipeline.count() > 0:
             self.lw_sPipeline.setCurrentRow(0)
         else:
-            self.cursCat = None
+            self.cursStep = None
             self.refreshsCat()
 
     @err_decorator
