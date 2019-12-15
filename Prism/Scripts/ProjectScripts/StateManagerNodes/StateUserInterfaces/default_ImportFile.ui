@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>680</height>
+    <height>706</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -196,7 +196,7 @@
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
-          <widget class="QWidget" name="f_curVersion" native="true">
+          <widget class="QWidget" name="w_currentVersion" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout_5">
             <property name="leftMargin">
              <number>9</number>
@@ -241,7 +241,55 @@
           </widget>
          </item>
          <item>
-          <widget class="QWidget" name="f_lVersion" native="true">
+          <widget class="QWidget" name="w_autoUpdate" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout_14">
+            <property name="leftMargin">
+             <number>9</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>9</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="l_autoUpdate">
+              <property name="text">
+               <string>Auto load latest version:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_10">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chb_autoUpdate">
+              <property name="text">
+               <string/>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="w_latestVersion" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout_6">
             <property name="leftMargin">
              <number>9</number>
@@ -286,7 +334,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QWidget" name="f_importLatest" native="true">
+          <widget class="QWidget" name="w_importLatest" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout_7">
             <property name="leftMargin">
              <number>9</number>

@@ -48,6 +48,13 @@ except:
 
     psVersion = 1
 
+try:
+    del sys.modules["widget_import_scenedata"]
+except:
+    pass
+
+import widget_import_scenedata
+
 
 class bldRenderTimer(QObject):
     finished = Signal()
@@ -255,6 +262,11 @@ class Prism_Blender_Functions(object):
             return obj.select_get()
 
     @err_decorator
+    def selectObjects(self, objs, select=True):
+        for obj in objs:
+            self.selectObject(obj, select=select)
+
+    @err_decorator
     def selectObject(self, obj, select=True):
         if bpy.app.version < (2, 80, 0):
             obj.select = select
@@ -282,7 +294,6 @@ class Prism_Blender_Functions(object):
 
                     self.core.parentWindow(msg)
                     action = msg.exec_()
-                    print(action)
 
                     if action == 0:
                         bpy.context.window_manager.windows[0].view_layer = obj_layer
@@ -317,7 +328,7 @@ class Prism_Blender_Functions(object):
 
     @err_decorator
     def getNodeName(self, origin, node):
-        return node
+        return node["name"]
 
     @err_decorator
     def selectNodes(self, origin):
@@ -327,12 +338,15 @@ class Prism_Blender_Functions(object):
             )
             for i in origin.lw_objects.selectedItems():
                 node = origin.nodes[origin.lw_objects.row(i)]
-                if self.isNodeValid(origin, node):
-                    self.selectObject(bpy.data.objects[node])
+                if self.getObject(node):
+                    self.selectObject(self.getObject(node))
 
     @err_decorator
     def isNodeValid(self, origin, node):
-        return node in bpy.data.objects
+        if type(node) == str:
+            node = self.getNode(node)
+
+        return bool(self.getObject(node))
 
     @err_decorator
     def getCamNodes(self, origin, cur=False):
@@ -344,11 +358,11 @@ class Prism_Blender_Functions(object):
 
     @err_decorator
     def selectCam(self, origin):
-        if self.isNodeValid(origin, origin.curCam):
+        if self.getObject(origin.curCam):
             bpy.ops.object.select_all(
                 self.getOverrideContext(origin), action="DESELECT"
             )
-            self.selectObject(bpy.data.objects[origin.curCam])
+            self.selectObject(self.getObject(origin.curCam))
 
     @err_decorator
     def sm_export_startup(self, origin):
@@ -389,7 +403,7 @@ class Prism_Blender_Functions(object):
             return
 
         self.getGroups()[origin.l_taskName.text()].objects.unlink(
-            bpy.data.objects[node]
+            self.getObject(node)
         )
 
     @err_decorator
@@ -404,7 +418,7 @@ class Prism_Blender_Functions(object):
     def sm_export_updateObjects(self, origin):
         origin.nodes = []
         if origin.l_taskName.text() in self.getGroups():
-            origin.nodes = self.getGroups()[origin.l_taskName.text()].objects.keys()
+            origin.nodes = [self.getNode(x) for x in self.getGroups()[origin.l_taskName.text()].objects]
 
     @err_decorator
     def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
@@ -433,7 +447,7 @@ class Prism_Blender_Functions(object):
             empObj.name = "SCALEOVERRIDE"
             empObj.location = [0, 0, 0]
 
-            bpy.data.objects[origin.curCam].parent = empObj
+            self.getObject(origin.curCam).parent = empObj
             sVal = 100
             empObj.scale = [sVal, sVal, sVal]
 
@@ -485,10 +499,14 @@ class Prism_Blender_Functions(object):
         if expNodes is None:
             expNodes = origin.nodes
 
-        bpy.ops.object.select_all(self.getOverrideContext(origin), action="DESELECT")
+        ctx = self.getOverrideContext(origin)
+        if bpy.app.version >= (2, 80, 0):
+            ctx.pop("screen")
+            ctx.pop("area")
+        bpy.ops.object.select_all(ctx, action="DESELECT")
         for i in expNodes:
-            if self.isNodeValid(origin, i):
-                self.selectObject(bpy.data.objects[i])
+            if self.getObject(i):
+                self.selectObject(self.getObject(i))
 
         if origin.cb_outType.currentText() == ".obj":
             for i in range(startFrame, endFrame + 1):
@@ -535,7 +553,7 @@ class Prism_Blender_Functions(object):
                 shutil.copyfile(self.core.getCurrentFileName(), outputName)
             else:
                 for object_ in bpy.data.objects:
-                    if object_.name not in expNodes:
+                    if object_ not in [self.getObject(x) for x in expNodes]:
                         bpy.data.objects.remove(object_, do_unlink=True)
                 bpy.ops.wm.save_as_mainfile(filepath=outputName, copy=True)
                 bpy.ops.wm.revert_mainfile()
@@ -545,39 +563,37 @@ class Prism_Blender_Functions(object):
         if scaledExport:
             bpy.ops.wm.revert_mainfile()
         elif origin.chb_convertExport.isChecked():
-            # 	for i in expNodes:
-            # 		bpy.data.objects.remove(bpy.data.objects[i], True)
-            # 	existingNodes = list(bpy.data.objects)
-            # 	if fileName[1] == ".fbx":
-            # 		bpy.ops.import_scene.fbx(filepath=outputName, global_scale=100)
-            # 	elif fileName[1] == ".obj":
-            # 		bpy.ops.import_scene.obj(filepath=outputName)
-            # 	elif fileName[1] == ".abc":
-            # 		bpy.ops.wm.alembic_import(self.getOverrideContext(origin), filepath=outputName, set_frame_range=False, as_background_job=False)
-            # 	elif fileName[1] == ".blend":
-            # 		with bpy.data.libraries.load(outputName, link=False) as (data_from, data_to):
-            # 			data_to.objects = data_from.objects
+            #   for i in expNodes:
+            #       bpy.data.objects.remove(bpy.data.objects[i], True)
+            #   existingNodes = list(bpy.data.objects)
+            #   if fileName[1] == ".fbx":
+            #       bpy.ops.import_scene.fbx(filepath=outputName, global_scale=100)
+            #   elif fileName[1] == ".obj":
+            #       bpy.ops.import_scene.obj(filepath=outputName)
+            #   elif fileName[1] == ".abc":
+            #       bpy.ops.wm.alembic_import(self.getOverrideContext(origin), filepath=outputName, set_frame_range=False, as_background_job=False)
+            #   elif fileName[1] == ".blend":
+            #       with bpy.data.libraries.load(outputName, link=False) as (data_from, data_to):
+            #           data_to.objects = data_from.objects
             #
-            # 				for obj in data_to.objects:
-            # 					if obj in existingNodes:
-            # 						del existingNodes[existingNodes.index(obj)]
-            # 					elif obj is not None:
-            # 						bpy.context.scene.objects.link(obj)
+            #               for obj in data_to.objects:
+            #                   if obj in existingNodes:
+            #                       del existingNodes[existingNodes.index(obj)]
+            #                   elif obj is not None:
+            #                       bpy.context.scene.objects.link(obj)
             #
-            # 			impNodes = []
-            # 			for i in bpy.data.objects:
-            # 				if i not in existingNodes:
-            # 					impNodes.append(i.name)
+            #           impNodes = []
+            #           for i in bpy.data.objects:
+            #               if i not in existingNodes:
+            #                   impNodes.append(i.name)
 
             bpy.context.scene.frame_current = origin.sp_rangeStart.value()
 
-            scaleNodes = [x for x in expNodes if bpy.data.objects[x].parent is None]
-            bpy.ops.object.select_all(
-                self.getOverrideContext(origin), action="DESELECT"
-            )
+            scaleNodes = [x for x in expNodes if self.getObject(x).parent is None]
+            bpy.ops.object.select_all(ctx, action="DESELECT")
             for i in scaleNodes:
-                if self.isNodeValid(origin, i):
-                    self.selectObject(bpy.data.objects[i])
+                if self.getObject(i):
+                    self.selectObject(self.getObject(i))
             # bpy.ops.object.transform_apply(self.getOverrideContext(origin), location=True, rotation=True, scale=True)
 
             for i in scaleNodes:
@@ -587,17 +603,15 @@ class Prism_Blender_Functions(object):
                 empObj.name = "SCALEOVERRIDE_" + i
                 empObj.location = [0, 0, 0]
 
-                bpy.data.objects[i].parent = empObj
+                self.getObject(i).parent = empObj
                 sVal = 100
                 empObj.scale = [sVal, sVal, sVal]
 
-            bpy.ops.object.select_all(
-                self.getOverrideContext(origin), action="DESELECT"
-            )
+            bpy.ops.object.select_all(ctx, action="DESELECT")
             for i in expNodes:
-                if self.isNodeValid(origin, i):
-                    self.selectObject(bpy.data.objects[i])
-            # 	bpy.ops.object.transform_apply(self.getOverrideContext(origin), location=True, rotation=True, scale=True)
+                if self.getObject(i):
+                    self.selectObject(self.getObject(i))
+            #   bpy.ops.object.transform_apply(self.getOverrideContext(origin), location=True, rotation=True, scale=True)
 
             outputName = os.path.join(
                 os.path.dirname(os.path.dirname(outputName)),
@@ -616,7 +630,7 @@ class Prism_Blender_Functions(object):
                 expNodes=expNodes,
             )
 
-        bpy.ops.object.select_all(self.getOverrideContext(origin), action="DESELECT")
+        bpy.ops.object.select_all(ctx, action="DESELECT")
 
         return outputName
 
@@ -1045,13 +1059,13 @@ class Prism_Blender_Functions(object):
     @err_decorator
     def deleteNodes(self, origin, handles):
         for i in handles:
-            bpy.data.objects.remove(bpy.data.objects[i])
+            bpy.data.objects.remove(self.getObject(i))
 
-    # 	bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
-    # 	for i in handles:
-    # 		self.selectObject(bpy.data.objects[i])
-    # 	bpy.ops.object.make_local(self.getOverrideContext(origin), type='SELECT_OBDATA_MATERIAL')
-    # 	bpy.ops.object.delete(self.getOverrideContext(origin))
+    #   bpy.ops.object.select_all(self.getOverrideContext(origin), action='DESELECT')
+    #   for i in handles:
+    #       self.selectObject(bpy.data.objects[i])
+    #   bpy.ops.object.make_local(self.getOverrideContext(origin), type='SELECT_OBDATA_MATERIAL')
+    #   bpy.ops.object.delete(self.getOverrideContext(origin))
 
     @err_decorator
     def sm_import_startup(self, origin):
@@ -1065,65 +1079,24 @@ class Prism_Blender_Functions(object):
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
         fileName = os.path.splitext(os.path.basename(impFileName))
         origin.setName = ""
-        updateObjs = False
         result = False
 
         if fileName[1] in [".blend"]:
-            link = False
-            validNodes = [x for x in origin.nodes if self.isNodeValid(origin, x)]
-            if not update or len(validNodes) == 0:
-                msg = QMessageBox(
-                    QMessageBox.Question,
-                    "Create Reference",
-                    "Do you want to create a reference?",
-                    QMessageBox.No,
-                )
-                msg.addButton("Yes", QMessageBox.YesRole)
-                msg.setParent(self.core.messageParent, Qt.Window)
-                action = msg.exec_()
-                link = action == 0
-            else:
-                action = 0
+            try:
+                del sys.modules["widget_import_scenedata"]
+            except:
+                pass
 
-            if action == 0:
-                if (
-                    len(validNodes) > 0
-                    and bpy.data.objects[validNodes[0]].library is not None
-                ):
-                    updateObjs = True
-                    for i in validNodes:
-                        bpy.data.objects[i].library.filepath = impFileName
+            import widget_import_scenedata
 
-                    bpy.data.objects[validNodes[0]].library.reload()
-                    result = True
+            dlg_sceneData = widget_import_scenedata.Import_SceneData(self.core, self.plugin)
+            dlgResult = dlg_sceneData.importScene(impFileName, update, origin)
+            if not dlgResult:
+                return
 
-            if not updateObjs:
-                origin.preDelete(
-                    baseText="Do you want to delete the currently connected objects?\n\n"
-                )
-
-                if bpy.app.version >= (2, 80, 0):
-                    existingNodes = list(bpy.data.collections[0].objects)
-                else:
-                    existingNodes = list(bpy.context.scene.objects)
-
-                with bpy.data.libraries.load(impFileName, link=link) as (
-                    data_from,
-                    data_to,
-                ):
-                    data_to.objects = data_from.objects
-
-                for obj in data_to.objects:
-                    if obj in existingNodes:
-                        continue
-                        # del existingNodes[existingNodes.index(obj)]
-
-                    if obj is not None:
-                        if bpy.app.version >= (2, 80, 0):
-                            bpy.data.collections[0].objects.link(obj)
-                        else:
-                            bpy.context.scene.objects.link(obj)
-
+            if dlg_sceneData.updated:
+                result = True
+            existingNodes = dlg_sceneData.existingNodes
         else:
             if fileName[1] not in [".fbx", ".obj", ".abc"]:
                 QMessageBox.warning(
@@ -1142,17 +1115,16 @@ class Prism_Blender_Functions(object):
                 bpy.ops.import_scene.obj(filepath=impFileName)
             elif fileName[1] == ".abc":
                 if origin.chb_abcPath.isChecked() and len(origin.nodes) > 0:
-                    updateObjs = True
                     cache = None
                     for i in origin.nodes:
                         constraints = [
                             x
-                            for x in bpy.data.objects[i].constraints
+                            for x in self.getObject(i).constraints
                             if x.type == "TRANSFORM_CACHE"
                         ]
                         modifiers = [
                             x
-                            for x in bpy.data.objects[i].modifiers
+                            for x in self.getObject(i).modifiers
                             if x.type == "MESH_SEQUENCE_CACHE"
                         ]
                         if len(constraints) > 0:
@@ -1163,8 +1135,8 @@ class Prism_Blender_Functions(object):
                     if cache is not None:
                         cache.filepath = impFileName
                         cache.name = os.path.basename(impFileName)
-                    # 		bpy.context.scene.frame_current += 1 		#updates the cache, but leads to crashes
-                    # 		bpy.context.scene.frame_current -= 1
+                    #       bpy.context.scene.frame_current += 1        #updates the cache, but leads to crashes
+                    #       bpy.context.scene.frame_current -= 1
                     else:
                         QMessageBox.warning(
                             self.core.messageParent, "ImportFile", "No caches updated."
@@ -1178,11 +1150,11 @@ class Prism_Blender_Functions(object):
                         as_background_job=False,
                     )
 
-        if not updateObjs:
+        if not result:
             importedNodes = []
             for i in bpy.data.objects:
                 if i not in existingNodes:
-                    importedNodes.append(i.name)
+                    importedNodes.append(self.getNode(i))
 
             origin.setName = "Import_" + fileName[0]
             extension = 1
@@ -1193,23 +1165,42 @@ class Prism_Blender_Functions(object):
 
             if origin.chb_trackObjects.isChecked():
                 origin.nodes = importedNodes
-
             if len(origin.nodes) > 0:
                 self.createGroups(name=origin.setName)
 
                 for i in origin.nodes:
-                    if self.isNodeValid(origin, i):
+                    if self.getObject(i):
                         self.getGroups()[origin.setName].objects.link(
-                            bpy.data.objects[i]
+                            self.getObject(i)
                         )
 
             bpy.ops.object.select_all(
                 self.getOverrideContext(origin), action="DESELECT"
             )
 
+            self.selectObjects([self.getObject(x) for x in importedNodes])
+
             result = len(importedNodes) > 0
 
         return {"result": result, "doImport": doImport}
+
+    @err_decorator
+    def getNode(self, obj):
+        if type(obj) == str:
+            node = {"name": obj, "library": ""}
+        else:
+            node = {"name": obj.name, "library": getattr(obj.library, "filepath", "")}
+        return node
+
+    @err_decorator
+    def getObject(self, node):
+        if type(node) == str:
+            node = self.getNode(node)
+
+        for obj in bpy.data.objects:
+            print (getattr(obj.library, "filepath", ""))
+            if obj.name == node["name"] and getattr(obj.library, "filepath", "") == node["library"]:
+                return obj
 
     @err_decorator
     def sm_import_disableObjectTracking(self, origin):
@@ -1224,18 +1215,18 @@ class Prism_Blender_Functions(object):
 
         origin.nodes = []
         if origin.setName in self.getGroups() and origin.chb_trackObjects.isChecked():
-            origin.nodes = self.getGroups()[origin.setName].objects.keys()
+            origin.nodes = [self.getNode(x) for x in self.getGroups()[origin.setName].objects]
 
     @err_decorator
     def sm_import_removeNameSpaces(self, origin):
         for i in origin.nodes:
-            if not self.isNodeValid(origin, i):
+            if not self.getObject(i):
                 continue
 
             nodeName = self.getNodeName(origin, i)
             newName = nodeName.rsplit(":", 1)[-1]
-            if newName != nodeName and bpy.data.objects[nodeName].library is None:
-                bpy.data.objects[nodeName].name = newName
+            if newName != nodeName and not i["library"]:
+                self.getObject(i).name = newName
 
         origin.updateUi()
 
@@ -1248,14 +1239,14 @@ class Prism_Blender_Functions(object):
             empObj.name = "UnitConversion"
             empObj.location = [0, 0, 0]
 
-            bpy.data.objects[origin.nodes[0]].parent = empObj
+            self.getObject(origin.nodes[0]).parent = empObj
             sVal = 0.01
             empObj.scale = [sVal, sVal, sVal]
 
             bpy.ops.object.select_all(
                 self.getOverrideContext(origin), action="DESELECT"
             )
-            self.selectObject(bpy.data.objects[origin.nodes[0]])
+            self.selectObject(self.getObject(origin.nodes[0]))
             bpy.ops.object.parent_clear(
                 self.getOverrideContext(origin), type="CLEAR_KEEP_TRANSFORM"
             )

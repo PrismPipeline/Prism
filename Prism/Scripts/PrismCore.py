@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.42"
+            self.version = "v1.2.1.43"
 
             self.prismRoot = os.path.abspath(
                 os.path.dirname(os.path.dirname(__file__))
@@ -1582,7 +1582,7 @@ class PrismCore:
         return result
 
     @err_decorator
-    def stateManager(self, stateDataPath=None, restart=False):
+    def stateManager(self, stateDataPath=None, restart=False, openUi=True):
         if self.appPlugin.appType != "3d":
             return False
 
@@ -1607,7 +1607,7 @@ class PrismCore:
 
         if hasattr(self, "user") and self.projectPath != None:
 
-            # 	if not hasattr(self, "sm"):
+            #   if not hasattr(self, "sm"):
             if True:
                 self.closeSM()
 
@@ -1642,7 +1642,7 @@ class PrismCore:
                     core=self, stateDataPath=stateDataPath
                 )
 
-            if self.uiAvailable:
+            if self.uiAvailable and openUi:
                 self.sm.show()
                 self.sm.collapseFolders()
 
@@ -3565,6 +3565,9 @@ class PrismCore:
         if not self.sceneOpenChecksEnabled:
             return
 
+        # trigger auto imports
+        if os.path.exists(self.prismIni):
+            self.stateManager(openUi=False)
         self.appPlugin.sceneOpen(self)
 
         self.checkImportVersions()
@@ -3587,7 +3590,7 @@ class PrismCore:
 
         paths = self.appPlugin.getImportPaths(self)
 
-        if paths == False:
+        if not paths:
             return
 
         paths = eval(paths.replace("\\", "/"))
@@ -4171,45 +4174,45 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
         try:
             pStr = """
 try:
-	import os, sys
-	pyLibs = os.path.join('%s', 'PythonLibs', 'Python27')
-	if pyLibs not in sys.path:
-		sys.path.insert(0, pyLibs)
+    import os, sys
+    pyLibs = os.path.join('%s', 'PythonLibs', 'Python27')
+    if pyLibs not in sys.path:
+        sys.path.insert(0, pyLibs)
 
-	pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
-	if pyLibs not in sys.path:
-		sys.path.insert(0, pyLibs)
+    pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
+    if pyLibs not in sys.path:
+        sys.path.insert(0, pyLibs)
 
-	from robobrowser import RoboBrowser
+    from robobrowser import RoboBrowser
 
-	browser = RoboBrowser(parser='html.parser', history=True, max_age=0)
-	browser.open('https://prism-pipeline.com/contact/', verify=False)
-	#browser.open('https://prism-pipeline.com/contact/')
+    browser = RoboBrowser(parser='html.parser', history=True, max_age=0)
+    browser.open('https://prism-pipeline.com/contact/', verify=False)
+    #browser.open('https://prism-pipeline.com/contact/')
 
-	signup_form = browser.get_forms()[1]
+    signup_form = browser.get_forms()[1]
 
-	signup_form['your-name'].value = 'PrismMessage'
-	signup_form['your-subject'].value = '%s'
-	signup_form['your-message'].value = '''%s'''
+    signup_form['your-name'].value = 'PrismMessage'
+    signup_form['your-subject'].value = '%s'
+    signup_form['your-message'].value = '''%s'''
 
-	signup_form.serialize()
+    signup_form.serialize()
 
-	browser.submit_form(signup_form)
-	response = str(browser.parsed)
+    browser.submit_form(signup_form)
+    response = str(browser.parsed)
 
-	if 'Thank you for your message. It has been sent.' in response:
-		sys.stdout.write('success')
-	else:
-		sys.stdout.write('failed')
+    if 'Thank you for your message. It has been sent.' in response:
+        sys.stdout.write('success')
+    else:
+        sys.stdout.write('failed')
 except Exception as e:
-	sys.stdout.write('failed %%s' %% e)
+    sys.stdout.write('failed %%s' %% e)
 """ % (
                 self.prismRoot.replace("\\", "\\\\"),
                 self.prismRoot.replace("\\", "\\\\"),
                 subject,
                 text.replace("\\", "\\\\").replace('"', '\\"').replace("'", '\\"'),
             )
-            # 	print pStr
+            #   print pStr
 
             if platform.system() == "Windows":
                 pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
@@ -4320,31 +4323,31 @@ except Exception as e:
     def checkForUpdates(self, silent=False):
         pStr = """
 try:
-	import os, sys
+    import os, sys
 
-	pyLibs = os.path.join('%s', 'PythonLibs', 'Python27')
-	if pyLibs not in sys.path:
-		sys.path.insert(0, pyLibs)
+    pyLibs = os.path.join('%s', 'PythonLibs', 'Python27')
+    if pyLibs not in sys.path:
+        sys.path.insert(0, pyLibs)
 
-	pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
-	if pyLibs not in sys.path:
-		sys.path.insert(0, pyLibs)
+    pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
+    if pyLibs not in sys.path:
+        sys.path.insert(0, pyLibs)
 
-	import requests
-	page = requests.get('https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py', verify=False)
+    import requests
+    page = requests.get('https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py', verify=False)
 
-	cStr = page.content
-	lines = cStr.split('\\n')
-	latestVersionStr = '1'
-	for line in lines:
-		if 'self.version =' in line:
-			latestVersionStr = line[line.find('\\"')+2:-1]
-			break
+    cStr = page.content
+    lines = cStr.split('\\n')
+    latestVersionStr = '1'
+    for line in lines:
+        if 'self.version =' in line:
+            latestVersionStr = line[line.find('\\"')+2:-1]
+            break
 
-	sys.stdout.write(latestVersionStr)
+    sys.stdout.write(latestVersionStr)
 
 except Exception as e:
-	sys.stdout.write('failed %%s' %% e)
+    sys.stdout.write('failed %%s' %% e)
 """ % (
             self.prismRoot,
             self.prismRoot,
@@ -4538,7 +4541,14 @@ except Exception as e:
                 if not os.path.exists(i[0].replace(updateRoot, self.prismRoot)):
                     os.makedirs(i[0].replace(updateRoot, self.prismRoot))
 
-                shutil.copy2(filepath, filepath.replace(updateRoot, self.prismRoot))
+                target = filepath.replace(updateRoot, self.prismRoot)
+                try:
+                    shutil.copy2(filepath, target)
+                except IOError:
+                    self.popup("Unable to copy file to:\n\n%s\n\nMake sure you have write access to this location. \
+If admin privileges are required for this location launch Prism as admin before you start the update process \
+or move Prism to a location where no admin privileges are required." % target)
+                    return
                 if os.path.splitext(filepath)[1] in [".command", ".sh"]:
                     os.chmod(filepath.replace(updateRoot, self.prismRoot), 0o777)
 
@@ -4671,7 +4681,7 @@ except Exception as e:
             raiseError = False
 
             ptext = "An unknown Prism error occured.\nThe error was logged.\nIf you want to help improve Prism, please send this error to the developer.\n\nYou can contact the pipeline administrator or the developer, if you have any questions on this.\n\nMake sure you use the latest Prism version by using the automatic update option in the Prism Settings.\n\n"
-            # 	print (text)
+            #   print (text)
 
             text += "\n\n"
 

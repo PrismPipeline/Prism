@@ -164,6 +164,8 @@ class ImportFileClass(object):
         if "preferunit" in data:
             self.chb_preferUnit.setChecked(eval(data["preferunit"]))
             self.updatePrefUnits()
+        if "autoUpdate" in data:
+            self.chb_autoUpdate.setChecked(eval(data["autoUpdate"]))
 
     @err_decorator
     def findNode(self, path):
@@ -185,6 +187,7 @@ class ImportFileClass(object):
         self.b_browse.clicked.connect(self.browse)
         self.b_browse.customContextMenuRequested.connect(self.openFolder)
         self.b_importLatest.clicked.connect(self.importLatest)
+        self.chb_autoUpdate.stateChanged.connect(self.autoUpdateChanged)
         self.chb_autoNameSpaces.stateChanged.connect(self.autoNameSpaceChanged)
         self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
         if not self.stateManager.standalone:
@@ -212,6 +215,19 @@ class ImportFileClass(object):
     def pathChanged(self):
         self.stateManager.saveImports()
         self.updateUi()
+        self.stateManager.saveStatesToScene()
+
+    @err_decorator
+    def autoUpdateChanged(self, checked):
+        self.w_latestVersion.setVisible(not checked)
+        self.w_importLatest.setVisible(not checked)
+
+        if checked:
+            curVersion, latestVersion = self.checkLatestVersion()
+            if self.chb_autoUpdate.isChecked():
+                if curVersion and latestVersion and curVersion != latestVersion:
+                    self.importLatest()
+
         self.stateManager.saveStatesToScene()
 
     @err_decorator
@@ -594,8 +610,9 @@ class ImportFileClass(object):
         return True
 
     @err_decorator
-    def importLatest(self):
-        self.updateUi()
+    def importLatest(self, refreshUi=True):
+        if refreshUi:
+            self.updateUi()
         vPath = os.path.dirname(self.e_file.text())
         if os.path.basename(vPath) in ["centimeter", "meter"]:
             vPath = os.path.dirname(vPath)
@@ -694,6 +711,56 @@ class ImportFileClass(object):
         mNode.setCurrent(True, clear_all_selected=True)
 
     @err_decorator
+    def checkLatestVersion(self):
+        curVersion = latestVersion = ""
+
+        parDir = os.path.dirname(self.e_file.text())
+        if os.path.basename(parDir) in ["centimeter", "meter"]:
+            versionData = os.path.basename(os.path.dirname(parDir)).split(
+                self.core.filenameSeparator
+            )
+            taskPath = os.path.dirname(os.path.dirname(parDir))
+        else:
+            versionData = os.path.basename(parDir).split(self.core.filenameSeparator)
+            taskPath = os.path.dirname(parDir)
+
+        if (
+            len(versionData) == 3
+            and self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
+            in self.e_file.text()
+        ):
+            curVersion = (
+                versionData[0]
+                + self.core.filenameSeparator
+                + versionData[1]
+                + self.core.filenameSeparator
+                + versionData[2]
+            )
+            for i in os.walk(taskPath):
+                folders = i[1]
+                folders.sort()
+                for k in reversed(folders):
+                    meterDir = os.path.join(i[0], k, "meter")
+                    cmeterDir = os.path.join(i[0], k, "centimeter")
+                    if (
+                        len(k.split(self.core.filenameSeparator)) == 3
+                        and k[0] == "v"
+                        and len(k.split(self.core.filenameSeparator)[0]) == 5
+                        and (
+                            (os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0)
+                            or (
+                                os.path.exists(cmeterDir)
+                                and len(os.listdir(cmeterDir)) > 0
+                            )
+                        )
+                    ):
+                        latestVersion = k
+                        break
+                break
+
+        return curVersion, latestVersion
+
+    @err_decorator
     def updateUi(self):
         if os.path.splitext(self.e_file.text())[1] == ".hda":
             self.gb_options.setVisible(False)
@@ -728,64 +795,21 @@ class ImportFileClass(object):
                 )
                 self.b_objMerge.setEnabled(False)
 
-        parDir = os.path.dirname(self.e_file.text())
-        if os.path.basename(parDir) in ["centimeter", "meter"]:
-            versionData = os.path.basename(os.path.dirname(parDir)).split(
-                self.core.filenameSeparator
-            )
-            taskPath = os.path.dirname(os.path.dirname(parDir))
-        else:
-            versionData = os.path.basename(parDir).split(self.core.filenameSeparator)
-            taskPath = os.path.dirname(parDir)
+        curVersion, latestVersion = self.checkLatestVersion()
 
-        if (
-            len(versionData) == 3
-            and self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
-            in self.e_file.text()
-        ):
-            self.l_curVersion.setText(
-                versionData[0]
-                + self.core.filenameSeparator
-                + versionData[1]
-                + self.core.filenameSeparator
-                + versionData[2]
-            )
-            self.l_latestVersion.setText("-")
-            for i in os.walk(taskPath):
-                folders = i[1]
-                folders.sort()
-                for k in reversed(folders):
-                    meterDir = os.path.join(i[0], k, "meter")
-                    cmeterDir = os.path.join(i[0], k, "centimeter")
-                    if (
-                        len(k.split(self.core.filenameSeparator)) == 3
-                        and k[0] == "v"
-                        and len(k.split(self.core.filenameSeparator)[0]) == 5
-                        and (
-                            (os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0)
-                            or (
-                                os.path.exists(cmeterDir)
-                                and len(os.listdir(cmeterDir)) > 0
-                            )
-                        )
-                    ):
-                        self.l_latestVersion.setText(k)
-                        break
-                break
-        else:
-            self.l_curVersion.setText("-")
-            self.l_latestVersion.setText("-")
+        self.l_curVersion.setText(curVersion or "-")
+        self.l_latestVersion.setText(latestVersion or "-")
 
-        if (
-            self.l_curVersion.text() != self.l_latestVersion.text()
-            and self.l_curVersion.text() != "-"
-            and self.l_latestVersion.text() != "-"
-        ):
-            self.b_importLatest.setStyleSheet(
-                "QPushButton { background-color : rgb(180,90,0); }"
-            )
+        if self.chb_autoUpdate.isChecked():
+            if curVersion and latestVersion and curVersion != latestVersion:
+                self.importLatest(refreshUi=False)
         else:
-            self.b_importLatest.setStyleSheet("")
+            if curVersion and latestVersion and curVersion != latestVersion:
+                self.b_importLatest.setStyleSheet(
+                    "QPushButton { background-color : rgb(180,90,0); }"
+                )
+            else:
+                self.b_importLatest.setStyleSheet("")
 
         self.nameChanged(self.e_name.text())
 
@@ -974,6 +998,7 @@ class ImportFileClass(object):
             "connectednode": curNode,
             "filenode": fNode,
             "taskname": self.taskName,
+            "autoUpdate": str(self.chb_autoUpdate.isChecked()),
             "updatepath": str(self.chb_updateOnly.isChecked()),
             "autonamespaces": str(self.chb_autoNameSpaces.isChecked()),
             "preferunit": str(self.chb_preferUnit.isChecked()),
