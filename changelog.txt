@@ -1,3 +1,7 @@
+v1.2.1.45:
+- Blender: fixed an error when exporting in cm
+- PDG: fixed an error when cooking the create state node
+
 v1.2.1.44:
 - PDG: Prism Python TOP support
 - PDG: Support for attribute expressions in all Prism TOP parameters

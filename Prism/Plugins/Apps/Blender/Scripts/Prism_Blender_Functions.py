@@ -600,7 +600,7 @@ class Prism_Blender_Functions(object):
                 prevObjs = list(bpy.context.scene.objects)
                 bpy.ops.object.empty_add(type="PLAIN_AXES")
                 empObj = [x for x in bpy.context.scene.objects if x not in prevObjs][0]
-                empObj.name = "SCALEOVERRIDE_" + i
+                empObj.name = "SCALEOVERRIDE_" + i["name"]
                 empObj.location = [0, 0, 0]
 
                 self.getObject(i).parent = empObj

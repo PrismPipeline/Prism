@@ -574,7 +574,7 @@ class Prism_PDG_Functions(object):
                     and parentNode.parm("importFromInput").eval()
                 ):
                     if upstreamItem.intAttribValue("second_input"):
-                        states = upstreamItem.stringAttribValueArray("states")
+                        states = upstreamItem.stringAttribArray("states")
                         if not parentNode.parm("ignoreInputEntity").eval():
                             assetName = upstreamItem.stringAttribValue("assetName")
                             shotName = upstreamItem.stringAttribValue("shotName")
@@ -776,7 +776,7 @@ class Prism_PDG_Functions(object):
                 )
                 continue
 
-            states = workItem.stringAttribValueArray("states")
+            states = workItem.stringAttribArray("states")
             if not states:
                 self.core.popup(
                     "Unable to write states. Workitem doesn't contain states."
