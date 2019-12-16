@@ -1,0 +1,10 @@
+v1.2.1.44:
+- PDG: Prism Python TOP support
+- PDG: Support for attribute expressions in all Prism TOP parameters
+
+v1.2.1.43:
+- Blender: New dialog when importing a .blend file, which allows to link or to append individual objects and collections from the .blend file
+- New option "Auto load latest version" on the Import State. This load the latest version into the current scene whenever a new version as that asset becomes available
+- Blender: fixed a error when exporting through the State Manager, when not in object mode in the current Blender scene
+- Blender: fixed incorrect handling of linked objects
+- fixed an error when trying to update Prism and Prism is at a write protected location
