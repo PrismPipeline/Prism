@@ -30,5 +30,10 @@ def prismInit(prismArgs=[]):
 
 
 def createPrismCore():
+    try:
+        import PySide2
+    except:
+        return
+        
     global pcore
     pcore = prismInit()

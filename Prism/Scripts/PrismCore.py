@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.45"
+            self.version = "v1.2.1.46"
 
             self.prismRoot = os.path.abspath(
                 os.path.dirname(os.path.dirname(__file__))

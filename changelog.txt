@@ -1,3 +1,7 @@
+v1.2.1.46:
+- Houdini: fixed a bug that Houdini Deadline jobs loaded the wrong PySide version, which lead to errors in scenes, which contained an export state
+
+
 v1.2.1.45:
 - Blender: fixed an error when exporting in cm
 - PDG: fixed an error when cooking the create state node
