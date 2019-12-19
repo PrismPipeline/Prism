@@ -243,8 +243,11 @@ class Prism_3dsMax_Functions(object):
         pass
 
     @err_decorator
-    def sm_export_addObjects(self, origin):
-        for i in MaxPlus.SelectionManager_GetNodes():
+    def sm_export_addObjects(self, origin, objects=None):
+        if not objects:
+            objects = MaxPlus.SelectionManager_GetNodes()
+
+        for i in objects:
             handle = i.GetHandle()
             if not handle in origin.nodes:
                 origin.nodes.append(handle)

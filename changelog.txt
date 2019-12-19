@@ -1,3 +1,7 @@
+v1.2.1.47:
+- Houdini: Added a Prism menu to the main menu bar as alternative to the Prism shelf
+
+
 v1.2.1.46:
 - Houdini: fixed a bug that Houdini Deadline jobs loaded the wrong PySide version, which lead to errors in scenes, which contained an export state
 

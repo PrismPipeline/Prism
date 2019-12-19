@@ -124,8 +124,8 @@ class ExportClass(object):
         self.nameChanged(state.text(0))
         self.connectEvents()
 
-        if not self.stateManager.loading:
-            getattr(self.core.appPlugin, "sm_export_addObjects", lambda x: None)(self)
+        if not self.stateManager.loading and not self.stateManager.standalone:
+            self.addObjects()
 
         if stateData is not None:
             self.loadData(stateData)
@@ -253,9 +253,7 @@ class ExportClass(object):
             lambda: self.core.copyToClipboard(self.l_pathLast.text())
         )
         if not self.stateManager.standalone:
-            self.b_add.clicked.connect(
-                lambda: self.core.appPlugin.sm_export_addObjects(self)
-            )
+            self.b_add.clicked.connect(self.addObjects)
 
     @err_decorator
     def rangeTypeChanged(self, state):
@@ -346,6 +344,10 @@ class ExportClass(object):
         createMenu.exec_(self.lw_objects.mapToGlobal(pos))
 
     @err_decorator
+    def addObjects(self, objects=None):
+        self.core.appPlugin.sm_export_addObjects(self, objects)
+
+    @err_decorator
     def removeItem(self, item):
         items = self.lw_objects.selectedItems()
         for i in reversed(self.lw_objects.selectedItems()):
@@ -361,7 +363,8 @@ class ExportClass(object):
     def clearItems(self):
         self.lw_objects.clear()
         self.nodes = []
-        self.core.appPlugin.sm_export_clearSet(self)
+        if not self.stateManager.standalone:
+            self.core.appPlugin.sm_export_clearSet(self)
 
         self.updateUi()
         self.stateManager.saveStatesToScene()
@@ -860,9 +863,6 @@ class ExportClass(object):
     def getStateProps(self):
         stateProps = {}
         stateProps.update(
-            getattr(self.core.appPlugin, "sm_export_getStateProps", lambda x: {})(self)
-        )
-        stateProps.update(
             {
                 "statename": self.e_name.text(),
                 "taskname": self.l_taskName.text(),
@@ -881,4 +881,5 @@ class ExportClass(object):
                 "stateenabled": str(self.state.checkState(0)),
             }
         )
+        getattr(self.core.appPlugin, "sm_export_getStateProps", lambda x, y: None)(self, stateProps)
         return stateProps

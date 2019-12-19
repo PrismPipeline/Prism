@@ -263,7 +263,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         )(self)
         self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
         self.emptypmapPrv = self.createPMap(self.shotPrvXres, self.shotPrvYres)
-        # 	self.refreshFCat()
+        #   self.refreshFCat()
         self.loadLayout()
         self.setRecent()
         self.getRVpath()
@@ -280,7 +280,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.l_preview.setAcceptDrops(True)
 
-    # 	self.tw_sFiles.setStyleSheet("QTableView,QListView,QHeaderView {color: rgb(199,199,199);background-color: rgb(71,71,71);selection-color: rgb(0,0,0);selection-background-color: rgb(242,138,0);}")
+    #   self.tw_sFiles.setStyleSheet("QTableView,QListView,QHeaderView {color: rgb(199,199,199);background-color: rgb(71,71,71);selection-color: rgb(0,0,0);selection-background-color: rgb(242,138,0);}")
 
     def err_decorator(func):
         @wraps(func)
@@ -1372,8 +1372,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 l_prv.setPixmap(imgmap)
                 l_prv.setStyleSheet(
                     """
-					border: 1px solid rgb(100,100,100);
-				"""
+                    border: 1px solid rgb(100,100,100);
+                """
                 )
                 VBox.addWidget(l_prv)
             w_info = QWidget()
@@ -2042,10 +2042,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         entity,
         fileName,
         entityName=None,
+        assetPath=None,
         step=None,
         category=None,
         comment=None,
         openFile=True,
+        version=None,
     ):
         if fileName == "createnew":
             emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
@@ -2077,12 +2079,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if entity == "asset":
             refresh = self.refreshAFile
             if entityName:
+                entityPath = ""
+                if assetPath:
+                    entityPath = os.path.join(self.core.getAssetPath(), assetPath)
                 for i in self.core.getAssetPaths():
-                    if os.path.basename(i) == entityName:
-                        dstname = i
-                        break
+                    if assetPath:
+                        if os.path.normpath(i) == os.path.normpath(entityPath):
+                            dstname = i
+                            break
+                    else:
+                        if os.path.basename(i) == entityName:
+                            dstname = i
+                            break
                 else:
-                    self.core.popup("Invalid asset:\n\n%s" % entityName)
+                    self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
                     return
             else:
                 dstname = self.curAsset
@@ -2098,6 +2108,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 category=category,
                 extension=ext,
                 comment=comment,
+                version=version,
             )
         elif entity == "shot":
             refresh = self.refreshSFile
@@ -2111,6 +2122,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 category=category,
                 extension=ext,
                 comment=comment,
+                version=version,
             )
         else:
             self.core.popup("Invalid entity:\n\n%s" % entity)
@@ -2729,7 +2741,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 item.setData(
                     QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0
                 )
-                # 	item.setToolTip(cdate)
+                #   item.setToolTip(cdate)
                 row.append(item)
                 item = QStandardItem(fname["user"])
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -3157,7 +3169,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         item = QStandardItem("")
                     else:
                         item = QStandardItem(fname["comment"])
-                    # 	self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
+                    #   self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                     row.append(item)
                     cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
@@ -3171,7 +3183,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         ),
                         0,
                     )
-                    # 	item.setToolTip(cdate)
+                    #   item.setToolTip(cdate)
                     row.append(item)
                     item = QStandardItem(fname["user"])
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -3251,7 +3263,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if not shotName and seqName:
                 rangeText = "Sequence selected"
             else:
-                rangeText = "Framerange:	%s - %s" % (startFrame, endFrame)
+                rangeText = "Framerange:    %s - %s" % (startFrame, endFrame)
 
             imgPath = os.path.join(
                 os.path.dirname(self.core.prismIni),
@@ -3545,7 +3557,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             item.setData(
                 QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0
             )
-            # 	item.setToolTip(cdate)
+            #   item.setToolTip(cdate)
             row.append(item)
             item = QStandardItem(os.path.join(foldercont[0], i))
             row.append(item)
@@ -3655,7 +3667,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         ),
                         0,
                     )
-                    # 	item.setToolTip(cdate)
+                    #   item.setToolTip(cdate)
                     row.append(item)
                     item = QStandardItem(fname["user"])
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -3686,7 +3698,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         ),
                         0,
                     )
-                    # 	item.setToolTip(cdate)
+                    #   item.setToolTip(cdate)
                     row.append(item)
                     item = QStandardItem(fname["user"])
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -3704,9 +3716,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_recent.resizeColumnsToContents()
         self.tw_recent.horizontalHeader().setMinimumSectionSize(10)
         self.tw_recent.setColumnWidth(0, 10 * self.core.uiScaleFactor)
-        # 	self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
-        # 	self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)
-        # 	self.tw_recent.setColumnWidth(6,50*self.core.uiScaleFactor)
+        #   self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
+        #   self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)
+        #   self.tw_recent.setColumnWidth(6,50*self.core.uiScaleFactor)
 
         if psVersion == 1:
             self.tw_recent.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)

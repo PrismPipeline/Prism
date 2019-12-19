@@ -95,39 +95,6 @@ class Prism_Houdini_Functions(object):
             else:
                 origin.messageParent = hou.ui.mainQtWindow()
 
-            shelfSets = hou.ui.curDesktop().shelfDock().shelfSets()
-            if len(shelfSets) > 0:
-                curShelfSet = shelfSets[0]
-                curShelves = curShelfSet.shelves()
-
-                try:
-                    prismShelf = hou.shelves.shelves()["prism"]
-                except:
-                    msgString = "Could not find the Prism shelf.\n\nDo you want to update the Prism integration in Houdini to fix this?"
-                    msg = QMessageBox(
-                        QMessageBox.Warning,
-                        "Prism Warning",
-                        msgString,
-                        QMessageBox.Ok | QMessageBox.Cancel,
-                    )
-                    self.core.parentWindow(msg)
-                    action = msg.exec_()
-
-                    if action == QMessageBox.Ok:
-                        result = self.writeHoudiniFiles(
-                            os.environ["HOUDINI_USER_PREF_DIR"]
-                        )
-                        if result:
-                            QMessageBox.information(
-                                self.core.messageParent,
-                                "Restart",
-                                "Successully updated the Prism integration.\n\nAfter the next Houdini restart the Prism shelf will be available.",
-                            )
-
-                else:
-                    if prismShelf not in curShelves:
-                        hou.ShelfSet.setShelves(curShelfSet, curShelves + (prismShelf,))
-
             origin.startasThread()
             origin.timer.stop()
         else:

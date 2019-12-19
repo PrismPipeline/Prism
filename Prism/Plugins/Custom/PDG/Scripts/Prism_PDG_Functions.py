@@ -378,7 +378,7 @@ class Prism_PDG_Functions(object):
                 item = itemHolder.addWorkItem()
                 item.setStringAttrib("type", "asset")
                 item.setStringAttrib(
-                    "hierarchy", parentNode.parm("assetHierarchy").eval(), 0
+                    "hierarchy", parentNode.parm("assetHierarchy").eval()
                 )
                 item.setStringAttrib("name", parentNode.parm("assetName").eval())
 
@@ -416,7 +416,7 @@ class Prism_PDG_Functions(object):
                 item.setStringAttrib("name", parentNode.parm("shotName").eval())
                 if parentNode.parm("useRange").eval():
                     item.setStringAttrib(
-                        "framerange", parentNode.parm("shotrangex").evalAsString(), 0
+                        "framerange", parentNode.parm("shotrangex").evalAsString()
                     )
                     item.setStringAttrib(
                         "framerange", parentNode.parm("shotrangey").evalAsString(), 1
@@ -437,7 +437,7 @@ class Prism_PDG_Functions(object):
                             0,
                         )
                         item.setStringAttrib(
-                            "name", parentNode.parm("stepName").eval(), 0
+                            "name", parentNode.parm("stepName").eval()
                         )
 
         elif entity == 5:
@@ -478,7 +478,7 @@ class Prism_PDG_Functions(object):
                         )
                         item.setStringAttrib("type", "category")
                         item.setStringAttrib(
-                            "step", upstreamItem.stringAttribValue("name"), 0
+                            "step", upstreamItem.stringAttribValue("name")
                         )
                         item.setStringAttrib("name", catName)
 
@@ -492,13 +492,16 @@ class Prism_PDG_Functions(object):
                         )
                         item.setStringAttrib("type", "scenefile")
                         item.setStringAttrib(
-                            "category", upstreamItem.stringAttribValue("name"), 0
+                            "category", upstreamItem.stringAttribValue("name")
                         )
                         item.setStringAttrib(
-                            "source", parentNode.parm("scenefileSource").eval(), 0
+                            "source", parentNode.parm("scenefileSource").eval()
                         )
                         item.setStringAttrib(
-                            "comment", parentNode.parm("scenefileComment").eval(), 0
+                            "comment", parentNode.parm("scenefileComment").eval()
+                        )
+                        item.setStringAttrib(
+                            "existingBehavior", parentNode.parm("existingSceneBehavior").evalAsString()
                         )
 
     @err_decorator
@@ -509,7 +512,7 @@ class Prism_PDG_Functions(object):
 
         result = self.core.createEntity(entity=data)
 
-        if workItem.attrib("type").value() == "scenefile":
+        if result and workItem.stringAttribValue("type") == "scenefile":
             # workItem.addResultData(result, "scenePath", 0)
             workItem.setStringAttrib("scenePath", result)
 
@@ -554,21 +557,77 @@ class Prism_PDG_Functions(object):
                 item.setStringAttrib("states", e["states"])
 
     @err_decorator
+    def showStateUI(self, node):
+        stateType = node.parm("stateType").evalAsString()
+
+        import StateManager
+
+        settings = node.parm("stateSettings").eval()
+        try:
+            settings = eval("{%s}" % settings.replace("=", ":"))
+        except Exception as e:
+            settings = {}
+
+        settings = StateManager.openStateSettings(self.core, stateType, settings=settings)
+        if settings:
+            # connectedNodes is not used in Maya
+            if node.parm("dcc").evalAsString() == "maya" and stateType == "default_Export":
+                settings.pop("connectednodes")
+
+            sLines = ['"%s" = "%s",' % (key, value) for (key, value) in sorted(settings.items(), key=lambda x: x[0])]
+            settingsStr = '\n'.join(sLines)
+            node.parm("stateSettings").set(settingsStr)
+
+    @err_decorator
+    def getAvailableStateDCCs(self):
+        dccs = [
+            "houdini", "Houdini",
+            "maya", "Maya",
+        ]
+
+        return dccs
+
+    @err_decorator
+    def getAvailableStateTypes(self, node):
+        dcc = node.parm("dcc").evalAsString()
+
+        if dcc == "houdini":
+            options = [
+                "Folder", "Folder",
+                "hou_ImportFile", "Import",
+                "hou_Export", "Export",
+                "hou_Playblast", "Playblast",
+                "hou_ImageRender", "ImageRender",
+                "hou_Dependency", "Dependency"
+            ]
+        elif dcc == "maya":
+            options = [
+                "Folder", "Folder",
+                "default_ImportFile", "Import",
+                "default_Export", "Export",
+                "default_Playblast", "Playblast",
+                "default_ImageRender", "ImageRender",
+            ]
+        else:
+            options = []
+
+        return options
+
+    @err_decorator
     def createState(self, pdgCallback, itemHolder, upstreamItems):
         parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
-        className = parentNode.parm("stateType").menuItems()[
-            parentNode.parm("stateType").eval()
-        ]
-        execute = parentNode.parm("execState").eval()
-        usePreScript = parentNode.parm("usePreScript").eval()
-        preScript = parentNode.parm("preScript").eval()
-        usePostScript = parentNode.parm("usePostScript").eval()
-        postScript = parentNode.parm("postScript").eval()
-        settings = parentNode.parm("stateSettings").eval().replace("\n", "")
         imports = []
 
         for upstreamItem in upstreamItems:
             with upstreamItem.makeActive():
+                className = parentNode.parm("stateType").evalAsString()
+                execute = parentNode.parm("execState").eval()
+                usePreScript = parentNode.parm("usePreScript").eval()
+                preScript = parentNode.parm("preScript").eval()
+                usePostScript = parentNode.parm("usePostScript").eval()
+                postScript = parentNode.parm("postScript").eval()
+                settings = parentNode.parm("stateSettings").eval().replace("\n", "")
+
                 if (
                     className in ["default_ImportFile", "hou_ImportFile"]
                     and parentNode.parm("importFromInput").eval()
@@ -615,6 +674,14 @@ class Prism_PDG_Functions(object):
 
         for upstreamItem in upstreamItems:
             with upstreamItem.makeActive():
+                className = parentNode.parm("stateType").evalAsString()
+                execute = parentNode.parm("execState").eval()
+                usePreScript = parentNode.parm("usePreScript").eval()
+                preScript = parentNode.parm("preScript").eval()
+                usePostScript = parentNode.parm("usePostScript").eval()
+                postScript = parentNode.parm("postScript").eval()
+                settings = parentNode.parm("stateSettings").eval().replace("\n", "")
+
                 if upstreamItem.intAttribValue("second_input"):
                     continue
 
@@ -641,6 +708,12 @@ class Prism_PDG_Functions(object):
                         stateData["preScript"] = preScript.replace("\n", "\\n")
                     if usePostScript:
                         stateData["postScript"] = postScript.replace("\n", "\\n")
+
+                if className == "default_Export":
+                    stateData["stateObjects"] = []
+                    for orId in range(parentNode.parm("stateObjects").eval()):
+                        objName = parentNode.parm("stateObject%s" % (orId + 1)).eval()
+                        stateData["stateObjects"].append(objName)
 
                 if imports:
                     if parentNode.parm("ignoreInputEntity").eval():
@@ -694,19 +767,16 @@ class Prism_PDG_Functions(object):
 
     @err_decorator
     def setProject(self, workItem):
-        typeStr = workItem.attrib("type").value()
+        typeStr = workItem.stringAttribValue("type")
         if typeStr != "project":
             return
 
-        prjPath = workItem.attrib("path").value()
+        prjPath = workItem.stringAttribValue("path")
         self.core.changeProject(prjPath)
 
     @err_decorator
     def scenePython(self, pdgCallback, itemHolder, upstreamItems):
         parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
-        mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
-        mpy = mayaPath or "C:/Program Files/Autodesk/Maya2018/bin/mayapy.exe"
-        hython = os.path.join(os.environ["HB"], "hython.exe")
         mayaTasks = []
         houTasks = []
         procs = []
@@ -740,10 +810,20 @@ class Prism_PDG_Functions(object):
                 item.setStringAttrib("scenePythonScript", cmd)
 
         if mayaTasks:
+            mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
+            if not mayaPath or not os.path.exists(mayaPath):
+                print "The PDG_MAYAPY environment variable doesn't exist or doesn't contain a Maya executable."
+                return False
+
             mayaCmd = self.getMayaCmd([x["path"] for x in mayaTasks], pythonSnippet=cmd)
-            procs.append({"executable": mpy, "command": mayaCmd})
+            procs.append({"executable": mayaPath, "command": mayaCmd})
 
         if houTasks:
+            hython = os.path.join(os.environ["HB"], "hython.exe")
+            if not hython or not os.path.exists(hython):
+                print "Couldn't find the hython executable."
+                return False
+
             houCmd = self.getHoudiniCmd([x["path"] for x in houTasks], pythonSnippet=cmd)
             procs.append({"executable": hython, "command": houCmd})
 
@@ -761,9 +841,6 @@ class Prism_PDG_Functions(object):
 
     @err_decorator
     def writeStates(self, pdgCallback, itemHolder, upstreamItems):
-        mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
-        mpy = mayaPath or "C:/Program Files/Autodesk/Maya2018/bin/mayapy.exe"
-        hython = os.path.join(os.environ["HB"], "hython.exe")
         mayaPaths = []
         houPaths = []
         sceneStates = []
@@ -787,19 +864,38 @@ class Prism_PDG_Functions(object):
                 "Maya", "sceneFormats"
             ):
                 mayaPaths.append(path[0][0])
-                sceneStates = map(lambda x: eval(x.replace("\\", "\\\\\\\\\\")), states)
+                sceneStates = map(lambda x: eval(x), states)
             elif os.path.splitext(path[0][0])[1] in self.core.getPluginData(
                 "Houdini", "sceneFormats"
             ):
                 houPaths.append(path[0][0])
                 sceneStates = map(lambda x: eval(x.replace("\\", "\\\\\\")), states)
 
+    #    for sc in sceneStates:
+    #        if "preScript" in sc:
+    #            sc["preScript"] = sc["preScript"].replace("\\n", "\n")
+    #        if "postScript" in sc:
+    #            sc["postScript"] = sc["postScript"].replace("\\n", "\n")
+    #        if "pythonSnippet" in sc:
+    #            sc["pythonSnippet"] = sc["pythonSnippet"].replace("\\n", "\n")
+
         procs = []
         if mayaPaths:
+            mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
+            if not mayaPath or not os.path.exists(mayaPath):
+                print "The PDG_MAYAPY environment variable doesn't exist or doesn't contain a Maya executable."
+                return False
+
             mayaCmd = self.getMayaCmd(mayaPaths, sceneStates=sceneStates)
-            procs.append({"executable": mpy, "command": mayaCmd})
+            print mayaCmd
+            procs.append({"executable": mayaPath, "command": mayaCmd})
 
         if houPaths:
+            hython = os.path.join(os.environ["HB"], "hython.exe")
+            if not hython or not os.path.exists(hython):
+                print "Couldn't find the hython executable."
+                return False
+
             houCmd = self.getHoudiniCmd(houPaths, sceneStates=sceneStates)
             procs.append({"executable": hython, "command": houCmd})
 
@@ -900,6 +996,7 @@ for scenePath in scenePaths:
                     settings["filepath"] = pcore.resolve(state["imports"][0])
 
                 if "preScript" in state:
+                    print state["preScript"]
                     pcore.appPlugin.executeScript(pcore, state["preScript"], execute=True)
 
                 stateNameBase = state["stateType"].replace(state["stateType"].split("_", 1)[0] + "_", "")
@@ -963,7 +1060,6 @@ for scenePath in scenePaths:
         stateStr = \"\"\"%s\"\"\"
         states = eval(stateStr) if stateStr else ""
         if states:
-            stateManager = pcore.stateManager()
             for idx, state in enumerate(states):
                 settings = state["settings"]
                 try:
@@ -984,14 +1080,22 @@ for scenePath in scenePaths:
                     settings["filepath"] = pcore.resolve(state["imports"][0])
 
                 if "preScript" in state:
-                    print("Pre-creation script: " + state["preScript"])
-                    pcore.appPlugin.executeScript(pcore, state["preScript"], execute=True)
+                    pScript = state["preScript"].replace("\\\\", "")
+                    pScript = "import PrismInit;pcore = PrismInit.pcore\\n" + pScript
+                    print("Pre-creation script: " + pScript)
+                    pcore.appPlugin.executeScript(pcore, pScript, execute=True)
 
                 stateNameBase = state["stateType"].replace(state["stateType"].split("_", 1)[0] + "_", "")
+                stateManager = pcore.stateManager()
                 stateItem = stateManager.createState(stateNameBase, stateData=settings)
 
+                if "stateObjects" in state:
+                    stateItem.ui.addObjects(state["stateObjects"])
+
                 if "postScript" in state:
-                    pcore.appPlugin.executeScript(pcore, state["postScript"], execute=True)
+                    pScript = state["postScript"].replace("\\\\", "")
+                    pScript = "import PrismInit;pcore = PrismInit.pcore\\n" + pScript
+                    pcore.appPlugin.executeScript(pcore, pScript, execute=True)
 
                 if state["execute"]:
                     if stateItem.ui.listType == "Import":

@@ -311,16 +311,19 @@ class Prism_Blender_Functions(object):
             bpy.context.view_layer.objects.active = obj
 
     @err_decorator
-    def sm_export_addObjects(self, origin):
+    def sm_export_addObjects(self, origin, objects=None):
         if origin.l_taskName.text() not in self.getGroups():
             self.createGroups(name=origin.l_taskName.text())
 
-        for i in [
-            o
-            for o in bpy.context.scene.objects
-            if self.getSelectObject(o)
-            and o not in list(self.getGroups()[origin.l_taskName.text()].objects)
-        ]:
+        if not objects:
+            objects = [
+                o
+                for o in bpy.context.scene.objects
+                if self.getSelectObject(o)
+                and o not in list(self.getGroups()[origin.l_taskName.text()].objects)
+            ]
+
+        for i in objects:
             self.getGroups()[origin.l_taskName.text()].objects.link(i)
 
         origin.updateUi()

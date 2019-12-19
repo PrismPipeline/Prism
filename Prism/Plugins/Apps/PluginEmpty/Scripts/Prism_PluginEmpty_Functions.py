@@ -221,9 +221,11 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_decorator
-    def sm_export_addObjects(self, origin):
-        selectedObjects = []  # get selected objects from scene
-        for i in selectedObjects:
+    def sm_export_addObjects(self, origin, objects=None):
+        if not objects:
+            objects = []  # get selected objects from scene
+
+        for i in objects:
             if not i in origin.nodes:
                 origin.nodes.append(i)
 
@@ -355,8 +357,8 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_decorator
-    def sm_export_getStateProps(self, origin):
-        stateProps = {}
+    def sm_export_getStateProps(self, origin, stateProps):
+        stateProps.update()
 
         return stateProps
 

@@ -384,7 +384,7 @@ class Prism_Maya_Functions(object):
         pass
 
     @err_decorator
-    def sm_export_addObjects(self, origin, objects=""):
+    def sm_export_addObjects(self, origin, objects=None):
         if objects:
             cmds.select(objects)
 
@@ -1061,14 +1061,17 @@ class Prism_Maya_Functions(object):
             origin.chb_preserveReferences.setChecked(eval(data["preserveReferences"]))
 
     @err_decorator
-    def sm_export_getStateProps(self, origin):
-        stateProps = {
-            "exportnamespaces": str(origin.chb_exportNamespaces.isChecked()),
-            "importreferences": str(origin.chb_importReferences.isChecked()),
-            "deleteunknownnodes": str(origin.chb_deleteUnknownNodes.isChecked()),
-            "deletedisplaylayers": str(origin.chb_deleteDisplayLayers.isChecked()),
-            "preserveReferences": str(origin.chb_preserveReferences.isChecked()),
-        }
+    def sm_export_getStateProps(self, origin, stateProps):
+        stateProps.pop("connectednodes")
+        stateProps.update(
+            {
+                "exportnamespaces": str(origin.chb_exportNamespaces.isChecked()),
+                "importreferences": str(origin.chb_importReferences.isChecked()),
+                "deleteunknownnodes": str(origin.chb_deleteUnknownNodes.isChecked()),
+                "deletedisplaylayers": str(origin.chb_deleteDisplayLayers.isChecked()),
+                "preserveReferences": str(origin.chb_preserveReferences.isChecked()),
+            }
+        )
 
         return stateProps
 

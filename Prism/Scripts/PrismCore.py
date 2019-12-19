@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.46"
+            self.version = "v1.2.1.47"
 
             self.prismRoot = os.path.abspath(
                 os.path.dirname(os.path.dirname(__file__))
@@ -1558,6 +1558,7 @@ class PrismCore:
             if "assetName" in entity:
                 entityType = "asset"
                 entityName = entity["assetName"][0]
+                assetPath = "%s/%s" % (entity["hierarchy"][0], entityName)
             else:
                 entityType = "shot"
                 entityName = "%s%s%s" % (
@@ -1566,20 +1567,62 @@ class PrismCore:
                     entity["shotName"][0],
                 )
 
-            result = self.pb.createEmptyScene(
-                entity=entityType,
-                fileName=entity["source"][0],
-                entityName=entityName,
-                step=entity["step"][0],
+                assetPath = ""
+
+            filePath = self.generateScenePath(
+                entityType,
+                entityName,
+                entity["step"][0],
+                assetPath=assetPath,
                 category=entity["category"][0],
+                extension=os.path.splitext(entity["source"][0])[1],
                 comment=entity["comment"][0],
-                openFile=False,
+                version=entity["version"][0] if "version" in entity else "v0001",
             )
+
+            hVersion, hPath = self.getHighestVersion(os.path.dirname(filePath), scenetype=entityType, getExistingVersion=True)
+
+            if hPath and entity["existingBehavior"][0] == "useExisting":
+                result = hPath
+            elif hPath and entity["existingBehavior"][0] == "overwrite":
+                try:
+                    os.remove(hPath)
+                except:
+                    pass
+                result = self.pb.createEmptyScene(
+                    entity=entityType,
+                    fileName=entity["source"][0],
+                    entityName=entityName,
+                    assetPath=assetPath,
+                    step=entity["step"][0],
+                    category=entity["category"][0],
+                    comment=entity["comment"][0],
+                    version="v%04d" % hVersion,
+                    openFile=False,
+                )
+            else:
+                result = self.pb.createEmptyScene(
+                    entity=entityType,
+                    fileName=entity["source"][0],
+                    entityName=entityName,
+                    assetPath=assetPath,
+                    step=entity["step"][0],
+                    category=entity["category"][0],
+                    comment=entity["comment"][0],
+                    openFile=False,
+                )
         else:
             self.popup("invalid type: " + entity["type"][0])
             return False
 
         return result
+
+    @err_decorator
+    def getStateManager(self):
+        if not hasattr(self, "sm"):
+            self.stateManager(openUi=False)
+
+        return self.sm
 
     @err_decorator
     def stateManager(self, stateDataPath=None, restart=False, openUi=True):
@@ -2737,6 +2780,7 @@ class PrismCore:
         getExistingPath=False,
         fileTypes="*",
         localVersions=True,
+        getExistingVersion=False,
     ):
         if not scenetype:
             glbDstname = dstname
@@ -2748,9 +2792,9 @@ class PrismCore:
                 glbDstname = dstname.replace(self.localProjectPath, self.projectPath)
 
             if glbDstname.startswith(assetPath):
-                scenetype = "Asset"
+                scenetype = "asset"
             elif glbDstname.startswith(shotPath):
-                scenetype = "Shot"
+                scenetype = "shot"
             else:
                 return
 
@@ -2785,7 +2829,9 @@ class PrismCore:
             if version > highversion[0]:
                 highversion = [version, i]
 
-        if getExistingPath:
+        if getExistingVersion:
+            return highversion
+        elif getExistingPath:
             return highversion[1]
         else:
             return "v" + format(highversion[0] + 1, "04")

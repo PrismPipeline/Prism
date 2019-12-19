@@ -899,18 +899,19 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_decorator
     def removeAllStates(self):
-        msg = QMessageBox(
-            QMessageBox.Warning,
-            "Publish",
-            "Are you sure you want to delete all states in the current scene?",
-            QMessageBox.Cancel,
-        )
-        msg.addButton("Yes", QMessageBox.YesRole)
-        self.core.parentWindow(msg)
-        action = msg.exec_()
+        if self.core.uiAvailable:
+            msg = QMessageBox(
+                QMessageBox.Warning,
+                "Publish",
+                "Are you sure you want to delete all states in the current scene?",
+                QMessageBox.Cancel,
+            )
+            msg.addButton("Yes", QMessageBox.YesRole)
+            self.core.parentWindow(msg)
+            action = msg.exec_()
 
-        if action != 0:
-            return
+            if action != 0:
+                return
 
         self.core.appPlugin.sm_deleteStates(self)
         self.core.closeSM(restart=True)
