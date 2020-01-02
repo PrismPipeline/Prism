@@ -1,3 +1,6 @@
+v1.2.1.48:
+- Blender: Fixed print statements in the PDG plugin, which prevented Prism to load in Blender
+
 v1.2.1.47:
 - Houdini: Added a Prism menu to the main menu bar as alternative to the Prism shelf
 

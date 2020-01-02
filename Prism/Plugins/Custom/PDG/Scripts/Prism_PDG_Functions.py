@@ -812,7 +812,7 @@ class Prism_PDG_Functions(object):
         if mayaTasks:
             mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
             if not mayaPath or not os.path.exists(mayaPath):
-                print "The PDG_MAYAPY environment variable doesn't exist or doesn't contain a Maya executable."
+                print ("The PDG_MAYAPY environment variable doesn't exist or doesn't contain a Maya executable.")
                 return False
 
             mayaCmd = self.getMayaCmd([x["path"] for x in mayaTasks], pythonSnippet=cmd)
@@ -821,7 +821,7 @@ class Prism_PDG_Functions(object):
         if houTasks:
             hython = os.path.join(os.environ["HB"], "hython.exe")
             if not hython or not os.path.exists(hython):
-                print "Couldn't find the hython executable."
+                print ("Couldn't find the hython executable.")
                 return False
 
             houCmd = self.getHoudiniCmd([x["path"] for x in houTasks], pythonSnippet=cmd)
@@ -883,17 +883,16 @@ class Prism_PDG_Functions(object):
         if mayaPaths:
             mayaPath = upstreamItems[0].envLookup("PDG_MAYAPY")
             if not mayaPath or not os.path.exists(mayaPath):
-                print "The PDG_MAYAPY environment variable doesn't exist or doesn't contain a Maya executable."
+                print ("The PDG_MAYAPY environment variable doesn't exist or doesn't contain a Maya executable.")
                 return False
 
             mayaCmd = self.getMayaCmd(mayaPaths, sceneStates=sceneStates)
-            print mayaCmd
             procs.append({"executable": mayaPath, "command": mayaCmd})
 
         if houPaths:
             hython = os.path.join(os.environ["HB"], "hython.exe")
             if not hython or not os.path.exists(hython):
-                print "Couldn't find the hython executable."
+                print ("Couldn't find the hython executable.")
                 return False
 
             houCmd = self.getHoudiniCmd(houPaths, sceneStates=sceneStates)
@@ -954,13 +953,13 @@ scenePathsStr = "%s"
 scenePaths = eval(scenePathsStr) if scenePathsStr else ""
 pythonSnippet = \"\"\"%s\"\"\"
 
-print "processing scenes: %%s" %% scenePaths
+print ("processing scenes: %%s" %% scenePaths)
 for scenePath in scenePaths:
     try:
         cmds.file( scenePath, o=True, force=True, ignoreVersion=True )
     except:
         if pcore.getCurrentFileName() == "":
-            print "Couldn't load file. Loading all plugins and trying again."
+            print ("Couldn't load file. Loading all plugins and trying again.")
             cmds.loadPlugin( allPlugins=True )
             cmds.file( scenePath, o=True, force=True, ignoreVersion=True )
 
@@ -996,7 +995,7 @@ for scenePath in scenePaths:
                     settings["filepath"] = pcore.resolve(state["imports"][0])
 
                 if "preScript" in state:
-                    print state["preScript"]
+                    print (state["preScript"])
                     pcore.appPlugin.executeScript(pcore, state["preScript"], execute=True)
 
                 stateNameBase = state["stateType"].replace(state["stateType"].split("_", 1)[0] + "_", "")
@@ -1006,14 +1005,14 @@ for scenePath in scenePaths:
                         getattr(stateItem.ui, "importObject", lambda: None)()
                     elif stateItem.ui.listType == "Export":
                         stateManager.publish(executeState=True, states=[stateItem])
-                    print "executed state %%s: %%s" %% (idx, stateNameBase)
+                    print ("executed state %%s: %%s" %% (idx, stateNameBase))
 
                 if "postScript" in state:
                     pcore.appPlugin.executeScript(pcore, state["postScript"], execute=True)
 
             pcore.saveScene(comment=\"state added (PDG)\", versionUp=True)
 
-    print "Scene was processed successfully"
+    print ("Scene was processed successfully")
 
         """ % (
             mayaPaths,
@@ -1044,7 +1043,7 @@ scenePathsStr = "%s"
 scenePaths = eval(scenePathsStr) if scenePathsStr else ""
 pythonSnippet = \"\"\"%s\"\"\"
 
-print "processing scenes: %%s" %% scenePaths
+print ("processing scenes: %%s" %% scenePaths)
 for scenePath in scenePaths:
     hou.hipFile.load(file_name=scenePath, ignore_load_warnings=True)
 
@@ -1102,11 +1101,11 @@ for scenePath in scenePaths:
                         getattr(stateItem.ui, "importObject", lambda: None)()
                     elif stateItem.ui.listType == "Export":
                         stateManager.publish(executeState=True, states=[stateItem])
-                    print "executed state %%s: %%s" %% (idx, stateNameBase)
+                    print ("executed state %%s: %%s" %% (idx, stateNameBase))
 
             pcore.saveScene(comment=\"state added (PDG)\", versionUp=True)
 
-    print "Scene was processed successfully"
+    print ("Scene was processed successfully")
 
         """ % (
             houPaths,
