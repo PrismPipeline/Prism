@@ -60,14 +60,14 @@ class Prism_Maya_Integration(object):
         self.plugin = plugin
 
         if platform.system() == "Windows":
-            self.examplePath = os.environ["userprofile"] + "\\Documents\\maya\\2019"
+            self.examplePath = os.environ["userprofile"] + "\\Documents\\maya\\2020"
         elif platform.system() == "Linux":
             userName = (
                 os.environ["SUDO_USER"]
                 if "SUDO_USER" in os.environ
                 else os.environ["USER"]
             )
-            self.examplePath = os.path.join("/home", userName, "maya", "2019")
+            self.examplePath = os.path.join("/home", userName, "maya", "2020")
         elif platform.system() == "Darwin":
             userName = (
                 os.environ["SUDO_USER"]
@@ -75,7 +75,7 @@ class Prism_Maya_Integration(object):
                 else os.environ["USER"]
             )
             self.examplePath = (
-                "/Users/%s/Library/Preferences/Autodesk/maya/2019" % userName
+                "/Users/%s/Library/Preferences/Autodesk/maya/2020" % userName
             )
 
     def err_decorator(func):
@@ -355,6 +355,7 @@ class Prism_Maya_Integration(object):
                     os.path.join(userFolders["Documents"], "maya", "2017"),
                     os.path.join(userFolders["Documents"], "maya", "2018"),
                     os.path.join(userFolders["Documents"], "maya", "2019"),
+                    os.path.join(userFolders["Documents"], "maya", "2020"),
                 ]
             elif platform.system() == "Linux":
                 userName = (
@@ -367,6 +368,7 @@ class Prism_Maya_Integration(object):
                     os.path.join("/home", userName, "maya", "2017"),
                     os.path.join("/home", userName, "maya", "2018"),
                     os.path.join("/home", userName, "maya", "2019"),
+                    os.path.join("/home", userName, "maya", "2020"),
                 ]
             elif platform.system() == "Darwin":
                 userName = (
@@ -379,6 +381,7 @@ class Prism_Maya_Integration(object):
                     "/Users/%s/Library/Preferences/Autodesk/maya/2017" % userName,
                     "/Users/%s/Library/Preferences/Autodesk/maya/2018" % userName,
                     "/Users/%s/Library/Preferences/Autodesk/maya/2019" % userName,
+                    "/Users/%s/Library/Preferences/Autodesk/maya/2020" % userName,
                 ]
 
             mayaItem = QTreeWidgetItem(["Maya"])
