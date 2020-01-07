@@ -144,7 +144,7 @@ try:
             latestVersionStr = line[line.find('\\"')+2:-1]
 
         if not libVersionStr and 'self.requiredLibraries =' in line:
-            libVersionStr = line[line.find('\\"')+2:-1]
+            libVersionStr = line[line.find('\\"')+1:-1]
 
         if latestVersionStr and libVersionStr:
             break
