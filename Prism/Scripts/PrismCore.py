@@ -122,7 +122,8 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.48"
+            self.version = "v1.2.1.49"
+            self.requiredLibraries = "v1.2.0.0"
 
             self.prismRoot = os.path.abspath(
                 os.path.dirname(os.path.dirname(__file__))
@@ -668,7 +669,7 @@ class PrismCore:
             self.sceneOpen()
 
         if self.uiAvailable:
-            self.autoUpdateCheck()
+            self.updater.startup()
 
     @err_decorator
     def startasThread(self, quit=False):
@@ -1417,20 +1418,33 @@ class PrismCore:
             self.cp.show()
 
     @err_decorator
-    def showAbout(self):
+    def getAboutString(self):
         pVersion = ""
         if os.path.exists(self.prismIni):
             prjVersion = self.getConfig(
                 "globals", "prism_version", configPath=self.prismIni
             )
             if prjVersion is not None:
-                pVersion = "Project: %s" % prjVersion
+                pVersion = "Project:&nbsp;&nbsp;&nbsp;&nbsp;%s&nbsp;&nbsp;&nbsp;(%s)" % (prjVersion, self.projectName)
 
+        astr = """Prism:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s<br>
+%s<br>
+<br>
+Copyright (C) 2016-2020 Richard Frangenberg<br>
+License: GNU GPL-3.0-or-later<br>
+<br>
+<a href='mailto:contact@prism-pipeline.com' style="color: rgb(150,200,250)">contact@prism-pipeline.com</a><br>
+<br>
+<a href='https://prism-pipeline.com/' style="color: rgb(150,200,250)">www.prism-pipeline.com</a>""" % (self.version, pVersion)
+
+        return astr
+
+    @err_decorator
+    def showAbout(self):
+        astr = self.getAboutString()
         msg = QMessageBox(
             QMessageBox.Information,
-            "About",
-            "Prism: %s\n%s\n\nCopyright (C) 2016-2019 Richard Frangenberg\nLicense: GNU GPL-3.0-or-later\n\ncontact@prism-pipeline.com\n\nwww.prism-pipeline.com"
-            % (self.version, pVersion),
+            "About", astr,
             parent=self.messageParent,
         )
         msg.addButton("Ok", QMessageBox.YesRole)
@@ -1827,6 +1841,14 @@ class PrismCore:
         self.ps.tw_settings.setCurrentIndex(tab)
 
         return True
+
+    @property
+    def updater(self):
+        if not hasattr(self, "_updater"):
+            from PrismUtils import Updater
+            self._updater = Updater.Updater(self)
+
+        return self._updater
 
     @err_decorator
     def openInstaller(self, uninstall=False):
@@ -3998,6 +4020,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                         os.pardir,
                         os.pardir,
                         os.pardir,
+                        os.pardir,
                         "Rendering",
                         "2dRender",
                         taskName,
@@ -4341,315 +4364,7 @@ except Exception as e:
         if "waitmsg" in locals() and waitmsg.isVisible():
             waitmsg.close()
 
-    @err_decorator
-    def autoUpdateCheck(self):
-        updateEnabled = self.getConfig(cat="globals", param="checkForUpdates")
-        if updateEnabled == False:
-            return
-
-        lastUpdateCheck = self.getConfig(cat="globals", param="lastUpdateCheck")
-        if (
-            lastUpdateCheck
-            and (
-                datetime.datetime.now()
-                - datetime.datetime.strptime(lastUpdateCheck, "%Y-%m-%d %H:%M:%S.%f")
-            ).total_seconds()
-            < 604800
-        ):
-            return
-
-        self.checkForUpdates(silent=True)
-        self.setConfig(
-            cat="globals",
-            param="lastUpdateCheck",
-            val=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
-        )
-
-    @err_decorator
-    def checkForUpdates(self, silent=False):
-        pStr = """
-try:
-    import os, sys
-
-    pyLibs = os.path.join('%s', 'PythonLibs', 'Python27')
-    if pyLibs not in sys.path:
-        sys.path.insert(0, pyLibs)
-
-    pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
-    if pyLibs not in sys.path:
-        sys.path.insert(0, pyLibs)
-
-    import requests
-    page = requests.get('https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py', verify=False)
-
-    cStr = page.content
-    lines = cStr.split('\\n')
-    latestVersionStr = '1'
-    for line in lines:
-        if 'self.version =' in line:
-            latestVersionStr = line[line.find('\\"')+2:-1]
-            break
-
-    sys.stdout.write(latestVersionStr)
-
-except Exception as e:
-    sys.stdout.write('failed %%s' %% e)
-""" % (
-            self.prismRoot,
-            self.prismRoot,
-        )
-
-        if platform.system() == "Windows":
-            pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
-        else:
-            pythonPath = "python"
-
-        result = subprocess.Popen(
-            [pythonPath, "-c", pStr],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdOutData, stderrdata = result.communicate()
-
-        if "failed" in str(stdOutData) or len(str(stdOutData).split(".")) < 4:
-            if not silent:
-                QMessageBox.information(
-                    self.messageParent,
-                    "Prism",
-                    "Unable to read https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py. Could not check for updates.\n\n(%s)"
-                    % stdOutData,
-                )
-            return
-
-        if pVersion == 3:
-            stdOutData = stdOutData.decode("utf-8")
-
-        if self.compareVersions(self.version, stdOutData) == "lower":
-            msg = QDialog()
-            msg.setWindowTitle("Prism")
-            msg.setLayout(QVBoxLayout())
-            msg.layout().addWidget(QLabel("A newer version of Prism is available:\n"))
-            self.parentWindow(msg)
-
-            bb_update = QDialogButtonBox()
-            bb_update.addButton("Ignore", QDialogButtonBox.RejectRole)
-            bb_update.addButton("Update Prism", QDialogButtonBox.AcceptRole)
-            bb_update.accepted.connect(msg.accept)
-            bb_update.rejected.connect(msg.reject)
-
-            lo_version = QGridLayout()
-            l_curVersion = QLabel(self.version)
-            l_latestVersion = QLabel("v" + stdOutData)
-            l_curVersion.setAlignment(Qt.AlignRight)
-            l_latestVersion.setAlignment(Qt.AlignRight)
-
-            lo_version.addWidget(QLabel("Installed version:"), 0, 0)
-            lo_version.addWidget(l_curVersion, 0, 1)
-
-            lo_version.addWidget(QLabel("Latest version:\n"), 1, 0)
-            lo_version.addWidget(l_latestVersion, 1, 1)
-
-            msg.layout().addLayout(lo_version)
-
-            msg.layout().addWidget(bb_update)
-            msg.resize(300 * self.uiScaleFactor, 10)
-            action = msg.exec_()
-
-            if action:
-                self.updatePrism(source="github")
-
-        else:
-            if not silent:
-                QMessageBox.information(
-                    self.messageParent,
-                    "Prism",
-                    "The latest version of Prism is already installed. (%s)"
-                    % self.version,
-                )
-
-    @err_decorator
-    def updatePrism(self, filepath="", source=""):
-        if platform.system() == "Windows":
-            targetdir = os.path.join(os.environ["temp"], "PrismUpdate")
-        else:
-            targetdir = "/tmp/PrismUpdate"
-
-        if os.path.exists(targetdir):
-            try:
-                shutil.rmtree(
-                    targetdir, ignore_errors=False, onerror=self.handleRemoveReadonly
-                )
-            except:
-                QMessageBox.warning(
-                    self.messageParent,
-                    "Prism update",
-                    "Could not remove temp directory:\n%s" % targetdir,
-                )
-                return
-
-        if source == "github":
-            waitmsg = QMessageBox(
-                QMessageBox.NoIcon,
-                "Prism update",
-                "Downloading Prism - please wait..",
-                QMessageBox.Cancel,
-            )
-            self.parentWindow(waitmsg)
-            for i in waitmsg.buttons():
-                i.setVisible(False)
-            waitmsg.show()
-            QCoreApplication.processEvents()
-
-            url = "https://api.github.com/repos/RichardFrangenberg/Prism/zipball"
-
-            try:
-                import ssl
-
-                if pVersion == 2:
-                    import urllib
-
-                    u = urllib.urlopen(url, context=ssl._create_unverified_context())
-                else:
-                    import urllib.request
-
-                    u = urllib.request.urlopen(
-                        url, context=ssl._create_unverified_context()
-                    )
-            except Exception as e:
-                if "waitmsg" in locals() and waitmsg.isVisible():
-                    waitmsg.close()
-
-                QMessageBox.warning(
-                    self.messageParent,
-                    "Prism update",
-                    "Could not connect to github:\n%s" % str(e),
-                )
-                return
-
-            data = u.read()
-            u.close()
-            filepath = os.path.join(targetdir, "Prism_update.zip")
-            if not os.path.exists(os.path.dirname(filepath)):
-                os.makedirs(os.path.dirname(filepath))
-
-            with open(filepath, "wb") as f:
-                f.write(data)
-
-            if "waitmsg" in locals() and waitmsg.isVisible():
-                waitmsg.close()
-
-        if not os.path.exists(filepath):
-            return
-
-        import zipfile
-
-        waitmsg = QMessageBox(
-            QMessageBox.NoIcon,
-            "Prism update",
-            "Extracting - please wait..",
-            QMessageBox.Cancel,
-        )
-        self.parentWindow(waitmsg)
-        for i in waitmsg.buttons():
-            i.setVisible(False)
-        waitmsg.show()
-        QCoreApplication.processEvents()
-
-        with zipfile.ZipFile(filepath, "r") as zip_ref:
-            zip_ref.extractall(targetdir)
-
-        for i in os.walk(targetdir):
-            dirs = i[1]
-            break
-
-        updateRoot = os.path.join(targetdir, dirs[0], "Prism")
-
-        if "waitmsg" in locals() and waitmsg.isVisible():
-            waitmsg.close()
-
-        msgText = "Are you sure you want to continue?\n\nThis will overwrite existing files in your Prism installation folder."
-        if psVersion == 1:
-            flags = QMessageBox.StandardButton.Yes
-            flags |= QMessageBox.StandardButton.No
-            result = QMessageBox.question(
-                self.messageParent, "Prism update", msgText, flags
-            )
-        else:
-            result = QMessageBox.question(self.messageParent, "Prism update", msgText)
-
-        if not str(result).endswith(".Yes"):
-            return
-
-        for i in os.walk(updateRoot):
-            for k in i[2]:
-                filepath = os.path.join(i[0], k)
-                if not os.path.exists(i[0].replace(updateRoot, self.prismRoot)):
-                    os.makedirs(i[0].replace(updateRoot, self.prismRoot))
-
-                target = filepath.replace(updateRoot, self.prismRoot)
-                try:
-                    shutil.copy2(filepath, target)
-                except IOError:
-                    self.popup("Unable to copy file to:\n\n%s\n\nMake sure you have write access to this location. \
-If admin privileges are required for this location launch Prism as admin before you start the update process \
-or move Prism to a location where no admin privileges are required." % target)
-                    return
-                if os.path.splitext(filepath)[1] in [".command", ".sh"]:
-                    os.chmod(filepath.replace(updateRoot, self.prismRoot), 0o777)
-
-        if os.path.exists(targetdir):
-            shutil.rmtree(
-                targetdir, ignore_errors=False, onerror=self.handleRemoveReadonly
-            )
-
-        try:
-            import psutil
-        except:
-            pass
-        else:
-            PROCNAMES = [
-                "PrismTray.exe",
-                "PrismProjectBrowser.exe",
-                "PrismSettings.exe",
-            ]
-            for proc in psutil.process_iter():
-                try:
-                    if proc.name() in PROCNAMES:
-                        if proc.pid == os.getpid():
-                            continue
-
-                        p = psutil.Process(proc.pid)
-
-                        try:
-                            if not "SYSTEM" in p.username():
-                                try:
-                                    proc.kill()
-                                except:
-                                    pass
-                        except:
-                            pass
-                except:
-                    pass
-
-        trayPath = os.path.join(self.prismRoot, "Tools", "PrismTray.lnk")
-        if os.path.exists(trayPath):
-            subprocess.Popen([trayPath], shell=True)
-
-        msgStr = "Successfully updated Prism"
-        if self.appPlugin.pluginName == "Standalone":
-            msgStr += "\n\nPrism will now close. Please restart all your currently open DCC apps."
-        else:
-            msgStr += (
-                "\nPlease restart %s in order to reload Prism."
-                % self.appPlugin.pluginName
-            )
-
-        QMessageBox.information(self.messageParent, "Prism update", msgStr)
-
-        if self.appPlugin.pluginName == "Standalone":
-            sys.exit()
-
+ 
     @err_decorator
     def handleRemoveReadonly(self, func, path, exc):
         excvalue = exc[1]

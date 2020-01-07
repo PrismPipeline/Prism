@@ -31,7 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, subprocess, time, traceback, shutil, platform, copy
+import sys, os, subprocess, time, traceback, shutil, platform, datetime
+from collections import OrderedDict
 from functools import wraps
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -120,6 +121,16 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.lo_projects.addWidget(projectsUi)
 
         self.groupboxes = [self.gb_curPversions]
+        self.updateIntervals = OrderedDict([
+            ("On every launch", 0),
+            ("Every day", 1),
+            ("Every week", 7),
+            ("Every month", 30),
+            ("Never", -1),
+        ])
+
+        self.l_about.setText(self.core.getAboutString())
+        self.cb_checkForUpdates.addItems(list(self.updateIntervals.keys()))
 
         self.loadUI()
         self.loadSettings()
@@ -160,6 +171,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
     @err_decorator
     def connectEvents(self):
+        self.b_checkForUpdates.customContextMenuRequested.connect(self.cmenu_update)
         self.e_fname.textChanged.connect(lambda x: self.validate(self.e_fname, x))
         self.e_lname.textChanged.connect(lambda x: self.validate(self.e_lname, x))
         self.e_abbreviation.textChanged.connect(
@@ -195,8 +207,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.integrationPlugins[i]["bremove"].clicked.connect(
                 lambda y=None, x=i: self.integrationRemove(x)
             )
-        self.b_about.clicked.connect(self.core.showAbout)
-        self.b_updatePrism.clicked.connect(self.showUpdate)
+
+        self.b_checkForUpdates.clicked.connect(self.checkForUpdates)
+        self.b_changelog.clicked.connect(self.changelog)
         self.b_startTray.clicked.connect(self.startTray)
         self.b_browseRV.clicked.connect(lambda: self.browse("rv"))
         self.b_browseRV.customContextMenuRequested.connect(
@@ -417,7 +430,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             ["globals", "showonstartup", str(self.chb_browserStartup.isChecked())]
         )
         cData.append(
-            ["globals", "checkForUpdates", self.chb_checkForUpdates.isChecked()]
+            ["globals", "checkForUpdates", self.updateIntervals[self.cb_checkForUpdates.currentText()]]
         )
         cData.append(["globals", "autosave", str(self.chb_autosave.isChecked())])
         cData.append(["globals", "highdpi", str(self.chb_highDPI.isChecked())])
@@ -663,7 +676,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         ucData["username"] = ["globals", "username"]
         ucData["username_abbreviation"] = ["globals", "username_abbreviation"]
         ucData["showonstartup"] = ["globals", "showonstartup", "bool"]
-        ucData["checkForUpdates"] = ["globals", "checkForUpdates", "bool"]
+        ucData["updateStatus"] = ["globals", "update_status"]
+        ucData["updateCheckTime"] = ["globals", "lastUpdateCheck"]
+        ucData["checkForUpdates"] = ["globals", "checkForUpdates"]
         ucData["autosave"] = ["globals", "autosave", "bool"]
         ucData["highdpi"] = ["globals", "highdpi", "bool"]
         ucData["rvpath"] = ["globals", "rvpath"]
@@ -714,8 +729,28 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             if ucData[i] is not None:
                 loadFunctions[i](ucData[i])
 
+        updateStatus = ucData["updateStatus"] or ""
+        updateCheckTime = ucData["updateCheckTime"] or ""
+
+        self.setUpdateStatus(status=updateStatus, checkTime=updateCheckTime)
+
         if ucData["checkForUpdates"] is not None:
-            self.chb_checkForUpdates.setChecked(ucData["checkForUpdates"])
+            if ucData["checkForUpdates"] == "True":
+                ucData["checkForUpdates"] = 7
+            elif ucData["checkForUpdates"] == "False":
+                ucData["checkForUpdates"] = -1
+            else:
+                ucData["checkForUpdates"] = int(ucData["checkForUpdates"])
+
+            idx = 1
+            for i in self.updateIntervals:
+                if self.updateIntervals[i] == ucData["checkForUpdates"]:
+                    fidx = self.cb_checkForUpdates.findText(i)
+                    if fidx != -1:
+                        idx = fidx
+                    break
+
+            self.cb_checkForUpdates.setCurrentIndex(idx)
 
         if ucData["autosave"] is not None:
             self.chb_autosave.setChecked(ucData["autosave"])
@@ -867,7 +902,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 w_ovr.setLayout(lo_ovr)
                 lo_tab.setContentsMargins(15, 15, 15, 15)
                 lo_ovr.setContentsMargins(0, 9, 0, 9)
-                # 	w_ovr.setMinimumSize(0,39)
+                #   w_ovr.setMinimumSize(0,39)
 
                 if self.core.getPluginData(i, "canOverrideExecuteable") != False:
                     l_ovr = QLabel(
@@ -1084,6 +1119,18 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.core.openFolder(plugin.pluginPath)
 
     @err_decorator
+    def cmenu_update(self, event):
+        rcmenu = QMenu()
+
+        act_zip = QAction("Update from .zip", self)
+        act_zip.triggered.connect(self.core.updater.updateFromZip)
+        rcmenu.addAction(act_zip)
+
+        getattr(self.core.appPlugin, "setRCStyle", lambda x, y: None)(self, rcmenu)
+
+        rcmenu.exec_(QCursor.pos())
+
+    @err_decorator
     def curPnameEdited(self, text):
         self.validate(self.e_curPname)
 
@@ -1105,41 +1152,40 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         vmenu.exec_(QCursor.pos())
 
     @err_decorator
-    def showUpdate(self):
-        updateDlg = QDialog()
-        updateDlg.setWindowTitle("Update Prism scripts")
-        updateDlg.l_options = QLabel(
-            "- Update from GitHub: Downloads the latest version from GitHub. This is definitely the latest version, but may include experimental features.\n\n- Update from .zip: Select a .zip file, which contains the Prism scripts. You can download .zip files with the Prism scripts from the GitHub repository."
-        )
-        updateDlg.b_github = QPushButton("Update from GitHub")
-        updateDlg.b_zip = QPushButton("Update from .zip")
-        lo_update = QVBoxLayout()
-        lo_buttons = QHBoxLayout()
-        w_buttons = QWidget()
-        w_buttons.setLayout(lo_buttons)
-        lo_buttons.addWidget(updateDlg.l_options)
-        lo_buttons.addWidget(updateDlg.b_github)
-        lo_buttons.addWidget(updateDlg.b_zip)
-        lo_update.addWidget(updateDlg.l_options)
-        lo_update.addWidget(w_buttons)
-        updateDlg.setLayout(lo_update)
-        self.core.parentWindow(updateDlg)
-        updateDlg.b_zip.clicked.connect(updateDlg.accept)
-        updateDlg.b_zip.clicked.connect(self.updateFromZip)
-        updateDlg.b_github.clicked.connect(updateDlg.accept)
-        updateDlg.b_github.clicked.connect(
-            lambda: self.core.updatePrism(source="github")
-        )
-        action = updateDlg.exec_()
+    def checkForUpdates(self):
+        self.core.updater.checkForUpdates()
+        self.setUpdateStatus()
 
     @err_decorator
-    def updateFromZip(self):
-        pZip = QFileDialog.getOpenFileName(
-            self, "Select Prism Zip", self.core.prismRoot, "ZIP (*.zip)"
-        )[0]
+    def setUpdateStatus(self, status=None, checkTime=None):
+        if not status or not checkTime:
+            ucData = {}
 
-        if pZip != "":
-            self.core.updatePrism(filepath=pZip)
+            ucData["updateStatus"] = ["globals", "update_status"]
+            ucData["updateCheckTime"] = ["globals", "lastUpdateCheck"]
+
+            result = self.core.getConfig(data=ucData)
+            status = result["updateStatus"] or ""
+            checkTime = result["updateCheckTime"] or ""
+
+        if checkTime:
+            checkTime = datetime.datetime.strptime(checkTime, "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S   %d.%m.%Y")
+
+        if "update available" in status:
+            self.l_updateInfo.setStyleSheet("QLabel { color: rgba(250,150,50); }")
+            self.b_checkForUpdates.setText("Update")
+            self.l_updateInfo.setText(status)
+        elif status == "latest version installed":
+            self.l_updateInfo.setStyleSheet("QLabel { color: rgba(100,200,100); }")
+            self.b_checkForUpdates.setText("Check now")
+            self.l_updateInfo.setText("%s - last check %s" % (status, checkTime))
+        else:
+            self.l_updateInfo.setStyleSheet("")
+            self.b_checkForUpdates.setText("Check now")
+
+    @err_decorator
+    def changelog(self):
+        self.core.updater.showChangelog()
 
     @err_decorator
     def startTray(self):

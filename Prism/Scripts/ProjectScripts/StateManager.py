@@ -95,7 +95,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
         self.core = core
         self.core.parentWindow(self)
 
-        self.setWindowTitle("Prism - State Manager - " + self.core.projectName)
+        self.setWindowTitle("Prism %s - State Manager - %s" %(self.core.version, self.core.projectName))
 
         self.scenename = self.core.getCurrentFileName()
         self.standalone = standalone
@@ -325,7 +325,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         helpMenu.addAction(self.actionSendFeedback)
 
         self.actionCheckVersion = QAction("Check for Prism updates", self)
-        self.actionCheckVersion.triggered.connect(self.core.checkForUpdates)
+        self.actionCheckVersion.triggered.connect(self.core.updater.checkForUpdates)
         helpMenu.addAction(self.actionCheckVersion)
 
         self.actionAbout = QAction("About...", self)

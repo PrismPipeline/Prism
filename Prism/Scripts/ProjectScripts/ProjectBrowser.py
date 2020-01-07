@@ -142,7 +142,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.core.parentWindow(self)
 
-        self.setWindowTitle("Prism - Project Browser - " + self.core.projectName)
+        self.setWindowTitle("Prism %s - Project Browser - %s" %(self.core.version, self.core.projectName))
         self.scenes = self.core.getConfig(
             "paths", "scenes", configPath=self.core.prismIni
         )
@@ -551,7 +551,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.helpMenu.addAction(self.actionSendFeedback)
 
         self.actionCheckVersion = QAction("Check for Prism updates", self)
-        self.actionCheckVersion.triggered.connect(self.core.checkForUpdates)
+        self.actionCheckVersion.triggered.connect(self.core.updater.checkForUpdates)
         self.helpMenu.addAction(self.actionCheckVersion)
 
         self.actionAbout = QAction("About...", self)
