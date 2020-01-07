@@ -477,7 +477,7 @@ or move Prism to a location where no admin privileges are required." % target)
 
         self.core.parentWindow(self.dlg_changelog)
         self.dlg_changelog.resize(1000 * self.core.uiScaleFactor, 800 * self.core.uiScaleFactor)
-        self.dlg_changelog.show()
+        self.dlg_changelog.exec_()
 
     @err_decorator
     def refreshChangelog(self, l_changelog, filterStr):
