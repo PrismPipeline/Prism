@@ -37,6 +37,7 @@ import time
 import platform
 import subprocess
 import datetime
+import shutil
 from functools import wraps
 from collections import OrderedDict
 
@@ -421,10 +422,6 @@ or move Prism to a location where no admin privileges are required." % target)
                 except:
                     pass
 
-        trayPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk")
-        if os.path.exists(trayPath):
-            subprocess.Popen([trayPath], shell=True)
-
         msgStr = "Successfully updated Prism"
         if self.core.appPlugin.pluginName == "Standalone":
             msgStr += "\n\nPrism will now close. Please restart all your currently open DCC apps."
@@ -435,6 +432,10 @@ or move Prism to a location where no admin privileges are required." % target)
             )
 
         QMessageBox.information(self.core.messageParent, "Prism update", msgStr)
+
+        trayPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk")
+        if os.path.exists(trayPath):
+            subprocess.Popen([trayPath], shell=True)
 
         if self.core.appPlugin.pluginName == "Standalone":
             sys.exit()
