@@ -2048,6 +2048,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         comment=None,
         openFile=True,
         version=None,
+        location="local",
     ):
         if fileName == "createnew":
             emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
@@ -2135,7 +2136,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 os.path.dirname(self.core.prismIni), "EmptyScenes", fileName
             )
 
-        if self.core.useLocalFiles:
+        if location == "local" and self.core.useLocalFiles:
             filePath = filePath.replace(
                 self.core.projectPath, self.core.localProjectPath
             )

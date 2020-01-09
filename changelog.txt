@@ -1,3 +1,10 @@
+v1.2.1.50:
+- fixed a bug that let the automatic update check fail
+- fixed a bug in the PDG plugin, which could return a scenepath with backslashes, which would cause various errors
+- Prism API: added a "location" argument to the "saveScene" and "createEmptyScene" function, which specifies where the scene will be saved (local or global)
+- added a "SaveComment" example to the PDG python snippet examples
+- changed that the changelog won't be shown on the first Prism startup
+
 v1.2.1.49:
 - added "General" tab in the Prism Settings, which shows information about the current Prism version
 - added options to select an interval for the update check

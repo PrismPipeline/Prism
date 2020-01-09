@@ -87,7 +87,8 @@ class Updater(object):
         prevVersion = self.core.getConfig("globals", "prism_version")
         if prevVersion != self.core.version:
             self.core.setConfig("globals", "prism_version", self.core.version)
-            self.showChangelog()
+            if prevVersion:
+                self.showChangelog()
 
         self.autoUpdateCheck()
 
@@ -106,7 +107,7 @@ class Updater(object):
         if updateInterval == "False" or updateInterval == -1:
             return
 
-        if updateInterval == "True":
+        if updateInterval == "True" or updateInterval is None:
             updateInterval = 7
         else:
             updateInterval = int(updateInterval)

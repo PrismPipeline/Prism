@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.49"
+            self.version = "v1.2.1.50"
             self.requiredLibraries = "v1.2.0.0"
 
             self.prismRoot = os.path.abspath(
@@ -1595,6 +1595,7 @@ License: GNU GPL-3.0-or-later<br>
             )
 
             hVersion, hPath = self.getHighestVersion(os.path.dirname(filePath), scenetype=entityType, getExistingVersion=True)
+            location = entity["location"] if "location" in entity else "local"
 
             if hPath and entity["existingBehavior"][0] == "useExisting":
                 result = hPath
@@ -1613,6 +1614,7 @@ License: GNU GPL-3.0-or-later<br>
                     comment=entity["comment"][0],
                     version="v%04d" % hVersion,
                     openFile=False,
+                    location=location,
                 )
             else:
                 result = self.pb.createEmptyScene(
@@ -1624,6 +1626,7 @@ License: GNU GPL-3.0-or-later<br>
                     category=entity["category"][0],
                     comment=entity["comment"][0],
                     openFile=False,
+                    location=location,
                 )
         else:
             self.popup("invalid type: " + entity["type"][0])
@@ -3199,6 +3202,7 @@ License: GNU GPL-3.0-or-later<br>
         filepath="",
         details={},
         preview=None,
+        location="local",
     ):
         if filepath == "":
             curfile = self.getCurrentFileName()
@@ -3238,9 +3242,15 @@ License: GNU GPL-3.0-or-later<br>
                 return False
 
             if self.useLocalFiles:
-                filepath = self.fixPath(filepath).replace(
-                    self.projectPath, self.localProjectPath
-                )
+                if location == "local":
+                    filepath = self.fixPath(filepath).replace(
+                        self.projectPath, self.localProjectPath
+                    )
+                elif location == "global":
+                    filepath = self.fixPath(filepath).replace(
+                        self.localProjectPath, self.projectPath
+                    )
+
                 if not os.path.exists(os.path.dirname(filepath)):
                     try:
                         os.makedirs(os.path.dirname(filepath))
@@ -3335,7 +3345,7 @@ License: GNU GPL-3.0-or-later<br>
 
         if publish:
             pubFile = filepath
-            if self.useLocalFiles:
+            if self.useLocalFiles and location != "global":
                 pubFile = self.fixPath(filepath).replace(
                     self.localProjectPath, self.projectPath
                 )

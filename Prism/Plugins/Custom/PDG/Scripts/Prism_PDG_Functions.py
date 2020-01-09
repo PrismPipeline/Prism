@@ -491,6 +491,9 @@ class Prism_PDG_Functions(object):
                             cloneResultData=True, preserveType=True, parent=upstreamItem
                         )
                         item.setStringAttrib("type", "scenefile")
+                        if self.core.useLocalFiles:
+                            item.setStringAttrib("location", "global")
+
                         item.setStringAttrib(
                             "category", upstreamItem.stringAttribValue("name")
                         )
@@ -514,7 +517,7 @@ class Prism_PDG_Functions(object):
 
         if result and workItem.stringAttribValue("type") == "scenefile":
             # workItem.addResultData(result, "scenePath", 0)
-            workItem.setStringAttrib("scenePath", result)
+            workItem.setStringAttrib("scenePath", result.replace("\\", "/"))
 
         return result
 
