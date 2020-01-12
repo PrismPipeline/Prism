@@ -1201,7 +1201,6 @@ class Prism_Blender_Functions(object):
             node = self.getNode(node)
 
         for obj in bpy.data.objects:
-            print (getattr(obj.library, "filepath", ""))
             if obj.name == node["name"] and getattr(obj.library, "filepath", "") == node["library"]:
                 return obj
 

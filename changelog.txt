@@ -1,3 +1,6 @@
+v1.2.1.52:
+- fixed an error when using the "update from zip option
+
 v1.2.1.51:
 - added support for Octane in Houdini
 

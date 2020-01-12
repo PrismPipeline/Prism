@@ -89,8 +89,6 @@ class Import_SceneData(QDialog):
         self.updated = False
 
         validNodes = [x for x in self.state.nodes if self.plugin.isNodeValid(self.state, x)]
-        print (self.state.nodes)
-        print (validNodes)
         if update and validNodes:
             self.updated = self.updateData(validNodes)
             if self.updated:

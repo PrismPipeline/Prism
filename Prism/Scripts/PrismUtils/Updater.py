@@ -99,7 +99,7 @@ class Updater(object):
         )[0]
 
         if pZip != "":
-            self.core.updatePrism(filepath=pZip)
+            self.updatePrism(filepath=pZip)
 
     @err_decorator
     def autoUpdateCheck(self):
