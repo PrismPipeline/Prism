@@ -782,6 +782,7 @@ class Prism_Houdini_Functions(object):
         for i in [
             "Prism_Houdini_Renderer_Arnold",
             "Prism_Houdini_Renderer_Mantra",
+            "Prism_Houdini_Renderer_Octane",
             "Prism_Houdini_Renderer_Redshift",
             "Prism_Houdini_Renderer_Vray",
         ]:
@@ -792,12 +793,13 @@ class Prism_Houdini_Functions(object):
 
         import Prism_Houdini_Renderer_Arnold as arnoldRenderer
         import Prism_Houdini_Renderer_Mantra as mantraRenderer
+        import Prism_Houdini_Renderer_Octane as octaneRenderer
         import Prism_Houdini_Renderer_Redshift as redshiftRenderer
         import Prism_Houdini_Renderer_Vray as vrayRenderer
 
         return [
             x
-            for x in [arnoldRenderer, mantraRenderer, redshiftRenderer, vrayRenderer]
+            for x in [arnoldRenderer, mantraRenderer, octaneRenderer, redshiftRenderer, vrayRenderer]
             if x.isActive()
         ]
 

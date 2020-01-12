@@ -1,3 +1,6 @@
+v1.2.1.51:
+- added support for Octance in Houdini
+
 v1.2.1.50:
 - fixed a bug that let the automatic update check fail
 - fixed a bug in the PDG plugin, which could return a scenepath with backslashes, which would cause various errors

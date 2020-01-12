@@ -1847,7 +1847,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                     else:
                         self.publishResult.append({"state": curUi, "result": exResult})
 
-                        if "publish paused" in exResult[0]:
+                        if exResult and "publish paused" in exResult[0]:
                             self.publishPaused = True
                             return
 
