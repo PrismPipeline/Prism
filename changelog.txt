@@ -1,3 +1,8 @@
+v1.2.1.53:
+- added: example plugin, which loads Prism plugins from external locations
+- fixed an error when opening a scene in hython, which has a rendersettingsstate
+- fixed a bug when loading Prism plugins from a location besides the project and install location
+
 v1.2.1.52:
 - fixed an error when using the "update from zip option
 

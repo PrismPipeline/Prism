@@ -999,12 +999,14 @@ class Prism_Houdini_Functions(object):
             lambda x: self.showNodeContext(origin)
         )
         origin.e_node.editingFinished.connect(origin.stateManager.saveStatesToScene)
-        origin.b_node = hou.qt.NodeChooserButton()
-        origin.b_node.nodeSelected.connect(lambda x: origin.e_node.setText(x.path()))
-        origin.b_node.nodeSelected.connect(origin.stateManager.saveStatesToScene)
+        if self.core.uiAvailable:
+            origin.b_node = hou.qt.NodeChooserButton()
+            origin.b_node.nodeSelected.connect(lambda x: origin.e_node.setText(x.path()))
+            origin.b_node.nodeSelected.connect(origin.stateManager.saveStatesToScene)
+            origin.lo_node.addWidget(origin.b_node)
+
         origin.lo_node.addWidget(origin.l_node)
         origin.lo_node.addWidget(origin.e_node)
-        origin.lo_node.addWidget(origin.b_node)
         origin.gb_general.layout().insertWidget(0, origin.w_node)
 
     @err_decorator

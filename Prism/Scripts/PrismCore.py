@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.52"
+            self.version = "v1.2.1.53"
             self.requiredLibraries = "v1.2.0.0"
 
             self.prismRoot = os.path.abspath(
@@ -350,8 +350,10 @@ class PrismCore:
                 if platform.system() in pPlug.platforms:
                     if pluginLocation is None:
                         pPlug.location = "prismRoot"
-                    else:
+                    elif hasattr(self, "projectPath") and pluginLocation.startswith(self.projectPath):
                         pPlug.location = "prismProject"
+                    else:
+                        pPlug.location = "custom"
 
                     pPlug.pluginPath = pluginPath
 
