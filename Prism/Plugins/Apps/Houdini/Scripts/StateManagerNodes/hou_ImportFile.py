@@ -633,7 +633,10 @@ class ImportFileClass(object):
                             os.path.splitext(m)[1] not in [".txt", ".ini", ".xgen"]
                             and m[0] != "."
                         ):
-                            splitFile = os.path.splitext(os.path.join(i[0], m))
+                            if m.endswith(".bgeo.sc"):
+                                splitFile = [os.path.join(i[0], m.rsplit(".", 2)[0]), ".bgeo.sc"]
+                            else:
+                                splitFile = os.path.splitext(os.path.join(i[0], m))
                             if splitFile[0][-5] != "v":
                                 try:
                                     num = int(splitFile[0][-4:])

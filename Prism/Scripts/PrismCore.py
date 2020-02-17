@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.53"
+            self.version = "v1.2.1.54"
             self.requiredLibraries = "v1.2.0.0"
 
             self.prismRoot = os.path.abspath(
@@ -201,6 +201,7 @@ class PrismCore:
             self.filenameSeparator = "_"
             self.sequenceSeparator = "-"
             self.separateOutputVersionStack = True
+            self.forceFramerange = False
 
             # delete old paths from the path variable
             for val in sys.path:
@@ -373,10 +374,9 @@ class PrismCore:
             if i.isActive():
                 self.customPlugins[i.pluginName] = i
 
-        if self.appPlugin.appType == "3d":
-            for i in rfManagers:
-                if i.isActive():
-                    self.rfManagers[i.pluginName] = i
+        for i in rfManagers:
+            if i.isActive():
+                self.rfManagers[i.pluginName] = i
 
         for i in prjManagers:
             if i.isActive():
@@ -613,24 +613,33 @@ class PrismCore:
 
     @err_decorator
     def callback(self, name="", types=["custom"], args=[], kwargs={}):
+        result = []
+
         if "curApp" in types:
-            getattr(self.appPlugin, name, lambda *args, **kwargs: None)(*args, **kwargs)
+            res = getattr(self.appPlugin, name, lambda *args, **kwargs: None)(*args, **kwargs)
+            result.append(res)
 
         if "unloadedApps" in types:
             for i in self.unloadedAppPlugins.values():
-                getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                result.append(res)
 
         if "custom" in types:
             for i in self.customPlugins.values():
-                getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                result.append(res)
 
         if "prjManagers" in types:
             for i in self.prjManagers.values():
-                getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                result.append(res)
 
         if "rfManagers" in types:
             for i in self.rfManagers.values():
-                getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                result.append(res)
+
+        return result
 
     @err_decorator
     def startup(self):
@@ -2068,10 +2077,10 @@ License: GNU GPL-3.0-or-later<br>
 
     @err_decorator
     def callHook(self, hookName, args={}):
-        self.callback(name=hookName, types=["curApp", "custom"], kwargs=args)
+        result = self.callback(name=hookName, types=["curApp", "custom"], kwargs=args)
 
         if not hasattr(self, "projectPath") or self.projectPath == None:
-            return
+            return result
 
         hookPath = os.path.join(
             self.projectPath, "00_Pipeline", "Hooks", hookName + ".py"
@@ -2102,6 +2111,8 @@ License: GNU GPL-3.0-or-later<br>
                     os.remove(hookPath + "c")
                 except:
                     pass
+
+        return result
 
     @err_decorator
     def getConfig(
@@ -3793,21 +3804,24 @@ License: GNU GPL-3.0-or-later<br>
             % (int(curRange[0]), int(curRange[1]), shotName, shotRange[0], shotRange[1])
         )
 
-        if self.uiAvailable:
-            msg = QMessageBox(
-                QMessageBox.Information,
-                "Framerange mismatch",
-                msgString,
-                QMessageBox.Ok,
-            )
-            msg.addButton("Set shotrange in scene", QMessageBox.YesRole)
-            self.parentWindow(msg)
-            action = msg.exec_()
-
-            if action == 0:
-                self.setFrameRange(shotRange[0], shotRange[1])
+        if self.forceFramerange:
+            self.setFrameRange(shotRange[0], shotRange[1])
         else:
-            print(msgString)
+            if self.uiAvailable:
+                msg = QMessageBox(
+                    QMessageBox.Information,
+                    "Framerange mismatch",
+                    msgString,
+                    QMessageBox.Ok,
+                )
+                msg.addButton("Set shotrange in scene", QMessageBox.YesRole)
+                self.parentWindow(msg)
+                action = msg.exec_()
+
+                if action == 0:
+                    self.setFrameRange(shotRange[0], shotRange[1])
+            else:
+                print(msgString)
 
     @err_decorator
     def getFrameRange(self):
@@ -3977,6 +3991,10 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
         if taskName is None:
             taskName = ""
 
+        fileType = fileType or "exr"
+        singleFileFormats = ["avi", "mp4", "mov"]
+        padding = "." if fileType in singleFileFormats else ".####."
+
         fnameData = self.getScenefileData(fileName)
         if fnameData["type"] == "shot":
             outputPath = os.path.abspath(
@@ -4005,7 +4023,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                 + taskName
                 + self.filenameSeparator
                 + hVersion
-                + ".####."
+                + padding
                 + fileType
             )
         elif fnameData["type"] == "asset":
@@ -4051,7 +4069,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                 + taskName
                 + self.filenameSeparator
                 + hVersion
-                + ".####."
+                + padding
                 + fileType
             )
         else:

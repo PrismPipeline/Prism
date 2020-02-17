@@ -1,3 +1,7 @@
+v1.2.1.54:
+- fixed a bug in Houdini when updating a cache in the .bgeo.sc format in the import state, $F4 was replaced with the current frame number
+- minor improvements to the Prism API
+
 v1.2.1.53:
 - added: example plugin, which loads Prism plugins from external locations
 - fixed an error when opening a scene in hython, which has a rendersettingsstate
