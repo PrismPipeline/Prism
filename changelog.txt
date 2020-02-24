@@ -1,3 +1,6 @@
+v1.2.1.55:
+- fixed an error when loading the folder state in the State Manager
+
 v1.2.1.54:
 - fixed a bug in Houdini when updating a cache in the .bgeo.sc format in the import state, $F4 was replaced with the current frame number
 - minor improvements to the Prism API

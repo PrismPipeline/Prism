@@ -82,7 +82,7 @@ class FolderClass(object):
                 ),
             )
         if "stateexpanded" in data:
-            if not eval(data["stateexpanded"]):
+            if not data["stateexpanded"]:
                 self.stateManager.collapsedFolders.append(self.state)
 
     def connectEvents(self):

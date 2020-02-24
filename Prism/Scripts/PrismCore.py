@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.54"
+            self.version = "v1.2.1.55"
             self.requiredLibraries = "v1.2.0.0"
 
             self.prismRoot = os.path.abspath(
