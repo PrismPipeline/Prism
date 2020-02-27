@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.55"
+            self.version = "v1.2.1.56"
             self.requiredLibraries = "v1.2.0.0"
 
             self.prismRoot = os.path.abspath(
@@ -3815,6 +3815,8 @@ License: GNU GPL-3.0-or-later<br>
                     QMessageBox.Ok,
                 )
                 msg.addButton("Set shotrange in scene", QMessageBox.YesRole)
+                msg.setEscapeButton(QMessageBox.Ok)
+
                 self.parentWindow(msg)
                 action = msg.exec_()
 

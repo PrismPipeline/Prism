@@ -1,3 +1,6 @@
+v1.2.1.56:
+- solved a problem of a frozen framerange mismatch dialog in Houdini 18
+
 v1.2.1.55:
 - fixed an error when loading the folder state in the State Manager
 
