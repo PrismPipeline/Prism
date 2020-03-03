@@ -740,11 +740,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.t_files.setProperty("tabType", "Files")
         self.t_recent.setProperty("tabType", "Recent")
 
-        if not cData["assetsVisible"]:
+        if cData["assetsVisible"] == False:
             self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_assets))
             self.actionAssets.setChecked(False)
 
-        if not cData["shotsVisible"]:
+        if cData["shotsVisible"] == False:
             self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_shots))
             self.actionShots.setChecked(False)
 
@@ -753,7 +753,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.actionFiles.setVisible(False)
         self.tabOrder.pop("Files")
 
-        if not cData["recentVisible"]:
+        if cData["recentVisible"] == False:
             self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_recent))
             self.actionRecent.setChecked(False)
 
@@ -1059,14 +1059,22 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.updateTasks()
 
     @err_decorator
-    def refreshUI(self):
+    def checkVisibleTabs(self):
         cw = self.tbw_browser.currentWidget()
         if not cw:
             self.core.popup(
                 'No tabs are currently enabled. Use the "View" menu to enable available tabs.'
             )
+            return False
+
+        return True
+
+    @err_decorator
+    def refreshUI(self):
+        if not self.checkVisibleTabs():
             return
 
+        cw = self.tbw_browser.currentWidget()
         curTab = cw.property("tabType")
         curData = [
             curTab,
@@ -3418,9 +3426,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     self.es.e_sequence.setText(seqName)
                 self.es.e_shotName.setFocus()
 
-        self.core.callback(
+        result = self.core.callback(
             name="onShotDlgOpen", types=["custom"], args=[self, self.es, shotName]
         )
+
+        if False in result:
+            return
 
         result = self.es.exec_()
 
@@ -3969,28 +3980,22 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     )
 
     @err_decorator
-    def createShotFolders(self, fname, ftype):
-        if ftype == "asset":
+    def createShotFolders(self, entityName, entityType, folders=[]):
+        if entityType == "asset":
             basePath = self.aBasePath
-            fname = fname.replace(self.aBasePath, "")
-            if fname[0] in ["/", "\\"]:
-                fname = fname[1:]
+            entityName = entityName.replace(self.aBasePath, "")
+            if entityName[0] in ["/", "\\"]:
+                entityName = entityName[1:]
         else:
             basePath = self.sBasePath
 
-        sBase = os.path.join(basePath, fname)
-        sFolders = []
-        sFolders.append(os.path.join(sBase, "Scenefiles"))
-        sFolders.append(os.path.join(sBase, "Export"))
-        sFolders.append(os.path.join(sBase, "Playblasts"))
-        sFolders.append(os.path.join(sBase, "Rendering", "3dRender"))
-        sFolders.append(os.path.join(sBase, "Rendering", "2dRender"))
+        sBase = os.path.join(basePath, entityName)
 
-        if os.path.exists(sBase):
-            if fname in self.omittedEntities[ftype] and self.core.uiAvailable:
+        if os.path.exists(sBase) and not folders:
+            if entityName in self.omittedEntities[entityType] and self.core.uiAvailable:
                 msgText = (
                     "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?"
-                    % (ftype, fname)
+                    % (entityType, entityName)
                 )
                 if psVersion == 1:
                     flags = QMessageBox.StandardButton.Yes
@@ -4008,18 +4013,31 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
                     )
                     items = self.core.getConfig(
-                        ftype, configPath=omitPath, getItems=True
+                        entityType, configPath=omitPath, getItems=True
                     )
-                    eItem = [x[0] for x in items if x[1] == fname]
+                    eItem = [x[0] for x in items if x[1] == entityName]
                     if len(eItem) > 0:
                         self.core.setConfig(
-                            ftype, eItem[0], configPath=omitPath, delete=True
+                            entityType, eItem[0], configPath=omitPath, delete=True
                         )
                 else:
                     return
             else:
-                self.core.popup("The %s %s already exists" % (ftype, fname))
+                self.core.popup("The %s %s already exists" % (entityType, entityName))
                 return True
+
+        if not folders:
+            folders = [
+                "Scenefiles",
+                "Export",
+                "Playblasts"
+                "Rendering/3dRender",
+                "Rendering/2dRender",
+            ]
+
+        sFolders = []
+        for f in folders:
+            sFolders.append(os.path.join(sBase, f))
 
         for i in sFolders:
             if not os.path.exists(i):
@@ -4486,6 +4504,27 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
     @err_decorator
+    def getMediaBasePath(self, entityName=None, entityType=None):
+        basePath = None
+        if entityName is None:
+            if entityType == "Assets":
+                if self.curAsset:
+                    basePath = self.curAsset
+            elif entityType == "Shots" and self.cursShots is not None:
+                basePath = os.path.join(
+                    self.core.projectPath, self.scenes, "Shots", self.cursShots
+                )
+        else:
+            if entityType == "Assets":
+                pass
+            elif entityType == "Shots":
+                basePath = os.path.join(
+                    self.core.projectPath, self.scenes, "Shots", entityName
+                )
+
+        return basePath
+
+    @err_decorator
     def getMediaTasks(self, entityName=None, entityType=None):
         mediaTasks = {"3d": [], "2d": [], "playblast": [], "external": []}
 
@@ -4496,23 +4535,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             entityType = self.tbw_browser.currentWidget().property("tabType")
 
         foldercont = []
-        self.renderBasePath = None
-
-        if entityName is None:
-            if entityType == "Assets":
-                if self.curAsset:
-                    self.renderBasePath = self.curAsset
-            elif entityType == "Shots" and self.cursShots is not None:
-                self.renderBasePath = os.path.join(
-                    self.core.projectPath, self.scenes, "Shots", self.cursShots
-                )
-        else:
-            if entityType == "Assets":
-                pass
-            elif entityType == "Shots":
-                self.renderBasePath = os.path.join(
-                    self.core.projectPath, self.scenes, "Shots", entityName
-                )
+        self.renderBasePath = self.getMediaBasePath(entityName, entityType)
 
         if self.renderBasePath is not None:
             for i in os.walk(
@@ -4784,6 +4807,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         return foldercont
 
     @err_decorator
+    def getRenderLayerPath(self, task, version):
+        if version.endswith(" (local)"):
+            rPath = os.path.join(
+                self.renderBasePath.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                ),
+                "Rendering",
+                "3dRender",
+                task.replace(" (local)", ""),
+                version.replace(" (local)", ""),
+            )
+        else:
+            rPath = os.path.join(
+                self.renderBasePath, "Rendering", "3dRender", task, version
+            )
+
+        return rPath
+
+    @err_decorator
     def getRenderLayers(self, task, version):
         foldercont = []
         if self.renderBasePath is None:
@@ -4794,20 +4836,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             and " (2d)" not in task
             and " (external)" not in task
         ):
-            if version.endswith(" (local)"):
-                rPath = os.path.join(
-                    self.renderBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    ),
-                    "Rendering",
-                    "3dRender",
-                    task.replace(" (local)", ""),
-                    version.replace(" (local)", ""),
-                )
-            else:
-                rPath = os.path.join(
-                    self.renderBasePath, "Rendering", "3dRender", task, version
-                )
+            rPath = self.getRenderLayerPath(task, version)
 
             for i in os.walk(rPath):
                 foldercont = i[1]
@@ -4838,26 +4867,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.b_combineVersions.setEnabled(False)
 
             if self.curRLayer != "":
-                if self.curRVersion.endswith(" (local)"):
-                    rPath = os.path.join(
-                        self.renderBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Rendering",
-                        "3dRender",
-                        self.curRTask.replace(" (local)", ""),
-                        self.curRVersion.replace(" (local)", ""),
-                        self.curRLayer,
-                    )
-                else:
-                    rPath = os.path.join(
-                        self.renderBasePath,
-                        "Rendering",
-                        "3dRender",
-                        self.curRTask,
-                        self.curRVersion,
-                        self.curRLayer,
-                    )
+                rPath = self.getRenderLayerPath(self.curRTask, self.curRVersion)
+                rPath = os.path.join(rPath, self.curRLayer)
 
                 for i in os.walk(rPath):
                     foldercont = i

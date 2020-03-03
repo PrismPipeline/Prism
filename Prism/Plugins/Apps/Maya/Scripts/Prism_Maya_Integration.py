@@ -207,7 +207,14 @@ class Prism_Maya_Integration(object):
             )
             addedFiles = []
 
-            origSetupFile = os.path.join(integrationBase, "userSetup.py")
+            integrationFiles = {}
+            integrationFiles["userSetup.py"] = os.path.join(integrationBase, "userSetup.py")
+            integrationFiles["PrismInit.py"] = os.path.join(integrationBase, "PrismInit.py")
+            integrationFiles["shelf_Prism.mel"] = os.path.join(integrationBase, "shelf_Prism.mel")
+
+            self.core.callback(name="preIntegrationAdded", types=["custom"], args=[self, integrationFiles])
+
+            origSetupFile = integrationFiles["userSetup.py"]
             with open(origSetupFile, "r") as mFile:
                 setupString = mFile.read()
 
@@ -244,7 +251,7 @@ class Prism_Maya_Integration(object):
             if os.path.exists(initpath + "c"):
                 os.remove(initpath + "c")
 
-            origInitFile = os.path.join(integrationBase, "PrismInit.py")
+            origInitFile = integrationFiles["PrismInit.py"]
             shutil.copy2(origInitFile, initpath)
             addedFiles.append(initpath)
 
@@ -262,7 +269,7 @@ class Prism_Maya_Integration(object):
             if os.path.exists(shelfpath):
                 os.remove(shelfpath)
 
-            origShelfFile = os.path.join(integrationBase, "shelf_Prism.mel")
+            origShelfFile = integrationFiles["shelf_Prism.mel"]
             shutil.copy2(origShelfFile, shelfpath)
             addedFiles.append(shelfpath)
 

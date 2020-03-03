@@ -120,3 +120,10 @@ class Prism_Maya_Variables(object):
         self.renderPasses = [vrayPasses, arnoldPasses, redshiftPasses]
         self.preferredUnit = "centimeter"
         self.platforms = ["Windows", "Linux", "Darwin"]
+        self.playblastSettings = {
+            "imageFormat": 8,
+            "filmFit": 1,
+            "displayFilmGate": False,
+            "displayResolution": False,
+            "overscan": 1.0,
+        }

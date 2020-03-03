@@ -857,7 +857,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if statetype != "Folder":
             item.setFlags(item.flags() & ~Qt.ItemIsDropEnabled)
 
-        self.core.callback(name="onStateCreated", types=["custom"], args=[self])
+        self.core.callback(name="onStateCreated", types=["custom"], args=[self, item.ui])
 
         if setActive:
             self.setListActive(pList)
@@ -980,7 +980,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             idx = parent.indexOfChild(item)
             parent.takeChild(idx)
 
-        self.core.callback(name="onStateDeleted", types=["custom"], args=[self])
+        self.core.callback(name="onStateDeleted", types=["custom"], args=[self, item.ui])
 
         if item.ui.className == "ImportFile":
             self.saveImports()

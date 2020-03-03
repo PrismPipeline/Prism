@@ -436,28 +436,13 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         cData.append(["globals", "highdpi", str(self.chb_highDPI.isChecked())])
 
         for i in self.exOverridePlugins:
-            res = self.core.getPlugin(i).prismSettings_saveSettings(self)
-            if type(res) == list:
-                cData += res
+            c = str(self.exOverridePlugins[i]["chb"].isChecked())
+            ct = str(self.exOverridePlugins[i]["le"].text())
+            cData.append(["dccoverrides", "%s_override" % i, c])
+            cData.append(["dccoverrides", "%s_path" % i, ct])
 
-        for i in self.exOverridePlugins:
-            cData.append(
-                [
-                    "dccoverrides",
-                    "%s_override" % i,
-                    str(self.exOverridePlugins[i]["chb"].isChecked()),
-                ]
-            )
-            cData.append(
-                [
-                    "dccoverrides",
-                    "%s_path" % i,
-                    str(self.exOverridePlugins[i]["le"].text()),
-                ]
-            )
-
-        for i in self.core.prjManagers.values():
-            res = i.prismSettings_saveSettings(self)
+        result = self.core.callback(name="prismSettings_saveSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
+        for res in result:
             if type(res) == list:
                 cData += res
 
@@ -486,8 +471,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 ["globals", "forceversions", str(self.gb_curPversions.isChecked())]
             )
 
-            for i in self.core.prjManagers.values():
-                res = i.prismSettings_savePrjSettings(self)
+            result = self.core.callback(name="prismSettings_savePrjSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
+            for res in result:
                 if type(res) == list:
                     cData += res
 
@@ -572,17 +557,15 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 try:
                     os.remove(trayStartup)
                 except:
-                    QMessageBox.warning(
-                        self,
-                        "Warning",
-                        "Permission denied:\n\n%s\n\nTry to execute this tool as root."
-                        % trayStartup,
-                    )
+                    pass
 
             if self.chb_trayStartup.isChecked():
                 if not os.path.exists(trayStartup) and os.path.exists(trayLnk):
-                    shutil.copy2(trayLnk, trayStartup)
-                    os.chmod(trayStartup, 0o777)
+                    try:
+                        shutil.copy2(trayLnk, trayStartup)
+                        os.chmod(trayStartup, 0o777)
+                    except:
+                        pass
 
         elif platform.system() == "Darwin":
             userName = (
@@ -686,15 +669,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         ucData["prefer_djv"] = ["globals", "prefer_djv", "bool"]
 
         loadFunctions = {}
-        for i in self.exOverridePlugins:
-            res = self.core.getPlugin(i).prismSettings_loadSettings(self)
-            if type(res) == tuple:
-                loadData, pLoadFunctions = res
-                ucData.update(loadData)
-                loadFunctions.update(pLoadFunctions)
 
-        for i in self.core.prjManagers.values():
-            res = i.prismSettings_loadSettings(self)
+        result = self.core.callback(name="prismSettings_loadSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
+        for res in result:
             if type(res) == tuple:
                 loadData, pLoadFunctions = res
                 ucData.update(loadData)
@@ -810,8 +787,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
             loadFunctions = {}
 
-            for i in self.core.prjManagers.values():
-                res = i.prismSettings_loadPrjSettings(self)
+            result = self.core.callback(name="prismSettings_loadPrjSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
+            for res in result:
                 if type(res) == tuple:
                     loadData, pLoadFunctions = res
                     pcData.update(loadData)
@@ -977,8 +954,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.tw_plugins.verticalHeader().setDefaultSectionSize(25)
         self.tw_plugins.horizontalHeader().setStretchLastSection(True)
 
-        for i in self.core.prjManagers.values():
-            i.prismSettings_loadUI(self)
+        if platform.system() in ["Linux", "Darwin"]:
+            self.chb_trayStartup.setText(self.chb_trayStartup.text() + " (change requires root permissions)")
+
+        self.core.callback(name="prismSettings_loadUI", types=["custom", "prjManagers"], args=[self])
 
     @err_decorator
     def refreshIntegrations(self):

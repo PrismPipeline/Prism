@@ -52,6 +52,8 @@ if platform.system() == "Windows":
         import winreg as _winreg
     elif pVersion == 2:
         import _winreg
+else:
+    import pwd
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -113,6 +115,8 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                     "Errors occurred during the installation.\n\n%s\n%s\n%s"
                     % (str(e), exc_type, exc_tb.tb_lineno),
                 )
+
+        self.updatePrefPermissions()
 
     def openBrowse(self, item, column):
         if (
@@ -203,52 +207,13 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                         for k in installPaths:
                             self.core.integrationAdded(childItem.text(0), k)
 
-            self.core.appPlugin.createWinStartMenu(self)
+            if not os.environ.get("prism_skip_root_install"):
+                self.core.setupStartMenu(quiet=True)
 
             if platform.system() == "Windows":
-                # setting regestry keys for wand module (EXR preview in Blender and Nuke)
-                curkey = _winreg.CreateKey(
-                    _winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ImageMagick\Current"
-                )
-                _winreg.SetValueEx(curkey, "Version", 0, _winreg.REG_SZ, "6.9.9")
-                key = _winreg.CreateKey(
-                    _winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ImageMagick\6.9.9\Q:16"
-                )
-                _winreg.SetValueEx(
-                    key,
-                    "LibPath",
-                    0,
-                    _winreg.REG_SZ,
-                    os.path.join(self.core.prismRoot, "Tools", "ImageMagick-6.9.9-Q16"),
-                )
-                _winreg.SetValueEx(
-                    key,
-                    "CoderModulesPath",
-                    0,
-                    _winreg.REG_SZ,
-                    os.path.join(
-                        self.core.prismRoot,
-                        "Tools",
-                        "ImageMagick-6.9.9-Q16",
-                        "modules",
-                        "coders",
-                    ),
-                )
-                _winreg.SetValueEx(
-                    key,
-                    "FilterModulesPath",
-                    0,
-                    _winreg.REG_SZ,
-                    os.path.join(
-                        self.core.prismRoot,
-                        "Tools",
-                        "ImageMagick-6.9.9-Q16",
-                        "modules",
-                        "filters",
-                    ),
-                )
-                key.Close()
-                curkey.Close()
+                self.addImageMagic()
+            else:
+                self.updatePrefPermissions()
 
             # print "Finished"
 
@@ -283,6 +248,70 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
             msg.setFocus()
             msg.exec_()
             return False
+
+    def updatePrefPermissions(self):
+        userName = (
+            os.environ["SUDO_USER"]
+            if "SUDO_USER" in os.environ
+            else os.environ["USER"]
+        )
+        uid = pwd.getpwnam(userName).pw_uid
+        prefPath = os.path.dirname(self.core.installLocPath)
+        if os.path.exists(prefPath):
+            os.chown(prefPath, uid, -1)
+            for root, dirs, files in os.walk(prefPath):
+                for d in (dirs+files):
+                    path = os.path.join(root, d)
+                    os.chown(path, uid, -1)
+
+    def closeEvent(self, event):
+        self.updatePrefPermissions()
+        event.accept()
+
+    def addImageMagic(self):
+        # setting regestry keys for wand module (EXR preview in Blender and Nuke)
+        curkey = _winreg.CreateKey(
+            _winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ImageMagick\Current"
+        )
+        _winreg.SetValueEx(curkey, "Version", 0, _winreg.REG_SZ, "6.9.9")
+        key = _winreg.CreateKey(
+            _winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ImageMagick\6.9.9\Q:16"
+        )
+        _winreg.SetValueEx(
+            key,
+            "LibPath",
+            0,
+            _winreg.REG_SZ,
+            os.path.join(self.core.prismRoot, "Tools", "ImageMagick-6.9.9-Q16"),
+        )
+        _winreg.SetValueEx(
+            key,
+            "CoderModulesPath",
+            0,
+            _winreg.REG_SZ,
+            os.path.join(
+                self.core.prismRoot,
+                "Tools",
+                "ImageMagick-6.9.9-Q16",
+                "modules",
+                "coders",
+            ),
+        )
+        _winreg.SetValueEx(
+            key,
+            "FilterModulesPath",
+            0,
+            _winreg.REG_SZ,
+            os.path.join(
+                self.core.prismRoot,
+                "Tools",
+                "ImageMagick-6.9.9-Q16",
+                "modules",
+                "filters",
+            ),
+        )
+        key.Close()
+        curkey.Close()
 
     def uninstall(self):
         msg = QMessageBox(
@@ -423,13 +452,17 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                 desktopPath = "/home/%s/Desktop/PrismProjectBrowser.desktop" % userName
 
                 pFiles = [
-                    trayStartup,
                     trayStartMenu,
                     pbStartMenu,
                     settingsStartMenu,
-                    pMenuTarget,
                     desktopPath,
                 ]
+
+                if not os.environ.get("prism_skip_root_install"):
+                    pFiles += [
+                        trayStartup,
+                        pMenuTarget,
+                    ]
 
             elif platform.system() == "Darwin":
                 userName = (
@@ -511,13 +544,7 @@ def startInstaller_Windows():
 
 def startInstaller_Linux():
     try:
-        if os.getuid() != 0:
-            QMessageBox.warning(
-                QWidget(),
-                "Prism Installation",
-                "Please run this installer as root to continue.",
-            )
-            sys.exit()
+        if not checkRootUser():
             return
 
         import PrismCore
@@ -540,13 +567,7 @@ def startInstaller_Linux():
 
 def startInstaller_Mac():
     try:
-        if os.getuid() != 0:
-            QMessageBox.warning(
-                QWidget(),
-                "Prism Installation",
-                "Please run this installer as root to continue.",
-            )
-            sys.exit()
+        if not checkRootUser():
             return
 
         import PrismCore
@@ -565,6 +586,36 @@ def startInstaller_Mac():
             "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s"
             % (str(e), exc_type, exc_tb.tb_lineno),
         )
+
+
+def checkRootUser():
+    if os.getuid() != 0:
+        warnStr = """The installer was not started as root user.
+
+The additional permissions are required to:
+- add Prism to the system autostart
+- add Prism to the system startmenu
+
+If you continue Prism will skip these features.
+"""
+        msg = QMessageBox(
+            QMessageBox.Warning,
+            "Prism Installation",
+            warnStr,
+            QMessageBox.NoButton,
+        )
+        msg.addButton("Continue", QMessageBox.YesRole)
+        msg.addButton("Cancel", QMessageBox.YesRole)
+        action = msg.exec_()
+
+        if action == 0:
+            os.environ["prism_skip_root_install"] = "1"
+            return True
+        elif action == 1:
+            sys.exit()
+            return
+
+    return True
 
 
 if __name__ == "__main__":

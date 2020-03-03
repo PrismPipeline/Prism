@@ -84,6 +84,7 @@ class ExportClass(object):
 
         self.node = None
         self.curCam = None
+        self.initsim = True
 
         self.cb_outType.addItems(self.core.appPlugin.outputFormats)
         self.export_paths = self.core.getExportPaths()
@@ -1232,16 +1233,20 @@ class ExportClass(object):
             if not os.path.exists(outputPath):
                 os.makedirs(outputPath)
 
-            self.core.callHook(
-                "preExport",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "startFrame": startFrame,
-                    "endFrame": endFrame,
-                    "outputName": outputName,
-                },
-            )
+            args = {
+                "prismCore": self.core,
+                "scenefile": fileName,
+                "startFrame": startFrame,
+                "endFrame": endFrame,
+                "outputName": outputName,
+            }
+
+            result = self.core.callHook("preExport", args=args)
+            for res in result:
+                if res and "outputName" in res:
+                    outputName = res["outputName"]
+
+            outputPath = os.path.dirname(outputName)
 
             self.core.saveVersionInfo(
                 location=os.path.dirname(outputPath),
@@ -1437,7 +1442,7 @@ class ExportClass(object):
                     "geometry",
                     "filecache",
                     "alembic",
-                ]:
+                ] and self.initsim:
                     if not self.core.appPlugin.setNodeParm(
                         ropNode, "initsim", val=True
                     ):
@@ -1671,17 +1676,7 @@ class ExportClass(object):
 
                             self.updateUi()
                         else:
-                            self.node.parm("execute").pressButton()
-                            errs = self.node.errors()
-                            if len(errs) > 0:
-                                errs = "\n" + "\n\n".join(errs)
-                                erStr = "%s ERROR - houExportnode %s:\n%s" % (
-                                    time.strftime("%d/%m/%y %X"),
-                                    self.core.version,
-                                    errs,
-                                )
-                                # 			self.core.writeErrorLog(erStr)
-                                result = "Execute failed: " + errs
+                            result = self.executeNode()
 
                         if result == "":
                             if len(os.listdir(os.path.dirname(expandedOutputName))) > 0:
@@ -1737,6 +1732,22 @@ class ExportClass(object):
                 ) and not result.startswith("Execute failed"):
                     self.core.writeErrorLog(erStr)
                 return [self.state.text(0) + " - error - " + result]
+
+    @err_decorator
+    def executeNode(self):
+        result = ""
+        self.node.parm("execute").pressButton()
+        errs = self.node.errors()
+        if len(errs) > 0:
+            errs = "\n" + "\n\n".join(errs)
+            erStr = "%s ERROR - houExportnode %s:\n%s" % (
+                time.strftime("%d/%m/%y %X"),
+                self.core.version,
+                errs,
+            )
+            result = "Execute failed: " + errs
+
+        return result
 
     @err_decorator
     def getStateProps(self):

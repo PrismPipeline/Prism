@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PrismSettings.ui'
 #
-# Created: Wed Jan  8 01:12:27 2020
+# Created: Mon Mar  2 23:42:22 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -256,6 +256,7 @@ class Ui_dlg_PrismSettings(object):
         self.horizontalLayout_6.addWidget(self.chb_curPuseFps)
         self.sp_curPfps = QtGui.QDoubleSpinBox(self.w_curPfps)
         self.sp_curPfps.setMinimumSize(QtCore.QSize(60, 0))
+        self.sp_curPfps.setDecimals(3)
         self.sp_curPfps.setMinimum(1.0)
         self.sp_curPfps.setMaximum(9999.99)
         self.sp_curPfps.setProperty("value", 24.0)

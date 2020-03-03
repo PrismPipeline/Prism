@@ -284,16 +284,30 @@ class ImportFileClass(object):
             self.stateManager.saveStatesToScene()
 
     @err_decorator
+    def getScenePath(self, location="global"):
+        sceneName = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
+        if location == "global":
+            prjPath = self.core.projectPath
+        elif location == "local":
+            prjPath == self.core.localProjectPath
+        scenePath = os.path.join(prjPath, sceneName).replace("\\", "/")
+        return scenePath
+
+    @err_decorator
+    def getImportPath(self):
+        return self.e_file.text().replace("\\", "/")
+
+    @err_decorator
     def importObject(self, taskName=None, objMerge=True):
         if self.stateManager.standalone:
             return False
 
         fileName = self.core.getCurrentFileName()
-        impFileName = self.e_file.text().replace("\\", "/")
+        impFileName = self.getImportPath()
 
-        if self.e_file.text() != "":
+        if impFileName != "":
             versionInfoPath = os.path.join(
-                os.path.dirname(os.path.dirname(self.e_file.text())), "versioninfo.ini"
+                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.ini"
             )
             if os.path.exists(versionInfoPath):
                 vConfig = ConfigParser()
@@ -320,7 +334,7 @@ class ImportFileClass(object):
                             return False
 
             if taskName is None:
-                vPath = os.path.dirname(self.e_file.text())
+                vPath = os.path.dirname(impFileName)
                 if os.path.basename(vPath) in ["centimeter", "meter"]:
                     vName = os.path.basename(os.path.dirname(vPath))
                     vPath = os.path.dirname(vPath)
@@ -328,22 +342,11 @@ class ImportFileClass(object):
                     vName = os.path.basename(vPath)
 
                 if len(vName.split(self.core.filenameSeparator)) == 3 and (
-                    os.path.join(
-                        self.core.projectPath,
-                        self.core.getConfig(
-                            "paths", "scenes", configPath=self.core.prismIni
-                        ),
-                    ).replace("\\", "/")
-                    in self.e_file.text().replace("\\", "/")
+                    self.getScenePath() in impFileName
                     or (
                         self.core.useLocalFiles
-                        and os.path.join(
-                            self.core.localProjectPath,
-                            self.core.getConfig(
-                                "paths", "scenes", configPath=self.core.prismIni
-                            ),
-                        ).replace("\\", "/")
-                        in self.e_file.text().replace("\\", "/")
+                        and self.getScenePath(location="local")
+                        in impFileName
                     )
                 ):
                     taskName = os.path.basename(os.path.dirname(vPath))
@@ -366,14 +369,16 @@ class ImportFileClass(object):
                     impFileName = prefFile
                     self.e_file.setText(impFileName)
 
-            self.core.callHook(
-                "preImport",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "importfile": impFileName,
-                },
-            )
+            args = {
+                "prismCore": self.core,
+                "scenefile": fileName,
+                "importfile": impFileName,
+            }
+
+            result = self.core.callHook("preImport", args=args)
+            for res in result:
+                if res and "importfile" in res:
+                    impFileName = res["importfile"]
 
             try:
                 self.node.path()
@@ -613,7 +618,7 @@ class ImportFileClass(object):
     def importLatest(self, refreshUi=True):
         if refreshUi:
             self.updateUi()
-        vPath = os.path.dirname(self.e_file.text())
+        vPath = os.path.dirname(self.getImportPath())
         if os.path.basename(vPath) in ["centimeter", "meter"]:
             vPath = os.path.dirname(vPath)
 

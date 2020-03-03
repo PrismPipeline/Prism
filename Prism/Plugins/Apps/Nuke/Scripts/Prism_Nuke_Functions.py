@@ -97,25 +97,29 @@ class Prism_Nuke_Functions(object):
                 origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint
             )
 
-        nuke.menu("Nuke").addCommand("Prism/Save Version", origin.saveScene)
-        nuke.menu("Nuke").addCommand("Prism/Save Comment", origin.saveWithComment)
-        nuke.menu("Nuke").addCommand("Prism/Project Browser", origin.projectBrowser)
-        nuke.menu("Nuke").addCommand(
-            "Prism/Update selected read nodes", self.updateNukeNodes
-        )
-        nuke.menu("Nuke").addCommand("Prism/Settings", origin.prismSettings)
-
-        toolbar = nuke.toolbar("Nodes")
-        iconPath = os.path.join(
-            origin.prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png"
-        )
-        toolbar.addMenu("Prism", icon=iconPath)
-        toolbar.addCommand("Prism/WritePrism", lambda: nuke.createNode("WritePrism"))
+        self.addMenus()
 
         nuke.addOnScriptLoad(origin.sceneOpen)
 
         self.isRendering = [False, ""]
         self.useLastVersion = False
+
+    @err_decorator
+    def addMenus(self):
+        nuke.menu("Nuke").addCommand("Prism/Save Version", self.core.saveScene)
+        nuke.menu("Nuke").addCommand("Prism/Save Comment", self.core.saveWithComment)
+        nuke.menu("Nuke").addCommand("Prism/Project Browser", self.core.projectBrowser)
+        nuke.menu("Nuke").addCommand(
+            "Prism/Update selected read nodes", self.updateNukeNodes
+        )
+        nuke.menu("Nuke").addCommand("Prism/Settings", self.core.prismSettings)
+
+        toolbar = nuke.toolbar("Nodes")
+        iconPath = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png"
+        )
+        toolbar.addMenu("Prism", icon=iconPath)
+        toolbar.addCommand("Prism/WritePrism", lambda: nuke.createNode("WritePrism"))
 
     @err_decorator
     def onProjectChanged(self, origin):

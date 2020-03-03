@@ -277,14 +277,21 @@ class ImportFileClass(object):
             self.stateManager.saveStatesToScene()
 
     @err_decorator
+    def getImportPath(self):
+        return self.e_file.text().replace("\\", "/")
+
+    @err_decorator
     def importObject(self, taskName=None, update=False):
         result = True
         if self.stateManager.standalone:
             return result
 
-        if self.e_file.text() != "":
+        impFileName = self.getImportPath()
+        print impFileName
+
+        if impFileName != "":
             versionInfoPath = os.path.join(
-                os.path.dirname(os.path.dirname(self.e_file.text())), "versioninfo.ini"
+                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.ini"
             )
             if os.path.exists(versionInfoPath):
                 vConfig = ConfigParser()
@@ -311,7 +318,7 @@ class ImportFileClass(object):
                             return False
 
             if taskName is None:
-                vPath = os.path.dirname(self.e_file.text())
+                vPath = os.path.dirname(impFileName)
                 if os.path.basename(vPath) in ["centimeter", "meter"]:
                     vName = os.path.basename(os.path.dirname(vPath))
                     vPath = os.path.dirname(vPath)
@@ -324,13 +331,13 @@ class ImportFileClass(object):
                 )
                 if len(vName.split(self.core.filenameSeparator)) == 3 and (
                     os.path.join(self.core.projectPath, sceneDir).replace("\\", "/")
-                    in self.e_file.text().replace("\\", "/")
+                    in impFileName
                     or (
                         self.core.useLocalFiles
                         and os.path.join(self.core.localProjectPath, sceneDir).replace(
                             "\\", "/"
                         )
-                        in self.e_file.text().replace("\\", "/")
+                        in impFileName
                     )
                 ):
                     self.taskName = os.path.basename(os.path.dirname(vPath))
@@ -343,7 +350,6 @@ class ImportFileClass(object):
 
             doImport = True
 
-            impFileName = self.e_file.text()
             parDirName = os.path.basename(os.path.dirname(impFileName))
             if parDirName in ["centimeter", "meter"]:
                 prefFile = os.path.join(
@@ -427,7 +433,7 @@ class ImportFileClass(object):
     def importLatest(self, refreshUi=True):
         if refreshUi:
             self.updateUi()
-        vPath = os.path.dirname(self.e_file.text())
+        vPath = os.path.dirname(self.getImportPath())
         if os.path.basename(vPath) in ["centimeter", "meter"]:
             vPath = os.path.dirname(vPath)
 

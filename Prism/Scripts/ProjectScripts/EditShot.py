@@ -313,20 +313,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                 self.accept()
 
     @err_decorator
-    def saveInfo(self):
-        if self.e_shotName.text() == "":
-            warnStr = "Invalid shotname"
-            msg = QMessageBox(
-                QMessageBox.Warning,
-                "Warning",
-                warnStr,
-                QMessageBox.Ok,
-                parent=self.core.messageParent,
-            )
-            msg.setFocus()
-            msg.exec_()
-            return False
-
+    def getShotName(self):
         if self.e_sequence.text() == "":
             newSName = self.e_shotName.text()
         else:
@@ -335,6 +322,16 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                 self.core.sequenceSeparator,
                 self.e_shotName.text(),
             )
+
+        return newSName
+
+    @err_decorator
+    def saveInfo(self):
+        newSName = self.getShotName()
+
+        if not newSName:
+            self.core.popup("Invalid shotname")
+            return False
 
         if self.shotName is not None and newSName != self.shotName:
             msgText = (

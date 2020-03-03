@@ -375,7 +375,7 @@ if __name__ == "__main__":
     qApp.setStyleSheet(qdarkstyle.load_stylesheet(pyside=True))
 
     if not QSystemTrayIcon.isSystemTrayAvailable():
-        QMessageBox.critical(None, "PrismTray", "Could not launch PrismTray.")
+        QMessageBox.critical(None, "PrismTray", "Could not launch PrismTray. Tray icons are not supported on this OS.")
         sys.exit(1)
 
     import PrismCore

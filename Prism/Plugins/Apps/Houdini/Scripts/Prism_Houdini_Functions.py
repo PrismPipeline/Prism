@@ -33,7 +33,7 @@
 
 import hou
 import os, sys
-import traceback, time, platform
+import traceback, time, platform, glob
 from functools import wraps
 
 try:
@@ -569,14 +569,15 @@ class Prism_Houdini_Functions(object):
         origin.saveEnabled = True
 
     def fixStyleSheet(self, widget):
+        root = self.core.prismRoot.replace("\\", "/")
         ssheet = ""
         ssheet += (
             "QGroupBox::indicator::checked\n{\n    image: url(%s/Plugins/Apps/Houdini/UserInterfaces/checkbox_on.svg);\n}"
-            % self.core.prismRoot
+            % root
         )
         ssheet += (
             "QGroupBox::indicator::unchecked\n{\n    image: url(%s/Plugins/Apps/Houdini/UserInterfaces/checkbox_off.svg);\n}"
-            % self.core.prismRoot
+            % root
         )
         ssheet += "QGroupBox::indicator { width: 16px; height: 16px;}"
         widget.setStyleSheet(ssheet)
@@ -601,14 +602,15 @@ class Prism_Houdini_Functions(object):
         origin.f_import.setStyleSheet("QFrame { border: 0px; }")
         origin.f_export.setStyleSheet("QFrame { border: 0px; }")
 
+        root = self.core.prismRoot.replace("\\", "/")
         ssheet = ""
         ssheet += (
             "QTreeWidget::indicator::checked\n{\n    image: url(%s/Plugins/Apps/Houdini/UserInterfaces/checkbox_on.svg);\n}"
-            % self.core.prismRoot
+            % root
         )
         ssheet += (
             "QTreeWidget::indicator::unchecked\n{\n    image: url(%s/Plugins/Apps/Houdini/UserInterfaces/checkbox_off.svg);\n}"
-            % self.core.prismRoot
+            % root
         )
         ssheet += "QTreeWidget::indicator { width: 16px; height: 16px;}"
 
@@ -765,7 +767,7 @@ class Prism_Houdini_Functions(object):
             for i in renderers:
                 mAct = QAction(i.label, origin)
                 mAct.triggered.connect(
-                    lambda x=i.label: origin.createPressed("Render", renderer=x)
+                    lambda x=None, y=i.label: origin.createPressed("Render", renderer=y)
                 )
                 rndMenu.addAction(mAct)
 
@@ -779,29 +781,26 @@ class Prism_Houdini_Functions(object):
 
     @err_decorator
     def getRendererPlugins(self):
-        for i in [
-            "Prism_Houdini_Renderer_Arnold",
-            "Prism_Houdini_Renderer_Mantra",
-            "Prism_Houdini_Renderer_Octane",
-            "Prism_Houdini_Renderer_Redshift",
-            "Prism_Houdini_Renderer_Vray",
-        ]:
+        gpath = os.path.dirname(os.path.abspath(__file__)) + "/Prism_Houdini_Renderer_*"
+        files = glob.glob(gpath)
+
+        rplugs = []
+        for f in files:
+            if f.endswith(".pyc"):
+                continue
+
+            rname = os.path.splitext(os.path.basename(f))[0]
+
             try:
-                del sys.modules[i]
+                del sys.modules[rname]
             except:
                 pass
 
-        import Prism_Houdini_Renderer_Arnold as arnoldRenderer
-        import Prism_Houdini_Renderer_Mantra as mantraRenderer
-        import Prism_Houdini_Renderer_Octane as octaneRenderer
-        import Prism_Houdini_Renderer_Redshift as redshiftRenderer
-        import Prism_Houdini_Renderer_Vray as vrayRenderer
+            rplug = __import__(rname)
+            if hasattr(rplug, "isActive") and rplug.isActive():
+                rplugs.append(rplug)
 
-        return [
-            x
-            for x in [arnoldRenderer, mantraRenderer, octaneRenderer, redshiftRenderer, vrayRenderer]
-            if x.isActive()
-        ]
+        return rplugs
 
     @err_decorator
     def sm_existExternalAsset(self, origin, asset):

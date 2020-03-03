@@ -119,11 +119,11 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_decorator
-    def onStateCreated(self, origin):
+    def onStateCreated(self, origin, state):
         pass
 
     @err_decorator
-    def onStateDeleted(self, origin):
+    def onStateDeleted(self, origin, state):
         pass
 
     @err_decorator
@@ -133,30 +133,30 @@ class Prism_PluginEmpty_Functions(object):
     @err_decorator
     def postPublish(self, origin, publishType):
         """
-		origin: 		StateManager instance
-		publishType: 	The type (string) of the publish. 
-						Can be "stateExecution" (state was executed from the context menu) or "publish" (publish button was pressed)
-		"""
+        origin:         StateManager instance
+        publishType:    The type (string) of the publish. 
+                        Can be "stateExecution" (state was executed from the context menu) or "publish" (publish button was pressed)
+        """
 
     @err_decorator
     def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish):
         """
-		origin: 	PrismCore instance
-		filepath: 	The filepath of the scenefile, which will be saved
-		versionUp: 	(bool) True if this save increments the version of that scenefile
-		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-		isPublish: 	(bool) True if this save was triggered by a publish
-		"""
+        origin:     PrismCore instance
+        filepath:   The filepath of the scenefile, which will be saved
+        versionUp:  (bool) True if this save increments the version of that scenefile
+        comment:    The string, which is used as the comment for the scenefile. Empty string if no comment was given.
+        isPublish:  (bool) True if this save was triggered by a publish
+        """
 
     @err_decorator
     def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
         """
-		origin: 	PrismCore instance
-		filepath: 	The filepath of the scenefile, which was saved
-		versionUp: 	(bool) True if this save increments the version of that scenefile
-		comment: 	The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-		isPublish: 	(bool) True if this save was triggered by a publish
-		"""
+        origin:     PrismCore instance
+        filepath:   The filepath of the scenefile, which was saved
+        versionUp:  (bool) True if this save increments the version of that scenefile
+        comment:    The string, which is used as the comment for the scenefile. Empty string if no comment was given.
+        isPublish:  (bool) True if this save was triggered by a publish
+        """
 
     @err_decorator
     def onSceneOpen(self, origin, filepath):
@@ -211,10 +211,10 @@ class Prism_PluginEmpty_Functions(object):
     @err_decorator
     def openPBAssetContextMenu(self, origin, rcmenu, index):
         """
-		origin: Project Browser instance
-		rcmenu: QMenu object, which can be modified before it gets displayed
-		index: QModelIndex object of the item on which the user clicked. Use index.data() to get the text of the index.
-		"""
+        origin: Project Browser instance
+        rcmenu: QMenu object, which can be modified before it gets displayed
+        index: QModelIndex object of the item on which the user clicked. Use index.data() to get the text of the index.
+        """
         pass
 
     @err_decorator
@@ -284,41 +284,50 @@ class Prism_PluginEmpty_Functions(object):
     @err_decorator
     def maya_export_abc(self, origin, params):
         """
-		origin: reference to the Maya Plugin class
-		params: dict containing the mel command (params["export_cmd"])
+        origin: reference to the Maya Plugin class
+        params: dict containing the mel command (params["export_cmd"])
 
-		Gets called immediately before Prism exports an alembic file from Maya
-		This function can modify the mel command, which Prism will execute to export the file.
+        Gets called immediately before Prism exports an alembic file from Maya
+        This function can modify the mel command, which Prism will execute to export the file.
 
-		Example:
-		print params["export_cmd"]
-		>>AbcExport -j "-frameRange 1000 1000 -root |pCube1  -worldSpace -uvWrite -writeVisibility  -file \"D:\\\\Projects\\\\Project\\\\03_Workflow\\\\Shots\\\\maya-001\\\\Export\\\\Box\\\\v0001_comment_rfr\\\\centimeter\\\\shot_maya-001_Box_v0001.abc\"" 
-		
-		Use python string formatting to modify the command:
-		params["export_cmd"] = params["export_cmd"][:-1] + " -attr material" + params["export_cmd"][-1]
-		"""
+        Example:
+        print params["export_cmd"]
+        >>AbcExport -j "-frameRange 1000 1000 -root |pCube1  -worldSpace -uvWrite -writeVisibility  -file \"D:\\\\Projects\\\\Project\\\\03_Workflow\\\\Shots\\\\maya-001\\\\Export\\\\Box\\\\v0001_comment_rfr\\\\centimeter\\\\shot_maya-001_Box_v0001.abc\"" 
+
+        Use python string formatting to modify the command:
+        params["export_cmd"] = params["export_cmd"][:-1] + " -attr material" + params["export_cmd"][-1]
+        """
 
     @err_decorator
     def preSubmit_Deadline(self, origin, jobInfos, pluginInfos, arguments):
         """
-		origin: reference to the Deadline plugin class
-		jobInfos: List containing the data that will be written to the JobInfo file. Can be modified.
-		pluginInfos: List containing the data that will be written to the PluginInfo file. Can be modified.
-		arguments: List of arguments that will be send to the Deadline submitter. This contains filepaths to all submitted files (note that they are eventually not created at this point).
-		
-		Gets called before a render or simulation job gets submitted to the Deadline renderfarmmanager.
-		This function can modify the submission parameters.
+        origin: reference to the Deadline plugin class
+        jobInfos: List containing the data that will be written to the JobInfo file. Can be modified.
+        pluginInfos: List containing the data that will be written to the PluginInfo file. Can be modified.
+        arguments: List of arguments that will be send to the Deadline submitter. This contains filepaths to all submitted files (note that they are eventually not created at this point).
 
-		Example:
-		jobInfos["PostJobScript"] = "D:/Scripts/Deadline/myPostJobTasks.py"
+        Gets called before a render or simulation job gets submitted to the Deadline renderfarmmanager.
+        This function can modify the submission parameters.
 
-		You can find more available job parameters here:
-		https://docs.thinkboxsoftware.com/products/deadline/10.0/1_User%20Manual/manual/manual-submission.html
-		"""
+        Example:
+        jobInfos["PostJobScript"] = "D:/Scripts/Deadline/myPostJobTasks.py"
+
+        You can find more available job parameters here:
+        https://docs.thinkboxsoftware.com/products/deadline/10.0/1_User%20Manual/manual/manual-submission.html
+        """
 
     @err_decorator
     def postSubmit_Deadline(self, origin, result):
         """
-		origin: reference to the Deadline plugin class
-		result: the return value from the Deadline submission.
-		"""
+        origin: reference to the Deadline plugin class
+        result: the return value from the Deadline submission.
+        """
+
+    @err_decorator
+    def preIntegrationAdded(self, origin, integrationFiles):
+        """
+        origin: reference to the integration class instance
+        integrationFiles: dict of files, which will be used for the integration
+
+        Modify the integrationFiles paths to replace the default Prism integration files with custom ones
+        """

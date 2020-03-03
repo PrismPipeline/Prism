@@ -1,3 +1,13 @@
+v1.2.1.57:
+- added support for .vdb exports in Houdini
+- fixed an error in Houdini when creating a renderstate from the "Rnd" button in the State Manager
+- added the "eulerfilter" argument to alembic exports from Maya
+- forced the "Don't save image" option to be off when executing a VRay render in Maya
+- added a popup notification when the Project Browser opens and all tabs are set to invisible
+- added the option to install Prism without root permissions on linux and mac. This will skip the setup of autostart and startmenu entries for Prism
+- fixed wrong permissions of the Prism preferences files after the Prism installation on Ubuntu 18
+- many improvements to the API, code structure and plugin callbacks
+
 v1.2.1.56:
 - solved a problem of a frozen framerange mismatch dialog in Houdini 18
 

@@ -43,6 +43,7 @@ class Prism_Houdini_Variables(object):
         self.outputFormats = [
             ".bgeo",
             ".bgeo.sc",
+            ".vdb",
             ".abc",
             ".obj",
             ".hda",

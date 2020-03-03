@@ -683,7 +683,7 @@ class Prism_Maya_Functions(object):
                         rootString += "-root %s " % i
 
                 expStr = (
-                    'AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\"%s\\""'
+                    'AbcExport -j "-frameRange %s %s %s -eulerFilter -worldSpace -uvWrite -writeVisibility -stripNamespaces -file \\"%s\\""'
                     % (
                         startFrame,
                         endFrame,
@@ -713,7 +713,7 @@ class Prism_Maya_Functions(object):
                     if action == 0:
                         try:
                             mel.eval(
-                                'AbcExport -j "-frameRange %s %s %s -worldSpace -uvWrite -writeVisibility -file \\"%s\\""'
+                                'AbcExport -j "-frameRange %s %s %s -eulerFilter -worldSpace -uvWrite -writeVisibility -file \\"%s\\""'
                                 % (
                                     startFrame,
                                     endFrame,
@@ -1340,6 +1340,7 @@ class Prism_Maya_Functions(object):
                 "vraySettings.relements_separateRGBA"
             )
             rSettings["vr_animation"] = cmds.getAttr("vraySettings.animType")
+            rSettings["vr_dontSave"] = cmds.getAttr("vraySettings.dontSaveImage")
 
             multichannel = cmds.getAttr("vraySettings.imageFormatStr") not in [
                 "exr (multichannel)",
@@ -1348,6 +1349,7 @@ class Prism_Maya_Functions(object):
             if not multichannel:
                 cmds.setAttr("vraySettings.imageFormatStr", "exr", type="string")
             cmds.setAttr("vraySettings.animType", 1)
+            cmds.setAttr("vraySettings.dontSaveImage", 0)
 
             aovs = cmds.ls(type="VRayRenderElement")
             aovs = [x for x in aovs if cmds.getAttr(x + ".enabled")]
@@ -1357,10 +1359,11 @@ class Prism_Maya_Functions(object):
                 and not multichannel
                 and len(aovs) > 0
             ):
-                try:
-                    shutil.rmtree(os.path.dirname(rSettings["outputName"]))
-                except:
-                    pass
+                if origin.cleanOutputdir:
+                    try:
+                        shutil.rmtree(os.path.dirname(rSettings["outputName"]))
+                    except:
+                        pass
 
                 rSettings["vr_sepFolders"] = cmds.getAttr(
                     "vraySettings.relements_separateFolders"
@@ -1593,6 +1596,10 @@ class Prism_Maya_Functions(object):
             cmds.setAttr(
                 "vraySettings.imageFormatStr", rSettings["vr_fileformat"], type="string"
             )
+        if "vr_animation" in rSettings:
+            cmds.setAttr("vraySettings.animType", rSettings["vr_animation"])
+        if "vr_dontSave" in rSettings:
+            cmds.setAttr("vraySettings.dontSaveImage", rSettings["vr_dontSave"])
         if "startFrame" in rSettings:
             cmds.setAttr("defaultRenderGlobals.startFrame", rSettings["startFrame"])
         if "endFrame" in rSettings:
@@ -2279,22 +2286,22 @@ Show only polygon objects in viewport.
                 )
 
                 try:
-                    cmds.setAttr(pbCam + ".filmFit", 1)
+                    cmds.setAttr(pbCam + ".filmFit", self.playblastSettings["filmFit"])
                 except:
                     pass
 
                 try:
-                    cmds.setAttr(pbCam + ".displayFilmGate", False)
+                    cmds.setAttr(pbCam + ".displayFilmGate", self.playblastSettings["displayFilmGate"])
                 except:
                     pass
 
                 try:
-                    cmds.setAttr(pbCam + ".displayResolution", False)
+                    cmds.setAttr(pbCam + ".displayResolution", self.playblastSettings["displayResolution"])
                 except:
                     pass
 
                 try:
-                    cmds.setAttr(pbCam + ".overscan", 1.0)
+                    cmds.setAttr(pbCam + ".overscan", self.playblastSettings["overscan"])
                 except:
                     pass
 
@@ -2302,7 +2309,7 @@ Show only polygon objects in viewport.
                 cmds.modelEditor(vpName, e=True, polymeshes=True)
 
         # set image format to jpeg
-        cmds.setAttr("defaultRenderGlobals.imageFormat", 8)
+        cmds.setAttr("defaultRenderGlobals.imageFormat", self.playblastSettings["imageFormat"])
         outputName = outputName[:-5]
 
         cmdString = (

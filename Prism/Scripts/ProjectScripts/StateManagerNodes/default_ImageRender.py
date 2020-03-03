@@ -85,6 +85,7 @@ class ImageRenderClass(object):
         self.listType = "Export"
 
         self.renderingStarted = False
+        self.cleanOutputdir = True
 
         self.e_name.setText(state.text(0))
 
@@ -758,6 +759,11 @@ class ImageRenderClass(object):
 
         outputName = os.path.join(outputPath, outputFile)
         outputName = self.core.appPlugin.sm_render_fixOutputPath(self, outputName)
+        result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
+        for res in result:
+            if res:
+                outputName = res
+
         outputPath = os.path.dirname(outputName)
 
         return outputName, outputPath, hVersion

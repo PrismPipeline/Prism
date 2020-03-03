@@ -149,6 +149,10 @@ class Prism_Standalone_Functions(object):
 
     @err_decorator
     def createWinStartMenu(self, origin):
+        if os.environ.get("prism_skip_root_install"):
+            print "skipped creating Prism startmenu because of missing permissions."
+            return
+
         if platform.system() == "Windows":
             startMenuPath = os.path.join(
                 os.environ["AppData"], "Microsoft", "Windows", "Start Menu", "Programs"

@@ -122,7 +122,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.56"
+            self.version = "v1.2.1.57"
             self.requiredLibraries = "v1.2.0.0"
 
             self.prismRoot = os.path.abspath(
@@ -1516,8 +1516,8 @@ License: GNU GPL-3.0-or-later<br>
 
         elif entity["type"][0] == "asset":
             result = self.pb.createShotFolders(
-                fname="%s/%s" % (entity["hierarchy"][0], entity["name"][0]),
-                ftype="asset",
+                entityName="%s/%s" % (entity["hierarchy"][0], entity["name"][0]),
+                entityType="asset",
             )
 
         elif entity["type"][0] == "shot":
@@ -1793,6 +1793,7 @@ License: GNU GPL-3.0-or-later<br>
             self.pb = ProjectBrowser.ProjectBrowser(core=self)
             if openUi:
                 self.pb.show()
+                self.pb.checkVisibleTabs()
 
             return True
 
@@ -1936,11 +1937,11 @@ License: GNU GPL-3.0-or-later<br>
         self.setConfig(configPath=self.installLocPath, data=cData)
 
     @err_decorator
-    def setupStartMenu(self):
+    def setupStartMenu(self, quiet=False):
         if self.appPlugin.pluginName == "Standalone":
             result = self.appPlugin.createWinStartMenu(self)
-            if not "silent" in self.prismArgs:
-                if result == True:
+            if "silent" not in self.prismArgs and not quiet:
+                if result:
                     msg = "Successfully added start menu entries."
                     QMessageBox.information(self.messageParent, "Prism", msg)
                 else:

@@ -445,22 +445,6 @@ class PlayblastClass(object):
                 % outLength
             ]
 
-        if not os.path.exists(outputPath):
-            os.makedirs(outputPath)
-
-        self.core.saveVersionInfo(
-            location=outputPath, version=hVersion, origin=fileName
-        )
-
-        self.l_pathLast.setText(outputName)
-        self.l_pathLast.setToolTip(outputName)
-        self.b_openLast.setEnabled(True)
-        self.b_copyLast.setEnabled(True)
-
-        self.stateManager.saveStatesToScene()
-
-        self.core.saveScene(versionUp=False, prismReq=False)
-
         if self.chb_globalRange.isChecked():
             jobFrames = (
                 self.stateManager.sp_rangeStart.value(),
@@ -480,16 +464,35 @@ class PlayblastClass(object):
                 self.state.text(0) + ": error - Camera is invalid (%s)." % self.curCam
             ]
 
-        self.core.callHook(
-            "prePlayblast",
-            args={
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "startFrame": jobFrames[0],
-                "endFrame": jobFrames[1],
-                "outputName": outputName,
-            },
+        args = {
+            "prismCore": self.core,
+            "scenefile": fileName,
+            "startFrame": jobFrames[0],
+            "endFrame": jobFrames[1],
+            "outputName": outputName,
+        }
+
+        result = self.core.callHook("prePlayblast", args=args)
+        for res in result:
+            if res and "outputName" in res:
+                outputName = res["outputName"]
+
+        outputPath = os.path.dirname(outputName)
+        if not os.path.exists(outputPath):
+            os.makedirs(outputPath)
+
+        self.core.saveVersionInfo(
+            location=outputPath, version=hVersion, origin=fileName
         )
+
+        self.l_pathLast.setText(outputName)
+        self.l_pathLast.setToolTip(outputName)
+        self.b_openLast.setEnabled(True)
+        self.b_copyLast.setEnabled(True)
+
+        self.stateManager.saveStatesToScene()
+
+        self.core.saveScene(versionUp=False, prismReq=False)
 
         try:
             self.core.appPlugin.sm_playblast_createPlayblast(
@@ -517,11 +520,11 @@ class PlayblastClass(object):
                     ]
 
                 delFiles = []
-                for i in os.listdir(os.path.dirname(outputName)):
+                for i in os.listdir(outputPath):
                     if i.startswith(os.path.basename(mediaBaseName)) and i.endswith(
                         ".jpg"
                     ):
-                        delFiles.append(os.path.join(os.path.dirname(outputName), i))
+                        delFiles.append(os.path.join(outputPath, i))
 
                 for i in delFiles:
                     try:

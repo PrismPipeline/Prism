@@ -120,7 +120,21 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
             self.e_name.setFocus()
 
+        self.prjFolders = [
+            ["01_Management", "Default"],
+            ["02_Designs", "Default"],
+            ["03_Workflow", "Scenes*"],
+            ["04_Assets", "Assets*"],
+            ["05_Dailies", "Dailies"],
+        ]
+        self.enableCleanup = True
+
         self.setupFolders()
+        self.core.callback(
+            name="onCreateProjectOpen",
+            types=["custom"],
+            args=[self],
+        )
 
     def err_decorator(func):
         @wraps(func)
@@ -202,14 +216,6 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
     @err_decorator
     def setupFolders(self):
-        self.prjFolders = [
-            ["01_Management", "Default"],
-            ["02_Designs", "Default"],
-            ["03_Workflow", "Scenes*"],
-            ["04_Assets", "Assets*"],
-            ["05_Dailies", "Dailies"],
-        ]
-
         if self.core.uiAvailable:
             model = QStandardItemModel()
             model.setHorizontalHeaderLabels(["Prefix", "Name", "Type"])
@@ -394,7 +400,10 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
         if os.path.exists(pPath):
             try:
-                shutil.rmtree(pPath)
+                if self.enableCleanup:
+                    shutil.rmtree(pPath)
+                else:
+                    self.core.popup('Projects Exists "%s"' % pPath)
             except:
                 self.core.popup('Could not remove folder "%s"' % pPath)
                 return
