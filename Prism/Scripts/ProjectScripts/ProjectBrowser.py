@@ -4030,7 +4030,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             folders = [
                 "Scenefiles",
                 "Export",
-                "Playblasts"
+                "Playblasts",
                 "Rendering/3dRender",
                 "Rendering/2dRender",
             ]
