@@ -1,3 +1,6 @@
+v1.2.1.58:
+- fixed incorrect subfolders for assets and shots
+
 v1.2.1.57:
 - added support for .vdb exports in Houdini
 - fixed an error in Houdini when creating a renderstate from the "Rnd" button in the State Manager
