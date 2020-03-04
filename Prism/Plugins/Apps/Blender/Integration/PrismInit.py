@@ -31,7 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, bpy
+import os
+import sys
+import platform
+
+import bpy
 
 prismRoot = PRISMROOT
 
@@ -107,7 +111,15 @@ class PrismSave(bpy.types.Operator):
     bl_label = "Save"
 
     def execute(self, context):
-        pcore.saveScene()
+        if platform.system() == "Linux":
+            pcore.saveScene()
+            for i in QApplication.topLevelWidgets():
+                if i.isVisible():
+                    qApp.exec_()
+                    break
+        else:
+            pcore.saveScene()
+
         return {"FINISHED"}
 
 
@@ -116,7 +128,15 @@ class PrismSaveComment(bpy.types.Operator):
     bl_label = "Save Comment"
 
     def execute(self, context):
-        pcore.saveWithComment()
+        if platform.system() == "Linux":
+            pcore.saveWithComment()
+            for i in QApplication.topLevelWidgets():
+                if i.isVisible():
+                    qApp.exec_()
+                    break
+        else:
+            pcore.saveWithComment()
+
         return {"FINISHED"}
 
 
@@ -125,7 +145,12 @@ class PrismProjectBrowser(bpy.types.Operator):
     bl_label = "Project Browser"
 
     def execute(self, context):
-        pcore.projectBrowser()
+        if platform.system() == "Linux":
+            pcore.projectBrowser()
+            qApp.exec_()
+        else:
+            pcore.projectBrowser()
+
         return {"FINISHED"}
 
 
@@ -134,7 +159,12 @@ class PrismStateManager(bpy.types.Operator):
     bl_label = "State Manager"
 
     def execute(self, context):
-        pcore.stateManager()
+        if platform.system() == "Linux":
+            pcore.stateManager()
+            qApp.exec_()
+        else:
+            pcore.stateManager()
+
         return {"FINISHED"}
 
 
@@ -143,7 +173,12 @@ class PrismSettings(bpy.types.Operator):
     bl_label = "Prism Settings"
 
     def execute(self, context):
-        pcore.prismSettings()
+        if platform.system() == "Linux":
+            pcore.prismSettings()
+            qApp.exec_()
+        else:
+            pcore.prismSettings()
+
         return {"FINISHED"}
 
 

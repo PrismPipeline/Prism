@@ -299,8 +299,10 @@ except Exception as e:
 
                 if pVersion == 2:
                     import urllib
-
-                    u = urllib.urlopen(url, context=ssl._create_unverified_context())
+                    try:
+                        u = urllib.urlopen(url, context=ssl._create_unverified_context())
+                    except:
+                        u = urllib.urlopen(url)
                 else:
                     import urllib.request
 

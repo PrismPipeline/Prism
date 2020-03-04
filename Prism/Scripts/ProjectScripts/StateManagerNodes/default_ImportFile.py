@@ -287,7 +287,6 @@ class ImportFileClass(object):
             return result
 
         impFileName = self.getImportPath()
-        print impFileName
 
         if impFileName != "":
             versionInfoPath = os.path.join(

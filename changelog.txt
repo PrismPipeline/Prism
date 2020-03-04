@@ -1,3 +1,8 @@
+v1.2.1.59:
+- added initial support for Blender on Linux for testing purposes (extra python libraries are necessary to test it at the moment)
+- fixed an error when using the Updater with older Python 2.7 versions
+- fixed a syntax error, which prevented the Import State from loading in Blender
+
 v1.2.1.58:
 - fixed incorrect subfolders for assets and shots
 

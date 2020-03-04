@@ -115,6 +115,20 @@ class Prism_Blender_Functions(object):
 
     @err_decorator
     def startup(self, origin):
+        if platform.system() == "Linux":
+            origin.timer.stop()
+
+            if "prism_project" in os.environ and os.path.exists(
+                os.environ["prism_project"]
+            ):
+                curPrj = os.environ["prism_project"]
+            else:
+                curPrj = self.core.getConfig("globals", "current project")
+
+            if curPrj != "":
+                self.core.changeProject(curPrj)
+            return False
+
         try:
             bpy.data.filepath
         except:
