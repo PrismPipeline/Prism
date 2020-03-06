@@ -1,3 +1,6 @@
+v1.2.1.60
+- fixed an error when opening the setup integrations dialog on Windows
+
 v1.2.1.59:
 - added initial support for Blender on Linux for testing purposes (extra python libraries are necessary to test it at the moment)
 - fixed an error when using the Updater with older Python 2.7 versions
