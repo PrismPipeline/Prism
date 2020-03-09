@@ -1,4 +1,4 @@
-v1.2.1.60
+v1.2.1.61
 - fixed an error when opening the setup integrations dialog on Windows
 
 v1.2.1.59:

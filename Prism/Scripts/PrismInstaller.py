@@ -250,6 +250,9 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
             return False
 
     def updatePrefPermissions(self):
+        if platform.system() == "Windows":
+            return
+
         userName = (
             os.environ["SUDO_USER"]
             if "SUDO_USER" in os.environ
