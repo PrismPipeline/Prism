@@ -118,7 +118,7 @@ class Prism_PluginEmpty_externalAccess_Functions(object):
         return autobackpath, fileStr
 
     @err_decorator
-    def copySceneFile(self, origin, origFile, targetPath):
+    def copySceneFile(self, origin, origFile, targetPath, mode="copy"):
         pass
 
     @err_decorator

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_ImageRender.ui'
 #
-# Created: Wed Oct  9 23:59:43 2019
+# Created: Sun Mar 15 18:21:24 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -523,6 +523,7 @@ class Ui_wg_ImageRender(object):
         self.lw_passes = QtGui.QListWidget(self.gb_passes)
         self.lw_passes.setMaximumSize(QtCore.QSize(16777215, 500))
         self.lw_passes.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.lw_passes.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.lw_passes.setObjectName("lw_passes")
         self.verticalLayout_5.addWidget(self.lw_passes)
         self.b_addPasses = QtGui.QPushButton(self.gb_passes)

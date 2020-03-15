@@ -389,7 +389,7 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_decorator
-    def sm_render_deletePass(self, origin, item):
+    def removeAOV(self, aovName):
         pass
 
     @err_decorator

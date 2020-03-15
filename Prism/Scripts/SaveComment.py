@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import platform
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,13 +46,12 @@ except:
 
     psVersion = 1
 
-import sys, os, traceback, platform, time
-from functools import wraps
-
 if psVersion == 1:
     from UserInterfacesPrism import SaveComment_ui
 else:
     from UserInterfacesPrism import SaveComment_ui_ps2 as SaveComment_ui
+
+from PrismUtils.Decorators import err_decorator
 
 
 class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
@@ -68,28 +70,10 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
         )
         self.resize(0, self.geometry().size().height())
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - ProjectBrowser %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator
+    @err_decorator(name="SaveComment")
     def validate(self, origText):
         text = self.core.validateStr(origText)
 
@@ -98,7 +82,7 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
             self.e_comment.setText(text)
             self.e_comment.setCursorPosition(cpos - 1)
 
-    @err_decorator
+    @err_decorator(name="SaveComment")
     def setEmptyPreview(self):
         imgFile = os.path.join(
             self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileBig.jpg"
@@ -107,7 +91,7 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
         pmap = pmap.scaled(QSize(500, 281))
         self.l_preview.setPixmap(pmap)
 
-    @err_decorator
+    @err_decorator(name="SaveComment")
     def getImgPMap(self, path):
         if platform.system() == "Windows":
             return QPixmap(path)
@@ -125,7 +109,7 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
             except:
                 return QPixmap(path)
 
-    @err_decorator
+    @err_decorator(name="SaveComment")
     def grabArea(self):
         self.setWindowOpacity(0)
         from PrismUtils import ScreenShot
@@ -141,7 +125,7 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
             )
             self.previewDefined = True
 
-    @err_decorator
+    @err_decorator(name="SaveComment")
     def getDetails(self):
         details = {
             "description": self.e_description.toPlainText(),

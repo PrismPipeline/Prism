@@ -31,6 +31,10 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import datetime
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,16 +47,9 @@ except:
 
     psVersion = 1
 
-import sys, os, datetime, traceback, time
-from functools import wraps
-
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
 
 for i in ["DependencyViewer_ui", "DependencyViewer_ui_ps2"]:
@@ -65,6 +62,8 @@ if psVersion == 1:
     import DependencyViewer_ui
 else:
     import DependencyViewer_ui_ps2 as DependencyViewer_ui
+
+from PrismUtils.Decorators import err_decorator
 
 
 class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
@@ -109,24 +108,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             name="onDependencyViewerOpen", types=["curApp", "custom"], args=[self]
         )
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - DependencyViewer %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="DependencyViewer")
     def connectEvents(self):
         self.e_search.textChanged.connect(self.filterDeps)
         self.tw_dependencies.mouseClickEvent = self.tw_dependencies.mouseReleaseEvent
@@ -137,7 +119,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             lambda x: self.rclList("deps", x)
         )
 
-    @err_decorator
+    @err_decorator(name="DependencyViewer")
     def mouseClickEvent(self, event, uielement):
         if QEvent != None:
             if event.type() == QEvent.MouseButtonRelease:
@@ -150,7 +132,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
                                 self.tw_dependencies.model().createIndex(-1, 0)
                             )
 
-    @err_decorator
+    @err_decorator(name="DependencyViewer")
     def rclList(self, listType, pos):
         rcmenu = QMenu()
 
@@ -180,7 +162,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="DependencyViewer")
     def updateDependencies(self, depID, versionInfo):
         source = self.core.getConfig(
             cat="information", param="source scene", configPath=versionInfo
@@ -292,7 +274,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             curID = str(len(self.dependencies) + 1)
             self.dependencies[curID] = [i, item, depID]
 
-    @err_decorator
+    @err_decorator(name="DependencyViewer")
     def filterDeps(self, filterStr):
         self.clearItem(self.tw_dependencies.invisibleRootItem())
 
@@ -317,7 +299,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
             self.tw_dependencies.expandAll()
 
-    @err_decorator
+    @err_decorator(name="DependencyViewer")
     def clearItem(self, item):
         for i in range(item.childCount()):
             self.clearItem(item.child(0))

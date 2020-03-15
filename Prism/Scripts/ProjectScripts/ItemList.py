@@ -31,6 +31,10 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import ast
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -42,8 +46,6 @@ except:
     from PySide.QtGui import *
 
     psVersion = 1
-
-import sys, os, ast
 
 if psVersion == 1:
     from UserInterfaces import ItemList_ui

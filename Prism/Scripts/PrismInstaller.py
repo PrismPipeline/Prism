@@ -31,15 +31,14 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, shutil, sys, imp, subprocess, csv, platform
+import os
+import sys
+import shutil
+import platform
 
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
 
 if platform.system() == "Windows":

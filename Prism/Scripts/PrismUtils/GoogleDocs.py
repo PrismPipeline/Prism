@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,9 +46,6 @@ except:
 
     psVersion = 1
 
-import os, sys, traceback, time
-from functools import wraps
-
 gLibs = os.path.abspath(
     os.path.join(__file__, os.pardir, os.pardir, os.pardir, "PythonLibs", "GoogleDocs")
 )
@@ -54,7 +54,8 @@ if gLibs not in sys.path:
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import pprint
+
+from PrismUtils.Decorators import err_decorator
 
 
 class GoogleDocs(QDialog):
@@ -63,25 +64,7 @@ class GoogleDocs(QDialog):
         self.core = core
         self.authorize(authorizationfile)
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - GoogleDocs %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="GoogleDocs")
     def authorize(self, authorizationfile):
         scope = [
             "https://spreadsheets.google.com/feeds",
@@ -92,7 +75,7 @@ class GoogleDocs(QDialog):
         )
         self.client = gspread.authorize(creds)
 
-    @err_decorator
+    @err_decorator(name="GoogleDocs")
     def getRows(self, docName, sheetName, columns, fromRow=-1, toRow=-1):
         sheet = self.client.open(docName).worksheet(sheetName)
         colVals = []

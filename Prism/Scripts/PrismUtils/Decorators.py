@@ -31,25 +31,28 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
-
-if psVersion == 1:
-    from UserInterfacesPrism import EnterText_ui
-else:
-    from UserInterfacesPrism import EnterText_ui_ps2 as EnterText_ui
+import sys
+import traceback
+import time
+from functools import wraps
 
 
-class EnterText(QDialog, EnterText_ui.Ui_dlg_EnterText):
-    def __init__(self):
-        QDialog.__init__(self)
-        self.setupUi(self)
+def err_decorator(name):
+    def decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                erStr = "%s ERROR - %s %s:\n%s\n\n%s" % (
+                    time.strftime("%d/%m/%y %X"),
+                    name,
+                    args[0].core.version,
+                    "".join(traceback.format_stack()),
+                    traceback.format_exc(),
+                )
+                args[0].core.writeErrorLog(erStr)
+
+        return func_wrapper
+    return decorator

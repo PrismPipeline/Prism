@@ -30,6 +30,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
+import sys
+import time
+import traceback
+import platform
 
 try:
     from PySide2.QtCore import *
@@ -43,38 +48,16 @@ except:
 
     psVersion = 1
 
-import sys, os, shutil, time, traceback, platform
-from functools import wraps
-
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
+
+from PrismUtils.Decorators import err_decorator
 
 
 class PlayblastClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - sm_default_playblast %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def setup(self, state, core, stateManager, stateData=None):
         self.state = state
         self.core = core
@@ -117,7 +100,7 @@ class PlayblastClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -173,7 +156,7 @@ class PlayblastClass(object):
             self, data
         )
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -195,7 +178,7 @@ class PlayblastClass(object):
             lambda: self.core.copyToClipboard(self.l_pathLast.text())
         )
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def rangeTypeChanged(self, state):
         self.l_rangeEnd.setEnabled(not state)
         self.sp_rangeStart.setEnabled(not state)
@@ -203,21 +186,21 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def setCam(self, index):
         if index == 0:
             self.curCam = None
@@ -226,7 +209,7 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def nameChanged(self, text):
         taskname = self.l_taskName.text()
         if taskname == "":
@@ -238,12 +221,12 @@ class PlayblastClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def setTaskname(self, taskname):
         self.l_taskName.setText(taskname)
         self.updateUi()
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def changeTask(self):
         import CreateItem
 
@@ -267,7 +250,7 @@ class PlayblastClass(object):
 
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def resOverrideChanged(self, checked):
         self.sp_resWidth.setEnabled(checked)
         self.sp_resHeight.setEnabled(checked)
@@ -275,7 +258,7 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def showResPresets(self):
         pmenu = QMenu()
 
@@ -295,7 +278,7 @@ class PlayblastClass(object):
         self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def updateUi(self):
         # update Cams
         self.cb_cams.clear()
@@ -321,7 +304,7 @@ class PlayblastClass(object):
 
         return True
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def preExecuteState(self):
         warnings = []
 
@@ -332,7 +315,7 @@ class PlayblastClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def getOutputName(self, useVersion="next"):
         if self.l_taskName.text() == "":
             return
@@ -361,7 +344,7 @@ class PlayblastClass(object):
             pComment = useVersion.split(self.core.filenameSeparator)[1]
 
         fnameData = self.core.getScenefileData(fileName)
-        if fnameData["type"] == "shot":
+        if fnameData["entity"] == "shot":
             outputPath = os.path.join(
                 self.core.getEntityBasePath(fileName),
                 "Playblasts",
@@ -377,14 +360,14 @@ class PlayblastClass(object):
             outputFile = os.path.join(
                 "shot"
                 + self.core.filenameSeparator
-                + fnameData["shotName"]
+                + fnameData["entityName"]
                 + self.core.filenameSeparator
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
                 + hVersion
                 + "..jpg"
             )
-        elif fnameData["type"] == "asset":
+        elif fnameData["entity"] == "asset":
             if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
                 outputPath = os.path.join(
                     self.core.fixPath(basePath),
@@ -408,7 +391,7 @@ class PlayblastClass(object):
                 outputPath, hVersion + self.core.filenameSeparator + pComment
             )
             outputFile = os.path.join(
-                fnameData["assetName"]
+                fnameData["entityName"]
                 + self.core.filenameSeparator
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
@@ -422,7 +405,7 @@ class PlayblastClass(object):
 
         return outputName, outputPath, hVersion
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def executeState(self, parent, useVersion="next"):
         # 	if not self.core.uiAvailable:
         # 		return [self.state.text(0) + ": error - Playblasts are not supported without UI."]
@@ -560,7 +543,7 @@ class PlayblastClass(object):
                 + " - unknown error (view console for more information)"
             ]
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def setTaskWarn(self, warn):
         useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
         if warn:
@@ -576,7 +559,7 @@ class PlayblastClass(object):
             else:
                 self.b_changeTask.setPalette(self.oldPalette)
 
-    @err_decorator
+    @err_decorator(name="sm_default_playblast")
     def getStateProps(self):
         stateProps = {}
         stateProps.update(

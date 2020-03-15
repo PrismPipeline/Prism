@@ -31,7 +31,21 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, threading, shutil, time, socket, traceback, imp, platform, random, errno, stat, datetime, re
+import os
+import sys
+import threading
+import shutil
+import time
+import socket
+import traceback
+import imp
+import platform
+import random
+import errno
+import stat
+import re
+import subprocess
+import logging
 
 # check if python 2 or python 3 is used
 if sys.version[0] == "3":
@@ -76,9 +90,6 @@ except:
 
             psVersion = 1
 
-from functools import wraps
-import subprocess
-
 try:
     import EnterText
 except:
@@ -86,6 +97,11 @@ except:
     if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
         os.remove(modPath)
     import EnterText
+
+from PrismUtils.Decorators import err_decorator
+
+
+logger = logging.getLogger(__name__)
 
 
 # Timer, which controls the autosave popup, when the autosave in the DCC is diabled
@@ -122,8 +138,9 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.61"
+            self.version = "v1.2.1.62"
             self.requiredLibraries = "v1.2.0.0"
+            self.core = self
 
             self.prismRoot = os.path.abspath(
                 os.path.dirname(os.path.dirname(__file__))
@@ -202,6 +219,8 @@ class PrismCore:
             self.sequenceSeparator = "-"
             self.separateOutputVersionStack = True
             self.forceFramerange = False
+            self.catchTypeErrors = False
+            self.currentCallback = {"plugin":"", "function":""}
 
             # delete old paths from the path variable
             for val in sys.path:
@@ -240,6 +259,10 @@ class PrismCore:
             if not os.path.exists(self.userini):
                 self.createUserPrefs()
 
+            logging.basicConfig()
+            self.updateLogging()
+            logger.debug("Initializing Prism " + self.version)
+
             self.useOnTop = self.getConfig("globals", "use_always_on_top", ptype="bool")
             if self.useOnTop is None:
                 self.useOnTop = True
@@ -264,24 +287,7 @@ class PrismCore:
             )
             self.writeErrorLog(erStr)
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - PrismCore %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def updatePlugins(self, current=None, pluginLocation=None, startup=True):
         appPlugins = []
         customPlugins = []
@@ -415,7 +421,7 @@ class PrismCore:
         else:
             self.startup()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def reloadPlugins(self):
         appPlug = self.appPlugin.pluginName
 
@@ -436,7 +442,7 @@ class PrismCore:
         self.unloadPlugin(self.appPlugin.pluginName)
         self.updatePlugins(current=appPlug, startup=False)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def reloadCustomPlugins(self):
         for i in self.customPlugins:
             mods = [
@@ -453,7 +459,7 @@ class PrismCore:
             cPlug = getattr(__import__("Prism_%s_init" % i), "Prism_%s" % i)(self)
             self.customPlugins[cPlug.pluginName] = cPlug
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def unloadProjectPlugins(self):
         pluginDicts = [
             self.unloadedAppPlugins,
@@ -470,7 +476,7 @@ class PrismCore:
         for i in prjPlugins:
             self.unloadPlugin(i[0], i[1])
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def unloadPlugin(self, pluginName, pluginCategory=None):
         mods = [
             "Prism_%s_init" % pluginName,
@@ -492,14 +498,14 @@ class PrismCore:
         if pluginName == self.appPlugin.pluginName:
             self.appPlugin = None
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getPluginNames(self):
         pluginNames = list(self.unloadedAppPlugins.keys())
         pluginNames.append(self.appPlugin.pluginName)
 
         return sorted(pluginNames)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getPluginSceneFormats(self):
         pluginFormats = list(self.appPlugin.sceneFormats)
 
@@ -508,7 +514,7 @@ class PrismCore:
 
         return pluginFormats
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getPluginData(self, pluginName, data):
         if pluginName == self.appPlugin.pluginName:
             return getattr(self.appPlugin, data, None)
@@ -519,7 +525,7 @@ class PrismCore:
 
         return None
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getPlugin(self, pluginName):
         if pluginName == self.appPlugin.pluginName:
             return self.appPlugin
@@ -536,7 +542,7 @@ class PrismCore:
 
         return None
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getLoadedPlugins(self):
         appPlugs = {self.appPlugin.pluginName: self.appPlugin}
         appPlugs.update(self.unloadedAppPlugins)
@@ -548,7 +554,7 @@ class PrismCore:
         }
         return plugs
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def createPlugin(self, pluginName, pluginType):
         if pluginType == "App":
             presetPath = os.path.join(self.prismRoot, "Plugins", "Apps", "PluginEmpty")
@@ -611,37 +617,49 @@ class PrismCore:
 
         self.openFolder(scriptPath)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def callback(self, name="", types=["custom"], args=[], kwargs={}):
         result = []
+        self.catchTypeErrors = True
+        self.currentCallback["function"] = name
 
         if "curApp" in types:
+            self.currentCallback["plugin"] = self.appPlugin.pluginName
             res = getattr(self.appPlugin, name, lambda *args, **kwargs: None)(*args, **kwargs)
             result.append(res)
 
         if "unloadedApps" in types:
             for i in self.unloadedAppPlugins.values():
+                self.currentCallback["plugin"] = i.pluginName
                 res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
                 result.append(res)
 
         if "custom" in types:
             for i in self.customPlugins.values():
-                res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
-                result.append(res)
+                try:
+                    self.currentCallback["plugin"] = i.pluginName
+                    res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
+                    result.append(res)
+                except Exception as e:
+                    print ("error: %s" % e)
 
         if "prjManagers" in types:
             for i in self.prjManagers.values():
+                self.currentCallback["plugin"] = i.pluginName
                 res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
                 result.append(res)
 
         if "rfManagers" in types:
             for i in self.rfManagers.values():
+                self.currentCallback["plugin"] = i.pluginName
                 res = getattr(i, name, lambda *args, **kwargs: None)(*args, **kwargs)
                 result.append(res)
 
+        self.catchTypeErrors = False
+
         return result
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def startup(self):
         if self.appPlugin.hasQtParent:
             self.elapsed += 1
@@ -682,7 +700,7 @@ class PrismCore:
         if self.uiAvailable:
             self.updater.startup()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def startasThread(self, quit=False):
         if hasattr(self, "asThread") and self.asThread.isRunning():
             self.asObject.active = False
@@ -702,7 +720,7 @@ class PrismCore:
         self.asObject.finished.connect(self.checkAutoSave)
         self.asThread.start()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def checkAutoSave(self):
         if self.appPlugin.autosaveEnabled(self):
             return
@@ -722,7 +740,7 @@ class PrismCore:
         self.autosave_msg.setModal(False)
         action = self.autosave_msg.show()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def autoSaveDone(self, action=2):
         saved = False
         if action == 0:
@@ -738,7 +756,7 @@ class PrismCore:
 
         self.startasThread()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def createUserPrefs(self):
         if os.path.exists(self.userini):
             try:
@@ -815,7 +833,15 @@ class PrismCore:
             if os.path.exists(self.userini):
                 os.chmod(self.userini, 0o777)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
+    def updateLogging(self, level=None):
+        if not level:
+            debugMode = self.getConfig("globals", "debug_mode", ptype="bool")
+            level = "DEBUG" if debugMode else "WARNING"
+
+        logging.root.setLevel(level)
+
+    @err_decorator(name="PrismCore")
     def changeProject(self, inipath, openUi="", settingsTab=1):
         if inipath is None:
             return
@@ -934,6 +960,8 @@ class PrismCore:
         if inipath != self.getConfig("globals", "current project"):
             self.setConfig("globals", "current project", inipath)
 
+        logger.debug("Loaded project " + self.projectPath)
+
         modulePath = os.path.join(
             self.projectPath, "00_Pipeline", "CustomModules", "Python"
         )
@@ -993,7 +1021,7 @@ class PrismCore:
                 self.prismSettings()
                 self.ps.tw_settings.setCurrentIndex(settingsTab)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def setRecentPrj(self, path, action="add"):
         userConfig = ConfigParser()
         userConfig.read(self.userini)
@@ -1026,7 +1054,7 @@ class PrismCore:
         for idx, i in enumerate(recentProjects):
             self.setConfig("recent_projects", "recent" + str(idx + 1), i)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def compareVersions(self, version1, version2):
         if not version1:
             if version2:
@@ -1070,7 +1098,7 @@ class PrismCore:
         else:
             return "higher"
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def checkCommands(self):
         if not os.path.exists(self.prismIni):
             return
@@ -1111,7 +1139,7 @@ class PrismCore:
             self.handleCmd(command)
             os.remove(filePath)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def handleCmd(self, command):
         if command is None or type(command) != list:
             return
@@ -1240,7 +1268,7 @@ class PrismCore:
                 self.messageParent, "Warning", "Unknown command: %s" % (command)
             )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def createCmd(self, cmd):
         if not os.path.exists(self.prismIni):
             return
@@ -1272,7 +1300,7 @@ class PrismCore:
             with open(cmdFile, "w") as cFile:
                 cFile.write(str(cmd))
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getLocalPath(self):
         try:
             import SetPath
@@ -1300,7 +1328,7 @@ class PrismCore:
 
         return True
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def setLocalPath(self, path, projectName=None):
         if projectName is None:
             projectName = self.projectName
@@ -1318,7 +1346,7 @@ class PrismCore:
         else:
             return False
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getUIscale(self):
         sFactor = 1
         highdpi = self.getConfig("globals", "highdpi", ptype="bool")
@@ -1349,7 +1377,7 @@ class PrismCore:
         self.uiScaleFactor = sFactor
         return self.uiScaleFactor
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def scaleUI(self, win=None, sFactor=0):
         if sFactor == 0:
             sFactor = self.uiScaleFactor
@@ -1384,7 +1412,7 @@ class PrismCore:
                 curHeight = win.height()
                 win.resize(curWidth * sFactor, curHeight * sFactor)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def parentWindow(self, win):
         self.scaleUI(win)
 
@@ -1400,7 +1428,7 @@ class PrismCore:
         if platform.system() == "Darwin" and self.useOnTop:
             win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def createProject(self, name=None, path=None, settings={}):
         try:
             del sys.modules["CreateProject"]
@@ -1428,7 +1456,7 @@ class PrismCore:
             self.cp = CreateProject.CreateProject(core=self)
             self.cp.show()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getAboutString(self):
         pVersion = ""
         if os.path.exists(self.prismIni):
@@ -1450,7 +1478,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return astr
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def showAbout(self):
         astr = self.getAboutString()
         msg = QMessageBox(
@@ -1461,7 +1489,7 @@ License: GNU GPL-3.0-or-later<br>
         msg.addButton("Ok", QMessageBox.YesRole)
         action = msg.exec_()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def sendFeedback(self):
         fbDlg = EnterText.EnterText()
         fbDlg.setModal(True)
@@ -1490,16 +1518,16 @@ License: GNU GPL-3.0-or-later<br>
 
         webbrowser.open(url)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def createEntity(self, entity):
         if type(entity) != dict:
             return False
 
-        if "type" not in entity:
+        if "entity" not in entity:
             self.popup("(createEntity) invalid entity: %s" % str(entity))
             return False
 
-        if entity["type"][0] != "project":
+        if entity["entity"][0] != "project":
             if not hasattr(self, "pb"):
                 self.projectBrowser(openUi=False)
 
@@ -1511,16 +1539,16 @@ License: GNU GPL-3.0-or-later<br>
             self.pb.aBasePath = os.path.join(self.projectPath, self.pb.scenes, "Assets")
             self.pb.sBasePath = os.path.join(self.projectPath, self.pb.scenes, "Shots")
 
-        if entity["type"][0] == "project":
+        if entity["entity"][0] == "project":
             result = self.createProject(name=entity["name"][0], path=entity["path"][0])
 
-        elif entity["type"][0] == "asset":
+        elif entity["entity"][0] == "asset":
             result = self.pb.createShotFolders(
                 entityName="%s/%s" % (entity["hierarchy"][0], entity["name"][0]),
                 entityType="asset",
             )
 
-        elif entity["type"][0] == "shot":
+        elif entity["entity"][0] == "shot":
             frameRange = (
                 [entity["framerange"][0], entity["framerange"][1]]
                 if "frameRange" in entity
@@ -1532,16 +1560,16 @@ License: GNU GPL-3.0-or-later<br>
                 frameRange=frameRange,
             )
 
-        elif entity["type"][0] == "step":
-            if "assetName" in entity:
+        elif entity["entity"][0] == "step":
+            if "sequence" not in entity:
                 entityType = "asset"
-                entityName = entity["assetName"][0]
+                entityName = entity["entityName"][0]
             else:
                 entityType = "shot"
                 entityName = "%s%s%s" % (
                     entity["sequence"][0],
                     self.sequenceSeparator,
-                    entity["shotName"][0],
+                    entity["entityName"][0],
                 )
 
             result = self.pb.createStep(
@@ -1551,17 +1579,17 @@ License: GNU GPL-3.0-or-later<br>
                 createCat=False,
             )
 
-        elif entity["type"][0] == "category":
-            if "assetName" in entity:
+        elif entity["entity"][0] == "category":
+            if "sequence" not in entity:
                 entityType = "asset"
-                entityName = entity["assetName"][0]
+                entityName = entity["entityName"][0]
                 basePath = "%s/%s" % (entity["hierarchy"][0], entityName)
             else:
                 entityType = "shot"
                 entityName = "%s%s%s" % (
                     entity["sequence"][0],
                     self.sequenceSeparator,
-                    entity["shotName"][0],
+                    entity["entityName"][0],
                 )
                 basePath = ""
 
@@ -1579,17 +1607,17 @@ License: GNU GPL-3.0-or-later<br>
 
             result = self.pb.createCategory(catName=entity["name"][0], path=catPath)
 
-        elif entity["type"][0] == "scenefile":
-            if "assetName" in entity:
+        elif entity["entity"][0] == "scenefile":
+            if "sequence" not in entity:
                 entityType = "asset"
-                entityName = entity["assetName"][0]
+                entityName = entity["entityName"][0]
                 assetPath = "%s/%s" % (entity["hierarchy"][0], entityName)
             else:
                 entityType = "shot"
                 entityName = "%s%s%s" % (
                     entity["sequence"][0],
                     self.sequenceSeparator,
-                    entity["shotName"][0],
+                    entity["entityName"][0],
                 )
 
                 assetPath = ""
@@ -1640,19 +1668,19 @@ License: GNU GPL-3.0-or-later<br>
                     location=location,
                 )
         else:
-            self.popup("invalid type: " + entity["type"][0])
+            self.popup("invalid type: " + entity["entity"][0])
             return False
 
         return result
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getStateManager(self):
         if not hasattr(self, "sm"):
             self.stateManager(openUi=False)
 
         return self.sm
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def stateManager(self, stateDataPath=None, restart=False, openUi=True):
         if self.appPlugin.appType != "3d":
             return False
@@ -1726,7 +1754,7 @@ License: GNU GPL-3.0-or-later<br>
 
                 return self.sm
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def closeSM(self, restart=False):
         if hasattr(self, "sm"):
             self.sm.saveEnabled = False
@@ -1737,7 +1765,7 @@ License: GNU GPL-3.0-or-later<br>
             if restart:
                 self.stateManager()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def projectBrowser(self, openUi=True):
         if not os.path.exists(self.userini):
             self.createUserPrefs()
@@ -1797,7 +1825,7 @@ License: GNU GPL-3.0-or-later<br>
 
             return True
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def dependencyViewer(self, depRoot="", modal=False):
         if hasattr(self, "dv") and self.dv.isVisible():
             self.dv.close()
@@ -1829,7 +1857,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return True
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def prismSettings(self, tab=0):
         if not os.path.exists(self.userini):
             self.createUserPrefs()
@@ -1865,7 +1893,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return self._updater
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def openInstaller(self, uninstall=False):
         if hasattr(self, "pinst") and self.pinst.isVisible():
             self.pinst.close()
@@ -1889,7 +1917,7 @@ License: GNU GPL-3.0-or-later<br>
         else:
             self.pinst.show()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def startTray(self):
         if hasattr(self, "PrismTray") or self.appPlugin.pluginName != "Standalone":
             return
@@ -1898,7 +1926,7 @@ License: GNU GPL-3.0-or-later<br>
 
         self.PrismTray = PrismTray.PrismTray(core=self)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def integrationAdded(self, appName, path):
         path = self.fixPath(path)
         items = self.getConfig(
@@ -1915,7 +1943,7 @@ License: GNU GPL-3.0-or-later<br>
             val=path,
         )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def integrationRemoved(self, appName, path):
         path = self.fixPath(path)
         options = self.getConfig(
@@ -1936,7 +1964,7 @@ License: GNU GPL-3.0-or-later<br>
 
         self.setConfig(configPath=self.installLocPath, data=cData)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def setupStartMenu(self, quiet=False):
         if self.appPlugin.pluginName == "Standalone":
             result = self.appPlugin.createWinStartMenu(self)
@@ -1948,7 +1976,7 @@ License: GNU GPL-3.0-or-later<br>
                     msg = "Creating start menu entries failed"
                     QMessageBox.warning(self.messageParent, "Prism", msg)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def validateUser(self):
         uname = self.getConfig("globals", "username")
         if uname is None:
@@ -1963,7 +1991,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return False
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def changeUser(self):
         if not self.uiAvailable:
             self.popup(
@@ -1996,7 +2024,7 @@ License: GNU GPL-3.0-or-later<br>
 
         self.cu.exec_()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getUserAbbreviation(self, userName=None, fromConfig=True):
         if fromConfig:
             abbr = self.getConfig("globals", "username_abbreviation")
@@ -2015,19 +2043,19 @@ License: GNU GPL-3.0-or-later<br>
 
         return abbrev
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def changeUserRejected(self):
         if not hasattr(self, "user"):
             sys.exit()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def openUser(self):  # called from project browser
         if not os.path.exists(self.userini):
             self.createUserPrefs()
 
         self.changeUser()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def setProject(self, startup=False, openUi=""):
         try:
             del sys.modules["SetProject"]
@@ -2049,7 +2077,7 @@ License: GNU GPL-3.0-or-later<br>
 
         self.sp.show()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def openProject(self):
         if self.prismIni == "":
             path = QFileDialog.getExistingDirectory(
@@ -2076,7 +2104,7 @@ License: GNU GPL-3.0-or-later<br>
         else:
             QMessageBox.warning(self.messageParent, "Warning", "Invalid project folder")
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def callHook(self, hookName, args={}):
         result = self.callback(name=hookName, types=["curApp", "custom"], kwargs=args)
 
@@ -2115,7 +2143,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return result
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getConfig(
         self,
         cat=None,
@@ -2247,7 +2275,7 @@ License: GNU GPL-3.0-or-later<br>
         else:
             return returnData
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def setConfig(
         self, cat=None, param=None, val=None, data=None, configPath=None, delete=False
     ):
@@ -2333,7 +2361,7 @@ License: GNU GPL-3.0-or-later<br>
             with open(backupPath, "w") as inifile:
                 userConfig.write(inifile)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def restoreConfig(self, configPath):
         path = os.path.dirname(configPath)
         backups = []
@@ -2413,7 +2441,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return True
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def readYaml(self, path=None, stream=None, data=None):
         try:
             from ruamel.yaml import YAML
@@ -2442,7 +2470,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return yamlData
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def writeYaml(self, path=None, data=None, stream=None):
         if not data:
             return
@@ -2468,7 +2496,7 @@ License: GNU GPL-3.0-or-later<br>
             yaml.dump(data, stream)
             return stream.getvalue()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def readJson(self, path=None, stream=None, data=None):
         import json
 
@@ -2492,7 +2520,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return jsonData
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def writeJson(self, data, path=None, stream=None):
         import json
 
@@ -2509,7 +2537,7 @@ License: GNU GPL-3.0-or-later<br>
             json.dump(data, stream, indent=4)
             return stream.getvalue()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def missingModule(self, moduleName):
         QMessageBox.warning(
             self.messageParent,
@@ -2518,7 +2546,7 @@ License: GNU GPL-3.0-or-later<br>
             % moduleName,
         )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def validateStr(self, text, allowChars=[], denyChars=[]):
         invalidChars = [
             " ",
@@ -2563,14 +2591,14 @@ License: GNU GPL-3.0-or-later<br>
 
         return validText
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getCurrentFileName(self, path=True):
         currentFileName = self.appPlugin.getCurrentFileName(self, path)
         currentFileName = self.fixPath(currentFileName)
 
         return currentFileName
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def fileInPipeline(self):
         fileName = self.fixPath(self.getCurrentFileName())
 
@@ -2583,12 +2611,12 @@ License: GNU GPL-3.0-or-later<br>
                 and self.fixPath(os.path.join(self.localProjectPath, sceneDir))
                 in fileName
             )
-        ) and fileNameData["type"] != "invalid":
+        ) and fileNameData["entity"] != "invalid":
             return True
         else:
             return False
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getScenefiles(
         self, latestOnly=True, getAssets=True, getShots=True, localScenes=True, apps=[]
     ):
@@ -2638,50 +2666,57 @@ License: GNU GPL-3.0-or-later<br>
 
         return scenes
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getScenefileData(self, fileName):
         fname = os.path.basename(fileName).split(self.filenameSeparator)
+        data = {}
+        try:
+            data["basePath"] = os.path.dirname(fileName)
+        except:
+            pass
 
         if len(fname) == 6:
-            return {
-                "type": "asset",
-                "assetName": fname[0],
+            data.update({
+                "entity": "asset",
+                "entityName": fname[0],
                 "step": fname[1],
                 "category": "",
                 "version": fname[2],
                 "comment": fname[3],
                 "user": fname[4],
                 "extension": fname[5],
-            }
+            })
 
         elif len(fname) == 7:
-            return {
-                "type": "asset",
-                "assetName": fname[0],
+            data.update({
+                "entity": "asset",
+                "entityName": fname[0],
                 "step": fname[1],
                 "category": fname[2],
                 "version": fname[3],
                 "comment": fname[4],
                 "user": fname[5],
                 "extension": fname[6],
-            }
+            })
 
         elif len(fname) == 8:
-            return {
-                "type": "shot",
-                "shotName": fname[1],
+            data.update({
+                "entity": "shot",
+                "entityName": fname[1],
                 "step": fname[2],
                 "category": fname[3],
                 "version": fname[4],
                 "comment": fname[5],
                 "user": fname[6],
                 "extension": fname[7],
-            }
+            })
 
         else:
-            return {"type": "invalid"}
+            data.update({"entity": "invalid"})
 
-    @err_decorator
+        return data
+
+    @err_decorator(name="PrismCore")
     def getEntityBasePath(self, filepath):
         basePath = ""
 
@@ -2706,7 +2741,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return os.path.abspath(basePath)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def generateScenePath(
         self,
         entity,
@@ -2811,7 +2846,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return scenePath
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getHighestVersion(
         self,
         dstname,
@@ -2857,7 +2892,7 @@ License: GNU GPL-3.0-or-later<br>
 
             fname = self.getScenefileData(i)
 
-            if fname["type"] != scenetype.lower():
+            if fname["entity"] != scenetype.lower():
                 continue
 
             try:
@@ -2875,7 +2910,7 @@ License: GNU GPL-3.0-or-later<br>
         else:
             return "v" + format(highversion[0] + 1, "04")
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getHighestTaskVersion(self, dstname, getExisting=False, ignoreEmpty=False):
         taskDirs = []
         outPaths = [x[1] for x in self.getExportPaths()]
@@ -2913,7 +2948,7 @@ License: GNU GPL-3.0-or-later<br>
         if not getExisting and not self.separateOutputVersionStack:
             fileName = self.getCurrentFileName()
             fnameData = self.getScenefileData(fileName)
-            if fnameData["type"] != "invalid":
+            if fnameData["entity"] != "invalid":
                 hVersion = fnameData["version"]
             else:
                 hVersion = "v0001"
@@ -2925,7 +2960,7 @@ License: GNU GPL-3.0-or-later<br>
         else:
             return "v" + format(highversion + 1, "04")
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getTaskNames(self, taskType, basePath=""):
         taskList = []
 
@@ -2947,15 +2982,15 @@ License: GNU GPL-3.0-or-later<br>
 
             fnameData = self.getScenefileData(fname)
 
-            if fnameData["type"] == "asset" and (
+            if fnameData["entity"] == "asset" and (
                 assetPath in fname or (self.useLocalFiles and lassetPath in fname)
             ):
                 basePath = assetPath
 
-            elif fnameData["type"] == "shot" and (
+            elif fnameData["entity"] == "shot" and (
                 shotPath in fname or (self.useLocalFiles and lshotPath in fname)
             ):
-                basePath = os.path.join(shotPath, fnameData["shotName"])
+                basePath = os.path.join(shotPath, fnameData["entityName"])
             else:
                 return taskList
 
@@ -3012,7 +3047,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return taskList
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getExportPaths(self):
         export_paths = [["global", self.projectPath]]
         if self.useLocalFiles:
@@ -3028,7 +3063,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return export_paths
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def resolve(self, uri, uriType="exportProduct"):
         from PrismUtils import Resolver
 
@@ -3042,7 +3077,7 @@ License: GNU GPL-3.0-or-later<br>
         resolver = Resolver.Resolver(self)
         return resolver.resolvePath(uri, uriType)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getAssetPath(self):
         path = ""
         if (
@@ -3056,7 +3091,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return path
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getShotPath(self):
         path = ""
         if (
@@ -3070,7 +3105,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return path
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getTexturePath(self):
         path = ""
         if (
@@ -3084,7 +3119,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return path
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getAssetPaths(self):
         scenesFolder = self.getConfig("paths", "scenes", configPath=self.prismIni)
         dirs = []
@@ -3105,7 +3140,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return assetPaths
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def refreshAItem(self, path):
         self.adclick = False
 
@@ -3138,7 +3173,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return []
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def setShotRange(self, shotName, start, end):
         shotFile = os.path.join(
             os.path.dirname(self.prismIni), "Shotinfo", "shotInfo.ini"
@@ -3191,7 +3226,7 @@ License: GNU GPL-3.0-or-later<br>
             with open(shotFile, "w") as inifile:
                 sconfig.write(inifile)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getShotRange(self, shotName):
         shotFile = os.path.join(
             os.path.dirname(self.prismIni), "Shotinfo", "shotInfo.ini"
@@ -3206,7 +3241,7 @@ License: GNU GPL-3.0-or-later<br>
                 if type(shotRange) == list and len(shotRange) == 2:
                     return shotRange
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def saveScene(
         self,
         comment="",
@@ -3285,11 +3320,11 @@ License: GNU GPL-3.0-or-later<br>
                 fnameData = self.getScenefileData(curfile)
                 dstname = os.path.dirname(filepath)
 
-                if fnameData["type"] == "asset":
+                if fnameData["entity"] == "asset":
                     fVersion = self.getHighestVersion(dstname, "Asset")
                     filepath = self.generateScenePath(
                         entity="asset",
-                        entityName=fnameData["assetName"],
+                        entityName=fnameData["entityName"],
                         step=fnameData["step"],
                         category=fnameData["category"],
                         comment=comment,
@@ -3298,11 +3333,11 @@ License: GNU GPL-3.0-or-later<br>
                         extension=self.appPlugin.getSceneExtension(self),
                     )
 
-                elif fnameData["type"] == "shot":
+                elif fnameData["entity"] == "shot":
                     fVersion = self.getHighestVersion(dstname, "Shot")
                     filepath = self.generateScenePath(
                         entity="shot",
-                        entityName=fnameData["shotName"],
+                        entityName=fnameData["entityName"],
                         step=fnameData["step"],
                         category=fnameData["category"],
                         comment=comment,
@@ -3386,7 +3421,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return filepath
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def saveWithComment(self):
         if not os.path.exists(self.prismIni):
             curPrj = self.getConfig("globals", "current project")
@@ -3441,7 +3476,7 @@ License: GNU GPL-3.0-or-later<br>
                 comment=savec.e_comment.text(), details=details, preview=prvPMap
             )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def savePMap(self, pmap, path):
         if platform.system() == "Windows":
             pmap.save(path, "JPG")
@@ -3461,8 +3496,8 @@ License: GNU GPL-3.0-or-later<br>
             except:
                 pmap.save(path, "JPG")
 
-    @err_decorator
-    def copySceneFile(self, origFile, targetFile):
+    @err_decorator(name="PrismCore")
+    def copySceneFile(self, origFile, targetFile, mode="copy"):
         origFile = self.fixPath(origFile)
         targetFile = self.fixPath(targetFile)
         if origFile == targetFile:
@@ -3471,7 +3506,10 @@ License: GNU GPL-3.0-or-later<br>
         if not os.path.exists(os.path.dirname(targetFile)):
             os.makedirs(os.path.dirname(targetFile))
 
-        shutil.copy2(origFile, targetFile)
+        if mode == "copy":
+            shutil.copy2(origFile, targetFile)
+        elif mode == "move":
+            shutil.move(origFile, targetFile)
 
         ymlPath = os.path.splitext(origFile)[0] + "info.yml"
         prvPath = os.path.splitext(origFile)[0] + "preview.jpg"
@@ -3479,24 +3517,30 @@ License: GNU GPL-3.0-or-later<br>
         prvPatht = os.path.splitext(targetFile)[0] + "preview.jpg"
 
         if os.path.exists(ymlPath) and not os.path.exists(ymlPatht):
-            shutil.copy2(ymlPath, ymlPatht)
+            if mode == "copy":
+                shutil.copy2(ymlPath, ymlPatht)
+            elif mode == "move":
+                shutil.move(ymlPath, ymlPatht)
 
         if os.path.exists(prvPath) and not os.path.exists(prvPatht):
-            shutil.copy2(prvPath, prvPatht)
+            if mode == "copy":
+                shutil.copy2(prvPath, prvPatht)
+            elif mode == "move":
+                shutil.move(prvPath, prvPatht)
 
         ext = os.path.splitext(origFile)[1]
         if ext in self.appPlugin.sceneFormats:
-            getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3: None)(
-                self, origFile, targetFile
+            getattr(self.appPlugin, "copySceneFile", lambda x1, x2, x3, mode: None)(
+                self, origFile, targetFile, mode=mode
             )
         else:
             for i in self.unloadedAppPlugins.values():
                 if ext in i.sceneFormats:
-                    getattr(i, "copySceneFile", lambda x1, x2, x3: None)(
-                        self, origFile, targetFile
+                    getattr(i, "copySceneFile", lambda x1, x2, x3, mode: None)(
+                        self, origFile, targetFile, mode=mode
                     )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def addToRecent(self, filepath):
         recentfiles = []
         rSection = "recent_files_" + self.projectName
@@ -3513,7 +3557,7 @@ License: GNU GPL-3.0-or-later<br>
             else:
                 self.setConfig(rSection, "recent" + "%02d" % (i + 1), "")
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def fixPath(self, path):
         if path is None:
             return
@@ -3525,7 +3569,7 @@ License: GNU GPL-3.0-or-later<br>
 
         return path
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def openFolder(self, path):
         path = self.fixPath(path)
 
@@ -3551,7 +3595,7 @@ License: GNU GPL-3.0-or-later<br>
         if os.path.exists(path):
             subprocess.call(cmd)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def createFolder(self, path, showMessage=False):
         path = self.fixPath(path)
 
@@ -3577,7 +3621,7 @@ License: GNU GPL-3.0-or-later<br>
                 "Directory created successfully:\n\n%s" % path,
             )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def copyToClipboard(self, text, fixSlashes=True):
         if fixSlashes:
             text = self.fixPath(text)
@@ -3585,7 +3629,7 @@ License: GNU GPL-3.0-or-later<br>
         cb = QApplication.clipboard()
         cb.setText(text)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def createShortcut(self, vPath, vTarget="", args="", vWorkingDir="", vIcon=""):
         try:
             import win32com.client
@@ -3612,7 +3656,7 @@ License: GNU GPL-3.0-or-later<br>
                 % self.fixPath(vPath),
             )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def checkIllegalCharacters(self, strings):
         illegalStrs = []
         for i in strings:
@@ -3621,20 +3665,20 @@ License: GNU GPL-3.0-or-later<br>
 
         return illegalStrs
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def atoi(self, text):
         return int(text) if text.isdigit() else text
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def naturalKeys(self, text):
         return [self.atoi(c) for c in re.split(r"(\d+)", text)]
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def sortNatural(self, alist):
         sortedList = sorted(alist, key=self.naturalKeys)
         return sortedList
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def scenefileSaved(self, arg=None):  # callback function
         if hasattr(self, "sm"):
             self.sm.scenename = self.getCurrentFileName()
@@ -3643,7 +3687,7 @@ License: GNU GPL-3.0-or-later<br>
         if hasattr(self, "asThread") and self.asThread.isRunning():
             self.startasThread()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def sceneUnload(self, arg=None):  # callback function
         if hasattr(self, "sm"):
             self.sm.close()
@@ -3652,7 +3696,7 @@ License: GNU GPL-3.0-or-later<br>
         if hasattr(self, "asThread") and self.asThread.isRunning():
             self.startasThread()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def sceneOpen(self, arg=None):  # callback function
         if not self.sceneOpenChecksEnabled:
             return
@@ -3767,10 +3811,10 @@ License: GNU GPL-3.0-or-later<br>
         fileName = self.getCurrentFileName()
 
         fnameData = self.getScenefileData(fileName)
-        if fnameData["type"] != "shot":
+        if fnameData["entity"] != "shot":
             return
 
-        shotName = fnameData["shotName"]
+        shotName = fnameData["entityName"]
 
         shotFile = os.path.join(
             os.path.dirname(self.prismIni), "Shotinfo", "shotInfo.ini"
@@ -3826,11 +3870,11 @@ License: GNU GPL-3.0-or-later<br>
             else:
                 print(msgString)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getFrameRange(self):
         return self.appPlugin.getFrameRange(self)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def setFrameRange(self, startFrame, endFrame):
         self.appPlugin.setFrameRange(self, startFrame, endFrame)
 
@@ -3910,11 +3954,11 @@ License: GNU GPL-3.0-or-later<br>
             if action == 1:
                 self.appPlugin.setFPS(self, float(pFps))
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getFPS(self):
         return float(self.appPlugin.getFPS(self))
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def checkAppVersion(self):
         fversion = self.getConfig("globals", "forceversions", configPath=self.prismIni)
         if (
@@ -3948,7 +3992,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                 ),
             )
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getLatestCompositingVersion(self, curPath):
 
         curFile = os.path.basename(curPath)
@@ -3978,7 +4022,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 
         return newPath
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def getCompositingOut(
         self,
         taskName,
@@ -3999,7 +4043,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
         padding = "." if fileType in singleFileFormats else ".####."
 
         fnameData = self.getScenefileData(fileName)
-        if fnameData["type"] == "shot":
+        if fnameData["entity"] == "shot":
             outputPath = os.path.abspath(
                 os.path.join(
                     fileName,
@@ -4021,7 +4065,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
             outputFile = (
                 "shot"
                 + self.filenameSeparator
-                + fnameData["shotName"]
+                + fnameData["entityName"]
                 + self.filenameSeparator
                 + taskName
                 + self.filenameSeparator
@@ -4029,7 +4073,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                 + padding
                 + fileType
             )
-        elif fnameData["type"] == "asset":
+        elif fnameData["entity"] == "asset":
             if (
                 os.path.join(
                     self.getConfig("paths", "scenes", configPath=self.prismIni),
@@ -4067,7 +4111,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                 )
 
             outputFile = (
-                fnameData["assetName"]
+                fnameData["entityName"]
                 + self.filenameSeparator
                 + taskName
                 + self.filenameSeparator
@@ -4114,7 +4158,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 
         return outputName
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def convertMedia(self, inputpath, startNum, outputpath, outputQuality=None):
         inputpath = inputpath.replace("\\", "/")
         inputExt = os.path.splitext(inputpath)[1]
@@ -4207,7 +4251,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
 
         return result
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def saveVersionInfo(
         self, location, version, origin=None, fps=None, filenameBase="", data={}
     ):
@@ -4259,7 +4303,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
         with open(infoFilePath, "w") as infoFile:
             vConfig.write(infoFile)
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def sendEmail(self, text, subject="Prism Error"):
         waitmsg = QMessageBox(
             QMessageBox.NoIcon,
@@ -4398,7 +4442,7 @@ except Exception as e:
             waitmsg.close()
 
  
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def handleRemoveReadonly(self, func, path, exc):
         excvalue = exc[1]
         if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
@@ -4407,7 +4451,7 @@ except Exception as e:
         else:
             raise
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def ffmpegError(self, title, text, result):
         msg = QMessageBox(
             QMessageBox.Warning, title, text, QMessageBox.Ok, parent=self.messageParent
@@ -4450,7 +4494,7 @@ except Exception as e:
 
             action = warnDlg.exec_()
 
-    @err_decorator
+    @err_decorator(name="PrismCore")
     def popup(self, text, title=None, severity="warning"):
         if title is None:
             if severity == "warning":
@@ -4474,7 +4518,37 @@ except Exception as e:
         try:
             raiseError = False
 
-            ptext = "An unknown Prism error occured.\nThe error was logged.\nIf you want to help improve Prism, please send this error to the developer.\n\nYou can contact the pipeline administrator or the developer, if you have any questions on this.\n\nMake sure you use the latest Prism version by using the automatic update option in the Prism Settings.\n\n"
+            ptext = """An unknown Prism error occured.
+The error was logged.
+If you want to help improve Prism, please send this error to the developer.
+
+You can contact the pipeline administrator or the developer, if you have any questions on this.
+
+Make sure you use the latest Prism version by using the automatic update option in the Prism Settings.
+
+"""
+
+            if self.catchTypeErrors:
+                lastLine = [x for x in text.split("\n") if x and x != "\n"][-1]
+                print (lastLine)
+                if lastLine.startswith("TypeError"):
+                    ptext = """An unknown Prism error occured in this plugin:
+
+%s
+
+This error happened while calling this function:
+
+%s
+
+If this plugin was created by yourself, please make sure you update your plugin to support the currently installed Prism version.
+If this plugin is an official Prism plugin, please submit this error to the developer.
+
+You can contact the pipeline administrator or the developer, if you have any questions on this.
+
+Make sure you use the latest Prism version by using the automatic update option in the Prism Settings.
+
+""" % (self.currentCallback["plugin"], self.currentCallback["function"])
+
             #   print (text)
 
             text += "\n\n"

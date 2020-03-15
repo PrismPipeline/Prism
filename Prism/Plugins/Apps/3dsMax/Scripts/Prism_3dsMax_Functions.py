@@ -708,16 +708,13 @@ sHelper.scale = [sVal, sVal, sVal]"""
         MaxPlus.RenderSettings.OpenDialog()
 
     @err_decorator
-    def sm_render_deletePass(self, origin, item):
-        itemName = item.text()
+    def removeAOV(self, aovName):
         elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
         for i in range(elementMgr.NumRenderElements()):
             element = elementMgr.GetRenderElement(i)
-            if element.GetElementName() == itemName:
+            if element.GetElementName() == aovName:
                 elementMgr.RemoveRenderElement(element)
                 break
-
-        origin.updateUi()
 
     @err_decorator
     def sm_render_preSubmit(self, origin, rSettings):

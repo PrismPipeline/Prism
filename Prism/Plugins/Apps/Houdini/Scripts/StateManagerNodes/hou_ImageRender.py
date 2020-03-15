@@ -762,20 +762,20 @@ class ImageRenderClass(object):
         if self.tw_passes.selectedIndexes() == []:
             return
 
-        irow = self.tw_passes.selectedIndexes()[0].row()
-
         rcmenu = QMenu()
 
         delAct = QAction("Delete", self)
-        delAct.triggered.connect(lambda: self.deletePass(irow))
+        delAct.triggered.connect(self.removeAOVs)
         rcmenu.addAction(delAct)
 
         rcmenu.setStyleSheet(self.stateManager.parent().styleSheet())
         rcmenu.exec_(QCursor.pos())
 
     @err_decorator
-    def deletePass(self, row):
-        self.curRenderer.deleteAOV(self, row)
+    def removeAOVs(self):
+        rows = [x for x in self.tw_passes.selectedIndexes() if x.column() == 0]
+        for p in sorted(rows, reverse=True):
+            self.curRenderer.deleteAOV(self, p.row())
         self.updateUi()
 
     @err_decorator
@@ -848,7 +848,7 @@ class ImageRenderClass(object):
             pComment = useVersion.split(self.core.filenameSeparator)[1]
 
         fnameData = self.core.getScenefileData(fileName)
-        if fnameData["type"] == "shot":
+        if fnameData["entity"] == "shot":
             outputPath = os.path.join(
                 self.core.getEntityBasePath(fileName),
                 "Rendering",
@@ -865,7 +865,7 @@ class ImageRenderClass(object):
             outputFile = os.path.join(
                 "shot"
                 + self.core.filenameSeparator
-                + fnameData["shotName"]
+                + fnameData["entityName"]
                 + self.core.filenameSeparator
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
@@ -873,7 +873,7 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + "beauty.$F4.exr"
             )
-        elif fnameData["type"] == "asset":
+        elif fnameData["entity"] == "asset":
             if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
                 outputPath = os.path.join(
                     self.core.fixPath(basePath),
@@ -898,7 +898,7 @@ class ImageRenderClass(object):
                 outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty"
             )
             outputFile = os.path.join(
-                fnameData["assetName"]
+                fnameData["entityName"]
                 + self.core.filenameSeparator
                 + self.l_taskName.text()
                 + self.core.filenameSeparator

@@ -31,6 +31,12 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import traceback
+import time
+import imp
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -42,9 +48,6 @@ except:
     from PySide.QtGui import *
 
     psVersion = 1
-
-import sys, os, traceback, time, imp
-from functools import wraps
 
 if sys.version[0] == "3":
     from configparser import ConfigParser
@@ -85,6 +88,8 @@ except:
     if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
         os.remove(modPath)
     import CreateItem
+
+from PrismUtils.Decorators import err_decorator
 
 
 class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
@@ -261,7 +266,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         fileName = self.core.getCurrentFileName()
         fileNameData = self.core.getScenefileData(fileName)
 
-        self.b_shotCam.setEnabled(fileNameData["type"] == "shot")
+        self.b_shotCam.setEnabled(fileNameData["entity"] == "shot")
 
         self.core.callback(
             name="onStateManagerOpen", types=["curApp", "custom"], args=[self]
@@ -285,24 +290,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if screenW < (self.width() + space):
             self.resize(screenW - space, self.height())
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - StateManager %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="StateManager")
     def loadLayout(self):
         helpMenu = QMenu("Help")
 
@@ -379,7 +367,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.menuAbout.addSeparator()
             self.menuAbout.addAction(self.actionRenderSettings)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def showRenderPresets(self):
         rsUi = self.stateTypes["RenderSettings"]()
         rsUi.setup(None, self.core, self)
@@ -401,12 +389,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         action = self.dlg_settings.show()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def editPresetChanged(self, state):
         QCoreApplication.processEvents()
         self.dlg_settings.resize(0, 0)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def setTreePalette(self, listWidget, inactive, inactivef, activef):
         actStyle = "QTreeWidget { border: 1px solid rgb(150,150,150); }"
         inActStyle = "QTreeWidget { border: 1px solid rgb(30,30,30); }"
@@ -419,7 +407,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             + inActStyle
         )
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def collapseFolders(self):
         if not hasattr(self, "collapsedFolders"):
             return
@@ -427,7 +415,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         for i in self.collapsedFolders:
             i.setExpanded(False)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def showState(self):
         try:
             grid = QGridLayout()
@@ -453,14 +441,14 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.curUi = widget
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def stateChanged(self, cur, prev, activeList):
         if self.loading:
             return False
 
         self.showState()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def setListActive(self, listWidget):
         if listWidget == self.tw_import:
             inactive = self.tw_export
@@ -481,19 +469,19 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.activeList = listWidget
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def focusImport(self, event):
         self.setListActive(self.tw_import)
         self.tw_export.setCurrentIndex(self.tw_export.model().createIndex(-1, 0))
         event.accept()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def focusExport(self, event):
         self.setListActive(self.tw_export)
         self.tw_import.setCurrentIndex(self.tw_import.model().createIndex(-1, 0))
         event.accept()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def updateForeground(self, item=None, column=None, activeList=None):
         if activeList is not None:
             if activeList == self.tw_import:
@@ -517,7 +505,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             for k in range(item.childCount()):
                 self.enableChildren(item.child(k), fcolor)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def enableChildren(self, item, fcolor):
         if item.checkState(0) == Qt.Unchecked:
             fcolor = self.disabledCol
@@ -532,7 +520,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         for i in range(item.childCount()):
             self.enableChildren(item.child(i), fcolor)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def updateStateList(self):
         stateData = []
         for i in range(self.tw_import.topLevelItemCount()):
@@ -545,7 +533,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.states = [x[0] for x in stateData]
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def connectEvents(self):
         self.actionPrismSettings.triggered.connect(self.core.prismSettings)
         self.actionProjectBrowser.triggered.connect(self.core.projectBrowser)
@@ -630,24 +618,24 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
         self.b_publish.clicked.connect(self.publish)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def closeEvent(self, event):
         self.core.callback(name="onStateManagerClose", types=["custom"], args=[self])
         event.accept()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def focusRename(self, item, column):
         if item is not None:
             item.ui.e_name.setFocus()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def checkKeyPressed(self, event):
         if event.key() == Qt.Key_Tab:
             self.showStateList()
 
         event.accept()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def checkFocusOut(self, event):
         if event.reason() == Qt.FocusReason.TabFocusReason:
             event.ignore()
@@ -656,20 +644,20 @@ class %s(QWidget, %s.%s, %s.%sClass):
         else:
             event.accept()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def handleImportDrop(self, event):
         self.tw_import.origDropEvent(event)
         self.updateForeground()
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def handleExportDrop(self, event):
         self.tw_export.origDropEvent(event)
         self.updateForeground()
         self.updateStateList()
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def showStateList(self):
         pos = self.activeList.mapFromGlobal(QCursor.pos())
         idx = self.activeList.indexAt(pos)
@@ -697,7 +685,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         createMenu.exec_(self.activeList.mapToGlobal(pos))
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def rclTree(self, pos, activeList):
         rcmenu = QMenu()
         idx = self.activeList.indexAt(pos)
@@ -789,7 +777,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         rcmenu.exec_(self.activeList.mapToGlobal(pos))
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def createState(
         self,
         statetype,
@@ -871,14 +859,14 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         return item
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def copyAllStates(self):
         stateData = self.core.appPlugin.sm_readStates(self)
 
         cb = QClipboard()
         cb.setText(stateData)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def pasteStates(self):
         cb = QClipboard()
         try:
@@ -897,7 +885,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.activeList.clearFocus()
         self.activeList.setFocus()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def removeAllStates(self):
         if self.core.uiAvailable:
             msg = QMessageBox(
@@ -916,7 +904,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.core.appPlugin.sm_deleteStates(self)
         self.core.closeSM(restart=True)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def copyState(self):
         selStateData = []
         selStateData.append([self.activeList.currentItem(), None])
@@ -938,7 +926,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         cb = QClipboard()
         cb.setText(buf.getvalue())
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def deleteState(self, state=None):
         if state is None:
             item = self.activeList.currentItem()
@@ -988,7 +976,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.activeList.setCurrentItem(None)
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def createPressed(self, stateType, renderer=None):
         curSel = self.activeList.currentItem()
         if stateType == "ImportFile":
@@ -1059,7 +1047,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.activeList.setFocus()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def shotCam(self):
         self.saveEnabled = False
         for i in self.states:
@@ -1078,7 +1066,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             )
             if not (
                 os.path.exists(fileName)
-                and fnameData["type"] == "shot"
+                and fnameData["entity"] == "shot"
                 and (
                     os.path.join(self.core.projectPath, sceneDir) in fileName
                     or (
@@ -1180,7 +1168,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         except:
             pass
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def loadStates(self, stateText=None):
         self.saveEnabled = False
         self.loading = True
@@ -1230,7 +1218,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.saveEnabled = True
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def loadSettings(self, data):
         if "startframe" in data:
             self.sp_rangeStart.setValue(int(data["startframe"]))
@@ -1245,7 +1233,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             else:
                 self.b_description.setStyleSheet(self.styleExists)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def getSettings(self):
         stateProps = {}
         stateProps.update(
@@ -1259,7 +1247,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         )
         return stateProps
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def saveStatesToScene(self, param=None):
         if not self.saveEnabled:
             return False
@@ -1298,12 +1286,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.core.appPlugin.sm_saveStates(self, stateStr)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def saveImports(self):
         importPaths = str(self.getFilePaths(self.tw_import.invisibleRootItem(), []))
         self.core.appPlugin.sm_saveImports(self, importPaths)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def getFilePaths(self, item, paths=[]):
         if hasattr(item, "ui") and item.ui.className == "ImportFile":
             paths.append([item.ui.e_file.text(), item.ui.taskName])
@@ -1312,14 +1300,14 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         return paths
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def appendChildStates(self, state, stateList):
         stateNum = len(stateList)
         for i in range(state.childCount()):
             stateList.append([state.child(i), stateNum])
             self.appendChildStates(state.child(i), stateList)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def commentChanged(self, text):
         minLength = 2
         self.validateComment()
@@ -1334,11 +1322,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 % (1 + minLength - len(text))
             )
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def setRangeContextMenu(self, pos):
         fname = self.core.getCurrentFileName()
         fnameData = self.core.getScenefileData(fname)
-        if fnameData["type"] != "shot":
+        if fnameData["entity"] != "shot":
             return
 
         cMenu = QMenu()
@@ -1346,14 +1334,14 @@ class %s(QWidget, %s.%s, %s.%sClass):
         start = self.sp_rangeStart.value()
         end = self.sp_rangeEnd.value()
         actSet.triggered.connect(
-            lambda x=None: self.core.setShotRange(fnameData["shotName"], start, end)
+            lambda x=None: self.core.setShotRange(fnameData["entityName"], start, end)
         )
         cMenu.addAction(actSet)
 
         self.core.appPlugin.setRCStyle(self, cMenu)
         cMenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def showDescription(self):
         descriptionDlg = EnterText.EnterText()
         descriptionDlg.buttonBox.removeButton(descriptionDlg.buttonBox.buttons()[1])
@@ -1371,7 +1359,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.b_description.setStyleSheet(self.styleExists)
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def getPreview(self):
         from PrismUtils import ScreenShot
 
@@ -1384,7 +1372,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             )
             self.b_preview.setStyleSheet(self.styleExists)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def clearDescription(self, pos=None):
         self.description = ""
         self.b_description.setStyleSheet(self.styleMissing)
@@ -1392,14 +1380,14 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.detailWin.close()
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def clearPreview(self, pos=None):
         self.previewImg = None
         self.b_preview.setStyleSheet(self.styleMissing)
         if hasattr(self, "detailWin") and self.detailWin.isVisible():
             self.detailWin.close()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def detailMoveEvent(self, event, table):
         self.showDetailWin(event, table)
         if hasattr(self, "detailWin") and self.detailWin.isVisible():
@@ -1407,7 +1395,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 QCursor.pos().x() + 20, QCursor.pos().y() - self.detailWin.height()
             )
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def showDetailWin(self, event, detailType):
         if detailType == "d":
             detail = self.description
@@ -1462,7 +1450,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.detailWin.move(QCursor.pos().x() + 20, QCursor.pos().y())
             self.detailWin.show()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def getImgPMap(self, path):
         if platform.system() == "Windows":
             return QPixmap(path)
@@ -1480,36 +1468,36 @@ class %s(QWidget, %s.%s, %s.%sClass):
             except:
                 return QPixmap(path)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def detailLeaveEvent(self, event, table):
         if hasattr(self, "detailWin") and self.detailWin.isVisible():
             self.detailWin.close()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def detailFocusOutEvent(self, event, table):
         if hasattr(self, "detailWin") and self.detailWin.isVisible():
             self.detailWin.close()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def getRange(self):
         fileName = self.core.getCurrentFileName()
         fileNameData = self.core.getScenefileData(fileName)
-        if fileNameData["type"] == "shot":
-            shotRange = self.core.getShotRange(fileNameData["shotName"])
+        if fileNameData["entity"] == "shot":
+            shotRange = self.core.getShotRange(fileNameData["entityName"])
             if not shotRange:
                 return False
 
@@ -1517,7 +1505,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.sp_rangeEnd.setValue(shotRange[1])
             self.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def getChildStates(self, state):
         states = [state]
 
@@ -1528,7 +1516,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         return states
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def publish(
         self, executeState=False, continuePublish=False, useVersion="next", states=None
     ):
@@ -1884,7 +1872,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 self, self.core.getCurrentFileName(), force=True
             )
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def validateComment(self):
         origComment = self.e_comment.text()
         validText = self.core.validateStr(origComment)
@@ -1894,7 +1882,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.e_comment.setText(validText)
             self.e_comment.setCursorPosition(startpos - 1)
 
-    @err_decorator
+    @err_decorator(name="StateManager")
     def getStateProps(self):
         return {
             "startframe": self.sp_rangeStart.value(),

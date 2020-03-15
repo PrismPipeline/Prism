@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,9 +46,6 @@ except:
 
     psVersion = 1
 
-import sys, os, traceback, time
-from functools import wraps
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
 
 if psVersion == 1:
@@ -54,13 +54,11 @@ else:
     import CreateItem_ui_ps2 as CreateItem_ui
 
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
+
+from PrismUtils.Decorators import err_decorator
 
 
 class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
@@ -74,16 +72,18 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
         showType=False,
         allowChars=[],
         denyChars=[],
+        valueRequired=True
     ):
         QDialog.__init__(self)
         self.setupUi(self)
         self.core = core
         self.getStep = getStep
         self.taskType = taskType
+        self.valueRequired = valueRequired
 
         self.e_item.setText(startText)
 
-        if startText == "":
+        if self.valueRequired and not startText:
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
         self.isTaskName = showTasks
@@ -126,29 +126,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
         self.connectEvents()
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - CreateItem %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def showEvent(self, event):
         if self.w_options.layout().count() == 0:
             self.w_options.setVisible(False)
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def connectEvents(self):
         self.buttonBox.accepted.connect(self.returnName)
         self.b_showTasks.clicked.connect(self.showTasks)
@@ -161,7 +144,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             self.e_item.textEdited.connect(self.enableOk)
         self.rb_asset.toggled.connect(self.typeChanged)
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def getTasks(self):
         self.taskList = self.core.getTaskNames(self.taskType)
 
@@ -171,7 +154,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             if "_ShotCam" in self.taskList:
                 self.taskList.remove("_ShotCam")
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def showTasks(self):
         tmenu = QMenu()
 
@@ -184,17 +167,17 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
         tmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def taskClicked(self, task):
         self.e_item.setText(task)
         self.enableOk(task)
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def typeChanged(self, state):
         for i in self.core.prjManagers.values():
             i.createAsset_typeChanged(self, state)
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def enableOk(self, origText):
         text = self.core.validateStr(
             origText, allowChars=self.allowChars, denyChars=self.denyChars
@@ -205,12 +188,13 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             self.e_item.setText(text)
             self.e_item.setCursorPosition(cpos - 1)
 
-        if text != "":
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
-        else:
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        if self.valueRequired:
+            if text != "":
+                self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+            else:
+                self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def enableOkStep(self, origText, uiField):
         text = self.core.validateStr(origText)
 
@@ -219,11 +203,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             uiField.setText(text)
             uiField.setCursorPosition(cpos - 1)
 
-        if self.e_item.text() != "" and self.e_stepName.text() != "":
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
-        else:
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        if self.valueRequired:
+            if self.e_item.text() != "" and self.e_stepName.text() != "":
+                self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+            else:
+                self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-    @err_decorator
+    @err_decorator(name="CreateItem")
     def returnName(self):
         self.itemName = self.e_item.text()

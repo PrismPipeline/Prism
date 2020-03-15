@@ -31,6 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -47,8 +49,6 @@ if psVersion == 1:
     from UserInterfaces import ExternalTask_ui
 else:
     from UserInterfaces import ExternalTask_ui_ps2 as ExternalTask_ui
-
-import sys, os
 
 if sys.version[0] == "3":
     pVersion = 3

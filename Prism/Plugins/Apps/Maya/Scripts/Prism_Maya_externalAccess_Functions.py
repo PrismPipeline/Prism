@@ -143,7 +143,7 @@ class Prism_Maya_externalAccess_Functions(object):
         return autobackpath, fileStr
 
     @err_decorator
-    def copySceneFile(self, origin, origFile, targetPath):
+    def copySceneFile(self, origin, origFile, targetPath, mode="copy"):
         xgenfiles = [
             x
             for x in os.listdir(os.path.dirname(origFile))
@@ -154,4 +154,7 @@ class Prism_Maya_externalAccess_Functions(object):
             curFilePath = os.path.join(os.path.dirname(origFile), i).replace("\\", "/")
             tFilePath = os.path.join(os.path.dirname(targetPath), i).replace("\\", "/")
             if curFilePath != tFilePath:
-                shutil.copy2(curFilePath, tFilePath)
+                if mode == "copy":
+                    shutil.copy2(curFilePath, tFilePath)
+                elif mode == "move":
+                    shutil.move(curFilePath, tFilePath)

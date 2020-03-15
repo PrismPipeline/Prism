@@ -43,8 +43,6 @@ except:
 
     psVersion = 1
 
-import sys, os
-
 
 class FolderClass(object):
     def setup(self, state, core, stateManager, stateData=None, listType=None):

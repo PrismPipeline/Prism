@@ -1,4 +1,11 @@
-v1.2.1.61
+v1.2.1.62:
+- Added an option "Edit comment..." to the context menu of scenefiles in the Project Browser
+- Added the option to select and to delete multiple AOVs at once in the ImageRender state
+- Added support for Blender AOVs when node AOVs are not used. A multilayer exr will be written out when using these AOVs
+- Added a debug mode option in the Prism Settings, which will print additional information when working with Prism
+- Many improvements to the code structure
+
+v1.2.1.61:
 - fixed an error when opening the setup integrations dialog on Windows
 
 v1.2.1.59:

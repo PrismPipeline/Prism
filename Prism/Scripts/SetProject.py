@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -48,13 +51,12 @@ if psVersion == 1:
 else:
     from UserInterfacesPrism import SetProject_ui_ps2 as SetProject_ui
 
-import os, sys, traceback, time
-from functools import wraps
-
 if sys.version[0] == "3":
     pVersion = 3
 else:
     pVersion = 2
+
+from PrismUtils.Decorators import err_decorator
 
 
 class SetProject(QDialog):
@@ -89,41 +91,24 @@ class SetProjectClass(object):
         self.core.appPlugin.setProject_loading(self)
         self.resize(self.width(), self.minimumSizeHint().height())
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - SetProject %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="SetProject")
     def connectEvents(self):
         self.b_open.clicked.connect(self.core.openProject)
         self.b_create.clicked.connect(self.preCreate)
         self.chb_startup.stateChanged.connect(self.startupChanged)
 
-    @err_decorator
+    @err_decorator(name="SetProject")
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator
+    @err_decorator(name="SetProject")
     def preCreate(self):
         self.core.createProject()
         self.pdialog.close()
         if hasattr(self.core, "pb") and self.core.pb.isVisible():
             self.core.pb.close()
 
-    @err_decorator
+    @err_decorator(name="SetProject")
     def refreshUi(self):
         if hasattr(self.core, "projectName") and self.core.projectName is not None:
             self.l_project.setText(
@@ -195,7 +180,7 @@ class SetProjectClass(object):
 
         self.chb_startup.setChecked(ssu)
 
-    @err_decorator
+    @err_decorator(name="SetProject")
     def rclRecent(self, rProject):
         rcmenu = QMenu()
 
@@ -207,7 +192,7 @@ class SetProjectClass(object):
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="SetProject")
     def deleteRecent(self, rProject):
         self.core.setRecentPrj(
             os.path.join(rProject.text(), "00_Pipeline", "pipeline.ini"),
@@ -220,7 +205,7 @@ class SetProjectClass(object):
 
         self.resize(self.width(), self.minimumSizeHint().height())
 
-    @err_decorator
+    @err_decorator(name="SetProject")
     def startupChanged(self, state):
         if state == 0:
             self.core.setConfig("globals", "ShowOnStartup", str(False))

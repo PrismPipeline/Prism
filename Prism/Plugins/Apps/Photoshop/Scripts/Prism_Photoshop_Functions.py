@@ -586,7 +586,7 @@ class Prism_Photoshop_Functions(object):
         curfile = self.core.getCurrentFileName()
         fname = self.core.getScenefileData(curfile)
 
-        self.rb_task = QRadioButton("Export into current %s" % fname["type"])
+        self.rb_task = QRadioButton("Export into current %s" % fname["entity"])
         self.w_task = QWidget()
         lo_prismExport = QVBoxLayout()
         lo_task = QHBoxLayout()
@@ -752,7 +752,7 @@ class Prism_Photoshop_Functions(object):
             pComment = useVersion.split(self.core.filenameSeparator)[1]
 
         fnameData = self.core.getScenefileData(fileName)
-        if fnameData["type"] == "shot":
+        if fnameData["entity"] == "shot":
             outputPath = os.path.abspath(
                 os.path.join(
                     fileName,
@@ -771,14 +771,14 @@ class Prism_Photoshop_Functions(object):
             outputFile = os.path.join(
                 "shot"
                 + "_"
-                + fnameData["shotName"]
+                + fnameData["entityName"]
                 + "_"
                 + self.le_task.text()
                 + "_"
                 + hVersion
                 + extension
             )
-        elif fnameData["type"] == "asset":
+        elif fnameData["entity"] == "asset":
             if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
                 outputPath = os.path.join(
                     self.core.fixPath(basePath),
@@ -804,7 +804,7 @@ class Prism_Photoshop_Functions(object):
                 hVersion = self.core.getHighestTaskVersion(outputPath)
 
             outputFile = os.path.join(
-                fnameData["assetName"]
+                fnameData["entityName"]
                 + "_"
                 + self.le_task.text()
                 + "_"

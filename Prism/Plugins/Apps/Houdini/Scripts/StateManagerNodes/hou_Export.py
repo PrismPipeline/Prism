@@ -168,7 +168,7 @@ class ExportClass(object):
             fnameData = self.core.getScenefileData(fileName)
             if (
                 os.path.exists(fileName)
-                and fnameData["type"] == "shot"
+                and fnameData["entity"] == "shot"
                 and (
                     os.path.join(
                         self.core.projectPath,
@@ -189,7 +189,7 @@ class ExportClass(object):
                     )
                 )
             ):
-                idx = self.cb_sCamShot.findText(fnameData["shotName"])
+                idx = self.cb_sCamShot.findText(fnameData["entityName"])
                 if idx != -1:
                     self.cb_sCamShot.setCurrentIndex(idx)
 
@@ -1110,7 +1110,7 @@ class ExportClass(object):
                     hVersion, pComment, versionUser = versionData
 
             fnameData = self.core.getScenefileData(fileName)
-            if fnameData["type"] == "shot":
+            if fnameData["entity"] == "shot":
                 outputPath = os.path.join(
                     self.core.getEntityBasePath(fileName),
                     "Export",
@@ -1139,7 +1139,7 @@ class ExportClass(object):
                     outputPath,
                     "shot"
                     + self.core.filenameSeparator
-                    + fnameData["shotName"]
+                    + fnameData["entityName"]
                     + self.core.filenameSeparator
                     + self.l_taskName.text()
                     + self.core.filenameSeparator
@@ -1147,7 +1147,7 @@ class ExportClass(object):
                     + ".$F4"
                     + self.cb_outType.currentText(),
                 )
-            elif fnameData["type"] == "asset":
+            elif fnameData["entity"] == "asset":
                 if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
                     outputPath = os.path.join(
                         self.core.projectPath,
@@ -1177,7 +1177,7 @@ class ExportClass(object):
                 )
                 outputName = os.path.join(
                     outputPath,
-                    fnameData["assetName"]
+                    fnameData["entityName"]
                     + self.core.filenameSeparator
                     + self.l_taskName.text()
                     + self.core.filenameSeparator

@@ -31,7 +31,6 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, inspect
 from Deadline.Scripting import *
 
 # def log(text):

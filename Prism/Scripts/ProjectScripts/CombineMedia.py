@@ -31,8 +31,10 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, time, platform, traceback, subprocess
-from functools import wraps
+import os
+import time
+import platform
+import subprocess
 
 try:
     from PySide2.QtCore import *
@@ -50,6 +52,8 @@ if psVersion == 1:
     import CombineMedia_ui
 else:
     import CombineMedia_ui_ps2 as CombineMedia_ui
+
+from PrismUtils.Decorators import err_decorator
 
 
 class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
@@ -91,25 +95,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         self.connectEvents()
         self.e_output.setFocus()
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - MediaCombine %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="MediaCombine")
     def connectEvents(self):
         self.b_browse.clicked.connect(self.browseCombineOutputFile)
         self.b_browse.customContextMenuRequested.connect(
@@ -121,7 +107,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         self.b_tasks.clicked.connect(self.showTasks)
         self.accepted.connect(self.combine)
 
-    @err_decorator
+    @err_decorator(name="MediaCombine")
     def showTasks(self):
         tmenu = QMenu()
 
@@ -134,7 +120,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
 
         tmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="MediaCombine")
     def combine(self):
         output = self.e_output.text()
 
@@ -362,7 +348,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                 "Media combine", "The video could not be created.", [stdout, stderr]
             )
 
-    @err_decorator
+    @err_decorator(name="MediaCombine")
     def browseCombineOutputFile(self):
         path = QFileDialog.getSaveFileName(
             self, "Select Outputfile", self.e_output.text(), "Video (*.mp4)"
@@ -370,7 +356,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         if path != "":
             self.e_output.setText(path)
 
-    @err_decorator
+    @err_decorator(name="MediaCombine")
     def getTasks(self):
         taskList = self.core.getTaskNames(self.taskType)
 

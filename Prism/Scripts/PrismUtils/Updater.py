@@ -32,13 +32,10 @@
 
 import os
 import sys
-import traceback
-import time
 import platform
 import subprocess
 import datetime
 import shutil
-from functools import wraps
 from collections import OrderedDict
 
 if sys.version[0] == "3":
@@ -58,31 +55,15 @@ except:
 
     psVersion = 1
 
+from PrismUtils.Decorators import err_decorator
+
 
 class Updater(object):
     def __init__(self, core):
         super(Updater, self).__init__()
         self.core = core
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - Screenshot %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="Updater")
     def startup(self):
         prevVersion = self.core.getConfig("globals", "prism_version")
         if prevVersion != self.core.version:
@@ -92,7 +73,7 @@ class Updater(object):
 
         self.autoUpdateCheck()
 
-    @err_decorator
+    @err_decorator(name="Updater")
     def updateFromZip(self):
         pZip = QFileDialog.getOpenFileName(
             QWidget(), "Select Prism Zip", self.core.prismRoot, "ZIP (*.zip)"
@@ -101,7 +82,7 @@ class Updater(object):
         if pZip != "":
             self.updatePrism(filepath=pZip)
 
-    @err_decorator
+    @err_decorator(name="Updater")
     def autoUpdateCheck(self):
         updateInterval = self.core.getConfig(cat="globals", param="checkForUpdates")
         if updateInterval == "False" or updateInterval == -1:
@@ -121,7 +102,7 @@ class Updater(object):
 
         self.checkForUpdates(silent=True)
 
-    @err_decorator
+    @err_decorator(name="Updater")
     def checkForUpdates(self, silent=False):
         pStr = """
 try:
@@ -259,7 +240,7 @@ except Exception as e:
             val=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
         )
 
-    @err_decorator
+    @err_decorator(name="Updater")
     def updatePrism(self, filepath="", source=""):
         if platform.system() == "Windows":
             targetdir = os.path.join(os.environ["temp"], "PrismUpdate")
@@ -443,7 +424,7 @@ or move Prism to a location where no admin privileges are required." % target)
         if self.core.appPlugin.pluginName == "Standalone":
             sys.exit()
 
-    @err_decorator
+    @err_decorator(name="Updater")
     def showChangelog(self):
         self.changelogStr = self.getChangelog()
         if not self.changelogStr:
@@ -482,7 +463,7 @@ or move Prism to a location where no admin privileges are required." % target)
         self.dlg_changelog.resize(1000 * self.core.uiScaleFactor, 800 * self.core.uiScaleFactor)
         self.dlg_changelog.exec_()
 
-    @err_decorator
+    @err_decorator(name="Updater")
     def refreshChangelog(self, l_changelog, filterStr):
         text = self.changelogStr
         if filterStr:
@@ -510,7 +491,7 @@ or move Prism to a location where no admin privileges are required." % target)
 
         l_changelog.setText(text)
 
-    @err_decorator
+    @err_decorator(name="Updater")
     def getChangelog(self, silent=False):
         pStr = """
 try:

@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'PrismSettings.ui',
 # licensing of 'PrismSettings.ui' applies.
 #
-# Created: Mon Mar  2 23:42:23 2020
+# Created: Sun Mar 15 15:36:29 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -361,6 +361,9 @@ class Ui_dlg_PrismSettings(object):
         self.chb_highDPI = QtWidgets.QCheckBox(self.groupBox_4)
         self.chb_highDPI.setObjectName("chb_highDPI")
         self.verticalLayout_12.addWidget(self.chb_highDPI)
+        self.chb_debug = QtWidgets.QCheckBox(self.groupBox_4)
+        self.chb_debug.setObjectName("chb_debug")
+        self.verticalLayout_12.addWidget(self.chb_debug)
         self.verticalLayout_14.addWidget(self.groupBox_4)
         self.groupBox_2 = QtWidgets.QGroupBox(self.tab_2)
         self.groupBox_2.setObjectName("groupBox_2")
@@ -496,6 +499,7 @@ class Ui_dlg_PrismSettings(object):
         self.chb_trayStartup.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Show Prism tray icon on system startup", None, -1))
         self.b_startTray.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Start Prism tray now", None, -1))
         self.chb_highDPI.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "HighDPI support (requires complete application restart) (experimental)", None, -1))
+        self.chb_debug.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Debug mode", None, -1))
         self.groupBox_2.setTitle(QtWidgets.QApplication.translate("dlg_PrismSettings", "Image player", None, -1))
         self.label_10.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "RV path:", None, -1))
         self.b_browseRV.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "...", None, -1))

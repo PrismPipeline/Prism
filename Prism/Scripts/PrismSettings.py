@@ -31,9 +31,13 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, subprocess, time, traceback, shutil, platform, datetime
+import os
+import sys
+import subprocess
+import shutil
+import platform
+import datetime
 from collections import OrderedDict
-from functools import wraps
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -95,6 +99,7 @@ else:
     pVersion = 2
 
 from UserInterfacesPrism import qdarkstyle
+from PrismUtils.Decorators import err_decorator
 
 
 class SetProjectImp(
@@ -152,24 +157,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         if screenH < (self.height() + space):
             self.resize(self.width(), screenH - space)
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - PrismSettings %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def connectEvents(self):
         self.b_checkForUpdates.customContextMenuRequested.connect(self.cmenu_update)
         self.e_fname.textChanged.connect(lambda x: self.validate(self.e_fname, x))
@@ -224,7 +212,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.b_createPlugin.clicked.connect(self.createPlugin)
         self.buttonBox.accepted.connect(self.saveSettings)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def validate(self, uiWidget, origText=None):
         if origText is None:
             origText = uiWidget.text()
@@ -241,15 +229,15 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             )
             self.e_abbreviation.setText(abbrev)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def pfpsToggled(self, checked):
         self.sp_curPfps.setEnabled(checked)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def forceVersionsToggled(self, checked):
         self.w_versions.setVisible(checked)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def browse(self, bType="", getFile=False, windowTitle=None, uiEdit=None):
         if bType == "local":
             windowTitle = "Select local project path"
@@ -284,12 +272,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         if selectedPath != "":
             uiEdit.setText(self.core.fixPath(selectedPath))
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def orToggled(self, prog, state):
         self.exOverridePlugins[prog]["le"].setEnabled(state)
         self.exOverridePlugins[prog]["b"].setEnabled(state)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def rclPluginList(self, pos=None):
         rcmenu = QMenu()
 
@@ -313,7 +301,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def integrationAdd(self, prog):
         if prog == self.core.appPlugin.pluginName:
             result = self.core.appPlugin.integrationAdd(self)
@@ -341,7 +329,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
             self.refreshIntegrations()
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def integrationRemove(self, prog):
         items = self.integrationPlugins[prog]["lw"].selectedItems()
         if len(items) == 0:
@@ -383,12 +371,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.core.setConfig(configPath=installConfigPath, data=cData)
             self.refreshIntegrations()
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def changeProject(self):
         self.core.setProject()
         self.close()
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def saveSettings(self):
         cData = []
 
@@ -434,6 +422,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         )
         cData.append(["globals", "autosave", str(self.chb_autosave.isChecked())])
         cData.append(["globals", "highdpi", str(self.chb_highDPI.isChecked())])
+        cData.append(["globals", "debug_mode", str(self.chb_debug.isChecked())])
 
         for i in self.exOverridePlugins:
             c = str(self.exOverridePlugins[i]["chb"].isChecked())
@@ -457,6 +446,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 self.core.startasThread(quit=True)
 
         self.core.setConfig(data=cData)
+
+        logLevel = "DEBUG" if self.chb_debug.isChecked() else "WARNING"
+        self.core.updateLogging(level=logLevel)
 
         if os.path.exists(self.core.prismIni):
             cData = []
@@ -599,7 +591,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.core.callback(name="onPrismSettingsSave", types=["custom"], args=[self])
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def loadSettings(self):
         if not os.path.exists(self.core.userini):
             QMessageBox.warning(self, "Load Settings", "Prism config does not exist.")
@@ -664,6 +656,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         ucData["checkForUpdates"] = ["globals", "checkForUpdates"]
         ucData["autosave"] = ["globals", "autosave", "bool"]
         ucData["highdpi"] = ["globals", "highdpi", "bool"]
+        ucData["debug_mode"] = ["globals", "debug_mode", "bool"]
         ucData["rvpath"] = ["globals", "rvpath"]
         ucData["djvpath"] = ["globals", "djvpath"]
         ucData["prefer_djv"] = ["globals", "prefer_djv", "bool"]
@@ -734,6 +727,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         if ucData["highdpi"] is not None:
             self.chb_highDPI.setChecked(ucData["highdpi"])
+
+        if ucData["debug_mode"] is not None:
+            self.chb_debug.setChecked(ucData["debug_mode"])
 
         if ucData["rvpath"] is not None:
             self.e_rvPath.setText(ucData["rvpath"])
@@ -825,7 +821,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             "When this option is enabled, Prism checks the fps of scenefiles when they are opened and shows a warning, if they don't match the project fps."
         )
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def loadUI(self):
         self.forceVersionPlugins = {}
         self.exOverridePlugins = {}
@@ -959,7 +955,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.core.callback(name="prismSettings_loadUI", types=["custom", "prjManagers"], args=[self])
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def refreshIntegrations(self):
         installConfigPath = os.path.join(
             os.path.dirname(self.core.userini), "installLocations.ini"
@@ -989,7 +985,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             else:
                 self.integrationPlugins[i]["bremove"].setEnabled(False)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def refreshPlugins(self):
         self.tw_plugins.setRowCount(0)
         self.tw_plugins.setSortingEnabled(False)
@@ -1024,7 +1020,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.tw_plugins.setSortingEnabled(True)
         self.tw_plugins.sortByColumn(0, Qt.AscendingOrder)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def unloadPlugins(self):
         for i in self.tw_plugins.selectedItems():
             if i.column() != 0:
@@ -1054,7 +1050,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.core.prismSettings(tab=5)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def reloadPlugins(self):
         self.core.reloadPlugins()
 
@@ -1063,7 +1059,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.core.prismSettings(tab=5)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def createPlugin(self):
         import CreateItem
 
@@ -1088,7 +1084,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.core.createPlugin(pluginName, pluginType)
             self.reloadPlugins()
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def openPluginFolder(self):
         for i in self.tw_plugins.selectedItems():
             if i.column() != 0:
@@ -1097,7 +1093,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             plugin = i.data(Qt.UserRole)
             self.core.openFolder(plugin.pluginPath)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def cmenu_update(self, event):
         rcmenu = QMenu()
 
@@ -1109,11 +1105,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def curPnameEdited(self, text):
         self.validate(self.e_curPname)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def curPshowList(self, prog):
         versionList = self.forceVersionPlugins[prog]["presets"]
 
@@ -1130,12 +1126,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         vmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def checkForUpdates(self):
         self.core.updater.checkForUpdates()
         self.setUpdateStatus()
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def setUpdateStatus(self, status=None, checkTime=None):
         if not status or not checkTime:
             ucData = {}
@@ -1162,11 +1158,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.l_updateInfo.setStyleSheet("")
             self.b_checkForUpdates.setText("Check now")
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def changelog(self):
         self.core.updater.showChangelog()
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def startTray(self):
         if platform.system() == "Windows":
             slavePath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
@@ -1188,7 +1184,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         subprocess.Popen(command, shell=True)
 
-    @err_decorator
+    @err_decorator(name="PrismSettings")
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 

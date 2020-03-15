@@ -171,13 +171,13 @@ class Prism_PDG_Functions(object):
         if entityType == "assets":
             for entity in entityData:
                 item = itemHolder.addWorkItem()
-                item.setStringAttrib("type", "asset")
+                item.setStringAttrib("entity", "asset")
                 item.setStringAttrib("hierarchy", entity["hierarchy"])
                 item.setStringAttrib("name", entity["asset"])
         if entityType == "shots":
             for entity in entityData:
                 item = itemHolder.addWorkItem()
-                item.setStringAttrib("type", "shot")
+                item.setStringAttrib("entity", "shot")
                 item.setStringAttrib("sequence", entity["sequence"])
                 item.setStringAttrib("name", entity["shot"])
                 item.setStringAttrib("framerange", entity["startframe"])
@@ -314,7 +314,7 @@ class Prism_PDG_Functions(object):
                     for assetCat in defData["ASSETS"]:
                         for asset in defData["ASSETS"][assetCat]:
                             item = itemHolder.addWorkItem()
-                            item.setStringAttrib("type", "asset")
+                            item.setStringAttrib("entity", "asset")
                             item.setStringAttrib("hierarchy", assetCat)
                             item.setStringAttrib("name", asset)
 
@@ -322,7 +322,7 @@ class Prism_PDG_Functions(object):
                     for seq in defData["SHOTS"]:
                         for shot in defData["SHOTS"][seq]:
                             item = itemHolder.addWorkItem()
-                            item.setStringAttrib("type", "shot")
+                            item.setStringAttrib("entity", "shot")
                             item.setStringAttrib("sequence", seq)
                             item.setStringAttrib("name", shot)
 
@@ -333,7 +333,7 @@ class Prism_PDG_Functions(object):
                         item = itemHolder.addWorkItem(
                             cloneResultData=True, preserveType=True, parent=upstreamItem
                         )
-                        item.setStringAttrib("type", "project")
+                        item.setStringAttrib("entity", "project")
                         path = (
                             parentNode.parm("projectPath").eval()
                             or upstreamItem.stringAttribValue("path")
@@ -348,7 +348,7 @@ class Prism_PDG_Functions(object):
                         item.setStringAttrib("name", name)
             else:
                 item = itemHolder.addWorkItem()
-                item.setStringAttrib("type", "project")
+                item.setStringAttrib("entity", "project")
                 item.setStringAttrib("path", parentNode.parm("projectPath").eval())
                 item.setStringAttrib("name", parentNode.parm("projectName").eval())
 
@@ -359,7 +359,7 @@ class Prism_PDG_Functions(object):
                         item = itemHolder.addWorkItem(
                             cloneResultData=True, preserveType=True, parent=upstreamItem
                         )
-                        item.setStringAttrib("type", "asset")
+                        item.setStringAttrib("entity", "asset")
                         if upstreamItem.stringAttribValue("hierarchy"):
                             path = "%s/%s" % (
                                 upstreamItem.stringAttribValue("hierarchy"),
@@ -368,7 +368,7 @@ class Prism_PDG_Functions(object):
                         else:
                             path = parentNode.parm("assetHierarchy").eval()
                         name = (
-                            parentNode.parm("assetName").eval()
+                            parentNode.parm("entityName").eval()
                             or upstreamItem.stringAttribValue("name")
                             or ""
                         )
@@ -376,11 +376,11 @@ class Prism_PDG_Functions(object):
                         item.setStringAttrib("name", name)
             else:
                 item = itemHolder.addWorkItem()
-                item.setStringAttrib("type", "asset")
+                item.setStringAttrib("entity", "asset")
                 item.setStringAttrib(
                     "hierarchy", parentNode.parm("assetHierarchy").eval()
                 )
-                item.setStringAttrib("name", parentNode.parm("assetName").eval())
+                item.setStringAttrib("name", parentNode.parm("entityName").eval())
 
         elif entity == 3:
             if upstreamItems:
@@ -389,14 +389,14 @@ class Prism_PDG_Functions(object):
                         item = itemHolder.addWorkItem(
                             cloneResultData=True, preserveType=True, parent=upstreamItem
                         )
-                        item.setStringAttrib("type", "shot")
+                        item.setStringAttrib("entity", "shot")
                         path = (
                             parentNode.parm("sequence").eval()
                             or upstreamItem.stringAttribValue("sequence")
                             or ""
                         )
                         name = (
-                            parentNode.parm("shotName").eval()
+                            parentNode.parm("entityName").eval()
                             or upstreamItem.stringAttribValue("name")
                             or ""
                         )
@@ -411,9 +411,9 @@ class Prism_PDG_Functions(object):
                         item.setStringAttrib("name", name)
             else:
                 item = itemHolder.addWorkItem()
-                item.setStringAttrib("type", "shot")
+                item.setStringAttrib("entity", "shot")
                 item.setStringAttrib("sequence", parentNode.parm("sequence").eval())
-                item.setStringAttrib("name", parentNode.parm("shotName").eval())
+                item.setStringAttrib("name", parentNode.parm("entityName").eval())
                 if parentNode.parm("useRange").eval():
                     item.setStringAttrib(
                         "framerange", parentNode.parm("shotrangex").evalAsString()
@@ -425,12 +425,12 @@ class Prism_PDG_Functions(object):
         elif entity == 4:
             for upstreamItem in upstreamItems:
                 with upstreamItem.makeActive():
-                    curType = upstreamItem.stringAttribValue("type")
+                    curType = upstreamItem.stringAttribValue("entity")
                     if curType in ["asset", "shot"]:
                         item = itemHolder.addWorkItem(
                             cloneResultData=True, preserveType=True, parent=upstreamItem
                         )
-                        item.setStringAttrib("type", "step")
+                        item.setStringAttrib("entity", "step")
                         item.setStringAttrib(
                             "%sName" % curType,
                             upstreamItem.stringAttribValue("name"),
@@ -443,7 +443,7 @@ class Prism_PDG_Functions(object):
         elif entity == 5:
             for upstreamItem in upstreamItems:
                 with upstreamItem.makeActive():
-                    curType = upstreamItem.stringAttribValue("type")
+                    curType = upstreamItem.stringAttribValue("entity")
                     if curType in ["step"]:
                         if parentNode.parm("defaultCategory").eval():
                             import ast
@@ -476,7 +476,7 @@ class Prism_PDG_Functions(object):
                         item = itemHolder.addWorkItem(
                             cloneResultData=True, preserveType=True, parent=upstreamItem
                         )
-                        item.setStringAttrib("type", "category")
+                        item.setStringAttrib("entity", "category")
                         item.setStringAttrib(
                             "step", upstreamItem.stringAttribValue("name")
                         )
@@ -485,12 +485,12 @@ class Prism_PDG_Functions(object):
         elif entity == 6:
             for upstreamItem in upstreamItems:
                 with upstreamItem.makeActive():
-                    curType = upstreamItem.stringAttribValue("type")
+                    curType = upstreamItem.stringAttribValue("entity")
                     if curType in ["category"]:
                         item = itemHolder.addWorkItem(
                             cloneResultData=True, preserveType=True, parent=upstreamItem
                         )
-                        item.setStringAttrib("type", "scenefile")
+                        item.setStringAttrib("entity", "scenefile")
                         if self.core.useLocalFiles:
                             item.setStringAttrib("location", "global")
 
@@ -510,12 +510,12 @@ class Prism_PDG_Functions(object):
     @err_decorator
     def writeEntity(self, workItem):
         data = workItem.data.allDataMap
-        if "type" not in data:
+        if "entity" not in data:
             return "Error - invalid workitem"
 
         result = self.core.createEntity(entity=data)
 
-        if result and workItem.stringAttribValue("type") == "scenefile":
+        if result and workItem.stringAttribValue("entity") == "scenefile":
             # workItem.addResultData(result, "scenePath", 0)
             workItem.setStringAttrib("scenePath", result.replace("\\", "/"))
 
@@ -638,8 +638,8 @@ class Prism_PDG_Functions(object):
                     if upstreamItem.intAttribValue("second_input"):
                         states = upstreamItem.stringAttribArray("states")
                         if not parentNode.parm("ignoreInputEntity").eval():
-                            assetName = upstreamItem.stringAttribValue("assetName")
-                            shotName = upstreamItem.stringAttribValue("shotName")
+                            assetName = upstreamItem.stringAttribValue("entityName")
+                            shotName = upstreamItem.stringAttribValue("entityName")
                         if states:
                             for state in states:
                                 stateData = eval(state)
@@ -720,8 +720,8 @@ class Prism_PDG_Functions(object):
 
                 if imports:
                     if parentNode.parm("ignoreInputEntity").eval():
-                        assetName = upstreamItem.stringAttribValue("assetName")
-                        shotName = upstreamItem.stringAttribValue("shotName")
+                        assetName = upstreamItem.stringAttribValue("entityName")
+                        shotName = upstreamItem.stringAttribValue("entityName")
 
                         if assetName:
                             entity = "asset"
@@ -770,7 +770,7 @@ class Prism_PDG_Functions(object):
 
     @err_decorator
     def setProject(self, workItem):
-        typeStr = workItem.stringAttribValue("type")
+        typeStr = workItem.stringAttribValue("entity")
         if typeStr != "project":
             return
 

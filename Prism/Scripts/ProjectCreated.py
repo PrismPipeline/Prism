@@ -43,8 +43,6 @@ except:
 
     psVersion = 1
 
-import sys, os
-
 if psVersion == 1:
     from UserInterfacesPrism import ProjectCreated_ui
 else:

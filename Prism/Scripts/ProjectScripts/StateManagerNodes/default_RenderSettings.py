@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,37 +46,15 @@ except:
 
     psVersion = 1
 
-import sys, os, shutil, time, traceback, platform
-from functools import wraps
-
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
+
+from PrismUtils.Decorators import err_decorator
 
 
 class RenderSettingsClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - sm_default_renderSettings %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
     @classmethod
     def isActive(cls, core):
         return core.appPlugin.pluginName in ["Houdini", "Maya"]
@@ -109,7 +90,7 @@ class RenderSettingsClass(object):
             core.appPlugin, "sm_renderSettings_setCurrentSettings", lambda x, y: None
         )(core, preset, **kwargs)
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
         self.core = core
@@ -128,7 +109,7 @@ class RenderSettingsClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -161,7 +142,7 @@ class RenderSettingsClass(object):
             self, data
         )
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def connectEvents(self):
         self.cb_presetOption.activated.connect(self.stateManager.saveStatesToScene)
         self.b_loadCurrent.clicked.connect(self.loadCurrent)
@@ -176,7 +157,7 @@ class RenderSettingsClass(object):
         if not self.stateManager.standalone:
             self.b_applySettings.clicked.connect(self.applySettings)
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def nameChanged(self, text):
         sText = text
 
@@ -185,7 +166,7 @@ class RenderSettingsClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def editChanged(self, state):
         self.w_presetOption.setVisible(not state)
         self.w_loadCurrent.setVisible(state)
@@ -193,7 +174,7 @@ class RenderSettingsClass(object):
         self.te_settings.setPlainText("")
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def updateUi(self):
         curPreset = self.cb_presetOption.currentText()
         self.cb_presetOption.clear()
@@ -208,12 +189,12 @@ class RenderSettingsClass(object):
         if self.state:
             self.nameChanged(self.e_name.text())
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def focusOut(self, event):
         self.stateManager.saveStatesToScene()
         self.te_settings.origFocusOutEvent(event)
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def loadCurrent(self):
         settings = getattr(
             self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {}
@@ -221,13 +202,13 @@ class RenderSettingsClass(object):
         self.te_settings.setPlainText(settings)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def resetSettings(self):
         getattr(
             self.core.appPlugin, "sm_renderSettings_applyDefaultSettings", lambda x: {}
         )(self)
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def showPresets(self):
         presets = self.getPresets(self.core)
         if not presets:
@@ -244,7 +225,7 @@ class RenderSettingsClass(object):
         self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor().pos())
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def loadPreset(self, presetPath):
         preset = self.core.readYaml(presetPath)
         if "renderSettings" not in preset:
@@ -254,7 +235,7 @@ class RenderSettingsClass(object):
         self.te_settings.setPlainText(settings)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def savePreset(self):
         result = QInputDialog.getText(self, "Save preset", "Presetname:")
         if not result[1]:
@@ -286,7 +267,7 @@ class RenderSettingsClass(object):
 
         self.updateUi()
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def applySettings(self, settings=None):
         if self.chb_editSettings.isChecked():
             if not settings:
@@ -305,7 +286,7 @@ class RenderSettingsClass(object):
 
             self.applyPreset(self.core, presets[selPreset], state=self)
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def preExecuteState(self):
         warnings = []
 
@@ -318,12 +299,12 @@ class RenderSettingsClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def executeState(self, parent, useVersion="next"):
         self.applySettings()
         return [self.state.text(0) + " - success"]
 
-    @err_decorator
+    @err_decorator(name="sm_renderSettings_setCurrentSettings")
     def getStateProps(self):
         stateProps = {}
         stateProps.update(

@@ -31,7 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, traceback, time, platform
+import os
+import sys
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -69,9 +70,8 @@ if psVersion == 1:
 else:
     from UserInterfacesPrism import ChangeUser_ui_ps2 as ChangeUser_ui
 
-from functools import wraps
-
 from UserInterfacesPrism import qdarkstyle
+from PrismUtils.Decorators import err_decorator
 
 
 class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
@@ -88,24 +88,7 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
 
         self.validate()
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - ChangeUser %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="ChangeUser")
     def connectEvents(self):
         self.e_fname.textChanged.connect(lambda x: self.validate(x, self.e_fname))
         self.e_lname.textChanged.connect(lambda x: self.validate(x, self.e_lname))
@@ -113,11 +96,11 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
         self.e_fname.cursorPositionChanged.connect(self.cursorMoved)
         self.e_lname.cursorPositionChanged.connect(self.cursorMoved)
 
-    @err_decorator
+    @err_decorator(name="ChangeUser")
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator
+    @err_decorator(name="ChangeUser")
     def setNames(self):
         if not os.path.exists(self.core.userini):
             self.core.createUserPrefs()
@@ -134,7 +117,7 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
         except Exception as e:
             pass
 
-    @err_decorator
+    @err_decorator(name="ChangeUser")
     def validate(self, text=None, editfield=None):
         if text != None:
             startpos = editfield.cursorPosition()
@@ -154,11 +137,11 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
         else:
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-    @err_decorator
+    @err_decorator(name="ChangeUser")
     def cursorMoved(self, old, new):
         self.newCursorPos = new
 
-    @err_decorator
+    @err_decorator(name="ChangeUser")
     def setUser(self):
         if not os.path.exists(self.core.userini):
             self.core.createUserPrefs()

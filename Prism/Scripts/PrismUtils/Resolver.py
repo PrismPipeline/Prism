@@ -31,8 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, traceback, time
-from functools import wraps
+import os
+
+from PrismUtils.Decorators import err_decorator
 
 
 class Resolver(object):
@@ -40,25 +41,7 @@ class Resolver(object):
         super(Resolver, self).__init__()
         self.core = core
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - Resolver %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="Resolver")
     def resolveFields(self, uri, uriType="exportProduct"):
         fields = {}
         if uriType == "exportProduct":
@@ -78,7 +61,7 @@ class Resolver(object):
 
         return fields
 
-    @err_decorator
+    @err_decorator(name="Resolver")
     def resolvePath(self, uri, uriType="exportProduct", target="file"):
         fields = self.resolveFields(uri, uriType)
 

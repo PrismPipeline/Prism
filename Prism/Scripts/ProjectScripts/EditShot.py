@@ -31,6 +31,10 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import platform
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -48,10 +52,6 @@ if psVersion == 1:
 else:
     import EditShot_ui_ps2 as EditShot_ui
 
-import sys, os, traceback, time, platform
-from functools import wraps
-
-
 if sys.version[0] == "3":
     from configparser import ConfigParser
 
@@ -60,6 +60,8 @@ else:
     from ConfigParser import ConfigParser
 
     pVersion = 2
+
+from PrismUtils.Decorators import err_decorator
 
 
 class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
@@ -89,24 +91,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.loadData()
         self.connectEvents()
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - EditShot %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="EditShot")
     def connectEvents(self):
         self.b_showSeq.clicked.connect(self.showSequences)
         self.b_changePreview.clicked.connect(self.browse)
@@ -116,7 +101,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.e_sequence.textEdited.connect(lambda x: self.validate(x, self.e_sequence))
         self.b_deleteShot.clicked.connect(self.deleteShot)
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def loadOiio(self):
         try:
             global oiio
@@ -129,7 +114,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         except:
             pass
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def loadLibs(self):
         if not self.oiioLoaded:
             global numpy, wand
@@ -141,7 +126,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             except:
                 pass
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def showSequences(self):
         smenu = QMenu()
 
@@ -154,11 +139,11 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
         smenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def seqClicked(self, seq):
         self.e_sequence.setText(seq)
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def browse(self):
         formats = "Image File (*.jpg *.png *.exr)"
 
@@ -268,7 +253,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             self.l_shotPreview.setMinimumSize(self.pmap.width(), self.pmap.height())
             self.l_shotPreview.setPixmap(self.pmap)
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def validate(self, origText, editField):
         text = self.core.validateStr(origText)
 
@@ -280,7 +265,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             editField.setText(text)
             editField.setCursorPosition(cpos - 1)
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def deleteShot(self):
         msgText = (
             'Are you sure you want to delete shot "%s"?\n\nThis will delete all scenefiles and renderings, which exist in this shot.'
@@ -299,7 +284,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             self.core.createCmd(["deleteShot", self.shotName])
             self.accept()
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def buttonboxClicked(self, button):
         if button.text() == "Create":
             result = self.saveInfo()
@@ -312,7 +297,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                 self.core.pb.createShot(self.shotName)
                 self.accept()
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def getShotName(self):
         if self.e_sequence.text() == "":
             newSName = self.e_shotName.text()
@@ -325,7 +310,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
         return newSName
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def saveInfo(self):
         newSName = self.getShotName()
 
@@ -371,7 +356,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
         return True
 
-    @err_decorator
+    @err_decorator(name="EditShot")
     def loadData(self):
         if self.shotName is not None:
             shotName, seqName = self.core.pb.splitShotname(self.shotName)

@@ -31,7 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, time, subprocess, shutil, platform
+import os
+import sys
+import time
+import subprocess
+import platform
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 

@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import platform
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -42,8 +45,6 @@ except:
     from PySide.QtGui import *
 
     psVersion = 1
-
-import sys, os, platform
 
 if psVersion == 1:
     from UserInterfacesPrism import SetPath_ui

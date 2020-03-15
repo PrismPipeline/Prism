@@ -31,6 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import time
+import platform
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,38 +48,16 @@ except:
 
     psVersion = 1
 
-import sys, os, shutil, time, traceback, threading, platform
-from functools import wraps
-
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
+
+from PrismUtils.Decorators import err_decorator
 
 
 class ImageRenderClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - sm_default_imageRender %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
         self.core = core
@@ -142,7 +125,7 @@ class ImageRenderClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def loadData(self, data):
         if "taskname" in data:
             self.l_taskName.setText(data["taskname"])
@@ -252,7 +235,7 @@ class ImageRenderClass(object):
                 ),
             )
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -308,7 +291,7 @@ class ImageRenderClass(object):
             lambda x: self.core.appPlugin.sm_render_openPasses(self)
         )
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def rangeTypeChanged(self, state):
         if state == Qt.Checked:
             self.l_rangeStart.setEnabled(False)
@@ -323,26 +306,26 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def setCam(self, index):
         self.curCam = self.camlist[index]
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def nameChanged(self, text):
         taskname = self.l_taskName.text()
         if taskname == "":
@@ -354,12 +337,12 @@ class ImageRenderClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def setTaskname(self, taskname):
         self.l_taskName.setText(taskname)
         self.updateUi()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def changeTask(self):
         import CreateItem
 
@@ -382,12 +365,12 @@ class ImageRenderClass(object):
             self.nameChanged(self.e_name.text())
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def presetOverrideChanged(self, checked):
         self.cb_renderPreset.setEnabled(checked)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def resOverrideChanged(self, checked):
         self.sp_resWidth.setEnabled(checked)
         self.sp_resHeight.setEnabled(checked)
@@ -395,7 +378,7 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def showResPresets(self):
         pmenu = QMenu()
 
@@ -414,7 +397,7 @@ class ImageRenderClass(object):
 
         pmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def overrideChanged(self, checked):
         if self.chb_override.isChecked():
             self.l_subdivs.setEnabled(True)
@@ -435,7 +418,7 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def updateUi(self):
 
         # update Cams
@@ -487,7 +470,7 @@ class ImageRenderClass(object):
 
         return True
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def openSlaves(self):
         try:
             del sys.modules["SlaveAssignment"]
@@ -526,17 +509,17 @@ class ImageRenderClass(object):
             self.e_osSlaves.setText(selSlaves)
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def gpuPtChanged(self):
         self.w_dlGPUdevices.setEnabled(self.sp_dlGPUpt.value() == 0)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def gpuDevicesChanged(self):
         self.w_dlGPUpt.setEnabled(self.le_dlGPUdevices.text() == "")
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def showPasses(self):
         steps = getattr(
             self.core.appPlugin, "sm_render_getRenderPasses", lambda x: None
@@ -545,7 +528,9 @@ class ImageRenderClass(object):
         if steps is None or len(steps) == 0:
             return False
 
-        steps = eval(steps)
+        strc = basestring if pVersion == 2 else str
+        if isinstance(steps, strc):
+            steps = eval(steps)
 
         try:
             del sys.modules["ItemList"]
@@ -581,26 +566,29 @@ class ImageRenderClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def rclickPasses(self, pos):
         if self.lw_passes.currentItem() is None or not getattr(
             self.core.appPlugin, "canDeleteRenderPasses", True
         ):
             return
 
-        item = self.lw_passes.currentItem()
-
         rcmenu = QMenu()
 
         delAct = QAction("Delete", self)
-        delAct.triggered.connect(
-            lambda: self.core.appPlugin.sm_render_deletePass(self, item)
-        )
+        delAct.triggered.connect(self.deleteAOVs)
         rcmenu.addAction(delAct)
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
+    def deleteAOVs(self):
+        items = self.lw_passes.selectedItems()
+        for i in items:
+            self.core.appPlugin.removeAOV(i.text())
+        self.updateUi()
+
+    @err_decorator(name="sm_default_imageRender")
     def rjToggled(self, checked):
         self.f_localOutput.setEnabled(
             self.gb_submit.isHidden()
@@ -613,7 +601,7 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def managerChanged(self, text=None):
         self.f_localOutput.setEnabled(
             self.gb_submit.isHidden()
@@ -631,7 +619,7 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def preExecuteState(self):
         warnings = []
 
@@ -657,7 +645,7 @@ class ImageRenderClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def getOutputName(self, useVersion="next"):
         if self.l_taskName.text() == "":
             return
@@ -697,7 +685,7 @@ class ImageRenderClass(object):
             pComment = useVersion.split(self.core.filenameSeparator)[1]
 
         fnameData = self.core.getScenefileData(fileName)
-        if fnameData["type"] == "shot":
+        if fnameData["entity"] == "shot":
             outputPath = os.path.join(
                 self.core.getEntityBasePath(fileName),
                 "Rendering",
@@ -714,7 +702,7 @@ class ImageRenderClass(object):
             outputFile = (
                 "shot"
                 + self.core.filenameSeparator
-                + fnameData["shotName"]
+                + fnameData["entityName"]
                 + self.core.filenameSeparator
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
@@ -722,7 +710,7 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + "beauty..exr"
             )
-        elif fnameData["type"] == "asset":
+        elif fnameData["entity"] == "asset":
             if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
                 outputPath = os.path.join(
                     self.core.fixPath(basePath),
@@ -748,7 +736,7 @@ class ImageRenderClass(object):
                 outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty"
             )
             outputFile = (
-                fnameData["assetName"]
+                fnameData["entityName"]
                 + self.core.filenameSeparator
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
@@ -768,7 +756,7 @@ class ImageRenderClass(object):
 
         return outputName, outputPath, hVersion
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def executeState(self, parent, useVersion="next"):
         if self.chb_globalRange.isChecked():
             jobFrames = [
@@ -904,7 +892,7 @@ class ImageRenderClass(object):
                         self.core.writeErrorLog(erStr)
                 return [self.state.text(0) + " - error - " + result]
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def setTaskWarn(self, warn):
         useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
         if warn:
@@ -920,7 +908,7 @@ class ImageRenderClass(object):
             else:
                 self.b_changeTask.setPalette(self.oldPalette)
 
-    @err_decorator
+    @err_decorator(name="sm_default_imageRender")
     def getStateProps(self):
         stateProps = {
             "statename": self.e_name.text(),

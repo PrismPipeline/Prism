@@ -1170,39 +1170,42 @@ class Prism_Maya_Functions(object):
 
         mel.eval(
             """unifiedRenderGlobalsWindow;
-	int $index = 2;
+int $index = 2;
 
+string $renderer = `currentRenderer`;
+if (`isDisplayingAllRendererTabs`)
+$renderer = `editRenderLayerGlobals -q -currentRenderLayer`;
 
-	string $renderer = `currentRenderer`;
-	if (`isDisplayingAllRendererTabs`)
-	$renderer = `editRenderLayerGlobals -q -currentRenderLayer`;
-
-	string $tabLayout = `getRendererTabLayout $renderer`;
-	tabLayout -e -sti %s $tabLayout;"""
-            % tabNum
+string $tabLayout = `getRendererTabLayout $renderer`;
+tabLayout -e -sti %s $tabLayout;""" % tabNum
         )
 
     @err_decorator
-    def sm_render_deletePass(self, origin, item):
-        itemName = item.text()
+    def removeAOV(self, aovName):
         curRender = cmds.getAttr("defaultRenderGlobals.currentRenderer")
         if curRender == "arnold":
             try:
-                maovs.AOVInterface().removeAOV(itemName)
+                maovs.AOVInterface().removeAOV(aovName)
             except:
                 pass
         elif curRender == "vray":
             try:
-                mel.eval('vrayRemoveRenderElement "%s"' % itemName)
+                mel.eval('vrayRemoveRenderElement "%s"' % aovName)
             except:
                 pass
         elif curRender == "redshift":
-            try:
-                cmds.delete(item.toolTip())
-            except:
-                pass
+            aovs = cmds.ls(type="RedshiftAOV")
+            aovs = [
+                x
+                for x in aovs
+                if cmds.getAttr(x + ".enabled") and cmds.getAttr(x + ".name") == aovName
+            ]
 
-        origin.updateUi()
+            for a in aovs:
+                try:
+                    cmds.delete(a)
+                except:
+                    pass
 
     @err_decorator
     def sm_render_preSubmit(self, origin, rSettings):

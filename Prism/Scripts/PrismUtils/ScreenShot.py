@@ -31,6 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,8 +45,7 @@ except:
 
     psVersion = 1
 
-import sys, traceback, time
-from functools import wraps
+from PrismUtils.Decorators import err_decorator
 
 
 class ScreenShot(QDialog):
@@ -76,31 +77,13 @@ class ScreenShot(QDialog):
 
         self.setMouseTracking(True)
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - Screenshot %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="Screenshot")
     def mousePressEvent(self, event):
         self.origin = event.pos()
         self.rubberband.setGeometry(QRect(self.origin, QSize()))
         QWidget.mousePressEvent(self, event)
 
-    @err_decorator
+    @err_decorator(name="Screenshot")
     def mouseMoveEvent(self, event):
         if self.origin is not None:
             rect = QRect(self.origin, event.pos()).normalized()
@@ -109,7 +92,7 @@ class ScreenShot(QDialog):
         self.repaint()
         QWidget.mouseMoveEvent(self, event)
 
-    @err_decorator
+    @err_decorator(name="Screenshot")
     def paintEvent(self, event):
         painter = QPainter(self)
 
@@ -132,7 +115,7 @@ class ScreenShot(QDialog):
 
         QWidget.paintEvent(self, event)
 
-    @err_decorator
+    @err_decorator(name="Screenshot")
     def mouseReleaseEvent(self, event):
         if self.origin is not None:
             self.rubberband.hide()

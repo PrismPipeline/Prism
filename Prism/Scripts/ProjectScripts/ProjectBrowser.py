@@ -31,7 +31,16 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, datetime, shutil, ast, time, traceback, random, platform, imp
+import os
+import sys
+import datetime
+import shutil
+import ast
+import time
+import platform
+import imp
+import subprocess
+import logging
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -93,9 +102,6 @@ elif platform.system() in ["Linux", "Darwin"]:
         except:
             pass
 
-import subprocess
-from functools import wraps
-
 sys.path.append(os.path.join(prismRoot, "Scripts"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfaces"))
 
@@ -132,6 +138,10 @@ except:
     if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
         os.remove(modPath)
     import EnterText
+
+from PrismUtils.Decorators import err_decorator
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
@@ -282,25 +292,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     #   self.tw_sFiles.setStyleSheet("QTableView,QListView,QHeaderView {color: rgb(199,199,199);background-color: rgb(71,71,71);selection-color: rgb(0,0,0);selection-background-color: rgb(242,138,0);}")
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - ProjectBrowser %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def connectEvents(self):
         self.tw_aHierarchy.mousePrEvent = self.tw_aHierarchy.mousePressEvent
         self.tw_aHierarchy.mousePressEvent = lambda x: self.mouseClickEvent(x, "ah")
@@ -524,7 +516,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def loadLayout(self):
         self.actionRefresh = QAction("Refresh", self)
         self.actionRefresh.triggered.connect(self.refreshUI)
@@ -855,7 +847,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
             self.w_aCategory.setVisible(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def closeEvent(self, event):
         tabOrder = []
         for i in range(self.tbw_browser.count()):
@@ -987,7 +979,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         event.accept()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def loadLibs(self):
         global imageio
         try:
@@ -1005,7 +997,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             except:
                 pass
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getExpandedAssets(self):
         expandedAssets = []
         for i in range(self.tw_aHierarchy.topLevelItemCount()):
@@ -1014,7 +1006,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return expandedAssets
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getExpandedChildren(self, item):
         expandedAssets = []
         if item.isExpanded():
@@ -1025,7 +1017,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return expandedAssets
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getExpandedSequences(self):
         expandedSeqs = []
         for i in range(self.tw_sShot.topLevelItemCount()):
@@ -1035,7 +1027,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return expandedSeqs
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def tabChanged(self, tab):
         if not self.tbw_browser.widget(tab):
             tabType = ""
@@ -1058,7 +1050,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
             self.updateTasks()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def checkVisibleTabs(self):
         cw = self.tbw_browser.currentWidget()
         if not cw:
@@ -1069,7 +1061,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return True
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshUI(self):
         if not self.checkVisibleTabs():
             return
@@ -1132,7 +1124,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def mousedb(self, event, tab, uielement):
         if tab == "ah":
             cItem = uielement.itemFromIndex(uielement.indexAt(event.pos()))
@@ -1202,7 +1194,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if item is not None:
                 item.setExpanded(not item.isExpanded())
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def mouseClickEvent(self, event, uielement):
         if QEvent != None:
             if event.type() == QEvent.MouseButtonRelease:
@@ -1293,7 +1285,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     self.sdclick = True
                     self.tw_sShot.mousePrEvent(event)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def keyPressed(self, event, entity):
         if entity in ["assets", "assetSearch"]:
             etext = self.e_assetSearch
@@ -1319,13 +1311,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         event.accept()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def tableMoveEvent(self, event, table):
         self.showDetailWin(event, table)
         if hasattr(self, "detailWin") and self.detailWin.isVisible():
             self.detailWin.move(QCursor.pos().x() + 20, QCursor.pos().y())
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def showDetailWin(self, event, table):
         if table == "af":
             table = self.tw_aFiles
@@ -1424,17 +1416,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.detailWin.move(QCursor.pos().x() + 20, QCursor.pos().y())
             self.detailWin.show()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def tableLeaveEvent(self, event, table):
         if hasattr(self, "detailWin") and self.detailWin.isVisible():
             self.detailWin.close()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def tableFocusOutEvent(self, event, table):
         if hasattr(self, "detailWin") and self.detailWin.isVisible():
             self.detailWin.close()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def rclCat(self, tab, pos):
         rcmenu = QMenu()
         typename = "Category"
@@ -1616,7 +1608,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def rclFile(self, tab, pos):
         if tab == "a":
             if self.curaStep is None or self.curaCat is None:
@@ -1731,7 +1723,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     globalAct.setEnabled(False)
                 rcmenu.addAction(globalAct)
 
-            actDeps = QAction("Show dependencies", self)
+            actDeps = QAction("Show dependencies...", self)
             infoPath = os.path.splitext(filepath)[0] + "versioninfo.ini"
             if os.path.exists(infoPath):
                 with open(infoPath, "r") as descFile:
@@ -1740,6 +1732,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             else:
                 actDeps.setEnabled(False)
             rcmenu.addAction(actDeps)
+
+            actCom = QAction("Edit Comment...", self)
+            actCom.triggered.connect(lambda: self.editComment(filepath))
+            rcmenu.addAction(actCom)
 
         openex = QAction("Open in Explorer", self)
         openex.triggered.connect(lambda: self.core.openFolder(filepath))
@@ -1756,7 +1752,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def rclfFile(self, pos):
         tw = self.tw_fFiles
         rcmenu = QMenu()
@@ -1788,7 +1784,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def exeFile(self, index=None, filepath=""):
         openSm = hasattr(self.core, "sm") and not self.core.sm.isHidden()
         if hasattr(self.core, "sm"):
@@ -1832,6 +1828,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         filepath = filepath.replace("\\", "/")
 
+        logger.debug("Opening scene " + filepath)
         isOpen = self.core.appPlugin.openScene(self, filepath)
 
         if not isOpen and self.core.appPlugin.pluginName == "Standalone":
@@ -1911,7 +1908,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         ):
             self.close()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createFromCurrent(self):
         if self.tbw_browser.currentWidget().property("tabType") == "Assets":
             dstname = self.curAsset
@@ -1970,7 +1967,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         refresh()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def autoback(self, tab, prog):
         if prog == self.core.appPlugin.pluginName:
             autobackpath, fileStr = self.core.appPlugin.getAutobackPath(self, tab)
@@ -2003,7 +2000,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             refresh = self.refreshSFile
 
             sceneData = self.core.getScenefileData(autobfile)
-            if sceneData["type"] == "shot":
+            if sceneData["entity"] == "shot":
                 comment = sceneData["comment"]
             else:
                 comment = ""
@@ -2044,7 +2041,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.setRecent()
             refresh()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createEmptyScene(
         self,
         entity,
@@ -2183,7 +2180,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return filePath
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def copyfile(self, path, mode=None):
         if self.tbw_browser.currentWidget().property("tabType") == "Assets":
             self.copiedFile = path
@@ -2193,7 +2190,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.fcopymode = mode
             self.copiedfFile = path
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def pastefile(self, tab):
         if tab == "a":
             dstname = self.curAsset
@@ -2323,7 +2320,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             self.refreshFCat()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getStep(self, steps, tab):
         try:
             del sys.modules["ItemList"]
@@ -2368,7 +2365,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             return False
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshAHierarchy(self, load=False):
         self.tw_aHierarchy.blockSignals(True)
         self.tw_aHierarchy.clear()
@@ -2453,7 +2450,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.refreshAStep()
             self.refreshAssetinfo()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshAItem(self, item, expanded=True):
         item.takeChildren()
 
@@ -2530,13 +2527,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if path in self.aExpanded and not expanded or self.e_assetSearch.isVisible():
             item.setExpanded(True)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def hItemCollapsed(self, item):
         self.adclick = False
         if item.text(1) in self.aExpanded:
             self.aExpanded.remove(item.text(1))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshAStep(self, cur=None, prev=None):
         self.lw_aPipeline.blockSignals(True)
         self.lw_aPipeline.clear()
@@ -2575,7 +2572,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.curaStep = None
             self.refreshaCat()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshaCat(self):
         self.lw_aCategory.blockSignals(True)
         self.lw_aCategory.clear()
@@ -2628,7 +2625,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             self.refreshAFile()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshAFile(self, cur=None, prev=None):
         scenefiles = []
         if self.curAsset and self.curaStep and self.curaCat:
@@ -2708,7 +2705,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             ):
                 continue
 
-            if fname["type"] == "asset":
+            if fname["entity"] == "asset":
                 publicFile = self.core.useLocalFiles and i.startswith(
                     os.path.join(self.core.projectPath, self.scenes, "Assets")
                 )
@@ -2784,7 +2781,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.tw_aFiles.sortByColumn(twSorting[0], twSorting[1])
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def Assetclicked(self, item):
         if (
             item is not None
@@ -2802,7 +2799,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
             self.updateTasks()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def aPipelineclicked(self, current, prev):
         if current:
             self.curaStep = current.text()
@@ -2811,7 +2808,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.refreshaCat()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def aCatclicked(self, current, prev):
         if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
             self.curaCat = "category"
@@ -2824,7 +2821,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.refreshAFile()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshAssetinfo(self):
         pmap = None
 
@@ -2870,7 +2867,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.l_assetPreview.setMinimumSize(pmap.width(), pmap.height())
         self.l_assetPreview.setPixmap(pmap)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getShots(self):
         if self.core.useLocalFiles:
             lBasePath = self.sBasePath.replace(
@@ -2927,7 +2924,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return sequences, shots
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def splitShotname(self, shotName):
         if shotName and self.core.sequenceSeparator in shotName:
             sname = shotName.split(self.core.sequenceSeparator, 1)
@@ -2939,7 +2936,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return shotName, seqName
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshShots(self):
         self.lw_sPipeline.blockSignals(True)
         self.tw_sShot.clear()
@@ -2972,7 +2969,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.refreshsStep()
             self.refreshShotinfo()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sItemCollapsed(self, item):
         if self.e_shotSearch.isVisible():
             return
@@ -2987,7 +2984,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if item.text(0) in self.sExpanded:
                 self.sExpanded.remove(item.text(0))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshsStep(self, cur=None, prev=None):
         self.lw_sPipeline.blockSignals(True)
         self.lw_sPipeline.clear()
@@ -3026,7 +3023,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.cursStep = None
             self.refreshsCat()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshsCat(self):
         self.lw_sCategory.blockSignals(True)
         self.lw_sCategory.clear()
@@ -3065,7 +3062,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.cursCat = None
             self.refreshSFile()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshSFile(self, parm=None):
         twSorting = [
             self.tw_sFiles.horizontalHeader().sortIndicatorSection(),
@@ -3147,7 +3144,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 ):
                     continue
 
-                if fname["type"] == "shot" and not tmpScene:
+                if fname["entity"] == "shot" and not tmpScene:
                     publicFile = self.core.useLocalFiles and i.startswith(
                         os.path.join(self.core.projectPath, self.scenes, "Shots")
                     )
@@ -3225,7 +3222,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_sFiles.setColumnWidth(4, 100 * self.core.uiScaleFactor)
         self.tw_sFiles.sortByColumn(twSorting[0], twSorting[1])
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sShotclicked(self, item):
         if item is not None and item.text(0) != None and item.text(0) != "no sequence":
             self.cursShots = item.text(1)
@@ -3238,7 +3235,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
             self.updateTasks()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sPipelineclicked(self, current, prev):
         if current:
             self.cursStep = current.text()
@@ -3247,7 +3244,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.refreshsCat()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sCatclicked(self, current, prev):
         if current:
             self.cursCat = current.text()
@@ -3256,7 +3253,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.refreshSFile()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshShotinfo(self):
         pmap = None
 
@@ -3297,7 +3294,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.l_shotPreview.setMinimumSize(pmap.width(), pmap.height())
         self.l_shotPreview.setPixmap(pmap)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def rclEntityPreview(self, pos, entity):
         rcmenu = QMenu()
 
@@ -3332,7 +3329,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def captureEntityPreview(self, entity, entityname):
         if entity == "asset":
             folderName = "Assetinfo"
@@ -3361,7 +3358,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             refresh()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def editAsset(self, assetName=None):
         if not assetName:
             return
@@ -3399,7 +3396,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             self.core.writeYaml(assetFile, assetInfos)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def editShot(self, shotName=None):
         sequs = []
         for i in range(self.tw_sShot.topLevelItemCount()):
@@ -3454,7 +3451,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     if shotItem.text(0) == shotName:
                         self.tw_sShot.setCurrentItem(shotItem)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createShot(self, shotName, frameRange=None):
         result = self.createShotFolders(shotName, "shot")
 
@@ -3507,11 +3504,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return result
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def showShotSearch(self):
         self.l_shotSearch.setVisible(True)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshFCat(self):
 
         model = QStandardItemModel()
@@ -3589,7 +3586,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         for i in range(10, len(self.fhierarchy), -1):
             self.fhbuttons[i - 1].setHidden(True)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def setRecent(self):
         model = QStandardItemModel()
 
@@ -3631,7 +3628,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             row = []
             fname = self.core.getScenefileData(i)
-            if fname["type"] == "invalid":
+            if fname["entity"] == "invalid":
                 continue
             if os.path.exists(i):
                 if pVersion == 2:
@@ -3653,8 +3650,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
 
                 row.append(item)
-                if fname["type"] == "asset":
-                    item = QStandardItem(fname["assetName"])
+                if fname["entity"] == "asset":
+                    item = QStandardItem(fname["entityName"])
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                     row.append(item)
                     item = QStandardItem(fname["step"])
@@ -3684,8 +3681,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     item = QStandardItem(fname["user"])
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                     row.append(item)
-                elif fname["type"] == "shot":
-                    item = QStandardItem(fname["shotName"])
+                elif fname["entity"] == "shot":
+                    item = QStandardItem(fname["entityName"])
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                     row.append(item)
                     item = QStandardItem(fname["step"])
@@ -3737,7 +3734,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             self.tw_recent.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshCurrent(self):
         if self.tbw_browser.currentWidget().property("tabType") == "Assets":
             self.refreshAFile()
@@ -3748,7 +3745,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
             self.setRecent()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def FCatclicked(self, index):
         if index.row() != -1:
             for i in os.walk(self.fpath + index.data()):
@@ -3763,29 +3760,29 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.fclickedon = index.data()
         self.refreshFCat()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def filehiera(self, hieranum):
         self.fhierarchy = self.fhierarchy[:hieranum]
         self.fbottom = False
         self.refreshFCat()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerOpen(self, checked=False):
         self.core.setConfig("globals", "showonstartup", str(checked))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerUpdates(self, checked=False):
         self.core.setConfig("globals", "checkversions", str(checked))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerFrameranges(self, checked=False):
         self.core.setConfig("globals", "checkframeranges", str(checked))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerCloseLoad(self, checked=False):
         self.core.setConfig("browser", self.closeParm, str(checked))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerAutoplay(self, checked=False, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -3800,7 +3797,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             mediaPlayback["tlPaused"] = not checked
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerAssets(self, checked=False):
         if checked:
             self.tbw_browser.insertTab(
@@ -3815,7 +3812,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if self.tbw_browser.count() == 0:
                 self.tbw_browser.setVisible(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerShots(self, checked=False):
         if checked:
             self.tbw_browser.insertTab(
@@ -3828,7 +3825,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if self.tbw_browser.count() == 0:
                 self.tbw_browser.setVisible(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerFiles(self, checked=False):
         if checked:
             self.tbw_browser.insertTab(
@@ -3841,7 +3838,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if self.tbw_browser.count() == 0:
                 self.tbw_browser.setVisible(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerRecent(self, checked=False):
         if checked:
             self.tbw_browser.insertTab(
@@ -3856,7 +3853,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if self.tbw_browser.count() == 0:
                 self.tbw_browser.setVisible(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def triggerRenderings(self, checked=False):
         if (
             self.tbw_browser.currentWidget()
@@ -3866,7 +3863,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         ):
             self.gb_renderings.setVisible(checked)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createCatWin(self, tab, name):
         self.newItem = CreateItem.CreateItem(core=self.core, showType=tab == "ah")
 
@@ -3889,7 +3886,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.newItem.show()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createCat(self, tab):
         self.activateWindow()
         self.itemName = self.newItem.e_item.text()
@@ -3979,7 +3976,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         QItemSelectionModel.ClearAndSelect,
                     )
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createShotFolders(self, entityName, entityType, folders=[]):
         if entityType == "asset":
             basePath = self.aBasePath
@@ -4045,7 +4042,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return sBase
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createStepWindow(self, tab):
         if tab == "a":
             basePath = os.path.join(self.curAsset, "Scenefiles")
@@ -4112,7 +4109,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                                 QItemSelectionModel.ClearAndSelect,
                             )
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createStep(
         self, stepName, entity="shot", entityName="", stepPath="", createCat=True
     ):
@@ -4161,7 +4158,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return stepPath
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createDefaultCat(self, step, path):
         existingSteps = ast.literal_eval(
             self.core.getConfig(
@@ -4182,7 +4179,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         path = self.createCategory(catName, dstname)
         return path
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createCategory(self, catName, path):
         if os.path.basename(path) != catName:
             path = os.path.join(path, catName)
@@ -4206,14 +4203,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return path
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def openFFile(self):
         if self.fbottom:
             self.core.openFolder(self.fpath + self.fclickedon)
         else:
             self.core.openFolder(self.fpath)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def copyToGlobal(self, localPath, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -4273,12 +4270,43 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             self.core.copySceneFile(localPath, dstPath)
 
-            if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-                self.refreshAFile()
-            elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-                self.refreshSFile()
+            self.refreshCurrent()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
+    def editComment(self, filepath):
+        data = self.core.getScenefileData(filepath)
+        comment = data["comment"] if "comment" in data else ""
+
+        dlg_ec = CreateItem.CreateItem(core=self.core,  startText=comment, showType=False, valueRequired=False)
+
+        dlg_ec.setModal(True)
+        self.core.parentWindow(dlg_ec)
+        dlg_ec.e_item.setFocus()
+        dlg_ec.setWindowTitle("Edit Comment")
+        dlg_ec.l_item.setText("New comment:")
+
+        result = dlg_ec.exec_()
+
+        if not result:
+            return
+
+        if self.core.useLocalFiles:
+            localPath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
+            if os.path.exists(localPath):
+                localData = self.core.getScenefileData(localPath)
+                localData["comment"] = dlg_ec.e_item.text()
+                newPath = self.core.generateScenePath(**localData)
+                self.core.copySceneFile(localPath, newPath, mode="move")
+
+        if os.path.exists(filepath):
+            data["comment"] = dlg_ec.e_item.text()
+            newPath = self.core.generateScenePath(**data)
+            self.core.copySceneFile(filepath, newPath, mode="move")
+
+        self.refreshCurrent()
+        self.navigateToCurrent(path=newPath)
+
+    @err_decorator(name="ProjectBrowser")
     def omitEntity(self, eType, ePath):
         msgText = (
             'Are you sure you want to omit %s "%s"?\n\nThis will make the %s be ignored by Prism, but all scenefiles and renderings remain on the hard drive.'
@@ -4321,7 +4349,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             elif eType == "shot":
                 self.refreshShots()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshOmittedEntities(self):
         self.omittedEntities = {"asset": [], "shot": []}
         omitPath = os.path.join(
@@ -4337,21 +4365,21 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if oconfig.has_section("Asset"):
                 self.omittedEntities["asset"] = [x[1] for x in oconfig.items("Asset")]
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def navigateToCurrent(self, path=None):
         if path is None:
             fileName = self.core.getCurrentFileName()
             fileNameData = self.core.getScenefileData(fileName)
         else:
             fileName = path
-            fileNameData = {"type": "invalid"}
+            fileNameData = {"entity": "invalid"}
 
         if os.path.join(self.core.projectPath, self.scenes) in fileName or (
             self.core.useLocalFiles
             and os.path.join(self.core.localProjectPath, self.scenes) in fileName
         ):
             if (
-                fileNameData["type"] == "asset"
+                fileNameData["entity"] == "asset"
                 or self.aBasePath in fileName
                 or (
                     self.core.useLocalFiles
@@ -4417,7 +4445,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                                     break
 
             elif (
-                fileNameData["type"] == "shot"
+                fileNameData["entity"] == "shot"
                 or self.sBasePath in fileName
                 or (
                     self.core.useLocalFiles
@@ -4485,12 +4513,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                                 self.tw_sFiles.selectRow(idx.row())
                                 break
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def updateChanged(self, state):
         if state:
             self.updateTasks()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def refreshRender(self):
         curTab = self.tbw_browser.currentWidget().property("tabType")
         curData = [
@@ -4503,7 +4531,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.updateTasks()
         self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getMediaBasePath(self, entityName=None, entityType=None):
         basePath = None
         if entityName is None:
@@ -4524,7 +4552,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return basePath
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getMediaTasks(self, entityName=None, entityType=None):
         mediaTasks = {"3d": [], "2d": [], "playblast": [], "external": []}
 
@@ -4624,7 +4652,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return mediaTasks
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def updateTasks(self):
         self.renderRefreshEnabled = False
 
@@ -4649,7 +4677,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.updateVersions()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def updateVersions(self):
         if not self.renderRefreshEnabled:
             return
@@ -4728,7 +4756,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.updateLayers()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def updateLayers(self):
         if not self.renderRefreshEnabled:
             return
@@ -4758,7 +4786,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             self.updatePreview()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getRenderVersions(self, task="", taskPath=None):
         foldercont = []
 
@@ -4806,7 +4834,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return foldercont
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getRenderLayerPath(self, task, version):
         if version.endswith(" (local)"):
             rPath = os.path.join(
@@ -4825,7 +4853,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return rPath
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getRenderLayers(self, task, version):
         foldercont = []
         if self.renderBasePath is None:
@@ -4844,7 +4872,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return foldercont
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getShotMediaPath(self):
         foldercont = [None, None, None]
         if (
@@ -4934,7 +4962,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return foldercont
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def updatePreview(self, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -5085,7 +5113,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         mediaPlayback["l_preview"].setPixmap(self.emptypmap)
         mediaPlayback["sl_preview"].setEnabled(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def updatePrvInfo(self, prvFile="", vidReader=None, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -5161,7 +5189,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             "Drag to drop the media to RV\nCtrl+Drag to drop the media to Nuke"
         )
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getMediaResolution(
         self, prvFile, vidReader=None, setDuration=False, mediaPlayback=None
     ):
@@ -5222,7 +5250,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return pwidth, pheight
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createPMap(self, resx, resy):
         if resx == 300:
             imgFile = os.path.join(
@@ -5235,7 +5263,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return self.getImgPMap(imgFile)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getImgPMap(self, path):
         if platform.system() == "Windows":
             return QPixmap(path)
@@ -5253,7 +5281,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             except:
                 return QPixmap(path)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def savePMap(self, pmap, path):
         if not os.path.exists(os.path.dirname(path)):
             os.makedirs(os.path.dirname(path))
@@ -5276,7 +5304,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             except:
                 pmap.save(path, "JPG")
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def changeImg(self, frame=0, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -5437,7 +5465,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if mediaPlayback["curImg"] == mediaPlayback["pduration"]:
             mediaPlayback["curImg"] = 0
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def taskClicked(self):
         sItems = self.lw_task.selectedItems()
         if len(sItems) == 1 and sItems[0].text() != self.curRTask:
@@ -5447,7 +5475,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.updateVersions()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def versionClicked(self):
         sItems = self.lw_version.selectedItems()
         if len(sItems) == 1 and sItems[0].text() != self.curRVersion:
@@ -5457,14 +5485,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.updateLayers()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def layerChanged(self, layer):
         layertext = self.cb_layer.itemText(layer)
         if layertext != "" and layer != self.curRLayer:
             self.curRLayer = layertext
             self.updatePreview()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sliderChanged(self, val, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -5484,7 +5512,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             else:
                 mediaPlayback["prevCurImg"] = val
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def saveClicked(self, num):
         curTab = self.tbw_browser.currentWidget().property("tabType")
         if curTab not in ["Assets", "Shots"]:
@@ -5514,7 +5542,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         exec("self.saveRender%s = dataVar" % num)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def saverClicked(self, num):
         btn = eval("self.b_saveRender" + str(num))
         dataVar = eval("self.saveRender" + str(num))
@@ -5523,7 +5551,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.appPlugin.clearSaveColor(self, btn)
         exec("self.saveRender%s = []" % num)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getVersionInfoPath(self):
         if self.curRVersion.endswith(" (local)"):
             base = self.renderBasePath.replace(
@@ -5563,7 +5591,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return path
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def showVersionInfo(self, item=None):
         vInfo = "No information is saved with this version."
 
@@ -5622,7 +5650,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         action = infoDlg.exec_()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def showDependencies(self):
         path = self.getVersionInfoPath()
 
@@ -5636,7 +5664,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.core.dependencyViewer(path)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def showRender(self, tab, shot, task, version, layer):
         if tab != self.tbw_browser.currentWidget().property("tabType"):
             for i in range(self.tbw_browser.count()):
@@ -5684,7 +5712,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     self.cb_layer.setCurrentIndex(self.cb_layer.findText(layer))
                     self.updatePreview()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def previewClk(self, event, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -5701,7 +5729,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 mediaPlayback["openRV"] = False
         mediaPlayback["l_preview"].clickEvent(event)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def previewDclk(self, event, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -5711,7 +5739,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.compare(current=True, mediaPlayback=mediaPlayback)
         mediaPlayback["l_preview"].dclickEvent(event)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getShotMediaFolder(self):
         if self.curRVersion == "" or (
             self.curRLayer == ""
@@ -5775,7 +5803,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return path
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def rclPreview(self, pos, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -5896,7 +5924,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_(mediaPlayback["l_preview"].mapToGlobal(pos))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def setPreview(self):
         if self.tbw_browser.currentWidget().property("tabType") == "Assets":
             folderName = "Assetinfo"
@@ -5923,7 +5951,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         refresh()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sendToDailies(self, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6003,7 +6031,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             "The version was sent to the current dailies folder. (path in clipboard)",
         )
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sliderDrag(self, event, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6017,7 +6045,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         )
         mediaPlayback["sl_preview"].origMousePressEvent(custEvent)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sliderClk(self, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6031,7 +6059,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             mediaPlayback["slStop"] = False
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def sliderRls(self, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6039,7 +6067,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if mediaPlayback["slStop"]:
             mediaPlayback["timeline"].setPaused(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def rclList(self, pos, lw, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6205,7 +6233,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_((lw.viewport()).mapToGlobal(pos))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def createExternalTask(self, data={}):
         if data == {}:
             try:
@@ -6244,7 +6272,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         curData = [curTab, self.cursShots, taskName + " (external)", versionName, ""]
         self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def newExVersion(self):
         vPath = os.path.join(
             self.renderBasePath,
@@ -6320,7 +6348,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             ]
             self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def rclCompare(self, pos, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6357,7 +6385,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if not rcmenu.isEmpty():
             rcmenu.exec_((self.lw_compare.viewport()).mapToGlobal(pos))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getCurRenders(self):
         renders = []
         sTasks = self.lw_task.selectedItems()
@@ -6485,7 +6513,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return [paths, renders]
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def addCompare(self):
         if self.tbw_browser.currentWidget().property("tabType") == "Assets":
             shotName = "Asset"
@@ -6524,7 +6552,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.b_combineVersions.setEnabled(True)
             self.b_clearRV.setEnabled(True)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def removeCompare(self):
         for i in self.lw_compare.selectedItems():
             del self.compareStates[self.lw_compare.row(i)]
@@ -6547,7 +6575,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.b_combineVersions.setEnabled(False)
             self.b_clearRV.setEnabled(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def clearCompare(self):
         self.compareStates = []
         self.lw_compare.clear()
@@ -6560,7 +6588,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.b_combineVersions.setEnabled(False)
         self.b_clearRV.setEnabled(False)
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def compare(self, current=False, ctype="layout", prog="", mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6681,7 +6709,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     except Exception as e:
                         raise RuntimeError("%s - %s" % (comd, e))
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def combineVersions(self, ctype="sequence", mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6703,7 +6731,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         result = self.cm.exec_()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def compareOptions(self, event):
         cmenu = QMenu()
 
@@ -6727,7 +6755,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         cmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def combineOptions(self, event):
         cmenu = QMenu()
 
@@ -6751,7 +6779,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         cmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def mouseDrag(self, event, element, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -6801,7 +6829,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         drag.exec_()
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getImgSources(self, path, getFirstFile=False):
         foundSrc = []
         for k in os.walk(path):
@@ -6870,7 +6898,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return foundSrc
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def loadOiio(self):
         try:
             global oiio
@@ -6883,7 +6911,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         except:
             pass
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getRVpath(self):
         try:
             if platform.system() == "Windows":
@@ -6909,7 +6937,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         except:
             self.rv = None
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getRVdLUT(self):
         dlut = None
 
@@ -6922,7 +6950,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return dlut
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getDJVpath(self):
         try:
             cDJVPath = self.core.getConfig("globals", "djvpath")
@@ -6956,7 +6984,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         except:
             self.djv = None
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def getVLCpath(self):
         if platform.system() == "Windows":
             try:
@@ -6993,7 +7021,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if not os.path.exists(self.vlc):
                 self.vlc = None
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def convertImgs(self, extension, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -7100,7 +7128,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 "Image conversion", "The images could not be converted.", result
             )
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def compGetImportSource(self, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
@@ -7136,7 +7164,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         return sourceData
 
-    @err_decorator
+    @err_decorator(name="ProjectBrowser")
     def compGetImportPasses(self, mediaPlayback=None):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]

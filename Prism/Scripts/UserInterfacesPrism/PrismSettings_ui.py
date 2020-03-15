@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PrismSettings.ui'
 #
-# Created: Mon Mar  2 23:42:22 2020
+# Created: Sun Mar 15 15:36:29 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -360,6 +360,9 @@ class Ui_dlg_PrismSettings(object):
         self.chb_highDPI = QtGui.QCheckBox(self.groupBox_4)
         self.chb_highDPI.setObjectName("chb_highDPI")
         self.verticalLayout_12.addWidget(self.chb_highDPI)
+        self.chb_debug = QtGui.QCheckBox(self.groupBox_4)
+        self.chb_debug.setObjectName("chb_debug")
+        self.verticalLayout_12.addWidget(self.chb_debug)
         self.verticalLayout_14.addWidget(self.groupBox_4)
         self.groupBox_2 = QtGui.QGroupBox(self.tab_2)
         self.groupBox_2.setObjectName("groupBox_2")
@@ -495,6 +498,7 @@ class Ui_dlg_PrismSettings(object):
         self.chb_trayStartup.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Show Prism tray icon on system startup", None, QtGui.QApplication.UnicodeUTF8))
         self.b_startTray.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Start Prism tray now", None, QtGui.QApplication.UnicodeUTF8))
         self.chb_highDPI.setText(QtGui.QApplication.translate("dlg_PrismSettings", "HighDPI support (requires complete application restart) (experimental)", None, QtGui.QApplication.UnicodeUTF8))
+        self.chb_debug.setText(QtGui.QApplication.translate("dlg_PrismSettings", "Debug mode", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_2.setTitle(QtGui.QApplication.translate("dlg_PrismSettings", "Image player", None, QtGui.QApplication.UnicodeUTF8))
         self.label_10.setText(QtGui.QApplication.translate("dlg_PrismSettings", "RV path:", None, QtGui.QApplication.UnicodeUTF8))
         self.b_browseRV.setText(QtGui.QApplication.translate("dlg_PrismSettings", "...", None, QtGui.QApplication.UnicodeUTF8))

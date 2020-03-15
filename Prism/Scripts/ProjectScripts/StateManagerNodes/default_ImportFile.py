@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,9 +46,6 @@ except:
 
     psVersion = 1
 
-import sys, os, time, traceback
-from functools import wraps
-
 if sys.version[0] == "3":
     from configparser import ConfigParser
 
@@ -55,26 +55,11 @@ else:
 
     pVersion = 2
 
+from PrismUtils.Decorators import err_decorator
+
 
 class ImportFileClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - sm_default_importFile %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def setup(
         self, state, core, stateManager, node=None, importPath=None, stateData=None
     ):
@@ -147,13 +132,13 @@ class ImportFileClass(object):
 
         self.nameChanged(state.text(0))
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def setStateMode(self, stateMode):
         self.stateMode = stateMode
         self.l_class.setText(stateMode)
         self.e_name.setText(stateMode)
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -190,7 +175,7 @@ class ImportFileClass(object):
         if "autoUpdate" in data:
             self.chb_autoUpdate.setChecked(eval(data["autoUpdate"]))
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -218,7 +203,7 @@ class ImportFileClass(object):
                 lambda: self.core.appPlugin.selectNodes(self)
             )
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def nameChanged(self, text):
         getattr(self.core.appPlugin, "sm_import_nameChanged", lambda x: None)(self)
 
@@ -227,7 +212,7 @@ class ImportFileClass(object):
         else:
             self.state.setText(0, text)
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def browse(self):
         import TaskSelection
 
@@ -242,7 +227,7 @@ class ImportFileClass(object):
             self.updateUi()
             self.importPath = None
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def openFolder(self, pos):
         path = self.e_file.text()
         if os.path.isfile(path):
@@ -250,13 +235,13 @@ class ImportFileClass(object):
 
         self.core.openFolder(path)
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def pathChanged(self):
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def autoUpdateChanged(self, checked):
         self.w_latestVersion.setVisible(not checked)
         self.w_importLatest.setVisible(not checked)
@@ -269,18 +254,18 @@ class ImportFileClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def autoNameSpaceChanged(self, checked):
         self.b_nameSpaces.setEnabled(not checked)
         if not self.stateManager.standalone:
             self.core.appPlugin.sm_import_removeNameSpaces(self)
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def getImportPath(self):
         return self.e_file.text().replace("\\", "/")
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def importObject(self, taskName=None, update=False):
         result = True
         if self.stateManager.standalone:
@@ -428,7 +413,7 @@ class ImportFileClass(object):
 
         return result
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def importLatest(self, refreshUi=True):
         if refreshUi:
             self.updateUi()
@@ -472,7 +457,7 @@ class ImportFileClass(object):
                             break
                 break
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def checkLatestVersion(self):
         curVersion = latestVersion = ""
 
@@ -550,7 +535,7 @@ class ImportFileClass(object):
 
         return curVersion, latestVersion
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def updateUi(self):
         curVersion, latestVersion = self.checkLatestVersion()
 
@@ -602,7 +587,7 @@ class ImportFileClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def updatePrefUnits(self):
         pref = self.core.appPlugin.preferredUnit
         if self.chb_preferUnit.isChecked():
@@ -618,7 +603,7 @@ class ImportFileClass(object):
             self.preferredUnit = "meter"
             self.unpreferredUnit = "centimeter"
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def updateTrackObjects(self, state):
         if not state:
             if len(self.nodes) > 0:
@@ -644,7 +629,7 @@ class ImportFileClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def preDelete(
         self,
         item=None,
@@ -677,7 +662,7 @@ class ImportFileClass(object):
                 if action == 0:
                     self.core.appPlugin.deleteNodes(self, validNodes)
 
-    @err_decorator
+    @err_decorator(name="sm_default_importFile")
     def getStateProps(self):
         connectedNodes = []
         if self.chb_trackObjects.isChecked():

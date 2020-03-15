@@ -31,10 +31,18 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import bpy
-import os, sys, threading, platform
-import traceback, time, shutil
+import os
+import sys
+import threading
+import platform
+import traceback
+import time
+import shutil
+import logging
+import operator
 from functools import wraps
+
+import bpy
 
 try:
     from PySide2.QtCore import *
@@ -54,6 +62,8 @@ except:
     pass
 
 import widget_import_scenedata
+
+logger = logging.getLogger(__name__)
 
 
 class bldRenderTimer(QObject):
@@ -704,7 +714,6 @@ class Prism_Blender_Functions(object):
     @err_decorator
     def sm_render_startup(self, origin):
         origin.gb_passes.setCheckable(False)
-        origin.b_addPasses.setVisible(False)
         origin.sp_rangeStart.setValue(bpy.context.scene.frame_start)
         origin.sp_rangeEnd.setValue(bpy.context.scene.frame_end)
 
@@ -717,45 +726,107 @@ class Prism_Blender_Functions(object):
     @err_decorator
     def sm_render_refreshPasses(self, origin):
         origin.lw_passes.clear()
-        if bpy.context.scene.node_tree is not None and bpy.context.scene.use_nodes:
-            outNodes = [
-                x for x in bpy.context.scene.node_tree.nodes if x.type == "OUTPUT_FILE"
-            ]
-            rlayerNodes = [
-                x for x in bpy.context.scene.node_tree.nodes if x.type == "R_LAYERS"
-            ]
 
-            for m in outNodes:
-                connections = []
-                for i in m.inputs:
-                    if len(list(i.links)) > 0:
-                        connections.append(i.links[0])
+        passNames = self.getNodeAOVs()
+        logger.debug("node aovs: %s" % passNames)
+        origin.b_addPasses.setVisible(not passNames)
+        self.plugin.canDeleteRenderPasses = bool(not passNames)
+        if not passNames:
+            passNames = self.getViewLayerAOVs()
+            logger.debug("viewlayer aovs: %s" % passNames)
 
-                for i in connections:
-                    passName = i.from_socket.name
+        if passNames:
+            origin.lw_passes.addItems(passNames)
 
-                    if passName == "Image":
-                        passName = "beauty"
+    @err_decorator
+    def getNodeAOVs(self):
+        if bpy.context.scene.node_tree is None or bpy.context.scene.use_nodes:
+            return
 
-                    if i.from_node.type == "R_LAYERS":
-                        if len(rlayerNodes) > 1:
-                            passName = "%s_%s" % (i.from_node.layer, passName)
+        outNodes = [
+            x for x in bpy.context.scene.node_tree.nodes if x.type == "OUTPUT_FILE"
+        ]
+        rlayerNodes = [
+            x for x in bpy.context.scene.node_tree.nodes if x.type == "R_LAYERS"
+        ]
 
-                    else:
-                        if hasattr(i.from_node, "label") and i.from_node.label != "":
-                            passName = i.from_node.label
+        passNames = []
 
-                    item = QListWidgetItem(passName)
-                    origin.lw_passes.addItem(item)
+        for m in outNodes:
+            connections = []
+            for i in m.inputs:
+                if len(list(i.links)) > 0:
+                    connections.append(i.links[0])
+
+            for i in connections:
+                passName = i.from_socket.name
+
+                if passName == "Image":
+                    passName = "beauty"
+
+                if i.from_node.type == "R_LAYERS":
+                    if len(rlayerNodes) > 1:
+                        passName = "%s_%s" % (i.from_node.layer, passName)
+
+                else:
+                    if hasattr(i.from_node, "label") and i.from_node.label != "":
+                        passName = i.from_node.label
+
+                passNames.append(passName)
+
+        return passNames
+
+    @err_decorator
+    def getViewLayerAOVs(self):
+        availableAOVs = self.getAvailableAOVs()
+        curlayer = bpy.context.window_manager.windows[0].view_layer
+        aovNames = []
+        for aa in availableAOVs:
+            val = None
+            try:
+                val = operator.attrgetter(aa["parm"])(curlayer)
+            except AttributeError:
+                logging.debug("Couldn't access aov %s" % aa["parm"])
+
+            if val:
+                aovNames.append(aa["name"])
+
+        return aovNames
+
+    @err_decorator
+    def getAvailableAOVs(self):
+        curlayer = bpy.context.window_manager.windows[0].view_layer
+        aovParms = [x for x in dir(curlayer) if x.startswith("use_pass_")]
+        aovParms += ["cycles." + x for x in dir(curlayer.cycles) if x.startswith("use_pass_")]
+        aovs = [
+            {"name": "Denoising Data", "parm": "cycles.denoising_store_passes"},
+            {"name": "Render Time", "parm": "cycles.pass_debug_render_time"},
+        ]
+        nameOverrides = {
+            "Emit": "Emission",
+        }
+        for aov in aovParms:
+            name = aov.replace("use_pass_", "").replace("cycles.", "")
+            name = [x[0].upper() + x[1:] for x in name.split("_")]
+            name = " ".join(name)
+            name = nameOverrides[name] if name in nameOverrides else name
+            aovs.append({"name": name, "parm": aov})
+
+        aovs = sorted(aovs, key= lambda x: x["name"])
+
+        return aovs
 
     @err_decorator
     def sm_render_openPasses(self, origin, item=None):
         pass
 
     @err_decorator
-    def sm_render_deletePass(self, origin, item):
-        itemName = item.text()
-        if bpy.context.scene.node_tree is not None and bpy.context.scene.use_nodes:
+    def useNodeAOVs(self):
+        return bool(self.getNodeAOVs())
+
+    @err_decorator
+    def removeAOV(self, aovName):
+        if self.useNodeAOVs():
             rlayerNodes = [
                 x for x in bpy.context.scene.node_tree.nodes if x.type == "R_LAYERS"
             ]
@@ -782,12 +853,30 @@ class Prism_Blender_Functions(object):
                                     passName = "beauty"
 
                                 if (
-                                    passName == itemName.split("_", 1)[1]
-                                    and layerName == itemName.split("_", 1)[0]
+                                    passName == aovName.split("_", 1)[1]
+                                    and layerName == aovName.split("_", 1)[0]
                                 ):
                                     i.to_node.inputs.remove(i.to_node.inputs[idx])
-                                    origin.updateUi()
                                     return
+        else:
+            self.enableViewLayerAOV(aovName, enable=False)
+
+    @err_decorator
+    def enableViewLayerAOV(self, name, enable=True):
+        aa = self.getAvailableAOVs()
+        curAOV = [x for x in aa if x["name"] == name]
+        if not curAOV:
+            return
+
+        curAOV = curAOV[0]
+        curlayer = bpy.context.window_manager.windows[0].view_layer
+
+        attrs = curAOV["parm"].split(".")
+        obj = curlayer
+        for a in attrs[:-1]:
+            obj = getattr(obj, a)
+
+        setattr(obj, attrs[-1], enable)
 
     @err_decorator
     def sm_render_preSubmit(self, origin, rSettings):
@@ -805,6 +894,12 @@ class Prism_Blender_Functions(object):
         else:
             jobFrames = [origin.sp_rangeStart.value(), origin.sp_rangeEnd.value()]
 
+        nodeAOVs = self.getNodeAOVs()
+        if not nodeAOVs and self.getViewLayerAOVs():
+            fileFormat = "OPEN_EXR_MULTILAYER"
+        else:
+            fileFormat = "OPEN_EXR"
+
         rSettings["start"] = bpy.context.scene.frame_start
         rSettings["end"] = bpy.context.scene.frame_end
         rSettings["fileformat"] = bpy.context.scene.render.image_settings.file_format
@@ -814,7 +909,7 @@ class Prism_Blender_Functions(object):
         rSettings["origOutputName"] = rSettings["outputName"]
         bpy.context.scene["PrismIsRendering"] = True
         bpy.context.scene.render.filepath = rSettings["outputName"]
-        bpy.context.scene.render.image_settings.file_format = "OPEN_EXR"
+        bpy.context.scene.render.image_settings.file_format = fileFormat
         bpy.context.scene.render.image_settings.color_depth = "16"
         bpy.context.scene.frame_start = jobFrames[0]
         bpy.context.scene.frame_end = jobFrames[1]
@@ -824,7 +919,7 @@ class Prism_Blender_Functions(object):
         bpy.context.scene.camera = bpy.context.scene.objects[origin.curCam]
 
         usePasses = False
-        if bpy.context.scene.node_tree is not None and bpy.context.scene.use_nodes:
+        if self.useNodeAOVs():
             outNodes = [
                 x for x in bpy.context.scene.node_tree.nodes if x.type == "OUTPUT_FILE"
             ]
@@ -1039,7 +1134,7 @@ class Prism_Blender_Functions(object):
 
     @err_decorator
     def getCurrentRenderer(self, origin):
-        return ""
+        return bpy.context.window_manager.windows[0].scene.render.engine
 
     @err_decorator
     def getCurrentSceneFiles(self, origin):
@@ -1047,7 +1142,12 @@ class Prism_Blender_Functions(object):
 
     @err_decorator
     def sm_render_getRenderPasses(self, origin):
-        return []
+        aovNames = [x["name"] for x in self.getAvailableAOVs() if x["name"] not in self.getViewLayerAOVs()]
+        return aovNames
+
+    @err_decorator
+    def sm_render_addRenderPass(self, origin, passName, steps):
+        self.enableViewLayerAOV(passName)
 
     @err_decorator
     def sm_render_managerChanged(self, origin, isPandora):
