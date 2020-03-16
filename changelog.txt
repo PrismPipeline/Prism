@@ -1,3 +1,6 @@
+v1.2.1.65:
+- fixed an error in Houdini when no username is set in Prism
+
 v1.2.1.64:
 - fixed a bug which closed the entity creation dialogs when pressing keys in some cases
 

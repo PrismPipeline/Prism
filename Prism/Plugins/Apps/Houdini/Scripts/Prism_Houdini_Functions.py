@@ -149,8 +149,13 @@ class Prism_Houdini_Functions(object):
         if data["entity"] != "invalid":
             hou.hscript("set PRISM_STEP=" + data["step"])
             hou.hscript("set PRISM_CATEGORY=" + data["category"])
-            hou.hscript("set PRISM_USER=" + self.core.user)
+            hou.hscript("set PRISM_USER=" + getattr(self.core, "user", ""))
             hou.hscript("set PRISM_FILE_VERSION =" + data["version"])
+        else:
+            hou.hscript("set PRISM_STEP=")
+            hou.hscript("set PRISM_CATEGORY=")
+            hou.hscript("set PRISM_USER=")
+            hou.hscript("set PRISM_FILE_VERSION =")
 
     @err_decorator
     def loadPrjHDAs(self, origin):
