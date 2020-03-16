@@ -259,7 +259,8 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
     @err_decorator(name="CreateItem")
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return and self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
-            self.bbClicked(self.buttonBox.buttons()[-1])
-        else:
-            self.accept()
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+            if self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
+                self.bbClicked(self.buttonBox.buttons()[-1])
+            else:
+                self.accept()

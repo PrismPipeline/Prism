@@ -1,3 +1,6 @@
+v1.2.1.64:
+- fixed a bug which closed the entity creation dialogs when pressing keys in some cases
+
 v1.2.1.63:
 - Added new environment variables in Houdini: $PRISM_ASSET, $PRISM_SEQUENCE, $PRISM_SHOT, $PRISM_STEP, $PRISM_CATEGORY, $PRISM_USER, $PRISM_FILE_VERSION
 - Added a new button to entity creation dialogs in the Project Browser. Type a name and press enter to jump to the next step.

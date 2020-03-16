@@ -415,5 +415,3 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             self.buttonboxClicked(self.buttonBox.buttons()[-1])
-        else:
-            self.accept()

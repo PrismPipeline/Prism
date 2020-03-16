@@ -155,8 +155,9 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
             self.core.pb.createCatWin(tab, "Category", startText=startText)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return and self.entity in ["asset", "shot"]:
-            self.reject()
-            self.stepBbClicked(self.buttonBox.buttons()[-1])
-        else:
-            self.accept()
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+            if self.entity in ["asset", "shot"]:
+                self.reject()
+                self.stepBbClicked(self.buttonBox.buttons()[-1])
+            else:
+                self.accept()
