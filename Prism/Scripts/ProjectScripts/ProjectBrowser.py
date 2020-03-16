@@ -2336,6 +2336,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.ss = ItemList.ItemList(core=self.core, entity=entity)
         self.core.parentWindow(self.ss)
+        self.ss.tw_steps.setFocus()
         self.ss.tw_steps.doubleClicked.connect(self.ss.accept)
 
         abrSteps = list(steps.keys())
@@ -2358,12 +2359,47 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 if i.column() == 0:
                     steps.append(i.text())
 
-            if len(steps) > 0:
-                return [steps, self.ss.chb_category.isChecked()]
+                self.createSteps(entity, steps, createCat=self.ss.chb_category.isChecked())
             else:
                 return False
         else:
             return False
+
+    @err_decorator(name="ProjectBrowser")
+    def createSteps(self, entity, steps, createCat=True):
+        if len(steps) > 0:
+            if entity == "asset":
+                basePath = os.path.join(self.curAsset, "Scenefiles")
+            elif entity == "shot":
+                basePath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles")
+            else:
+                return
+
+            createdDirs = []
+
+            for i in steps:
+                dstname = os.path.join(basePath, i)
+                result = self.createStep(i, entity, stepPath=dstname, createCat=createCat)
+                if result:
+                    createdDirs.append(i)
+
+            if len(createdDirs) != 0:
+                if entity == "asset":
+                    self.curaStep = createdDirs[0]
+                    self.refreshAHierarchy()
+                    self.navigateToCurrent(path=dstname)
+                elif entity == "shot":
+                    self.cursStep = createdDirs[0]
+                    self.refreshsStep()
+                    for i in range(self.lw_sPipeline.model().rowCount()):
+                        if (
+                            self.lw_sPipeline.model().index(i, 0).data()
+                            == createdDirs[0]
+                        ):
+                            self.lw_sPipeline.selectionModel().setCurrentIndex(
+                                self.lw_sPipeline.model().index(i, 0),
+                                QItemSelectionModel.ClearAndSelect,
+                            )
 
     @err_decorator(name="ProjectBrowser")
     def refreshAHierarchy(self, load=False):
@@ -3455,7 +3491,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     def createShot(self, shotName, frameRange=None):
         result = self.createShotFolders(shotName, "shot")
 
-        if result == True or not result:
+        if result is True or not result:
             return result
 
         if frameRange:
@@ -3864,8 +3900,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.gb_renderings.setVisible(checked)
 
     @err_decorator(name="ProjectBrowser")
-    def createCatWin(self, tab, name):
-        self.newItem = CreateItem.CreateItem(core=self.core, showType=tab == "ah")
+    def createCatWin(self, tab, name, startText=""):
+        if tab == "ah":
+            mode = "assetHierarchy"
+        elif tab == "ac":
+            mode = "assetCategory"
+        elif tab == "sc":
+            mode = "shotCategory"
+        else:
+            mode = ""
+
+        self.newItem = CreateItem.CreateItem(startText=startText, core=self.core, showType=tab == "ah", mode=mode)
 
         self.newItem.setModal(True)
         self.core.parentWindow(self.newItem)
@@ -3873,13 +3918,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.newItem.setWindowTitle("Create " + name)
         nameLabel = "Name:" if name == "Entity" else name + " Name:"
         self.newItem.l_item.setText(nameLabel)
-        self.newItem.buttonBox.accepted.connect(lambda: self.createCat(tab))
+        self.newItem.buttonBox.accepted.connect(self.newItem.accept)
+        self.newItem.accepted.connect(lambda: self.createCat(tab))
 
         if tab == "ah":
             self.core.callback(
                 name="onAssetDlgOpen", types=["custom"], args=[self, self.newItem]
             )
-        elif tab == "sc":
+        elif tab in ["ac", "sc"]:
             self.core.callback(
                 name="onCategroyDlgOpen", types=["custom"], args=[self, self.newItem]
             )
@@ -3968,6 +4014,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         refresh()
         if tab == "ah":
             self.navigateToCurrent(path=os.path.join(path, self.itemName))
+            if "createAsset" in self.newItem.postEvents:
+                self.createCatWin("ah", "Entity")
+            elif "createCategory" in self.newItem.postEvents:
+                self.createStepWindow("a")
         else:
             for i in range(uielement.model().rowCount()):
                 if uielement.model().index(i, 0).data() == self.itemName:
@@ -4051,6 +4101,17 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             return
 
+        steps = self.getSteps()
+        steps = {
+            validSteps: steps[validSteps]
+            for validSteps in steps
+            if not os.path.exists(os.path.join(basePath, validSteps))
+        }
+
+        self.getStep(steps, tab)
+
+    @err_decorator(name="ProjectBrowser")
+    def getSteps(self):
         try:
             steps = ast.literal_eval(
                 self.core.getConfig(
@@ -4069,45 +4130,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if type(steps) != dict:
             steps = {}
 
-        steps = {
-            validSteps: steps[validSteps]
-            for validSteps in steps
-            if not os.path.exists(os.path.join(basePath, validSteps))
-        }
-        steps = self.getStep(steps, tab)
-        if steps != False:
-            createdDirs = []
-
-            if tab == "s":
-                entity = "shot"
-            else:
-                entity = "asset"
-
-            for i in steps[0]:
-                dstname = os.path.join(basePath, i)
-                result = self.createStep(
-                    i, entity, stepPath=dstname, createCat=steps[1]
-                )
-                if result:
-                    createdDirs.append(i)
-
-            if len(createdDirs) != 0:
-                if tab == "a":
-                    self.curaStep = createdDirs[0]
-                    self.refreshAHierarchy()
-                    self.navigateToCurrent(path=dstname)
-                elif tab == "s":
-                    self.cursStep = createdDirs[0]
-                    self.refreshsStep()
-                    for i in range(self.lw_sPipeline.model().rowCount()):
-                        if (
-                            self.lw_sPipeline.model().index(i, 0).data()
-                            == createdDirs[0]
-                        ):
-                            self.lw_sPipeline.selectionModel().setCurrentIndex(
-                                self.lw_sPipeline.model().index(i, 0),
-                                QItemSelectionModel.ClearAndSelect,
-                            )
+        return steps
 
     @err_decorator(name="ProjectBrowser")
     def createStep(

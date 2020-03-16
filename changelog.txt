@@ -1,3 +1,7 @@
+v1.2.1.63:
+- Added new environment variables in Houdini: $PRISM_ASSET, $PRISM_SEQUENCE, $PRISM_SHOT, $PRISM_STEP, $PRISM_CATEGORY, $PRISM_USER, $PRISM_FILE_VERSION
+- Added a new button to entity creation dialogs in the Project Browser. Type a name and press enter to jump to the next step.
+
 v1.2.1.62:
 - Added an option "Edit comment..." to the context menu of scenefiles in the Project Browser
 - Added the option to select and to delete multiple AOVs at once in the ImageRender state

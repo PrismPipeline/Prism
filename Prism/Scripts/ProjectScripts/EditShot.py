@@ -286,6 +286,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
     @err_decorator(name="EditShot")
     def buttonboxClicked(self, button):
+        btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
         if button.text() == "Create":
             result = self.saveInfo()
             if result:
@@ -296,6 +297,12 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             if result:
                 self.core.pb.createShot(self.shotName)
                 self.accept()
+        elif button.text() == btext:
+            result = self.saveInfo()
+            if result:
+                self.core.pb.createShot(self.shotName)
+                self.accept()
+                self.core.pb.createStepWindow("s")
 
     @err_decorator(name="EditShot")
     def getShotName(self):
@@ -313,8 +320,9 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
     @err_decorator(name="EditShot")
     def saveInfo(self):
         newSName = self.getShotName()
+        shotName, seqName = self.core.pb.splitShotname(newSName)
 
-        if not newSName:
+        if not shotName:
             self.core.popup("Invalid shotname")
             return False
 
@@ -379,6 +387,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             self.buttonBox.removeButton(self.buttonBox.buttons()[0])
             self.buttonBox.addButton("Create and close", QDialogButtonBox.AcceptRole)
             self.buttonBox.addButton("Create", QDialogButtonBox.ApplyRole)
+            btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+            b = self.buttonBox.addButton(btext, QDialogButtonBox.ApplyRole)
+            b.setToolTip("Create shot and open step dialog")
+            b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
             self.buttonBox.setStyleSheet("* { button-layout: 2}")
 
         if self.shotName is not None and os.path.exists(imgPath):
@@ -398,3 +410,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
         for i in self.core.prjManagers.values():
             i.editShot_open(self, self.shotName)
+
+    @err_decorator(name="EditShot")
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+            self.buttonboxClicked(self.buttonBox.buttons()[-1])
+        else:
+            self.accept()

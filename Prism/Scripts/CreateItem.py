@@ -72,7 +72,8 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
         showType=False,
         allowChars=[],
         denyChars=[],
-        valueRequired=True
+        valueRequired=True,
+        mode="",
     ):
         QDialog.__init__(self)
         self.setupUi(self)
@@ -80,8 +81,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
         self.getStep = getStep
         self.taskType = taskType
         self.valueRequired = valueRequired
+        self.mode = mode
+
+        self.postEvents = []
 
         self.e_item.setText(startText)
+        self.e_item.selectAll()
 
         if self.valueRequired and not startText:
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
@@ -121,6 +126,20 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
                 i.createAsset_open(self)
         else:
             self.w_type.setVisible(False)
+
+        if self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
+            btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+            b = self.buttonBox.addButton(btext, QDialogButtonBox.RejectRole)
+            if self.mode == "assetHierarchy":
+                b.setToolTip("Create asset and open the step dialog")
+            elif self.mode in ["assetCategory", "shotCategory"]:
+                b.setToolTip("Create category and create a new scene from the current scene")
+            if not startText:
+                b.setEnabled(False)
+            b.setFocusPolicy(Qt.StrongFocus)
+            b.setTabOrder(b, self.buttonBox.buttons()[0])
+            b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
+            self.buttonBox.clicked.connect(self.bbClicked)
 
         self.resize(self.width(), 10)
 
@@ -194,6 +213,9 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             else:
                 self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
+        if self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
+            self.buttonBox.buttons()[-1].setEnabled(bool(text))
+
     @err_decorator(name="CreateItem")
     def enableOkStep(self, origText, uiField):
         text = self.core.validateStr(origText)
@@ -212,3 +234,32 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
     @err_decorator(name="CreateItem")
     def returnName(self):
         self.itemName = self.e_item.text()
+
+    @err_decorator(name="CreateItem")
+    def bbClicked(self, button):
+        btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+        if button.text() == btext:
+            if self.mode == "assetHierarchy":
+                if self.rb_asset.isChecked():
+                    self.postEvents.append("createCategory")
+                else:
+                    self.postEvents.append("createAsset")
+                self.accept()
+                return
+            if self.mode == "assetCategory":
+                tab = "ac"
+            elif self.mode == "shotCategory":
+                tab = "sc"
+
+            self.core.pb.createCat(tab)
+            self.reject()
+            if self.core.appPlugin.pluginName != "Standalone":
+                self.core.pb.createFromCurrent()
+                self.core.pb.close()
+
+    @err_decorator(name="CreateItem")
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return and self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
+            self.bbClicked(self.buttonBox.buttons()[-1])
+        else:
+            self.accept()

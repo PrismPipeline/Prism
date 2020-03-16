@@ -128,6 +128,30 @@ class Prism_Houdini_Functions(object):
     def sceneOpen(self, origin):
         origin.sceneUnload()
 
+        fn = self.core.getCurrentFileName()
+        data = self.core.getScenefileData(fn)
+        if data["entity"] == "asset":
+            hou.hscript("set PRISM_SEQUENCE=")
+            hou.hscript("set PRISM_SHOT=")
+            hou.hscript("set PRISM_ASSET=" + data["entityName"])
+        elif data["entity"] == "shot":
+            hou.hscript("set PRISM_ASSET=")
+            if not hasattr(self.core, "pb"):
+                self.core.projectBrowser(openUi=False)
+
+            if hasattr(self.core, "pb"):
+                sData = self.core.pb.splitShotname(data["entityName"])
+                hou.hscript("set PRISM_SEQUENCE=" + sData[1])
+                hou.hscript("set PRISM_SHOT=" + sData[0])
+            else:
+                self.core.popup("Could not initialize the Project Browser.")
+
+        if data["entity"] != "invalid":
+            hou.hscript("set PRISM_STEP=" + data["step"])
+            hou.hscript("set PRISM_CATEGORY=" + data["category"])
+            hou.hscript("set PRISM_USER=" + self.core.user)
+            hou.hscript("set PRISM_FILE_VERSION =" + data["version"])
+
     @err_decorator
     def loadPrjHDAs(self, origin):
         if not hasattr(origin, "projectPath") or not os.path.exists(origin.projectPath):

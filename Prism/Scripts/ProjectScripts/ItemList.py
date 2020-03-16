@@ -34,6 +34,7 @@
 import os
 import sys
 import ast
+import imp
 
 try:
     from PySide2.QtCore import *
@@ -72,6 +73,7 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
         self.setupUi(self)
 
         self.core = core
+        self.entity = entity
 
         self.tw_steps.setColumnCount(2)
         self.tw_steps.setHorizontalHeaderLabels(["Abbreviation", "Step"])
@@ -84,6 +86,14 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
         ):
             self.chb_category.setVisible(False)
 
+        if entity in ["asset", "shot"]:
+            btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+            b = self.buttonBox.addButton(btext, QDialogButtonBox.RejectRole)
+            b.setToolTip("Create step and open category dialog")
+            b.setEnabled(False)
+            b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
+            self.buttonBox.clicked.connect(self.stepBbClicked)
+
         self.b_addStep.clicked.connect(self.addStep)
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
         self.tw_steps.itemSelectionChanged.connect(self.enableOk)
@@ -92,6 +102,10 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(
             len(self.tw_steps.selectedItems()) > 0
         )
+        if self.entity in ["asset", "shot"]:
+            self.buttonBox.buttons()[-1].setEnabled(
+                len([x for x in self.tw_steps.selectedItems() if x.column() == 0]) == 1
+            )
 
     def addStep(self):
         self.newItem = CreateItem.CreateItem(core=self.core, getStep=True)
@@ -123,3 +137,26 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
             self.core.setConfig(
                 "globals", "pipeline_steps", str(psteps), configPath=self.core.prismIni
             )
+
+    def stepBbClicked(self, button):
+        btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+        if button.text() == btext:
+            if self.entity == "asset":
+                tab = "ac"
+            elif self.entity == "shot":
+                tab = "sc"
+
+            for i in self.tw_steps.selectedItems():
+                if i.column() == 0:
+                    step = i.text()
+
+            startText = self.core.pb.getSteps().get(step, "")
+            self.core.pb.createSteps(self.entity, [step], createCat=False)
+            self.core.pb.createCatWin(tab, "Category", startText=startText)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return and self.entity in ["asset", "shot"]:
+            self.reject()
+            self.stepBbClicked(self.buttonBox.buttons()[-1])
+        else:
+            self.accept()
