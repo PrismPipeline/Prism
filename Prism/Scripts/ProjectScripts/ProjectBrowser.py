@@ -538,10 +538,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         )
         self.helpMenu.addAction(self.actionWebsite)
 
-        self.actionSendFeedback = QAction("Send feedback/feature requests...", self)
-        self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
-        self.helpMenu.addAction(self.actionSendFeedback)
-
         self.actionCheckVersion = QAction("Check for Prism updates", self)
         self.actionCheckVersion.triggered.connect(self.core.updater.checkForUpdates)
         self.helpMenu.addAction(self.actionCheckVersion)
@@ -551,6 +547,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.helpMenu.addAction(self.actionAbout)
 
         self.menubar.addMenu(self.helpMenu)
+
+        self.actionSendFeedback = QAction("Send feedback...", self)
+        self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
+        self.menubar.addAction(self.actionSendFeedback)
 
         self.core.appPlugin.setRCStyle(self, self.helpMenu)
 
@@ -846,6 +846,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
             self.w_aCategory.setVisible(False)
+
+        self.lw_task.setAcceptDrops(True)
+        self.lw_task.dragEnterEvent = self.taskDragEnterEvent
+        self.lw_task.dragMoveEvent = self.taskDragMoveEvent
+        self.lw_task.dragLeaveEvent = self.taskDragLeaveEvent
+        self.lw_task.dropEvent = self.taskDropEvent
 
     @err_decorator(name="ProjectBrowser")
     def closeEvent(self, event):
@@ -5839,6 +5845,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         rcmenu = QMenu()
 
         if len(mediaPlayback["seq"]) > 0:
+            if len(mediaPlayback["seq"]) == 1:
+                path = os.path.join(path, mediaPlayback["seq"][0])
+
             playMenu = QMenu("Play in")
 
             if self.rv is not None:
@@ -6256,9 +6265,39 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_((lw.viewport()).mapToGlobal(pos))
 
+    def taskDragEnterEvent(self, e):
+        if e.mimeData().hasUrls:
+            e.accept()
+        else:
+            e.ignore()
+
     @err_decorator(name="ProjectBrowser")
-    def createExternalTask(self, data={}):
-        if data == {}:
+    def taskDragMoveEvent(self, e):
+        if e.mimeData().hasUrls:
+            e.accept()
+            self.lw_task.setStyleSheet("QWidget { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }")
+        else:
+            e.ignore()
+
+    @err_decorator(name="ProjectBrowser")
+    def taskDragLeaveEvent(self, e):
+        self.lw_task.setStyleSheet("")
+
+    @err_decorator(name="ProjectBrowser")
+    def taskDropEvent(self, e):
+        if e.mimeData().hasUrls:
+            self.lw_task.setStyleSheet("")
+            e.setDropAction(Qt.LinkAction)
+            e.accept()
+
+            fname = [os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()]
+            self.createExternalTask(filepath=fname[0])
+        else:
+            e.ignore()
+
+    @err_decorator(name="ProjectBrowser")
+    def createExternalTask(self, data=None, filepath=""):
+        if not data:
             try:
                 del sys.modules["ExternalTask"]
             except:
@@ -6266,7 +6305,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             import ExternalTask
 
-            self.ep = ExternalTask.ExternalTask(core=self.core)
+            self.ep = ExternalTask.ExternalTask(core=self.core, startText=filepath)
+            self.activateWindow()
             result = self.ep.exec_()
 
             if result == 1:

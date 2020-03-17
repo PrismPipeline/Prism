@@ -138,7 +138,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.65"
+            self.version = "v1.2.1.66"
             self.requiredLibraries = "v1.2.0.0"
             self.core = self
 
@@ -1496,8 +1496,10 @@ License: GNU GPL-3.0-or-later<br>
         self.parentWindow(fbDlg)
         fbDlg.setWindowTitle("Send Message")
         fbDlg.l_info.setText(
-            "Message for the developer:\nYou may want to provide contact information (e.g. e-mail) for further discussions."
+            "Message for the developer:\n"
         )
+        fbDlg.l_description = QLabel("Please provide also contact information (e.g. e-mail) for further discussions and to receive answers to your questions.\n\n")
+        fbDlg.layout().insertWidget(fbDlg.layout().count()-1, fbDlg.l_description)
         fbDlg.buttonBox.buttons()[0].setText("Send")
         result = fbDlg.exec_()
 

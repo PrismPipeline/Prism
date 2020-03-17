@@ -86,10 +86,13 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
         ):
             self.chb_category.setVisible(False)
 
+        self.buttonBox.buttons()[0].setText("Create")
+
+        self.btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
         if entity in ["asset", "shot"]:
-            btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
-            b = self.buttonBox.addButton(btext, QDialogButtonBox.RejectRole)
+            b = self.buttonBox.addButton(self.btext, QDialogButtonBox.RejectRole)
             b.setToolTip("Create step and open category dialog")
+            b.setMaximumWidth(20*self.core.uiScaleFactor)
             b.setEnabled(False)
             b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
             self.buttonBox.clicked.connect(self.stepBbClicked)
@@ -139,8 +142,7 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
             )
 
     def stepBbClicked(self, button):
-        btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
-        if button.text() == btext:
+        if button.text() == self.btext:
             if self.entity == "asset":
                 tab = "ac"
             elif self.entity == "shot":
@@ -161,3 +163,5 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
                 self.stepBbClicked(self.buttonBox.buttons()[-1])
             else:
                 self.accept()
+        elif event.key() == Qt.Key_Escape:
+            self.reject()

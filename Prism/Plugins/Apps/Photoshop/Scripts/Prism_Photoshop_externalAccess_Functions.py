@@ -133,8 +133,8 @@ class Prism_Photoshop_externalAccess_Functions(object):
             psAction = QAction("Connect", origin)
             psAction.triggered.connect(lambda: self.connectToPhotoshop(origin))
             psMenu.addAction(psAction)
-            origin.menuTools.addSeparator()
-            origin.menuTools.addMenu(psMenu)
+            origin.menuTools.insertSeparator(origin.menuTools.actions()[-2])
+            origin.menuTools.insertMenu(origin.menuTools.actions()[-2], psMenu)
 
     @err_decorator
     def customizeExecutable(self, origin, appPath, filepath):

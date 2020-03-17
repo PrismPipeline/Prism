@@ -55,7 +55,9 @@ if node:
     previewImg = ScreenShot.grabScreenArea(PrismInit.pcore)
 
     if previewImg:
-        prvPath = os.path.dirname(hou.hipFile.path()) + '/network_previews/%s_%s.jpg' % (node.name(), int(time.time()))
+        hip = os.path.dirname(hou.hipFile.path())
+        prvPath = hip + '/network_previews/%s_%s.jpg' % (node.name(), int(time.time()))
+        relPath = prvPath.replace(hip, "$HIP")
         if not os.path.exists(os.path.dirname(prvPath)):
             os.makedirs(os.path.dirname(prvPath))
             
@@ -75,8 +77,7 @@ if node:
         startY = -0.4
 
         rect = hou.BoundingRect(startX, startY, startX+width, startY-height)
-
-        img = hou.NetworkImage(prvPath, rect)
+        img = hou.NetworkImage(relPath, rect)
         img.setRelativeToPath(node.path())
         nwPane = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         curImgs = nwPane.backgroundImages()

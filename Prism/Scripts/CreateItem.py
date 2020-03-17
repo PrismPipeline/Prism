@@ -127,9 +127,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
         else:
             self.w_type.setVisible(False)
 
+        self.buttonBox.buttons()[0].setText("Create")
+        self.btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+
         if self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
-            btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
-            b = self.buttonBox.addButton(btext, QDialogButtonBox.RejectRole)
+            b = self.buttonBox.addButton(self.btext, QDialogButtonBox.RejectRole)
+            b.setMaximumWidth(20*self.core.uiScaleFactor)
             if self.mode == "assetHierarchy":
                 b.setToolTip("Create asset and open the step dialog")
             elif self.mode in ["assetCategory", "shotCategory"]:
@@ -237,8 +240,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
     @err_decorator(name="CreateItem")
     def bbClicked(self, button):
-        btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
-        if button.text() == btext:
+        if button.text() == self.btext:
             if self.mode == "assetHierarchy":
                 if self.rb_asset.isChecked():
                     self.postEvents.append("createCategory")
@@ -264,3 +266,5 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
                 self.bbClicked(self.buttonBox.buttons()[-1])
             else:
                 self.accept()
+        elif event.key() == Qt.Key_Escape:
+            self.reject()

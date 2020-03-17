@@ -1,3 +1,10 @@
+v1.2.1.66:
+- added the option to drag&drop external media into the task list in the Project Browser to add it as external task
+- added example paths for the DCC integrations in the Prism Settings
+- moved the send feedback option from the help menu to the main menu bar in the Project Browser and State Manager
+- changed the filepaths of thumbnails in the network editor in Houdini to relative paths
+- minor improvements
+
 v1.2.1.65:
 - fixed an error in Houdini when no username is set in Prism
 

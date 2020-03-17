@@ -44,7 +44,7 @@ except:
     psVersion = 1
 
 import os, sys
-import traceback, time, platform, shutil, socket
+import traceback, time, platform, shutil
 from functools import wraps
 
 if platform.system() == "Windows":
@@ -60,7 +60,7 @@ class Prism_Blender_Integration(object):
         self.plugin = plugin
 
         if platform.system() == "Windows":
-            self.examplePath = self.getBlenderPath()
+            self.examplePath = self.getBlenderPath() or "C:/Program Files/Blender Foundation/Blender 2.82/"
         elif platform.system() == "Linux":
             self.examplePath = "/usr/local/blender-2.79b-linux-glibc219-x86_64/2.79"
         elif platform.system() == "Darwin":
@@ -160,6 +160,16 @@ class Prism_Blender_Integration(object):
 
     def writeBlenderFiles(self, blenderPath):
         try:
+            if not os.path.exists(os.path.join(blenderPath, "scripts", "startup")):
+                if os.path.exists(blenderPath):
+                    for f in os.listdir(blenderPath):
+                        try:
+                            float(f)
+                        except ValueError:
+                            pass
+                        else:
+                            blenderPath = os.path.join(blenderPath, f)
+
             if not os.path.exists(os.path.join(blenderPath, "scripts", "startup")):
                 QMessageBox.warning(
                     self.core.messageParent,

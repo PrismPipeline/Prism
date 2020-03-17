@@ -909,6 +909,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 lo_integButtons = QHBoxLayout()
                 b_addInteg = QPushButton("Add")
                 b_removeInteg = QPushButton("Remove")
+                examplePath = self.core.getPluginData(i, "examplePath")
+                l_examplePath = QLabel("Examplepath:\n\n" + examplePath)
 
                 w_integ.setLayout(lo_integButtons)
                 lo_integButtons.addStretch()
@@ -916,6 +918,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 lo_integButtons.addWidget(b_removeInteg)
 
                 lo_integ.addWidget(lw_integ)
+                lo_integ.addWidget(l_examplePath)
                 lo_integ.addWidget(w_integ)
                 lo_tab.addWidget(gb_integ)
 
@@ -927,6 +930,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                     "lw": lw_integ,
                     "badd": b_addInteg,
                     "bremove": b_removeInteg,
+                    "lexample": l_examplePath,
                 }
 
                 self.core.getPlugin(i).prismSettings_loadUI(self, tab)

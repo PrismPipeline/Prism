@@ -308,10 +308,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
         )
         helpMenu.addAction(self.actionWebsite)
 
-        self.actionSendFeedback = QAction("Send feedback/feature requests...", self)
-        self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
-        helpMenu.addAction(self.actionSendFeedback)
-
         self.actionCheckVersion = QAction("Check for Prism updates", self)
         self.actionCheckVersion.triggered.connect(self.core.updater.checkForUpdates)
         helpMenu.addAction(self.actionCheckVersion)
@@ -321,6 +317,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
         helpMenu.addAction(self.actionAbout)
 
         self.menubar.addMenu(helpMenu)
+
+        self.actionSendFeedback = QAction("Send feedback...", self)
+        self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
+        self.menubar.addAction(self.actionSendFeedback)
 
         self.core.appPlugin.setRCStyle(self, helpMenu)
 

@@ -64,6 +64,7 @@ class ExternalTask(QDialog, ExternalTask_ui.Ui_dlg_ExternalTask):
 
         self.core.parentWindow(self)
 
+        self.e_taskPath.setText(startText)
         self.e_versionName.setText("v0001")
 
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)

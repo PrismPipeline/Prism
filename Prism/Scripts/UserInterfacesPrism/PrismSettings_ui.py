@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PrismSettings.ui'
 #
-# Created: Sun Mar 15 15:36:29 2020
+# Created: Wed Mar 18 02:10:41 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_dlg_PrismSettings(object):
     def setupUi(self, dlg_PrismSettings):
         dlg_PrismSettings.setObjectName("dlg_PrismSettings")
-        dlg_PrismSettings.resize(843, 685)
+        dlg_PrismSettings.resize(949, 769)
         self.verticalLayout = QtGui.QVBoxLayout(dlg_PrismSettings)
         self.verticalLayout.setSpacing(0)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -21,7 +21,7 @@ class Ui_dlg_PrismSettings(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 841, 683))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 947, 767))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.verticalLayout_5 = QtGui.QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_5.setSpacing(20)

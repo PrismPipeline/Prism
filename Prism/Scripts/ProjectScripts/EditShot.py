@@ -87,6 +87,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         )
 
         self.imgPath = ""
+        self.btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
 
         self.loadData()
         self.connectEvents()
@@ -286,7 +287,6 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
     @err_decorator(name="EditShot")
     def buttonboxClicked(self, button):
-        btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
         if button.text() == "Create":
             result = self.saveInfo()
             if result:
@@ -297,7 +297,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             if result:
                 self.core.pb.createShot(self.shotName)
                 self.accept()
-        elif button.text() == btext:
+        elif button.text() == self.btext:
             result = self.saveInfo()
             if result:
                 self.core.pb.createShot(self.shotName)
@@ -387,8 +387,8 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             self.buttonBox.removeButton(self.buttonBox.buttons()[0])
             self.buttonBox.addButton("Create and close", QDialogButtonBox.AcceptRole)
             self.buttonBox.addButton("Create", QDialogButtonBox.ApplyRole)
-            btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
-            b = self.buttonBox.addButton(btext, QDialogButtonBox.ApplyRole)
+            b = self.buttonBox.addButton(self.btext, QDialogButtonBox.ApplyRole)
+            b.setMaximumWidth(20*self.core.uiScaleFactor)
             b.setToolTip("Create shot and open step dialog")
             b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
             self.buttonBox.setStyleSheet("* { button-layout: 2}")
@@ -415,3 +415,5 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             self.buttonboxClicked(self.buttonBox.buttons()[-1])
+        elif event.key() == Qt.Key_Escape:
+            self.reject()
