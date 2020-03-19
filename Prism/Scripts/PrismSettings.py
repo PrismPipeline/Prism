@@ -214,14 +214,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
     @err_decorator(name="PrismSettings")
     def validate(self, uiWidget, origText=None):
-        if origText is None:
-            origText = uiWidget.text()
-        text = self.core.validateStr(origText)
-
-        if len(text) != len(origText):
-            cpos = uiWidget.cursorPosition()
-            uiWidget.setText(text)
-            uiWidget.setCursorPosition(cpos - 1)
+        self.core.validateLineEdit(uiWidget)
 
         if uiWidget != self.e_abbreviation:
             abbrev = self.core.getUserAbbreviation(
@@ -1161,6 +1154,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         else:
             self.l_updateInfo.setStyleSheet("")
             self.b_checkForUpdates.setText("Check now")
+            self.l_updateInfo.setText("%s - last check %s" % (status, checkTime))
 
     @err_decorator(name="PrismSettings")
     def changelog(self):

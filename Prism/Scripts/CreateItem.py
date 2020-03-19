@@ -158,12 +158,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
         self.buttonBox.accepted.connect(self.returnName)
         self.b_showTasks.clicked.connect(self.showTasks)
         if self.getStep:
-            self.e_item.textEdited.connect(lambda x: self.enableOkStep(x, self.e_item))
+            self.e_item.textEdited.connect(lambda x: self.enableOkStep(self.e_item))
             self.e_stepName.textEdited.connect(
-                lambda x: self.enableOkStep(x, self.e_stepName)
+                lambda x: self.enableOkStep(self.e_stepName)
             )
         else:
-            self.e_item.textEdited.connect(self.enableOk)
+            self.e_item.textEdited.connect(lambda x: self.enableOk(self.e_item))
         self.rb_asset.toggled.connect(self.typeChanged)
 
     @err_decorator(name="CreateItem")
@@ -192,7 +192,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
     @err_decorator(name="CreateItem")
     def taskClicked(self, task):
         self.e_item.setText(task)
-        self.enableOk(task)
+        self.enableOk(self.e_item)
 
     @err_decorator(name="CreateItem")
     def typeChanged(self, state):
@@ -200,15 +200,10 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             i.createAsset_typeChanged(self, state)
 
     @err_decorator(name="CreateItem")
-    def enableOk(self, origText):
-        text = self.core.validateStr(
-            origText, allowChars=self.allowChars, denyChars=self.denyChars
+    def enableOk(self, widget):
+        text = self.core.validateLineEdit(
+            widget, allowChars=self.allowChars, denyChars=self.denyChars
         )
-
-        if len(text) != len(origText):
-            cpos = self.e_item.cursorPosition()
-            self.e_item.setText(text)
-            self.e_item.setCursorPosition(cpos - 1)
 
         if self.valueRequired:
             if text != "":
@@ -220,13 +215,8 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             self.buttonBox.buttons()[-1].setEnabled(bool(text))
 
     @err_decorator(name="CreateItem")
-    def enableOkStep(self, origText, uiField):
-        text = self.core.validateStr(origText)
-
-        if len(text) != len(origText):
-            cpos = uiField.cursorPosition()
-            uiField.setText(text)
-            uiField.setCursorPosition(cpos - 1)
+    def enableOkStep(self, widget):
+        self.core.validateLineEdit(widget)
 
         if self.valueRequired:
             if self.e_item.text() != "" and self.e_stepName.text() != "":

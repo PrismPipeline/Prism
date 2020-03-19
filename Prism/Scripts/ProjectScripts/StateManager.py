@@ -1874,13 +1874,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_decorator(name="StateManager")
     def validateComment(self):
-        origComment = self.e_comment.text()
-        validText = self.core.validateStr(origComment)
-        startpos = self.e_comment.cursorPosition()
-
-        if len(origComment) != len(validText):
-            self.e_comment.setText(validText)
-            self.e_comment.setCursorPosition(startpos - 1)
+        self.core.validateLineEdit(self.e_comment)
 
     @err_decorator(name="StateManager")
     def getStateProps(self):

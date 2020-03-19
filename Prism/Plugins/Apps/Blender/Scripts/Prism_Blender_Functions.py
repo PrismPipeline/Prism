@@ -895,10 +895,16 @@ class Prism_Blender_Functions(object):
             jobFrames = [origin.sp_rangeStart.value(), origin.sp_rangeEnd.value()]
 
         nodeAOVs = self.getNodeAOVs()
-        if not nodeAOVs and self.getViewLayerAOVs():
-            fileFormat = "OPEN_EXR_MULTILAYER"
-        else:
-            fileFormat = "OPEN_EXR"
+        imgFormat = origin.cb_format.currentText()
+        if imgFormat == ".exr":
+            if not nodeAOVs and self.getViewLayerAOVs():
+                fileFormat = "OPEN_EXR_MULTILAYER"
+            else:
+                fileFormat = "OPEN_EXR"
+        elif imgFormat == ".png":
+            fileFormat = "PNG"
+        elif imgFormat == ".jpg":
+            fileFormat = "JPEG"
 
         rSettings["start"] = bpy.context.scene.frame_start
         rSettings["end"] = bpy.context.scene.frame_end
@@ -910,7 +916,8 @@ class Prism_Blender_Functions(object):
         bpy.context.scene["PrismIsRendering"] = True
         bpy.context.scene.render.filepath = rSettings["outputName"]
         bpy.context.scene.render.image_settings.file_format = fileFormat
-        bpy.context.scene.render.image_settings.color_depth = "16"
+        if imgFormat != ".jpg":
+            bpy.context.scene.render.image_settings.color_depth = "16"
         bpy.context.scene.frame_start = jobFrames[0]
         bpy.context.scene.frame_end = jobFrames[1]
         bpy.context.scene.render.use_overwrite = True
@@ -990,7 +997,7 @@ class Prism_Blender_Functions(object):
             rSettings["outputName"] = newOutputPath
             if platform.system() == "Windows":
                 tmpOutput = os.path.join(
-                    os.environ["temp"], "PrismRender", "tmp.####.exr"
+                    os.environ["temp"], "PrismRender", "tmp.####" + imgFormat
                 )
                 bpy.context.scene.render.filepath = tmpOutput
                 if not os.path.exists(os.path.dirname(tmpOutput)):

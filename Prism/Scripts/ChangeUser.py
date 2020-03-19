@@ -90,11 +90,9 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
 
     @err_decorator(name="ChangeUser")
     def connectEvents(self):
-        self.e_fname.textChanged.connect(lambda x: self.validate(x, self.e_fname))
-        self.e_lname.textChanged.connect(lambda x: self.validate(x, self.e_lname))
+        self.e_fname.textChanged.connect(lambda x: self.validate(self.e_fname))
+        self.e_lname.textChanged.connect(lambda x: self.validate(self.e_lname))
         self.buttonBox.accepted.connect(self.setUser)
-        self.e_fname.cursorPositionChanged.connect(self.cursorMoved)
-        self.e_lname.cursorPositionChanged.connect(self.cursorMoved)
 
     @err_decorator(name="ChangeUser")
     def enterEvent(self, event):
@@ -118,28 +116,14 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
             pass
 
     @err_decorator(name="ChangeUser")
-    def validate(self, text=None, editfield=None):
-        if text != None:
-            startpos = editfield.cursorPosition()
-
-            validText = self.core.validateStr(text)
-
-            if not text == validText:
-                startpos = self.newCursorPos
-
-            editfield.setText(validText)
-
-            editfield.setCursorPosition(startpos)
+    def validate(self, editfield=None):
+        if editfield:
+            self.core.validateLineEdit(editfield)
 
         if len(self.e_fname.text()) > 0 and len(self.e_lname.text()) > 1:
-
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
         else:
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
-
-    @err_decorator(name="ChangeUser")
-    def cursorMoved(self, old, new):
-        self.newCursorPos = new
 
     @err_decorator(name="ChangeUser")
     def setUser(self):

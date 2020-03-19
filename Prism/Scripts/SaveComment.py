@@ -62,7 +62,7 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
         self.core = core
         self.core.parentWindow(self)
         self.previewDefined = False
-        self.e_comment.textEdited.connect(self.validate)
+        self.e_comment.textEdited.connect(lambda x: self.validate(self.e_comment))
         self.b_changePreview.clicked.connect(self.grabArea)
         self.setEmptyPreview()
         self.core.callback(
@@ -74,13 +74,8 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
         QApplication.restoreOverrideCursor()
 
     @err_decorator(name="SaveComment")
-    def validate(self, origText):
-        text = self.core.validateStr(origText)
-
-        if len(text) != len(origText):
-            cpos = self.e_comment.cursorPosition()
-            self.e_comment.setText(text)
-            self.e_comment.setCursorPosition(cpos - 1)
+    def validate(self, widget):
+        self.core.validateLineEdit(widget)
 
     @err_decorator(name="SaveComment")
     def setEmptyPreview(self):

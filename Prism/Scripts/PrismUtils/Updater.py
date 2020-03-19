@@ -162,6 +162,11 @@ except Exception as e:
                     "Unable to read https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py. Could not check for updates.\n\n(%s)"
                     % stdOutData,
                 )
+            self.core.setConfig(
+                cat="globals",
+                param="update_status",
+                val="unknown status",
+            )
             return
 
         if pVersion == 3:

@@ -829,13 +829,7 @@ class Prism_Photoshop_Functions(object):
 
     @err_decorator
     def validateComment(self, text):
-        origComment = self.le_comment.text()
-        validText = self.core.validateStr(origComment)
-        startpos = self.le_comment.cursorPosition()
-
-        if len(origComment) != len(validText):
-            self.le_comment.setText(validText)
-            self.le_comment.setCursorPosition(startpos - 1)
+        self.core.validateLineEdit(self.le_comment)
 
     @err_decorator
     def saveExport(self):

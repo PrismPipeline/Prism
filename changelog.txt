@@ -1,3 +1,8 @@
+v1.2.1.67:
+- added the option to specify the format of renderings. Options are .exr, .png, .jpg
+- added the option to convert media to .mov videos in the Project Browser. This conversion uses the prores codec, which supports odd image resolutions and higher quality than the conversion to .mp4 videos
+- fixed an error when files are dropped into the task list of the Project Browser when no asset and no shot were selected
+
 v1.2.1.66:
 - added the option to drag&drop external media into the task list in the Project Browser to add it as external task
 - added example paths for the DCC integrations in the Prism Settings
@@ -12,15 +17,15 @@ v1.2.1.64:
 - fixed a bug which closed the entity creation dialogs when pressing keys in some cases
 
 v1.2.1.63:
-- Added new environment variables in Houdini: $PRISM_ASSET, $PRISM_SEQUENCE, $PRISM_SHOT, $PRISM_STEP, $PRISM_CATEGORY, $PRISM_USER, $PRISM_FILE_VERSION
-- Added a new button to entity creation dialogs in the Project Browser. Type a name and press enter to jump to the next step.
+- added new environment variables in Houdini: $PRISM_ASSET, $PRISM_SEQUENCE, $PRISM_SHOT, $PRISM_STEP, $PRISM_CATEGORY, $PRISM_USER, $PRISM_FILE_VERSION
+- added a new button to entity creation dialogs in the Project Browser. Type a name and press enter to jump to the next step.
 
 v1.2.1.62:
-- Added an option "Edit comment..." to the context menu of scenefiles in the Project Browser
-- Added the option to select and to delete multiple AOVs at once in the ImageRender state
-- Added support for Blender AOVs when node AOVs are not used. A multilayer exr will be written out when using these AOVs
-- Added a debug mode option in the Prism Settings, which will print additional information when working with Prism
-- Many improvements to the code structure
+- added an option "Edit comment..." to the context menu of scenefiles in the Project Browser
+- added the option to select and to delete multiple AOVs at once in the ImageRender state
+- added support for Blender AOVs when node AOVs are not used. A multilayer exr will be written out when using these AOVs
+- added a debug mode option in the Prism Settings, which will print additional information when working with Prism
+- many improvements to the code structure
 
 v1.2.1.61:
 - fixed an error when opening the setup integrations dialog on Windows

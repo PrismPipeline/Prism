@@ -110,6 +110,14 @@ class ImageRenderClass(object):
             "2000x1000",
         ]
 
+        self.outputFormats = [
+            ".exr",
+            ".png",
+            ".jpg",
+        ]
+
+        self.cb_format.addItems(self.outputFormats)
+
         self.l_name.setVisible(False)
         self.e_name.setVisible(False)
         self.tw_passes.setColumnWidth(0, 130)
@@ -226,6 +234,10 @@ class ImageRenderClass(object):
                 self.cb_take.setCurrentIndex(idx)
         if "localoutput" in data:
             self.chb_localOutput.setChecked(eval(data["localoutput"]))
+        if "outputFormat" in data:
+            idx = self.cb_format.findText(data["outputFormat"])
+            if idx != -1:
+                self.cb_format.setCurrentIndex(idx)
         if "renderer" in data:
             idx = self.cb_renderer.findText(data["renderer"])
             if idx != -1:
@@ -315,6 +327,7 @@ class ImageRenderClass(object):
         self.chb_useTake.stateChanged.connect(self.useTakeChanged)
         self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
         self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.cb_format.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_renderer.currentIndexChanged[str].connect(self.rendererChanged)
         self.gb_submit.toggled.connect(self.rjToggled)
         self.cb_manager.activated.connect(self.managerChanged)
@@ -871,7 +884,8 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + hVersion
                 + self.core.filenameSeparator
-                + "beauty.$F4.exr"
+                + "beauty.$F4"
+                + self.cb_format.currentText()
             )
         elif fnameData["entity"] == "asset":
             if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
@@ -904,7 +918,8 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + hVersion
                 + self.core.filenameSeparator
-                + "beauty.$F4.exr"
+                + "beauty.$F4"
+                + self.cb_format.currentText()
             )
         else:
             return
@@ -1147,6 +1162,7 @@ class ImageRenderClass(object):
             "usetake": str(self.chb_useTake.isChecked()),
             "take": self.cb_take.currentText(),
             "localoutput": str(self.chb_localOutput.isChecked()),
+            "outputFormat": self.cb_format.currentText(),
             "connectednode": curNode,
             "connectednode2": curNode2,
             "renderer": str(self.cb_renderer.currentText()),

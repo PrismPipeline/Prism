@@ -113,15 +113,8 @@ class ExternalTask(QDialog, ExternalTask_ui.Ui_dlg_ExternalTask):
         self.core.openFolder(path)
 
     def enableOk(self, origText, editWidget):
-        if editWidget == self.e_taskPath:
-            text = origText
-        else:
-            text = self.core.validateStr(origText)
-
-        if len(text) != len(origText):
-            cpos = editWidget.cursorPosition()
-            editWidget.setText(text)
-            editWidget.setCursorPosition(cpos - 1)
+        if editWidget != self.e_taskPath:
+            self.core.validateLineEdit(editWidget)
 
         if (
             self.e_taskPath.text() != ""

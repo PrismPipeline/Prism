@@ -98,8 +98,8 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.b_changePreview.clicked.connect(self.browse)
         self.buttonBox.clicked.connect(self.buttonboxClicked)
         self.buttonBox.accepted.connect(self.saveInfo)
-        self.e_shotName.textEdited.connect(lambda x: self.validate(x, self.e_shotName))
-        self.e_sequence.textEdited.connect(lambda x: self.validate(x, self.e_sequence))
+        self.e_shotName.textEdited.connect(lambda x: self.validate(self.e_shotName))
+        self.e_sequence.textEdited.connect(lambda x: self.validate(self.e_sequence))
         self.b_deleteShot.clicked.connect(self.deleteShot)
 
     @err_decorator(name="EditShot")
@@ -255,16 +255,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             self.l_shotPreview.setPixmap(self.pmap)
 
     @err_decorator(name="EditShot")
-    def validate(self, origText, editField):
-        text = self.core.validateStr(origText)
+    def validate(self, editField):
+        denyChars = [self.core.sequenceSeparator] if editField == self.e_sequence else None
 
-        if editField == self.e_sequence:
-            text = text.replace(self.core.sequenceSeparator, "")
-
-        if len(text) != len(origText):
-            cpos = editField.cursorPosition()
-            editField.setText(text)
-            editField.setCursorPosition(cpos - 1)
+        self.core.validateLineEdit(editField, denyChars=denyChars)
 
     @err_decorator(name="EditShot")
     def deleteShot(self):

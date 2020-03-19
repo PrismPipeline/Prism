@@ -46,6 +46,7 @@ import stat
 import re
 import subprocess
 import logging
+from collections import OrderedDict
 
 # check if python 2 or python 3 is used
 if sys.version[0] == "3":
@@ -138,7 +139,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.66"
+            self.version = "v1.2.1.67"
             self.requiredLibraries = "v1.2.0.0"
             self.core = self
 
@@ -2549,7 +2550,23 @@ License: GNU GPL-3.0-or-later<br>
         )
 
     @err_decorator(name="PrismCore")
-    def validateStr(self, text, allowChars=[], denyChars=[]):
+    def validateLineEdit(self, widget, allowChars=None, denyChars=None):
+        if not hasattr(widget, "text"):
+            return
+
+        origText = widget.text()
+        validText = self.validateStr(origText, allowChars=allowChars, denyChars=denyChars)
+
+        cpos = widget.cursorPosition()
+        widget.setText(validText)
+        if len(validText) != len(origText):
+            cpos -= 1
+
+        widget.setCursorPosition(cpos)
+        return validText
+
+    @err_decorator(name="PrismCore")
+    def validateStr(self, text, allowChars=None, denyChars=None):
         invalidChars = [
             " ",
             "\\",
@@ -2567,29 +2584,38 @@ License: GNU GPL-3.0-or-later<br>
             "ß",
             self.filenameSeparator,
         ]
-        for i in allowChars:
-            if i in invalidChars:
-                invalidChars.remove(i)
+        if allowChars:
+            for i in allowChars:
+                if i in invalidChars:
+                    invalidChars.remove(i)
 
-        for i in denyChars:
-            if i not in invalidChars:
-                invalidChars.append(i)
+        if denyChars:
+            for i in denyChars:
+                if i not in invalidChars:
+                    invalidChars.append(i)
+
+        if "_" not in invalidChars:
+            fallbackChar = "_"
+        elif "-" not in invalidChars:
+            fallbackChar = "-"
+        elif "." not in invalidChars:
+            fallbackChar = "."
+        else:
+            fallbackChar = ""
 
         if pVersion == 2:
             validText = "".join(
-                ch
+                ch if ch not in invalidChars else fallbackChar
                 for ch in str(text.encode("ascii", errors="ignore"))
-                if ch not in invalidChars
             )
         else:
             validText = "".join(
-                ch
+                ch if ch not in invalidChars else fallbackChar
                 for ch in str(text.encode("ascii", errors="ignore").decode())
-                if ch not in invalidChars
             )
 
         if len(self.filenameSeparator) > 1:
-            validText = validText.replace(self.filenameSeparator, "")
+            validText = validText.replace(self.filenameSeparator, fallbackChar)
 
         return validText
 
@@ -4161,7 +4187,7 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
         return outputName
 
     @err_decorator(name="PrismCore")
-    def convertMedia(self, inputpath, startNum, outputpath, outputQuality=None):
+    def convertMedia(self, inputpath, startNum, outputpath, outputQuality=None, settings=None):
         inputpath = inputpath.replace("\\", "/")
         inputExt = os.path.splitext(inputpath)[1]
         videoInput = inputExt in [".mp4", ".mov"]
@@ -4204,23 +4230,13 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                 outputQuality = "23"
 
         if videoInput:
-            nProc = subprocess.Popen(
-                [
-                    ffmpegPath,
-                    "-apply_trc",
-                    "iec61966_2_1",
-                    "-i",
-                    inputpath,
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-start_number",
-                    startNum,
-                    outputpath,
-                    "-y",
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+            args = OrderedDict([
+                ("-apply_trc", "iec61966_2_1"),
+                ("-i", inputpath),
+                ("-pix_fmt", "yuva420p"),
+                ("-start_number", startNum),
+            ])
+
         else:
             fps = "24"
             if self.getConfig(
@@ -4228,27 +4244,31 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
             ):
                 fps = self.getConfig("globals", "fps", configPath=self.prismIni)
 
-            nProc = subprocess.Popen(
-                [
-                    ffmpegPath,
-                    "-start_number",
-                    startNum,
-                    "-framerate",
-                    fps,
-                    "-apply_trc",
-                    "iec61966_2_1",
-                    "-i",
-                    inputpath,
-                    "-pix_fmt",
-                    "yuva420p",
-                    "-start_number",
-                    startNum,
-                    outputpath,
-                    "-y",
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+            args = OrderedDict([
+                ("-start_number", startNum),
+                ("-framerate", fps),
+                ("-apply_trc", "iec61966_2_1"),
+                ("-i", inputpath),
+                ("-pix_fmt", "yuva420p"),
+                ("-start_number", startNum),
+            ])
+
+        if settings:
+            args.update(settings)
+
+        argList = [ffmpegPath]
+
+        for k in args.keys():
+            if type(args[k]) == list:
+                al = [k]
+                al.extend([str(x) for x in args[k]])
+            else:
+                al = [k, str(args[k])]
+            argList += al
+
+        argList += [outputpath, "-y"]
+        logger.debug("Run ffmpeg with this settings: " + str(argList))
+        nProc = subprocess.Popen(argList, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         result = nProc.communicate()
 
         return result

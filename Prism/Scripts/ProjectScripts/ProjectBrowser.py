@@ -41,6 +41,7 @@ import platform
 import imp
 import subprocess
 import logging
+from collections import OrderedDict
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -473,8 +474,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.l_preview.mouseMoveEvent = lambda x: self.mouseDrag(x, self.l_preview)
 
         self.lw_task.itemSelectionChanged.connect(self.taskClicked)
-        self.lw_task.mmEvent = self.lw_task.mouseMoveEvent
-        self.lw_task.mouseMoveEvent = lambda x: self.mouseDrag(x, self.lw_task)
         self.lw_version.itemSelectionChanged.connect(self.versionClicked)
         self.lw_version.mmEvent = self.lw_version.mouseMoveEvent
         self.lw_version.mouseMoveEvent = lambda x: self.mouseDrag(x, self.lw_version)
@@ -5922,6 +5921,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 lambda: self.convertImgs(".mp4", mediaPlayback=mediaPlayback)
             )
             cvtMenu.addAction(qtAct)
+            movAct = QAction("mov", self)
+            movAct.triggered.connect(
+                lambda: self.convertImgs(".mov", mediaPlayback=mediaPlayback)
+            )
+            cvtMenu.addAction(movAct)
             rcmenu.addMenu(cvtMenu)
             self.core.appPlugin.setRCStyle(self, cvtMenu)
 
@@ -6289,6 +6293,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.lw_task.setStyleSheet("")
             e.setDropAction(Qt.LinkAction)
             e.accept()
+
+            if not self.renderBasePath:
+                self.core.popup("Select an asset or a shot to create an external task.")
+                return
 
             fname = [os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()]
             self.createExternalTask(filepath=fname[0])
@@ -6865,7 +6873,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if element == self.cb_layer:
                 for k in os.walk(os.path.dirname(i)):
                     for m in k[1]:
-                        urlList.append(QUrl("file:///%s" % os.path.join(k[0], m)))
+                        url = "file:///%s" % os.path.join(k[0], m)
+                        url = url.replace("\\", "/")
+                        urlList.append(QUrl(url))
                     break
             else:
                 if os.path.isfile(i):
@@ -6879,6 +6889,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     else:
                         url = "file:///%s" % k
 
+                    url = url.replace("\\", "/")
+
                     urlList.append(QUrl(url))
 
         if len(urlList) == 0:
@@ -6888,6 +6900,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         mData = QMimeData()
 
         mData.setUrls(urlList)
+        mData.setData("text/plain", str(urlList[0].url()))
         drag.setMimeData(mData)
 
         drag.exec_()
@@ -7093,13 +7106,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             mediaPlayback["basePath"], mediaPlayback["seq"][0]
         ).replace("\\", "/")
         inputExt = os.path.splitext(inputpath)[1]
-        videoInput = inputExt in [".mp4", ".mov"]
+        videoFormats = [".mp4", ".mov"]
+        videoInput = inputExt in videoFormats
 
         if "pwidth" in mediaPlayback and mediaPlayback["pwidth"] == "?":
             QMessageBox.warning(
                 self.core.messageParent, "Media conversion", "Cannot read media file."
             )
             return
+
+        conversionSettings = OrderedDict()
 
         if (
             extension == ".mp4"
@@ -7116,6 +7132,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 "Media with odd resolution can't be converted to mp4.",
             )
             return
+
+        if extension == ".mov":
+            conversionSettings["-c"] = "prores"
+            conversionSettings["-profile"] = 2
+            conversionSettings["-pix_fmt"] = "yuv422p10le"
+            conversionSettings["-apply_trc"] = ""
 
         if mediaPlayback["prvIsSequence"]:
             inputpath = os.path.splitext(inputpath)[0][:-4] + "%04d" + inputExt
@@ -7136,9 +7158,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 os.path.basename(inputpath),
             )
 
-        if extension == ".mp4" and mediaPlayback["prvIsSequence"]:
+        if extension in videoFormats and mediaPlayback["prvIsSequence"]:
             outputpath = os.path.splitext(outputpath)[0][:-5] + extension
-        elif videoInput and extension != ".mp4":
+        elif videoInput and extension not in videoFormats:
             outputpath = "%s.%%04d%s" % (os.path.splitext(outputpath)[0], extension)
         else:
             outputpath = os.path.splitext(outputpath)[0] + extension
@@ -7164,7 +7186,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             startNum = 0
 
-        result = self.core.convertMedia(inputpath, startNum, outputpath)
+        result = self.core.convertMedia(inputpath, startNum, outputpath, settings=conversionSettings)
 
         if mediaPlayback["prvIsSequence"] or videoInput:
             outputpath = outputpath.replace("%04d", "%04d" % int(startNum))

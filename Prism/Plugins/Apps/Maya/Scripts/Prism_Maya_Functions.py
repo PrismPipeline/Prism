@@ -1267,6 +1267,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         cmds.setAttr("defaultRenderGlobals.extensionPadding", 4)
 
         curRenderer = cmds.getAttr("defaultRenderGlobals.currentRenderer")
+        imgFormat = origin.cb_format.currentText()
         if curRenderer == "arnold":
             driver = cmds.ls("defaultArnoldDriver")
             if not driver:
@@ -1274,16 +1275,22 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             rSettings["ar_fileformat"] = cmds.getAttr(
                 "defaultArnoldDriver.ai_translator"
             )
-            rSettings["ar_exrPixelType"] = cmds.getAttr(
-                "defaultArnoldDriver.halfPrecision"
-            )
-            rSettings["ar_exrCompression"] = cmds.getAttr(
-                "defaultArnoldDriver.exrCompression"
-            )
 
-            cmds.setAttr("defaultArnoldDriver.ai_translator", "exr", type="string")
-            cmds.setAttr("defaultArnoldDriver.halfPrecision", 1)  # 16 bit
-            cmds.setAttr("defaultArnoldDriver.exrCompression", 3)  # ZIP compression
+            if imgFormat == ".exr":
+                rSettings["ar_exrPixelType"] = cmds.getAttr(
+                    "defaultArnoldDriver.halfPrecision"
+                )
+                rSettings["ar_exrCompression"] = cmds.getAttr(
+                    "defaultArnoldDriver.exrCompression"
+                )
+
+                cmds.setAttr("defaultArnoldDriver.ai_translator", "exr", type="string")
+                cmds.setAttr("defaultArnoldDriver.halfPrecision", 1)  # 16 bit
+                cmds.setAttr("defaultArnoldDriver.exrCompression", 3)  # ZIP compression
+            elif imgFormat == ".png":
+                cmds.setAttr("defaultArnoldDriver.ai_translator", "png", type="string")
+            elif imgFormat == ".jpg":
+                cmds.setAttr("defaultArnoldDriver.ai_translator", "jpeg", type="string")
 
             aAovs = maovs.AOVInterface().getAOVNodes(names=True)
             aAovs = [x for x in aAovs if cmds.getAttr(x[1] + ".enabled")]
@@ -1350,7 +1357,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 "exr (deep)",
             ]
             if not multichannel:
-                cmds.setAttr("vraySettings.imageFormatStr", "exr", type="string")
+                cmds.setAttr("vraySettings.imageFormatStr", imgFormat[1:], type="string")
             cmds.setAttr("vraySettings.animType", 1)
             cmds.setAttr("vraySettings.dontSaveImage", 0)
 
@@ -1392,7 +1399,13 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
             rSettings["rs_fileformat"] = cmds.getAttr("redshiftOptions.imageFormat")
 
-            cmds.setAttr("redshiftOptions.imageFormat", 1)
+            if imgFormat == ".exr":
+                idx = 1
+            elif imgFormat == ".png":
+                idx = 2
+            elif imgFormat == ".jpg":
+                idx = 4
+            cmds.setAttr("redshiftOptions.imageFormat", idx)
 
             outputPrefix = outputPrefix[3:]
             cmds.setAttr(

@@ -184,12 +184,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
         else:
             allowChars = ["/", "\\", "_", " ", ":"]
 
-        validText = self.core.validateStr(origText, allowChars=allowChars)
-
-        if len(validText) != len(origText):
-            cpos = pathUi.cursorPosition()
-            pathUi.setText(validText)
-            pathUi.setCursorPosition(cpos - 1)
+        self.core.validateLineEdit(pathUi, allowChars=allowChars)
 
     @err_decorator(name="CreateProject")
     def browse(self):

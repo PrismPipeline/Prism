@@ -383,7 +383,7 @@ class Prism_Fusion_Functions(object):
 
         comment = self.core.validateStr(origComment)
 
-        if len(origComment) != len(comment):
+        if origComment != comment:
             node.SetInput("PrismCommentControl", comment)
 
         FormatID = node.GetInput("OutputFormat")

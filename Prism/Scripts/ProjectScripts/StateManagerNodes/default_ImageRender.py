@@ -92,6 +92,14 @@ class ImageRenderClass(object):
         if not getattr(self.core.appPlugin, "sm_render_startup", lambda x: False)(self):
             self.gb_Vray.setVisible(False)
 
+        self.outputFormats = [
+            ".exr",
+            ".png",
+            ".jpg",
+        ]
+
+        self.cb_format.addItems(self.outputFormats)
+
         self.resolutionPresets = [
             "1920x1080",
             "1280x720",
@@ -171,6 +179,10 @@ class ImageRenderClass(object):
             if idx != -1:
                 self.cb_renderLayer.setCurrentIndex(idx)
                 self.stateManager.saveStatesToScene()
+        if "outputFormat" in data:
+            idx = self.cb_format.findText(data["outputFormat"])
+            if idx != -1:
+                self.cb_format.setCurrentIndex(idx)
         if "vrayoverride" in data:
             self.chb_override.setChecked(eval(data["vrayoverride"]))
         if "vrayminsubdivs" in data:
@@ -252,6 +264,7 @@ class ImageRenderClass(object):
         self.b_resPresets.clicked.connect(self.showResPresets)
         self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.cb_renderLayer.activated.connect(self.stateManager.saveStatesToScene)
+        self.cb_format.activated.connect(self.stateManager.saveStatesToScene)
         self.chb_override.stateChanged.connect(self.overrideChanged)
         self.sp_minSubdivs.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.sp_maxSubdivs.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -708,7 +721,8 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + hVersion
                 + self.core.filenameSeparator
-                + "beauty..exr"
+                + "beauty."
+                + self.cb_format.currentText()
             )
         elif fnameData["entity"] == "asset":
             if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
@@ -742,7 +756,8 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + hVersion
                 + self.core.filenameSeparator
-                + "beauty..exr"
+                + "beauty."
+                + self.cb_format.currentText()
             )
 
         outputName = os.path.join(outputPath, outputFile)
@@ -928,6 +943,7 @@ class ImageRenderClass(object):
             ),
             "localoutput": str(self.chb_localOutput.isChecked()),
             "renderlayer": str(self.cb_renderLayer.currentText()),
+            "outputFormat": str(self.cb_format.currentText()),
             "vrayoverride": str(self.chb_override.isChecked()),
             "vrayminsubdivs": self.sp_minSubdivs.value(),
             "vraymaxsubdivs": self.sp_maxSubdivs.value(),
