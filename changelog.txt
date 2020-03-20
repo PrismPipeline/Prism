@@ -1,3 +1,8 @@
+v1.2.1.68:
+- fixed an issue that caused alembic imports to fail in 3ds Max
+- fixed an issue that no objects were exported when exporting to the .mb format with "Export whole scene" checked in Maya
+- fixed an issue that caused the conversion from .exr sequences to .mov to fail
+
 v1.2.1.67:
 - added the option to specify the format of renderings. Options are .exr, .png, .jpg
 - added the option to convert media to .mov videos in the Project Browser. This conversion uses the prores codec, which supports odd image resolutions and higher quality than the conversion to .mp4 videos

@@ -805,13 +805,22 @@ class Prism_Maya_Functions(object):
                     typeStr = "mayaBinary"
                 pr = origin.chb_preserveReferences.isChecked()
                 try:
-                    cmds.file(
-                        outputName,
-                        force=True,
-                        exportSelected=True,
-                        preserveReferences=pr,
-                        type=typeStr,
-                    )
+                    if origin.chb_wholeScene.isChecked():
+                        cmds.file(
+                            outputName,
+                            force=True,
+                            exportAll=True,
+                            preserveReferences=pr,
+                            type=typeStr,
+                        )
+                    else:
+                        cmds.file(
+                            outputName,
+                            force=True,
+                            exportSelected=True,
+                            preserveReferences=pr,
+                            type=typeStr,
+                        )
                 except Exception as e:
                     return "Canceled: %s" % str(e)
 

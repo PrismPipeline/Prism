@@ -7137,7 +7137,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             conversionSettings["-c"] = "prores"
             conversionSettings["-profile"] = 2
             conversionSettings["-pix_fmt"] = "yuv422p10le"
-            conversionSettings["-apply_trc"] = ""
 
         if mediaPlayback["prvIsSequence"]:
             inputpath = os.path.splitext(inputpath)[0][:-4] + "%04d" + inputExt

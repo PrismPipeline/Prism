@@ -139,7 +139,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.67"
+            self.version = "v1.2.1.68"
             self.requiredLibraries = "v1.2.0.0"
             self.core = self
 
@@ -4259,6 +4259,9 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
         argList = [ffmpegPath]
 
         for k in args.keys():
+            if not args[k]:
+                continue
+
             if type(args[k]) == list:
                 al = [k]
                 al.extend([str(x) for x in args[k]])

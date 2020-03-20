@@ -944,6 +944,7 @@ if item == undefined then (\n\
 
     @err_decorator
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
+        impFileName = os.path.normpath(impFileName)
         fileName = os.path.splitext(os.path.basename(impFileName))
 
         if fileName[1] == ".max":
