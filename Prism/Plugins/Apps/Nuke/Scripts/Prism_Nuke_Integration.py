@@ -51,6 +51,8 @@ if platform.system() in ["Linux", "Darwin"]:
 
 from functools import wraps
 
+from PrismUtils import Integration
+
 
 class Prism_Nuke_Integration(object):
     def __init__(self, core, plugin):
@@ -160,36 +162,16 @@ class Prism_Nuke_Integration(object):
 
             origMenuFile = os.path.join(integrationBase, "menu.py")
             with open(origMenuFile, "r") as mFile:
-                initString = mFile.read()
+                initStr = mFile.read()
 
             menuFile = os.path.join(nukepath, "menu.py")
+            Integration.removeIntegration(filepath=menuFile)
 
-            writeInit = True
-            if os.path.exists(menuFile):
-                with open(menuFile, "r") as mFile:
-                    fileContent = mFile.read()
-                if initString in fileContent:
-                    writeInit = False
-                elif "#>>>PrismStart" in fileContent and "#<<<PrismEnd" in fileContent:
-                    fileContent = (
-                        fileContent[: fileContent.find("#>>>PrismStart")]
-                        + fileContent[fileContent.find("#<<<PrismEnd") + 12 :]
-                    )
-                    with open(menuFile, "w") as mFile:
-                        mFile.write(fileContent)
-
-            if writeInit:
-                with open(menuFile, "a") as initfile:
-                    initfile.write(initString)
-
-            with open(menuFile, "r") as init:
-                initStr = init.read()
-
-            with open(menuFile, "w") as init:
+            with open(menuFile, "a") as initfile:
                 initStr = initStr.replace(
                     "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
                 )
-                init.write(initStr)
+                initfile.write(initStr)
 
             addedFiles.append(menuFile)
 
@@ -231,17 +213,7 @@ class Prism_Nuke_Integration(object):
             menu = os.path.join(installPath, "menu.py")
 
             for i in [menu]:
-                if os.path.exists(i):
-                    with open(i, "r") as usFile:
-                        text = usFile.read()
-
-                    if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
-                        text = (
-                            text[: text.find("#>>>PrismStart")]
-                            + text[text.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
-                        )
-                        with open(i, "w") as usFile:
-                            usFile.write(text)
+                Integration.removeIntegration(filepath=i)
 
             return True
 

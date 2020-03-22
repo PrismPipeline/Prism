@@ -53,6 +53,8 @@ if platform.system() == "Windows":
     else:
         import _winreg
 
+from PrismUtils import Integration
+
 
 class Prism_Maya_Integration(object):
     def __init__(self, core, plugin):
@@ -219,27 +221,10 @@ class Prism_Maya_Integration(object):
                 setupString = mFile.read()
 
             prismSetup = os.path.join(mayaPath, "scripts", "userSetup.py")
+            Integration.removeIntegration(filepath=prismSetup)
 
-            if os.path.exists(prismSetup):
-                with open(prismSetup, "r") as setupfile:
-                    content = setupfile.read()
-
-                if not setupString in content:
-                    if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-                        content = (
-                            setupString
-                            + content[: content.find("#>>>PrismStart")]
-                            + content[content.find("#<<<PrismEnd") + 12 :]
-                        )
-                        with open(prismSetup, "w") as rcfile:
-                            rcfile.write(content)
-                    else:
-                        with open(prismSetup, "w") as setupfile:
-                            setupfile.write(setupString + content)
-            else:
-                open(prismSetup, "a").close()
-                with open(prismSetup, "w") as setupfile:
-                    setupfile.write(setupString)
+            with open(prismSetup, "a") as setupfile:
+                setupfile.write(setupString)
 
             addedFiles.append(prismSetup)
 
@@ -322,23 +307,7 @@ class Prism_Maya_Integration(object):
                     os.remove(i)
 
             userSetup = os.path.join(installPath, "scripts", "userSetup.py")
-
-            if os.path.exists(userSetup):
-                with open(userSetup, "r") as usFile:
-                    text = usFile.read()
-
-                if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
-                    text = (
-                        text[: text.find("#>>>PrismStart")]
-                        + text[text.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
-                    )
-
-                    otherChars = [x for x in text if x != " "]
-                    if len(otherChars) == 0:
-                        os.remove(userSetup)
-                    else:
-                        with open(userSetup, "w") as usFile:
-                            usFile.write(text)
+            Integration.removeIntegration(filepath=userSetup)
 
             return True
 

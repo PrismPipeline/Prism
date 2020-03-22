@@ -53,6 +53,8 @@ if platform.system() == "Windows":
     else:
         import _winreg
 
+from PrismUtils import Integration
+
 
 class Prism_PluginEmpty_Integration(object):
     def __init__(self, core, plugin):
@@ -215,23 +217,7 @@ class Prism_PluginEmpty_Integration(object):
                     os.remove(i)
 
             userSetup = os.path.join(installPath, "scripts", "userSetup.py")
-
-            if os.path.exists(userSetup):
-                with open(userSetup, "r") as usFile:
-                    text = usFile.read()
-
-                if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
-                    text = (
-                        text[: text.find("#>>>PrismStart")]
-                        + text[text.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
-                    )
-
-                    otherChars = [x for x in text if x != " "]
-                    if len(otherChars) == 0:
-                        os.remove(userSetup)
-                    else:
-                        with open(userSetup, "w") as usFile:
-                            usFile.write(text)
+            Integration.removeIntegration(filepath=userSetup)
 
             return True
 

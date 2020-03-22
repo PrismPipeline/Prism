@@ -53,6 +53,8 @@ if platform.system() == "Windows":
     else:
         import _winreg
 
+from PrismUtils import Integration
+
 
 class Prism_Blender_Integration(object):
     def __init__(self, core, plugin):
@@ -244,12 +246,8 @@ class Prism_Blender_Integration(object):
                 with open(topbarPath, "r") as init:
                     tbStr = init.read()
 
-                for i in range(2):
-                    if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
-                        tbStr = (
-                            tbStr[: tbStr.find("#>>>PrismStart")]
-                            + tbStr[tbStr.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
-                        )
+                tbStr = Integration.removeIntegration(content=tbStr)
+
                 tbStr = tbStr.replace("    TOPBAR_MT_prism,", "")
 
                 tbStr = tbStr.replace(hMenuStr, hMenuStr + bTbStr1)
@@ -341,12 +339,7 @@ class Prism_Blender_Integration(object):
                 with open(topbarPath, "r") as init:
                     tbStr = init.read()
 
-                for i in range(2):
-                    if "#>>>PrismStart" in tbStr and "#<<<PrismEnd" in tbStr:
-                        tbStr = (
-                            tbStr[: tbStr.find("#>>>PrismStart")]
-                            + tbStr[tbStr.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
-                        )
+                tbStr = Integration.removeIntegration(content=tbStr)
 
                 tbStr = tbStr.replace("\n    TOPBAR_MT_prism,", "")
 

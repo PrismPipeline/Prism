@@ -139,7 +139,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.68"
+            self.version = "v1.2.1.69"
             self.requiredLibraries = "v1.2.0.0"
             self.core = self
 
@@ -890,7 +890,7 @@ class PrismCore:
             if hasattr(self, "useLocalFiles"):
                 del self.useLocalFiles
 
-            self.popup("Couldn't set project. File doesn't exist: %s" % inipath)
+            self.popup("Couldn't set project. File doesn't exist:\n\n%s" % inipath)
             return
 
         openPb = False
@@ -2039,10 +2039,11 @@ License: GNU GPL-3.0-or-later<br>
 
         abbrev = ""
         userName = userName.split()
-        if len(userName) == 2 and len(userName[0]) > 0 and len(userName[1]) > 1:
-            abbrev = (userName[0][0] + userName[1][:2]).lower()
-        elif len(userName[0]) > 2:
-            abbrev = userName[0][:3].lower()
+        if userName:
+            if len(userName) == 2 and len(userName[0]) > 0 and len(userName[1]) > 1:
+                abbrev = (userName[0][0] + userName[1][:2]).lower()
+            elif len(userName[0]) > 2:
+                abbrev = userName[0][:3].lower()
 
         return abbrev
 

@@ -1,3 +1,8 @@
+v1.2.1.69:
+- fixed an error when trying to drag media files from the Project Browser
+- fixed an error when trying to create external tasks when only a sequence was selected
+- fixed an error when the username in the Prism Settings was set empty
+
 v1.2.1.68:
 - fixed an issue that caused alembic imports to fail in 3ds Max
 - fixed an issue that no objects were exported when exporting to the .mb format with "Export whole scene" checked in Maya

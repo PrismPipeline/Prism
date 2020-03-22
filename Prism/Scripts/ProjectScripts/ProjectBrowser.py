@@ -4566,7 +4566,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if entityType == "Assets":
                 if self.curAsset:
                     basePath = self.curAsset
-            elif entityType == "Shots" and self.cursShots is not None:
+            elif entityType == "Shots" and self.splitShotname(self.cursShots)[0]:
                 basePath = os.path.join(
                     self.core.projectPath, self.scenes, "Shots", self.cursShots
                 )
@@ -6900,7 +6900,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         mData = QMimeData()
 
         mData.setUrls(urlList)
-        mData.setData("text/plain", str(urlList[0].url()))
+        mData.setData("text/plain", str(urlList[0].toLocalFile()))
         drag.setMimeData(mData)
 
         drag.exec_()

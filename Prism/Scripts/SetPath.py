@@ -64,7 +64,12 @@ class SetPath(QDialog, SetPath_ui.Ui_dlg_SetPath):
             prjName = ""
 
         self.l_description.setText(
-            "All your local scenefiles are saved in this folder.\nThis folder should be empty or should not exist.\nThe project name will NOT be appended automatically to this path.\nThis folder should be on your local hard drive and don't need to be synrchonized to any server."
+            """All your local scenefiles are saved in this folder.
+This folder should be empty or should not exist.
+The project name will NOT be appended automatically to this path.
+This folder should be on your local hard drive and don't need to be synrchonized to any server.
+
+"""
         )
 
         if platform.system() == "Windows":

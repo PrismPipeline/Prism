@@ -59,6 +59,8 @@ else:
 
 from functools import wraps
 
+from PrismUtils import Integration
+
 
 class Prism_Houdini_Integration(object):
     def __init__(self, core, plugin):
@@ -242,27 +244,13 @@ class Prism_Houdini_Integration(object):
                 with open(origRCFile, "r") as mFile:
                     initString = mFile.read()
 
-                if os.path.exists(pyrc):
-                    with open(pyrc, "r") as rcfile:
-                        content = rcfile.read()
-                    if not initString in content:
-                        if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-                            content = (
-                                content[: content.find("#>>>PrismStart")]
-                                + content[content.find("#<<<PrismEnd") + 12 :]
-                                + initString
-                            )
-                            with open(pyrc, "w") as rcfile:
-                                rcfile.write(content)
-                        else:
-                            with open(pyrc, "a") as rcfile:
-                                rcfile.write(initString)
-                else:
-                    if not os.path.exists(os.path.dirname(pyrc)):
-                        os.makedirs(os.path.dirname(pyrc))
+                if not os.path.exists(os.path.dirname(pyrc)):
+                    os.makedirs(os.path.dirname(pyrc))
 
-                    with open(pyrc, "w") as rcfile:
-                        rcfile.write(initString)
+                Integration.removeIntegration(filepath=pyrc)
+
+                with open(pyrc, "a") as rcfile:
+                    rcfile.write(initString)
 
                 addedFiles.append(pyrc)
 
@@ -336,29 +324,13 @@ class Prism_Houdini_Integration(object):
                 with open(origOpenFile, "r") as mFile:
                     openString = mFile.read()
 
-                if os.path.exists(openPath):
-                    with open(openPath, "r") as openFile:
-                        content = openFile.read()
+                if not os.path.exists(os.path.dirname(openPath)):
+                    os.makedirs(os.path.dirname(openPath))
 
-                    if not openString in content:
-                        if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-                            content = (
-                                content[: content.find("#>>>PrismStart")]
-                                + content[content.find("#<<<PrismEnd") + 12 :]
-                                + openString
-                            )
-                            with open(openPath, "w") as rcfile:
-                                rcfile.write(content)
-                        else:
-                            with open(openPath, "a") as openFile:
-                                openFile.write("\n" + openString)
-                else:
-                    if not os.path.exists(os.path.dirname(openPath)):
-                        os.makedirs(os.path.dirname(openPath))
+                Integration.removeIntegration(filepath=openPath)
 
-                    open(openPath, "a").close()
-                    with open(openPath, "w") as openFile:
-                        openFile.write(openString)
+                with open(openPath, "a") as openFile:
+                    openFile.write(openString)
 
                 addedFiles.append(openPath)
 
@@ -369,25 +341,13 @@ class Prism_Houdini_Integration(object):
                 with open(origSaveFile, "r") as mFile:
                     saveString = mFile.read()
 
-                if os.path.exists(savePath):
-                    with open(savePath, "r") as saveFile:
-                        content = saveFile.read()
+                if not os.path.exists(os.path.dirname(savePath)):
+                    os.makedirs(os.path.dirname(savePath))
 
-                    if not saveString in content:
-                        if "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-                            content = (
-                                content[: content.find("#>>>PrismStart")]
-                                + content[content.find("#<<<PrismEnd") + 12 :]
-                                + saveString
-                            )
-                            with open(savePath, "w") as rcfile:
-                                rcfile.write(content)
-                        else:
-                            with open(savePath, "a") as saveFile:
-                                saveFile.write("\n" + saveString)
-                else:
-                    with open(savePath, "w") as saveFile:
-                        saveFile.write(saveString)
+                Integration.removeIntegration(filepath=savePath)
+
+                with open(savePath, "a") as saveFile:
+                    saveFile.write(saveString)
 
                 addedFiles.append(savePath)
 
@@ -451,23 +411,7 @@ class Prism_Houdini_Integration(object):
             sceneOpen = os.path.join(installBase, "scripts", "456.py")
             sceneSave = os.path.join(installBase, "scripts", "afterscenesave.py")
 
-            for i in [prc, sceneOpen, sceneSave]:
-                if os.path.exists(i):
-                    with open(i, "r") as usFile:
-                        text = usFile.read()
-
-                    if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
-                        text = (
-                            text[: text.find("#>>>PrismStart")]
-                            + text[text.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
-                        )
-
-                        otherChars = [x for x in text if x != " "]
-                        if len(otherChars) == 0:
-                            os.remove(i)
-                        else:
-                            with open(i, "w") as usFile:
-                                usFile.write(text)
+            Integration.removeIntegrations(filepaths=[prc, sceneOpen, sceneSave])
 
             return True
 

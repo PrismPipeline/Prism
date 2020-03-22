@@ -47,6 +47,8 @@ import os, sys
 import traceback, time, platform, shutil, socket
 from functools import wraps
 
+from PrismUtils import Integration
+
 
 class Prism_Natron_Integration(object):
     def __init__(self, core, plugin):
@@ -157,36 +159,16 @@ class Prism_Natron_Integration(object):
 
             origMenuFile = os.path.join(integrationBase, "initGui.py")
             with open(origMenuFile, "r") as mFile:
-                initString = mFile.read()
+                initStr = mFile.read()
 
             initFile = os.path.join(natronpath, "initGui.py")
+            Integration.removeIntegration(filepath=initFile)
 
-            writeInit = True
-            if os.path.exists(initFile):
-                with open(initFile, "r") as mFile:
-                    fileContent = mFile.read()
-                if initString in fileContent:
-                    writeInit = False
-                elif "#>>>PrismStart" in fileContent and "#<<<PrismEnd" in fileContent:
-                    fileContent = (
-                        fileContent[: fileContent.find("#>>>PrismStart")]
-                        + fileContent[fileContent.find("#<<<PrismEnd") + 12 :]
-                    )
-                    with open(initFile, "w") as mFile:
-                        mFile.write(fileContent)
-
-            if writeInit:
-                with open(initFile, "a") as initfile:
-                    initfile.write(initString)
-
-            with open(initFile, "r") as init:
-                initStr = init.read()
-
-            with open(initFile, "w") as init:
+            with open(initFile, "a") as initfile:
                 initStr = initStr.replace(
                     "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
                 )
-                init.write(initStr)
+                initfile.write(initStr)
 
             addedFiles.append(initFile)
 
@@ -229,26 +211,15 @@ class Prism_Natron_Integration(object):
     def removeIntegration(self, installPath):
         try:
             gizmo = os.path.join(installPath, "WritePrism.py")
+            gizmoc = os.path.join(installPath, "WritePrism.pyc")
             gizmoIcon = os.path.join(installPath, "WritePrism.png")
 
-            for i in [gizmo, gizmoIcon]:
+            for i in [gizmo, gizmoc, gizmoIcon]:
                 if os.path.exists(i):
                     os.remove(i)
 
             initFile = os.path.join(installPath, "initGui.py")
-
-            for i in [initFile]:
-                if os.path.exists(i):
-                    with open(i, "r") as usFile:
-                        text = usFile.read()
-
-                    if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
-                        text = (
-                            text[: text.find("#>>>PrismStart")]
-                            + text[text.find("#<<<PrismEnd") + len("#<<<PrismEnd") :]
-                        )
-                        with open(i, "w") as usFile:
-                            usFile.write(text)
+            Integration.removeIntegration(filepath=initFile)
 
             return True
 
