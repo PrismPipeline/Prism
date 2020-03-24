@@ -779,27 +779,15 @@ class Prism_Photoshop_Functions(object):
                 + extension
             )
         elif fnameData["entity"] == "asset":
-            if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-                outputPath = os.path.join(
-                    self.core.fixPath(basePath),
-                    sceneDir,
-                    "Assets",
+            base = self.core.getEntityBasePath(fileName)
+            outputPath = os.path.abspath(
+                os.path.join(
+                    base,
                     "Rendering",
                     "2dRender",
                     self.le_task.text(),
                 )
-            else:
-                outputPath = os.path.abspath(
-                    os.path.join(
-                        fileName,
-                        os.pardir,
-                        os.pardir,
-                        os.pardir,
-                        "Rendering",
-                        "2dRender",
-                        self.le_task.text(),
-                    )
-                )
+            )
             if hVersion == "":
                 hVersion = self.core.getHighestTaskVersion(outputPath)
 

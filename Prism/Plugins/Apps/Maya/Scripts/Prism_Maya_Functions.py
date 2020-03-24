@@ -2026,7 +2026,14 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                             break
                         except:
                             pass
+
+                    oldFname = cmds.referenceQuery(refNode, filename=True)
+                    oldNs = cmds.referenceQuery(refNode, namespace=True)
+                    oldf = os.path.splitext(os.path.basename(oldFname))[0].replace("-", "_")
                     cmds.file(impFileName, loadReference=refNode)
+                    if oldNs == (":" + oldf):
+                        newNs = fileName[0].replace("-", "_")
+                        cmds.file(impFileName, e=True, namespace=newNs)
                     importedNodes = [refNode]
                 else:
                     origin.preDelete(

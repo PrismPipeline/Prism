@@ -1,3 +1,7 @@
+v1.2.1.70
+- when updating references in Maya, the namespace will be updated too if the reference was using the default namespace
+- fixed an issue that Photoshop exports were exported to a wrong location when the scene was saved under assets
+
 v1.2.1.69:
 - fixed an error when trying to drag media files from the Project Browser
 - fixed an error when trying to create external tasks when only a sequence was selected
