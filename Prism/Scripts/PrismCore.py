@@ -139,7 +139,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.2.1.70"
+            self.version = "v1.2.1.71"
             self.requiredLibraries = "v1.2.0.0"
             self.core = self
 
@@ -672,11 +672,10 @@ class PrismCore:
         if result is not None:
             return result
 
-        if not "silent" in self.prismArgs:
+        if "silent" not in self.prismArgs and self.uiAvailable:
             curPrj = self.getConfig("globals", "current project")
-            if (curPrj is None or curPrj == "") and self.getConfig(
-                "globals", "showonstartup", ptype="bool"
-            ) != False:
+            autoStart = self.getConfig("globals", "showonstartup", ptype="bool")
+            if not curPrj and autoStart is not False:
                 self.setProject(startup=True, openUi="projectBrowser")
 
         if "prism_project" in os.environ and os.path.exists(
@@ -689,8 +688,8 @@ class PrismCore:
         if curPrj != "":
             self.changeProject(curPrj)
             if (
-                not "silent" in self.prismArgs
-                and self.getConfig("globals", "showonstartup", ptype="bool") != False
+                "silent" not in self.prismArgs
+                and self.getConfig("globals", "showonstartup", ptype="bool") is not False
                 and self.uiAvailable
             ):
                 self.projectBrowser()
@@ -2188,19 +2187,14 @@ License: GNU GPL-3.0-or-later<br>
                 userConfig.read(configPath)
         except:
             if isUserIni:
-                warnStr = "The Prism preferences file seems to be corrupt.\n\nIt will be reset, which means all local Prism settings will fall back to their defaults.\nYou will need to set your last project again, but no project files (like scenefiles or renderings) are lost."
+                warnStr = """The Prism preferences file seems to be corrupt.
+
+It will be reset, which means all local Prism settings will fall back to their defaults.
+You will need to set your last project again, but no project files (like scenefiles or renderings) are lost."""
             else:
                 warnStr = "Cannot read the following file:\n\n%s" % configPath
 
-            msg = QMessageBox(
-                QMessageBox.Warning,
-                "Warning",
-                warnStr,
-                QMessageBox.Ok,
-                parent=self.messageParent,
-            )
-            msg.setFocus()
-            action = msg.exec_()
+            self.popup(warnStr)
 
             if isUserIni:
                 self.createUserPrefs()

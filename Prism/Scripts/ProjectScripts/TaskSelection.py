@@ -337,15 +337,17 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 path = self.lw_tasks.currentItem().data(Qt.UserRole)[0]
             else:
                 pathC = self.tw_versions.model().columnCount() - 1
-                path = os.path.dirname(
-                    self.tw_versions.model().index(row, pathC).data()
-                )
+                path = self.tw_versions.model().index(row, pathC).data()
                 showInfo = True
 
         rcmenu = QMenu()
         openex = QAction("Open in Explorer", self)
         openex.triggered.connect(lambda: self.core.openFolder(path))
         rcmenu.addAction(openex)
+
+        copAct = QAction("Copy path", self)
+        copAct.triggered.connect(lambda: self.core.copyToClipboard(path))
+        rcmenu.addAction(copAct)
 
         if showInfo:
             infoAct = QAction("Show version info", self)
@@ -496,14 +498,13 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 if len(tasks) == 0:
                     continue
 
-                relPath = assetPath.replace(
-                    os.path.join(basePath, sceneDir, "Assets"), ""
-                )
+                assetBase = os.path.join(basePath, sceneDir, "Assets")
+                relPath = assetPath.replace(assetBase, "")
                 pathData = relPath.split(os.sep)[1:]
 
                 lastItem = None
                 for idx, val in enumerate(pathData):
-                    curPath = assetPath.replace(relPath, "")
+                    curPath = assetBase
                     for k in range(idx + 1):
                         curPath = os.path.join(curPath, pathData[k])
 

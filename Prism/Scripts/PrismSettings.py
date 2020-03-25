@@ -918,6 +918,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 lw_integ.setSizePolicy(
                     QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
                 )
+                lw_integ.setContextMenuPolicy(Qt.CustomContextMenu)
+                lw_integ.customContextMenuRequested.connect(lambda x, y=lw_integ: self.contextMenuIntegration(x, y))
 
                 self.integrationPlugins[i] = {
                     "lw": lw_integ,
@@ -951,6 +953,27 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.chb_trayStartup.setText(self.chb_trayStartup.text() + " (change requires root permissions)")
 
         self.core.callback(name="prismSettings_loadUI", types=["custom", "prjManagers"], args=[self])
+
+    @err_decorator(name="PrismSettings")
+    def contextMenuIntegration(self, pos, listwidget):
+        item = listwidget.itemFromIndex(listwidget.indexAt(pos))
+        if not item:
+            return
+
+        path = item.text()
+
+        rcmenu = QMenu()
+        openex = QAction("Open in Explorer", self)
+        openex.triggered.connect(lambda: self.core.openFolder(path))
+        rcmenu.addAction(openex)
+
+        copAct = QAction("Copy path", self)
+        copAct.triggered.connect(lambda: self.core.copyToClipboard(path))
+        rcmenu.addAction(copAct)
+
+        self.core.appPlugin.setRCStyle(self, rcmenu)
+
+        rcmenu.exec_(QCursor.pos())
 
     @err_decorator(name="PrismSettings")
     def refreshIntegrations(self):

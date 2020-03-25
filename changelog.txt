@@ -1,4 +1,9 @@
-v1.2.1.70
+v1.2.1.71:
+- added a "Open in explorer" and "Copy path" context menu to the integration lists in the Prism Settings
+- added a "Copy path" option to the context menus in the "Inport Task" dialog
+- fixed a bug that in rare cases assets didn't have any tasks in the "Import Task" dialog
+
+v1.2.1.70:
 - when updating references in Maya, the namespace will be updated too if the reference was using the default namespace
 - fixed an issue that Photoshop exports were exported to a wrong location when the scene was saved under assets
 
