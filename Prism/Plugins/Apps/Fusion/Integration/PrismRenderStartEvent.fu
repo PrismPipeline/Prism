@@ -8,7 +8,8 @@
                     [=[
                     fusion:GetCurrentComp():Execute([[
                     !Py: ""
-                    import os, sys, platform
+                    import os
+                    import sys
 
                     prismRoot = PRISMROOT
                         

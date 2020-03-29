@@ -31,6 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -42,18 +45,6 @@ except:
     from PySide.QtGui import *
 
     psVersion = 1
-
-import sys, os, traceback, time, platform
-from functools import wraps
-
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-
-    pVersion = 3
-else:
-    from ConfigParser import ConfigParser
-
-    pVersion = 2
 
 sys.path.append(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "UserInterfaces")
@@ -68,6 +59,8 @@ if psVersion == 1:
     import SlaveAssignment_ui
 else:
     import SlaveAssignment_ui_ps2 as SlaveAssignment_ui
+
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class SlaveAssignment(QDialog, SlaveAssignment_ui.Ui_dlg_SlaveAssignment):
@@ -110,24 +103,7 @@ class SlaveAssignment(QDialog, SlaveAssignment_ui.Ui_dlg_SlaveAssignment):
         else:
             self.rb_custom.setChecked(True)
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - SlaveAssignment %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.lw_slaves.itemSelectionChanged.connect(self.selectionChanged)
         self.lw_slaves.itemDoubleClicked.connect(self.accept)
@@ -135,7 +111,7 @@ class SlaveAssignment(QDialog, SlaveAssignment_ui.Ui_dlg_SlaveAssignment):
         self.rb_group.clicked.connect(lambda: self.optionChanged("group"))
         self.rb_custom.clicked.connect(lambda: self.optionChanged("custom"))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSlaves(self):
         self.lw_slaves.clear()
 
@@ -154,7 +130,7 @@ class SlaveAssignment(QDialog, SlaveAssignment_ui.Ui_dlg_SlaveAssignment):
             gLayout.addWidget(chbGroup)
             self.slaveGroups.append(chbGroup)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectionChanged(self):
         if (
             len(self.lw_slaves.selectedItems()) == self.lw_slaves.count()
@@ -164,14 +140,14 @@ class SlaveAssignment(QDialog, SlaveAssignment_ui.Ui_dlg_SlaveAssignment):
 
         self.rb_custom.setChecked(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def optionChanged(self, option):
         if option == "all":
             self.lw_slaves.selectAll()
         elif option == "group":
             self.selectGroups()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def groupToogled(self, checked=False):
         self.activeGroups = []
 
@@ -185,7 +161,7 @@ class SlaveAssignment(QDialog, SlaveAssignment_ui.Ui_dlg_SlaveAssignment):
             self.lw_slaves.clearSelection()
             self.rb_group.setChecked(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectGroups(self):
         self.lw_slaves.clearSelection()
         if len(self.activeGroups) > 0:

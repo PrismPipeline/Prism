@@ -1,4 +1,5 @@
-import os, sys, platform
+import os
+import sys
 
 
 def prismInit():

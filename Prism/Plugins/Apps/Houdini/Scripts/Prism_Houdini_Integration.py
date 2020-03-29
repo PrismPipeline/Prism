@@ -30,21 +30,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
+import sys
+import platform
+import shutil
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
-    psVersion = 1
-
-import os, sys
-import traceback, time, platform, shutil, socket
 
 if platform.system() == "Windows":
     if sys.version[0] == "3":
@@ -52,14 +49,7 @@ if platform.system() == "Windows":
     else:
         import _winreg
 
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-else:
-    from ConfigParser import ConfigParser
-
-from functools import wraps
-
-from PrismUtils import Integration
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Houdini_Integration(object):
@@ -91,34 +81,7 @@ class Prism_Houdini_Integration(object):
                     self.examplePath = path
                     break
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Houdini_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                if hasattr(args[0].core, "writeErrorLog"):
-                    args[0].core.writeErrorLog(erStr)
-                else:
-                    QMessageBox.warning(
-                        args[0].core.messageParent, "Prism Integration", erStr
-                    )
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getExecutable(self):
         execPath = ""
         if platform.system() == "Windows":
@@ -128,7 +91,7 @@ class Prism_Houdini_Integration(object):
 
         return execPath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getHoudiniPath(self):
         try:
             key = _winreg.OpenKey(
@@ -151,56 +114,18 @@ class Prism_Houdini_Integration(object):
         except:
             return ""
 
-    @err_decorator
-    def integrationAdd(self, origin):
-        path = QFileDialog.getExistingDirectory(
-            self.core.messageParent, "Select Houdini folder", self.examplePath
-        )
-
-        if path == "":
-            return False
-
-        if type(origin).__name__ == "PrismSettings":
-            package = origin.chb_houPackage.isChecked()
-            result = self.writeHoudiniFiles(path, package=package)
-        else:
-            result = self.writeHoudiniFiles(path)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was added successfully",
-            )
-            return path
-
-        return result
-
-    @err_decorator
-    def integrationRemove(self, origin, installPath):
-        result = self.removeIntegration(installPath)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was removed successfully",
-            )
-
-        return result
-
-    def writeHoudiniFiles(self, houdiniPath, package=True):
+    def addIntegration(self, installPath):
         try:
 
             # python rc
-            pyrc = os.path.join(houdiniPath, "python2.7libs", "pythonrc.py")
+            pyrc = os.path.join(installPath, "python2.7libs", "pythonrc.py")
 
-            if not os.path.exists(houdiniPath):
+            if not os.path.exists(installPath):
                 msg = QMessageBox(
                     QMessageBox.Warning,
                     "Prism Installation",
                     "Invalid Houdini path: %s.\n\nThe path has to be the Houdini preferences folder, which usually looks like this: (with your Houdini version):\n\n%s"
-                    % (houdiniPath, self.examplePath),
+                    % (installPath, self.examplePath),
                     QMessageBox.Ok,
                 )
                 msg.setFocus()
@@ -209,147 +134,30 @@ class Prism_Houdini_Integration(object):
 
             addedFiles = []
 
-            if package:
-                integrationBase = os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)), "Integration"
+            integrationBase = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "Integration"
+            )
+
+            packagePath = os.path.join(installPath, "packages", "Prism.json")
+
+            if os.path.exists(packagePath):
+                os.remove(packagePath)
+
+            if not os.path.exists(os.path.dirname(packagePath)):
+                os.makedirs(os.path.dirname(packagePath))
+
+            origpackagePath = os.path.join(integrationBase, "Prism.json")
+            shutil.copy2(origpackagePath, packagePath)
+            addedFiles.append(packagePath)
+
+            with open(packagePath, "r") as init:
+                initStr = init.read()
+
+            with open(packagePath, "w") as init:
+                initStr = initStr.replace(
+                    "PRISMROOT", "%s" % self.core.prismRoot.replace("\\", "/")
                 )
-
-                packagePath = os.path.join(houdiniPath, "packages", "Prism.json")
-
-                if os.path.exists(packagePath):
-                    os.remove(packagePath)
-
-                if not os.path.exists(os.path.dirname(packagePath)):
-                    os.makedirs(os.path.dirname(packagePath))
-
-                origpackagePath = os.path.join(integrationBase, "Prism.json")
-                shutil.copy2(origpackagePath, packagePath)
-                addedFiles.append(packagePath)
-
-                with open(packagePath, "r") as init:
-                    initStr = init.read()
-
-                with open(packagePath, "w") as init:
-                    initStr = initStr.replace(
-                        "PRISMROOT", "%s" % self.core.prismRoot.replace("\\", "/")
-                    )
-                    init.write(initStr)
-
-            else:
-                integrationBase = os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)), "IntegrationOld"
-                )
-
-                origRCFile = os.path.join(integrationBase, "pythonrc.py")
-                with open(origRCFile, "r") as mFile:
-                    initString = mFile.read()
-
-                if not os.path.exists(os.path.dirname(pyrc)):
-                    os.makedirs(os.path.dirname(pyrc))
-
-                Integration.removeIntegration(filepath=pyrc)
-
-                with open(pyrc, "a") as rcfile:
-                    rcfile.write(initString)
-
-                addedFiles.append(pyrc)
-
-                # prismInit
-                initpath = os.path.join(os.path.dirname(pyrc), "PrismInit.py")
-
-                if os.path.exists(initpath):
-                    os.remove(initpath)
-
-                if os.path.exists(initpath + "c"):
-                    os.remove(initpath + "c")
-
-                origInitFile = os.path.join(integrationBase, "PrismInit.py")
-                shutil.copy2(origInitFile, initpath)
-                addedFiles.append(initpath)
-
-                with open(initpath, "r") as init:
-                    initStr = init.read()
-
-                with open(initpath, "w") as init:
-                    initStr = initStr.replace(
-                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
-                    )
-                    init.write(initStr)
-
-                # shelf
-                shelfpath = os.path.join(houdiniPath, "toolbar", "Prism.shelf")
-
-                if os.path.exists(shelfpath):
-                    os.remove(shelfpath)
-
-                origShelfFile = os.path.join(integrationBase, "Prism.shelf")
-                shutil.copy2(origShelfFile, shelfpath)
-                addedFiles.append(shelfpath)
-
-                iconPathSave = os.path.join(
-                    houdiniPath, "config", "Icons", "prismSave.png"
-                )
-                iconPathSaveComment = os.path.join(
-                    houdiniPath, "config", "Icons", "prismSaveComment.png"
-                )
-                iconPathBrowser = os.path.join(
-                    houdiniPath, "config", "Icons", "prismBrowser.png"
-                )
-                iconPathStates = os.path.join(
-                    houdiniPath, "config", "Icons", "prismStates.png"
-                )
-                iconPathSettings = os.path.join(
-                    houdiniPath, "config", "Icons", "prismSettings.png"
-                )
-                icons = [
-                    iconPathSave,
-                    iconPathSaveComment,
-                    iconPathBrowser,
-                    iconPathStates,
-                    iconPathSettings,
-                ]
-
-                for icon in icons:
-                    if os.path.exists(icon):
-                        os.remove(icon)
-
-                    origIconFile = os.path.join(integrationBase, os.path.basename(icon))
-                    shutil.copy2(origIconFile, icon)
-                    addedFiles.append(icon)
-
-                # openScene callback
-                openPath = os.path.join(houdiniPath, "scripts", "456.py")
-
-                origOpenFile = os.path.join(integrationBase, "456.py")
-                with open(origOpenFile, "r") as mFile:
-                    openString = mFile.read()
-
-                if not os.path.exists(os.path.dirname(openPath)):
-                    os.makedirs(os.path.dirname(openPath))
-
-                Integration.removeIntegration(filepath=openPath)
-
-                with open(openPath, "a") as openFile:
-                    openFile.write(openString)
-
-                addedFiles.append(openPath)
-
-                # saveScene callback
-                savePath = os.path.join(houdiniPath, "scripts", "afterscenesave.py")
-
-                origSaveFile = os.path.join(integrationBase, "afterscenesave.py")
-                with open(origSaveFile, "r") as mFile:
-                    saveString = mFile.read()
-
-                if not os.path.exists(os.path.dirname(savePath)):
-                    os.makedirs(os.path.dirname(savePath))
-
-                Integration.removeIntegration(filepath=savePath)
-
-                with open(savePath, "a") as saveFile:
-                    saveFile.write(saveString)
-
-                addedFiles.append(savePath)
+                init.write(initStr)
 
             if platform.system() in ["Linux", "Darwin"]:
                 for i in addedFiles:
@@ -411,9 +219,9 @@ class Prism_Houdini_Integration(object):
             sceneOpen = os.path.join(installBase, "scripts", "456.py")
             sceneSave = os.path.join(installBase, "scripts", "afterscenesave.py")
 
-            Integration.removeIntegrations(filepaths=[prc, sceneOpen, sceneSave])
-
-            return True
+            result = self.core.integration.removeIntegrationData(filepath=[prc, sceneOpen, sceneSave])
+            if result is not None:
+                return True
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -450,54 +258,12 @@ class Prism_Houdini_Integration(object):
             )
             return False
 
-    def installerExecute(self, houItem, result, locFile):
+    def installerExecute(self, houItem, result):
         try:
-            locConfig = ConfigParser()
-            if os.path.exists(locFile):
-                try:
-                    locConfig.read(locFile)
-                except:
-                    pass
-
-            if locConfig.has_section("Houdini"):
-                existingPaths = []
-                removedInt = False
-                opt = locConfig.options("Houdini")
-                for i in opt:
-                    removeInt = False
-                    path = locConfig.get("Houdini", i)
-                    if (
-                        platform.system() == "Windows"
-                        and "Side Effects Software" in path
-                    ):
-                        removeInt = True
-                    elif platform.system() == "Linux" and "/opt/hfs" in path:
-                        removeInt = True
-                    elif (
-                        platform.system() == "Darwin"
-                        and "/Applications/Houdini/" in path
-                    ):
-                        removeInt = True
-
-                    if removeInt:
-                        self.removeIntegration(path)
-                        removedInt = True
-                    else:
-                        existingPaths.append(path)
-
-                    locConfig.remove_option("Houdini", i)
-
-                if removedInt:
-                    for idx, i in enumerate(existingPaths):
-                        locConfig.set("Houdini", "%02d" % idx, i)
-
-                    with open(locFile, "w") as inifile:
-                        locConfig.write(inifile)
-
             installLocs = []
 
             if houItem.checkState(0) == Qt.Checked and os.path.exists(houItem.text(1)):
-                result["Houdini integration"] = self.writeHoudiniFiles(houItem.text(1))
+                result["Houdini integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=houItem.text(1), quiet=True)
                 if result["Houdini integration"]:
                     installLocs.append(houItem.text(1))
 

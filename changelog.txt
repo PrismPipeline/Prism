@@ -1,3 +1,11 @@
+v1.2.1.72:
+- changed the default for the setting "Alembic - Update path only" of import states to unchecked in 3ds Max, Maya and Blender
+- updating Prism to a newer version reinstalls now all Prism DCC integrations as well
+- removed the deprecated option to add the Houdini Prism integration without using a package file
+- fixed a bug, which could cause an error when running Houdini in command line mode (like in Deadline)
+- fixed a bug that linked collections in Blender couldn't use library overrides
+- code cleanup and minor improvements
+
 v1.2.1.71:
 - added a "Open in explorer" and "Copy path" context menu to the integration lists in the Prism Settings
 - added a "Copy path" option to the context menus in the "Inport Task" dialog

@@ -31,6 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import platform
+import shutil
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,15 +48,13 @@ except:
 
     psVersion = 1
 
-import os, sys
-import traceback, time, platform, shutil, socket
-from functools import wraps
-
 if platform.system() == "Windows":
     if sys.version[0] == "3":
         import winreg as _winreg
     else:
         import _winreg
+
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_3dsMax_Integration(object):
@@ -64,34 +67,7 @@ class Prism_3dsMax_Integration(object):
                 os.environ["localappdata"] + "\\Autodesk\\3dsMax\\2020 - 64bit"
             )
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_3dsMax_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                if hasattr(args[0].core, "writeErrorLog"):
-                    args[0].core.writeErrorLog(erStr)
-                else:
-                    QMessageBox.warning(
-                        args[0].core.messageParent, "Prism Integration", erStr
-                    )
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getExecutable(self):
         execPath = ""
         if platform.system() == "Windows":
@@ -115,55 +91,15 @@ class Prism_3dsMax_Integration(object):
 
         return execPath
 
-    @err_decorator
-    def integrationAdd(self, origin):
-        path = QFileDialog.getExistingDirectory(
-            self.core.messageParent,
-            "Select 3dsMax folder",
-            os.path.dirname(self.examplePath),
-        )
-
-        if path == "":
-            return False
-
-        result = self.writeMaxFiles(path)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was added successfully",
-            )
-            return path
-
-        return result
-
-    @err_decorator
-    def integrationRemove(self, origin, installPath):
-        result = self.removeIntegration(installPath)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was removed successfully",
-            )
-
-        return result
-
-    def writeMaxFiles(self, installPath):
+    def addIntegration(self, installPath):
         try:
             maxpath = os.path.join(installPath, "ENU", "scripts", "startup")
 
             if not os.path.exists(maxpath) or not os.path.exists(
                 os.path.join(os.path.dirname(os.path.dirname(maxpath)), "usermacros")
             ):
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Prism Integration",
-                    "Invalid 3dsMax path:\n%s.\n\nThe path has to be the 3dsMax preferences folder, which usually looks like this: (with your username and 3dsMax version):\n\n%s"
-                    % (installPath, self.examplePath),
-                )
+                msgStr = "Invalid 3dsMax path:\n%s.\n\nThe path has to be the 3dsMax preferences folder, which usually looks like this: (with your username and 3dsMax version):\n\n%s" % (installPath, self.examplePath)
+                self.core.popup(msgStr, title="Prism Integration")
                 return False
 
             integrationBase = os.path.join(
@@ -347,7 +283,7 @@ deleteFile curPath
             )
             return False
 
-    def installerExecute(self, maxItem, result, locFile):
+    def installerExecute(self, maxItem, result):
         try:
             maxPaths = []
             installLocs = []
@@ -361,7 +297,7 @@ deleteFile curPath
                     maxPaths.append(item.text(1))
 
             for i in maxPaths:
-                result["3dsMax integration"] = self.writeMaxFiles(i)
+                result["3dsMax integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=i, quiet=True)
                 if result["3dsMax integration"]:
                     installLocs.append(i)
 

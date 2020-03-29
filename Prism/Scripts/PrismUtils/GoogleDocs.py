@@ -55,7 +55,7 @@ if gLibs not in sys.path:
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class GoogleDocs(QDialog):
@@ -64,7 +64,7 @@ class GoogleDocs(QDialog):
         self.core = core
         self.authorize(authorizationfile)
 
-    @err_decorator(name="GoogleDocs")
+    @err_catcher(name=__name__)
     def authorize(self, authorizationfile):
         scope = [
             "https://spreadsheets.google.com/feeds",
@@ -75,7 +75,7 @@ class GoogleDocs(QDialog):
         )
         self.client = gspread.authorize(creds)
 
-    @err_decorator(name="GoogleDocs")
+    @err_catcher(name=__name__)
     def getRows(self, docName, sheetName, columns, fromRow=-1, toRow=-1):
         sheet = self.client.open(docName).worksheet(sheetName)
         colVals = []

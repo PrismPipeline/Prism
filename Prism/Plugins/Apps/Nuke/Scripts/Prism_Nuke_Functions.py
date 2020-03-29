@@ -31,22 +31,22 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import platform
+import random
+
 import nuke
-import os, sys
-import traceback, time, platform, random
-from functools import wraps
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Nuke_Functions(object):
@@ -54,29 +54,7 @@ class Prism_Nuke_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Nuke - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         origin.timer.stop()
 
@@ -104,7 +82,7 @@ class Prism_Nuke_Functions(object):
         self.isRendering = [False, ""]
         self.useLastVersion = False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def addMenus(self):
         nuke.menu("Nuke").addCommand("Prism/Save Version", self.core.saveScene)
         nuke.menu("Nuke").addCommand("Prism/Save Comment", self.core.saveWithComment)
@@ -121,16 +99,16 @@ class Prism_Nuke_Functions(object):
         toolbar.addMenu("Prism", icon=iconPath)
         toolbar.addCommand("Prism/WritePrism", lambda: nuke.createNode("WritePrism"))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         if hasattr(origin, "asThread") and origin.asThread.isRunning():
             origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, preventError=False):
         if preventError:
             try:
@@ -141,7 +119,7 @@ class Prism_Nuke_Functions(object):
         else:
             return eval(code)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         try:
             currentFileName = nuke.root().name()
@@ -153,42 +131,42 @@ class Prism_Nuke_Functions(object):
 
         return currentFileName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         try:
             return nuke.scriptSaveAs(filename=filepath)
         except:
             return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = nuke.knob("root.first_frame")
         endframe = nuke.knob("root.last_frame")
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         nuke.root().knob("first_frame").setValue(startFrame)
         nuke.root().knob("last_frame").setValue(endFrame)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return nuke.knob("root.fps")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         return nuke.knob("root.fps", str(fps))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateNukeNodes(self):
         updatedNodes = []
 
@@ -217,7 +195,7 @@ class Prism_Nuke_Functions(object):
 
             QMessageBox.information(self.core.messageParent, "Information", mStr)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getOutputPath(self, node, group, render=False):
         try:
             taskName = group.knob("task").evaluate()
@@ -237,7 +215,7 @@ class Prism_Nuke_Functions(object):
 
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startRender(self, node, group, useLastVersion=False):
         taskName = group.knob("task").evaluate()
 
@@ -281,24 +259,24 @@ class Prism_Nuke_Functions(object):
 
         self.useLastVersion = False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return nuke.NUKE_VERSION_STRING
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.loadOiio()
         origin.actionStateManager.setEnabled(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False
@@ -312,19 +290,19 @@ class Prism_Nuke_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def importImages(self, origin):
         fString = "Please select an import option:"
         msg = QMessageBox(
@@ -345,7 +323,7 @@ class Prism_Nuke_Functions(object):
         else:
             return
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nukeImportSource(self, origin):
         sourceData = origin.compGetImportSource()
 
@@ -360,7 +338,7 @@ class Prism_Nuke_Functions(object):
                 False,
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nukeImportPasses(self, origin):
         sourceData = origin.compGetImportPasses()
 
@@ -375,7 +353,7 @@ class Prism_Nuke_Functions(object):
                 False,
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nukeLayout(self, origin):
         allExistingNodes = nuke.allNodes()
         try:
@@ -632,7 +610,7 @@ class Prism_Nuke_Functions(object):
                 label="<center><b>" + "Utilities" + "</b><c/enter>",
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createBeautyPass(
         self,
         origin,
@@ -700,7 +678,7 @@ class Prism_Nuke_Functions(object):
         # current nukeIdxNode
         self.nukeIdxNode = curReadNode
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createComponentPass(
         self,
         origin,
@@ -797,7 +775,7 @@ class Prism_Nuke_Functions(object):
         # current nukeIdxNode
         self.nukeIdxNode = mergeNode2
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createMaskPass(
         self, origin, filePath, firstFrame, lastFrame, nukeXPos, nukeSetupWidth, idx
     ):
@@ -856,7 +834,7 @@ class Prism_Nuke_Functions(object):
             self.maskNodes.append(greenShuffle)
             self.maskNodes.append(blueShuffle)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createUtilityPass(
         self, origin, filePath, firstFrame, lastFrame, nukeXPos, nukeSetupWidth, idx
     ):
@@ -881,22 +859,22 @@ class Prism_Nuke_Functions(object):
 
         self.utilityNodes.append(curReadNode)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass

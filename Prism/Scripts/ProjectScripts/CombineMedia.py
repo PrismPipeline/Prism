@@ -53,7 +53,7 @@ if psVersion == 1:
 else:
     import CombineMedia_ui_ps2 as CombineMedia_ui
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
@@ -95,7 +95,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         self.connectEvents()
         self.e_output.setFocus()
 
-    @err_decorator(name="MediaCombine")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.b_browse.clicked.connect(self.browseCombineOutputFile)
         self.b_browse.customContextMenuRequested.connect(
@@ -107,7 +107,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         self.b_tasks.clicked.connect(self.showTasks)
         self.accepted.connect(self.combine)
 
-    @err_decorator(name="MediaCombine")
+    @err_catcher(name=__name__)
     def showTasks(self):
         tmenu = QMenu()
 
@@ -120,7 +120,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
 
         tmenu.exec_(QCursor.pos())
 
-    @err_decorator(name="MediaCombine")
+    @err_catcher(name=__name__)
     def combine(self):
         output = self.e_output.text()
 
@@ -348,7 +348,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                 "Media combine", "The video could not be created.", [stdout, stderr]
             )
 
-    @err_decorator(name="MediaCombine")
+    @err_catcher(name=__name__)
     def browseCombineOutputFile(self):
         path = QFileDialog.getSaveFileName(
             self, "Select Outputfile", self.e_output.text(), "Video (*.mp4)"
@@ -356,7 +356,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         if path != "":
             self.e_output.setText(path)
 
-    @err_decorator(name="MediaCombine")
+    @err_catcher(name=__name__)
     def getTasks(self):
         taskList = self.core.getTaskNames(self.taskType)
 

@@ -37,13 +37,9 @@ try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
-    psVersion = 1
 
 
 label = "Redshift"

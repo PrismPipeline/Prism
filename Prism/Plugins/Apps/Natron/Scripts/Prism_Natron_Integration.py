@@ -31,23 +31,20 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import platform
+import shutil
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
-import os, sys
-import traceback, time, platform, shutil, socket
-from functools import wraps
-
-from PrismUtils import Integration
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Natron_Integration(object):
@@ -72,34 +69,7 @@ class Prism_Natron_Integration(object):
             )
             self.examplePath = "/Users/%s/.Natron" % userName
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Natron_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                if hasattr(args[0].core, "writeErrorLog"):
-                    args[0].core.writeErrorLog(erStr)
-                else:
-                    QMessageBox.warning(
-                        args[0].core.messageParent, "Prism Integration", erStr
-                    )
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getExecutable(self):
         execPath = ""
         if platform.system() == "Windows":
@@ -107,47 +77,13 @@ class Prism_Natron_Integration(object):
 
         return execPath
 
-    @err_decorator
-    def integrationAdd(self, origin):
-        path = QFileDialog.getExistingDirectory(
-            self.core.messageParent, "Select Natron folder", self.examplePath
-        )
-
-        if path == "":
-            return False
-
-        result = self.writeNatronFiles(path)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was added successfully",
-            )
-            return path
-
-        return result
-
-    @err_decorator
-    def integrationRemove(self, origin, installPath):
-        result = self.removeIntegration(installPath)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was removed successfully",
-            )
-
-        return result
-
-    def writeNatronFiles(self, natronpath):
+    def addIntegration(self, installPath):
         try:
-            if not os.path.exists(natronpath):
+            if not os.path.exists(installPath):
                 QMessageBox.warning(
                     self.core.messageParent,
                     "Prism Integration",
-                    "Invalid Natron path: %s.\nThe path doesn't exist." % natronpath,
+                    "Invalid Natron path: %s.\nThe path doesn't exist." % installPath,
                     QMessageBox.Ok,
                 )
                 return False
@@ -161,8 +97,8 @@ class Prism_Natron_Integration(object):
             with open(origMenuFile, "r") as mFile:
                 initStr = mFile.read()
 
-            initFile = os.path.join(natronpath, "initGui.py")
-            Integration.removeIntegration(filepath=initFile)
+            initFile = os.path.join(installPath, "initGui.py")
+            self.core.integration.removeIntegrationData(filepath=initFile)
 
             with open(initFile, "a") as initfile:
                 initStr = initStr.replace(
@@ -173,7 +109,7 @@ class Prism_Natron_Integration(object):
             addedFiles.append(initFile)
 
             wPrismFile = os.path.join(integrationBase, "WritePrism.py")
-            wPrismtFile = os.path.join(natronpath, "WritePrism.py")
+            wPrismtFile = os.path.join(installPath, "WritePrism.py")
 
             if os.path.exists(wPrismtFile):
                 os.remove(wPrismtFile)
@@ -182,7 +118,7 @@ class Prism_Natron_Integration(object):
             addedFiles.append(wPrismtFile)
 
             wPrismIcon = os.path.join(integrationBase, "WritePrism.png")
-            wPrismtIcon = os.path.join(natronpath, "WritePrism.png")
+            wPrismtIcon = os.path.join(installPath, "WritePrism.png")
 
             if os.path.exists(wPrismtIcon):
                 os.remove(wPrismtIcon)
@@ -219,7 +155,7 @@ class Prism_Natron_Integration(object):
                     os.remove(i)
 
             initFile = os.path.join(installPath, "initGui.py")
-            Integration.removeIntegration(filepath=initFile)
+            self.core.integration.removeIntegrationData(filepath=initFile)
 
             return True
 
@@ -257,14 +193,14 @@ class Prism_Natron_Integration(object):
             )
             return False
 
-    def installerExecute(self, natronItem, result, locFile):
+    def installerExecute(self, natronItem, result):
         try:
             installLocs = []
 
             if natronItem.checkState(0) == Qt.Checked and os.path.exists(
                 natronItem.text(1)
             ):
-                result["Natron integration"] = self.writeNatronFiles(natronItem.text(1))
+                result["Natron integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=natronItem.text(1), quiet=True)
                 if result["Natron integration"]:
                     installLocs.append(natronItem.text(1))
 

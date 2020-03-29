@@ -31,8 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, traceback, time, subprocess, platform, random, string, shutil, socket
-from functools import wraps
+import os
+import sys
 
 try:
     import hou
@@ -55,6 +55,8 @@ except:
     from PySide.QtGui import *
 
     psVersion = 1
+
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Pandora_Functions(object):
@@ -85,40 +87,18 @@ class Prism_Pandora_Functions(object):
         except:
             pass
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Pandora - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def isActive(self):
         return hasattr(self, "Pandora")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_startup(self, origin):
         origin.lw_osStates.itemClicked.connect(
             lambda x: self.sm_updatePandoraDeps(origin, x)
         )
         origin.b_goTo.clicked.connect(lambda: self.sm_pandoraGoToNode(origin))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_updatePandoraDeps(self, origin, item):
         if item.checkState() == Qt.Checked:
             if item.toolTip().startswith("Node:"):
@@ -136,7 +116,7 @@ class Prism_Pandora_Functions(object):
                 origin.updateUi()
                 origin.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_pandoraGoToNode(self, origin):
         try:
             origin.node.name()
@@ -149,7 +129,7 @@ class Prism_Pandora_Functions(object):
         if paneTab is not None:
             paneTab.frameSelection()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_updateUI(self, origin):
         origin.gb_osDependency.setVisible(True)
         origin.gb_dlDependency.setVisible(False)
@@ -244,7 +224,7 @@ class Prism_Pandora_Functions(object):
 
         origin.dependencies["Pandora"] = newDepStates
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_preExecute(self, origin):
         warnings = []
 
@@ -253,7 +233,7 @@ class Prism_Pandora_Functions(object):
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_execute(self, origin, parent):
         if (
             len(origin.dependencies["Pandora"]) > 0
@@ -279,11 +259,11 @@ class Prism_Pandora_Functions(object):
                 if len(jobCodes) > 0:
                     parent.osDependencies.append([jobCodes[0], origin.node.path()])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houExport_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houExport_activated(self, origin):
         origin.f_osDependencies.setVisible(True)
         origin.f_osUpload.setVisible(True)
@@ -291,7 +271,7 @@ class Prism_Pandora_Functions(object):
         origin.gb_osSlaves.setVisible(True)
         origin.f_dlGroup.setVisible(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houExport_preExecute(self, origin):
         warnings = []
 
@@ -329,7 +309,7 @@ class Prism_Pandora_Functions(object):
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startSubmission(self, origin, jobOutputFile, parent):
         fileName = self.core.getCurrentFileName()
         jobName = (
@@ -384,12 +364,12 @@ class Prism_Pandora_Functions(object):
 
         return result
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houRender_updateUI(self, origin):
         origin.w_dlGPUpt.setVisible(False)
         origin.w_dlGPUdevices.setVisible(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houRender_managerChanged(self, origin):
         origin.f_osDependencies.setVisible(True)
 
@@ -409,7 +389,7 @@ class Prism_Pandora_Functions(object):
         origin.w_dlGPUpt.setVisible(False)
         origin.w_dlGPUdevices.setVisible(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houRender_preExecute(self, origin):
         warnings = []
 
@@ -447,12 +427,12 @@ class Prism_Pandora_Functions(object):
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_updateUI(self, origin):
         origin.w_dlGPUpt.setVisible(False)
         origin.w_dlGPUdevices.setVisible(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_managerChanged(self, origin):
         origin.f_osDependencies.setVisible(True)
         origin.gb_osSlaves.setVisible(True)
@@ -474,7 +454,7 @@ class Prism_Pandora_Functions(object):
             origin, True
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preExecute(self, origin):
         warnings = []
 
@@ -485,7 +465,7 @@ class Prism_Pandora_Functions(object):
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_submitJob(self, origin, jobOutputFile, parent):
         result = self.startSubmission(origin, jobOutputFile, parent)
         if self.core.appPlugin.pluginName == "Blender":

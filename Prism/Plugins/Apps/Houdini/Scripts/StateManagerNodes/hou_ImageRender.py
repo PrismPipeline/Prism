@@ -43,35 +43,19 @@ except:
 
     psVersion = 1
 
-import sys, os, shutil, time, traceback, platform
-from ConfigParser import ConfigParser
-from functools import wraps
+import os
+import sys
+import time
+import traceback
+import platform
 
-try:
-    import hou
-except:
-    pass
+import hou
+
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class ImageRenderClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - hou_ImageRender %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def setup(
         self, state, core, stateManager, node=None, stateData=None, renderer="Mantra"
     ):
@@ -171,7 +155,7 @@ class ImageRenderClass(object):
                 self.nameChanged(state.text(0))
             self.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "connectednode" in data:
             self.node = hou.node(data["connectednode"])
@@ -296,7 +280,7 @@ class ImageRenderClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def findNode(self, path):
         for node in hou.node("/").allSubChildren():
             if (
@@ -308,7 +292,7 @@ class ImageRenderClass(object):
 
         return None
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -367,7 +351,7 @@ class ImageRenderClass(object):
             self.b_goTo.clicked.connect(self.goToNode)
             self.b_connect.clicked.connect(self.connectNode)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
         self.l_rangeEnd.setEnabled(not state)
         self.sp_rangeStart.setEnabled(not state)
@@ -375,31 +359,31 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def useTakeChanged(self, state):
         self.cb_take.setEnabled(state)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setCam(self, index):
         self.curCam = self.camlist[index]
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def rendererChanged(self, renderer, create=True):
         self.curRenderer = [x for x in self.renderers if x.label == renderer][0]
         if not self.stateManager.standalone and (
@@ -417,7 +401,7 @@ class ImageRenderClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def deleteNode(self):
         try:
             self.node.name()
@@ -445,7 +429,7 @@ class ImageRenderClass(object):
             except:
                 pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         try:
             sText = text + " - %s (%s)" % (self.l_taskName.text(), self.node)
@@ -457,7 +441,7 @@ class ImageRenderClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def changeTask(self):
         import CreateItem
 
@@ -481,19 +465,19 @@ class ImageRenderClass(object):
 
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def presetOverrideChanged(self, checked):
         self.cb_renderPreset.setEnabled(checked)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def camOverrideChanged(self, checked):
         self.cb_cams.setEnabled(checked)
         self.updateCams()
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def resOverrideChanged(self, checked):
         self.sp_resWidth.setEnabled(checked)
         self.sp_resHeight.setEnabled(checked)
@@ -501,7 +485,7 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def showResPresets(self):
         pmenu = QMenu()
 
@@ -521,7 +505,7 @@ class ImageRenderClass(object):
         pmenu.setStyleSheet(self.stateManager.parent().styleSheet())
         pmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateUi(self):
         try:
             self.node.name()
@@ -552,7 +536,7 @@ class ImageRenderClass(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateCams(self):
         if self.chb_camOverride.isChecked():
             self.cb_cams.clear()
@@ -584,7 +568,7 @@ class ImageRenderClass(object):
         elif self.node is not None:
             self.curCam = self.curRenderer.getCam(self.node)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def goToNode(self):
         try:
             self.node.name()
@@ -598,7 +582,7 @@ class ImageRenderClass(object):
         if paneTab is not None:
             paneTab.frameSelection()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectNode(self):
         if len(hou.selectedNodes()) == 0:
             return False
@@ -613,7 +597,7 @@ class ImageRenderClass(object):
 
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def rjToggled(self, checked):
         self.f_localOutput.setEnabled(
             self.gb_submit.isHidden()
@@ -625,7 +609,7 @@ class ImageRenderClass(object):
         )
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def managerChanged(self, text=None):
         self.f_localOutput.setEnabled(
             self.gb_submit.isHidden()
@@ -643,7 +627,7 @@ class ImageRenderClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openSlaves(self):
         try:
             del sys.modules["SlaveAssignment"]
@@ -682,17 +666,17 @@ class ImageRenderClass(object):
             self.e_osSlaves.setText(selSlaves)
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def gpuPtChanged(self):
         self.w_dlGPUdevices.setEnabled(self.sp_dlGPUpt.value() == 0)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def gpuDevicesChanged(self):
         self.w_dlGPUpt.setEnabled(self.le_dlGPUdevices.text() == "")
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setPassData(self, item):
         if not self.setPassDataEnabled:
             return
@@ -700,7 +684,7 @@ class ImageRenderClass(object):
         passNum = str(int(self.tw_passes.item(item.row(), 2).text()) + 1)
         self.curRenderer.setAOVData(self, self.node, passNum, item)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def showPasses(self):
         steps = None
         if self.node is not None:
@@ -752,7 +736,7 @@ class ImageRenderClass(object):
 
         self.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def refreshPasses(self):
         try:
             self.node.name()
@@ -770,7 +754,7 @@ class ImageRenderClass(object):
 
         self.setPassDataEnabled = True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def rclickPasses(self, pos):
         if self.tw_passes.selectedIndexes() == []:
             return
@@ -784,22 +768,22 @@ class ImageRenderClass(object):
         rcmenu.setStyleSheet(self.stateManager.parent().styleSheet())
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def removeAOVs(self):
         rows = [x for x in self.tw_passes.selectedIndexes() if x.column() == 0]
         for p in sorted(rows, reverse=True):
             self.curRenderer.deleteAOV(self, p.row())
         self.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def passesDbClick(self, event):
         self.curRenderer.aovDbClick(self, event)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         self.updateCams()
 
@@ -823,7 +807,7 @@ class ImageRenderClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
         if self.l_taskName.text() == "":
             return
@@ -928,7 +912,7 @@ class ImageRenderClass(object):
 
         return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
 
         if self.l_taskName.text() == "":
@@ -1119,7 +1103,7 @@ class ImageRenderClass(object):
             else:
                 return [self.state.text(0) + " - unknown error (files do not exist)"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def undoRenderSettings(self, rSettings):
         if "renderSettings" in rSettings:
             self.core.appPlugin.sm_renderSettings_setCurrentSettings(
@@ -1128,7 +1112,7 @@ class ImageRenderClass(object):
                 node=self.node,
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getStateProps(self):
         try:
             curNode = self.node.path()

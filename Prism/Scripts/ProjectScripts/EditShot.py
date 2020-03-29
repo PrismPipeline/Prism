@@ -53,15 +53,11 @@ else:
     import EditShot_ui_ps2 as EditShot_ui
 
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
@@ -92,7 +88,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.loadData()
         self.connectEvents()
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.b_showSeq.clicked.connect(self.showSequences)
         self.b_changePreview.clicked.connect(self.browse)
@@ -102,7 +98,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.e_sequence.textEdited.connect(lambda x: self.validate(self.e_sequence))
         self.b_deleteShot.clicked.connect(self.deleteShot)
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def loadOiio(self):
         try:
             global oiio
@@ -115,7 +111,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         except:
             pass
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def loadLibs(self):
         if not self.oiioLoaded:
             global numpy, wand
@@ -127,7 +123,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             except:
                 pass
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def showSequences(self):
         smenu = QMenu()
 
@@ -140,11 +136,11 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
         smenu.exec_(QCursor.pos())
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def seqClicked(self, seq):
         self.e_sequence.setText(seq)
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def browse(self):
         formats = "Image File (*.jpg *.png *.exr)"
 
@@ -254,13 +250,13 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             self.l_shotPreview.setMinimumSize(self.pmap.width(), self.pmap.height())
             self.l_shotPreview.setPixmap(self.pmap)
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def validate(self, editField):
         denyChars = [self.core.sequenceSeparator] if editField == self.e_sequence else None
 
         self.core.validateLineEdit(editField, denyChars=denyChars)
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def deleteShot(self):
         msgText = (
             'Are you sure you want to delete shot "%s"?\n\nThis will delete all scenefiles and renderings, which exist in this shot.'
@@ -279,7 +275,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             self.core.createCmd(["deleteShot", self.shotName])
             self.accept()
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def buttonboxClicked(self, button):
         if button.text() == "Create":
             result = self.saveInfo()
@@ -298,7 +294,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                 self.accept()
                 self.core.pb.createStepWindow("s")
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def getShotName(self):
         if self.e_sequence.text() == "":
             newSName = self.e_shotName.text()
@@ -311,7 +307,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
         return newSName
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def saveInfo(self):
         newSName = self.getShotName()
         shotName, seqName = self.core.pb.splitShotname(newSName)
@@ -358,7 +354,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
         return True
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def loadData(self):
         if self.shotName is not None:
             shotName, seqName = self.core.pb.splitShotname(self.shotName)
@@ -405,7 +401,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         for i in self.core.prjManagers.values():
             i.editShot_open(self, self.shotName)
 
-    @err_decorator(name="EditShot")
+    @err_catcher(name=__name__)
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             self.buttonboxClicked(self.buttonBox.buttons()[-1])

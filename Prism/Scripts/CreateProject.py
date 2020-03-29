@@ -95,7 +95,7 @@ except:
         os.remove(modPath)
     import ProjectCreated
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
@@ -139,11 +139,11 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             args=[self],
         )
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.b_browse.clicked.connect(self.browse)
         self.e_name.textEdited.connect(lambda x: self.validateText(x, self.e_name))
@@ -162,7 +162,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
         self.b_create.clicked.connect(self.createClicked)
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def mouseClickEvent(self, event):
         if QEvent != None:
             if event.type() == QEvent.MouseButtonRelease:
@@ -177,7 +177,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             else:
                 self.tw_dirStruct.mousePrEvent(event)
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def validateText(self, origText, pathUi):
         if pathUi == self.e_name:
             allowChars = ["_"]
@@ -186,7 +186,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
         self.core.validateLineEdit(pathUi, allowChars=allowChars)
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def browse(self):
         path = QFileDialog.getExistingDirectory(
             self.core.messageParent, "Select project folder", self.e_path.text()
@@ -195,7 +195,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             self.e_path.setText(path)
             self.validateText(path, self.e_path)
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def setupFolders(self):
         if self.core.uiAvailable:
             model = QStandardItemModel()
@@ -206,7 +206,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             for i in self.prjFolders:
                 self.addDir(i[0].split("_", 1)[1], i[1])
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def dClickItem(self, index):
         if index.column() == 1:
             self.tw_dirStruct.edit(index)
@@ -235,7 +235,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
             typeMenu.exec_(QCursor.pos())
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def addDir(self, name="", dirType="Default"):
         model = self.tw_dirStruct.model()
         row = []
@@ -245,7 +245,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
         model.appendRow(row)
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def delDir(self):
         selIdx = self.tw_dirStruct.selectedIndexes()
         if len(selIdx) > 0:
@@ -253,7 +253,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             model.removeRow(selIdx[0].row())
             self.refreshPrefix()
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def upDir(self):
         selIdx = self.tw_dirStruct.selectedIndexes()
         if len(selIdx) > 0 and selIdx[0].row() > 0:
@@ -267,7 +267,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             model.removeRow(selIdx[0].row() + 1)
             self.refreshPrefix()
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def downDir(self):
         selIdx = self.tw_dirStruct.selectedIndexes()
         model = self.tw_dirStruct.model()
@@ -282,13 +282,13 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
             self.refreshPrefix()
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def refreshPrefix(self):
         model = self.tw_dirStruct.model()
         for i in range(model.rowCount()):
             model.setData(model.index(i, 0), "%02d_" % (i + 1))
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def create(self, name, path, settings={}):
         prjName = name
         prjPath = path
@@ -467,7 +467,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
         )
         return True
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def createClicked(self):
         prjName = self.e_name.text()
         prjPath = self.e_path.text()
@@ -482,7 +482,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
             self.close()
 
-    @err_decorator(name="CreateProject")
+    @err_catcher(name=__name__)
     def closeEvent(self, event):
         self.setParent(None)
 

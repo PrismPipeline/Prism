@@ -55,7 +55,7 @@ except:
 
     psVersion = 1
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class Updater(object):
@@ -63,7 +63,7 @@ class Updater(object):
         super(Updater, self).__init__()
         self.core = core
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def startup(self):
         prevVersion = self.core.getConfig("globals", "prism_version")
         if prevVersion != self.core.version:
@@ -73,7 +73,7 @@ class Updater(object):
 
         self.autoUpdateCheck()
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def updateFromZip(self):
         pZip = QFileDialog.getOpenFileName(
             QWidget(), "Select Prism Zip", self.core.prismRoot, "ZIP (*.zip)"
@@ -82,7 +82,7 @@ class Updater(object):
         if pZip != "":
             self.updatePrism(filepath=pZip)
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def autoUpdateCheck(self):
         updateInterval = self.core.getConfig(cat="globals", param="checkForUpdates")
         if updateInterval == "False" or updateInterval == -1:
@@ -102,7 +102,7 @@ class Updater(object):
 
         self.checkForUpdates(silent=True)
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def checkForUpdates(self, silent=False):
         pStr = """
 try:
@@ -245,7 +245,7 @@ except Exception as e:
             val=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
         )
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def updatePrism(self, filepath="", source=""):
         if platform.system() == "Windows":
             targetdir = os.path.join(os.environ["temp"], "PrismUpdate")
@@ -411,6 +411,21 @@ or move Prism to a location where no admin privileges are required." % target)
                 except:
                     pass
 
+        corePath = os.path.join(self.core.prismRoot, "Scripts", "PrismCore.py")
+
+        if platform.system() == "Windows":
+            pythonPath = os.path.join(self.core.prismRoot, "Python27", "pythonw.exe")
+        else:
+            pythonPath = "python"
+
+        result = subprocess.Popen(
+            [pythonPath, corePath, "silent", "refreshIntegrations"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdOutData, stderrdata = result.communicate()
+
         msgStr = "Successfully updated Prism"
         if self.core.appPlugin.pluginName == "Standalone":
             msgStr += "\n\nPrism will now close. Please restart all your currently open DCC apps."
@@ -429,7 +444,7 @@ or move Prism to a location where no admin privileges are required." % target)
         if self.core.appPlugin.pluginName == "Standalone":
             sys.exit()
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def showChangelog(self):
         self.changelogStr = self.getChangelog()
         if not self.changelogStr:
@@ -468,7 +483,7 @@ or move Prism to a location where no admin privileges are required." % target)
         self.dlg_changelog.resize(1000 * self.core.uiScaleFactor, 800 * self.core.uiScaleFactor)
         self.dlg_changelog.exec_()
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def refreshChangelog(self, l_changelog, filterStr):
         text = self.changelogStr
         if filterStr:
@@ -496,7 +511,7 @@ or move Prism to a location where no admin privileges are required." % target)
 
         l_changelog.setText(text)
 
-    @err_decorator(name="Updater")
+    @err_catcher(name=__name__)
     def getChangelog(self, silent=False):
         pStr = """
 try:

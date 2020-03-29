@@ -31,21 +31,19 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys
-import traceback, time, platform, shutil
-from functools import wraps
+import os
+import platform
+import shutil
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Houdini_externalAccess_Functions(object):
@@ -53,65 +51,22 @@ class Prism_Houdini_externalAccess_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Houdini_ext - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadUI(self, origin, tab):
-        origin.chb_houPackage = QCheckBox("Use package integration")
-        origin.chb_houPackage.setChecked(True)
-        tab.layout().itemAt(2).widget().layout().insertWidget(1, origin.chb_houPackage)
+        pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_saveSettings(self, origin):
         saveData = []
-
-        saveData.append(
-            [
-                "houdini",
-                "use_package_integration",
-                str(origin.chb_houPackage.isChecked()),
-            ]
-        )
-
         return saveData
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadSettings(self, origin):
         loadData = {}
         loadFunctions = {}
-
-        loadData["hou_usePacakgeIntegration"] = [
-            "houdini",
-            "use_package_integration",
-            "bool",
-        ]
-        loadFunctions[
-            "hou_usePacakgeIntegration"
-        ] = lambda x: origin.chb_houPackage.setChecked(x)
-
         return loadData, loadFunctions
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):
         if platform.system() == "Windows":
             autobackpath = os.path.join(
@@ -144,7 +99,7 @@ class Prism_Houdini_externalAccess_Functions(object):
 
         return autobackpath, fileStr
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectCreated(self, origin, projectPath, projectName):
         hdaDir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "HDAs")
 

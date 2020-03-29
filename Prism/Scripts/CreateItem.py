@@ -58,7 +58,7 @@ if sys.version[0] == "3":
 else:
     pVersion = 2
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
@@ -148,12 +148,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
         self.connectEvents()
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def showEvent(self, event):
         if self.w_options.layout().count() == 0:
             self.w_options.setVisible(False)
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.buttonBox.accepted.connect(self.returnName)
         self.b_showTasks.clicked.connect(self.showTasks)
@@ -166,7 +166,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             self.e_item.textEdited.connect(lambda x: self.enableOk(self.e_item))
         self.rb_asset.toggled.connect(self.typeChanged)
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def getTasks(self):
         self.taskList = self.core.getTaskNames(self.taskType)
 
@@ -176,7 +176,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             if "_ShotCam" in self.taskList:
                 self.taskList.remove("_ShotCam")
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def showTasks(self):
         tmenu = QMenu()
 
@@ -189,17 +189,17 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
         tmenu.exec_(QCursor.pos())
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def taskClicked(self, task):
         self.e_item.setText(task)
         self.enableOk(self.e_item)
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def typeChanged(self, state):
         for i in self.core.prjManagers.values():
             i.createAsset_typeChanged(self, state)
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def enableOk(self, widget):
         text = self.core.validateLineEdit(
             widget, allowChars=self.allowChars, denyChars=self.denyChars
@@ -214,7 +214,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
         if self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
             self.buttonBox.buttons()[-1].setEnabled(bool(text))
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def enableOkStep(self, widget):
         self.core.validateLineEdit(widget)
 
@@ -224,11 +224,11 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             else:
                 self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def returnName(self):
         self.itemName = self.e_item.text()
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def bbClicked(self, button):
         if button.text() == self.btext:
             if self.mode == "assetHierarchy":
@@ -249,7 +249,7 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
                 self.core.pb.createFromCurrent()
                 self.core.pb.close()
 
-    @err_decorator(name="CreateItem")
+    @err_catcher(name=__name__)
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             if self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:

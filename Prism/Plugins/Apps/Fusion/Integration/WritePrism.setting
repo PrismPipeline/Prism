@@ -183,7 +183,8 @@
 					BTNCS_Execute = [=[
 composition:Execute(string.format([[
 !Py: ""
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 
@@ -228,7 +229,8 @@ else:
 					BTNCS_Execute = [=[
 composition:Execute(string.format([[
 !Py: ""
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 	

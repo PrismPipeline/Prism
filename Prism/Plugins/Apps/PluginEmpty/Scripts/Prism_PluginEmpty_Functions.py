@@ -31,21 +31,18 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys
-import traceback, time, shutil, platform
-from functools import wraps
+import os
+import sys
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_PluginEmpty_Functions(object):
@@ -53,29 +50,7 @@ class Prism_PluginEmpty_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_PluginEmpty - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         # 	for obj in qApp.topLevelWidgets():
         # 		if obj.objectName() == 'PluginEmptyWindow':
@@ -95,21 +70,21 @@ class Prism_PluginEmpty_Functions(object):
 
         origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def autosaveEnabled(self, origin):
         # get autosave enabled
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         if hasattr(origin, "asThread") and origin.asThread.isRunning():
             origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, execute=False, logErr=True):
         if logErr:
             try:
@@ -129,98 +104,98 @@ class Prism_PluginEmpty_Functions(object):
             except:
                 pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         # save scenefile
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         return []
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = 0
         endframe = 100
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return 24
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return "1.0"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.loadOiio()
         # 	origin.sl_preview.mousePressEvent = origin.sliderDrag
         origin.sl_preview.mousePressEvent = origin.sl_preview.origMousePressEvent
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         # load scenefile
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_addObjects(self, origin, objects=None):
         if not objects:
             objects = []  # get selected objects from scene
@@ -232,7 +207,7 @@ class Prism_PluginEmpty_Functions(object):
         origin.updateUi()
         origin.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getNodeName(self, origin, node):
         if self.isNodeValid(origin, node):
             try:
@@ -245,7 +220,7 @@ class Prism_PluginEmpty_Functions(object):
         else:
             return "invalid"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectNodes(self, origin):
         if origin.lw_objects.selectedItems() != []:
             nodes = []
@@ -255,11 +230,11 @@ class Prism_PluginEmpty_Functions(object):
                     nodes.append(node)
             # select(nodes)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def isNodeValid(self, origin, handle):
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamNodes(self, origin, cur=False):
         sceneCams = []  # get cams from scene
         if cur:
@@ -267,39 +242,39 @@ class Prism_PluginEmpty_Functions(object):
 
         return sceneCams
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamName(self, origin, handle):
         if handle == "Current View":
             return handle
 
         return str(nodes[0])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectCam(self, origin):
         if self.isNodeValid(origin, origin.curCam):
             select(origin.curCam)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_startup(self, origin):
         pass
 
-    # 	@err_decorator
+    # 	@err_catcher(name=__name__)
     # 	def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
     # 		origin.l_taskName.setText(newTaskName)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_updateObjects(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
         result = self.sm_export_exportAppObjects(
             origin,
@@ -319,7 +294,7 @@ class Prism_PluginEmpty_Functions(object):
         )
         return result
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportAppObjects(
         self,
         origin,
@@ -332,115 +307,115 @@ class Prism_PluginEmpty_Functions(object):
     ):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_unColorObjList(self, origin):
         origin.lw_objects.setStyleSheet(
             "QListWidget { border: 3px solid rgb(50,50,50); }"
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_typeChanged(self, origin, idx):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preExecute(self, origin, startFrame, endFrame):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_loadData(self, origin, data):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_getStateProps(self, origin, stateProps):
         stateProps.update()
 
         return stateProps
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_isVray(self, origin):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_setVraySettings(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getRenderLayer(self, origin):
         rlayerNames = []
 
         return rlayerNames
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_refreshPasses(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_openPasses(self, origin, item=None):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def removeAOV(self, aovName):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preSubmit(self, origin, rSettings):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startLocalRender(self, origin, outputName, rSettings):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_undoRenderSettings(self, origin, rSettings):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentRenderer(self, origin):
         return "Renderer"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentSceneFiles(self, origin):
         curFileName = self.core.getCurrentFileName()
         scenefiles = [curFileName]
         return scenefiles
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getRenderPasses(self, origin):
         return []
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_addRenderPass(self, origin, passName, steps):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_fixOutputPath(self, origin, outputName):
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getProgramVersion(self, origin):
         return "1.0"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getDeadlineSubmissionParams(self, origin, dlParams, jobOutputFile):
         dlParams["Build"] = dlParams["build"]
         dlParams["OutputFilePath"] = os.path.split(jobOutputFile)[0]
@@ -456,83 +431,83 @@ class Prism_PluginEmpty_Functions(object):
 
         return dlParams
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def deleteNodes(self, origin, handles, num=0):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_disableObjectTracking(self, origin):
         self.deleteNodes(origin, [origin.setName])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
         return {"result": result, "doImport": doImport}
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_updateObjects(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_removeNameSpaces(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_unitConvert(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_startup(self, origin):
         frange = self.getFrameRange(origin)
         origin.sp_rangeStart.setValue(frange[0])
         origin.sp_rangeEnd.setValue(frange[1])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_execute(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_postExecute(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveStates(self, origin, buf):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveImports(self, origin, importPaths):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_readStates(self, origin):
         return []
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_deleteStates(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_getExternalFiles(self, origin):
         extFiles = []
         return [extFiles, []]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         origin.createPressed("Render")

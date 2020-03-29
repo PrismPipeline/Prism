@@ -45,7 +45,7 @@ except:
 
     psVersion = 1
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class ScreenShot(QDialog):
@@ -77,13 +77,13 @@ class ScreenShot(QDialog):
 
         self.setMouseTracking(True)
 
-    @err_decorator(name="Screenshot")
+    @err_catcher(name=__name__)
     def mousePressEvent(self, event):
         self.origin = event.pos()
         self.rubberband.setGeometry(QRect(self.origin, QSize()))
         QWidget.mousePressEvent(self, event)
 
-    @err_decorator(name="Screenshot")
+    @err_catcher(name=__name__)
     def mouseMoveEvent(self, event):
         if self.origin is not None:
             rect = QRect(self.origin, event.pos()).normalized()
@@ -92,7 +92,7 @@ class ScreenShot(QDialog):
         self.repaint()
         QWidget.mouseMoveEvent(self, event)
 
-    @err_decorator(name="Screenshot")
+    @err_catcher(name=__name__)
     def paintEvent(self, event):
         painter = QPainter(self)
 
@@ -115,7 +115,7 @@ class ScreenShot(QDialog):
 
         QWidget.paintEvent(self, event)
 
-    @err_decorator(name="Screenshot")
+    @err_catcher(name=__name__)
     def mouseReleaseEvent(self, event):
         if self.origin is not None:
             self.rubberband.hide()

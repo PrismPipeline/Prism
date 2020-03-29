@@ -31,22 +31,22 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import hou
-import os, sys
-import traceback, time, platform, glob
-from functools import wraps
+import os
+import sys
+import platform
+import glob
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+import hou
+
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Houdini_Functions(object):
@@ -54,29 +54,7 @@ class Prism_Houdini_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Houdini - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         if self.core.uiAvailable:
             if not hou.isUIAvailable():
@@ -106,11 +84,11 @@ class Prism_Houdini_Functions(object):
                 qApp = QApplication(sys.argv)
             origin.messageParent = QWidget()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def autosaveEnabled(self, origin):
         return hou.hscript("autosave")[0] == "autosave on\n"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         self.loadPrjHDAs(origin)
         job = self.core.projectPath.replace("\\", "/")
@@ -124,7 +102,7 @@ class Prism_Houdini_Functions(object):
                 ljob = ljob[:-1]
             hou.hscript("set PRISMJOBLOCAL=" + ljob)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         origin.sceneUnload()
 
@@ -157,7 +135,7 @@ class Prism_Houdini_Functions(object):
             hou.hscript("set PRISM_USER=")
             hou.hscript("set PRISM_FILE_VERSION =")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def loadPrjHDAs(self, origin):
         if not hasattr(origin, "projectPath") or not os.path.exists(origin.projectPath):
             return
@@ -209,7 +187,7 @@ class Prism_Houdini_Functions(object):
         for i in origin.prjHDAs:
             hou.hda.installFile(i, oplib)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, execute=False):
         try:
             if not execute:
@@ -220,18 +198,18 @@ class Prism_Houdini_Functions(object):
             msg = "\npython code:\n%s" % code
             exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         if path:
             return hou.hipFile.path()
         else:
             return hou.hipFile.basename()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentSceneFiles(self, origin):
         return [self.core.getCurrentFileName()]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         if str(hou.licenseCategory()) == "licenseCategoryType.Commercial":
             return ".hip"
@@ -240,12 +218,12 @@ class Prism_Houdini_Functions(object):
         else:
             return ".hipnc"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         filepath = filepath.replace("\\", "/")
         return hou.hipFile.save(file_name=filepath, save_to_recent_files=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         val = hou.node("/obj").userData("PrismImports")
 
@@ -254,31 +232,31 @@ class Prism_Houdini_Functions(object):
 
         return val
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = hou.playbar.playbackRange()[0]
         endframe = hou.playbar.playbackRange()[1]
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         setGobalFrangeExpr = "tset `(%d-1)/$FPS` `%d/$FPS`" % (startFrame, endFrame)
         hou.hscript(setGobalFrangeExpr)
         hou.playbar.setPlaybackRange(startFrame, endFrame)
         hou.setFrame(startFrame)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return hou.fps()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         frange = self.getFrameRange(origin)
         hou.setFps(fps)
         self.setFrameRange(origin, frange[0], frange[1])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def cacheHouTmp(self, ropNode):
         if not os.path.exists(self.core.prismIni):
             curPrj = self.core.getConfig("globals", "current project")
@@ -335,33 +313,34 @@ class Prism_Houdini_Functions(object):
 
         exportNode.parm("execute").pressButton()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return hou.applicationVersion()[1:-1]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         if platform.system() == "Darwin":
             origin.menubar.setNativeMenuBar(False)
         origin.loadOiio()
         origin.checkColor = "rgb(185, 134, 32)"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
-        origin.scrollArea.setStyleSheet(
-            hou.qt.styleSheet().replace("QLabel", "QScrollArea")
-        )
+        if self.core.uiAvailable:
+            origin.scrollArea.setStyleSheet(
+                hou.qt.styleSheet().replace("QLabel", "QScrollArea")
+            )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preLoadEmptyScene(self, origin, filepath):
         self.curDesktop = hou.ui.curDesktop()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postLoadEmptyScene(self, origin, filepath):
         if hasattr(self, "curDesktop"):
             self.curDesktop.setAsCurrent()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         if not self.core.uiAvailable:
             return
@@ -371,7 +350,7 @@ class Prism_Houdini_Functions(object):
         else:
             rcmenu.setStyleSheet(origin.parent().styleSheet())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if (
             not filepath.endswith(".hip")
@@ -384,7 +363,7 @@ class Prism_Houdini_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         if str(hou.licenseCategory()) == "licenseCategoryType.Commercial":
             return os.path.splitext(lfilepath)[0] + ".hip"
@@ -393,52 +372,56 @@ class Prism_Houdini_Functions(object):
         else:
             return os.path.splitext(lfilepath)[0] + ".hipnc"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setStyleSheet("background-color: " + origin.checkColor)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setStyleSheet("")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
-        origin.sa_recent.setStyleSheet(
-            hou.qt.styleSheet().replace("QLabel", "QScrollArea")
-            + "QScrollArea { border: 0px;}"
-        )
+        if self.core.uiAvailable:
+            origin.sa_recent.setStyleSheet(
+                hou.qt.styleSheet().replace("QLabel", "QScrollArea")
+                + "QScrollArea { border: 0px;}"
+            )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         origin.w_startTray.setVisible(False)
-        origin.scrollArea.setStyleSheet(
-            hou.qt.styleSheet().replace("QLabel", "QScrollArea")
-        )
+        if self.core.uiAvailable:
+            origin.scrollArea.setStyleSheet(
+                hou.qt.styleSheet().replace("QLabel", "QScrollArea")
+            )
+
+            origin.sp_curPfps.setStyleSheet(
+                hou.qt.styleSheet().replace("QSpinBox", "QDoubleSpinBox")
+            )
 
         for i in origin.groupboxes:
             self.fixStyleSheet(i)
 
-        origin.sp_curPfps.setStyleSheet(
-            hou.qt.styleSheet().replace("QSpinBox", "QDoubleSpinBox")
-        )
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
-        origin.scrollArea.setStyleSheet(
-            hou.qt.styleSheet().replace("QLabel", "QScrollArea")
-        )
+        if self.core.uiAvailable:
+            origin.scrollArea.setStyleSheet(
+                hou.qt.styleSheet().replace("QLabel", "QScrollArea")
+            )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
-        origin.te_description.setStyleSheet(
-            hou.qt.styleSheet().replace("QTextEdit", "QPlainTextEdit")
-        )
+        if self.core.uiAvailable:
+            origin.te_description.setStyleSheet(
+                hou.qt.styleSheet().replace("QTextEdit", "QPlainTextEdit")
+            )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def fixImportPath(self, origin, depPath):
         if len(depPath) > 4 and depPath[-5] != "v":
             try:
@@ -449,14 +432,14 @@ class Prism_Houdini_Functions(object):
 
         return depPath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def splitExtension(self, origin, path):
         if path.endswith(".bgeo.sc"):
             return [path[: -len(".bgeo.sc")], ".bgeo.sc"]
         else:
             return os.path.splitext(path)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setNodeParm(self, node, parm, val=None, clear=False):
         try:
             if clear:
@@ -516,7 +499,7 @@ class Prism_Houdini_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_preDelete(self, origin, item, silent=False):
         if not hasattr(item.ui, "node") or silent:
             return
@@ -566,7 +549,7 @@ class Prism_Houdini_Functions(object):
             if len(defs) > 0 and defs[0].isInstalled():
                 hou.hda.uninstallFile(fpath)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_preSaveToScene(self, origin):
         if origin.scenename == self.core.getCurrentFileName():
             return
@@ -611,11 +594,14 @@ class Prism_Houdini_Functions(object):
         ssheet += "QGroupBox::indicator { width: 16px; height: 16px;}"
         widget.setStyleSheet(ssheet)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameStyleSheet(self, origin):
-        return hou.qt.styleSheet().replace("QWidget", "QFrame")
+        if self.core.uiAvailable:
+            return hou.qt.styleSheet().replace("QWidget", "QFrame")
+        else:
+            return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin):
         if platform.system() == "Darwin":
             origin.menubar.setNativeMenuBar(False)
@@ -685,26 +671,26 @@ class Prism_Houdini_Functions(object):
         elif rsType is None and ".rs" in self.plugin.outputFormats:
             self.plugin.outputFormats.pop(self.plugin.outputFormats.index(".rs"))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveStates(self, origin, buf):
         hou.node("/obj").setUserData("PrismStates", buf)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveImports(self, origin, importPaths):
         hou.node("/obj").setUserData("PrismImports", importPaths)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_readStates(self, origin):
         stateData = hou.node("/obj").userData("PrismStates")
         if stateData is not None:
             return stateData
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_deleteStates(self, origin):
         if hou.node("/obj").userData("PrismStates") is not None:
             hou.node("/obj").destroyUserData("PrismStates")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_getExternalFiles(self, origin):
         # 	hou.setFrame(hou.playbar.playbackRange()[0])
         whitelist = [
@@ -772,7 +758,7 @@ class Prism_Houdini_Functions(object):
 
         return [extFiles, extFilesSource]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def isNodeValid(self, origin, node):
         try:
             node.name()
@@ -780,7 +766,7 @@ class Prism_Houdini_Functions(object):
         except:
             return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         renderers = self.getRendererPlugins()
         if len(hou.selectedNodes()) > 0:
@@ -808,7 +794,7 @@ class Prism_Houdini_Functions(object):
 
             rndMenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getRendererPlugins(self):
         gpath = os.path.dirname(os.path.abspath(__file__)) + "/Prism_Houdini_Renderer_*"
         files = glob.glob(gpath)
@@ -831,14 +817,14 @@ class Prism_Houdini_Functions(object):
 
         return rplugs
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_existExternalAsset(self, origin, asset):
         if asset.startswith("op:") and hou.node(asset.replace("\\", "/")) is not None:
             return True
 
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_fixWarning(self, origin, asset, extFiles, extFilesSource):
         parm = extFilesSource[extFiles.index(asset.replace("\\", "/"))]
         if parm is None:
@@ -848,7 +834,7 @@ class Prism_Houdini_Functions(object):
 
         return parmStr
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_openStateFromNode(self, origin):
         nodeMenu = QMenu()
 
@@ -922,7 +908,7 @@ class Prism_Houdini_Functions(object):
 
         nodeMenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
         dlParams["pluginInfoFile"] = os.path.join(
             homeDir, "temp", "houdini_plugin_info.job"
@@ -958,7 +944,7 @@ class Prism_Houdini_Functions(object):
             dlParams["pluginInfos"]["Width"] = origin.sp_resWidth.value()
             dlParams["pluginInfos"]["Height"] = origin.sp_resHeight.value()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_getCurrentSettings(self, origin, node=None):
         settings = []
         if not node:
@@ -980,7 +966,7 @@ class Prism_Houdini_Functions(object):
         settingsStr = self.core.writeYaml(data=settings)
         return settingsStr
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_setCurrentSettings(
         self, origin, preset, state=None, node=None
     ):
@@ -1006,7 +992,7 @@ class Prism_Houdini_Functions(object):
                 except:
                     pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_applyDefaultSettings(self, origin):
         node = hou.node(origin.e_node.text())
         if not node:
@@ -1015,7 +1001,7 @@ class Prism_Houdini_Functions(object):
         for parm in node.parms():
             parm.revertToDefaults()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_startup(self, origin):
         origin.w_node = QWidget()
         origin.lo_node = QHBoxLayout()
@@ -1037,25 +1023,25 @@ class Prism_Houdini_Functions(object):
         origin.lo_node.addWidget(origin.e_node)
         origin.gb_general.layout().insertWidget(0, origin.w_node)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_loadData(self, origin, data):
         if "node" in data:
             origin.e_node.setText(data["node"])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_getStateProps(self, origin):
         stateProps = {"node": origin.e_node.text()}
 
         return stateProps
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_addSelected(self, origin):
         if len(hou.selectedNodes()) == 0:
             return False
 
         origin.e_node.setText(hou.selectedNodes()[0].path())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_preExecute(self, origin):
         warnings = []
 
@@ -1064,7 +1050,7 @@ class Prism_Houdini_Functions(object):
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def showNodeContext(self, origin):
         rcMenu = QMenu()
         mAct = QAction("Add selected", origin)

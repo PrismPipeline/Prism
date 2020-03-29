@@ -31,21 +31,17 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys
-import traceback, time
-from functools import wraps
+import os
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Fusion_Functions(object):
@@ -53,29 +49,7 @@ class Prism_Fusion_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Fusion - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def instantStartup(self, origin):
         # 	qapp = QApplication.instance()
 
@@ -135,7 +109,7 @@ class Prism_Fusion_Functions(object):
 
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         if not hasattr(self, "fusion"):
             return False
@@ -143,15 +117,15 @@ class Prism_Fusion_Functions(object):
         origin.timer.stop()
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, preventError=False):
         if preventError:
             try:
@@ -162,7 +136,7 @@ class Prism_Fusion_Functions(object):
         else:
             return eval(code)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         curComp = self.fusion.GetCurrentComp()
         if curComp is None:
@@ -172,29 +146,29 @@ class Prism_Fusion_Functions(object):
 
         return currentFileName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         try:
             return self.fusion.GetCurrentComp().Save(filepath)
         except:
             return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = self.fusion.GetCurrentComp().GetAttrs()["COMPN_GlobalStart"]
         endframe = self.fusion.GetCurrentComp().GetAttrs()["COMPN_GlobalEnd"]
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         self.fusion.GetCurrentComp().SetPrefs(
             {
@@ -203,15 +177,15 @@ class Prism_Fusion_Functions(object):
             }
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return self.fusion.GetCurrentComp().GetPrefs()["Comp"]["FrameFormat"]["Rate"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         return self.fusion.GetCurrentComp().SetPrefs({"Comp.FrameFormat.Rate": fps})
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateReadNodes(self):
         updatedNodes = []
 
@@ -249,24 +223,24 @@ class Prism_Fusion_Functions(object):
 
             QMessageBox.information(self.core.messageParent, "Information", mStr)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return self.fusion.Version
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.loadOiio()
         origin.actionStateManager.setEnabled(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False
@@ -275,19 +249,19 @@ class Prism_Fusion_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def importImages(self, origin):
         fString = "Please select an import option:"
         msg = QMessageBox(
@@ -306,7 +280,7 @@ class Prism_Fusion_Functions(object):
         else:
             return
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def fusionImportSource(self, origin):
         self.fusion.GetCurrentComp().Lock()
 
@@ -328,7 +302,7 @@ class Prism_Fusion_Functions(object):
 
         self.fusion.GetCurrentComp().Unlock()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def fusionImportPasses(self, origin):
         self.fusion.GetCurrentComp().Lock()
 
@@ -352,27 +326,27 @@ class Prism_Fusion_Functions(object):
 
         self.fusion.GetCurrentComp().Unlock()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getOutputPath(self, node, render=False):
         self.isRendering = [False, ""]
 
@@ -512,7 +486,7 @@ class Prism_Fusion_Functions(object):
 
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startRender(self, node):
         fileName = self.getOutputPath(node, render=True)
 

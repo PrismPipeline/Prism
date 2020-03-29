@@ -31,10 +31,12 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import traceback
+import time
+
 import MaxPlus
-import os, sys
-import traceback, time
-from functools import wraps
 
 try:
     from PySide2.QtCore import *
@@ -48,35 +50,15 @@ except:
 
     psVersion = 1
 
+from PrismUtils.Decorators import err_catcher as err_catcher
+
 
 class Prism_3dsMax_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_3dsMax - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         origin.timer.stop()
         if psVersion == 1:
@@ -89,20 +71,20 @@ class Prism_3dsMax_Functions(object):
 
         origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def autosaveEnabled(self, origin):
         return self.executeScript(origin, "autosave.Enable")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         if hasattr(origin, "asThread") and origin.asThread.isRunning():
             origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, returnVal=True):
         try:
             val = MaxPlus.Core.EvalMAXScript(code)
@@ -116,22 +98,22 @@ class Prism_3dsMax_Functions(object):
             except:
                 return None
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         if path:
             return MaxPlus.FileManager.GetFileNameAndPath()
         else:
             return MaxPlus.FileManager.GetFileName()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         return self.executeScript(origin, 'saveMaxFile "%s"' % filepath)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         num = self.executeScript(
             origin, 'fileProperties.findProperty #custom "PrismImports"'
@@ -143,14 +125,14 @@ class Prism_3dsMax_Functions(object):
                 origin, "fileProperties.getPropertyValue #custom %s" % num
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = self.executeScript(origin, "animationrange.start.frame")
         endframe = self.executeScript(origin, "animationrange.end.frame")
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         if startFrame == endFrame:
             QMessageBox.warning(
@@ -168,19 +150,19 @@ class Prism_3dsMax_Functions(object):
         )
         MaxPlus.Animation.SetTime(startFrame * MaxPlus.Animation.GetTicksPerFrame())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return self.executeScript(origin, "frameRate")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         return self.executeScript(origin, "frameRate = %s" % fps)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"').split()[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         if self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"')[:2] in [
             "19",
@@ -188,15 +170,15 @@ class Prism_3dsMax_Functions(object):
         ]:
             origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if not filepath.endswith(".max"):
             return False
@@ -206,31 +188,31 @@ class Prism_3dsMax_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         if self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"')[:2] in [
             "19",
@@ -238,11 +220,11 @@ class Prism_3dsMax_Functions(object):
         ]:
             origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_addObjects(self, origin, objects=None):
         if not objects:
             objects = MaxPlus.SelectionManager_GetNodes()
@@ -255,14 +237,14 @@ class Prism_3dsMax_Functions(object):
         origin.updateUi()
         origin.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getNodeName(self, origin, node):
         if self.isNodeValid(origin, node):
             return MaxPlus.INode.GetINodeByHandle(node).GetName()
         else:
             return origin.nodeNames[origin.nodes.index(node)]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectNodes(self, origin):
         if origin.lw_objects.selectedItems() != []:
             MaxPlus.SelectionManager_ClearNodeSelection()
@@ -273,14 +255,14 @@ class Prism_3dsMax_Functions(object):
                     nodes.Append(MaxPlus.INode.GetINodeByHandle(node))
             MaxPlus.SelectionManager_SelectNodes(nodes)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def isNodeValid(self, origin, handle):
         return not (
             handle is None
             or MaxPlus.INode.GetINodeByHandle(handle).GetUnwrappedPtr() is None
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamNodes(self, origin, cur=False):
         cams = self.executeScript(
             origin, "for i in cameras where (superclassof i) == camera collect i"
@@ -291,7 +273,7 @@ class Prism_3dsMax_Functions(object):
 
         return sceneCams
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamName(self, origin, handle):
         if handle == "Current View":
             return handle
@@ -309,7 +291,7 @@ class Prism_3dsMax_Functions(object):
         else:
             return node.GetName()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectCam(self, origin):
         if self.isNodeValid(origin, origin.curCam):
             MaxPlus.SelectionManager_ClearNodeSelection()
@@ -322,23 +304,23 @@ class Prism_3dsMax_Functions(object):
             else:
                 MaxPlus.SelectionManager_SelectNode(camNode)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_startup(self, origin):
         origin.lw_objects.setStyleSheet("QListWidget { background: rgb(100,100,100);}")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_updateObjects(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
         if startFrame == endFrame:
             self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame + 1)
@@ -419,7 +401,7 @@ for obj in selection do(
 
         MaxPlus.SelectionManager_ClearNodeSelection(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportAppObjects(
         self,
         origin,
@@ -607,23 +589,23 @@ sHelper.scale = [sVal, sVal, sVal]"""
 
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_colorObjList(self, origin):
         origin.f_objectList.setStyleSheet("QFrame { border: 3px solid rgb(200,0,0); }")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_unColorObjList(self, origin):
         origin.f_objectList.setStyleSheet("QFrame { border: 3px solid rgb(68,68,68); }")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_typeChanged(self, origin, idx):
         origin.w_additionalOptions.setVisible(not idx in ["ShotCam", ".max"])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preExecute(self, origin, startFrame, endFrame):
         warnings = []
 
@@ -663,14 +645,14 @@ sHelper.scale = [sVal, sVal, sVal]"""
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_isVray(self, origin):
         return self.executeScript(
             origin,
             'matchpattern (classof renderers.current as string) pattern: "V_Ray*"',
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_setVraySettings(self, origin):
         if self.sm_render_isVray(origin):
             self.executeScript(
@@ -684,7 +666,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
                 ),
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startup(self, origin):
         origin.sp_rangeStart.setValue(
             self.executeScript(origin, "animationrange.start.frame")
@@ -693,7 +675,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
             self.executeScript(origin, "animationrange.end.frame")
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_refreshPasses(self, origin):
         origin.lw_passes.clear()
         elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
@@ -703,11 +685,11 @@ sHelper.scale = [sVal, sVal, sVal]"""
             item.setToolTip(element.GetClassName())
             origin.lw_passes.addItem(item)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_openPasses(self, origin, item=None):
         MaxPlus.RenderSettings.OpenDialog()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def removeAOV(self, aovName):
         elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
         for i in range(elementMgr.NumRenderElements()):
@@ -716,7 +698,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
                 elementMgr.RemoveRenderElement(element)
                 break
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preSubmit(self, origin, rSettings):
         MaxPlus.RenderSettings.CloseDialog()
 
@@ -755,7 +737,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
         MaxPlus.RenderSettings.SetSaveFile(True)
         MaxPlus.RenderSettings.SetOutputFile(rSettings["outputName"])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startLocalRender(self, origin, outputName, rSettings):
         if origin.chb_resOverride.isChecked():
             rSettings["width"] = MaxPlus.RenderSettings.GetWidth()
@@ -808,7 +790,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
             self.core.writeErrorLog(erStr)
             return "Execute Canceled: unknown error (view console for more information)"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_undoRenderSettings(self, origin, rSettings):
         if "elementsActive" in rSettings:
             elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
@@ -830,7 +812,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
         if "savefilepath" in rSettings:
             MaxPlus.RenderSettings.SetOutputFile(rSettings["savefilepath"])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
         maxversion = self.executeScript(origin, "maxversion()").GetItem(0)
         if type(maxversion) != int:
@@ -862,15 +844,15 @@ sHelper.scale = [sVal, sVal, sVal]"""
                 origin, origin.curCam
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentRenderer(self, origin):
         return self.executeScript(origin, "classof renderers.current as string")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentSceneFiles(self, origin):
         return [self.core.getCurrentFileName()]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getRenderPasses(self, origin):
         if self.sm_render_isVray(origin):
             return self.core.getConfig(
@@ -881,7 +863,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
                 "defaultpasses", "max_scanline", configPath=self.core.prismIni
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_addRenderPass(self, origin, passName, steps):
         if self.executeScript(origin, passName) is not None:
             self.executeScript(
@@ -889,7 +871,7 @@ sHelper.scale = [sVal, sVal, sVal]"""
                 "(MaxOps.GetCurRenderElementMgr()).AddRenderElement(%s())" % passName,
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preExecute(self, origin):
         warnings = []
 
@@ -905,11 +887,11 @@ sHelper.scale = [sVal, sVal, sVal]"""
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_fixOutputPath(self, origin, outputName):
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def deleteNodes(self, origin, handles):
         nodes = MaxPlus.INodeTab()
         for i in handles:
@@ -931,18 +913,18 @@ if item == undefined then (\n\
         if not xref:
             MaxPlus.INode.DeleteNodes(nodes)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onSelectTaskOpen(self, origin):
         origin.l_versionRight.setText(
             "(Press CTRL and double click a version to show the import options)"
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_startup(self, origin):
         origin.f_abcPath.setVisible(True)
         origin.b_unitConversion.setText("m -> cm")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
         impFileName = os.path.normpath(impFileName)
         fileName = os.path.splitext(os.path.basename(impFileName))
@@ -1088,11 +1070,11 @@ record != undefined\n\
 
         return {"result": result, "doImport": doImport}
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_updateObjects(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_removeNameSpaces(self, origin):
         for i in origin.nodes:
             if not self.isNodeValid(origin, i):
@@ -1105,7 +1087,7 @@ record != undefined\n\
 
         origin.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_unitConvert(self, origin):
         if origin.taskName == "ShotCam":
             for i in origin.nodes:
@@ -1141,20 +1123,20 @@ obj.modifiers[1].gizmo.scale = [100,100,100]
                     % i,
                 )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_updateListItem(self, origin, item, node):
         if self.isNodeValid(origin, node):
             item.setBackground(QColor(0, 150, 0))
         else:
             item.setBackground(QColor(150, 0, 0))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_startup(self, origin):
         frange = self.getFrameRange(origin)
         origin.sp_rangeStart.setValue(frange[0])
         origin.sp_rangeEnd.setValue(frange[1])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
         if origin.curCam is not None:
             MaxPlus.Viewport.SetViewCamera(
@@ -1262,7 +1244,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
             ),
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_preExecute(self, origin):
         warnings = []
 
@@ -1285,7 +1267,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_execute(self, origin):
         if origin.chb_globalRange.isChecked():
             jobFrames = (
@@ -1301,22 +1283,22 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
                 + ": error - Playblasts in 3ds Max are only supported with at least two frames."
             ]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_setActivePalette(self, origin, listWidget, inactive, inactivef, activef):
         activef.setPalette(origin.activePalette)
         inactivef.setPalette(origin.inactivePalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_preExecute(self, origin):
         origin.origTimeRange = MaxPlus.Animation.GetAnimRange()
         origin.origTime = MaxPlus.Animation.GetTime()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_postExecute(self, origin):
         MaxPlus.Animation.SetRange(origin.origTimeRange)
         MaxPlus.Animation.SetTime(origin.origTime)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin):
         origin.disabledCol = QColor(40, 40, 40)
         origin.activePalette = QPalette()
@@ -1342,7 +1324,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
                 MaxPlus.NotificationCodes.FilePreOpen, origin.core.sceneUnload
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveStates(self, origin, buf):
         self.executeScript(
             origin,
@@ -1350,14 +1332,14 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
             % buf.replace('"', '\\"'),
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveImports(self, origin, importPaths):
         self.executeScript(
             origin,
             'fileProperties.addProperty #custom "PrismImports" "%s"' % importPaths,
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_readStates(self, origin):
         num = self.executeScript(
             origin, 'fileProperties.findProperty #custom "PrismStates"'
@@ -1367,7 +1349,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
                 origin, "fileProperties.getPropertyValue #custom %s" % num
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_deleteStates(self, origin):
         num = self.executeScript(
             origin, 'fileProperties.findProperty #custom "PrismStates"'
@@ -1394,6 +1376,6 @@ for mapfile in mapfiles collect mapfile",
 
         return [extFiles, []]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         origin.createPressed("Render")

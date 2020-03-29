@@ -31,47 +31,29 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import time
+import traceback
+import platform
+
+from ConfigParser import ConfigParser
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+import hou
 
-import sys, os, shutil, time, traceback, platform
-from ConfigParser import ConfigParser
-from functools import wraps
-
-try:
-    import hou
-except:
-    pass
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class ExportClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - hou_Export %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
         self.core = core
@@ -193,7 +175,7 @@ class ExportClass(object):
                 if idx != -1:
                     self.cb_sCamShot.setCurrentIndex(idx)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def loadData(self, data):
         self.updateUi()
 
@@ -297,7 +279,7 @@ class ExportClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def findNode(self, path):
         for node in hou.node("/").allSubChildren():
             if (
@@ -309,7 +291,7 @@ class ExportClass(object):
 
         return None
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def isNodeValid(self):
         try:
             validTST = self.node.name()
@@ -318,7 +300,7 @@ class ExportClass(object):
 
         return self.node is not None
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createNode(self, nodePath=None):
         if self.stateManager.standalone:
             return False
@@ -419,7 +401,7 @@ class ExportClass(object):
             self.goToNode()
         self.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -476,7 +458,7 @@ class ExportClass(object):
             self.b_goTo.clicked.connect(self.goToNode)
             self.b_connect.clicked.connect(self.connectNode)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
         self.l_rangeStart.setEnabled(not state)
         self.l_rangeEnd.setEnabled(not state)
@@ -485,7 +467,7 @@ class ExportClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         if self.cb_outType.currentText() == "ShotCam":
             sText = text + " - Shotcam (%s)" % (self.curCam)
@@ -500,7 +482,7 @@ class ExportClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def changeTask(self):
         import CreateItem
 
@@ -524,14 +506,14 @@ class ExportClass(object):
 
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setCam(self, index):
         self.curCam = self.camlist[index]
         self.nameChanged(self.e_name.text())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateUi(self):
         try:
             self.node.name()
@@ -627,7 +609,7 @@ class ExportClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def typeChanged(self, idx, createMissing=True):
         self.isNodeValid()
 
@@ -807,7 +789,7 @@ class ExportClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def goToNode(self):
         try:
             self.node.name()
@@ -825,7 +807,7 @@ class ExportClass(object):
         if paneTab is not None:
             paneTab.frameSelection()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectNode(self, node=None):
         if node is None:
             if len(hou.selectedNodes()) == 0:
@@ -911,7 +893,7 @@ class ExportClass(object):
 
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getWedgeROP(self, wedge):
         if wedge.inputs():
             return wedge.inputs()[0]
@@ -920,32 +902,32 @@ class ExportClass(object):
             if node.type().name() in self.nodeTypes:
                 return node
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def useTakeChanged(self, state):
         self.cb_take.setEnabled(state)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def rjToggled(self, checked=None):
         if checked is None:
             checked = self.gb_submit.isChecked()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def managerChanged(self, text=None):
         if self.cb_manager.currentText() in self.core.rfManagers:
             self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_activated(
@@ -953,7 +935,7 @@ class ExportClass(object):
             )
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openSlaves(self):
         try:
             del sys.modules["SlaveAssignment"]
@@ -992,11 +974,11 @@ class ExportClass(object):
             self.e_osSlaves.setText(selSlaves)
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -1022,7 +1004,7 @@ class ExportClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
         fileName = self.core.getCurrentFileName()
         prefUnit = "meter"
@@ -1196,7 +1178,7 @@ class ExportClass(object):
 
         return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
         if self.chb_globalRange.isChecked():
             startFrame = self.stateManager.sp_rangeStart.value()
@@ -1733,7 +1715,7 @@ class ExportClass(object):
                     self.core.writeErrorLog(erStr)
                 return [self.state.text(0) + " - error - " + result]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeNode(self):
         result = ""
         self.node.parm("execute").pressButton()
@@ -1749,7 +1731,7 @@ class ExportClass(object):
 
         return result
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getStateProps(self):
         outputTypes = []
         for i in range(self.cb_outType.count()):

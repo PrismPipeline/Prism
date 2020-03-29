@@ -61,7 +61,7 @@ if psVersion == 1:
 else:
     import TaskSelection_ui_ps2 as TaskSelection_ui
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
@@ -101,7 +101,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
         )
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.cb_paths.activated.connect(self.locationChanged)
         self.tbw_entity.currentChanged.connect(lambda x: self.entityClicked())
@@ -149,7 +149,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             lambda pos: self.rclicked(pos, "versions")
         )
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def mouseClickEvent(self, event, uielement):
         if QEvent != None:
             if event.type() == QEvent.MouseButtonRelease:
@@ -185,7 +185,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 elif uielement == "t":
                     self.lw_tasks.mousePrEvent(event)
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def mousedb(self, event, tab, uielement):
         if tab == "a" and not self.adclick:
             pos = self.tw_assets.mapFromGlobal(QCursor.pos())
@@ -204,7 +204,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     # 			uielement.setExpanded(mIndex, not uielement.isExpanded(mIndex))
     # 			uielement.mouseDClick(event)
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def openCustom(self):
         startPath = self.getCurSelection()
         customFile = QFileDialog.getOpenFileName(
@@ -229,7 +229,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             ]
             self.close()
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def loadVersion(self, index, currentVersion=False):
         if currentVersion:
             self.tw_versions.sortByColumn(0, Qt.DescendingOrder)
@@ -256,7 +256,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             ]
             self.close()
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def rclicked(self, pos, listType):
         showInfo = False
         if listType == "assets":
@@ -368,7 +368,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         rcmenu.exec_((viewUi.viewport()).mapToGlobal(pos))
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def showVersionInfo(self, path):
         vInfo = "No information is saved with this version."
 
@@ -388,7 +388,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         QMessageBox.information(self.core.messageParent, "Versioninfo", vInfo)
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def locationChanged(self, location):
         task = version = None
         row = self.tw_versions.currentIndex().row()
@@ -418,7 +418,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if not path or not self.navigateToFile(path, task=task, version=version):
             self.navigateToFile(self.core.getCurrentFileName())
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def entityClicked(self, entityType=None):
         if entityType is None:
             if self.tbw_entity.tabText(self.tbw_entity.currentIndex()) == "Assets":
@@ -440,7 +440,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.updateTasks()
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def taskClicked(self):
         sItems = self.lw_tasks.selectedItems()
         if len(sItems) == 1 and sItems[0].text() != self.curTask:
@@ -450,7 +450,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.updateVersions()
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def updateAssets(self, load=False):
         self.tw_assets.clear()
 
@@ -551,15 +551,15 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.entityClicked()
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def aItemCollapsed(self, item):
         self.adclick = False
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def sItemCollapsed(self, item):
         self.sdclick = False
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def updateShots(self):
         self.tw_shots.clear()
 
@@ -642,7 +642,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.entityClicked()
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def updateTasks(self, item=None):
         self.lw_tasks.clear()
 
@@ -677,7 +677,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.updateVersions()
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def updateVersions(self):
         model = QStandardItemModel()
 
@@ -849,7 +849,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if self.tw_versions.model().rowCount() > 0:
             self.tw_versions.selectRow(0)
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def getCurSelection(self):
         curPath = os.path.join(
             self.core.projectPath,
@@ -880,7 +880,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         row = self.tw_versions.selectionModel().currentIndex().row()
         return os.path.dirname(self.tw_versions.model().index(row, pathC).data())
 
-    @err_decorator(name="TaskSelection")
+    @err_catcher(name=__name__)
     def navigateToFile(self, fileName, task=None, version=None):
         if not fileName:
             return False

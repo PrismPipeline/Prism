@@ -31,28 +31,22 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import NatronEngine, NatronGui
-import os, sys, platform
-import traceback, time
-from functools import wraps
+import os
+import sys
+import platform
+
+import NatronEngine
+import NatronGui
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
-if platform.system() == "Windows":
-    if sys.version[0] == "3":
-        import winreg as _winreg
-    else:
-        import _winreg
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Natron_Functions(object):
@@ -60,29 +54,7 @@ class Prism_Natron_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Natron - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def instantStartup(self, origin):
         NatronGui.natron.addMenuCommand("Prism/Save Version", "pcore.saveScene")
         NatronGui.natron.addMenuCommand("Prism/Save Comment", "pcore.saveWithComment")
@@ -92,7 +64,7 @@ class Prism_Natron_Functions(object):
         )
         NatronGui.natron.addMenuCommand("Prism/Settings", "pcore.prismSettings")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         for obj in qApp.topLevelWidgets():
             if (
@@ -144,16 +116,16 @@ class Prism_Natron_Functions(object):
         self.useLastVersion = False
         self.natronApp = NatronEngine.natron.getInstance(0)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         if hasattr(origin, "asThread") and origin.asThread.isRunning():
             origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, preventError=False):
         if preventError:
             try:
@@ -164,7 +136,7 @@ class Prism_Natron_Functions(object):
         else:
             return eval(code)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         try:
             pPath = NatronEngine.App.getProjectParam(
@@ -180,22 +152,22 @@ class Prism_Natron_Functions(object):
 
         return currentFileName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         try:
             return NatronEngine.App.saveProjectAs(self.natronApp, filepath)
         except:
             return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = (
             NatronEngine.App.getProjectParam(self.natronApp, "frameRange").get().x
@@ -206,21 +178,21 @@ class Prism_Natron_Functions(object):
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         NatronEngine.App.getProjectParam(self.natronApp, "frameRange").set(
             startFrame, endFrame
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return NatronEngine.App.getProjectParam(self.natronApp, "frameRate").get()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         return NatronEngine.App.getProjectParam(self.natronApp, "frameRate").set(fps)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateNatronNodes(self):
         updatedNodes = []
 
@@ -252,27 +224,27 @@ class Prism_Natron_Functions(object):
 
             QMessageBox.information(self.core.messageParent, "Information", mStr)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return NatronEngine.natron.getNatronVersionString()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.actionStateManager.setEnabled(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrower_loadLibs(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False
@@ -282,19 +254,19 @@ class Prism_Natron_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def importImages(self, origin):
         fString = "Please select an import option:"
         msg = QMessageBox(
@@ -313,45 +285,45 @@ class Prism_Natron_Functions(object):
         else:
             return
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def natronImportSource(self, origin):
         sourceData = origin.compGetImportSource()
 
         for i in sourceData:
             self.natronApp.createReader(i[0])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def natronImportPasses(self, origin):
         sourceData = origin.compGetImportPasses()
 
         for i in sourceData:
             self.natronApp.createReader(i[0])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_loadLibs(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrower_loadLibs(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
 
@@ -381,7 +353,7 @@ class Prism_Natron_Functions(object):
         elif thisParam == thisNode.WritePrismBaseframeRange:
             self.wpRangeChanged(thisNode.getNode("WritePrismBase"), thisNode)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getOutputPath(self, node, group=None, app=None, render=False):
         if app is not None:
             self.natronApp = app
@@ -406,7 +378,7 @@ class Prism_Natron_Functions(object):
 
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startRender(self, node, group, useLastVersion=False):
         taskName = group.getParam("prismTask").get()
 
@@ -449,7 +421,7 @@ class Prism_Natron_Functions(object):
 
         self.useLastVersion = False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def wpRangeChanged(self, node, group):
         fVisible = group.getParam("WritePrismBaseframeRange").get() == 2
 

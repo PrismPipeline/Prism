@@ -57,11 +57,11 @@ else:
 
     pVersion = 2
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class ExportClass(object):
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
         self.core = core
@@ -143,7 +143,7 @@ class ExportClass(object):
 
         self.typeChanged(self.cb_outType.currentText())
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "taskname" in data:
             self.l_taskName.setText(data["taskname"])
@@ -211,7 +211,7 @@ class ExportClass(object):
             self, data
         )
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -242,7 +242,7 @@ class ExportClass(object):
         if not self.stateManager.standalone:
             self.b_add.clicked.connect(self.addObjects)
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
         checked = state == Qt.Checked
         self.l_rangeStart.setEnabled(not checked)
@@ -251,13 +251,13 @@ class ExportClass(object):
         self.sp_rangeEnd.setEnabled(not checked)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def wholeSceneChanged(self, state):
         self.gb_objects.setEnabled(not state == Qt.Checked)
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         if self.cb_outType.currentText() == "ShotCam":
             sText = text + " (ShotCam - %s)" % self.cb_cam.currentText()
@@ -273,13 +273,13 @@ class ExportClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def setTaskname(self, taskname):
         prevTaskName = self.l_taskName.text()
         self.core.appPlugin.sm_export_setTaskText(self, prevTaskName, taskname)
         self.updateUi()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def changeTask(self):
         import CreateItem
 
@@ -307,7 +307,7 @@ class ExportClass(object):
             self.nameChanged(self.e_name.text())
             self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def rcObjects(self, pos):
         item = self.lw_objects.itemAt(pos)
 
@@ -330,11 +330,11 @@ class ExportClass(object):
         self.updateUi()
         createMenu.exec_(self.lw_objects.mapToGlobal(pos))
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def addObjects(self, objects=None):
         self.core.appPlugin.sm_export_addObjects(self, objects)
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def removeItem(self, item):
         items = self.lw_objects.selectedItems()
         for i in reversed(self.lw_objects.selectedItems()):
@@ -346,7 +346,7 @@ class ExportClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def clearItems(self):
         self.lw_objects.clear()
         self.nodes = []
@@ -356,7 +356,7 @@ class ExportClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def updateUi(self):
         self.cb_cam.clear()
         self.camlist = camNames = []
@@ -449,7 +449,7 @@ class ExportClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def typeChanged(self, idx):
         isSCam = idx == "ShotCam"
         self.w_cam.setVisible(isSCam)
@@ -465,25 +465,25 @@ class ExportClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def setCam(self, index):
         self.curCam = self.camlist[index]
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -508,7 +508,7 @@ class ExportClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next", startFrame=0, endFrame=0):
         prefUnit = self.core.appPlugin.preferredUnit
 
@@ -660,7 +660,7 @@ class ExportClass(object):
 
         return outputName, outputPath, hVersion
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
         if self.chb_globalRange.isChecked():
             startFrame = self.stateManager.sp_rangeStart.value()
@@ -846,7 +846,7 @@ class ExportClass(object):
             else:
                 return [self.state.text(0) + " - unknown error (files do not exist)"]
 
-    @err_decorator(name="sm_default_export")
+    @err_catcher(name=__name__)
     def getStateProps(self):
         stateProps = {}
         stateProps.update(

@@ -31,24 +31,23 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, platform, subprocess
-import traceback, time
-from functools import wraps
+import os
+import sys
+import platform
+import subprocess
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
 if platform.system() == "Windows":
     import win32com.client
+
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Photoshop_Functions(object):
@@ -57,29 +56,7 @@ class Prism_Photoshop_Functions(object):
         self.plugin = plugin
         self.win = platform.system() == "Windows"
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Photoshop - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         origin.timer.stop()
 
@@ -155,15 +132,15 @@ class Prism_Photoshop_Functions(object):
 
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, preventError=False):
         if preventError:
             try:
@@ -174,7 +151,7 @@ class Prism_Photoshop_Functions(object):
         else:
             return eval(code)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeAppleScript(self, script):
         p = subprocess.Popen(
             ["osascript"],
@@ -188,7 +165,7 @@ class Prism_Photoshop_Functions(object):
 
         return stdout
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         try:
             if self.win:
@@ -220,7 +197,7 @@ class Prism_Photoshop_Functions(object):
 
         return currentFileName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         doc = self.core.getCurrentFileName()
         if doc != "":
@@ -228,7 +205,7 @@ class Prism_Photoshop_Functions(object):
 
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onSaveExtendedOpen(self, origin):
         origin.l_format = QLabel("Save as:")
         origin.cb_format = QComboBox()
@@ -243,19 +220,19 @@ class Prism_Photoshop_Functions(object):
         origin.w_details.layout().addWidget(origin.l_format, rowIdx, 0)
         origin.w_details.layout().addWidget(origin.cb_format, rowIdx, 1)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onGetSaveExtendedDetails(self, origin, details):
         details["fileFormat"] = origin.cb_format.currentText()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCharID(self, s):
         return self.psApp.CharIDToTypeID(s)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getStringID(self, s):
         return self.psApp.StringIDToTypeID(s)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         try:
             if self.win:
@@ -332,23 +309,23 @@ class Prism_Photoshop_Functions(object):
         except:
             return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         if self.win:
             version = self.psApp.Version
@@ -365,7 +342,7 @@ class Prism_Photoshop_Functions(object):
 
         return version
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.loadOiio()
         origin.actionStateManager.setEnabled(False)
@@ -376,15 +353,15 @@ class Prism_Photoshop_Functions(object):
         origin.menuTools.addSeparator()
         origin.menuTools.addMenu(psMenu)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if not force and os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False
@@ -404,19 +381,19 @@ class Prism_Photoshop_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def importImages(self, origin):
         fString = "Please select an import option:"
         msg = QMessageBox(
@@ -437,7 +414,7 @@ class Prism_Photoshop_Functions(object):
         else:
             return
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def photoshopImportSource(self, origin):
         mpb = origin.mediaPlaybacks["shots"]
         sourceFolder = os.path.dirname(
@@ -471,7 +448,7 @@ class Prism_Photoshop_Functions(object):
 
             # curReadNode = photoshop.createNode("Read",'file %s first %s last %s' % (filePath,firstFrame,lastFrame),False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def photoshopImportPasses(self, origin):
         sourceFolder = os.path.dirname(
             os.path.dirname(os.path.join(origin.basepath, origin.seq[0]))
@@ -522,27 +499,27 @@ class Prism_Photoshop_Functions(object):
                 False,
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPhotoshopTools(self):
         self.dlg_tools = QDialog()
 
@@ -574,7 +551,7 @@ class Prism_Photoshop_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def exportImage(self):
         self.dlg_export = QDialog()
         self.core.parentWindow(self.dlg_export)
@@ -668,11 +645,11 @@ class Prism_Photoshop_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def exportToggle(self, checked):
         self.w_task.setEnabled(checked)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def exportGetTasks(self):
         self.taskList = self.core.getTaskNames("2d")
 
@@ -682,7 +659,7 @@ class Prism_Photoshop_Functions(object):
             if "_ShotCam" in self.taskList:
                 self.taskList.remove("_ShotCam")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def exportShowTasks(self):
         tmenu = QMenu()
 
@@ -696,7 +673,7 @@ class Prism_Photoshop_Functions(object):
 
         tmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def exportGetVersions(self):
         existingVersions = []
         outData = self.exportGetOutputName()
@@ -720,7 +697,7 @@ class Prism_Photoshop_Functions(object):
         self.cb_versions.clear()
         self.cb_versions.addItems(existingVersions)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def exportGetOutputName(self, useVersion="next"):
         if self.le_task.text() == "":
             return
@@ -810,16 +787,16 @@ class Prism_Photoshop_Functions(object):
 
         return outputName, outputPath, hVersion
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def exportVersionToggled(self, checked):
         self.cb_versions.setEnabled(not checked)
         self.w_comment.setEnabled(checked)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def validateComment(self, text):
         self.core.validateLineEdit(self.le_comment)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveExport(self):
         if self.rb_task.isChecked():
             taskName = self.le_task.text()

@@ -30,10 +30,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
-
-import os, sys, traceback, time, subprocess
-from functools import wraps
-
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -42,95 +38,74 @@ except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
+
 
 class Prism_PluginEmpty_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
 
-    # this function catches any errors in this script and can be ignored
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_PluginEmpty - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
     # if returns true, the plugin will be loaded by Prism
-    @err_decorator
+    @err_catcher(name=__name__)
     def isActive(self):
         return True
 
     # the following function are called by Prism at specific events, which are indicated by the function names
     # you can add your own code to any of these functions.
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectCreated(self, origin, projectPath, projectName):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowser_loadUI(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserClose(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsSave(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateManagerClose(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onSelectTaskOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateCreated(self, origin, state):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateDeleted(self, origin, state):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPublish(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postPublish(self, origin, publishType):
         """
         origin:         StateManager instance
@@ -138,7 +113,7 @@ class Prism_PluginEmpty_Functions(object):
                         Can be "stateExecution" (state was executed from the context menu) or "publish" (publish button was pressed)
         """
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish):
         """
         origin:     PrismCore instance
@@ -148,7 +123,7 @@ class Prism_PluginEmpty_Functions(object):
         isPublish:  (bool) True if this save was triggered by a publish
         """
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
         """
         origin:     PrismCore instance
@@ -158,57 +133,57 @@ class Prism_PluginEmpty_Functions(object):
         isPublish:  (bool) True if this save was triggered by a publish
         """
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onSceneOpen(self, origin, filepath):
         # called when a scenefile gets opened from the Project Browser. Gets NOT called when a scenefile is loaded manually from the file menu in a DCC app.
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onAssetDlgOpen(self, origin, assetDialog):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onAssetCreated(self, origin, assetName, assetPath, assetDialog=None):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStepDlgOpen(self, origin, dialog):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStepCreated(self, origin, entity, stepname, path, settings):
         # entity: "asset" or "shot"
         # settings: dictionary containing "createDefaultCategory", which holds a boolean (settings["createDefaultCategory"])
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onCategroyDlgOpen(self, origin, catDialog):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onCategoryCreated(self, origin, catname, path):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onShotDlgOpen(self, origin, shotDialog, shotName=None):
         # gets called just before the "Create Shot"/"Edit Shot" dialog opens. Check if "shotName" is None to check if a new shot will be created or if an existing shot will be edited.
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onShotCreated(self, origin, sequenceName, shotName):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBFileContextMenu(self, origin, rcmenu, index):
         # gets called before "rcmenu" get displayed. Can be used to modify the context menu when the user right clicks in the scenefile lists of assets or shots in the Project Browser.
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBListContextMenu(self, origin, rcmenu, listWidget, item, path):
         # gets called before "rcmenu" get displayed for the "Tasks" and "Versions" list in the Project Browser.
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBAssetContextMenu(self, origin, rcmenu, index):
         """
         origin: Project Browser instance
@@ -217,71 +192,71 @@ class Prism_PluginEmpty_Functions(object):
         """
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBAssetStepContextMenu(self, origin, rcmenu, index):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBAssetCategoryContextMenu(self, origin, rcmenu, index):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBShotContextMenu(self, origin, rcmenu, index):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBShotStepContextMenu(self, origin, rcmenu, index):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openPBShotCategoryContextMenu(self, origin, rcmenu, index):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openTrayContextMenu(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preLoadEmptyScene(self, origin, filepath):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postLoadEmptyScene(self, origin, filepath):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preImport(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postImport(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preExport(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postExport(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prePlayblast(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postPlayblast(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preRender(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postRender(self, *args, **kwargs):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def maya_export_abc(self, origin, params):
         """
         origin: reference to the Maya Plugin class
@@ -298,7 +273,7 @@ class Prism_PluginEmpty_Functions(object):
         params["export_cmd"] = params["export_cmd"][:-1] + " -attr material" + params["export_cmd"][-1]
         """
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preSubmit_Deadline(self, origin, jobInfos, pluginInfos, arguments):
         """
         origin: reference to the Deadline plugin class
@@ -316,14 +291,14 @@ class Prism_PluginEmpty_Functions(object):
         https://docs.thinkboxsoftware.com/products/deadline/10.0/1_User%20Manual/manual/manual-submission.html
         """
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def postSubmit_Deadline(self, origin, result):
         """
         origin: reference to the Deadline plugin class
         result: the return value from the Deadline submission.
         """
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preIntegrationAdded(self, origin, integrationFiles):
         """
         origin: reference to the integration class instance

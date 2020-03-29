@@ -31,8 +31,7 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, traceback, time, subprocess
-from functools import wraps
+import os
 
 try:
     from PySide2.QtCore import *
@@ -41,6 +40,8 @@ try:
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
+
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_TextureFolderExample_Functions(object):
@@ -56,37 +57,14 @@ class Prism_TextureFolderExample_Functions(object):
 
         # self.textureFolders = True
 
-    # this function catches any errors in this script and can be ignored
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_TextureFolderExample - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
     # if returns true, the plugin will be loaded by Prism
-    @err_decorator
+    @err_catcher(name=__name__)
     def isActive(self):
         return True
 
     # the following function are called by Prism at specific events, which are indicated by the function names
     # you can add your own code to any of these functions.
-    @err_decorator
+    @err_catcher(name=__name__)
     def onAssetDlgOpen(self, origin, assetDialog):
         if hasattr(self, "textureFolders"):
             # create a new checkbox
@@ -104,7 +82,7 @@ class Prism_TextureFolderExample_Functions(object):
                 lambda x: assetDialog.chb_textureFolder.setEnabled(x)
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onAssetCreated(self, origin, assetName, assetPath, assetDialog=None):
         if hasattr(self, "textureFolders"):
             # check if the texture folder should be created

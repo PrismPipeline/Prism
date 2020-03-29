@@ -31,7 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 

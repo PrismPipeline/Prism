@@ -31,55 +31,29 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
-import sys, os, time, traceback
-from functools import wraps
-
 if sys.version[0] == "3":
     from configparser import ConfigParser
-
-    pVersion = 3
 else:
     from ConfigParser import ConfigParser
 
-    pVersion = 2
+import hou
 
-try:
-    import hou
-except:
-    pass
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class ImportFileClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - hou_ImportFile %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def setup(
         self, state, core, stateManager, node=None, importPath=None, stateData=None
     ):
@@ -140,7 +114,7 @@ class ImportFileClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -167,7 +141,7 @@ class ImportFileClass(object):
         if "autoUpdate" in data:
             self.chb_autoUpdate.setChecked(eval(data["autoUpdate"]))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def findNode(self, path):
         for node in hou.node("/").allSubChildren():
             if (
@@ -179,7 +153,7 @@ class ImportFileClass(object):
 
         return None
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -200,7 +174,7 @@ class ImportFileClass(object):
                 self.stateManager.saveStatesToScene
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         isShotCam = self.taskName == "ShotCam"
         self.f_nameSpaces.setVisible(not isShotCam)
@@ -211,13 +185,13 @@ class ImportFileClass(object):
         except:
             self.state.setText(0, text + " (None)")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pathChanged(self):
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def autoUpdateChanged(self, checked):
         self.w_latestVersion.setVisible(not checked)
         self.w_importLatest.setVisible(not checked)
@@ -230,7 +204,7 @@ class ImportFileClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def browse(self):
         import TaskSelection
 
@@ -247,7 +221,7 @@ class ImportFileClass(object):
             self.updateUi()
             self.importPath = None
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openFolder(self, pos):
         path = hou.expandString(self.e_file.text())
         if os.path.isfile(path):
@@ -255,7 +229,7 @@ class ImportFileClass(object):
 
         self.core.openFolder(path)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def goToNode(self):
         if not self.core.uiAvailable:
             return
@@ -275,7 +249,7 @@ class ImportFileClass(object):
         if paneTab is not None:
             paneTab.frameSelection()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def autoNameSpaceChanged(self, checked):
         self.b_nameSpaces.setEnabled(not checked)
         if not self.stateManager.standalone:
@@ -283,7 +257,7 @@ class ImportFileClass(object):
                 self.removeNameSpaces()
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getScenePath(self, location="global"):
         sceneName = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
         if location == "global":
@@ -293,11 +267,11 @@ class ImportFileClass(object):
         scenePath = os.path.join(prjPath, sceneName).replace("\\", "/")
         return scenePath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPath(self):
         return self.e_file.text().replace("\\", "/")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def importObject(self, taskName=None, objMerge=True):
         if self.stateManager.standalone:
             return False
@@ -614,7 +588,7 @@ class ImportFileClass(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def importLatest(self, refreshUi=True):
         if refreshUi:
             self.updateUi()
@@ -661,7 +635,7 @@ class ImportFileClass(object):
                             break
                 break
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def objMerge(self):
         if not self.core.uiAvailable:
             return
@@ -718,7 +692,7 @@ class ImportFileClass(object):
         mNode.setPosition(paneTab.visibleBounds().center())
         mNode.setCurrent(True, clear_all_selected=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def checkLatestVersion(self):
         curVersion = latestVersion = ""
 
@@ -768,7 +742,7 @@ class ImportFileClass(object):
 
         return curVersion, latestVersion
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateUi(self):
         if os.path.splitext(self.e_file.text())[1] == ".hda":
             self.gb_options.setVisible(False)
@@ -821,11 +795,11 @@ class ImportFileClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentVersion(self):
         return self.e_file.text().replace("\\", "/")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getLatestVersion(self):
         parDir = os.path.dirname(self.e_file.text())
         if os.path.basename(parDir) in ["centimeter", "meter"]:
@@ -873,7 +847,7 @@ class ImportFileClass(object):
 
         return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def removeNameSpaces(self):
         outputCons = self.fileNode.outputConnections()
 
@@ -918,7 +892,7 @@ class ImportFileClass(object):
 
         self.fileNode.parent().layoutChildren()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def unitConvert(self):
         if self.taskName == "ShotCam":
             xforms = [
@@ -973,7 +947,7 @@ class ImportFileClass(object):
             self.core.appPlugin.setNodeParm(unitNode, "scale", val=0.01)
             self.fileNode.parent().layoutChildren()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updatePrefUnits(self):
         if self.chb_preferUnit.isChecked():
             self.preferredUnit = "centimeter"
@@ -982,11 +956,11 @@ class ImportFileClass(object):
             self.preferredUnit = "meter"
             self.unpreferredUnit = "centimeter"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getStateProps(self):
         try:
             curNode = self.node.path()

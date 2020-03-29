@@ -2,7 +2,8 @@ if composition ~= nil then
 	composition:Execute([[
 !Py: ""
 
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 	

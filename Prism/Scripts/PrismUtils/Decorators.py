@@ -36,23 +36,65 @@ import traceback
 import time
 from functools import wraps
 
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
 
-def err_decorator(name):
-    def decorator(func):
+
+def err_handler(func, name="", plugin=False):
+    @wraps(func)
+    def func_wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+
+            versionStr = ""
+            versionStr += "\nCore: %s" % args[0].core.version
+            if hasattr(args[0].core, "appPlugin"):
+                versionStr += "\nApp plugin: %s %s" % (args[0].core.appPlugin.pluginName, args[0].core.appPlugin.version)
+            if plugin:
+                versionStr += "\nPlugin: %s %s" % (args[0].plugin.pluginName, args[0].plugin.version)
+
+            erStr = "%s ERROR - %s\n%s\n\n%s\n\n%s" % (
+                time.strftime("%d/%m/%y %X"),
+                name,
+                versionStr,
+                "".join(traceback.format_stack()),
+                traceback.format_exc(),
+            )
+            args[0].core.writeErrorLog(erStr)
+
+    return func_wrapper
+
+
+def err_catcher(name):
+    return lambda x, y=name, z=False: err_handler(x, name=y, plugin=z)
+
+
+def err_catcher_plugin(name):
+    return lambda x, y=name, z=True: err_handler(x, name=y, plugin=z)
+
+
+def err_catcher_standalone(name):
+    def err_decorator(func):
         @wraps(func)
         def func_wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - %s %s:\n%s\n\n%s" % (
+                erStr = "%s ERROR - %s %s:\n\n%s" % (
                     time.strftime("%d/%m/%y %X"),
                     name,
-                    args[0].core.version,
                     "".join(traceback.format_stack()),
                     traceback.format_exc(),
                 )
-                args[0].core.writeErrorLog(erStr)
+                print(erStr)
+                QMessageBox.warning(None, "Prism", erStr)
 
         return func_wrapper
-    return decorator

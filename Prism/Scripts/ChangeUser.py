@@ -71,7 +71,7 @@ else:
     from UserInterfacesPrism import ChangeUser_ui_ps2 as ChangeUser_ui
 
 from UserInterfacesPrism import qdarkstyle
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
@@ -88,17 +88,17 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
 
         self.validate()
 
-    @err_decorator(name="ChangeUser")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_fname.textChanged.connect(lambda x: self.validate(self.e_fname))
         self.e_lname.textChanged.connect(lambda x: self.validate(self.e_lname))
         self.buttonBox.accepted.connect(self.setUser)
 
-    @err_decorator(name="ChangeUser")
+    @err_catcher(name=__name__)
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator(name="ChangeUser")
+    @err_catcher(name=__name__)
     def setNames(self):
         if not os.path.exists(self.core.userini):
             self.core.createUserPrefs()
@@ -115,7 +115,7 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
         except Exception as e:
             pass
 
-    @err_decorator(name="ChangeUser")
+    @err_catcher(name=__name__)
     def validate(self, editfield=None):
         if editfield:
             self.core.validateLineEdit(editfield)
@@ -125,7 +125,7 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
         else:
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-    @err_decorator(name="ChangeUser")
+    @err_catcher(name=__name__)
     def setUser(self):
         if not os.path.exists(self.core.userini):
             self.core.createUserPrefs()

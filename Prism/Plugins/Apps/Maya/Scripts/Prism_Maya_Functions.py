@@ -31,6 +31,13 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import traceback
+import time
+import shutil
+import platform
+
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.OpenMaya as api
@@ -41,21 +48,15 @@ try:
 except:
     pass
 
-import os, sys
-import traceback, time, shutil, platform
-from functools import wraps
-
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Maya_Functions(object):
@@ -63,29 +64,7 @@ class Prism_Maya_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Maya - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         if self.core.uiAvailable:
             if QApplication.instance() is None:
@@ -134,11 +113,11 @@ class Prism_Maya_Functions(object):
 
         api.MSceneMessage.addCallback(api.MSceneMessage.kAfterOpen, origin.sceneOpen)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def autosaveEnabled(self, origin):
         return cmds.autoSave(q=True, enable=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         job = self.core.projectPath.replace("\\", "/")
         cmds.workspace(job, openWorkspace=True)
@@ -165,12 +144,12 @@ class Prism_Maya_Functions(object):
         if scriptPath not in sys.path:
             sys.path.append(scriptPath)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         if hasattr(origin, "asThread") and origin.asThread.isRunning():
             origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code, execute=False, logErr=True):
         if logErr:
             try:
@@ -190,18 +169,18 @@ class Prism_Maya_Functions(object):
             except:
                 pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         if path:
             return cmds.file(q=True, sceneName=True)
         else:
             return cmds.file(q=True, sceneName=True, shortName=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         cmds.file(rename=filepath)
         try:
@@ -209,7 +188,7 @@ class Prism_Maya_Functions(object):
         except:
             return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         val = cmds.fileInfo("PrismImports", query=True)
 
@@ -218,14 +197,14 @@ class Prism_Maya_Functions(object):
 
         return eval('"%s"' % val[0])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = cmds.playbackOptions(q=True, minTime=True)
         endframe = cmds.playbackOptions(q=True, maxTime=True)
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         cmds.playbackOptions(
             animationStartTime=startFrame,
@@ -235,11 +214,11 @@ class Prism_Maya_Functions(object):
         )
         cmds.currentTime(startFrame, edit=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return mel.eval("currentTimeUnitToFPS")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         try:
             frange = self.getFrameRange(origin)
@@ -252,25 +231,25 @@ class Prism_Maya_Functions(object):
                 "Cannot set the FPS in the current scene to %s." % fps,
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return str(cmds.about(apiVersion=True))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.loadOiio()
         # 	origin.sl_preview.mousePressEvent = origin.sliderDrag
         origin.sl_preview.mousePressEvent = origin.sl_preview.origMousePressEvent
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if not filepath.endswith(".ma") and not filepath.endswith(".mb"):
             return False
@@ -305,27 +284,27 @@ class Prism_Maya_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def appendEnvFile(self, envVar="MAYA_MODULE_PATH"):
         envPath = os.path.join(
             os.environ["MAYA_APP_DIR"], cmds.about(version=True), "Maya.env"
@@ -371,19 +350,19 @@ class Prism_Maya_Functions(object):
             % modPath,
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_addObjects(self, origin, objects=None):
         if objects:
             cmds.select(objects)
@@ -404,7 +383,7 @@ class Prism_Maya_Functions(object):
         origin.updateUi()
         origin.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getNodeName(self, origin, node):
         if self.isNodeValid(origin, node):
             try:
@@ -417,7 +396,7 @@ class Prism_Maya_Functions(object):
         else:
             return "invalid"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectNodes(self, origin):
         if origin.lw_objects.selectedItems() != []:
             nodes = []
@@ -427,11 +406,11 @@ class Prism_Maya_Functions(object):
                     nodes.append(node)
             cmds.select(nodes)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def isNodeValid(self, origin, handle):
         return len(cmds.ls(handle)) > 0
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamNodes(self, origin, cur=False):
         sceneCams = cmds.listRelatives(
             cmds.ls(cameras=True, long=True), parent=True, fullPath=True
@@ -441,7 +420,7 @@ class Prism_Maya_Functions(object):
 
         return sceneCams
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamName(self, origin, handle):
         if handle == "Current View":
             return handle
@@ -452,12 +431,12 @@ class Prism_Maya_Functions(object):
         else:
             return str(nodes[0])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectCam(self, origin):
         if self.isNodeValid(origin, origin.curCam):
             cmds.select(origin.curCam)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_startup(self, origin):
         origin.f_objectList.setStyleSheet(
             "QFrame { border: 0px solid rgb(150,150,150); }"
@@ -554,21 +533,21 @@ class Prism_Maya_Functions(object):
             origin.stateManager.saveStatesToScene
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
         origin.l_taskName.setText(cmds.rename(prevTaskName, newTaskName))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
         cmds.sets(node, remove=origin.l_taskName.text())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
         setName = origin.l_taskName.text()
         if self.isNodeValid(origin, setName):
             cmds.sets(clear=setName)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_updateObjects(self, origin):
         prevSel = cmds.ls(selection=True, long=True)
         try:
@@ -584,7 +563,7 @@ class Prism_Maya_Functions(object):
         except:
             pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
         result = self.sm_export_exportAppObjects(
             origin,
@@ -604,7 +583,7 @@ class Prism_Maya_Functions(object):
         )
         return result
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportAppObjects(
         self,
         origin,
@@ -977,20 +956,20 @@ class Prism_Maya_Functions(object):
 
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
         try:
             cmds.delete(origin.l_taskName.text())
         except:
             pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_unColorObjList(self, origin):
         origin.lw_objects.setStyleSheet(
             "QListWidget { border: 3px solid rgb(50,50,50); }"
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_typeChanged(self, origin, idx):
         origin.w_exportNamespaces.setVisible(idx == ".abc")
         exportScene = idx in [".ma", ".mb"]
@@ -1001,7 +980,7 @@ class Prism_Maya_Functions(object):
         preserveReferences = idx in [".ma", ".mb", ".rs"]
         origin.w_preserveReferences.setVisible(preserveReferences)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preExecute(self, origin, startFrame, endFrame):
         warnings = []
 
@@ -1056,7 +1035,7 @@ class Prism_Maya_Functions(object):
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_loadData(self, origin, data):
         if "exportnamespaces" in data:
             origin.chb_exportNamespaces.setChecked(eval(data["exportnamespaces"]))
@@ -1069,7 +1048,7 @@ class Prism_Maya_Functions(object):
         if "preserveReferences" in data:
             origin.chb_preserveReferences.setChecked(eval(data["preserveReferences"]))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_getStateProps(self, origin, stateProps):
         stateProps.pop("connectednodes")
         stateProps.update(
@@ -1084,15 +1063,15 @@ class Prism_Maya_Functions(object):
 
         return stateProps
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_isVray(self, origin):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_setVraySettings(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startup(self, origin):
         origin.gb_passes.setCheckable(False)
         origin.sp_rangeStart.setValue(cmds.playbackOptions(q=True, minTime=True))
@@ -1112,7 +1091,7 @@ class Prism_Maya_Functions(object):
 
         origin.f_renderLayer.setVisible(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getRenderLayer(self, origin):
         rlayers = [
             x
@@ -1130,7 +1109,7 @@ class Prism_Maya_Functions(object):
 
         return rlayerNames
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_refreshPasses(self, origin):
         curRender = cmds.getAttr("defaultRenderGlobals.currentRenderer")
         if curRender not in ["arnold", "vray", "redshift"]:
@@ -1167,7 +1146,7 @@ class Prism_Maya_Functions(object):
 
             origin.lw_passes.addItem(item)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_openPasses(self, origin, item=None):
         curRender = cmds.getAttr("defaultRenderGlobals.currentRenderer")
         if curRender == "arnold":
@@ -1189,7 +1168,7 @@ string $tabLayout = `getRendererTabLayout $renderer`;
 tabLayout -e -sti %s $tabLayout;""" % tabNum
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def removeAOV(self, aovName):
         curRender = cmds.getAttr("defaultRenderGlobals.currentRenderer")
         if curRender == "arnold":
@@ -1216,7 +1195,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 except:
                     pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preSubmit(self, origin, rSettings):
         rlayers = cmds.ls(type="renderLayer")
         selRenderLayer = origin.cb_renderLayer.currentText()
@@ -1462,7 +1441,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             cmds.setAttr("defaultRenderGlobals.exrPixelType", 1)  # 16 bit
             cmds.setAttr("defaultRenderGlobals.exrCompression", 3)  # ZIP compression
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startLocalRender(self, origin, outputName, rSettings):
         if not self.core.uiAvailable:
             return "Execute Canceled: Local rendering is supported in the Maya UI only."
@@ -1562,7 +1541,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             self.core.writeErrorLog(erStr)
             return "Execute Canceled: unknown error (view console for more information)"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_undoRenderSettings(self, origin, rSettings):
         if "renderLayerRenderable" in rSettings:
             for i in rSettings["renderLayerRenderable"]:
@@ -1656,7 +1635,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 origin, self.core.readYaml(data=rSettings["renderSettings"])
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
         dlParams["jobInfoFile"] = os.path.join(homeDir, "temp", "maya_submit_info.job")
         dlParams["pluginInfoFile"] = os.path.join(
@@ -1698,11 +1677,11 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 origin, origin.curCam
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentRenderer(self, origin):
         return cmds.getAttr("defaultRenderGlobals.currentRenderer")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentSceneFiles(self, origin):
         curFileName = self.core.getCurrentFileName()
         curFileBase = os.path.splitext(os.path.basename(curFileName))[0]
@@ -1714,7 +1693,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         scenefiles = [curFileName] + xgenfiles
         return scenefiles
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getRenderPasses(self, origin):
         curRender = self.getCurrentRenderer(origin)
         if curRender == "vray":
@@ -1730,7 +1709,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 "defaultpasses", "maya_redshift", configPath=self.core.prismIni
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_addRenderPass(self, origin, passName, steps):
         curRender = self.getCurrentRenderer(origin)
         if curRender == "vray":
@@ -1744,13 +1723,13 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             except:
                 pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_fixOutputPath(self, origin, outputName):
         outputName = (
             os.path.splitext(outputName)[0][:-1] + os.path.splitext(outputName)[1]
@@ -1766,11 +1745,11 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getProgramVersion(self, origin):
         return cmds.about(version=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def deleteNodes(self, origin, handles, num=0):
         if (num + 1) > len(handles):
             return False
@@ -1809,14 +1788,14 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     else:
                         raise e
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_startup(self, origin):
         origin.b_unitConversion.setText("m -> cm")
         origin.b_connectRefNode = QPushButton("Connect selected reference node")
         origin.b_connectRefNode.clicked.connect(lambda: self.connectRefNode(origin))
         origin.gb_import.layout().addWidget(origin.b_connectRefNode)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectRefNode(self, origin):
         selection = cmds.ls(selection=True)
         if len(selection) == 0:
@@ -1865,11 +1844,11 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
         origin.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_disableObjectTracking(self, origin):
         self.deleteNodes(origin, [origin.setName])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
         if not os.path.exists(impFileName):
             QMessageBox.warning(
@@ -2156,7 +2135,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
         return rDict
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_updateObjects(self, origin):
         if origin.setName == "":
             return
@@ -2176,7 +2155,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         except:
             pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_removeNameSpaces(self, origin):
         for i in origin.nodes:
             if not self.isNodeValid(origin, i):
@@ -2196,7 +2175,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
         origin.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_unitConvert(self, origin):
         for i in origin.nodes:
             if cmds.objectType(i, isType="transform"):
@@ -2239,7 +2218,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                         preserveNormals=1,
                     )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_startup(self, origin):
         frange = self.getFrameRange(origin)
         origin.sp_rangeStart.setValue(frange[0])
@@ -2271,14 +2250,14 @@ Show only polygon objects in viewport.
             origin.stateManager.saveStatesToScene
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_loadData(self, origin, data):
         if "useRecommendedSettings" in data:
             origin.chb_useRecommendedSettings.setChecked(
                 eval(data["useRecommendedSettings"])
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_getStateProps(self, origin):
         stateProps = {
             "useRecommendedSettings": str(origin.chb_useRecommendedSettings.isChecked())
@@ -2286,7 +2265,7 @@ Show only polygon objects in viewport.
 
         return stateProps
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
         self.pbSceneSettings = {}
         if self.core.uiAvailable:
@@ -2359,17 +2338,17 @@ Show only polygon objects in viewport.
 
         self.executeScript(origin, cmdString)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_execute(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_postExecute(self, origin):
         if "filmFit" in self.pbSceneSettings:
             try:
@@ -2409,7 +2388,7 @@ Show only polygon objects in viewport.
             except:
                 pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin):
         origin.f_import.setStyleSheet("QFrame { border: 0px solid rgb(150,150,150); }")
         origin.f_export.setStyleSheet("QFrame { border: 0px solid rgb(68,68,68); }")
@@ -2437,29 +2416,29 @@ Show only polygon objects in viewport.
                 api.MSceneMessage.kBeforeOpen, self.core.sceneUnload
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveStates(self, origin, buf):
         cmds.fileInfo("PrismStates", buf)
         cmds.file(modified=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveImports(self, origin, importPaths):
         cmds.fileInfo("PrismImports", importPaths)
         cmds.file(modified=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_readStates(self, origin):
         val = cmds.fileInfo("PrismStates", query=True)
         if len(val) != 0:
             return eval('"%s"' % val[0].replace("\\\\", "\\"))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_deleteStates(self, origin):
         val = cmds.fileInfo("PrismStates", query=True)
         if len(val) != 0:
             cmds.fileInfo(remove="PrismStates")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_getExternalFiles(self, origin):
         prjPath = cmds.workspace(fullName=True, query=True)
         if prjPath.endswith(":"):
@@ -2482,18 +2461,18 @@ Show only polygon objects in viewport.
 
         return [extFiles, []]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         origin.createPressed("Render")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_getCurrentSettings(self, origin):
         import maya.app.renderSetup.model.renderSettings as renderSettings
 
         settings = self.core.writeYaml(data=renderSettings.encode())
         return settings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_setCurrentSettings(self, origin, preset, state=None):
         import maya.app.renderSetup.model.renderSettings as renderSettings
 
@@ -2502,7 +2481,7 @@ Show only polygon objects in viewport.
         except:
             self.core.popup("Failed to set rendersettings.")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_renderSettings_applyDefaultSettings(self, origin):
         import maya.app.renderSetup.views.renderSetupPreferences as prefs
 

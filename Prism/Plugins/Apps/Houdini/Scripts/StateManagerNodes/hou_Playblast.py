@@ -31,46 +31,27 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import time
+import traceback
+import platform
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+import hou
 
-import sys, os, shutil, time, traceback, platform
-from functools import wraps
-
-try:
-    import hou
-except:
-    pass
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class PlayblastClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - hou_Playblast %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, stateData=None):
         self.state = state
         self.core = core
@@ -117,7 +98,7 @@ class PlayblastClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -171,7 +152,7 @@ class PlayblastClass(object):
                 ),
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -193,7 +174,7 @@ class PlayblastClass(object):
             lambda: self.core.copyToClipboard(self.l_pathLast.text())
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
         self.l_rangeEnd.setEnabled(not state)
         self.sp_rangeStart.setEnabled(not state)
@@ -201,21 +182,21 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setCam(self, index):
         if index == 0:
             self.curCam = None
@@ -224,7 +205,7 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         taskname = self.l_taskName.text()
         if taskname == "":
@@ -236,7 +217,7 @@ class PlayblastClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def changeTask(self):
         import CreateItem
 
@@ -260,7 +241,7 @@ class PlayblastClass(object):
 
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def resOverrideChanged(self, checked):
         self.sp_resWidth.setEnabled(checked)
         self.sp_resHeight.setEnabled(checked)
@@ -268,7 +249,7 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def showResPresets(self):
         pmenu = QMenu()
 
@@ -294,7 +275,7 @@ class PlayblastClass(object):
         self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor.pos())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setCamResolution(self):
         pbCam = None
 
@@ -317,7 +298,7 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateUi(self):
         # update Cams
         self.cb_cams.clear()
@@ -344,11 +325,11 @@ class PlayblastClass(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -381,7 +362,7 @@ class PlayblastClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
         if self.l_taskName.text() == "":
             return
@@ -461,7 +442,7 @@ class PlayblastClass(object):
 
         return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
         if not self.core.uiAvailable:
             return [
@@ -663,7 +644,7 @@ class PlayblastClass(object):
                 + " - unknown error (view console for more information)"
             ]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getStateProps(self):
         stateProps = {
             "statename": self.e_name.text(),

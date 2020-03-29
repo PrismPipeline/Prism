@@ -199,12 +199,9 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                     if not childItem.text(0) in self.plugins:
                         continue
 
-                    installPaths = self.plugins[childItem.text(0)].installerExecute(
-                        childItem, result, self.core.installLocPath
+                    self.plugins[childItem.text(0)].installerExecute(
+                        childItem, result
                     )
-                    if type(installPaths) == list:
-                        for k in installPaths:
-                            self.core.integrationAdded(childItem.text(0), k)
 
             if not os.environ.get("prism_skip_root_install"):
                 self.core.setupStartMenu(quiet=True)
@@ -258,7 +255,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
             else os.environ["USER"]
         )
         uid = pwd.getpwnam(userName).pw_uid
-        prefPath = os.path.dirname(self.core.installLocPath)
+        prefPath = os.path.dirname(self.core.integration.installLocPath)
         if os.path.exists(prefPath):
             os.chown(prefPath, uid, -1)
             for root, dirs, files in os.walk(prefPath):
@@ -331,24 +328,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
 
         # print "uninstalling..."
 
-        result = {}
-
-        if os.path.exists(self.core.installLocPath):
-            cData = self.core.getConfig(
-                configPath=self.core.installLocPath, getConf=True
-            )
-
-            for i in cData.sections():
-                if not i in self.plugins:
-                    continue
-
-                appPaths = cData.options(i)
-
-                for k in appPaths:
-                    result["%s integration" % i] = self.plugins[i].removeIntegration(
-                        cData.get(i, k)
-                    )
-
+        result = self.core.integration.removeAllIntegrations()
         result["Prism Files"] = self.removePrismFiles()
 
         if not False in result.values():

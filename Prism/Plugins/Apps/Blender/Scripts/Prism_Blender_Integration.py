@@ -31,6 +31,11 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import platform
+import shutil
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,17 +48,13 @@ except:
 
     psVersion = 1
 
-import os, sys
-import traceback, time, platform, shutil
-from functools import wraps
-
 if platform.system() == "Windows":
     if sys.version[0] == "3":
         import winreg as _winreg
     else:
         import _winreg
 
-from PrismUtils import Integration
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Blender_Integration(object):
@@ -68,34 +69,7 @@ class Prism_Blender_Integration(object):
         elif platform.system() == "Darwin":
             self.examplePath = "/Applications/blender/blender.app/Resources/2.79"
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Blender_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                if hasattr(args[0].core, "writeErrorLog"):
-                    args[0].core.writeErrorLog(erStr)
-                else:
-                    QMessageBox.warning(
-                        args[0].core.messageParent, "Prism Integration", erStr
-                    )
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getExecutable(self):
         execPath = ""
         if platform.system() == "Windows":
@@ -103,41 +77,7 @@ class Prism_Blender_Integration(object):
 
         return execPath
 
-    @err_decorator
-    def integrationAdd(self, origin):
-        path = QFileDialog.getExistingDirectory(
-            self.core.messageParent, "Select Blender folder", self.examplePath
-        )
-
-        if path == "":
-            return False
-
-        result = self.writeBlenderFiles(path)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was added successfully",
-            )
-            return path
-
-        return result
-
-    @err_decorator
-    def integrationRemove(self, origin, installPath):
-        result = self.removeIntegration(installPath)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was removed successfully",
-            )
-
-        return result
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getBlenderPath(self):
         try:
             key = _winreg.OpenKey(
@@ -160,26 +100,21 @@ class Prism_Blender_Integration(object):
         except:
             return ""
 
-    def writeBlenderFiles(self, blenderPath):
+    def addIntegration(self, installPath):
         try:
-            if not os.path.exists(os.path.join(blenderPath, "scripts", "startup")):
-                if os.path.exists(blenderPath):
-                    for f in os.listdir(blenderPath):
+            if not os.path.exists(os.path.join(installPath, "scripts", "startup")):
+                if os.path.exists(installPath):
+                    for f in os.listdir(installPath):
                         try:
                             float(f)
                         except ValueError:
                             pass
                         else:
-                            blenderPath = os.path.join(blenderPath, f)
+                            installPath = os.path.join(installPath, f)
 
-            if not os.path.exists(os.path.join(blenderPath, "scripts", "startup")):
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Prism Integration",
-                    "Invalid Blender path: %s.\n\nThe path has to be the Blender version folder in the installation folder, which usually looks like this: (with your Blender version):\n\n%s"
-                    % (blenderPath, self.examplePath),
-                    QMessageBox.Ok,
-                )
+            if not os.path.exists(os.path.join(installPath, "scripts", "startup")):
+                msgStr = "Invalid Blender path: %s.\n\nThe path has to be the Blender version folder in the installation folder, which usually looks like this: (with your Blender version):\n\n%s" % (installPath, self.examplePath)
+                self.core.popup(msgStr, title="Prism Integration")
                 return False
 
             integrationBase = os.path.join(
@@ -187,9 +122,9 @@ class Prism_Blender_Integration(object):
             )
 
             # prismInit
-            initpath = os.path.join(blenderPath, "scripts", "startup", "PrismInit.py")
+            initpath = os.path.join(installPath, "scripts", "startup", "PrismInit.py")
             saveRenderPath = os.path.join(
-                blenderPath, "scripts", "startup", "PrismAutoSaveRender.py"
+                installPath, "scripts", "startup", "PrismAutoSaveRender.py"
             )
             addedFiles = []
 
@@ -219,7 +154,7 @@ class Prism_Blender_Integration(object):
                 init.write(initStr)
 
             topbarPath = os.path.join(
-                blenderPath, "scripts", "startup", "bl_ui", "space_topbar.py"
+                installPath, "scripts", "startup", "bl_ui", "space_topbar.py"
             )
             hMenuStr = 'layout.menu("TOPBAR_MT_help")'
             fClassStr = "class TOPBAR_MT_file(Menu):"
@@ -236,7 +171,7 @@ class Prism_Blender_Integration(object):
 
             if not os.path.exists(topbarPath):
                 topbarPath = os.path.join(
-                    blenderPath, "scripts", "startup", "bl_ui", "space_info.py"
+                    installPath, "scripts", "startup", "bl_ui", "space_info.py"
                 )
                 hMenuStr = 'layout.menu("INFO_MT_help")'
                 fClassStr = "class INFO_MT_file(Menu):"
@@ -246,7 +181,7 @@ class Prism_Blender_Integration(object):
                 with open(topbarPath, "r") as init:
                     tbStr = init.read()
 
-                tbStr = Integration.removeIntegration(content=tbStr)
+                tbStr = self.core.integration.removeIntegrationData(content=tbStr)
 
                 tbStr = tbStr.replace("    TOPBAR_MT_prism,", "")
 
@@ -267,7 +202,7 @@ class Prism_Blender_Integration(object):
             if platform.system() == "Windows":
                 baseWinfile = os.path.join(integrationBase, "qminimal.dll")
                 winPath = os.path.join(
-                    os.path.dirname(blenderPath), "platforms", "qminimal.dll"
+                    os.path.dirname(installPath), "platforms", "qminimal.dll"
                 )
 
                 if not os.path.exists(os.path.dirname(winPath)):
@@ -278,7 +213,7 @@ class Prism_Blender_Integration(object):
 
                 baseWinfile = os.path.join(integrationBase, "qoffscreen.dll")
                 winPath = os.path.join(
-                    os.path.dirname(blenderPath), "platforms", "qoffscreen.dll"
+                    os.path.dirname(installPath), "platforms", "qoffscreen.dll"
                 )
 
                 if not os.path.exists(winPath):
@@ -286,14 +221,14 @@ class Prism_Blender_Integration(object):
 
                 baseWinfile = os.path.join(integrationBase, "qwindows.dll")
                 winPath = os.path.join(
-                    os.path.dirname(blenderPath), "platforms", "qwindows.dll"
+                    os.path.dirname(installPath), "platforms", "qwindows.dll"
                 )
 
                 if not os.path.exists(winPath):
                     shutil.copy2(baseWinfile, winPath)
 
                 baseWinfile = os.path.join(integrationBase, "python3.dll")
-                winPath = os.path.join(os.path.dirname(blenderPath), "python3.dll")
+                winPath = os.path.join(os.path.dirname(installPath), "python3.dll")
 
                 if not os.path.exists(winPath):
                     shutil.copy2(baseWinfile, winPath)
@@ -317,6 +252,16 @@ class Prism_Blender_Integration(object):
 
     def removeIntegration(self, installPath):
         try:
+            if not os.path.exists(os.path.join(installPath, "scripts", "startup")):
+                if os.path.exists(installPath):
+                    for f in os.listdir(installPath):
+                        try:
+                            float(f)
+                        except ValueError:
+                            pass
+                        else:
+                            installPath = os.path.join(installPath, f)
+
             initPy = os.path.join(installPath, "scripts", "startup", "PrismInit.py")
             saveRenderPy = os.path.join(
                 installPath, "scripts", "startup", "PrismAutoSaveRender.py"
@@ -339,7 +284,7 @@ class Prism_Blender_Integration(object):
                 with open(topbarPath, "r") as init:
                     tbStr = init.read()
 
-                tbStr = Integration.removeIntegration(content=tbStr)
+                tbStr = self.core.integration.removeIntegrationData(content=tbStr)
 
                 tbStr = tbStr.replace("\n    TOPBAR_MT_prism,", "")
 
@@ -387,12 +332,12 @@ class Prism_Blender_Integration(object):
             )
             return False
 
-    def installerExecute(self, bldItem, result, locFile):
+    def installerExecute(self, bldItem, result):
         try:
             installLocs = []
 
             if bldItem.checkState(0) == Qt.Checked and os.path.exists(bldItem.text(1)):
-                result["Blender integration"] = self.writeBlenderFiles(bldItem.text(1))
+                result["Blender integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=bldItem.text(1), quiet=True)
                 if result["Blender integration"]:
                     installLocs.append(bldItem.text(1))
 

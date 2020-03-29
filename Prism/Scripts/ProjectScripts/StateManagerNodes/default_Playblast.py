@@ -53,11 +53,11 @@ if sys.version[0] == "3":
 else:
     pVersion = 2
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class PlayblastClass(object):
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, stateData=None):
         self.state = state
         self.core = core
@@ -100,7 +100,7 @@ class PlayblastClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -156,7 +156,7 @@ class PlayblastClass(object):
             self, data
         )
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -178,7 +178,7 @@ class PlayblastClass(object):
             lambda: self.core.copyToClipboard(self.l_pathLast.text())
         )
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
         self.l_rangeEnd.setEnabled(not state)
         self.sp_rangeStart.setEnabled(not state)
@@ -186,21 +186,21 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def startChanged(self):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def endChanged(self):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def setCam(self, index):
         if index == 0:
             self.curCam = None
@@ -209,7 +209,7 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         taskname = self.l_taskName.text()
         if taskname == "":
@@ -221,12 +221,12 @@ class PlayblastClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def setTaskname(self, taskname):
         self.l_taskName.setText(taskname)
         self.updateUi()
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def changeTask(self):
         import CreateItem
 
@@ -250,7 +250,7 @@ class PlayblastClass(object):
 
             self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def resOverrideChanged(self, checked):
         self.sp_resWidth.setEnabled(checked)
         self.sp_resHeight.setEnabled(checked)
@@ -258,7 +258,7 @@ class PlayblastClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def showResPresets(self):
         pmenu = QMenu()
 
@@ -278,7 +278,7 @@ class PlayblastClass(object):
         self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor.pos())
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def updateUi(self):
         # update Cams
         self.cb_cams.clear()
@@ -304,7 +304,7 @@ class PlayblastClass(object):
 
         return True
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -315,7 +315,7 @@ class PlayblastClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
         if self.l_taskName.text() == "":
             return
@@ -405,7 +405,7 @@ class PlayblastClass(object):
 
         return outputName, outputPath, hVersion
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
         # 	if not self.core.uiAvailable:
         # 		return [self.state.text(0) + ": error - Playblasts are not supported without UI."]
@@ -543,7 +543,7 @@ class PlayblastClass(object):
                 + " - unknown error (view console for more information)"
             ]
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def setTaskWarn(self, warn):
         useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
         if warn:
@@ -559,7 +559,7 @@ class PlayblastClass(object):
             else:
                 self.b_changeTask.setPalette(self.oldPalette)
 
-    @err_decorator(name="sm_default_playblast")
+    @err_catcher(name=__name__)
     def getStateProps(self):
         stateProps = {}
         stateProps.update(

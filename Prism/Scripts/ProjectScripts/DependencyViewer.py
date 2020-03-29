@@ -63,7 +63,7 @@ if psVersion == 1:
 else:
     import DependencyViewer_ui_ps2 as DependencyViewer_ui
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
@@ -108,7 +108,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             name="onDependencyViewerOpen", types=["curApp", "custom"], args=[self]
         )
 
-    @err_decorator(name="DependencyViewer")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_search.textChanged.connect(self.filterDeps)
         self.tw_dependencies.mouseClickEvent = self.tw_dependencies.mouseReleaseEvent
@@ -119,7 +119,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             lambda x: self.rclList("deps", x)
         )
 
-    @err_decorator(name="DependencyViewer")
+    @err_catcher(name=__name__)
     def mouseClickEvent(self, event, uielement):
         if QEvent != None:
             if event.type() == QEvent.MouseButtonRelease:
@@ -132,7 +132,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
                                 self.tw_dependencies.model().createIndex(-1, 0)
                             )
 
-    @err_decorator(name="DependencyViewer")
+    @err_catcher(name=__name__)
     def rclList(self, listType, pos):
         rcmenu = QMenu()
 
@@ -162,7 +162,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator(name="DependencyViewer")
+    @err_catcher(name=__name__)
     def updateDependencies(self, depID, versionInfo):
         source = self.core.getConfig(
             cat="information", param="source scene", configPath=versionInfo
@@ -274,7 +274,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             curID = str(len(self.dependencies) + 1)
             self.dependencies[curID] = [i, item, depID]
 
-    @err_decorator(name="DependencyViewer")
+    @err_catcher(name=__name__)
     def filterDeps(self, filterStr):
         self.clearItem(self.tw_dependencies.invisibleRootItem())
 
@@ -299,7 +299,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
             self.tw_dependencies.expandAll()
 
-    @err_decorator(name="DependencyViewer")
+    @err_catcher(name=__name__)
     def clearItem(self, item):
         for i in range(item.childCount()):
             self.clearItem(item.child(0))

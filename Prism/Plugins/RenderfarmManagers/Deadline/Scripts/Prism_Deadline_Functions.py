@@ -31,8 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, traceback, time, subprocess
-from functools import wraps
+import os
+import subprocess
 
 try:
     import hou
@@ -43,13 +43,11 @@ try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Deadline_Functions(object):
@@ -57,36 +55,14 @@ class Prism_Deadline_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Deadline - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def isActive(self):
         try:
             return len(self.getDeadlineGroups()) > 0
         except:
             return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def deadlineCommand(self, arguments, background=True, readStdout=True):
         deadlineBin = os.getenv("DEADLINE_PATH")
         if deadlineBin is None:
@@ -127,7 +103,7 @@ class Prism_Deadline_Functions(object):
             output = proc.stdout.read()
         return output
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def blenderDeadlineCommand(self):
         deadlineBin = ""
         try:
@@ -142,7 +118,7 @@ class Prism_Deadline_Functions(object):
 
         return deadlineCommand
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getDeadlineGroups(self, subdir=None):
         if not hasattr(self, "deadlineGroups"):
             if self.core.appPlugin.pluginName == "Blender":
@@ -183,14 +159,14 @@ class Prism_Deadline_Functions(object):
 
         return self.deadlineGroups
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_startup(self, origin):
         origin.tw_caches.itemClicked.connect(
             lambda x, y: self.sm_updateDlDeps(origin, x, y)
         )
         origin.tw_caches.itemDoubleClicked.connect(self.sm_dlGoToNode)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_updateDlDeps(self, origin, item, column):
         if len(item.toolTip(0).split("\n")) == 1:
             return
@@ -211,7 +187,7 @@ class Prism_Deadline_Functions(object):
 
         origin.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dlGoToNode(self, item, column):
         if item.parent() is None:
             return
@@ -224,7 +200,7 @@ class Prism_Deadline_Functions(object):
             if paneTab is not None:
                 paneTab.frameSelection()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_updateUI(self, origin):
         origin.gb_osDependency.setVisible(False)
         origin.gb_dlDependency.setVisible(True)
@@ -333,13 +309,13 @@ class Prism_Deadline_Functions(object):
 
         origin.dependencies["Deadline"] = newActive
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_dep_execute(self, origin, parent):
         origin.dependencies["Deadline"] = [
             x
@@ -358,11 +334,11 @@ class Prism_Deadline_Functions(object):
             for x in origin.dependencies["Deadline"]
         ]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houExport_startup(self, origin):
         origin.cb_dlGroup.addItems(self.getDeadlineGroups())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houExport_activated(self, origin):
         origin.f_osDependencies.setVisible(False)
         origin.f_osUpload.setVisible(False)
@@ -370,13 +346,13 @@ class Prism_Deadline_Functions(object):
         origin.gb_osSlaves.setVisible(False)
         origin.f_dlGroup.setVisible(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houExport_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houRender_updateUI(self, origin):
         showGPUsettings = (
             origin.node is not None and origin.node.type().name() == "Redshift_ROP"
@@ -384,7 +360,7 @@ class Prism_Deadline_Functions(object):
         origin.w_dlGPUpt.setVisible(showGPUsettings)
         origin.w_dlGPUdevices.setVisible(showGPUsettings)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houRender_managerChanged(self, origin):
         origin.f_osDependencies.setVisible(False)
         origin.f_osUpload.setVisible(False)
@@ -401,13 +377,13 @@ class Prism_Deadline_Functions(object):
         origin.w_dlGPUpt.setVisible(showGPUsettings)
         origin.w_dlGPUdevices.setVisible(showGPUsettings)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_houRender_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_updateUI(self, origin):
         curRenderer = getattr(self.core.appPlugin, "getCurrentRenderer", lambda x: "")(
             origin
@@ -416,7 +392,7 @@ class Prism_Deadline_Functions(object):
         origin.w_dlGPUpt.setVisible(showGPUsettings)
         origin.w_dlGPUdevices.setVisible(showGPUsettings)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_managerChanged(self, origin):
         origin.f_osDependencies.setVisible(False)
         origin.gb_osSlaves.setVisible(False)
@@ -436,13 +412,13 @@ class Prism_Deadline_Functions(object):
             origin, False
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_submitJob(self, origin, jobOutputFile, parent):
         if self.core.appPlugin.pluginName == "Houdini":
             jobOutputFile = jobOutputFile.replace("$F4", "####")

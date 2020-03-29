@@ -33,13 +33,9 @@
 
 import os
 import sys
-import traceback
-import time
 import subprocess
 import threading
 import glob
-
-from functools import wraps
 
 try:
     from PySide2.QtCore import *
@@ -49,12 +45,12 @@ except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-
 try:
     import hou
-    import pdg
 except:
     pass
+
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_PDG_Functions(object):
@@ -62,35 +58,12 @@ class Prism_PDG_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    # this function catches any errors in this script and can be ignored
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_PDG - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
     # if returns true, the plugin will be loaded by Prism
-    @err_decorator
+    @err_catcher(name=__name__)
     def isActive(self):
         return "hou" in globals()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getPythonExamples(self):
         exampleMenu = []
         snippetPath = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Examples", "python_snippets")
@@ -106,7 +79,7 @@ class Prism_PDG_Functions(object):
 
         return exampleMenu
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def cookNode(self, **kwargs):
 
         if not hasattr(threading, "__mylock"):
@@ -166,7 +139,7 @@ class Prism_PDG_Functions(object):
             self.core.uiAvailable = True
             return result
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createWorkItems(self, itemHolder, upstreamItems, entityType, entityData):
         if entityType == "assets":
             for entity in entityData:
@@ -183,7 +156,7 @@ class Prism_PDG_Functions(object):
                 item.setStringAttrib("framerange", entity["startframe"])
                 item.setStringAttrib("framerange", entity["endframe"], 1)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setupNode(self, entityType, node):
         if entityType == "fromFile":
             cNode = node.createOutputNode("prism::create_entity")
@@ -223,7 +196,7 @@ class Prism_PDG_Functions(object):
 
         return cNode
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def readGoogleDocs(self, pdgCallback, itemHolder, upstreamItems):
         node = hou.nodeBySessionId(pdgCallback.customId)
         parentNode = node.parent()
@@ -290,7 +263,7 @@ class Prism_PDG_Functions(object):
 
         self.createWorkItems(itemHolder, upstreamItems, entityType, dataDicts)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createEntity(self, pdgCallback, itemHolder, upstreamItems):
         parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
         if upstreamItems:
@@ -507,7 +480,7 @@ class Prism_PDG_Functions(object):
                             "existingBehavior", parentNode.parm("existingSceneBehavior").evalAsString()
                         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def writeEntity(self, workItem):
         data = workItem.data.allDataMap
         if "entity" not in data:
@@ -521,7 +494,7 @@ class Prism_PDG_Functions(object):
 
         return result
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def combineStates(self, pdgCallback, itemHolder, upstreamItems):
         parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
         entities = []
@@ -559,7 +532,7 @@ class Prism_PDG_Functions(object):
             if "states" in e:
                 item.setStringAttrib("states", e["states"])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def showStateUI(self, node):
         stateType = node.parm("stateType").evalAsString()
 
@@ -581,7 +554,7 @@ class Prism_PDG_Functions(object):
             settingsStr = '\n'.join(sLines)
             node.parm("stateSettings").set(settingsStr)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAvailableStateDCCs(self):
         dccs = [
             "houdini", "Houdini",
@@ -590,7 +563,7 @@ class Prism_PDG_Functions(object):
 
         return dccs
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAvailableStateTypes(self, node):
         dcc = node.parm("dcc").evalAsString()
 
@@ -616,7 +589,7 @@ class Prism_PDG_Functions(object):
 
         return options
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createState(self, pdgCallback, itemHolder, upstreamItems):
         parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
         imports = []
@@ -741,7 +714,7 @@ class Prism_PDG_Functions(object):
                 curStates.append(str(stateData))
                 item.setStringAttrib("states", curStates)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createDependencies(self, pdgCallback, itemHolder):
         parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
         className = "hou_ImportFile"
@@ -768,7 +741,7 @@ class Prism_PDG_Functions(object):
 
         item.setStringAttrib("states", [str(stateData)])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject(self, workItem):
         typeStr = workItem.stringAttribValue("entity")
         if typeStr != "project":
@@ -777,7 +750,7 @@ class Prism_PDG_Functions(object):
         prjPath = workItem.stringAttribValue("path")
         self.core.changeProject(prjPath)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def scenePython(self, pdgCallback, itemHolder, upstreamItems):
         parentNode = hou.nodeBySessionId(pdgCallback.customId).parent()
         mayaTasks = []
@@ -842,7 +815,7 @@ class Prism_PDG_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def writeStates(self, pdgCallback, itemHolder, upstreamItems):
         mayaPaths = []
         houPaths = []
@@ -916,7 +889,7 @@ class Prism_PDG_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScenefiles(self, tasks):
         stdout = ""
         for i in tasks:
@@ -937,7 +910,7 @@ class Prism_PDG_Functions(object):
 
         return stdout
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getMayaCmd(self, mayaPaths, sceneStates="", pythonSnippet=""):
         cmd = """
 import sys
@@ -1024,7 +997,7 @@ for scenePath in scenePaths:
         )
         return cmd
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getHoudiniCmd(self, houPaths, sceneStates="", pythonSnippet=""):
         cmd = """
 import os, sys

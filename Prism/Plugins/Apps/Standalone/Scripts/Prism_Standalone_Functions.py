@@ -31,25 +31,22 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, traceback, time, platform, shutil
-from functools import wraps
+import os
+import platform
+import shutil
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
-if platform.system() == "Windows":
-    import _winreg, win32com
-else:
+if platform.system() != "Windows":
     import pwd
+
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class Prism_Standalone_Functions(object):
@@ -57,97 +54,75 @@ class Prism_Standalone_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Standalone - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         if "loadProject" not in self.core.prismArgs:
             return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         return ""
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.loadOiio()
 
         origin.closeParm = "closeafterloadsa"
         origin.actionStateManager.setEnabled(False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}, underscore=True):
         return
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createProject_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_startup(self, origin):
         origin.loadOiio()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createWinStartMenu(self, origin):
         if os.environ.get("prism_skip_root_install"):
             print "skipped creating Prism startmenu because of missing permissions."
@@ -201,8 +176,8 @@ class Prism_Standalone_Functions(object):
                 )
                 return
 
-            if os.path.exists(self.core.installLocPath):
-                os.chmod(self.core.installLocPath, 0o777)
+            if os.path.exists(self.core.integration.installLocPath):
+                os.chmod(self.core.integration.installLocPath, 0o777)
 
             trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
             trayStartMenu = "/usr/share/applications/PrismTray.desktop"
@@ -297,8 +272,8 @@ class Prism_Standalone_Functions(object):
             # subprocess.Popen(['bash', "/usr/local/Prism/Tools/PrismTray.sh"])
 
         elif platform.system() == "Darwin":
-            if os.path.exists(self.core.installLocPath):
-                os.chmod(self.core.installLocPath, 0o777)
+            if os.path.exists(self.core.integration.installLocPath):
+                os.chmod(self.core.integration.installLocPath, 0o777)
 
             userName = (
                 os.environ["SUDO_USER"]

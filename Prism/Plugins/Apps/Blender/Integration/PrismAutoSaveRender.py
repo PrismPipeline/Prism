@@ -31,7 +31,9 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import sys, os, bpy, platform
+import os
+
+import bpy
 from bpy.app.handlers import persistent
 from configparser import ConfigParser
 

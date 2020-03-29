@@ -31,8 +31,14 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, platform, subprocess, shutil, traceback, time, io, errno, stat
-from functools import wraps
+import os
+import sys
+import platform
+import subprocess
+import shutil
+import io
+import errno
+import stat
 
 prismRoot = os.path.abspath(
     os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir)
@@ -53,26 +59,10 @@ except:
 
     psVersion = 1
 
-
-def err_decorator(func):
-    @wraps(func)
-    def func_wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            erStr = "%s ERROR - Prism PySide2 Setup %s:\n\n%s" % (
-                time.strftime("%d/%m/%y %X"),
-                "".join(traceback.format_stack()),
-                traceback.format_exc(),
-            )
-            print(erStr)
-            QMessageBox.warning(QWidget(), "Prism", erStr)
-
-    return func_wrapper
+from PrismUtils.Decorators import err_catcher_standalone as err_catcher
 
 
-@err_decorator
+@err_catcher(name=__name__)
 def openSetupDialog():
     qapp = QApplication.instance()
     if qapp == None:
@@ -127,7 +117,7 @@ def openSetupDialog():
         openWebsite()
 
 
-@err_decorator
+@err_catcher(name=__name__)
 def downloadPySide2():
     if sys.argv[1] == "Python35":
         libFolder = "Python35"
@@ -291,7 +281,7 @@ except Exception as e:
     )
 
 
-@err_decorator
+@err_catcher(name=__name__)
 def handleRemoveReadonly(func, path, exc):
     excvalue = exc[1]
     if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
@@ -301,7 +291,7 @@ def handleRemoveReadonly(func, path, exc):
         raise
 
 
-@err_decorator
+@err_catcher(name=__name__)
 def openWebsite():
     url = "https://prism-pipeline.com/downloads/"
 

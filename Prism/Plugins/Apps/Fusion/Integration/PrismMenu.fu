@@ -9,7 +9,8 @@
         Targets = {
             Composition = {
                 Execute = _Python [=[
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 
@@ -48,7 +49,8 @@ pcore.saveScene()
         Targets = {
             Composition = {
                 Execute = _Python [=[
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 
@@ -87,7 +89,8 @@ pcore.saveWithComment()
         Targets = {
             Composition = {
                 Execute = _Python [=[
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 
@@ -130,7 +133,8 @@ if result == True:
         Targets = {
             Composition = {
                 Execute = _Python [=[
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 
@@ -170,7 +174,8 @@ pcore.appPlugin.updateReadNodes()
         Targets = {
             Composition = {
                 Execute = _Python [=[
-import os, sys, platform
+import os
+import sys
 
 prismRoot = PRISMROOT
 

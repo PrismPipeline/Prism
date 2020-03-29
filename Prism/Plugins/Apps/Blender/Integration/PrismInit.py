@@ -54,7 +54,9 @@ try:
     from PySide2.QtWidgets import *
 except:
     if not bpy.app.background:
-        import platform, subprocess
+        import subprocess
+        import site
+        import importlib
 
         dScript = os.path.join(
             prismRoot, "Plugins", "Apps", "Blender", "Scripts", "Download_PySide2.py"
@@ -72,8 +74,6 @@ except:
             stderr=subprocess.PIPE,
         )
         stdOutData, stderrdata = result.communicate()
-
-        import site, importlib
 
         importlib.reload(site)
 

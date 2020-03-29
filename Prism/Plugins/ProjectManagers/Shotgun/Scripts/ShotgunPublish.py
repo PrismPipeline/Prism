@@ -31,6 +31,14 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import traceback
+import subprocess
+import datetime
+import platform
+import imp
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -43,9 +51,6 @@ except:
 
     psVersion = 1
 
-import os, sys, traceback, subprocess, time, datetime, platform
-from functools import wraps
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfaces"))
 if psVersion == 1:
     import ShotgunPublish_ui
@@ -54,14 +59,8 @@ else:
 
 if sys.version[0] == "3":
     from configparser import ConfigParser
-
-    pVersion = 3
 else:
     from ConfigParser import ConfigParser
-
-    pVersion = 2
-
-import shotgun_api3
 
 try:
     import CreateItem
@@ -70,6 +69,8 @@ except:
     if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
         os.remove(modPath)
     import CreateItem
+
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
@@ -117,24 +118,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
 
         self.connectEvents()
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - ShotgunPublish %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.rb_asset.pressed.connect(self.updateShots)
         self.rb_shot.pressed.connect(self.updateShots)
@@ -143,7 +127,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
         self.cb_shot.activated.connect(self.updateTasks)
         self.b_sgPublish.clicked.connect(self.publish)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateShots(self):
         fields = ["id", "code", "type", "sg_sequence", "sg_localhierarchy"]
         filters = [["project", "is", {"type": "Project", "id": self.sgPrjId}]]
@@ -173,7 +157,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
         self.cb_shot.addItems(sorted(self.shotList.keys(), key=lambda s: s.lower()))
         self.updateTasks()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateTasks(self, idx=None):
         self.cb_task.clear()
         if self.cb_shot.currentText() == "":
@@ -290,7 +274,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
             self.cb_task.insertSeparator(len(sgTaskNames))
         self.cb_task.addItems(taskNames)
 
-    # 	@err_decorator
+    # 	@err_catcher(name=__name__)
     # 	def createTask(self):
     # 		self.newItem = CreateItem.CreateItem(core=self.core)
     #
@@ -309,7 +293,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
     # 			}
     # 			result = self.sg.create('Task', data)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def navigateToCurrent(self, shotName, task):
         idx = self.cb_shot.findText(shotName)
         if idx != -1:
@@ -321,11 +305,11 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
         if idx != -1:
             self.cb_task.setCurrentIndex(idx)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def publish(self):
         if self.cb_shot.currentText() == "":
             QMessageBox.warning(

@@ -30,21 +30,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
+import sys
+import platform
+import shutil
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
-    psVersion = 1
-
-import os, sys
-import traceback, time, platform, shutil, socket
 
 if platform.system() == "Windows":
     if sys.version[0] == "3":
@@ -52,7 +49,7 @@ if platform.system() == "Windows":
     else:
         import _winreg
 
-from functools import wraps
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Photoshop_Integration(object):
@@ -62,70 +59,7 @@ class Prism_Photoshop_Integration(object):
 
         self.examplePath = str(self.getPhotoshopPath())
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Photoshop_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                if hasattr(args[0].core, "writeErrorLog"):
-                    args[0].core.writeErrorLog(erStr)
-                else:
-                    QMessageBox.warning(
-                        args[0].core.messageParent, "Prism Integration", erStr
-                    )
-
-        return func_wrapper
-
-    @err_decorator
-    def integrationAdd(self, origin):
-        path = QFileDialog.getExistingDirectory(
-            self.core.messageParent,
-            "Select Photoshop folder",
-            os.path.dirname(self.examplePath),
-        )
-
-        if path == "":
-            return False
-
-        result = self.writePhotoshopFiles(path)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was added successfully",
-            )
-            return path
-
-        return result
-
-    @err_decorator
-    def integrationRemove(self, origin, installPath):
-        result = self.removeIntegration(installPath)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was removed successfully",
-            )
-
-        return result
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getPhotoshopPath(self):
         try:
             if platform.system() == "Windows":
@@ -155,14 +89,14 @@ class Prism_Photoshop_Integration(object):
         except:
             return None
 
-    def writePhotoshopFiles(self, photoshoppath):
+    def addIntegration(self, installPath):
         try:
-            if not os.path.exists(photoshoppath):
+            if not os.path.exists(installPath):
                 QMessageBox.warning(
                     self.core.messageParent,
                     "Prism Integration",
                     "Invalid Photoshop path: %s.\nThe path doesn't exist."
-                    % photoshoppath,
+                    % installPath,
                     QMessageBox.Ok,
                 )
                 return False
@@ -185,7 +119,7 @@ class Prism_Photoshop_Integration(object):
                 "Prism - 6 Settings.jsx",
             ]:
                 origFile = os.path.join(integrationBase, osName, i)
-                targetFile = os.path.join(photoshoppath, "Presets", "Scripts", i)
+                targetFile = os.path.join(installPath, "Presets", "Scripts", i)
 
                 if not os.path.exists(os.path.dirname(targetFile)):
                     os.makedirs(os.path.dirname(targetFile))
@@ -215,7 +149,7 @@ class Prism_Photoshop_Integration(object):
             )
             msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            self.core.popup(msgStr, title="Prism Integration")
             return False
 
     def removeIntegration(self, installPath):
@@ -242,7 +176,7 @@ class Prism_Photoshop_Integration(object):
             )
             msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            self.core.popup(msgStr, title="Prism Integration")
             return False
 
     def updateInstallerUI(self, userFolders, pItem):
@@ -267,16 +201,14 @@ class Prism_Photoshop_Integration(object):
             )
             return False
 
-    def installerExecute(self, photoshopItem, result, locFile):
+    def installerExecute(self, photoshopItem, result):
         try:
             installLocs = []
 
             if photoshopItem.checkState(0) == Qt.Checked and os.path.exists(
                 photoshopItem.text(1)
             ):
-                result["Photoshop integration"] = self.writePhotoshopFiles(
-                    photoshopItem.text(1)
-                )
+                result["Photoshop integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=photoshopItem.text(1), quiet=True)
                 if result["Photoshop integration"]:
                     installLocs.append(photoshopItem.text(1))
 

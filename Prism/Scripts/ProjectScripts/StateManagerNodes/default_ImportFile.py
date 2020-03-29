@@ -55,11 +55,11 @@ else:
 
     pVersion = 2
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class ImportFileClass(object):
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def setup(
         self, state, core, stateManager, node=None, importPath=None, stateData=None
     ):
@@ -132,13 +132,13 @@ class ImportFileClass(object):
 
         self.nameChanged(state.text(0))
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def setStateMode(self, stateMode):
         self.stateMode = stateMode
         self.l_class.setText(stateMode)
         self.e_name.setText(stateMode)
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -175,7 +175,7 @@ class ImportFileClass(object):
         if "autoUpdate" in data:
             self.chb_autoUpdate.setChecked(eval(data["autoUpdate"]))
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -203,7 +203,7 @@ class ImportFileClass(object):
                 lambda: self.core.appPlugin.selectNodes(self)
             )
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         getattr(self.core.appPlugin, "sm_import_nameChanged", lambda x: None)(self)
 
@@ -212,7 +212,7 @@ class ImportFileClass(object):
         else:
             self.state.setText(0, text)
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def browse(self):
         import TaskSelection
 
@@ -227,7 +227,7 @@ class ImportFileClass(object):
             self.updateUi()
             self.importPath = None
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def openFolder(self, pos):
         path = self.e_file.text()
         if os.path.isfile(path):
@@ -235,13 +235,13 @@ class ImportFileClass(object):
 
         self.core.openFolder(path)
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def pathChanged(self):
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def autoUpdateChanged(self, checked):
         self.w_latestVersion.setVisible(not checked)
         self.w_importLatest.setVisible(not checked)
@@ -254,18 +254,18 @@ class ImportFileClass(object):
 
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def autoNameSpaceChanged(self, checked):
         self.b_nameSpaces.setEnabled(not checked)
         if not self.stateManager.standalone:
             self.core.appPlugin.sm_import_removeNameSpaces(self)
             self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def getImportPath(self):
         return self.e_file.text().replace("\\", "/")
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def importObject(self, taskName=None, update=False):
         result = True
         if self.stateManager.standalone:
@@ -413,7 +413,7 @@ class ImportFileClass(object):
 
         return result
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def importLatest(self, refreshUi=True):
         if refreshUi:
             self.updateUi()
@@ -457,7 +457,7 @@ class ImportFileClass(object):
                             break
                 break
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def checkLatestVersion(self):
         curVersion = latestVersion = ""
 
@@ -535,7 +535,7 @@ class ImportFileClass(object):
 
         return curVersion, latestVersion
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def updateUi(self):
         curVersion, latestVersion = self.checkLatestVersion()
 
@@ -587,7 +587,7 @@ class ImportFileClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def updatePrefUnits(self):
         pref = self.core.appPlugin.preferredUnit
         if self.chb_preferUnit.isChecked():
@@ -603,7 +603,7 @@ class ImportFileClass(object):
             self.preferredUnit = "meter"
             self.unpreferredUnit = "centimeter"
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def updateTrackObjects(self, state):
         if not state:
             if len(self.nodes) > 0:
@@ -629,7 +629,7 @@ class ImportFileClass(object):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def preDelete(
         self,
         item=None,
@@ -662,7 +662,7 @@ class ImportFileClass(object):
                 if action == 0:
                     self.core.appPlugin.deleteNodes(self, validNodes)
 
-    @err_decorator(name="sm_default_importFile")
+    @err_catcher(name=__name__)
     def getStateProps(self):
         connectedNodes = []
         if self.chb_trackObjects.isChecked():

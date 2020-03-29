@@ -31,46 +31,25 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import sys
+import time
+import traceback
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
+import hou
 
-import sys, os, time, traceback
-from functools import wraps
-
-try:
-    import hou
-except:
-    pass
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class DependencyClass(object):
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = "%s ERROR - hou_Dependency %s:\n%s\n\n%s" % (
-                    time.strftime("%d/%m/%y %X"),
-                    args[0].core.version,
-                    "".join(traceback.format_stack()),
-                    traceback.format_exc(),
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, stateData=None):
         self.state = state
         self.core = core
@@ -102,7 +81,7 @@ class DependencyClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -130,7 +109,7 @@ class DependencyClass(object):
             )
         self.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def findNode(self, path):
         for node in hou.node("/").allSubChildren():
             if (
@@ -142,7 +121,7 @@ class DependencyClass(object):
 
         return None
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -150,12 +129,12 @@ class DependencyClass(object):
         self.b_connect.clicked.connect(self.connectNode)
         self.sp_offset.editingFinished.connect(self.stateManager.saveStatesToScene)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def managerChanged(self, text=None):
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         if self.cb_manager.currentText() in self.dependencies:
             numDeps = len(self.dependencies[self.cb_manager.currentText()])
@@ -169,7 +148,7 @@ class DependencyClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectNode(self):
         if len(hou.selectedNodes()) > 0 and (
             hou.selectedNodes()[0].type().name() == "file"
@@ -178,7 +157,7 @@ class DependencyClass(object):
             self.updateUi()
             self.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def isNodeValid(self, node):
         try:
             node.name()
@@ -186,7 +165,7 @@ class DependencyClass(object):
         except:
             return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def updateUi(self):
         if self.cb_manager.currentText() in self.core.rfManagers:
             self.core.rfManagers[self.cb_manager.currentText()].sm_dep_updateUI(self)
@@ -196,11 +175,11 @@ class DependencyClass(object):
 
         self.nameChanged(self.e_name.text())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -211,7 +190,7 @@ class DependencyClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeState(self, parent):
         try:
             if self.cb_manager.currentText() in self.core.rfManagers:
@@ -234,7 +213,7 @@ class DependencyClass(object):
                 + " - unknown error (view console for more information)"
             ]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getStateProps(self):
         try:
             curNode = self.node.path()

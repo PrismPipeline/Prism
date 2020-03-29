@@ -31,34 +31,23 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, traceback, time, subprocess
-from functools import wraps
-
-try:
-    import hou
-except:
-    pass
+import os
+import sys
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
+
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_PluginEmpty_Functions(object):
@@ -66,40 +55,18 @@ class Prism_PluginEmpty_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_PluginEmpty - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def isActive(self):
         if pVersion == 2:
             return True
 
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadUI(self, origin):
         origin.gb_prjmanPrjIntegration = QGroupBox("PluginEmpty integration")
         origin.w_PluginEmpty = QWidget()
@@ -137,14 +104,14 @@ class Prism_PluginEmpty_Functions(object):
             lambda x: self.prismSettings_prjmanToggled(origin, x)
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadSettings(self, origin):
         loadData = {}
         loadFunctions = {}
 
         return loadData, loadFunctions
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadPrjSettings(self, origin):
         loadData = {}
         loadFunctions = {}
@@ -170,19 +137,19 @@ class Prism_PluginEmpty_Functions(object):
 
         return loadData, loadFunctions
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_postLoadSettings(self, origin):
         self.prismSettings_prjmanToggled(
             origin, origin.gb_prjmanPrjIntegration.isChecked()
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_saveSettings(self, origin):
         saveData = []
 
         return saveData
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_savePrjSettings(self, origin):
         saveData = []
 
@@ -200,11 +167,11 @@ class Prism_PluginEmpty_Functions(object):
 
         return saveData
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_prjmanToggled(self, origin, checked):
         origin.w_PluginEmpty.setVisible(checked)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getMenu(self, origin):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
@@ -238,7 +205,7 @@ class Prism_PluginEmpty_Functions(object):
 
             return prjmanMenu
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getAssetMenu(self, origin, assetname, assetPath):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
@@ -250,7 +217,7 @@ class Prism_PluginEmpty_Functions(object):
             )
             return prjmanAct
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getShotMenu(self, origin, shotname):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
@@ -260,7 +227,7 @@ class Prism_PluginEmpty_Functions(object):
             prjmanAct.triggered.connect(lambda: self.openprjman(shotname))
             return prjmanAct
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createAsset_open(self, origin):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
@@ -272,12 +239,12 @@ class Prism_PluginEmpty_Functions(object):
         origin.w_options.layout().insertWidget(0, origin.chb_createInPluginEmpty)
         origin.chb_createInPluginEmpty.setChecked(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createAsset_typeChanged(self, origin, state):
         if hasattr(origin, "chb_createInPluginEmpty"):
             origin.chb_createInPluginEmpty.setEnabled(state)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def assetCreated(self, origin, itemDlg, assetPath):
         if (
             hasattr(itemDlg, "chb_createInPluginEmpty")
@@ -285,7 +252,7 @@ class Prism_PluginEmpty_Functions(object):
         ):
             self.createprjmanAssets([assetPath])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_open(self, origin, shotName):
         if shotName is None:
             prjman = self.core.getConfig(
@@ -298,7 +265,7 @@ class Prism_PluginEmpty_Functions(object):
             origin.widget.layout().insertWidget(0, origin.chb_createInPluginEmpty)
             origin.chb_createInPluginEmpty.setChecked(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_closed(self, origin, shotName):
         if (
             hasattr(origin, "chb_createInPluginEmpty")
@@ -306,7 +273,7 @@ class Prism_PluginEmpty_Functions(object):
         ):
             self.createprjmanShots([shotName])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getPublishMenu(self, origin):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
@@ -321,19 +288,19 @@ class Prism_PluginEmpty_Functions(object):
             prjmanAct.triggered.connect(lambda: self.prjmanPublish(origin))
             return prjmanAct
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectToPluginEmpty(self, user=True):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createprjmanAssets(self, assets=[]):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createprjmanShots(self, shots=[]):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prjmanPublish(self, origin):
         if origin.tbw_browser.currentWidget().property("tabType") == "Assets":
             pType = "Asset"
@@ -378,7 +345,7 @@ class Prism_PluginEmpty_Functions(object):
 
         webbrowser.open(prjmanSite)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prjmanAssetsToLocal(self, origin):
         # add code here
 
@@ -397,7 +364,7 @@ class Prism_PluginEmpty_Functions(object):
 
         origin.refreshAHierarchy()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prjmanAssetsToprjman(self, origin):
         # add code here
 
@@ -405,13 +372,13 @@ class Prism_PluginEmpty_Functions(object):
 
         QMessageBox.information(self.core.messageParent, "PluginEmpty Sync", msgString)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prjmanShotsToLocal(self, origin):
         # add code here
 
         origin.refreshShots()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prjmanShotsToprjman(self, origin):
         # add code here
 

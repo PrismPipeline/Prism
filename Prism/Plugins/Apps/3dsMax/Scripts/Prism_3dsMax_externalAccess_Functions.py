@@ -31,9 +31,10 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys
-import traceback, time, platform
-from functools import wraps
+import os
+import platform
+
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_3dsMax_externalAccess_Functions(object):
@@ -41,41 +42,19 @@ class Prism_3dsMax_externalAccess_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_3dsMax_ext - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadUI(self, origin, tab):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_saveSettings(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadSettings(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):
         if self.core.appPlugin.pluginName == "3dsmax":
             autobackpath = self.executeScript(self, "getdir #autoback")

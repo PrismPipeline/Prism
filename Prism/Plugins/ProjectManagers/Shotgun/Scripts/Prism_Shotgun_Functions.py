@@ -31,13 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys, traceback, time, subprocess
-from functools import wraps
-
-try:
-    import hou
-except:
-    pass
+import os
+import sys
 
 try:
     from PySide2.QtCore import *
@@ -60,47 +55,27 @@ else:
 
     pVersion = 2
 
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
+
 
 class Prism_Shotgun_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Shotgun - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def isActive(self):
         if pVersion == 2:
             return True
 
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         if hasattr(self, "sg"):
             del self.sg
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadUI(self, origin):
         origin.gb_sgAccount = QGroupBox("Publish Shotgun versions with Shotgun account")
         lo_sg = QGridLayout()
@@ -157,7 +132,7 @@ class Prism_Shotgun_Functions(object):
             lambda x: self.prismSettings_sgToggled(origin, x)
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadSettings(self, origin):
         loadData = {}
         loadFunctions = {}
@@ -173,7 +148,7 @@ class Prism_Shotgun_Functions(object):
 
         return loadData, loadFunctions
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_loadPrjSettings(self, origin):
         loadData = {}
         loadFunctions = {}
@@ -195,11 +170,11 @@ class Prism_Shotgun_Functions(object):
 
         return loadData, loadFunctions
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_postLoadSettings(self, origin):
         self.prismSettings_sgToggled(origin, origin.gb_sgPrjIntegration.isChecked())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_saveSettings(self, origin):
         saveData = []
 
@@ -213,7 +188,7 @@ class Prism_Shotgun_Functions(object):
 
         return saveData
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_savePrjSettings(self, origin):
         saveData = []
 
@@ -227,12 +202,12 @@ class Prism_Shotgun_Functions(object):
 
         return saveData
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def prismSettings_sgToggled(self, origin, checked):
         origin.w_shotgun.setVisible(checked)
         origin.gb_sgAccount.setVisible(checked)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getMenu(self, origin):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
         if sg is not None and eval(sg) and pVersion == 2:
@@ -264,7 +239,7 @@ class Prism_Shotgun_Functions(object):
 
             return sgMenu
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getAssetMenu(self, origin, assetname, assetPath):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
         if sg is not None and eval(sg) and pVersion == 2:
@@ -274,7 +249,7 @@ class Prism_Shotgun_Functions(object):
             )
             return sgAct
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getShotMenu(self, origin, shotname):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
         if sg is not None and eval(sg) and pVersion == 2:
@@ -282,7 +257,7 @@ class Prism_Shotgun_Functions(object):
             sgAct.triggered.connect(lambda: self.openSg(shotname))
             return sgAct
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createAsset_open(self, origin):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
         if sg is None or not eval(sg) or pVersion != 2:
@@ -292,12 +267,12 @@ class Prism_Shotgun_Functions(object):
         origin.w_options.layout().insertWidget(0, origin.chb_createInShotgun)
         origin.chb_createInShotgun.setChecked(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createAsset_typeChanged(self, origin, state):
         if hasattr(origin, "chb_createInShotgun"):
             origin.chb_createInShotgun.setEnabled(state)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def assetCreated(self, origin, itemDlg, assetPath):
         if (
             hasattr(itemDlg, "chb_createInShotgun")
@@ -305,7 +280,7 @@ class Prism_Shotgun_Functions(object):
         ):
             self.createSgAssets([assetPath])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_open(self, origin, shotName):
         if shotName is None:
             sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
@@ -316,7 +291,7 @@ class Prism_Shotgun_Functions(object):
             origin.widget.layout().insertWidget(0, origin.chb_createInShotgun)
             origin.chb_createInShotgun.setChecked(True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def editShot_closed(self, origin, shotName):
         if (
             hasattr(origin, "chb_createInShotgun")
@@ -324,7 +299,7 @@ class Prism_Shotgun_Functions(object):
         ):
             self.createSgShots([shotName])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def pbBrowser_getPublishMenu(self, origin):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
         if (
@@ -337,7 +312,7 @@ class Prism_Shotgun_Functions(object):
             sgAct.triggered.connect(lambda: self.sgPublish(origin))
             return sgAct
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def connectToShotgun(self, user=True):
         if (
             not hasattr(self, "sg")
@@ -456,7 +431,7 @@ class Prism_Shotgun_Functions(object):
         else:
             return [self.sg, self.sgPrjId, None]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createSgAssets(self, assets=[]):
         sg, sgPrjId, sgUserId = self.connectToShotgun(user=False)
 
@@ -509,7 +484,7 @@ class Prism_Shotgun_Functions(object):
                 result = sg.create("Asset", data)
                 createdAssets.append(result)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createSgShots(self, shots=[]):
         sg, sgPrjId, sgUserId = self.connectToShotgun(user=False)
 
@@ -646,7 +621,7 @@ class Prism_Shotgun_Functions(object):
                     ):
                         updatedShots.append(shot)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sgPublish(self, origin):
         try:
             del sys.modules["ShotgunPublish"]
@@ -787,7 +762,7 @@ class Prism_Shotgun_Functions(object):
 
         webbrowser.open(sgSite)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sgAssetsToLocal(self, origin):
         sg, sgPrjId, sgUserId = self.connectToShotgun(user=False)
 
@@ -836,7 +811,7 @@ class Prism_Shotgun_Functions(object):
 
         origin.refreshAHierarchy()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sgAssetsToSG(self, origin):
         sg, sgPrjId, sgUserId = self.connectToShotgun(user=False)
 
@@ -919,7 +894,7 @@ class Prism_Shotgun_Functions(object):
 
         QMessageBox.information(self.core.messageParent, "Shotgun Sync", msgString)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sgShotsToLocal(self, origin):
         sg, sgPrjId, sgUserId = self.connectToShotgun(user=False)
 
@@ -1101,7 +1076,7 @@ class Prism_Shotgun_Functions(object):
 
         origin.refreshShots()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sgShotsToSG(self, origin):
         sg, sgPrjId, sgUserId = self.connectToShotgun(user=False)
 

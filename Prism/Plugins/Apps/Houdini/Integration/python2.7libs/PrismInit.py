@@ -1,4 +1,5 @@
-import sys, os
+import os
+import sys
 
 
 def prismInit(prismArgs=[]):
@@ -34,6 +35,6 @@ def createPrismCore():
         import PySide2
     except:
         return
-        
+
     global pcore
     pcore = prismInit()

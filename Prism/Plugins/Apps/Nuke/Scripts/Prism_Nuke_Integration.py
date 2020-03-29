@@ -31,27 +31,20 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import platform
+import shutil
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
-import os, sys
-import traceback, time, platform, shutil, socket
-
-if platform.system() in ["Linux", "Darwin"]:
-    import pwd
-
-from functools import wraps
-
-from PrismUtils import Integration
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Nuke_Integration(object):
@@ -75,34 +68,7 @@ class Prism_Nuke_Integration(object):
             )
             self.examplePath = "/Users/%s/.nuke" % userName
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Nuke_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                if hasattr(args[0].core, "writeErrorLog"):
-                    args[0].core.writeErrorLog(erStr)
-                else:
-                    QMessageBox.warning(
-                        args[0].core.messageParent, "Prism Integration", erStr
-                    )
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getExecutable(self):
         execPath = ""
         if platform.system() == "Windows":
@@ -110,47 +76,13 @@ class Prism_Nuke_Integration(object):
 
         return execPath
 
-    @err_decorator
-    def integrationAdd(self, origin):
-        path = QFileDialog.getExistingDirectory(
-            self.core.messageParent, "Select Nuke folder", self.examplePath
-        )
-
-        if path == "":
-            return False
-
-        result = self.writeNukeFiles(path)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was added successfully",
-            )
-            return path
-
-        return result
-
-    @err_decorator
-    def integrationRemove(self, origin, installPath):
-        result = self.removeIntegration(installPath)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was removed successfully",
-            )
-
-        return result
-
-    def writeNukeFiles(self, nukepath):
+    def addIntegration(self, installPath):
         try:
-            if not os.path.exists(nukepath):
+            if not os.path.exists(installPath):
                 QMessageBox.warning(
                     self.core.messageParent,
                     "Prism Integration",
-                    "Invalid Nuke path: %s.\nThe path doesn't exist." % nukepath,
+                    "Invalid Nuke path: %s.\nThe path doesn't exist." % installPath,
                     QMessageBox.Ok,
                 )
                 return False
@@ -164,8 +96,8 @@ class Prism_Nuke_Integration(object):
             with open(origMenuFile, "r") as mFile:
                 initStr = mFile.read()
 
-            menuFile = os.path.join(nukepath, "menu.py")
-            Integration.removeIntegration(filepath=menuFile)
+            menuFile = os.path.join(installPath, "menu.py")
+            self.core.integration.removeIntegrationData(filepath=menuFile)
 
             with open(menuFile, "a") as initfile:
                 initStr = initStr.replace(
@@ -176,7 +108,7 @@ class Prism_Nuke_Integration(object):
             addedFiles.append(menuFile)
 
             wPrismFile = os.path.join(integrationBase, "WritePrism.gizmo")
-            wpPath = os.path.join(nukepath, "WritePrism.gizmo")
+            wpPath = os.path.join(installPath, "WritePrism.gizmo")
 
             if os.path.exists(wpPath):
                 os.remove(wpPath)
@@ -212,8 +144,7 @@ class Prism_Nuke_Integration(object):
 
             menu = os.path.join(installPath, "menu.py")
 
-            for i in [menu]:
-                Integration.removeIntegration(filepath=i)
+            self.core.integration.removeIntegrationData(filepath=menu)
 
             return True
 
@@ -267,14 +198,14 @@ class Prism_Nuke_Integration(object):
             )
             return False
 
-    def installerExecute(self, nukeItem, result, locFile):
+    def installerExecute(self, nukeItem, result):
         try:
             installLocs = []
 
             if nukeItem.checkState(0) == Qt.Checked and os.path.exists(
                 nukeItem.text(1)
             ):
-                result["Nuke integration"] = self.writeNukeFiles(nukeItem.text(1))
+                result["Nuke integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=nukeItem.text(1), quiet=True)
                 if result["Nuke integration"]:
                     installLocs.append(nukeItem.text(1))
 

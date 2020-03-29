@@ -33,7 +33,7 @@
 
 import os
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class Resolver(object):
@@ -41,7 +41,7 @@ class Resolver(object):
         super(Resolver, self).__init__()
         self.core = core
 
-    @err_decorator(name="Resolver")
+    @err_catcher(name=__name__)
     def resolveFields(self, uri, uriType="exportProduct"):
         fields = {}
         if uriType == "exportProduct":
@@ -61,7 +61,7 @@ class Resolver(object):
 
         return fields
 
-    @err_decorator(name="Resolver")
+    @err_catcher(name=__name__)
     def resolvePath(self, uri, uriType="exportProduct", target="file"):
         fields = self.resolveFields(uri, uriType)
 

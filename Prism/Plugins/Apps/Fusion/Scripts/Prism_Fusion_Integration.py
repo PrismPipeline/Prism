@@ -30,22 +30,20 @@
 # You should have received a copy of the GNU General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
+import sys
+import platform
+import shutil
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
-import os, sys
-import traceback, time, platform, shutil, socket
-from functools import wraps
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Fusion_Integration(object):
@@ -75,34 +73,7 @@ class Prism_Fusion_Integration(object):
                 % userName
             )
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Fusion_Integration - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                if hasattr(args[0].core, "writeErrorLog"):
-                    args[0].core.writeErrorLog(erStr)
-                else:
-                    QMessageBox.warning(
-                        args[0].core.messageParent, "Prism Integration", erStr
-                    )
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def getExecutable(self):
         execPath = ""
         if platform.system() == "Windows":
@@ -110,47 +81,13 @@ class Prism_Fusion_Integration(object):
 
         return execPath
 
-    @err_decorator
-    def integrationAdd(self, origin):
-        path = QFileDialog.getExistingDirectory(
-            self.core.messageParent, "Select Fusion folder", self.examplePath
-        )
-
-        if path == "":
-            return False
-
-        result = self.writeFusionFiles(path)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was added successfully",
-            )
-            return path
-
-        return result
-
-    @err_decorator
-    def integrationRemove(self, origin, installPath):
-        result = self.removeIntegration(installPath)
-
-        if result:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Prism Integration",
-                "Prism integration was removed successfully",
-            )
-
-        return result
-
-    def writeFusionFiles(self, fusionpath):
+    def addIntegration(self, installPath):
         try:
-            if not os.path.exists(fusionpath):
+            if not os.path.exists(installPath):
                 QMessageBox.warning(
                     self.core.messageParent,
                     "Prism Integration",
-                    "Invalid Fusion path: %s.\nThe path doesn't exist." % fusionpath,
+                    "Invalid Fusion path: %s.\nThe path doesn't exist." % installPath,
                     QMessageBox.Ok,
                 )
                 return False
@@ -163,7 +100,7 @@ class Prism_Fusion_Integration(object):
             # "PrismMenu.fu" add a Prism menu, but leads to freezes
             for i in ["PrismRenderStartEvent.fu"]:
                 origFile = os.path.join(integrationBase, i)
-                targetFile = os.path.join(fusionpath, "Config", i)
+                targetFile = os.path.join(installPath, "Config", i)
 
                 if not os.path.exists(os.path.dirname(targetFile)):
                     os.makedirs(os.path.dirname(targetFile))
@@ -187,7 +124,7 @@ class Prism_Fusion_Integration(object):
             if platform.system() == "Windows":
                 for i in ["PrismInit.scriptlib"]:
                     origFile = os.path.join(integrationBase, i)
-                    targetFile = os.path.join(fusionpath, "Scripts", i)
+                    targetFile = os.path.join(installPath, "Scripts", i)
 
                     if not os.path.exists(os.path.dirname(targetFile)):
                         os.makedirs(os.path.dirname(targetFile))
@@ -216,7 +153,7 @@ class Prism_Fusion_Integration(object):
                 "5 Settings.py",
             ]:
                 origFile = os.path.join(integrationBase, i)
-                targetFile = os.path.join(fusionpath, "Scripts", "Comp", "Prism", i)
+                targetFile = os.path.join(installPath, "Scripts", "Comp", "Prism", i)
 
                 if not os.path.exists(os.path.dirname(targetFile)):
                     os.makedirs(os.path.dirname(targetFile))
@@ -239,7 +176,7 @@ class Prism_Fusion_Integration(object):
 
             for i in ["WritePrism.setting"]:
                 origFile = os.path.join(integrationBase, i)
-                targetFile = os.path.join(fusionpath, "Macros", i)
+                targetFile = os.path.join(installPath, "Macros", i)
 
                 if not os.path.exists(os.path.dirname(targetFile)):
                     os.makedirs(os.path.dirname(targetFile))
@@ -383,14 +320,14 @@ class Prism_Fusion_Integration(object):
             )
             return False
 
-    def installerExecute(self, fusionItem, result, locFile):
+    def installerExecute(self, fusionItem, result):
         try:
             installLocs = []
 
             if fusionItem.checkState(0) == Qt.Checked and os.path.exists(
                 fusionItem.text(1)
             ):
-                result["Fusion integration"] = self.writeFusionFiles(fusionItem.text(1))
+                result["Fusion integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=fusionItem.text(1), quiet=True)
                 if result["Fusion integration"]:
                     installLocs.append(fusionItem.text(1))
 

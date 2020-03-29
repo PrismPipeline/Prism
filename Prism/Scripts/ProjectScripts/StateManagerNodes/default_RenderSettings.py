@@ -51,7 +51,7 @@ if sys.version[0] == "3":
 else:
     pVersion = 2
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class RenderSettingsClass(object):
@@ -90,7 +90,7 @@ class RenderSettingsClass(object):
             core.appPlugin, "sm_renderSettings_setCurrentSettings", lambda x, y: None
         )(core, preset, **kwargs)
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
         self.core = core
@@ -109,7 +109,7 @@ class RenderSettingsClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
@@ -142,7 +142,7 @@ class RenderSettingsClass(object):
             self, data
         )
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.cb_presetOption.activated.connect(self.stateManager.saveStatesToScene)
         self.b_loadCurrent.clicked.connect(self.loadCurrent)
@@ -157,7 +157,7 @@ class RenderSettingsClass(object):
         if not self.stateManager.standalone:
             self.b_applySettings.clicked.connect(self.applySettings)
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def nameChanged(self, text):
         sText = text
 
@@ -166,7 +166,7 @@ class RenderSettingsClass(object):
 
         self.state.setText(0, sText)
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def editChanged(self, state):
         self.w_presetOption.setVisible(not state)
         self.w_loadCurrent.setVisible(state)
@@ -174,7 +174,7 @@ class RenderSettingsClass(object):
         self.te_settings.setPlainText("")
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def updateUi(self):
         curPreset = self.cb_presetOption.currentText()
         self.cb_presetOption.clear()
@@ -189,12 +189,12 @@ class RenderSettingsClass(object):
         if self.state:
             self.nameChanged(self.e_name.text())
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def focusOut(self, event):
         self.stateManager.saveStatesToScene()
         self.te_settings.origFocusOutEvent(event)
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def loadCurrent(self):
         settings = getattr(
             self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x: {}
@@ -202,13 +202,13 @@ class RenderSettingsClass(object):
         self.te_settings.setPlainText(settings)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def resetSettings(self):
         getattr(
             self.core.appPlugin, "sm_renderSettings_applyDefaultSettings", lambda x: {}
         )(self)
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def showPresets(self):
         presets = self.getPresets(self.core)
         if not presets:
@@ -225,7 +225,7 @@ class RenderSettingsClass(object):
         self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor().pos())
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def loadPreset(self, presetPath):
         preset = self.core.readYaml(presetPath)
         if "renderSettings" not in preset:
@@ -235,7 +235,7 @@ class RenderSettingsClass(object):
         self.te_settings.setPlainText(settings)
         self.stateManager.saveStatesToScene()
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def savePreset(self):
         result = QInputDialog.getText(self, "Save preset", "Presetname:")
         if not result[1]:
@@ -267,7 +267,7 @@ class RenderSettingsClass(object):
 
         self.updateUi()
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def applySettings(self, settings=None):
         if self.chb_editSettings.isChecked():
             if not settings:
@@ -286,7 +286,7 @@ class RenderSettingsClass(object):
 
             self.applyPreset(self.core, presets[selPreset], state=self)
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -299,12 +299,12 @@ class RenderSettingsClass(object):
 
         return [self.state.text(0), warnings]
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
         self.applySettings()
         return [self.state.text(0) + " - success"]
 
-    @err_decorator(name="sm_renderSettings_setCurrentSettings")
+    @err_catcher(name=__name__)
     def getStateProps(self):
         stateProps = {}
         stateProps.update(

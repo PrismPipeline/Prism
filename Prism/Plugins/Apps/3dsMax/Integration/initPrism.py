@@ -1,4 +1,5 @@
-import sys, os
+import os
+import sys
 
 Dir = os.path.join(PRISMROOT, "Scripts")
 if Dir not in sys.path:

@@ -31,7 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os, sys
+import os
+import sys
 
 prismRoot = os.path.abspath(
     os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir)
@@ -44,13 +45,9 @@ try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
-    psVersion = 1
 
 qapp = QApplication.instance()
 if qapp == None:
@@ -81,5 +78,5 @@ if hasattr(pcore.appPlugin, "psApp"):
     if len(sys.argv) > 2:
         pcore.appPlugin.openScene(origin=pcore, filepath=sys.argv[2])
 
-    if result == True:
+    if result:
         qapp.exec_()

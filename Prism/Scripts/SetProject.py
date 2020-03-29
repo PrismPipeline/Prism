@@ -56,7 +56,7 @@ if sys.version[0] == "3":
 else:
     pVersion = 2
 
-from PrismUtils.Decorators import err_decorator
+from PrismUtils.Decorators import err_catcher
 
 
 class SetProject(QDialog):
@@ -91,24 +91,24 @@ class SetProjectClass(object):
         self.core.appPlugin.setProject_loading(self)
         self.resize(self.width(), self.minimumSizeHint().height())
 
-    @err_decorator(name="SetProject")
+    @err_catcher(name=__name__)
     def connectEvents(self):
         self.b_open.clicked.connect(self.core.openProject)
         self.b_create.clicked.connect(self.preCreate)
         self.chb_startup.stateChanged.connect(self.startupChanged)
 
-    @err_decorator(name="SetProject")
+    @err_catcher(name=__name__)
     def enterEvent(self, event):
         QApplication.restoreOverrideCursor()
 
-    @err_decorator(name="SetProject")
+    @err_catcher(name=__name__)
     def preCreate(self):
         self.core.createProject()
         self.pdialog.close()
         if hasattr(self.core, "pb") and self.core.pb.isVisible():
             self.core.pb.close()
 
-    @err_decorator(name="SetProject")
+    @err_catcher(name=__name__)
     def refreshUi(self):
         if hasattr(self.core, "projectName") and self.core.projectName is not None:
             self.l_project.setText(
@@ -180,7 +180,7 @@ class SetProjectClass(object):
 
         self.chb_startup.setChecked(ssu)
 
-    @err_decorator(name="SetProject")
+    @err_catcher(name=__name__)
     def rclRecent(self, rProject):
         rcmenu = QMenu()
 
@@ -192,7 +192,7 @@ class SetProjectClass(object):
 
         rcmenu.exec_(QCursor.pos())
 
-    @err_decorator(name="SetProject")
+    @err_catcher(name=__name__)
     def deleteRecent(self, rProject):
         self.core.setRecentPrj(
             os.path.join(rProject.text(), "00_Pipeline", "pipeline.ini"),
@@ -205,7 +205,7 @@ class SetProjectClass(object):
 
         self.resize(self.width(), self.minimumSizeHint().height())
 
-    @err_decorator(name="SetProject")
+    @err_catcher(name=__name__)
     def startupChanged(self, state):
         if state == 0:
             self.core.setConfig("globals", "ShowOnStartup", str(False))

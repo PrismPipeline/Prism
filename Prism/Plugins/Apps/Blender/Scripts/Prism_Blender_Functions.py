@@ -40,7 +40,6 @@ import time
 import shutil
 import logging
 import operator
-from functools import wraps
 
 import bpy
 
@@ -62,6 +61,7 @@ except:
     pass
 
 import widget_import_scenedata
+from PrismUtils.Decorators import err_catcher as err_catcher
 
 logger = logging.getLogger(__name__)
 
@@ -101,29 +101,7 @@ class Prism_Blender_Functions(object):
         self.core = core
         self.plugin = plugin
 
-    def err_decorator(func):
-        @wraps(func)
-        def func_wrapper(*args, **kwargs):
-            exc_info = sys.exc_info()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                erStr = (
-                    "%s ERROR - Prism_Plugin_Blender - Core: %s - Plugin: %s:\n%s\n\n%s"
-                    % (
-                        time.strftime("%d/%m/%y %X"),
-                        args[0].core.version,
-                        args[0].plugin.version,
-                        "".join(traceback.format_stack()),
-                        traceback.format_exc(),
-                    )
-                )
-                args[0].core.writeErrorLog(erStr)
-
-        return func_wrapper
-
-    @err_decorator
+    @err_catcher(name=__name__)
     def startup(self, origin):
         if platform.system() == "Linux":
             origin.timer.stop()
@@ -148,23 +126,23 @@ class Prism_Blender_Functions(object):
 
         origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def autosaveEnabled(self, origin):
         if bpy.app.version < (2, 80, 0):
             return bpy.context.user_preferences.filepaths.use_auto_save_temporary_files
         else:
             return bpy.context.preferences.filepaths.use_auto_save_temporary_files
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         if hasattr(origin, "asThread") and origin.asThread.isRunning():
             origin.startasThread()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def executeScript(self, origin, code):
         try:
             return eval(code)
@@ -173,7 +151,7 @@ class Prism_Blender_Functions(object):
                 sys.exc_info()[2]
             )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         currentFileName = bpy.data.filepath
 
@@ -182,60 +160,60 @@ class Prism_Blender_Functions(object):
 
         return currentFileName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
         return self.sceneFormats[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
         return bpy.ops.wm.save_as_mainfile(filepath=filepath)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getImportPaths(self, origin):
         if not "PrismImports" in bpy.context.scene:
             return False
         else:
             return bpy.context.scene["PrismImports"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFrameRange(self, origin):
         startframe = bpy.context.scene.frame_start
         endframe = bpy.context.scene.frame_end
 
         return [startframe, endframe]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         bpy.context.scene.frame_start = startFrame
         bpy.context.scene.frame_end = endFrame
         bpy.context.scene.frame_current = startFrame
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getFPS(self, origin):
         return bpy.context.scene.render.fps
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         bpy.context.scene.render.fps = fps
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return bpy.app.version_string.split()[0]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         if bpy.app.version < (2, 80, 0):
             origin.publicColor = QColor(50, 100, 170)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setRCStyle(self, origin, rcmenu):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if not filepath.endswith(".blend"):
             return False
@@ -244,54 +222,54 @@ class Prism_Blender_Functions(object):
 
         return True
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def correctExt(self, origin, lfilepath):
         return lfilepath
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setSaveColor(self, origin, btn):
         btn.setPalette(origin.savedPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def clearSaveColor(self, origin, btn):
         btn.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def setProject_loading(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
         origin.resize(origin.width(), origin.height() + 60)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getGroups(self):
         if bpy.app.version < (2, 80, 0):
             return bpy.data.groups
         else:
             return bpy.data.collections
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def createGroups(self, name):
         if bpy.app.version < (2, 80, 0):
             bpy.ops.group.create(name=name)
         else:
             bpy.ops.collection.create(name=name)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getSelectObject(self, obj):
         if bpy.app.version < (2, 80, 0):
             return obj.select
         else:
             return obj.select_get()
 
-    @err_decorator
-    def selectObjects(self, objs, select=True):
+    @err_catcher(name=__name__)
+    def selectObjects(self, objs, select=True, quiet=False):
         for obj in objs:
-            self.selectObject(obj, select=select)
+            self.selectObject(obj, select=select, quiet=quiet)
 
-    @err_decorator
-    def selectObject(self, obj, select=True):
+    @err_catcher(name=__name__)
+    def selectObject(self, obj, select=True, quiet=False):
         if bpy.app.version < (2, 80, 0):
             obj.select = select
             bpy.context.scene.objects.active = obj
@@ -305,19 +283,22 @@ class Prism_Blender_Functions(object):
                         break
 
                 if obj_layer:
-                    msgText = (
-                        "The object '%s' is not on the current viewlayer, but it's on viewlayer '%s'.\nOnly objects on the current viewlayer can be selected, which is necessary to process this object.\n\nHow do you want to coninue?"
-                        % (obj.name, obj_layer.name)
-                    )
-                    msg = QMessageBox(QMessageBox.Question, "Prism", msgText)
-                    msg.addButton(
-                        "Set viewlayer '%s' active" % obj_layer.name,
-                        QMessageBox.YesRole,
-                    )
-                    msg.addButton("Skip object '%s'" % obj.name, QMessageBox.YesRole)
+                    if quiet:
+                        action = 1
+                    else:
+                        msgText = (
+                            "The object '%s' is not on the current viewlayer, but it's on viewlayer '%s'.\nOnly objects on the current viewlayer can be selected, which is necessary to process this object.\n\nHow do you want to coninue?"
+                            % (obj.name, obj_layer.name)
+                        )
+                        msg = QMessageBox(QMessageBox.Question, "Prism", msgText)
+                        msg.addButton(
+                            "Set viewlayer '%s' active" % obj_layer.name,
+                            QMessageBox.YesRole,
+                        )
+                        msg.addButton("Skip object '%s'" % obj.name, QMessageBox.YesRole)
 
-                    self.core.parentWindow(msg)
-                    action = msg.exec_()
+                        self.core.parentWindow(msg)
+                        action = msg.exec_()
 
                     if action == 0:
                         bpy.context.window_manager.windows[0].view_layer = obj_layer
@@ -325,16 +306,17 @@ class Prism_Blender_Functions(object):
                     elif action == 1:
                         return
                 else:
-                    self.core.popup(
-                        "The object '%s' is not on the current viewlayer and couldn't be found on any other viewlayer. This object can't be selected and will be skipped in the current process."
-                        % obj.name
-                    )
+                    if not quiet:
+                        self.core.popup(
+                            "The object '%s' is not on the current viewlayer and couldn't be found on any other viewlayer. This object can't be selected and will be skipped in the current process."
+                            % obj.name
+                        )
                     return
 
             obj.select_set(select, view_layer=curlayer)
             bpy.context.view_layer.objects.active = obj
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_addObjects(self, origin, objects=None):
         if origin.l_taskName.text() not in self.getGroups():
             self.createGroups(name=origin.l_taskName.text())
@@ -353,11 +335,11 @@ class Prism_Blender_Functions(object):
         origin.updateUi()
         origin.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getNodeName(self, origin, node):
         return node["name"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectNodes(self, origin):
         if origin.lw_objects.selectedItems() != []:
             bpy.ops.object.select_all(
@@ -368,22 +350,22 @@ class Prism_Blender_Functions(object):
                 if self.getObject(node):
                     self.selectObject(self.getObject(node))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def isNodeValid(self, origin, node):
         if type(node) == str:
             node = self.getNode(node)
 
         return bool(self.getObject(node))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamNodes(self, origin, cur=False):
         return [x.name for x in bpy.context.scene.objects if x.type == "CAMERA"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCamName(self, origin, handle):
         return handle
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def selectCam(self, origin):
         if self.getObject(origin.curCam):
             bpy.ops.object.select_all(
@@ -391,7 +373,7 @@ class Prism_Blender_Functions(object):
             )
             self.selectObject(self.getObject(origin.curCam))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_startup(self, origin):
         origin.l_convertExport.setText("Additional export in centimeters:")
         origin.w_additionalOptions.setVisible(False)
@@ -408,7 +390,7 @@ class Prism_Blender_Functions(object):
             origin.l_taskName.setText(setName)
             origin.b_changeTask.setPalette(origin.oldPalette)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
         setName = newTaskName
         extension = 1
@@ -424,7 +406,7 @@ class Prism_Blender_Functions(object):
 
         origin.l_taskName.setText(setName)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
         if origin.l_taskName.text() not in self.getGroups():
             return
@@ -433,7 +415,7 @@ class Prism_Blender_Functions(object):
             self.getObject(node)
         )
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
         if origin.l_taskName.text() not in self.getGroups():
             return
@@ -441,13 +423,13 @@ class Prism_Blender_Functions(object):
         for node in self.getGroups()[origin.l_taskName.text()].objects:
             self.getGroups()[origin.l_taskName.text()].objects.unlink(node)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_updateObjects(self, origin):
         origin.nodes = []
         if origin.l_taskName.text() in self.getGroups():
             origin.nodes = [self.getNode(x) for x in self.getGroups()[origin.l_taskName.text()].objects]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
         self.selectCam(origin)
         bpy.ops.wm.alembic_export(
@@ -513,7 +495,7 @@ class Prism_Blender_Functions(object):
 
         bpy.ops.object.select_all(self.getOverrideContext(origin), action="DESELECT")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_exportAppObjects(
         self,
         origin,
@@ -661,14 +643,14 @@ class Prism_Blender_Functions(object):
 
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
         try:
             self.getGroups().remove(self.getGroups()[origin.l_taskName.text()], True)
         except:
             pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getOverrideContext(self, origin):
         for window in bpy.context.window_manager.windows:
             screen = window.screen
@@ -683,7 +665,7 @@ class Prism_Blender_Functions(object):
                     override = {"window": window, "screen": screen, "area": area}
                     return override
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_export_preExecute(self, origin, startFrame, endFrame):
         warnings = []
 
@@ -703,15 +685,15 @@ class Prism_Blender_Functions(object):
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_isVray(self, origin):
         return False
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_setVraySettings(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startup(self, origin):
         origin.gb_passes.setCheckable(False)
         origin.sp_rangeStart.setValue(bpy.context.scene.frame_start)
@@ -723,7 +705,7 @@ class Prism_Blender_Functions(object):
 
         origin.b_osSlaves.setMinimumWidth(50 * self.core.uiScaleFactor)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_refreshPasses(self, origin):
         origin.lw_passes.clear()
 
@@ -738,7 +720,7 @@ class Prism_Blender_Functions(object):
         if passNames:
             origin.lw_passes.addItems(passNames)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getNodeAOVs(self):
         if bpy.context.scene.node_tree is None or bpy.context.scene.use_nodes:
             return
@@ -776,7 +758,7 @@ class Prism_Blender_Functions(object):
 
         return passNames
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getViewLayerAOVs(self):
         availableAOVs = self.getAvailableAOVs()
         curlayer = bpy.context.window_manager.windows[0].view_layer
@@ -793,7 +775,7 @@ class Prism_Blender_Functions(object):
 
         return aovNames
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getAvailableAOVs(self):
         curlayer = bpy.context.window_manager.windows[0].view_layer
         aovParms = [x for x in dir(curlayer) if x.startswith("use_pass_")]
@@ -816,15 +798,15 @@ class Prism_Blender_Functions(object):
 
         return aovs
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_openPasses(self, origin, item=None):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def useNodeAOVs(self):
         return bool(self.getNodeAOVs())
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def removeAOV(self, aovName):
         if self.useNodeAOVs():
             rlayerNodes = [
@@ -861,7 +843,7 @@ class Prism_Blender_Functions(object):
         else:
             self.enableViewLayerAOV(aovName, enable=False)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def enableViewLayerAOV(self, name, enable=True):
         aa = self.getAvailableAOVs()
         curAOV = [x for x in aa if x["name"] == name]
@@ -878,7 +860,7 @@ class Prism_Blender_Functions(object):
 
         setattr(obj, attrs[-1], enable)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preSubmit(self, origin, rSettings):
         if origin.chb_resOverride.isChecked():
             rSettings["width"] = bpy.context.scene.render.resolution_x
@@ -1003,7 +985,7 @@ class Prism_Blender_Functions(object):
                 if not os.path.exists(os.path.dirname(tmpOutput)):
                     os.makedirs(os.path.dirname(tmpOutput))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_startLocalRender(self, origin, outputName, rSettings):
         # renderAnim = bpy.context.scene.frame_start != bpy.context.scene.frame_end
         try:
@@ -1057,7 +1039,7 @@ class Prism_Blender_Functions(object):
             self.core.writeErrorLog(erStr)
             return "Execute Canceled: unknown error (view console for more information)"
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def CheckRenderFinished(self, origin):
         if not bpy.context.scene["PrismIsRendering"]:
             self.startRenderThread(origin, quit=True)
@@ -1066,7 +1048,7 @@ class Prism_Blender_Functions(object):
 
         self.startRenderThread(origin, restart=True)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def startRenderThread(self, origin, quit=False, restart=False):
         if quit and hasattr(self, "brThread") and self.brThread.isRunning():
             self.brObject.active = False
@@ -1084,7 +1066,7 @@ class Prism_Blender_Functions(object):
 
             self.brThread.start()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_undoRenderSettings(self, origin, rSettings):
         if "width" in rSettings:
             bpy.context.scene.render.resolution_x = rSettings["width"]
@@ -1126,7 +1108,7 @@ class Prism_Blender_Functions(object):
             origin.l_pathLast.setToolTip(rSettings["outputName"])
             origin.stateManager.saveStatesToScene()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
         dlParams["jobInfoFile"] = os.path.join(
             homeDir, "temp", "blender_submit_info.job"
@@ -1139,48 +1121,48 @@ class Prism_Blender_Functions(object):
         dlParams["jobInfos"]["Comment"] = "Prism-Submission-Blender_ImageRender"
         dlParams["pluginInfos"]["OutputFile"] = dlParams["jobInfos"]["OutputFilename0"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentRenderer(self, origin):
         return bpy.context.window_manager.windows[0].scene.render.engine
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getCurrentSceneFiles(self, origin):
         return [self.core.getCurrentFileName()]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_getRenderPasses(self, origin):
         aovNames = [x["name"] for x in self.getAvailableAOVs() if x["name"] not in self.getViewLayerAOVs()]
         return aovNames
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_addRenderPass(self, origin, passName, steps):
         self.enableViewLayerAOV(passName)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_managerChanged(self, origin, isPandora):
         origin.f_osPAssets.setVisible(isPandora)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_fixOutputPath(self, origin, outputName):
         outputName = (
             os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
         )
         return outputName
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_render_submitScene(self, origin, jobPath):
         jobFilePath = os.path.join(jobPath, self.core.getCurrentFileName(path=False))
         bpy.ops.wm.save_as_mainfile(filepath=jobFilePath, copy=True)
         bpy.ops.wm.revert_mainfile()
         self.core.stateManager()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def deleteNodes(self, origin, handles):
         for i in handles:
             bpy.data.objects.remove(self.getObject(i))
@@ -1191,7 +1173,7 @@ class Prism_Blender_Functions(object):
     #   bpy.ops.object.make_local(self.getOverrideContext(origin), type='SELECT_OBDATA_MATERIAL')
     #   bpy.ops.object.delete(self.getOverrideContext(origin))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_startup(self, origin):
         origin.b_browse.setMinimumWidth(50 * self.core.uiScaleFactor)
         origin.b_browse.setMaximumWidth(50 * self.core.uiScaleFactor)
@@ -1199,20 +1181,13 @@ class Prism_Blender_Functions(object):
         origin.f_unitConversion.setVisible(False)
         origin.l_preferUnit.setText("Prefer versions in cm:")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
         fileName = os.path.splitext(os.path.basename(impFileName))
         origin.setName = ""
         result = False
 
         if fileName[1] in [".blend"]:
-            try:
-                del sys.modules["widget_import_scenedata"]
-            except:
-                pass
-
-            import widget_import_scenedata
-
             dlg_sceneData = widget_import_scenedata.Import_SceneData(self.core, self.plugin)
             dlgResult = dlg_sceneData.importScene(impFileName, update, origin)
             if not dlgResult:
@@ -1302,13 +1277,14 @@ class Prism_Blender_Functions(object):
                 self.getOverrideContext(origin), action="DESELECT"
             )
 
-            self.selectObjects([self.getObject(x) for x in importedNodes])
+            objs = [self.getObject(x) for x in importedNodes]
+            self.selectObjects(objs, quiet=True)
 
             result = len(importedNodes) > 0
 
         return {"result": result, "doImport": doImport}
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getNode(self, obj):
         if type(obj) == str:
             node = {"name": obj, "library": ""}
@@ -1316,7 +1292,7 @@ class Prism_Blender_Functions(object):
             node = {"name": obj.name, "library": getattr(obj.library, "filepath", "")}
         return node
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def getObject(self, node):
         if type(node) == str:
             node = self.getNode(node)
@@ -1325,13 +1301,13 @@ class Prism_Blender_Functions(object):
             if obj.name == node["name"] and getattr(obj.library, "filepath", "") == node["library"]:
                 return obj
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_disableObjectTracking(self, origin):
         stateGroup = [x for x in self.getGroups() if x.name == origin.setName]
         if len(stateGroup) > 0:
             self.getGroups().remove(stateGroup[0])
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_updateObjects(self, origin):
         if origin.setName == "":
             return
@@ -1340,7 +1316,7 @@ class Prism_Blender_Functions(object):
         if origin.setName in self.getGroups() and origin.chb_trackObjects.isChecked():
             origin.nodes = [self.getNode(x) for x in self.getGroups()[origin.setName].objects]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_removeNameSpaces(self, origin):
         for i in origin.nodes:
             if not self.getObject(i):
@@ -1353,7 +1329,7 @@ class Prism_Blender_Functions(object):
 
         origin.updateUi()
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_unitConvert(self, origin):
         if origin.taskName == "ShotCam" and len(origin.nodes) == 1:
             prevObjs = list(bpy.context.scene.objects)
@@ -1380,15 +1356,15 @@ class Prism_Blender_Functions(object):
             self.selectObject(empObj)
             bpy.ops.object.delete(self.getOverrideContext(origin))
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_fixImportPath(self, origin, filepath):
         return filepath.replace("\\\\", "\\")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_import_nameChanged(self, origin):
         origin.f_unitConversion.setVisible(origin.taskName == "ShotCam")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_startup(self, origin):
         frange = self.getFrameRange(origin)
         origin.sp_rangeStart.setValue(frange[0])
@@ -1397,7 +1373,7 @@ class Prism_Blender_Functions(object):
         origin.b_resPresets.setMinimumHeight(0)
         origin.b_resPresets.setMaximumHeight(500 * self.core.uiScaleFactor)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
         outputName = (
             os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
@@ -1448,22 +1424,22 @@ class Prism_Blender_Functions(object):
         bpy.context.scene.render.filepath = prevOutput[0]
         bpy.context.scene.render.image_settings.file_format = prevOutput[1]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_preExecute(self, origin):
         warnings = []
 
         return warnings
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_playblast_execute(self, origin):
         pass
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_setActivePalette(self, origin, listWidget, inactive, inactivef, activef):
         listWidget.setStyleSheet("QTreeWidget { border: 1px solid rgb(30,130,230); }")
         inactive.setStyleSheet("QTreeWidget { border: 1px solid rgb(30,30,30); }")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin):
         startframe, endframe = self.getFrameRange(origin)
         origin.sp_rangeStart.setValue(startframe)
@@ -1488,28 +1464,28 @@ class Prism_Blender_Functions(object):
         origin.b_preview.setMinimumWidth(35 * self.core.uiScaleFactor)
         origin.b_preview.setMaximumWidth(35 * self.core.uiScaleFactor)
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveStates(self, origin, buf):
         bpy.context.scene["PrismStates"] = buf
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_saveImports(self, origin, importPaths):
         bpy.context.scene["PrismImports"] = importPaths.replace("\\\\", "\\")
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_readStates(self, origin):
         if "PrismStates" in bpy.context.scene:
             return bpy.context.scene["PrismStates"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_deleteStates(self, origin):
         if "PrismStates" in bpy.context.scene:
             del bpy.context.scene["PrismStates"]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_getExternalFiles(self, origin):
         return [[], []]
 
-    @err_decorator
+    @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         origin.createPressed("Render")
