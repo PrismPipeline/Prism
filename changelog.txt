@@ -1,3 +1,7 @@
+v1.2.1.73:
+- fixed a bug that Prism didn't launch in Blender 2.8 when PySide2 was not available
+- fixed a bug when creating an asset, which created an unnecessary folder inside the asset folder
+
 v1.2.1.72:
 - changed the default for the setting "Alembic - Update path only" of import states to unchecked in 3ds Max, Maya and Blender
 - updating Prism to a newer version reinstalls now all Prism DCC integrations as well
