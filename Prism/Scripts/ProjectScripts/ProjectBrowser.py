@@ -3923,7 +3923,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.newItem.setWindowTitle("Create " + name)
         nameLabel = "Name:" if name == "Entity" else name + " Name:"
         self.newItem.l_item.setText(nameLabel)
-        self.newItem.buttonBox.accepted.connect(self.newItem.accept)
         self.newItem.accepted.connect(lambda: self.createCat(tab))
 
         if tab == "ah":

@@ -77,9 +77,16 @@ except:
 
         importlib.reload(site)
 
-        from PySide2.QtCore import *
-        from PySide2.QtGui import *
-        from PySide2.QtWidgets import *
+        try:
+            from PySide2.QtCore import *
+            from PySide2.QtGui import *
+            from PySide2.QtWidgets import *
+        except:
+            msg = (
+                "Prism requires the PySide2 library for Python %s.%s in order to display its user interfaces.\n\nThe automatic download failed but you can download it manually from the Prism website: https://prism-pipeline.com/downloads/"
+                % (libFolder[-2], libFolder[-1])
+            )
+            raise RuntimeError(msg)
 
 from bpy.app.handlers import persistent
 

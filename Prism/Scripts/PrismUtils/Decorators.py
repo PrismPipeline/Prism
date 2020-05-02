@@ -98,3 +98,4 @@ def err_catcher_standalone(name):
                 QMessageBox.warning(None, "Prism", erStr)
 
         return func_wrapper
+    return err_decorator
