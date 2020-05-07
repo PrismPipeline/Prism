@@ -1513,7 +1513,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 pasteact.setEnabled(False)
             rcmenu.addAction(pasteact)
 
-        if tab in ["ap", "ss", "sp", "sc"]:
+        if tab in ["ap", "ac", "ss", "sp", "sc"]:
             createAct = QAction("Create " + typename, self)
             if tab == "ap":
                 createAct.triggered.connect(lambda: self.createStepWindow("a"))
@@ -1591,7 +1591,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         elif "path" in locals():
             if iname is None:
                 lw.setCurrentIndex(lw.model().createIndex(-1, 0))
-            if tab not in ["ap", "ss", "sp", "sc"]:
+            if tab not in ["ap", "ac", "ss", "sp", "sc"]:
                 cat = QAction("Create " + typename, self)
                 cat.triggered.connect(lambda: self.createCatWin(tab, typename))
                 rcmenu.addAction(cat)

@@ -1,3 +1,6 @@
+v1.2.1.74:
+- fixed a problem that no more categories could be created for assets when the category list was full
+
 v1.2.1.73:
 - fixed a bug that Prism didn't launch in Blender 2.8 when PySide2 was not available
 - fixed a bug when creating an asset, which created an unnecessary folder inside the asset folder
