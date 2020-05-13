@@ -1,3 +1,8 @@
+v1.2.1.75:
+- added horizontal scroll bars to the asset and shot list when needed
+- fixed an error in Maya 2020 when the High DPI mode was enabled
+- replaced .app files with .command files in Prism on MacOS to improve Catalina support
+
 v1.2.1.74:
 - fixed a problem that no more categories could be created for assets when the category list was full
 

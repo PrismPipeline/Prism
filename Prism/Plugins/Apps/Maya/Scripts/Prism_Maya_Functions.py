@@ -70,10 +70,10 @@ class Prism_Maya_Functions(object):
             if QApplication.instance() is None:
                 return False
 
-            if not hasattr(qApp, "topLevelWidgets"):
+            if not hasattr(QApplication, "topLevelWidgets"):
                 return False
 
-            for obj in qApp.topLevelWidgets():
+            for obj in QApplication.topLevelWidgets():
                 if obj.objectName() == "MayaWindow":
                     mayaQtParent = obj
                     break

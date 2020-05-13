@@ -283,24 +283,22 @@ class Prism_Standalone_Functions(object):
             trayStartup = (
                 "/Users/%s/Library/LaunchAgents/com.user.PrismTray.plist" % userName
             )
-            trayStartMenu = "/Applications/Prism/Prism Tray.app"
-            pbStartMenu = "/Applications/Prism/Prism Project Browser.app"
-            settingsStartMenu = "/Applications/Prism/Prism Settings.app"
+            trayStartMenu = "/Applications/Prism/Prism Tray.command"
+            pbStartMenu = "/Applications/Prism/Prism Project Browser.command"
+            settingsStartMenu = "/Applications/Prism/Prism Settings.command"
 
             trayStartupSrc = os.path.join(
                 self.core.prismRoot, "Tools", "Templates", "com.user.PrismTray.plist"
             )
             trayLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Tray.app"
+                self.core.prismRoot, "Tools", "Templates", "Prism Tray.command"
             )
             pbLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Project Browser.app"
+                self.core.prismRoot, "Tools", "Templates", "Prism Project Browser.command"
             )
             settingsLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Settings.app"
+                self.core.prismRoot, "Tools", "Templates", "Prism Settings.command"
             )
-
-            cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
 
             if os.path.exists(trayStartupSrc):
                 with open(trayStartupSrc, "r") as init:
@@ -356,48 +354,30 @@ class Prism_Standalone_Functions(object):
         if os.path.exists(trayLnk):
             if os.path.exists(os.path.dirname(trayStartup)):
                 if platform.system() == "Darwin":
-                    if os.path.exists(trayStartupSrc):
-                        shutil.copy2(trayStartupSrc, trayStartup)
-                        os.chmod(trayStartup, 0o644)
-                        uid = pwd.getpwnam(userName).pw_uid
-                        os.chown(os.path.dirname(trayStartup), uid, -1)
-                        os.chown(trayStartup, uid, -1)
-                    # 	os.system("launchctl load /Users/%s/Library/LaunchAgents/com.PrismTray.plist" % userName)
+                    os.system("cp \"%s\" \"%s\"" % (trayLnk, trayStartup))
                 else:
                     shutil.copy2(trayLnk, trayStartup)
-                    os.chmod(trayStartup, 0o777)
+                os.chmod(trayStartup, 0o777)
             else:
                 print("could not create PrismTray autostart entry")
 
             if trayStartMenu != "":
                 if os.path.exists(os.path.dirname(trayStartMenu)):
-                    if os.path.isdir(trayLnk):
-                        if os.path.exists(trayStartMenu):
-                            shutil.rmtree(trayStartMenu)
-                        shutil.copytree(trayLnk, trayStartMenu)
-                        for k in os.walk(trayStartMenu):
-                            for m in k[2]:
-                                path = os.path.join(k[0], m)
-                                os.chown(path, uid, -1)
+                    if platform.system() == "Darwin":
+                        os.system("cp \"%s\" \"%s\"" % (trayLnk, trayStartMenu))
                     else:
                         shutil.copy2(trayLnk, trayStartMenu)
-                        os.chmod(trayStartMenu, 0o777)
+                    os.chmod(trayStartMenu, 0o777)
                 else:
                     print("could not create PrismTray startmenu entry")
 
         if pbStartMenu != "":
             if os.path.exists(pbLnk) and os.path.exists(os.path.dirname(pbStartMenu)):
-                if os.path.isdir(pbLnk):
-                    if os.path.exists(pbStartMenu):
-                        shutil.rmtree(pbStartMenu)
-                    shutil.copytree(pbLnk, pbStartMenu)
-                    for k in os.walk(pbStartMenu):
-                        for m in k[2]:
-                            path = os.path.join(k[0], m)
-                            os.chown(path, uid, -1)
+                if platform.system() == "Darwin":
+                    os.system("cp \"%s\" \"%s\"" % (pbLnk, pbStartMenu))
                 else:
                     shutil.copy2(pbLnk, pbStartMenu)
-                    os.chmod(pbStartMenu, 0o777)
+                os.chmod(pbStartMenu, 0o777)
             else:
                 print("could not create PrismProjectBrowser startmenu entry")
 
@@ -405,51 +385,22 @@ class Prism_Standalone_Functions(object):
             if os.path.exists(settingsLnk) and os.path.exists(
                 os.path.dirname(settingsStartMenu)
             ):
-                if os.path.isdir(settingsLnk):
-                    if os.path.exists(settingsStartMenu):
-                        shutil.rmtree(settingsStartMenu)
-                    shutil.copytree(settingsLnk, settingsStartMenu)
-                    for k in os.walk(settingsStartMenu):
-                        for m in k[2]:
-                            path = os.path.join(k[0], m)
-                            os.chown(path, uid, -1)
+                if platform.system() == "Darwin":
+                    os.system("cp \"%s\" \"%s\"" % (settingsLnk, settingsStartMenu))
                 else:
                     shutil.copy2(settingsLnk, settingsStartMenu)
-                    os.chmod(settingsStartMenu, 0o777)
+                os.chmod(settingsStartMenu, 0o777)
             else:
                 print("could not create PrismSettings startmenu entry")
 
         if platform.system() == "Darwin":
-            trayLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Tray.app"
-            )
-            pbLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Project Browser.app"
-            )
-            settingsLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Settings.app"
-            )
-
             templateTools = [
                 trayLnk,
                 pbLnk,
                 settingsLnk,
-                os.path.join(
-                    self.core.prismRoot, "Tools", "Templates", "PrismProjectBrowser.sh"
-                ),
-                os.path.join(
-                    self.core.prismRoot, "Tools", "Templates", "PrismSettings.sh"
-                ),
-                os.path.join(self.core.prismRoot, "Tools", "Templates", "PrismTray.sh"),
             ]
 
-            trayScript = os.path.join(trayStartMenu, "Contents", "Resources", "script")
-            pbScript = os.path.join(pbStartMenu, "Contents", "Resources", "script")
-            settingsScript = os.path.join(
-                settingsStartMenu, "Contents", "Resources", "script"
-            )
-
-            shortCuts = [trayStartup, trayScript, pbScript, settingsScript]
+            shortCuts = [trayStartup, trayStartMenu, pbStartMenu, settingsStartMenu]
             uid = pwd.getpwnam(userName).pw_uid
 
             for i in templateTools:
@@ -459,22 +410,10 @@ class Prism_Standalone_Functions(object):
                 targetPath = os.path.join(
                     os.path.dirname(os.path.dirname(i)), os.path.basename(i)
                 )
-                if os.path.isdir(i):
-                    if os.path.exists(targetPath):
-                        shutil.rmtree(targetPath)
-                    shutil.copytree(i, targetPath)
-                    filepath = os.path.join(
-                        targetPath, "Contents", "Resources", "script"
-                    )
-                    for k in os.walk(targetPath):
-                        for m in k[2]:
-                            path = os.path.join(k[0], m)
-                            os.chown(path, uid, -1)
-                else:
-                    shutil.copy2(i, targetPath)
-                    os.chmod(targetPath, 0o777)
-                    filepath = targetPath
 
+                os.system("cp \"%s\" \"%s\"" % (i, targetPath))
+                os.chmod(targetPath, 0o777)
+                filepath = targetPath
                 shortCuts.append(filepath)
 
             for i in shortCuts:

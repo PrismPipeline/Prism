@@ -2484,6 +2484,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.tw_aHierarchy.addTopLevelItem(item)
                 self.refreshAItem(item, expanded=False)
 
+        self.tw_aHierarchy.resizeColumnToContents(0)
+
         if self.tw_aHierarchy.topLevelItemCount() > 0:
             self.tw_aHierarchy.setCurrentItem(self.tw_aHierarchy.topLevelItem(0))
         else:
@@ -2999,6 +3001,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             sItem = QTreeWidgetItem([i[1], i[2]])
             seqItem.addChild(sItem)
+
+        self.tw_sShot.resizeColumnToContents(0)
 
         if self.tw_sShot.topLevelItemCount() > 0:
             if self.tw_sShot.topLevelItem(0).isExpanded():

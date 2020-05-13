@@ -136,6 +136,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.l_about.setText(self.core.getAboutString())
         self.cb_checkForUpdates.addItems(list(self.updateIntervals.keys()))
+        self.cb_checkForUpdates.setCurrentIndex(2)
 
         self.loadUI()
         self.loadSettings()
