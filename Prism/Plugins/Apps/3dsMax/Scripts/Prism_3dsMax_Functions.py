@@ -36,8 +36,6 @@ import sys
 import traceback
 import time
 
-import MaxPlus
-
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -50,6 +48,11 @@ except:
 
     psVersion = 1
 
+try:
+    import MaxPlus
+except:
+    pass
+
 from PrismUtils.Decorators import err_catcher as err_catcher
 
 
@@ -57,6 +60,10 @@ class Prism_3dsMax_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+
+        if not "MaxPlus" in globals() and sys.version[0] == "3":
+            self.enabled = False
+            self.core.popup("Prism works in 3ds Max with Python 2.7 only.\nSet the environment variable ADSK_3DSMAX_PYTHON_VERSION to \"2\" to use Prism in this version of 3ds Max")
 
     @err_catcher(name=__name__)
     def startup(self, origin):
@@ -101,9 +108,9 @@ class Prism_3dsMax_Functions(object):
     @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         if path:
-            return MaxPlus.FileManager.GetFileNameAndPath()
+            return self.executeScript(origin, "maxFilePath + maxFileName")
         else:
-            return MaxPlus.FileManager.GetFileName()
+            return self.executeScript(origin, "maxFileName")
 
     @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
@@ -133,6 +140,11 @@ class Prism_3dsMax_Functions(object):
         return [startframe, endframe]
 
     @err_catcher(name=__name__)
+    def getCurrentFrame(self):
+        currentFrame = self.executeScript(self, "sliderTime.frame")
+        return currentFrame
+
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         if startFrame == endFrame:
             QMessageBox.warning(
@@ -159,16 +171,25 @@ class Prism_3dsMax_Functions(object):
         return self.executeScript(origin, "frameRate = %s" % fps)
 
     @err_catcher(name=__name__)
+    def getResolution(self):
+        width = MaxPlus.RenderSettings.GetWidth()
+        height = MaxPlus.RenderSettings.GetHeight()
+        return width, height
+
+    @err_catcher(name=__name__)
+    def setResolution(self, width=None, height=None):
+        if width:
+            MaxPlus.RenderSettings.SetWidth(width)
+        if height:
+            MaxPlus.RenderSettings.SetHeight(height)
+
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"').split()[0]
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
-        if self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"')[:2] in [
-            "19",
-            "20",
-        ]:
-            origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def projectBrowserLoadLayout(self, origin):
@@ -184,7 +205,7 @@ class Prism_3dsMax_Functions(object):
             return False
 
         if force or self.executeScript(origin, "checkforsave()"):
-            self.executeScript(origin, 'loadMaxFile "%s"' % filepath)
+            self.executeScript(origin, 'loadMaxFile "%s" useFileUnits:true' % filepath)
 
         return True
 
@@ -214,11 +235,7 @@ class Prism_3dsMax_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_startup(self, origin):
-        if self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"')[:2] in [
-            "19",
-            "20",
-        ]:
-            origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
@@ -745,25 +762,9 @@ sHelper.scale = [sVal, sVal, sVal]"""
             MaxPlus.RenderSettings.SetWidth(origin.sp_resWidth.value())
             MaxPlus.RenderSettings.SetHeight(origin.sp_resHeight.value())
 
-        if origin.chb_globalRange.isChecked():
-            jobFrames = [
-                origin.stateManager.sp_rangeStart.value(),
-                origin.stateManager.sp_rangeEnd.value(),
-            ]
-        else:
-            jobFrames = [origin.sp_rangeStart.value(), origin.sp_rangeEnd.value()]
-
         rSettings["timetype"] = MaxPlus.RenderSettings.GetTimeType()
-        rSettings["start"] = MaxPlus.RenderSettings.GetStart()
-        rSettings["end"] = MaxPlus.RenderSettings.GetEnd()
-
-        MaxPlus.RenderSettings.SetTimeType(2)
-        MaxPlus.RenderSettings.SetStart(
-            jobFrames[0] * MaxPlus.Animation.GetTicksPerFrame()
-        )
-        MaxPlus.RenderSettings.SetEnd(
-            jobFrames[1] * MaxPlus.Animation.GetTicksPerFrame()
-        )
+        rSettings["prev_start"] = MaxPlus.RenderSettings.GetStart()
+        rSettings["prev_end"] = MaxPlus.RenderSettings.GetEnd()
 
         self.executeScript(origin, "rendUseActiveView = True")
         if origin.curCam != "Current View":
@@ -772,9 +773,25 @@ sHelper.scale = [sVal, sVal, sVal]"""
                 MaxPlus.INode.GetINodeByHandle(origin.curCam),
             )
 
+        if rSettings["startFrame"] is None:
+            frameChunks = [[x, x] for x in rSettings["frames"]]
+        else:
+            frameChunks = [[rSettings["startFrame"], rSettings["endFrame"]]]
+
         try:
-            # MaxPlus.RenderExecute.QuickRender()
-            self.executeScript(origin, "max quick render")
+            for frameChunk in frameChunks:
+                if rSettings["rangeType"] == "Single Frame":
+                    timeType = 0
+                else:
+                    timeType = 2
+                MaxPlus.RenderSettings.SetTimeType(timeType)
+                MaxPlus.RenderSettings.SetStart(
+                    frameChunk[0] * MaxPlus.Animation.GetTicksPerFrame()
+                )
+                MaxPlus.RenderSettings.SetEnd(
+                    frameChunk[1] * MaxPlus.Animation.GetTicksPerFrame()
+                )
+                self.executeScript(origin, "max quick render")
 
             if len(os.listdir(os.path.dirname(outputName))) > 0:
                 return "Result=Success"
@@ -803,10 +820,10 @@ sHelper.scale = [sVal, sVal, sVal]"""
             MaxPlus.RenderSettings.SetHeight(rSettings["height"])
         if "timetype" in rSettings:
             MaxPlus.RenderSettings.SetTimeType(rSettings["timetype"])
-        if "start" in rSettings:
-            MaxPlus.RenderSettings.SetStart(rSettings["start"])
-        if "end" in rSettings:
-            MaxPlus.RenderSettings.SetEnd(rSettings["end"])
+        if "prev_start" in rSettings:
+            MaxPlus.RenderSettings.SetStart(rSettings["prev_start"])
+        if "prev_end" in rSettings:
+            MaxPlus.RenderSettings.SetEnd(rSettings["prev_end"])
         if "savefile" in rSettings:
             MaxPlus.RenderSettings.SetSaveFile(rSettings["savefile"])
         if "savefilepath" in rSettings:
@@ -1135,6 +1152,7 @@ obj.modifiers[1].gizmo.scale = [100,100,100]
         frange = self.getFrameRange(origin)
         origin.sp_rangeStart.setValue(frange[0])
         origin.sp_rangeEnd.setValue(frange[1])
+        origin.cb_rangeType.removeItem(origin.cb_rangeType.findText("Single Frame"))
 
     @err_catcher(name=__name__)
     def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
@@ -1248,15 +1266,10 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
     def sm_playblast_preExecute(self, origin):
         warnings = []
 
-        if origin.chb_globalRange.isChecked():
-            jobFrames = (
-                origin.stateManager.sp_rangeStart.value(),
-                origin.stateManager.sp_rangeEnd.value(),
-            )
-        else:
-            jobFrames = (origin.sp_rangeStart.value(), origin.sp_rangeEnd.value())
+        rangeType = origin.cb_rangeType.currentText()
+        startFrame, endFrame = origin.getFrameRange(rangeType)
 
-        if jobFrames[0] == jobFrames[1]:
+        if startFrame == endFrame:
             warnings.append(
                 [
                     "Playblasts in 3ds Max are only supported with at least two frames.",
@@ -1269,15 +1282,10 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
 
     @err_catcher(name=__name__)
     def sm_playblast_execute(self, origin):
-        if origin.chb_globalRange.isChecked():
-            jobFrames = (
-                origin.stateManager.sp_rangeStart.value(),
-                origin.stateManager.sp_rangeEnd.value(),
-            )
-        else:
-            jobFrames = (origin.sp_rangeStart.value(), origin.sp_rangeEnd.value())
+        rangeType = origin.cb_rangeType.currentText()
+        startFrame, endFrame = origin.getFrameRange(rangeType)
 
-        if jobFrames[0] == jobFrames[1]:
+        if startFrame == endFrame:
             return [
                 origin.state.text(0)
                 + ": error - Playblasts in 3ds Max are only supported with at least two frames."

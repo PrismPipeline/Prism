@@ -32,28 +32,14 @@
 
 
 import os
-import sys
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
-    psVersion = 1
-
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-
-    pVersion = 3
-else:
-    from ConfigParser import ConfigParser
-
-    pVersion = 2
 
 from PrismUtils.Decorators import err_catcher
 
@@ -163,7 +149,7 @@ class ImportFileClass(object):
         if "connectednodes" in data:
             self.nodes = [
                 x[1]
-                for x in eval(data["connectednodes"])
+                for x in data["connectednodes"]
                 if self.core.appPlugin.isNodeValid(self, x[1])
             ]
         if "taskname" in data:
@@ -275,31 +261,28 @@ class ImportFileClass(object):
 
         if impFileName != "":
             versionInfoPath = os.path.join(
-                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.ini"
+                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.yml"
             )
-            if os.path.exists(versionInfoPath):
-                vConfig = ConfigParser()
-                vConfig.read(versionInfoPath)
-                if vConfig.has_option("information", "fps"):
-                    impFPS = float(vConfig.get("information", "fps"))
-                    curFPS = self.core.getFPS()
-                    if impFPS != curFPS:
-                        fString = (
-                            "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:    %s\nImport FPS:                %s"
-                            % (curFPS, impFPS)
-                        )
-                        msg = QMessageBox(
-                            QMessageBox.Warning,
-                            "FPS mismatch",
-                            fString,
-                            QMessageBox.Cancel,
-                        )
-                        msg.addButton("Continue", QMessageBox.YesRole)
-                        self.core.parentWindow(msg)
-                        action = msg.exec_()
 
-                        if action != 0:
-                            return False
+            impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
+            curFPS = self.core.getFPS()
+            if impFPS and impFPS != curFPS:
+                fString = (
+                    "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:    %s\nImport FPS:                %s"
+                    % (curFPS, impFPS)
+                )
+                msg = QMessageBox(
+                    QMessageBox.Warning,
+                    "FPS mismatch",
+                    fString,
+                    QMessageBox.Cancel,
+                )
+                msg.addButton("Continue", QMessageBox.YesRole)
+                self.core.parentWindow(msg)
+                action = msg.exec_()
+
+                if action != 0:
+                    return False
 
             if taskName is None:
                 vPath = os.path.dirname(impFileName)
@@ -310,17 +293,11 @@ class ImportFileClass(object):
                     vName = os.path.basename(vPath)
 
                 self.taskName = ""
-                sceneDir = self.core.getConfig(
-                    "paths", "scenes", configPath=self.core.prismIni
-                )
                 if len(vName.split(self.core.filenameSeparator)) == 3 and (
-                    os.path.join(self.core.projectPath, sceneDir).replace("\\", "/")
-                    in impFileName
+                    self.core.getScenePath() in impFileName
                     or (
                         self.core.useLocalFiles
-                        and os.path.join(self.core.localProjectPath, sceneDir).replace(
-                            "\\", "/"
-                        )
+                        and self.core.getScenePath(location="local")
                         in impFileName
                     )
                 ):
@@ -434,7 +411,7 @@ class ImportFileClass(object):
                 if len(i[2]) > 0:
                     for m in i[2]:
                         if (
-                            os.path.splitext(m)[1] not in [".txt", ".ini", ".xgen"]
+                            os.path.splitext(m)[1] not in [".txt", ".ini", ".yml", ".xgen"]
                             and m[0] != "."
                         ):
                             fileName = os.path.join(i[0], m)
@@ -491,9 +468,7 @@ class ImportFileClass(object):
 
             if (
                 len(versionData) == 3
-                and self.core.getConfig(
-                    "paths", "scenes", configPath=self.core.prismIni
-                )
+                and self.core.getScenePath().replace(self.core.projectPath, "")
                 in self.e_file.text()
             ):
                 curVersion = (
@@ -667,30 +642,21 @@ class ImportFileClass(object):
         connectedNodes = []
         if self.chb_trackObjects.isChecked():
             for i in range(self.lw_objects.count()):
-                try:
-                    connectedNodes.append(
-                        [str(self.lw_objects.item(i).text()), self.nodes[i]]
-                    )
-                except UnicodeEncodeError:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Prism",
-                        "Cannot save node names because it contains illegal characters:\n\n%s"
-                        % (unicode(self.lw_objects.item(i).text())),
-                        QMessageBox.Ok,
-                    )
+                connectedNodes.append(
+                    [self.lw_objects.item(i).text(), self.nodes[i]]
+                )
 
         return {
             "statename": self.e_name.text(),
             "statemode": self.stateMode,
-            "filepath": self.e_file.text().replace("\\", "\\\\"),
+            "filepath": self.e_file.text(),
             "autoUpdate": str(self.chb_autoUpdate.isChecked()),
             "keepedits": str(self.chb_keepRefEdits.isChecked()),
             "autonamespaces": str(self.chb_autoNameSpaces.isChecked()),
             "updateabc": str(self.chb_abcPath.isChecked()),
             "trackobjects": str(self.chb_trackObjects.isChecked()),
             "preferunit": str(self.chb_preferUnit.isChecked()),
-            "connectednodes": str(connectedNodes),
+            "connectednodes": connectedNodes,
             "taskname": self.taskName,
             "nodenames": str(self.nodeNames),
             "setname": self.setName,

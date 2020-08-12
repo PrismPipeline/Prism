@@ -101,7 +101,7 @@ def getDefaultPasses(origin):
         "defaultpasses", "houdini_vray", configPath=origin.core.prismIni
     )
     if aovs is None:
-        aovs = origin.core.appPlugin.vrayPasses[2]
+        aovs = origin.core.appPlugin.renderPasses["houdini_vray"]
 
     return aovs
 
@@ -128,7 +128,6 @@ def addAOV(origin, aovData):
     )
     ccNode.moveToGoodPosition()
     channelNode.setNextInput(ccNode)
-
     typeItems = ccNode.parm("alias").menuLabels()
     for idx, k in enumerate(typeItems):
         if k == aovData[0]:
@@ -163,6 +162,7 @@ def refreshAOVs(origin):
     else:
         return
 
+    origin.setPassDataEnabled = False
     for idx, i in enumerate(channelNode.inputs()):
         if i is None or i.type().name() != "VRayNodeRenderChannelColor":
             continue
@@ -184,6 +184,8 @@ def refreshAOVs(origin):
         origin.tw_passes.setItem(passNum, 1, passName)
         origin.tw_passes.setItem(passNum, 2, passNItem)
         passNum += 1
+
+    origin.setPassDataEnabled = True
 
 
 def deleteAOV(origin, row):

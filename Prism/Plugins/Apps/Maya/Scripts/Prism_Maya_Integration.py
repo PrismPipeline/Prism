@@ -101,7 +101,10 @@ class Prism_Maya_Integration(object):
                 i = 0
                 while True:
                     mayaVers = _winreg.EnumKey(key, i)
-                    if unicode(mayaVers).isnumeric():
+                    if sys.version[0] == "2":
+                        mayaVers = unicode(mayaVers)
+
+                    if mayaVers.isnumeric():
                         mayaVersions.append(mayaVers)
                     i += 1
             except WindowsError:

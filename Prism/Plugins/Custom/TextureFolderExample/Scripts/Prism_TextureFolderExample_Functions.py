@@ -97,7 +97,7 @@ class Prism_TextureFolderExample_Functions(object):
 
                 # get the asset-texture-path
                 folderPath = os.path.join(
-                    self.core.getTexturePath(), relPath, assetName
+                    self.core.getTexturePath(), relPath
                 )
 
                 # create the folder. Show a message when the folder could not be created (for example through missing permissions)

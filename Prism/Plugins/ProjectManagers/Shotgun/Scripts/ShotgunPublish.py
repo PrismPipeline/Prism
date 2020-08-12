@@ -57,11 +57,6 @@ if psVersion == 1:
 else:
     import ShotgunPublish_ui_ps2 as ShotgunPublish_ui
 
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-else:
-    from ConfigParser import ConfigParser
-
 try:
     import CreateItem
 except:
@@ -176,7 +171,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
                 ["entity.%s.code" % self.ptype, "is", self.cb_shot.currentText()],
             ]
         elif self.ptype == "Shot":
-            shotName, seqName = self.core.pb.splitShotname(self.cb_shot.currentText())
+            shotName, seqName = self.core.entities.splitShotname(self.cb_shot.currentText())
             if seqName == "no sequence":
                 seqName = ""
 
@@ -199,13 +194,11 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
         sgTaskNames = list(set(sgTaskNames))
 
         taskPaths = [""]
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
         if self.ptype == "Asset":
+            assetPath = self.core.getAssetPath()
             taskPaths.append(
                 os.path.join(
-                    self.core.projectPath,
-                    sceneDir,
-                    "Assets",
+                    assetPath,
                     self.shotList[self.cb_shot.currentText()],
                     "Rendering",
                     "3dRender",
@@ -213,9 +206,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
             )
             taskPaths.append(
                 os.path.join(
-                    self.core.projectPath,
-                    sceneDir,
-                    "Assets",
+                    assetPath,
                     self.shotList[self.cb_shot.currentText()],
                     "Rendering",
                     "2dRender",
@@ -223,9 +214,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
             )
             taskPaths.append(
                 os.path.join(
-                    self.core.projectPath,
-                    sceneDir,
-                    "Assets",
+                    assetPath,
                     self.shotList[self.cb_shot.currentText()],
                     "Rendering",
                     "external",
@@ -233,15 +222,13 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
             )
             taskPaths.append(
                 os.path.join(
-                    self.core.projectPath,
-                    sceneDir,
-                    "Assets",
+                    assetPath,
                     self.shotList[self.cb_shot.currentText()],
                     "Playblasts",
                 )
             )
         elif self.ptype == "Shot":
-            shotPath = os.path.join(self.core.projectPath, sceneDir, "Shots")
+            shotPath = self.core.getShotPath()
             taskPaths.append(
                 os.path.join(
                     shotPath, self.cb_shot.currentText(), "Rendering", "3dRender"
@@ -478,6 +465,8 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
                     )[:-9]
                     + ".mp4"
                 )
+                pwidth = 0
+                pheight = 0
                 if os.path.exists(mp4File):
                     proxyPath = mp4File
                 else:
@@ -502,27 +491,12 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
                         pwidth = size.width()
                         pheight = size.height()
                     elif os.path.splitext(inputpath)[1] in [".exr"]:
-                        oiioLoaded = False
-                        try:
-                            from oiio1618 import OpenImageIO as oiio
+                        oiio = self.core.media.getOIIO()
 
-                            oiioLoaded = True
-                        except:
-                            pass
-
-                        if oiioLoaded:
+                        if oiio:
                             imgSpecs = oiio.ImageBuf(str(inputpath)).spec()
                             pwidth = imgSpecs.full_width
                             pheight = imgSpecs.full_height
-                        else:
-                            try:
-                                import numpy
-                                import wand, wand.image
-                            except:
-                                pass
-                            with wand.image.Image(filename=inputpath) as img:
-                                pwidth = img.width
-                                pheight = img.height
 
                     elif os.path.splitext(inputpath)[1] in [".mp4", ".mov"]:
                         try:
@@ -543,8 +517,8 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
                     else:
                         if isSequence or videoInput:
                             if isSequence:
-                                inputpath = inputpath[:-8] + "%04d" + inputpath[-4:]
-                                outputpath = inputpath[:-9] + ".mp4"
+                                inputpath = os.path.splitext(inputpath)[0][:-(self.core.framePadding)] + "%04d".replace("4", str(self.core.framePadding)) + os.path.splitext(inputpath)[1]
+                                outputpath = os.path.splitext(inputpath)[0][:-(self.core.framePadding+1)] + ".mp4"
                                 nProc = subprocess.Popen(
                                     [
                                         ffmpegPath,
@@ -565,7 +539,7 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
                                     ]
                                 )
                             else:
-                                outputpath = inputpath[:-9] + "(proxy).mp4"
+                                outputpath = os.path.splitext(inputpath)[0][:-(self.core.framePadding+1)] + "(proxy).mp4"
                                 nProc = subprocess.Popen(
                                     [
                                         ffmpegPath,
@@ -647,29 +621,14 @@ class sgPublish(QDialog, ShotgunPublish_ui.Ui_dlg_sgPublish):
             sgSite += "/detail/Version/" + str(createdVersion["id"])
 
             versionInfoPath = os.path.join(
-                os.path.dirname(source[0]), "versionInfo.ini"
+                os.path.dirname(source[0]), "versionInfo.yml"
             )
             if not os.path.exists(versionInfoPath):
                 versionInfoPath = os.path.join(
-                    os.path.dirname(os.path.dirname(source[0])), "versionInfo.ini"
+                    os.path.dirname(os.path.dirname(source[0])), "versionInfo.yml"
                 )
 
-            if os.path.exists(versionInfoPath):
-                vConfig = ConfigParser()
-                vConfig.read(versionInfoPath)
-
-                vConfig.set("information", "shotgun-url", sgSite)
-
-                with open(versionInfoPath, "w") as versionFile:
-                    vConfig.write(versionFile)
-
-            else:
-                vConfig = ConfigParser()
-                vConfig.add_section("information")
-                vConfig.set("information", "shotgun-url", sgSite)
-
-                with open(versionInfoPath, "w") as versionFile:
-                    vConfig.write(versionFile)
+            self.core.setConfig("information", "shotgun-url", sgSite, configPath=versionInfoPath)
 
         msgStr = "Successfully published:"
         for i in pubVersions:

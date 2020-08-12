@@ -3,10 +3,14 @@ import sys
 
 
 def prismInit(prismArgs=[]):
-    Dir = os.path.join(PRISMROOT, "Scripts")
+    prismRoot = os.getenv("PRISM_ROOT")
+    if not prismRoot:
+        prismRoot = PRISMROOT
 
-    if Dir not in sys.path:
-        sys.path.append(Dir)
+    scriptDir = os.path.join(prismRoot, "Scripts")
+
+    if scriptDir not in sys.path:
+        sys.path.append(scriptDir)
 
     import PrismCore
 

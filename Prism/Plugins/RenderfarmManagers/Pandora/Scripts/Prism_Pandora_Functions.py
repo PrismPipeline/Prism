@@ -317,19 +317,20 @@ class Prism_Pandora_Functions(object):
             + "---%s" % origin.l_taskName.text()
         )
 
-        if origin.chb_globalRange.isChecked():
-            jobFrames = [
-                origin.stateManager.sp_rangeStart.value(),
-                origin.stateManager.sp_rangeEnd.value(),
-            ]
-        else:
-            jobFrames = [origin.sp_rangeStart.value(), origin.sp_rangeEnd.value()]
+        rangeType = origin.cb_rangeType.currentText()
+        frames = origin.getFrameRange(rangeType)
+        if rangeType == "Expression":
+            return "Submission canceled: Expression frameranges are not supported by Pandora."
+
+        startFrame, endFrame = frames
+        if rangeType == "Single Frame":
+            endFrame = startFrame
 
         jobData = {}
         jobData["projectName"] = self.core.projectName
         jobData["jobName"] = jobName
-        jobData["startFrame"] = jobFrames[0]
-        jobData["endFrame"] = jobFrames[1]
+        jobData["startFrame"] = startFrame
+        jobData["endFrame"] = endFrame
         jobData["priority"] = origin.sp_rjPrio.value()
         jobData["framesPerTask"] = origin.sp_rjFramesPerTask.value()
         jobData["suspended"] = origin.chb_rjSuspended.isChecked()
@@ -340,7 +341,7 @@ class Prism_Pandora_Functions(object):
         jobData["outputPath"] = jobOutputFile
         jobData["useProjectAssets"] = origin.chb_osPAssets.isChecked()
         jobData["listSlaves"] = origin.e_osSlaves.text()
-        jobData["userName"] = self.core.getConfig("globals", "UserName")
+        jobData["userName"] = self.core.getConfig("globals", "username")
 
         if len(parent.osDependencies) > 0:
             jobData["jobDependecies"] = parent.osDependencies
@@ -397,6 +398,10 @@ class Prism_Pandora_Functions(object):
 
         if submPath in [None, ""]:
             warnings.append(["No Pandora submission folder is configured.", "", 3])
+
+        rangeType = origin.cb_rangeType.currentText()
+        if rangeType == "Expression":
+            warnings.append(["Expression frameranges are not supported by Pandora.", "", 3])
 
         extFiles, extFilesSource = self.core.appPlugin.sm_getExternalFiles(origin)
 
@@ -462,6 +467,10 @@ class Prism_Pandora_Functions(object):
 
         if submPath in [None, ""]:
             warnings.append(["No Pandora submission folder is configured.", "", 3])
+
+        rangeType = origin.cb_rangeType.currentText()
+        if rangeType == "Expression":
+            warnings.append(["Expression frameranges are not supported by Pandora.", "", 3])
 
         return warnings
 

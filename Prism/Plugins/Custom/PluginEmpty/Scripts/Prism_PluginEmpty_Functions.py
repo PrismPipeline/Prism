@@ -30,6 +30,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -59,6 +60,10 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
+        pass
+
+    @err_catcher(name=__name__)
+    def onSetProjectStartup(self, origin):
         pass
 
     @err_catcher(name=__name__)
@@ -94,7 +99,7 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_catcher(name=__name__)
-    def onStateCreated(self, origin, state):
+    def onStateCreated(self, origin, state, stateData):
         pass
 
     @err_catcher(name=__name__)
@@ -106,7 +111,7 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_catcher(name=__name__)
-    def postPublish(self, origin, publishType):
+    def postPublish(self, origin, publishType, result):
         """
         origin:         StateManager instance
         publishType:    The type (string) of the publish. 
@@ -114,7 +119,7 @@ class Prism_PluginEmpty_Functions(object):
         """
 
     @err_catcher(name=__name__)
-    def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish):
+    def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish, details):
         """
         origin:     PrismCore instance
         filepath:   The filepath of the scenefile, which will be saved
@@ -213,6 +218,10 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_catcher(name=__name__)
+    def projectBrowserContextMenuRequested(self, origin, menuType, menu):
+        pass
+
+    @err_catcher(name=__name__)
     def openTrayContextMenu(self, origin, rcmenu):
         pass
 
@@ -222,6 +231,10 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def postLoadEmptyScene(self, origin, filepath):
+        pass
+
+    @err_catcher(name=__name__)
+    def onEmptySceneCreated(self, origin, filepath):
         pass
 
     @err_catcher(name=__name__)

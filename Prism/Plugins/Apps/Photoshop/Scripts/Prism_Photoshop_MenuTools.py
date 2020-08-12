@@ -33,13 +33,14 @@
 
 import os
 import sys
+import platform
 
 prismRoot = os.path.abspath(
     os.path.join(__file__, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir)
 )
 
 sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:
     from PySide2.QtCore import *
@@ -57,9 +58,8 @@ import PrismCore
 
 pcore = PrismCore.PrismCore(app="Photoshop")
 
-if hasattr(pcore.appPlugin, "psApp"):
+if hasattr(pcore.appPlugin, "psApp") or platform.system() == "Darwin":
     curPrj = pcore.getConfig("globals", "current project")
-    pcore.changeProject(curPrj)
 
     result = False
     if sys.argv[1] == "Tools":

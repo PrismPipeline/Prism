@@ -339,7 +339,7 @@ QLineEdit
 }
 
 QGroupBox {
-    border: 1px solid #76797C;
+    border-top: 1px solid #76797C;
     border-radius: 2px;
     margin-top: 20px;
     padding-top: 10px;
@@ -348,8 +348,8 @@ QGroupBox {
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: 0px;
+    padding-right: 0px;
     padding-top: 10px;
 }
 

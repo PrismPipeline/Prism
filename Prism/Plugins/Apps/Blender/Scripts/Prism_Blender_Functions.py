@@ -183,10 +183,16 @@ class Prism_Blender_Functions(object):
         return [startframe, endframe]
 
     @err_catcher(name=__name__)
+    def getCurrentFrame(self):
+        currentFrame = bpy.context.scene.frame_current
+        return currentFrame
+
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         bpy.context.scene.frame_start = startFrame
         bpy.context.scene.frame_end = endFrame
         bpy.context.scene.frame_current = startFrame
+        bpy.ops.action.view_all(self.getOverrideContext(origin, context="DOPESHEET_EDITOR"))
 
     @err_catcher(name=__name__)
     def getFPS(self, origin):
@@ -195,6 +201,19 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         bpy.context.scene.render.fps = fps
+
+    @err_catcher(name=__name__)
+    def getResolution(self):
+        width = bpy.context.scene.render.resolution_x
+        height = bpy.context.scene.render.resolution_y
+        return width, height
+
+    @err_catcher(name=__name__)
+    def setResolution(self, width=None, height=None):
+        if width:
+            bpy.context.scene.render.resolution_x = width
+        if height:
+            bpy.context.scene.render.resolution_y = height
 
     @err_catcher(name=__name__)
     def getAppVersion(self, origin):
@@ -377,18 +396,6 @@ class Prism_Blender_Functions(object):
     def sm_export_startup(self, origin):
         origin.l_convertExport.setText("Additional export in centimeters:")
         origin.w_additionalOptions.setVisible(False)
-
-        if not origin.stateManager.loading:
-            setName = "Export"
-            extension = 1
-            while setName in self.getGroups() and extension < 999:
-                if "%s%s" % (setName, extension) not in self.getGroups():
-                    setName += "%s" % extension
-                extension += 1
-
-            self.createGroups(name=setName)
-            origin.l_taskName.setText(setName)
-            origin.b_changeTask.setPalette(origin.oldPalette)
 
     @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
@@ -651,9 +658,18 @@ class Prism_Blender_Functions(object):
             pass
 
     @err_catcher(name=__name__)
-    def getOverrideContext(self, origin):
+    def getOverrideContext(self, origin, context=None):
         for window in bpy.context.window_manager.windows:
             screen = window.screen
+
+            if context:
+                for area in screen.areas:
+                    if area.type == context:
+                        override = {"window": window, "screen": screen, "area": area}
+                        for region in area.regions:
+                            if region.type == 'WINDOW':
+                                override = {"window": window, "screen": screen, "area": area, "region":region}
+                                return override                        
 
             for area in screen.areas:
                 if area.type == "VIEW_3D":
@@ -868,14 +884,6 @@ class Prism_Blender_Functions(object):
             bpy.context.scene.render.resolution_x = origin.sp_resWidth.value()
             bpy.context.scene.render.resolution_y = origin.sp_resHeight.value()
 
-        if origin.chb_globalRange.isChecked():
-            jobFrames = [
-                origin.stateManager.sp_rangeStart.value(),
-                origin.stateManager.sp_rangeEnd.value(),
-            ]
-        else:
-            jobFrames = [origin.sp_rangeStart.value(), origin.sp_rangeEnd.value()]
-
         nodeAOVs = self.getNodeAOVs()
         imgFormat = origin.cb_format.currentText()
         if imgFormat == ".exr":
@@ -888,8 +896,8 @@ class Prism_Blender_Functions(object):
         elif imgFormat == ".jpg":
             fileFormat = "JPEG"
 
-        rSettings["start"] = bpy.context.scene.frame_start
-        rSettings["end"] = bpy.context.scene.frame_end
+        rSettings["prev_start"] = bpy.context.scene.frame_start
+        rSettings["prev_end"] = bpy.context.scene.frame_end
         rSettings["fileformat"] = bpy.context.scene.render.image_settings.file_format
         rSettings["overwrite"] = bpy.context.scene.render.use_overwrite
         rSettings["fileextension"] = bpy.context.scene.render.use_file_extension
@@ -900,8 +908,6 @@ class Prism_Blender_Functions(object):
         bpy.context.scene.render.image_settings.file_format = fileFormat
         if imgFormat != ".jpg":
             bpy.context.scene.render.image_settings.color_depth = "16"
-        bpy.context.scene.frame_start = jobFrames[0]
-        bpy.context.scene.frame_end = jobFrames[1]
         bpy.context.scene.render.use_overwrite = True
         bpy.context.scene.render.use_file_extension = False
         bpy.context.scene.render.resolution_percentage = 100
@@ -996,23 +1002,39 @@ class Prism_Blender_Functions(object):
                     "Local rendering - %s - please wait.." % origin.state.text(0),
                     QMessageBox.Cancel,
                 )
-                self.core.parentWindow(origin.waitmsg)
-                origin.waitmsg.buttons()[0].setHidden(True)
-                origin.waitmsg.show()
-                QCoreApplication.processEvents()
+            #    self.core.parentWindow(origin.waitmsg)
+            #    origin.waitmsg.buttons()[0].setHidden(True)
+            #    origin.waitmsg.show()
+            #    QCoreApplication.processEvents()
 
                 bpy.app.handlers.render_complete.append(renderFinished_handler)
                 bpy.app.handlers.render_cancel.append(renderFinished_handler)
 
-                ctx = self.getOverrideContext(origin)
-                if bpy.app.version >= (2, 80, 0):
-                    ctx.pop("screen")
-                    ctx.pop("area")
-                bpy.ops.render.render(ctx, "INVOKE_DEFAULT", animation=True)
+                self.renderedChunks = []
+
+            ctx = self.getOverrideContext(origin)
+            if bpy.app.version >= (2, 80, 0):
+                ctx.pop("screen")
+                ctx.pop("area")
+
+            if rSettings["startFrame"] is None:
+                frameChunks = [[x, x] for x in rSettings["frames"]]
+            else:
+                frameChunks = [[rSettings["startFrame"], rSettings["endFrame"]]]
+
+            for frameChunk in frameChunks:
+                if frameChunk in self.renderedChunks:
+                    continue
+
+                bpy.context.scene.frame_start = frameChunk[0]
+                bpy.context.scene.frame_end = frameChunk[1]
+                singleFrame = rSettings["rangeType"] == "Single Frame"
+                bpy.ops.render.render(ctx, "INVOKE_DEFAULT", animation=not singleFrame, write_still=singleFrame)
                 origin.renderingStarted = True
                 origin.LastRSettings = rSettings
 
                 self.startRenderThread(origin)
+                self.renderedChunks.append(frameChunk)
 
                 return "publish paused"
 
@@ -1072,10 +1094,10 @@ class Prism_Blender_Functions(object):
             bpy.context.scene.render.resolution_x = rSettings["width"]
         if "height" in rSettings:
             bpy.context.scene.render.resolution_y = rSettings["height"]
-        if "start" in rSettings:
-            bpy.context.scene.frame_start = rSettings["start"]
-        if "end" in rSettings:
-            bpy.context.scene.frame_end = rSettings["end"]
+        if "prev_start" in rSettings:
+            bpy.context.scene.frame_start = rSettings["prev_start"]
+        if "prev_end" in rSettings:
+            bpy.context.scene.frame_end = rSettings["prev_end"]
         if "fileformat" in rSettings:
             bpy.context.scene.render.image_settings.file_format = rSettings[
                 "fileformat"
@@ -1150,9 +1172,11 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_render_fixOutputPath(self, origin, outputName):
-        outputName = (
-            os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
-        )
+        singleFrame = origin.cb_rangeType.currentText() == "Single Frame"
+        if not singleFrame:
+            outputName = (
+                os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
+            )
         return outputName
 
     @err_catcher(name=__name__)
@@ -1268,10 +1292,9 @@ class Prism_Blender_Functions(object):
                 self.createGroups(name=origin.setName)
 
                 for i in origin.nodes:
-                    if self.getObject(i):
-                        self.getGroups()[origin.setName].objects.link(
-                            self.getObject(i)
-                        )
+                    obj = self.getObject(i)
+                    if obj and obj.name not in self.getGroups()[origin.setName].objects:
+                        self.getGroups()[origin.setName].objects.link(obj)
 
             bpy.ops.object.select_all(
                 self.getOverrideContext(origin), action="DESELECT"
@@ -1375,9 +1398,11 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
-        outputName = (
-            os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
-        )
+        singleFrame = origin.cb_rangeType.currentText() == "Single Frame"
+        if not singleFrame:
+            outputName = (
+                os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
+            )
 
         if origin.curCam is not None:
             bpy.context.scene.camera = bpy.context.scene.objects[origin.curCam]

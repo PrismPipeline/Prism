@@ -32,7 +32,6 @@
 
 
 import os
-import platform
 
 try:
     from PySide2.QtCore import *
@@ -82,27 +81,9 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
         imgFile = os.path.join(
             self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileBig.jpg"
         )
-        pmap = self.getImgPMap(imgFile)
+        pmap = self.core.media.getPixmapFromPath(imgFile)
         pmap = pmap.scaled(QSize(500, 281))
         self.l_preview.setPixmap(pmap)
-
-    @err_catcher(name=__name__)
-    def getImgPMap(self, path):
-        if platform.system() == "Windows":
-            return QPixmap(path)
-        else:
-            try:
-                im = Image.open(path)
-                im = im.convert("RGBA")
-                r, g, b, a = im.split()
-                im = Image.merge("RGBA", (b, g, r, a))
-                data = im.tobytes("raw", "RGBA")
-
-                qimg = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
-
-                return QPixmap(qimg)
-            except:
-                return QPixmap(path)
 
     @err_catcher(name=__name__)
     def grabArea(self):
@@ -124,7 +105,7 @@ class SaveComment(QDialog, SaveComment_ui.Ui_dlg_SaveComment):
     def getDetails(self):
         details = {
             "description": self.e_description.toPlainText(),
-            "username": self.core.getConfig("globals", "UserName"),
+            "username": self.core.getConfig("globals", "username"),
         }
         self.core.callback(
             name="onGetSaveExtendedDetails",

@@ -86,7 +86,7 @@ class Resolver(object):
             entityPath = os.path.join(path, fields["entityName"])
             if fields["entity"] == "asset":
                 if not os.path.exists(entityPath) and not "/" in fields["entityName"]:
-                    for i in self.core.getAssetPaths():
+                    for i in self.core.entities.getAssetPaths():
                         if os.path.basename(i) == fields["entityName"]:
                             entityPath = i
                             break

@@ -97,76 +97,41 @@ class Prism_Blender_externalAccess_Functions(object):
         origin.groupboxes.append(origin.gb_bldAutoSave)
 
     @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin):
-        saveData = []
+    def prismSettings_saveSettings(self, origin, settings):
+        if "blender" not in settings:
+            settings["blender"] = {}
 
         bsPath = self.core.fixPath(origin.le_bldAutoSavePath.text())
         if not bsPath.endswith(os.sep):
             bsPath += os.sep
+
         if origin.chb_bldRperProject.isChecked():
             if os.path.exists(self.core.prismIni):
-                saveData.append(
-                    ["blender", "autosavepath_%s" % origin.e_curPname.text(), bsPath]
-                )
+                k = "autosavepath_%s" % self.core.projectName
+                settings["blender"][k] = bsPath
         else:
-            saveData.append(["blender", "autosavepath", bsPath])
+            settings["blender"]["autosavepath"] = bsPath
 
-        saveData.append(
-            ["blender", "autosaverender", str(origin.gb_bldAutoSave.isChecked())]
-        )
-        saveData.append(
-            [
-                "blender",
-                "autosaveperproject",
-                str(origin.chb_bldRperProject.isChecked()),
-            ]
-        )
-
-        return saveData
+        settings["blender"]["autosaverender"] = origin.gb_bldAutoSave.isChecked()
+        settings["blender"]["autosaveperproject"] = origin.chb_bldRperProject.isChecked()
 
     @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin):
-        loadData = {}
-        loadFunctions = {}
+    def prismSettings_loadSettings(self, origin, settings):
+        if "blender" in settings:
+            if "autosaverender" in settings["blender"]:
+                origin.gb_bldAutoSave.setChecked(settings["blender"]["autosaverender"])
 
-        loadData["bld_autosaverender"] = ["blender", "autosaverender", "bool"]
-        loadFunctions[
-            "bld_autosaverender"
-        ] = lambda x: origin.gb_bldAutoSave.setChecked(x)
+            if "autosaveperproject" in settings["blender"]:
+                origin.chb_bldRperProject.setChecked(settings["blender"]["autosaveperproject"])
 
-        loadData["bld_asPerproject"] = ["blender", "autosaveperproject", "bool"]
-        loadFunctions[
-            "bld_asPerproject"
-        ] = lambda x: origin.chb_bldRperProject.setChecked(x)
+            pData = "autosavepath_%s" % getattr(self.core, "projectName", "")
+            if pData in settings["blender"]:
+                if origin.chb_bldRperProject.isChecked():
+                    origin.le_bldAutoSavePath.setText(settings["blender"][pData])
 
-        if hasattr(self.core, "projectName"):
-            loadData["bld_autosavepathprj"] = [
-                "blender",
-                "autosavepath_%s" % self.core.projectName,
-            ]
-        else:
-            loadData["bld_autosavepathprj"] = ["blender", "autosavepath_"]
-
-        loadFunctions[
-            "bld_autosavepathprj"
-        ] = lambda x, y=origin: self.prismSettings_loadAutoSavePathPrj(y, x)
-
-        loadData["bld_autosavepath"] = ["blender", "autosavepath"]
-        loadFunctions[
-            "bld_autosavepath"
-        ] = lambda x, y=origin: self.prismSettings_loadAutoSavePath(y, x)
-
-        return loadData, loadFunctions
-
-    @err_catcher(name=__name__)
-    def prismSettings_loadAutoSavePathPrj(self, origin, loadData):
-        if origin.chb_bldRperProject.isChecked():
-            origin.le_bldAutoSavePath.setText(loadData)
-
-    @err_catcher(name=__name__)
-    def prismSettings_loadAutoSavePath(self, origin, loadData):
-        if not origin.chb_bldRperProject.isChecked():
-            origin.le_bldAutoSavePath.setText(loadData)
+            if "autosavepath" in settings["blender"]:
+                if not origin.chb_bldRperProject.isChecked():
+                    origin.le_bldAutoSavePath.setText(settings["blender"]["autosavepath"])
 
     @err_catcher(name=__name__)
     def createProject_startup(self, origin):
@@ -183,23 +148,9 @@ class Prism_Blender_externalAccess_Functions(object):
 
     @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):
+        autobackpath = ""
         if platform.system() == "Windows":
             autobackpath = os.path.join(os.getenv("LocalAppdata"), "Temp")
-        else:
-            if tab == "a":
-                autobackpath = os.path.join(
-                    origin.tw_aHierarchy.currentItem().text(1),
-                    "Scenefiles",
-                    origin.lw_aPipeline.currentItem().text(),
-                )
-            elif tab == "sf":
-                autobackpath = os.path.join(
-                    origin.sBasePath,
-                    origin.cursShots,
-                    "Scenefiles",
-                    origin.cursStep,
-                    origin.cursCat,
-                )
 
         fileStr = "Blender Scene File ("
         for i in self.sceneFormats:

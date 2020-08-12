@@ -53,6 +53,7 @@ class Prism_Houdini_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+        self.startupDelay = 0
 
     @err_catcher(name=__name__)
     def startup(self, origin):
@@ -60,7 +61,12 @@ class Prism_Houdini_Functions(object):
             if not hou.isUIAvailable():
                 return False
 
-            if hou.ui.mainQtWindow() is None:
+            if not hou.ui.mainQtWindow():
+                return False
+
+            self.startupDelay += 1
+
+            if self.core.status == "starting" and self.startupDelay < 3:
                 return False
 
             if platform.system() == "Darwin":
@@ -114,15 +120,10 @@ class Prism_Houdini_Functions(object):
             hou.hscript("set PRISM_ASSET=" + data["entityName"])
         elif data["entity"] == "shot":
             hou.hscript("set PRISM_ASSET=")
-            if not hasattr(self.core, "pb"):
-                self.core.projectBrowser(openUi=False)
 
-            if hasattr(self.core, "pb"):
-                sData = self.core.pb.splitShotname(data["entityName"])
-                hou.hscript("set PRISM_SEQUENCE=" + sData[1])
-                hou.hscript("set PRISM_SHOT=" + sData[0])
-            else:
-                self.core.popup("Could not initialize the Project Browser.")
+            sData = self.core.entities.splitShotname(data["entityName"])
+            hou.hscript("set PRISM_SEQUENCE=" + sData[1])
+            hou.hscript("set PRISM_SHOT=" + sData[0])
 
         if data["entity"] != "invalid":
             hou.hscript("set PRISM_STEP=" + data["step"])
@@ -140,8 +141,7 @@ class Prism_Houdini_Functions(object):
         if not hasattr(origin, "projectPath") or not os.path.exists(origin.projectPath):
             return
 
-        if not origin.validateUser():
-            origin.changeUser()
+        self.core.users.ensureUser()
 
         for i in origin.prjHDAs:
             if not os.path.exists(i):
@@ -240,6 +240,11 @@ class Prism_Houdini_Functions(object):
         return [startframe, endframe]
 
     @err_catcher(name=__name__)
+    def getCurrentFrame(self):
+        currentFrame = hou.frame()
+        return currentFrame
+
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
         setGobalFrangeExpr = "tset `(%d-1)/$FPS` `%d/$FPS`" % (startFrame, endFrame)
         hou.hscript(setGobalFrangeExpr)
@@ -268,13 +273,10 @@ class Prism_Houdini_Functions(object):
                     % os.path.dirname(os.path.dirname(curPrj)),
                 )
 
-            self.core.setProject(openUi="stateManager")
+            self.core.projects.setProject(openUi="stateManager")
             return False
 
-        if not self.core.validateUser():
-            self.core.changeUser()
-
-        if not hasattr(self.core, "user"):
+        if not self.core.users.ensureUser():
             return False
 
         if not self.core.fileInPipeline():
@@ -286,9 +288,9 @@ class Prism_Houdini_Functions(object):
             return False
 
         if self.core.useLocalFiles:
-            basePath = self.core.localProjectPath
+            basePath = self.core.getScenePath(location="local")
         else:
-            basePath = self.core.projectPath
+            basePath = self.core.getScenePath(location="global")
 
         exportNode = hou.node(ropNode.path() + "/ropnet1/RENDER")
 
@@ -297,7 +299,6 @@ class Prism_Houdini_Functions(object):
         ]
         outputPath = os.path.join(
             basePath,
-            self.core.getConfig("paths", "scenes", configPath=self.core.prismIni),
             "Caches",
             sceneBase,
             ropNode.name(),
@@ -321,7 +322,6 @@ class Prism_Houdini_Functions(object):
     def onProjectBrowserStartup(self, origin):
         if platform.system() == "Darwin":
             origin.menubar.setNativeMenuBar(False)
-        origin.loadOiio()
         origin.checkColor = "rgb(185, 134, 32)"
 
     @err_catcher(name=__name__)
@@ -412,7 +412,7 @@ class Prism_Houdini_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_startup(self, origin):
-        origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
@@ -635,22 +635,23 @@ class Prism_Houdini_Functions(object):
         # 	origin.b_createDependency.setVisible(True)
         origin.layout().setContentsMargins(0, 0, 0, 0)
 
-        origin.b_createExport.setText("Exp")
-        origin.b_createRender.setText("Rnd")
-        origin.b_createPlayblast.setText("Pb")
+        origin.b_createExport.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+        origin.b_createRender.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+        origin.b_createPlayblast.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+        origin.b_stateFromNode.setStyleSheet("padding-left: 1px;padding-right: 1px;")
 
-        origin.b_createImport.setMinimumWidth(80 * self.core.uiScaleFactor)
-        origin.b_createImport.setMaximumWidth(80 * self.core.uiScaleFactor)
-        origin.b_createExport.setMinimumWidth(55 * self.core.uiScaleFactor)
-        origin.b_createExport.setMaximumWidth(55 * self.core.uiScaleFactor)
-        origin.b_createRender.setMinimumWidth(55 * self.core.uiScaleFactor)
-        origin.b_createRender.setMaximumWidth(55 * self.core.uiScaleFactor)
-        origin.b_createPlayblast.setMinimumWidth(50 * self.core.uiScaleFactor)
-        origin.b_createPlayblast.setMaximumWidth(50 * self.core.uiScaleFactor)
+        origin.b_createImport.setMinimumWidth(70 * self.core.uiScaleFactor)
+        origin.b_createImport.setMaximumWidth(70 * self.core.uiScaleFactor)
+        origin.b_createExport.setMinimumWidth(70 * self.core.uiScaleFactor)
+        origin.b_createExport.setMaximumWidth(70 * self.core.uiScaleFactor)
+        origin.b_createRender.setMinimumWidth(70 * self.core.uiScaleFactor)
+        origin.b_createRender.setMaximumWidth(70 * self.core.uiScaleFactor)
+        origin.b_createPlayblast.setMinimumWidth(70 * self.core.uiScaleFactor)
+        origin.b_createPlayblast.setMaximumWidth(70 * self.core.uiScaleFactor)
         origin.b_createDependency.setMinimumWidth(50 * self.core.uiScaleFactor)
         origin.b_createDependency.setMaximumWidth(50 * self.core.uiScaleFactor)
-        origin.b_stateFromNode.setMinimumWidth(130 * self.core.uiScaleFactor)
-        origin.b_stateFromNode.setMaximumWidth(130 * self.core.uiScaleFactor)
+        origin.b_stateFromNode.setMinimumWidth(90 * self.core.uiScaleFactor)
+        origin.b_stateFromNode.setMaximumWidth(90 * self.core.uiScaleFactor)
         origin.b_getRange.setMaximumWidth(200 * self.core.uiScaleFactor)
         origin.b_setRange.setMaximumWidth(200 * self.core.uiScaleFactor)
 
@@ -735,6 +736,14 @@ class Prism_Houdini_Functions(object):
                 "RS_outputFileNamePrefix",
                 "vm_picture",
             ]:
+                continue
+
+            if (
+                x[0] is not None
+                and x[0].name() in ["taskgraphfile"]
+                and x[0].node().type().name()
+                in ["topnet"]
+            ):
                 continue
 
             if (
@@ -836,6 +845,13 @@ class Prism_Houdini_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_openStateFromNode(self, origin):
+        renderers = self.getRendererPlugins()
+        if len(hou.selectedNodes()) > 0:
+            for i in renderers:
+                if hou.selectedNodes()[0].type().name() in i.ropNames:
+                    origin.createPressed("Render")
+                    return
+
         nodeMenu = QMenu()
 
         renderMenu = QMenu("ImageRender")
@@ -862,7 +878,8 @@ class Prism_Houdini_Functions(object):
             )
             renderMenu.addAction(actRender)
 
-        nodeMenu.addMenu(renderMenu)
+        if not renderMenu.isEmpty():
+            nodeMenu.addMenu(renderMenu)
 
         ropMenu = QMenu("Export")
 
@@ -900,13 +917,17 @@ class Prism_Houdini_Functions(object):
             )
             ropMenu.addAction(actExport)
 
-        nodeMenu.addMenu(ropMenu)
+        if not ropMenu.isEmpty():
+            nodeMenu.addMenu(ropMenu)
 
-        self.setRCStyle(origin, nodeMenu)
-        self.setRCStyle(origin, renderMenu)
-        self.setRCStyle(origin, ropMenu)
+        if nodeMenu.isEmpty():
+            self.core.popup("No unconnected ROPs exist in scene.")
+        else:
+            self.setRCStyle(origin, nodeMenu)
+            self.setRCStyle(origin, renderMenu)
+            self.setRCStyle(origin, ropMenu)
 
-        nodeMenu.exec_(QCursor.pos())
+            nodeMenu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
     def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
@@ -945,7 +966,7 @@ class Prism_Houdini_Functions(object):
             dlParams["pluginInfos"]["Height"] = origin.sp_resHeight.value()
 
     @err_catcher(name=__name__)
-    def sm_renderSettings_getCurrentSettings(self, origin, node=None):
+    def sm_renderSettings_getCurrentSettings(self, origin, node=None, asString=True):
         settings = []
         if not node:
             node = hou.node(origin.e_node.text())
@@ -962,6 +983,9 @@ class Prism_Houdini_Functions(object):
             else:
                 setting[parm.name()] = parm.eval()
             settings.append(setting)
+
+        if not asString:
+            return settings
 
         settingsStr = self.core.writeYaml(data=settings)
         return settingsStr
@@ -982,7 +1006,12 @@ class Prism_Houdini_Functions(object):
                 continue
 
             value = setting.values()[0]
-            if type(value) in [str, unicode] and value.endswith(" [expression]"):
+            if sys.version[0] == "2":
+                isStr = isinstance(value, basestring)
+            else:
+                isStr = isinstance(value, str)
+
+            if isStr and value.endswith(" [expression]"):
                 value = value[: -len(" [expression")]
                 parm.setExpression(value)
             else:
@@ -1013,14 +1042,16 @@ class Prism_Houdini_Functions(object):
             lambda x: self.showNodeContext(origin)
         )
         origin.e_node.editingFinished.connect(origin.stateManager.saveStatesToScene)
+        origin.e_node.textChanged.connect(lambda x: origin.updateUi())
+
+        origin.lo_node.addWidget(origin.l_node)
+        origin.lo_node.addWidget(origin.e_node)
         if self.core.uiAvailable:
             origin.b_node = hou.qt.NodeChooserButton()
             origin.b_node.nodeSelected.connect(lambda x: origin.e_node.setText(x.path()))
             origin.b_node.nodeSelected.connect(origin.stateManager.saveStatesToScene)
             origin.lo_node.addWidget(origin.b_node)
 
-        origin.lo_node.addWidget(origin.l_node)
-        origin.lo_node.addWidget(origin.e_node)
         origin.gb_general.layout().insertWidget(0, origin.w_node)
 
     @err_catcher(name=__name__)

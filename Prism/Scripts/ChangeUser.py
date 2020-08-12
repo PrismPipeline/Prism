@@ -52,7 +52,7 @@ except:
 
         psVersion = 1
     except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
         try:
             from PySide2.QtCore import *
             from PySide2.QtGui import *
@@ -101,7 +101,7 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
     @err_catcher(name=__name__)
     def setNames(self):
         if not os.path.exists(self.core.userini):
-            self.core.createUserPrefs()
+            self.core.configs.createUserPrefs()
 
         try:
             uname = self.core.getConfig("globals", "username").split()
@@ -128,7 +128,7 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
     @err_catcher(name=__name__)
     def setUser(self):
         if not os.path.exists(self.core.userini):
-            self.core.createUserPrefs()
+            self.core.configs.createUserPrefs()
 
         try:
             self.core.setConfig(
@@ -146,21 +146,3 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
 def show():
     cu = ChangeUser()
     cu.show()
-
-
-if __name__ == "__main__":
-    qapp = QApplication(sys.argv)
-    qapp.setStyleSheet(qdarkstyle.load_stylesheet(pyside=True))
-    appIcon = QIcon(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "UserInterfacesPrism",
-            "p_tray.png",
-        )
-    )
-    qapp.setWindowIcon(appIcon)
-    import PrismCore
-
-    pc = PrismCore.PrismCore()
-    pc.openUser()
-    qapp.exec_()

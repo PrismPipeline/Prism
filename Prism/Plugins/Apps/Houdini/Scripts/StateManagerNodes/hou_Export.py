@@ -37,8 +37,6 @@ import time
 import traceback
 import platform
 
-from ConfigParser import ConfigParser
-
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
@@ -71,7 +69,7 @@ class ExportClass(object):
         self.cb_outType.addItems(self.core.appPlugin.outputFormats)
         self.export_paths = self.core.getExportPaths()
 
-        self.cb_outPath.addItems([x[0] for x in self.export_paths])
+        self.cb_outPath.addItems(self.export_paths.keys())
         if len(self.export_paths) < 2:
             self.w_outPath.setVisible(False)
 
@@ -82,6 +80,7 @@ class ExportClass(object):
         self.w_saveToExistingHDA.setVisible(False)
         self.w_blackboxHDA.setVisible(False)
         self.w_projectHDA.setVisible(False)
+        self.w_externalReferences.setVisible(False)
         self.gb_submit.setChecked(False)
 
         self.nodeTypes = {
@@ -96,6 +95,11 @@ class ExportClass(object):
             "usd": {"outputparm": "lopoutput"},
             "Redshift_Proxy_Output": {"outputparm": "RS_archive_file"},
         }
+
+        self.rangeTypes = ["State Manager", "Scene", "Shot", "Node", "Single Frame", "Custom"]
+        self.cb_rangeType.addItems(self.rangeTypes)
+        for idx, rtype in enumerate(self.rangeTypes):
+            self.cb_rangeType.setItemData(idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole)
 
         for i in self.core.rfManagers.values():
             self.cb_manager.addItem(i.pluginName)
@@ -137,8 +141,9 @@ class ExportClass(object):
         self.connectEvents()
 
         self.b_changeTask.setStyleSheet(
-            "QPushButton { background-color: rgb(150,0,0); }"
+            "QPushButton { background-color: rgb(150,0,0); border: none;}"
         )
+
         self.core.appPlugin.fixStyleSheet(self.gb_submit)
 
         self.e_osSlaves.setText("All")
@@ -151,29 +156,15 @@ class ExportClass(object):
             if (
                 os.path.exists(fileName)
                 and fnameData["entity"] == "shot"
-                and (
-                    os.path.join(
-                        self.core.projectPath,
-                        self.core.getConfig(
-                            "paths", "scenes", configPath=self.core.prismIni
-                        ),
-                    )
-                    in fileName
-                    or (
-                        self.core.useLocalFiles
-                        and os.path.join(
-                            self.core.localProjectPath,
-                            self.core.getConfig(
-                                "paths", "scenes", configPath=self.core.prismIni
-                            ),
-                        )
-                        in fileName
-                    )
-                )
+                and self.core.fileInPipeline(fileName)
             ):
                 idx = self.cb_sCamShot.findText(fnameData["entityName"])
                 if idx != -1:
                     self.cb_sCamShot.setCurrentIndex(idx)
+
+            if fnameData.get("category"):
+                self.l_taskName.setText(fnameData.get("category"))
+                self.b_changeTask.setStyleSheet("")
 
     @err_catcher(name=__name__)
     def loadData(self, data):
@@ -185,8 +176,11 @@ class ExportClass(object):
             self.l_taskName.setText(data["taskname"])
             if data["taskname"] != "":
                 self.b_changeTask.setStyleSheet("")
-        if "globalrange" in data:
-            self.chb_globalRange.setChecked(eval(data["globalrange"]))
+        if "rangeType" in data:
+            idx = self.cb_rangeType.findText(data["rangeType"])
+            if idx != -1:
+                self.cb_rangeType.setCurrentIndex(idx)
+                self.updateRange()
         if "startframe" in data:
             self.sp_rangeStart.setValue(int(data["startframe"]))
         if "endframe" in data:
@@ -218,6 +212,8 @@ class ExportClass(object):
             self.chb_saveToExistingHDA.setChecked(eval(data["savetoexistinghda"]))
         if "projecthda" in data:
             self.chb_projectHDA.setChecked(eval(data["projecthda"]))
+        if "externalReferences" in data:
+            self.chb_externalReferences.setChecked(eval(data["externalReferences"]))
         if "blackboxhda" in data:
             self.chb_blackboxHDA.setChecked(eval(data["blackboxhda"]))
         if "unitconvert" in data:
@@ -406,7 +402,7 @@ class ExportClass(object):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_changeTask.clicked.connect(self.changeTask)
-        self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
+        self.cb_rangeType.activated.connect(self.rangeTypeChanged)
         self.sp_rangeStart.editingFinished.connect(self.startChanged)
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
         self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
@@ -428,6 +424,7 @@ class ExportClass(object):
             lambda x: self.w_outPath.setEnabled(not x)
         )
         self.chb_projectHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_externalReferences.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.chb_blackboxHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.chb_convertExport.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.gb_submit.toggled.connect(self.rjToggled)
@@ -460,11 +457,7 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
-        self.l_rangeStart.setEnabled(not state)
-        self.l_rangeEnd.setEnabled(not state)
-        self.sp_rangeStart.setEnabled(not state)
-        self.sp_rangeEnd.setEnabled(not state)
-
+        self.updateRange()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -495,6 +488,7 @@ class ExportClass(object):
         self.core.parentWindow(self.nameWin)
         self.nameWin.setWindowTitle("Change Taskname")
         self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
         result = self.nameWin.exec_()
 
@@ -532,7 +526,6 @@ class ExportClass(object):
 
         self.camlist = []
         for node in hou.node("/").allSubChildren():
-
             if node.type().name() == "cam" and node.name() != "ipr_camera":
                 self.camlist.append(node)
 
@@ -554,25 +547,13 @@ class ExportClass(object):
                 self.curCam = None
             self.stateManager.saveStatesToScene()
 
+        self.updateRange()
+
         curShot = self.cb_sCamShot.currentText()
         self.cb_sCamShot.clear()
-        shotPath = os.path.join(
-            self.core.projectPath,
-            self.core.getConfig("paths", "scenes", configPath=self.core.prismIni),
-            "Shots",
-        )
+        shotPath = self.core.getShotPath()
         shotNames = []
-        omittedShots = []
-
-        omitPath = os.path.join(
-            os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
-        )
-        if os.path.exists(omitPath):
-            oconfig = ConfigParser()
-            oconfig.read(omitPath)
-
-            if oconfig.has_section("Shot"):
-                omittedShots = [x[1] for x in oconfig.items("Shot")]
+        omittedShots = self.core.getConfig("shot", config="omit", dft=[])
 
         if os.path.exists(shotPath):
             shotNames += [
@@ -607,7 +588,54 @@ class ExportClass(object):
                 or not self.chb_saveToExistingHDA.isChecked()
             )
 
+            self.w_externalReferences.setEnabled(
+                self.node.canCreateDigitalAsset()
+            )
+
         self.nameChanged(self.e_name.text())
+
+    @err_catcher(name=__name__)
+    def updateRange(self):
+        rangeType = self.cb_rangeType.currentText()
+        isCustom = rangeType == "Custom"
+        self.l_rangeStart.setVisible(not isCustom)
+        self.l_rangeEnd.setVisible(not isCustom)
+        self.sp_rangeStart.setVisible(isCustom)
+        self.sp_rangeEnd.setVisible(isCustom)
+
+        if not isCustom:
+            frange = self.getFrameRange(rangeType=rangeType)
+            start = str(int(frange[0])) if frange[0] else "-"
+            end = str(int(frange[1])) if frange[1] else "-"
+            self.l_rangeStart.setText(start)
+            self.l_rangeEnd.setText(end)
+
+    @err_catcher(name=__name__)
+    def getFrameRange(self, rangeType):
+        startFrame = None
+        endFrame = None
+        if rangeType == "State Manager":
+            startFrame = self.stateManager.sp_rangeStart.value()
+            endFrame = self.stateManager.sp_rangeEnd.value()
+        elif rangeType == "Scene":
+            startFrame, endFrame = self.core.appPlugin.getFrameRange(self)
+        elif rangeType == "Shot":
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData["entity"] == "shot":
+                frange = self.core.entities.getShotRange(fnameData["entityName"])
+                if frange:
+                    startFrame, endFrame = frange
+        elif rangeType == "Node" and self.node:
+            startFrame = self.node.parm("f1").eval()
+            endFrame = self.node.parm("f2").eval()
+        elif rangeType == "Single Frame":
+            startFrame = self.core.appPlugin.getCurrentFrame()
+        elif rangeType == "Custom":
+            startFrame = self.sp_rangeStart.value()
+            endFrame = self.sp_rangeEnd.value()
+
+        return startFrame, endFrame
 
     @err_catcher(name=__name__)
     def typeChanged(self, idx, createMissing=True):
@@ -619,6 +647,7 @@ class ExportClass(object):
             self.w_saveToExistingHDA.setVisible(False)
             self.w_blackboxHDA.setVisible(False)
             self.w_projectHDA.setVisible(False)
+            self.w_externalReferences.setVisible(False)
             self.f_taskName.setVisible(True)
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
@@ -637,6 +666,7 @@ class ExportClass(object):
             self.w_saveToExistingHDA.setVisible(True)
             self.w_blackboxHDA.setVisible(True)
             self.w_projectHDA.setVisible(True)
+            self.w_externalReferences.setVisible(True)
             self.f_taskName.setVisible(True)
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
@@ -658,6 +688,7 @@ class ExportClass(object):
             self.w_saveToExistingHDA.setVisible(False)
             self.w_blackboxHDA.setVisible(False)
             self.w_projectHDA.setVisible(False)
+            self.w_externalReferences.setVisible(False)
             self.f_taskName.setVisible(True)
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
@@ -676,6 +707,7 @@ class ExportClass(object):
             self.w_saveToExistingHDA.setVisible(False)
             self.w_blackboxHDA.setVisible(False)
             self.w_projectHDA.setVisible(False)
+            self.w_externalReferences.setVisible(False)
             self.f_taskName.setVisible(True)
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
@@ -694,6 +726,7 @@ class ExportClass(object):
             self.w_saveToExistingHDA.setVisible(False)
             self.w_blackboxHDA.setVisible(False)
             self.w_projectHDA.setVisible(False)
+            self.w_externalReferences.setVisible(False)
             self.f_taskName.setVisible(False)
             self.f_status.setVisible(False)
             self.f_connect.setVisible(False)
@@ -706,6 +739,7 @@ class ExportClass(object):
             self.w_saveToExistingHDA.setVisible(False)
             self.w_blackboxHDA.setVisible(False)
             self.w_projectHDA.setVisible(False)
+            self.w_externalReferences.setVisible(False)
             self.f_taskName.setVisible(True)
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
@@ -760,6 +794,7 @@ class ExportClass(object):
             self.w_saveToExistingHDA.setVisible(False)
             self.w_blackboxHDA.setVisible(False)
             self.w_projectHDA.setVisible(False)
+            self.w_externalReferences.setVisible(False)
             self.f_taskName.setVisible(True)
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
@@ -805,7 +840,8 @@ class ExportClass(object):
         self.node.setCurrent(True, clear_all_selected=True)
         paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         if paneTab is not None:
-            paneTab.frameSelection()
+            paneTab.setCurrentNode(self.node)
+            paneTab.homeToSelection()
 
     @err_catcher(name=__name__)
     def connectNode(self, node=None):
@@ -994,6 +1030,12 @@ class ExportClass(object):
             except:
                 warnings.append(["Node is invalid.", "", 3])
 
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
+
+        if not startFrame:
+            warnings.append(["Framerange is invalid.", "", 3])
+
         if not hou.simulationEnabled():
             warnings.append(["Simulations are disabled.", "", 2])
 
@@ -1008,11 +1050,10 @@ class ExportClass(object):
     def getOutputName(self, useVersion="next"):
         fileName = self.core.getCurrentFileName()
         prefUnit = "meter"
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
 
         if self.cb_outType.currentText() == "ShotCam":
             outputBase = os.path.join(
-                self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText()
+                self.core.getShotPath(), self.cb_sCamShot.currentText()
             )
             fnameData = self.core.getScenefileData(fileName)
             comment = fnameData["comment"]
@@ -1092,6 +1133,7 @@ class ExportClass(object):
                     hVersion, pComment, versionUser = versionData
 
             fnameData = self.core.getScenefileData(fileName)
+            framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
             if fnameData["entity"] == "shot":
                 outputPath = os.path.join(
                     self.core.getEntityBasePath(fileName),
@@ -1126,24 +1168,15 @@ class ExportClass(object):
                     + self.l_taskName.text()
                     + self.core.filenameSeparator
                     + hVersion
-                    + ".$F4"
+                    + framePadding
                     + self.cb_outType.currentText(),
                 )
             elif fnameData["entity"] == "asset":
-                if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-                    outputPath = os.path.join(
-                        self.core.projectPath,
-                        sceneDir,
-                        "Assets",
-                        "Export",
-                        self.l_taskName.text(),
-                    )
-                else:
-                    outputPath = os.path.join(
-                        self.core.getEntityBasePath(fileName),
-                        "Export",
-                        self.l_taskName.text(),
-                    )
+                outputPath = os.path.join(
+                    self.core.getEntityBasePath(fileName),
+                    "Export",
+                    self.l_taskName.text(),
+                )
                 if hVersion == "":
                     hVersion = self.core.getHighestTaskVersion(outputPath)
                     pComment = fnameData["comment"]
@@ -1164,13 +1197,13 @@ class ExportClass(object):
                     + self.l_taskName.text()
                     + self.core.filenameSeparator
                     + hVersion
-                    + ".$F4"
+                    + framePadding
                     + self.cb_outType.currentText(),
                 )
             else:
                 return
 
-        basePath = self.export_paths[self.cb_outPath.currentIndex()][1]
+        basePath = self.export_paths[self.cb_outPath.currentText()]
         prjPath = os.path.normpath(self.core.projectPath)
         basePath = os.path.normpath(basePath)
         outputName = outputName.replace(prjPath, basePath)
@@ -1180,12 +1213,13 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
-        if self.chb_globalRange.isChecked():
-            startFrame = self.stateManager.sp_rangeStart.value()
-            endFrame = self.stateManager.sp_rangeEnd.value()
-        else:
-            startFrame = self.sp_rangeStart.value()
-            endFrame = self.sp_rangeEnd.value()
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
+        if not startFrame:
+            return [self.state.text(0) + ": error - Framerange is invalid"]
+
+        if rangeType == "Single Frame":
+            endFrame = startFrame
 
         if self.cb_outType.currentText() == "ShotCam":
             if self.curCam is None:
@@ -1549,10 +1583,12 @@ class ExportClass(object):
                             )
                             if ropNode.canCreateDigitalAsset():
                                 typeName = "prism_" + self.l_taskName.text()
+                                allowExtRef = self.chb_externalReferences.isChecked()
                                 hda = ropNode.createDigitalAsset(
                                     typeName,
                                     hda_file_name=HDAoutputName,
                                     description=self.l_taskName.text(),
+                                    ignore_external_references=allowExtRef,
                                     change_node_type=(not bb),
                                 )
                                 if bb:
@@ -1752,7 +1788,7 @@ class ExportClass(object):
         stateProps = {
             "statename": self.e_name.text(),
             "taskname": self.l_taskName.text(),
-            "globalrange": str(self.chb_globalRange.isChecked()),
+            "rangeType": str(self.cb_rangeType.currentText()),
             "startframe": self.sp_rangeStart.value(),
             "endframe": self.sp_rangeEnd.value(),
             "usetake": str(self.chb_useTake.isChecked()),
@@ -1764,6 +1800,7 @@ class ExportClass(object):
             "unitconvert": str(self.chb_convertExport.isChecked()),
             "savetoexistinghda": str(self.chb_saveToExistingHDA.isChecked()),
             "projecthda": str(self.chb_projectHDA.isChecked()),
+            "externalReferences": str(self.chb_externalReferences.isChecked()),
             "blackboxhda": str(self.chb_blackboxHDA.isChecked()),
             "submitrender": str(self.gb_submit.isChecked()),
             "rjmanager": str(self.cb_manager.currentText()),

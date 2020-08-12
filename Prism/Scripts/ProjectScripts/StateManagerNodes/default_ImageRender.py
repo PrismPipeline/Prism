@@ -72,6 +72,12 @@ class ImageRenderClass(object):
 
         self.e_name.setText(state.text(0))
 
+        self.rangeTypes = ["State Manager", "Scene", "Shot", "Single Frame", "Custom", "Expression"]
+        self.cb_rangeType.addItems(self.rangeTypes)
+        for idx, rtype in enumerate(self.rangeTypes):
+            self.cb_rangeType.setItemData(idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole)
+        self.w_frameExpression.setToolTip(self.stateManager.getFrameRangeTypeToolTip("ExpressionField"))
+
         self.renderPresets = (
             self.stateManager.stateTypes["RenderSettings"].getPresets(self.core)
             if "RenderSettings" in self.stateManager.stateTypes
@@ -100,13 +106,16 @@ class ImageRenderClass(object):
 
         self.cb_format.addItems(self.outputFormats)
 
-        self.resolutionPresets = [
+        dftResPresets = [
+            "3840x2160",
             "1920x1080",
             "1280x720",
+            "960x540",
             "640x360",
-            "4000x2000",
-            "2000x1000",
         ]
+
+        self.resolutionPresets = self.core.getConfig("globals", "resolutionPresets", configPath=self.core.prismIni, dft=dftResPresets)
+
         self.f_localOutput.setVisible(self.core.useLocalFiles)
         self.e_osSlaves.setText("All")
 
@@ -132,6 +141,11 @@ class ImageRenderClass(object):
 
         if stateData is not None:
             self.loadData(stateData)
+        else:
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData.get("category"):
+                self.l_taskName.setText(fnameData.get("category"))
 
     @err_catcher(name=__name__)
     def loadData(self, data):
@@ -152,12 +166,17 @@ class ImageRenderClass(object):
             if idx != -1:
                 self.cb_renderPreset.setCurrentIndex(idx)
                 self.stateManager.saveStatesToScene()
-        if "globalrange" in data:
-            self.chb_globalRange.setChecked(eval(data["globalrange"]))
+        if "rangeType" in data:
+            idx = self.cb_rangeType.findText(data["rangeType"])
+            if idx != -1:
+                self.cb_rangeType.setCurrentIndex(idx)
+                self.updateRange()
         if "startframe" in data:
             self.sp_rangeStart.setValue(int(data["startframe"]))
         if "endframe" in data:
             self.sp_rangeEnd.setValue(int(data["endframe"]))
+        if "frameExpression" in data:
+            self.le_frameExpression.setText(data["frameExpression"])
         if "currentcam" in data:
             camName = getattr(self.core.appPlugin, "getCamName", lambda x, y: "")(
                 self, data["currentcam"]
@@ -254,9 +273,16 @@ class ImageRenderClass(object):
         self.b_changeTask.clicked.connect(self.changeTask)
         self.chb_renderPreset.stateChanged.connect(self.presetOverrideChanged)
         self.cb_renderPreset.activated.connect(self.stateManager.saveStatesToScene)
-        self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
+        self.cb_rangeType.activated.connect(self.rangeTypeChanged)
         self.sp_rangeStart.editingFinished.connect(self.startChanged)
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
+        self.le_frameExpression.textChanged.connect(self.frameExpressionChanged)
+        self.le_frameExpression.editingFinished.connect(self.stateManager.saveStatesToScene)
+        self.le_frameExpression.setMouseTracking(True)
+        self.le_frameExpression.origMoveEvent = self.le_frameExpression.mouseMoveEvent
+        self.le_frameExpression.mouseMoveEvent = self.exprMoveEvent
+        self.le_frameExpression.leaveEvent = self.exprLeaveEvent
+        self.le_frameExpression.focusOutEvent = self.exprFocusOutEvent
         self.cb_cam.activated.connect(self.setCam)
         self.chb_resOverride.stateChanged.connect(self.resOverrideChanged)
         self.sp_resWidth.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -306,17 +332,7 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
-        if state == Qt.Checked:
-            self.l_rangeStart.setEnabled(False)
-            self.l_rangeEnd.setEnabled(False)
-            self.sp_rangeStart.setEnabled(False)
-            self.sp_rangeEnd.setEnabled(False)
-        else:
-            self.l_rangeStart.setEnabled(True)
-            self.l_rangeEnd.setEnabled(True)
-            self.sp_rangeStart.setEnabled(True)
-            self.sp_rangeEnd.setEnabled(True)
-
+        self.updateRange()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -332,6 +348,71 @@ class ImageRenderClass(object):
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
         self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def frameExpressionChanged(self, text=None):
+        if not hasattr(self, "expressionWinLabel"):
+            return
+
+        frames = self.core.resolveFrameExpression(self.le_frameExpression.text())
+        frameStr = ",".join([str(x) for x in frames]) or "invalid expression"
+        self.expressionWinLabel.setText(frameStr)
+        self.expressionWin.resize(1,1)
+
+
+    @err_catcher(name=__name__)
+    def exprMoveEvent(self, event):
+        self.showExpressionWin(event)
+        if hasattr(self, "expressionWin") and self.expressionWin.isVisible():
+            self.expressionWin.move(
+                QCursor.pos().x() + 20, QCursor.pos().y() - self.expressionWin.height()
+            )
+        self.le_frameExpression.origMoveEvent(event)
+
+    @err_catcher(name=__name__)
+    def showExpressionWin(self, event):
+        if (
+            not hasattr(self, "expressionWin")
+            or not self.expressionWin.isVisible()
+        ):
+            if hasattr(self, "expressionWin"):
+                self.expressionWin.close()
+
+            self.expressionWin = QFrame()
+            ss = getattr(self.core.appPlugin, "getFrameStyleSheet", lambda x: "")(self)
+            self.expressionWin.setStyleSheet(
+                ss + """ .QFrame{ border: 2px solid rgb(100,100,100);} """
+            )
+
+            self.core.parentWindow(self.expressionWin)
+            winwidth = 10
+            winheight = 10
+            VBox = QVBoxLayout()
+            frames = self.core.resolveFrameExpression(self.le_frameExpression.text())
+            frameStr = ",".join([str(x) for x in frames]) or "invalid expression"
+            self.expressionWinLabel = QLabel(frameStr)
+            VBox.addWidget(self.expressionWinLabel)
+            self.expressionWin.setLayout(VBox)
+            self.expressionWin.setWindowFlags(
+                Qt.FramelessWindowHint  # hides the window controls
+                | Qt.WindowStaysOnTopHint  # forces window to top... maybe
+                | Qt.SplashScreen  # this one hides it from the task bar!
+            )
+
+            self.expressionWin.setGeometry(0, 0, winwidth, winheight)
+            self.expressionWin.move(QCursor.pos().x() + 20, QCursor.pos().y())
+            self.expressionWin.setAttribute(Qt.WA_ShowWithoutActivating)
+            self.expressionWin.show()
+
+    @err_catcher(name=__name__)
+    def exprLeaveEvent(self, event):
+        if hasattr(self, "expressionWin") and self.expressionWin.isVisible():
+            self.expressionWin.close()
+
+    @err_catcher(name=__name__)
+    def exprFocusOutEvent(self, event):
+        if hasattr(self, "expressionWin") and self.expressionWin.isVisible():
+            self.expressionWin.close()
 
     @err_catcher(name=__name__)
     def setCam(self, index):
@@ -368,6 +449,7 @@ class ImageRenderClass(object):
         self.core.parentWindow(self.nameWin)
         self.nameWin.setWindowTitle("Change Taskname")
         self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
         prevTaskName = self.l_taskName.text()
         result = self.nameWin.exec_()
@@ -455,6 +537,8 @@ class ImageRenderClass(object):
 
             self.stateManager.saveStatesToScene()
 
+        self.updateRange()
+
         # update Render Layer
         curLayer = self.cb_renderLayer.currentText()
         self.cb_renderLayer.clear()
@@ -482,6 +566,53 @@ class ImageRenderClass(object):
         self.nameChanged(self.e_name.text())
 
         return True
+
+    @err_catcher(name=__name__)
+    def updateRange(self):
+        rangeType = self.cb_rangeType.currentText()
+        isCustom = rangeType == "Custom"
+        isExp = rangeType == "Expression"
+        self.l_rangeStart.setVisible(not isCustom and not isExp)
+        self.l_rangeEnd.setVisible(not isCustom and not isExp)
+        self.sp_rangeStart.setVisible(isCustom)
+        self.sp_rangeEnd.setVisible(isCustom)
+        self.w_frameRangeValues.setVisible(not isExp)
+        self.w_frameExpression.setVisible(isExp)
+
+        if not isCustom and not isExp:
+            frange = self.getFrameRange(rangeType=rangeType)
+            start = str(int(frange[0])) if frange[0] is not None else "-"
+            end = str(int(frange[1])) if frange[1] is not None else "-"
+            self.l_rangeStart.setText(start)
+            self.l_rangeEnd.setText(end)
+
+    @err_catcher(name=__name__)
+    def getFrameRange(self, rangeType):
+        startFrame = None
+        endFrame = None
+        if rangeType == "State Manager":
+            startFrame = self.stateManager.sp_rangeStart.value()
+            endFrame = self.stateManager.sp_rangeEnd.value()
+        elif rangeType == "Scene":
+            startFrame, endFrame = self.core.appPlugin.getFrameRange(self)
+            startFrame = int(startFrame)
+            endFrame = int(endFrame)
+        elif rangeType == "Shot":
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData["entity"] == "shot":
+                frange = self.core.entities.getShotRange(fnameData["entityName"])
+                if frange:
+                    startFrame, endFrame = frange
+        elif rangeType == "Single Frame":
+            startFrame = int(self.core.appPlugin.getCurrentFrame())
+        elif rangeType == "Custom":
+            startFrame = self.sp_rangeStart.value()
+            endFrame = self.sp_rangeEnd.value()
+        elif rangeType == "Expression":
+            return self.core.resolveFrameExpression(self.le_frameExpression.text())
+
+        return startFrame, endFrame
 
     @err_catcher(name=__name__)
     def openSlaves(self):
@@ -541,8 +672,12 @@ class ImageRenderClass(object):
         if steps is None or len(steps) == 0:
             return False
 
-        strc = basestring if pVersion == 2 else str
-        if isinstance(steps, strc):
+        if pVersion == 2:
+            isStr = isinstance(steps, basestring)
+        else:
+            isStr = isinstance(steps, str)
+
+        if isStr:
             steps = eval(steps)
 
         try:
@@ -649,6 +784,14 @@ class ImageRenderClass(object):
         elif self.curCam == "Current View":
             warnings.append(["No camera is selected.", "", 2])
 
+        rangeType = self.cb_rangeType.currentText()
+        frames = self.getFrameRange(rangeType)
+        if rangeType != "Expression":
+            frames = frames[0]
+
+        if not frames:
+            warnings.append(["Framerange is invalid.", "", 3])
+
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
             warnings += self.core.rfManagers[
                 self.cb_manager.currentText()
@@ -664,9 +807,6 @@ class ImageRenderClass(object):
             return
 
         fileName = self.core.getCurrentFileName()
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
-
-        basePath = self.core.projectPath
         if self.core.useLocalFiles:
             if self.chb_localOutput.isChecked() and (
                 self.gb_submit.isHidden()
@@ -678,17 +818,9 @@ class ImageRenderClass(object):
                     ].canOutputLocal
                 )
             ):
-                basePath = self.core.localProjectPath
-                if fileName.startswith(os.path.join(self.core.projectPath, sceneDir)):
-                    fileName = fileName.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-            elif fileName.startswith(
-                os.path.join(self.core.localProjectPath, sceneDir)
-            ):
-                fileName = fileName.replace(
-                    self.core.localProjectPath, self.core.projectPath
-                )
+                fileName = self.core.convertPath(fileName, target="local")
+            else:
+                fileName = self.core.convertPath(fileName, target="global")
 
         outputPath = ""
         outputFile = ""
@@ -698,6 +830,7 @@ class ImageRenderClass(object):
             pComment = useVersion.split(self.core.filenameSeparator)[1]
 
         fnameData = self.core.getScenefileData(fileName)
+        framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
         if fnameData["entity"] == "shot":
             outputPath = os.path.join(
                 self.core.getEntityBasePath(fileName),
@@ -721,26 +854,17 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + hVersion
                 + self.core.filenameSeparator
-                + "beauty."
+                + "beauty"
+                + framePadding
                 + self.cb_format.currentText()
             )
         elif fnameData["entity"] == "asset":
-            if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-                outputPath = os.path.join(
-                    self.core.fixPath(basePath),
-                    sceneDir,
-                    "Assets",
-                    "Rendering",
-                    "3dRender",
-                    self.l_taskName.text(),
-                )
-            else:
-                outputPath = os.path.join(
-                    self.core.getEntityBasePath(fileName),
-                    "Rendering",
-                    "3dRender",
-                    self.l_taskName.text(),
-                )
+            outputPath = os.path.join(
+                self.core.getEntityBasePath(fileName),
+                "Rendering",
+                "3dRender",
+                self.l_taskName.text(),
+            )
 
             if hVersion == "":
                 hVersion = self.core.getHighestTaskVersion(outputPath)
@@ -756,7 +880,8 @@ class ImageRenderClass(object):
                 + self.core.filenameSeparator
                 + hVersion
                 + self.core.filenameSeparator
-                + "beauty."
+                + "beauty"
+                + framePadding
                 + self.cb_format.currentText()
             )
 
@@ -773,13 +898,20 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
-        if self.chb_globalRange.isChecked():
-            jobFrames = [
-                self.stateManager.sp_rangeStart.value(),
-                self.stateManager.sp_rangeEnd.value(),
-            ]
+        rangeType = self.cb_rangeType.currentText()
+        frames = self.getFrameRange(rangeType)
+        if rangeType != "Expression":
+            startFrame = frames[0]
+            endFrame = frames[1]
         else:
-            jobFrames = [self.sp_rangeStart.value(), self.sp_rangeEnd.value()]
+            startFrame = None
+            endFrame = None
+
+        if not frames or not frames[0]:
+            return [self.state.text(0) + ": error - Framerange is invalid"]
+
+        if rangeType == "Single Frame":
+            endFrame = startFrame
 
         fileName = self.core.getCurrentFileName()
         if not self.renderingStarted:
@@ -825,7 +957,13 @@ class ImageRenderClass(object):
 
             self.stateManager.saveStatesToScene()
 
-            rSettings = {"outputName": outputName}
+            rSettings = {
+                "outputName": outputName,
+                "startFrame": startFrame,
+                "endFrame": endFrame,
+                "frames": frames,
+                "rangeType": rangeType,
+            }
 
             if (
                 self.chb_renderPreset.isChecked()
@@ -848,9 +986,7 @@ class ImageRenderClass(object):
                 args={
                     "prismCore": self.core,
                     "scenefile": fileName,
-                    "startFrame": jobFrames[0],
-                    "endFrame": jobFrames[1],
-                    "outputName": rSettings["outputName"],
+                    "settings": rSettings,
                 },
             )
 
@@ -882,9 +1018,7 @@ class ImageRenderClass(object):
                 args={
                     "prismCore": self.core,
                     "scenefile": fileName,
-                    "startFrame": jobFrames[0],
-                    "endFrame": jobFrames[1],
-                    "outputName": outputName,
+                    "settings": rSettings,
                 },
             )
 
@@ -930,9 +1064,10 @@ class ImageRenderClass(object):
             "taskname": self.l_taskName.text(),
             "renderpresetoverride": str(self.chb_renderPreset.isChecked()),
             "currentrenderpreset": self.cb_renderPreset.currentText(),
-            "globalrange": str(self.chb_globalRange.isChecked()),
+            "rangeType": str(self.cb_rangeType.currentText()),
             "startframe": self.sp_rangeStart.value(),
             "endframe": self.sp_rangeEnd.value(),
+            "frameExpression": self.le_frameExpression.text(),
             "currentcam": str(self.curCam),
             "resoverride": str(
                 [

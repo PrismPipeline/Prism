@@ -35,13 +35,21 @@ import os
 import sys
 import datetime
 import shutil
-import ast
 import time
 import platform
 import imp
 import subprocess
 import logging
+import traceback
+import copy
 from collections import OrderedDict
+
+if sys.version[0] == "3":
+    pVersion = 3
+    pyLibs = "Python37"
+else:
+    pVersion = 2
+    pyLibs = "Python27"
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -61,8 +69,8 @@ except:
 
         psVersion = 1
     except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27"))
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs))
+        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "PySide"))
         try:
             from PySide2.QtCore import *
             from PySide2.QtGui import *
@@ -75,15 +83,6 @@ except:
 
             psVersion = 1
 
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-
-    pVersion = 3
-else:
-    from ConfigParser import ConfigParser
-
-    pVersion = 2
-
 if platform.system() == "Windows":
     if pVersion == 3:
         import winreg as _winreg
@@ -94,9 +93,9 @@ elif platform.system() in ["Linux", "Darwin"]:
     if pVersion == 3:
         from io import BytesIO as StringIO
     elif pVersion == 2:
-        pyLibs = os.path.join(prismRoot, "PythonLibs", "Python27")
-        if pyLibs not in sys.path:
-            sys.path.append(pyLibs)
+        pyLibDir = os.path.join(prismRoot, "PythonLibs", "Python27")
+        if pyLibDir not in sys.path:
+            sys.path.append(pyLibDir)
         try:
             from PIL import Image
             from cStringIO import StringIO
@@ -151,24 +150,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.setupUi(self)
         self.core = core
 
+        logger.debug("Initializing Project Browser")
+
         self.core.parentWindow(self)
 
         self.setWindowTitle("Prism %s - Project Browser - %s" %(self.core.version, self.core.projectName))
-        self.scenes = self.core.getConfig(
-            "paths", "scenes", configPath=self.core.prismIni
-        )
-        self.aBasePath = os.path.join(self.core.projectPath, self.scenes, "Assets")
-        self.sBasePath = os.path.join(self.core.projectPath, self.scenes, "Shots")
+        self.sceneBasePath = self.core.getScenePath()
+        self.aBasePath = self.core.getAssetPath()
+        self.sBasePath = self.core.getShotPath()
 
         self.aExpanded = []
         self.sExpanded = []
-        self.fhierarchy = ["Files"]
-        self.fbottom = False
-        self.fclickedon = ""
-
+        self.filteredAssets = []
         self.copiedFile = None
         self.copiedsFile = None
-        self.copiedfFile = None
 
         self.dclick = False
         self.adclick = False
@@ -188,7 +183,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tabLabels = {
             "Assets": "Assets",
             "Shots": "Shots",
-            "Files": "Files",
             "Recent": "Recent",
         }
         self.tableColumnLabels = {
@@ -201,30 +195,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         }
         self.tw_aHierarchy.setHeaderLabels(["Assets"])
 
-        self.fhbuttons = [
-            self.b_fH01,
-            self.b_fH02,
-            self.b_fH03,
-            self.b_fH04,
-            self.b_fH05,
-            self.b_fH06,
-            self.b_fH07,
-            self.b_fH08,
-            self.b_fH09,
-            self.b_fH10,
-        ]
-
         self.curRTask = ""
         self.curRVersion = ""
         self.curRLayer = ""
 
         self.b_refresh.setEnabled(True)
-
-        self.saveRender1 = []
-        self.saveRender2 = []
-        self.saveRender3 = []
-        self.w_saveButtons.setVisible(False)
-
         self.b_compareRV.setEnabled(False)
         self.b_combineVersions.setEnabled(False)
         self.b_clearRV.setEnabled(False)
@@ -255,14 +230,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 "l_preview": self.l_preview,
                 "openRV": False,
                 "getMediaBase": self.getShotMediaPath,
-                "getMediaBaseFolder": self.getShotMediaFolder,
+                "getMediaBaseFolder": self.core.products.getMediaProductPath,
             }
         }
 
-        self.oiioLoaded = False
-        self.wandLoaded = False
-
-        self.oldPalette = self.b_saveRender1.palette()
         self.savedPalette = QPalette()
         self.savedPalette.setColor(QPalette.Button, QColor(200, 100, 0))
         self.savedPalette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
@@ -274,7 +245,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         )(self)
         self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
         self.emptypmapPrv = self.createPMap(self.shotPrvXres, self.shotPrvYres)
-        #   self.refreshFCat()
+        self.core.entities.refreshOmittedEntities()
         self.loadLayout()
         self.setRecent()
         self.getRVpath()
@@ -284,6 +255,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.callback(
             name="onProjectBrowserStartup", types=["curApp", "custom"], args=[self]
         )
+        self.oiio = self.core.media.getOIIO()
         self.refreshAHierarchy(load=True)
         self.refreshShots()
         self.navigateToCurrent()
@@ -303,6 +275,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_aHierarchy.mouseDoubleClickEvent = lambda x: self.mousedb(
             x, "ah", self.tw_aHierarchy
         )
+        self.tw_aHierarchy.enterEvent = lambda x: self.mouseEnter(x, "assets")
+        self.tw_aHierarchy.origKeyPressEvent = self.tw_aHierarchy.keyPressEvent
         self.tw_aHierarchy.keyPressEvent = lambda x: self.keyPressed(x, "assets")
         self.e_assetSearch.origKeyPressEvent = self.e_assetSearch.keyPressEvent
         self.e_assetSearch.keyPressEvent = lambda x: self.keyPressed(x, "assetSearch")
@@ -329,6 +303,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_sShot.mouseDoubleClickEvent = lambda x: self.mousedb(
             x, "ss", self.tw_sShot
         )
+        self.tw_sShot.enterEvent = lambda x: self.mouseEnter(x, "shots")
+        self.tw_sShot.origKeyPressEvent = self.tw_sShot.keyPressEvent
         self.tw_sShot.keyPressEvent = lambda x: self.keyPressed(x, "shots")
         self.e_shotSearch.origKeyPressEvent = self.e_shotSearch.keyPressEvent
         self.e_shotSearch.keyPressEvent = lambda x: self.keyPressed(x, "shotSearch")
@@ -347,21 +323,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_sFiles.mouseClickEvent = self.tw_sFiles.mouseReleaseEvent
         self.tw_sFiles.mouseReleaseEvent = lambda x: self.mouseClickEvent(x, "sf")
 
-        self.lw_fCategory.mousePrEvent = self.lw_fCategory.mousePressEvent
-        self.lw_fCategory.mousePressEvent = lambda x: self.mouseClickEvent(x, "f")
-        self.lw_fCategory.mouseClickEvent = self.lw_fCategory.mouseReleaseEvent
-        self.lw_fCategory.mouseReleaseEvent = lambda x: self.mouseClickEvent(x, "fc")
-        self.lw_fCategory.mouseDClick = self.lw_fCategory.mouseDoubleClickEvent
-        self.lw_fCategory.mouseDoubleClickEvent = lambda x: self.mousedb(
-            x, "f", self.lw_fCategory
-        )
-        self.tw_fFiles.mouseClickEvent = self.tw_fFiles.mouseReleaseEvent
-        self.tw_fFiles.mouseReleaseEvent = lambda x: self.mouseClickEvent(x, "ff")
         self.tw_recent.mouseClickEvent = self.tw_recent.mouseReleaseEvent
         self.tw_recent.mouseReleaseEvent = lambda x: self.mouseClickEvent(x, "r")
 
         self.tw_aHierarchy.currentItemChanged.connect(lambda x, y: self.Assetclicked(x))
-        self.tw_aHierarchy.itemExpanded.connect(self.refreshAItem)
+        self.tw_aHierarchy.itemExpanded.connect(self.hItemExpanded)
         self.tw_aHierarchy.itemCollapsed.connect(self.hItemCollapsed)
         self.tw_aHierarchy.customContextMenuRequested.connect(
             lambda x: self.rclCat("ah", x)
@@ -384,8 +350,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_aFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "af")
         self.tw_aFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "af")
 
-        self.l_assetPreview.mouseDoubleClickEvent = lambda x: self.editAsset(
+        self.gb_assetInfo.mouseDoubleClickEvent = lambda x: self.editAsset(
             self.curAsset
+        )
+        self.gb_assetInfo.customContextMenuRequested.connect(
+            lambda x: self.rclEntityPreview(x, "asset")
         )
         self.l_assetPreview.customContextMenuRequested.connect(
             lambda x: self.rclEntityPreview(x, "asset")
@@ -413,18 +382,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_sFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "sf")
         self.tw_sFiles.focusOutEvent = lambda x: self.tableFocusOutEvent(x, "sf")
 
-        self.l_shotPreview.mouseDoubleClickEvent = lambda x: self.editShot(
+        self.gb_shotInfo.mouseDoubleClickEvent = lambda x: self.editShot(
             self.cursShots
+        )
+        self.gb_shotInfo.customContextMenuRequested.connect(
+            lambda x: self.rclEntityPreview(x, "shot")
         )
         self.l_shotPreview.customContextMenuRequested.connect(
             lambda x: self.rclEntityPreview(x, "shot")
         )
-
-        self.lw_fCategory.customContextMenuRequested.connect(
-            lambda x: self.rclCat("f", x)
-        )
-        self.tw_fFiles.customContextMenuRequested.connect(self.rclfFile)
-        self.tw_fFiles.doubleClicked.connect(self.exeFile)
 
         self.actionPrismSettings.triggered.connect(self.core.prismSettings)
         self.actionStateManager.triggered.connect(self.core.stateManager)
@@ -435,7 +401,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.actionAutoplay.toggled.connect(self.triggerAutoplay)
         self.actionAssets.toggled.connect(self.triggerAssets)
         self.actionShots.toggled.connect(self.triggerShots)
-        self.actionFiles.toggled.connect(self.triggerFiles)
         self.actionRecent.toggled.connect(self.triggerRecent)
         self.actionRenderings.toggled.connect(self.triggerRenderings)
         self.tbw_browser.currentChanged.connect(self.tabChanged)
@@ -451,17 +416,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         for i in self.appFilters:
             self.appFilters[i]["assetChb"].stateChanged.connect(self.refreshAFile)
             self.appFilters[i]["shotChb"].stateChanged.connect(self.refreshSFile)
-
-        self.b_fH01.clicked.connect(lambda: self.filehiera(1))
-        self.b_fH02.clicked.connect(lambda: self.filehiera(2))
-        self.b_fH03.clicked.connect(lambda: self.filehiera(3))
-        self.b_fH04.clicked.connect(lambda: self.filehiera(4))
-        self.b_fH05.clicked.connect(lambda: self.filehiera(5))
-        self.b_fH06.clicked.connect(lambda: self.filehiera(6))
-        self.b_fH07.clicked.connect(lambda: self.filehiera(7))
-        self.b_fH08.clicked.connect(lambda: self.filehiera(8))
-        self.b_fH09.clicked.connect(lambda: self.filehiera(9))
-        self.b_fH10.clicked.connect(lambda: self.filehiera(10))
 
         self.chb_autoUpdate.stateChanged.connect(self.updateChanged)
         self.b_refresh.clicked.connect(self.refreshRender)
@@ -487,18 +441,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_combineVersions.clicked.connect(self.combineVersions)
         self.b_combineVersions.customContextMenuRequested.connect(self.combineOptions)
         self.b_clearRV.clicked.connect(self.clearCompare)
-        self.b_saveRender1.clicked.connect(lambda: self.saveClicked(1))
-        self.b_saveRender2.clicked.connect(lambda: self.saveClicked(2))
-        self.b_saveRender3.clicked.connect(lambda: self.saveClicked(3))
-        self.b_saveRender1.customContextMenuRequested.connect(
-            lambda: self.saverClicked(1)
-        )
-        self.b_saveRender2.customContextMenuRequested.connect(
-            lambda: self.saverClicked(2)
-        )
-        self.b_saveRender3.customContextMenuRequested.connect(
-            lambda: self.saverClicked(3)
-        )
         self.sl_preview.valueChanged.connect(self.sliderChanged)
         self.sl_preview.sliderPressed.connect(self.sliderClk)
         self.sl_preview.sliderReleased.connect(self.sliderRls)
@@ -513,7 +455,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.lw_compare.customContextMenuRequested.connect(self.rclCompare)
 
     def enterEvent(self, event):
-        QApplication.restoreOverrideCursor()
+        try:
+            QApplication.restoreOverrideCursor()
+        except:
+            pass
 
     @err_catcher(name=__name__)
     def loadLayout(self):
@@ -561,8 +506,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             chb_aApp = QCheckBox(i)
             chb_sApp = QCheckBox(i)
-            chb_aApp.setChecked(False)
-            chb_sApp.setChecked(False)
+            chb_aApp.setChecked(True)
+            chb_sApp.setChecked(True)
             self.w_aShowFormats.layout().addWidget(chb_aApp)
             self.w_sShowFormats.layout().addWidget(chb_sApp)
             setattr(
@@ -598,89 +543,37 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             "formats": "*",
         }
 
-        cData = {}
+        cData = self.core.getConfig()
+        glbData = cData.get("globals", {})
+        brsData = cData.get("browser", {})
 
-        for i in self.appFilters:
-            sa = self.appFilters[i]["shortName"]
-            cData["show%sAssets" % sa] = ["browser", "show%sAssets" % sa, "bool"]
-            cData["show%sShots" % sa] = ["browser", "show%sShots" % sa, "bool"]
+        if "showonstartup" in glbData:
+            self.actionOpenOnStart.setChecked(glbData["showonstartup"])
 
-        cData["showonstartup"] = ["globals", "showonstartup", "bool"]
-        cData["checkversions"] = ["globals", "checkversions", "bool"]
-        cData["checkframeranges"] = ["globals", "checkframeranges", "bool"]
-        cData[self.closeParm] = ["browser", self.closeParm, "bool"]
-        cData["autoplaypreview"] = ["browser", "autoplaypreview", "bool"]
-        cData["assetsOrder"] = ["browser", "assetsOrder", "int"]
-        cData["shotsOrder"] = ["browser", "shotsOrder", "int"]
-        cData["filesOrder"] = ["browser", "filesOrder", "int"]
-        cData["recentOrder"] = ["browser", "recentOrder", "int"]
-        cData["assetsVisible"] = ["browser", "assetsVisible", "bool"]
-        cData["shotsVisible"] = ["browser", "shotsVisible", "bool"]
-        cData["recentVisible"] = ["browser", "recentVisible", "bool"]
-        cData["renderVisible"] = ["browser", "renderVisible", "bool"]
-        cData["assetSorting"] = ["browser", "assetSorting"]
-        cData["shotSorting"] = ["browser", "shotSorting"]
-        cData["fileSorting"] = ["browser", "fileSorting"]
-        cData["current"] = ["browser", "current"]
-        cData["autoUpdateRenders"] = ["browser", "autoUpdateRenders", "bool"]
-        cData["windowSize"] = ["browser", "windowSize"]
-        cData["expandedAssets" + self.core.projectName] = [
-            "browser",
-            "expandedAssets" + self.core.projectName,
-        ]
-        cData["expandedSequences" + self.core.projectName] = [
-            "browser",
-            "expandedSequences" + self.core.projectName,
-        ]
+        if "check_import_versions" in glbData:
+            self.actionCheckForUpdates.setChecked(glbData["check_import_versions"])
 
-        cData = self.core.getConfig(data=cData)
+        if "checkframeranges" in glbData:
+            self.actionCheckForShotFrameRange.setChecked(glbData["checkframeranges"])
 
-        if cData["showonstartup"] is not None:
-            self.actionOpenOnStart.setChecked(cData["showonstartup"])
+        if self.closeParm in brsData:
+            self.actionCloseAfterLoad.setChecked(brsData[self.closeParm])
 
-        if cData["checkversions"] is not None:
-            self.actionCheckForUpdates.setChecked(cData["checkversions"])
-
-        if cData["checkframeranges"] is not None:
-            self.actionCheckForShotFrameRange.setChecked(cData["checkframeranges"])
-
-        if cData[self.closeParm] is not None:
-            self.actionCloseAfterLoad.setChecked(cData[self.closeParm])
-
-        if cData["autoplaypreview"] is not None:
-            state = cData["autoplaypreview"]
+        if "autoplaypreview" in brsData:
+            state = brsData["autoplaypreview"]
             self.actionAutoplay.setChecked(state)
 
-        rprojects = self.core.getConfig(cat="recent_projects", getOptions=True)
-        if rprojects is None:
-            rprojects = []
+        rPrjPaths = cData.get("recent_projects", [])
 
-        rcData = {}
-        for i in rprojects:
-            rcData[i] = ["recent_projects", i]
-
-        rPrjPaths = self.core.getConfig(data=rcData)
-
-        for prjName in rPrjPaths:
-            prj = rPrjPaths[prjName]
-            if prj == "" or prj == self.core.prismIni:
+        for prjPath in rPrjPaths:
+            if not prjPath or prjPath == self.core.prismIni:
                 continue
 
-            rpconfig = ConfigParser()
-            try:
-                rpconfig.read(prj)
-            except:
-                continue
-
-            if not rpconfig.has_option("globals", "project_name"):
-                continue
-
-            rpName = rpconfig.get("globals", "project_name")
-
+            rpName = self.core.getConfig("globals", "project_name", configPath=prjPath)
             rpAct = QAction(rpName, self)
-            rpAct.setToolTip(prj)
+            rpAct.setToolTip(prjPath)
 
-            rpAct.triggered.connect(lambda y=None, x=prj: self.core.changeProject(x))
+            rpAct.triggered.connect(lambda y=None, x=prjPath: self.core.changeProject(x))
             self.menuRecentProjects.addAction(rpAct)
 
         if self.menuRecentProjects.isEmpty():
@@ -696,22 +589,21 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tabOrder = {
             "Assets": {"order": 0, "showRenderings": True},
             "Shots": {"order": 1, "showRenderings": True},
-            "Files": {"order": 2, "showRenderings": False},
-            "Recent": {"order": 3, "showRenderings": False},
+            "Recent": {"order": 2, "showRenderings": False},
         }
         if (
-            cData["assetsOrder"] is not None
-            and cData["shotsOrder"] is not None
-            and cData["filesOrder"] is not None
-            and cData["recentOrder"] is not None
+            "assetsOrder" in brsData
+            and "shotsOrder" in brsData
+            and "filesOrder" in brsData
+            and "recentOrder" in brsData
         ):
             for i in ["assetsOrder", "shotsOrder", "filesOrder", "recentOrder"]:
-                if cData[i] >= len(self.tabOrder):
-                    cData[i] = -1
-            self.tabOrder["Assets"]["order"] = cData["assetsOrder"]
-            self.tabOrder["Shots"]["order"] = cData["shotsOrder"]
-            self.tabOrder["Files"]["order"] = cData["filesOrder"]
-            self.tabOrder["Recent"]["order"] = cData["recentOrder"]
+                if brsData[i] >= len(self.tabOrder):
+                    brsData[i] = -1
+
+            self.tabOrder["Assets"]["order"] = brsData["assetsOrder"]
+            self.tabOrder["Shots"]["order"] = brsData["shotsOrder"]
+            self.tabOrder["Recent"]["order"] = brsData["recentOrder"]
 
         self.tbw_browser.insertTab(
             self.tabOrder["Assets"]["order"], self.t_assets, self.tabLabels["Assets"]
@@ -720,88 +612,56 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.tabOrder["Shots"]["order"], self.t_shots, self.tabLabels["Shots"]
         )
         self.tbw_browser.insertTab(
-            self.tabOrder["Files"]["order"], self.t_files, self.tabLabels["Files"]
-        )
-        self.tbw_browser.insertTab(
             self.tabOrder["Recent"]["order"], self.t_recent, self.tabLabels["Recent"]
         )
 
         self.t_assets.setProperty("tabType", "Assets")
         self.t_shots.setProperty("tabType", "Shots")
-        self.t_files.setProperty("tabType", "Files")
         self.t_recent.setProperty("tabType", "Recent")
 
-        if cData["assetsVisible"] == False:
+        if brsData.get("assetsVisible", True) is False:
             self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_assets))
             self.actionAssets.setChecked(False)
 
-        if cData["shotsVisible"] == False:
+        if brsData.get("shotsVisible", True) is False:
             self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_shots))
             self.actionShots.setChecked(False)
 
-        self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_files))
-        self.actionFiles.setChecked(False)
-        self.actionFiles.setVisible(False)
-        self.tabOrder.pop("Files")
-
-        if cData["recentVisible"] == False:
+        if brsData.get("recentVisible", True) is False:
             self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_recent))
             self.actionRecent.setChecked(False)
 
-        if cData["renderVisible"] is not None:
-            state = cData["renderVisible"]
-            self.actionRenderings.setChecked(state)
-            if not state:
-                self.gb_renderings.setVisible(state)
+        if brsData.get("renderVisible", True) is False:
+            self.actionRenderings.setChecked(False)
+            self.gb_renderings.setVisible(False)
 
         for i in self.appFilters:
             sa = self.appFilters[i]["shortName"]
-            if cData["show%sAssets" % sa] is not None:
-                eval(
-                    "self.chb_aShow%s.setChecked(%s)" % (sa, cData["show%sAssets" % sa])
-                )
+            if "show%sAssets" % sa in brsData:
+                chbName = "chb_aShow%s" % sa
+                getattr(self, chbName).setChecked(brsData["show%sAssets" % sa])
 
-            if cData["show%sShots" % sa] is not None:
-                eval(
-                    "self.chb_sShow%s.setChecked(%s)" % (sa, cData["show%sShots" % sa])
-                )
+            if "show%sShots" % sa in brsData:
+                chbName = "chb_sShow%s" % sa
+                getattr(self, chbName).setChecked(brsData["show%sShots" % sa])
 
-        if cData["assetSorting"] is not None:
-            assetSort = eval(
-                cData["assetSorting"]
-                .replace("PySide.QtCore.", "")
-                .replace("PySide2.QtCore.", "")
-            )
-            self.tw_aFiles.sortByColumn(assetSort[0], assetSort[1])
-        if cData["shotSorting"] is not None:
-            shotSort = eval(
-                cData["shotSorting"]
-                .replace("PySide.QtCore.", "")
-                .replace("PySide2.QtCore.", "")
-            )
-            self.tw_sFiles.sortByColumn(shotSort[0], shotSort[1])
-        if cData["fileSorting"] is not None:
-            fileSort = eval(
-                cData["fileSorting"]
-                .replace("PySide.QtCore.", "")
-                .replace("PySide2.QtCore.", "")
-            )
-            self.tw_fFiles.sortByColumn(fileSort[0], fileSort[1])
+        assetSort = brsData.get("assetSorting", [1, 1])
+        self.tw_aFiles.sortByColumn(assetSort[0], Qt.SortOrder(assetSort[1]))
+
+        shotSort = brsData.get("shotSorting", [1, 1])
+        self.tw_sFiles.sortByColumn(shotSort[0], Qt.SortOrder(shotSort[1]))
 
         self.core.appPlugin.projectBrowserLoadLayout(self)
         self.core.callback(
             name="projectBrowser_loadUI", types=["custom", "unloadedApps"], args=[self]
         )
-        if (
-            cData["current"] is not None
-            and cData["current"] != ""
-            and cData["current"] in self.tabOrder
-        ):
+        if brsData.get("current", "None") in self.tabOrder:
             for i in range(self.tbw_browser.count()):
-                if self.tbw_browser.widget(i).property("tabType") == cData["current"]:
+                if self.tbw_browser.widget(i).property("tabType") == brsData["current"]:
                     self.tbw_browser.setCurrentIndex(i)
                     break
-            self.updateChanged(False)
+        else:
+            self.tbw_browser.setCurrentIndex(0)
 
         if self.tbw_browser.count() == 0:
             self.tbw_browser.setVisible(False)
@@ -814,11 +674,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     ]
                 )
 
-        if cData["autoUpdateRenders"] is not None:
-            self.chb_autoUpdate.setChecked(cData["autoUpdateRenders"])
+        if "autoUpdateRenders" in brsData:
+            self.chb_autoUpdate.setChecked(brsData["autoUpdateRenders"])
 
-        if cData["windowSize"] is not None:
-            wsize = eval(cData["windowSize"])
+        if "windowSize" in brsData:
+            wsize = brsData["windowSize"]
             self.resize(wsize[0], wsize[1])
         else:
             screenW = QApplication.desktop().screenGeometry().width()
@@ -830,11 +690,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if screenW < (self.width() + space):
                 self.resize(screenW - space, self.height())
 
-        if cData["expandedAssets" + self.core.projectName] is not None:
-            self.aExpanded = eval(cData["expandedAssets" + self.core.projectName])
+        if "expandedAssets_" + self.core.projectName in brsData:
+            self.aExpanded = brsData["expandedAssets_" + self.core.projectName]
 
-        if cData["expandedSequences" + self.core.projectName] is not None:
-            self.sExpanded = eval(cData["expandedSequences" + self.core.projectName])
+        if "expandedSequences_" + self.core.projectName in brsData:
+            self.sExpanded = brsData["expandedSequences_" + self.core.projectName]
 
         self.e_assetSearch.setVisible(False)
         self.e_shotSearch.setVisible(False)
@@ -858,16 +718,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         for i in range(self.tbw_browser.count()):
             tabOrder.append(self.tbw_browser.widget(i).property("tabType"))
 
-        if not "Assets" in tabOrder:
+        if "Assets" not in tabOrder:
             tabOrder.append("Assets")
 
-        if not "Shots" in tabOrder:
+        if "Shots" not in tabOrder:
             tabOrder.append("Shots")
 
-        if not "Files" in tabOrder:
-            tabOrder.append("Files")
-
-        if not "Recent" in tabOrder:
+        if "Recent" not in tabOrder:
             tabOrder.append("Recent")
 
         visible = []
@@ -882,104 +739,47 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             currentType = ""
 
-        cData.append(["browser", "current", currentType])
-        cData.append(["browser", "assetsOrder", str(tabOrder.index("Assets"))])
-        cData.append(["browser", "shotsOrder", str(tabOrder.index("Shots"))])
-        cData.append(["browser", "filesOrder", str(tabOrder.index("Files"))])
-        cData.append(["browser", "recentOrder", str(tabOrder.index("Recent"))])
+        cData = {
+            "browser": {
+                "current": currentType,
+                "assetsOrder": tabOrder.index("Assets"),
+                "shotsOrder": tabOrder.index("Shots"),
+                "recentOrder": tabOrder.index("Recent"),
+                "assetsVisible": "Assets" in visible,
+                "shotsVisible": "Shots" in visible,
+                "recentVisible": "Recent" in visible,
+                "renderVisible": self.actionRenderings.isChecked(),
+                "assetSorting": [
+                    self.tw_aFiles.horizontalHeader().sortIndicatorSection(),
+                    int(self.tw_aFiles.horizontalHeader().sortIndicatorOrder()),
+                ],
+                "shotSorting": [
+                    self.tw_sFiles.horizontalHeader().sortIndicatorSection(),
+                    int(self.tw_sFiles.horizontalHeader().sortIndicatorOrder()),
+                ],
+                "windowSize": [self.width(), self.height()],
+                "expandedAssets_" + self.core.projectName: self.getExpandedAssets(),
+                "expandedSequences_" + self.core.projectName: self.getExpandedSequences(),
+                "autoUpdateRenders": self.chb_autoUpdate.isChecked(),
+            }
+        }
 
-        cData.append(["browser", "assetsVisible", str("Assets" in visible)])
-        cData.append(["browser", "shotsVisible", str("Shots" in visible)])
-        cData.append(["browser", "filesVisible", str("Files" in visible)])
-        cData.append(["browser", "recentVisible", str("Recent" in visible)])
-
-        cData.append(
-            ["browser", "renderVisible", str(self.actionRenderings.isChecked())]
-        )
-
-        for i in self.appFilters:
+        for i in getattr(self, "appFilters", []):
             sa = self.appFilters[i]["shortName"]
-            cData.append(
-                [
-                    "browser",
-                    "show%sAssets" % sa,
-                    str(eval("self.chb_aShow%s.isChecked()" % sa)),
-                ]
-            )
-            cData.append(
-                [
-                    "browser",
-                    "show%sShots" % sa,
-                    str(eval("self.chb_sShow%s.isChecked()" % sa)),
-                ]
-            )
-
-        cData.append(
-            [
-                "browser",
-                "assetSorting",
-                str(
-                    [
-                        self.tw_aFiles.horizontalHeader().sortIndicatorSection(),
-                        self.tw_aFiles.horizontalHeader().sortIndicatorOrder(),
-                    ]
-                ),
-            ]
-        )
-        cData.append(
-            [
-                "browser",
-                "shotSorting",
-                str(
-                    [
-                        self.tw_sFiles.horizontalHeader().sortIndicatorSection(),
-                        self.tw_sFiles.horizontalHeader().sortIndicatorOrder(),
-                    ]
-                ),
-            ]
-        )
-        cData.append(
-            [
-                "browser",
-                "fileSorting",
-                str(
-                    [
-                        self.tw_fFiles.horizontalHeader().sortIndicatorSection(),
-                        self.tw_fFiles.horizontalHeader().sortIndicatorOrder(),
-                    ]
-                ),
-            ]
-        )
-        cData.append(["browser", "windowSize", str([self.width(), self.height()])])
-        cData.append(
-            [
-                "browser",
-                "expandedAssets" + self.core.projectName,
-                str(self.getExpandedAssets()),
-            ]
-        )
-        cData.append(
-            [
-                "browser",
-                "expandedSequences" + self.core.projectName,
-                str(self.getExpandedSequences()),
-            ]
-        )
-
-        cData.append(
-            ["browser", "autoUpdateRenders", str(self.chb_autoUpdate.isChecked())]
-        )
+            cData["browser"]["show%sAssets" % sa] = getattr(self, "chb_aShow%s" % sa).isChecked()
+            cData["browser"]["show%sShots" % sa] = getattr(self, "chb_sShow%s" % sa).isChecked()
 
         self.core.setConfig(data=cData)
 
-        for i in self.mediaPlaybacks:
-            if "timeline" in i and i["timeline"].state() != QTimeLine.NotRunning:
-                i["timeline"].setPaused(True)
+        for i in getattr(self, "mediaPlaybacks", []):
+            pb = self.mediaPlaybacks[i]
+            if "timeline" in pb and pb["timeline"].state() != QTimeLine.NotRunning:
+                pb["timeline"].setPaused(True)
 
         QPixmapCache.clear()
 
         self.core.callback(
-            name="onProjectBrowserClose", types=["curApp", "custom"], args=[self]
+            name="onProjectBrowserClose", types=["curApp", "custom", "prjManagers"], args=[self]
         )
 
         event.accept()
@@ -987,20 +787,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     @err_catcher(name=__name__)
     def loadLibs(self):
         global imageio
+        ffmpegPath = os.path.join(
+            self.core.prismRoot, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
+        )
+        os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpegPath
         try:
             import imageio
         except:
-            pass
-
-        if not self.oiioLoaded:
-            global numpy, wand
-            try:
-                import numpy
-                import wand, wand.image
-
-                self.wandLoaded = True
-            except:
-                pass
+            logger.debug("failed to load imageio: %s" % traceback.format_exc())
 
     @err_catcher(name=__name__)
     def getExpandedAssets(self):
@@ -1044,8 +838,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.refreshAFile()
             elif tabType == "Shots":
                 self.refreshSFile()
-            elif tabType == "Files":
-                self.refreshFCat()
             elif tabType == "Recent":
                 self.setRecent()
 
@@ -1083,40 +875,24 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if curTab == "Assets":
             curAssetItem = self.tw_aHierarchy.currentItem()
-            if curAssetItem is None:
-                dstname = self.aBasePath
+            if not curAssetItem:
+                navData = {"entity": "asset"}
             else:
                 basePath = self.tw_aHierarchy.currentItem().text(1)
-                if self.curaStep is None:
-                    step = ""
-                else:
-                    step = os.path.join("Scenefiles", self.curaStep)
-
-                if self.curaCat is None:
-                    cat = ""
-                else:
-                    cat = self.curaCat
-
-                dstname = os.path.join(basePath, step, cat)
-
+                navData = {
+                    "entity": "asset",
+                    "basePath": basePath,
+                    "step": self.curaStep,
+                    "category": self.curaCat,
+                }
             self.refreshAHierarchy()
         elif curTab == "Shots":
-            if self.cursShots is None:
-                shot = ""
-            else:
-                shot = self.cursShots
-
-            if self.cursStep is None:
-                step = ""
-            else:
-                step = os.path.join("Scenefiles", self.cursStep)
-
-            if self.cursCat is None:
-                cat = ""
-            else:
-                cat = self.cursCat
-
-            dstname = os.path.join(self.sBasePath, shot, step, cat)
+            navData = {
+                "entity": "shot",
+                "entityName": self.cursShots,
+                "step": self.cursStep,
+                "category": self.cursCat,
+            }
 
             self.refreshShots()
         elif curTab == "Recent":
@@ -1125,15 +901,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             return
 
-        self.navigateToCurrent(path=dstname)
-
+        self.navigate(data=navData)
         self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
     @err_catcher(name=__name__)
     def mousedb(self, event, tab, uielement):
         if tab == "ah":
             cItem = uielement.itemFromIndex(uielement.indexAt(event.pos()))
-            if cItem is not None and cItem.text(2) == "asset":
+            if cItem and cItem.text(2) != "folder":
                 return
             name = "Entity"
         elif tab == "ap":
@@ -1157,7 +932,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     uielement.setExpanded(mIndex, not uielement.isExpanded(mIndex))
                     uielement.mouseDClick(event)
         elif tab == "sp":
-            shotName = self.splitShotname(self.cursShots)
+            shotName = self.core.entities.splitShotname(self.cursShots)
             if (
                 shotName
                 and len(shotName) == 2
@@ -1171,14 +946,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 and self.lw_sCategory.indexAt(event.pos()).data() == None
             ):
                 name = "Category"
-        elif tab == "f":
-            if self.lw_fCategory.indexAt(event.pos()).data() == None:
-                name = "Category"
-            else:
-                name = "Sub-Category"
 
         if (
-            (tab != "f" and tab != "ah" and tab != "ss")
+            (tab != "ah" and tab != "ss")
             or self.dclick
             or self.adclick
             or self.sdclick
@@ -1190,7 +960,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if tab == "ah" and not self.adclick:
             pos = self.tw_aHierarchy.mapFromGlobal(QCursor.pos())
-            item = self.tw_aHierarchy.itemAt(pos.x(), pos.y() - 23)
+            item = self.tw_aHierarchy.itemAt(pos.x(), pos.y())
             if item is not None:
                 item.setExpanded(not item.isExpanded())
         elif tab == "ss" and not self.sdclick:
@@ -1260,18 +1030,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                                 self.tw_sFiles.model().createIndex(-1, 0)
                             )
                         self.tw_sFiles.mouseClickEvent(event)
-                    elif uielement == "fc":
-                        self.fbottom = False
-                        index = self.lw_fCategory.indexAt(event.pos())
-                        self.FCatclicked(index)
-                        self.lw_fCategory.mouseClickEvent(event)
-                    elif uielement == "ff":
-                        index = self.tw_fFiles.indexAt(event.pos())
-                        if index.data() == None:
-                            self.tw_fFiles.setCurrentIndex(
-                                self.tw_fFiles.model().createIndex(-1, 0)
-                            )
-                        self.tw_fFiles.mouseClickEvent(event)
                     elif uielement == "r":
                         index = self.tw_recent.indexAt(event.pos())
                         if index.data() == None:
@@ -1280,10 +1038,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                             )
                         self.tw_recent.mouseClickEvent(event)
             elif event.type() == QEvent.MouseButtonPress:
-                if uielement == "f":
-                    self.dclick = True
-                    self.lw_fCategory.mousePrEvent(event)
-                elif uielement == "ah":
+                if uielement == "ah":
                     self.adclick = True
                     self.tw_aHierarchy.mousePrEvent(event)
                 elif uielement == "ss":
@@ -1291,21 +1046,32 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     self.tw_sShot.mousePrEvent(event)
 
     @err_catcher(name=__name__)
+    def mouseEnter(self, event, entity):
+        if entity == "assets":
+            self.tw_aHierarchy.setFocus()
+        elif entity == "shots":
+            self.tw_sShot.setFocus()
+
+    @err_catcher(name=__name__)
     def keyPressed(self, event, entity):
         if entity in ["assets", "assetSearch"]:
             etext = self.e_assetSearch
+            elist = self.tw_aHierarchy
         elif entity in ["shots", "shotSearch"]:
             etext = self.e_shotSearch
+            elist = self.tw_sShot
 
         if entity in ["assets", "shots"]:
             if event.key() == Qt.Key_Escape:
                 etext.setVisible(False)
                 etext.setText("")
                 etext.textChanged.emit("")
-            else:
+            elif event.text():
                 etext.setVisible(True)
                 etext.setFocus()
                 etext.keyPressEvent(event)
+            else:
+                elist.origKeyPressEvent(event)
         elif entity in ["assetSearch", "shotSearch"]:
             if event.key() == Qt.Key_Escape:
                 etext.setVisible(False)
@@ -1343,7 +1109,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.detailWin.close()
             return
 
-        infoPath = os.path.splitext(scenePath)[0] + "info.yml"
+        infoPath = os.path.splitext(scenePath)[0] + "versioninfo.yml"
         prvPath = os.path.splitext(scenePath)[0] + "preview.jpg"
 
         if not os.path.exists(infoPath) and not os.path.exists(prvPath):
@@ -1372,7 +1138,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             winheight = 10
             VBox = QVBoxLayout()
             if os.path.exists(prvPath):
-                imgmap = self.getImgPMap(prvPath)
+                imgmap = self.core.media.getPixmapFromPath(prvPath)
                 l_prv = QLabel()
                 l_prv.setPixmap(imgmap)
                 l_prv.setStyleSheet(
@@ -1391,7 +1157,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             GridL.addWidget(sPath, rc, 1, Qt.AlignLeft)
             rc += 1
             if os.path.exists(infoPath):
-                sceneInfo = self.core.readYaml(infoPath)
+                sceneInfo = self.core.getConfig(configPath=infoPath)
                 if sceneInfo is None:
                     sceneInfo = {}
                 if "username" in sceneInfo:
@@ -1432,4416 +1198,37 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.detailWin.close()
 
     @err_catcher(name=__name__)
-    def rclCat(self, tab, pos):
-        rcmenu = QMenu()
-        typename = "Category"
-        callbackName = ""
+    def getContextMenu(self, menuType, **kwargs):
+        menu = None
+        if menuType == "mediaPreview":
+            menu = self.getMediaPreviewMenu(**kwargs)
 
-        if tab == "ah":
-            lw = self.tw_aHierarchy
-            cItem = lw.itemFromIndex(lw.indexAt(pos))
-            if cItem is None:
-                path = self.aBasePath
-            else:
-                path = os.path.dirname(cItem.text(1))
-            typename = "Entity"
-            callbackName = "openPBAssetContextMenu"
-        elif tab == "ap":
-            lw = self.lw_aPipeline
-
-            if not self.curAsset:
-                return
-
-            path = os.path.join(self.curAsset, "Scenefiles")
-            typename = "Step"
-            callbackName = "openPBAssetStepContextMenu"
-
-        elif tab == "ac":
-            lw = self.lw_aCategory
-            if self.curaStep is not None:
-                path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
-            else:
-                return False
-
-            callbackName = "openPBAssetCategoryContextMenu"
-
-        elif tab == "ss":
-            lw = self.tw_sShot
-            path = self.sBasePath
-            typename = "Shot"
-            callbackName = "openPBShotContextMenu"
-
-        elif tab == "sp":
-            lw = self.lw_sPipeline
-            if self.cursShots is not None:
-                path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles")
-            else:
-                return False
-            typename = "Step"
-            callbackName = "openPBShotStepContextMenu"
-
-        elif tab == "sc":
-            lw = self.lw_sCategory
-            if self.cursStep is not None:
-                path = os.path.join(
-                    self.sBasePath, self.cursShots, "Scenefiles", self.cursStep
-                )
-            else:
-                return False
-
-            callbackName = "openPBShotCategoryContextMenu"
-
-        elif tab == "f":
-            lw = self.lw_fCategory
-            path = self.fpath
-            fname = lw.indexAt(pos).data()
-            if fname != None:
-                fpath = os.path.join(self.fpath, fname)
-            copyact = QAction("Copy", self)
-            copyact.triggered.connect(lambda: self.copyfile(fpath, "Copy"))
-            if fname == None:
-                copyact.setEnabled(False)
-            rcmenu.addAction(copyact)
-            cutact = QAction("Cut", self)
-            cutact.triggered.connect(lambda: self.copyfile(fpath, "Cut"))
-            if fname == None:
-                cutact.setEnabled(False)
-            rcmenu.addAction(cutact)
-            pasteact = QAction("Paste", self)
-            pasteact.triggered.connect(lambda: self.pastefile(tab))
-            if self.copiedfFile == None or type(self.copiedfFile) == list:
-                pasteact.setEnabled(False)
-            rcmenu.addAction(pasteact)
-
-        if tab in ["ap", "ac", "ss", "sp", "sc"]:
-            createAct = QAction("Create " + typename, self)
-            if tab == "ap":
-                createAct.triggered.connect(lambda: self.createStepWindow("a"))
-            elif tab == "sp":
-                createAct.triggered.connect(lambda: self.createStepWindow("s"))
-            elif tab == "ss":
-                createAct.triggered.connect(self.editShot)
-            else:
-                createAct.triggered.connect(lambda: self.createCatWin(tab, typename))
-            rcmenu.addAction(createAct)
-
-        iname = (lw.indexAt(pos)).data()
-
-        if iname != None and (tab != "ss" or lw.itemAt(pos).childCount() == 0):
-            prjMngMenus = []
-            addOmit = False
-            if tab == "ah" or tab == "f":
-                if cItem is not None and cItem.text(2) != "asset":
-                    subcat = QAction("Create entity", self)
-                    typename = "Entity"
-                    subcat.triggered.connect(lambda: self.createCatWin(tab, typename))
-                    rcmenu.addAction(subcat)
-                elif cItem.text(2) == "asset":
-                    for i in self.core.prjManagers.values():
-                        prjMngMenu = i.pbBrowser_getAssetMenu(
-                            self, iname, cItem.text(1).replace(self.aBasePath, "")[1:]
-                        )
-                        if prjMngMenu is not None:
-                            prjMngMenus.append(prjMngMenu)
-
-                oAct = QAction("Omit Asset", self)
-                oAct.triggered.connect(
-                    lambda: self.omitEntity(
-                        "asset", cItem.text(1).replace(self.aBasePath, "")[1:]
-                    )
-                )
-                addOmit = True
-
-                if tab == "f":
-                    self.fclickedon = iname
-            elif tab == "ss":
-                iname = self.cursShots
-                editAct = QAction("Edit shot settings", self)
-                editAct.triggered.connect(lambda: self.editShot(iname))
-                rcmenu.addAction(editAct)
-                for i in self.core.prjManagers.values():
-                    prjMngMenu = i.pbBrowser_getShotMenu(self, iname)
-                    if prjMngMenu is not None:
-                        prjMngMenus.append(prjMngMenu)
-
-                oAct = QAction("Omit Shot", self)
-                oAct.triggered.connect(lambda: self.omitEntity("shot", self.cursShots))
-                addOmit = True
-            dirPath = os.path.join(path, iname)
-            if (
-                not os.path.exists(dirPath)
-                and self.core.useLocalFiles
-                and os.path.exists(
-                    dirPath.replace(self.core.projectPath, self.core.localProjectPath)
-                )
-            ):
-                dirPath = dirPath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
-            openex = QAction("Open in Explorer", self)
-            openex.triggered.connect(lambda: self.core.openFolder(dirPath))
-            rcmenu.addAction(openex)
-            copAct = QAction("Copy path", self)
-            copAct.triggered.connect(lambda: self.core.copyToClipboard(dirPath))
-            rcmenu.addAction(copAct)
-            for i in prjMngMenus:
-                rcmenu.addAction(i)
-            if addOmit:
-                rcmenu.addAction(oAct)
-        elif "path" in locals():
-            if iname is None:
-                lw.setCurrentIndex(lw.model().createIndex(-1, 0))
-            if tab not in ["ap", "ac", "ss", "sp", "sc"]:
-                cat = QAction("Create " + typename, self)
-                cat.triggered.connect(lambda: self.createCatWin(tab, typename))
-                rcmenu.addAction(cat)
-            openex = QAction("Open in Explorer", self)
-            openex.triggered.connect(lambda: self.core.openFolder(path))
-            rcmenu.addAction(openex)
-            copAct = QAction("Copy path", self)
-            copAct.triggered.connect(lambda: self.core.copyToClipboard(path))
-            rcmenu.addAction(copAct)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
-
-        if callbackName:
-            self.core.callback(
-                name=callbackName,
-                types=["custom"],
-                args=[self, rcmenu, lw.indexAt(pos)],
-            )
-
-        rcmenu.exec_(QCursor.pos())
+        return menu
 
     @err_catcher(name=__name__)
-    def rclFile(self, tab, pos):
-        if tab == "a":
-            if self.curaStep is None or self.curaCat is None:
-                return
-
-            tw = self.tw_aFiles
-            filepath = os.path.join(
-                self.curAsset, "Scenefiles", self.curaStep, self.curaCat
-            )
-            tabName = "asset"
-        elif tab == "sf":
-            if self.cursStep is None or self.cursCat is None:
-                return
-
-            tw = self.tw_sFiles
-            filepath = os.path.join(
-                self.sBasePath,
-                self.cursShots,
-                "Scenefiles",
-                self.cursStep,
-                self.cursCat,
-            )
-            tabName = "shot"
-        elif tab == "r":
-            tw = self.tw_recent
-
-        rcmenu = QMenu()
-
-        if tw.selectedIndexes() != []:
-            idx = tw.selectedIndexes()[0]
-            irow = idx.row()
-        else:
-            idx = None
-            irow = -1
-        cop = QAction("Copy", self)
-        if irow == -1:
-            if tab == "r":
-                return False
-            cop.setEnabled(False)
-            if (
-                not os.path.exists(filepath)
-                and self.core.useLocalFiles
-                and os.path.exists(
-                    filepath.replace(self.core.projectPath, self.core.localProjectPath)
-                )
-            ):
-                filepath = filepath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
-        else:
-            filepath = self.core.fixPath(tw.model().index(irow, 0).data(Qt.UserRole))
-            cop.triggered.connect(lambda: self.copyfile(filepath))
-            tw.setCurrentIndex(tw.model().createIndex(irow, 0))
-        if tab != "r":
-            rcmenu.addAction(cop)
-            past = QAction("Paste as new version", self)
-            past.triggered.connect(lambda: self.pastefile(tab))
-            if not (tab == "a" and self.copiedFile != None) and not (
-                tab == "sf" and self.copiedsFile != None
-            ):
-                past.setEnabled(False)
-            rcmenu.addAction(past)
-            current = QAction("Create new version from current", self)
-            current.triggered.connect(lambda: self.createFromCurrent())
-            if self.core.appPlugin.pluginName == "Standalone":
-                current.setEnabled(False)
-            rcmenu.addAction(current)
-            emp = QMenu("Create empty file")
-            emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
-            if os.path.exists(emptyDir):
-                for i in sorted(os.listdir(emptyDir)):
-                    if i.startswith("EmptyScene_"):
-                        fName = os.path.splitext(i)[0][11:].replace("_", ".")
-                        empAct = QAction(fName, self)
-                        empAct.triggered.connect(
-                            lambda y=None, x=tabName, fname=i: self.createEmptyScene(
-                                x, fname
-                            )
-                        )
-                        emp.addAction(empAct)
-
-            newPreset = QAction("< Create new preset from current >", self)
-            newPreset.triggered.connect(
-                lambda y=None, x=tabName: self.createEmptyScene(x, "createnew")
-            )
-            emp.addAction(newPreset)
-            if self.core.appPlugin.pluginName == "Standalone":
-                newPreset.setEnabled(False)
-
-            self.core.appPlugin.setRCStyle(self, emp)
-            rcmenu.addMenu(emp)
-            autob = QMenu("Create new version from autoback")
-            for i in self.core.getPluginNames():
-                if self.core.getPluginData(i, "appType") == "standalone":
-                    continue
-
-                autobAct = QAction(i, self)
-                autobAct.triggered.connect(lambda y=None, x=i: self.autoback(tab, x))
-                autob.addAction(autobAct)
-
-            self.core.appPlugin.setRCStyle(self, autob)
-            rcmenu.addMenu(autob)
-
-        if irow != -1:
-            if tab != "r":
-                globalAct = QAction("Copy to global", self)
-                if self.core.useLocalFiles and filepath.startswith(
-                    self.core.localProjectPath
-                ):
-                    globalAct.triggered.connect(lambda: self.copyToGlobal(filepath))
-                else:
-                    globalAct.setEnabled(False)
-                rcmenu.addAction(globalAct)
-
-            actDeps = QAction("Show dependencies...", self)
-            infoPath = os.path.splitext(filepath)[0] + "versioninfo.ini"
-            if os.path.exists(infoPath):
-                with open(infoPath, "r") as descFile:
-                    fileDescription = descFile.read()
-                actDeps.triggered.connect(lambda: self.core.dependencyViewer(infoPath))
-            else:
-                actDeps.setEnabled(False)
-            rcmenu.addAction(actDeps)
-
-            actCom = QAction("Edit Comment...", self)
-            actCom.triggered.connect(lambda: self.editComment(filepath))
-            rcmenu.addAction(actCom)
-
-        openex = QAction("Open in Explorer", self)
-        openex.triggered.connect(lambda: self.core.openFolder(filepath))
-        rcmenu.addAction(openex)
-
-        copAct = QAction("Copy path", self)
-        copAct.triggered.connect(lambda: self.core.copyToClipboard(filepath))
-        rcmenu.addAction(copAct)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
+    def showContextMenu(self, menuType, **kwargs):
+        menu = self.getContextMenu(menuType, **kwargs)
         self.core.callback(
-            name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu, idx]
-        )
-
-        rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
-
-    @err_catcher(name=__name__)
-    def rclfFile(self, pos):
-        tw = self.tw_fFiles
-        rcmenu = QMenu()
-
-        fpath = []
-        for i in tw.selectedIndexes():
-            path = i.model().index(i.row(), 2).data()
-            if path not in fpath:
-                fpath.append(path)
-
-        cop = QAction("Copy", self)
-        cop.triggered.connect(lambda: self.copyfile(fpath, "Copy"))
-        if tw.selectedIndexes() == []:
-            cop.setEnabled(False)
-        rcmenu.addAction(cop)
-        cut = QAction("Cut", self)
-        cut.triggered.connect(lambda: self.copyfile(fpath, "Cut"))
-        if tw.selectedIndexes() == []:
-            cut.setEnabled(False)
-        rcmenu.addAction(cut)
-        past = QAction("Paste", self)
-        past.triggered.connect(lambda: self.pastefile("f"))
-        if self.copiedfFile == None or type(self.copiedfFile) == str:
-            past.setEnabled(False)
-        rcmenu.addAction(past)
-        openex = QAction("Open in Explorer", self)
-        openex.triggered.connect(self.openFFile)
-        rcmenu.addAction(openex)
-        self.core.appPlugin.setRCStyle(self, rcmenu)
-        rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
-
-    @err_catcher(name=__name__)
-    def exeFile(self, index=None, filepath=""):
-        openSm = hasattr(self.core, "sm") and not self.core.sm.isHidden()
-        if hasattr(self.core, "sm"):
-            self.core.sm.close()
-
-        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-            refresh = self.refreshAFile
-        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-            refresh = self.refreshSFile
-        elif self.tbw_browser.currentWidget().property("tabType") == "Files":
-            refresh = self.refreshFCat
-        elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
-            refresh = self.setRecent
-
-        if filepath == "":
-            filepath = index.model().index(index.row(), 0).data(Qt.UserRole)
-
-        if (
-            self.core.useLocalFiles
-            and os.path.join(self.core.projectPath, self.scenes) in filepath
-        ):
-            lfilepath = filepath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-
-            if not os.path.exists(lfilepath):
-                if not os.path.exists(os.path.dirname(lfilepath)):
-                    try:
-                        os.makedirs(os.path.dirname(lfilepath))
-                    except:
-                        QMessageBox.warning(
-                            self.core.messageParent,
-                            "Warning",
-                            "The directory could not be created",
-                        )
-                        return
-
-                self.core.copySceneFile(filepath, lfilepath)
-
-            filepath = lfilepath
-
-        filepath = filepath.replace("\\", "/")
-
-        logger.debug("Opening scene " + filepath)
-        isOpen = self.core.appPlugin.openScene(self, filepath)
-
-        if not isOpen and self.core.appPlugin.pluginName == "Standalone":
-            fileStarted = False
-            ext = os.path.splitext(filepath)[1]
-            appPath = ""
-
-            for i in self.core.unloadedAppPlugins.values():
-                if ext in i.sceneFormats:
-                    orApp = self.core.getConfig(
-                        "dccoverrides",
-                        "%s_override" % i.pluginName.lower(),
-                        ptype="bool",
-                    )
-                    if orApp is not None and orApp:
-                        appOrPath = self.core.getConfig(
-                            "dccoverrides", "%s_path" % i.pluginName.lower()
-                        )
-                        if (
-                            appOrPath is not None
-                            and os.path.exists(appOrPath)
-                            and os.path.splitext(appOrPath)[1] == ".exe"
-                        ):
-                            appPath = appOrPath
-
-                    fileStarted = getattr(
-                        i, "customizeExecutable", lambda x1, x2, x3: False
-                    )(self, appPath, filepath)
-
-            if appPath != "" and not fileStarted:
-                try:
-                    subprocess.Popen([appPath, self.core.fixPath(filepath)])
-                except Exception as e:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Warning",
-                        "Could not execute file:\n\n%s" % str(e),
-                    )
-                fileStarted = True
-
-            if not fileStarted:
-                try:
-                    if platform.system() == "Windows":
-                        os.startfile(self.core.fixPath(filepath))
-                    elif platform.system() == "Linux":
-                        subprocess.Popen(["xdg-open", filepath])
-                    elif platform.system() == "Darwin":
-                        subprocess.Popen(["open", filepath])
-                except:
-                    ext = os.path.splitext(filepath)[1]
-                    warnStr = (
-                        'Could not open the scenefile.\n\nPossibly there is no application connected to "%s" files on your computer.\nUse the overrides in the "DCC apps" tab of the Prism Settings to specify an application for this filetype.'
-                        % ext
-                    )
-                    msg = QMessageBox(
-                        QMessageBox.Warning,
-                        "Warning",
-                        warnStr,
-                        QMessageBox.Ok,
-                        parent=self.core.messageParent,
-                    )
-                    msg.exec_()
-
-        if self.tbw_browser.currentWidget().property("tabType") != "Files":
-            self.core.addToRecent(filepath)
-            self.setRecent()
-
-        self.core.callback(name="onSceneOpen", types=["custom"], args=[self, filepath])
-
-        if openSm:
-            self.core.stateManager()
-
-        refresh()
-        if (
-            self.core.getCurrentFileName().replace("\\", "/") == filepath
-            and self.actionCloseAfterLoad.isChecked()
-        ):
-            self.close()
-
-    @err_catcher(name=__name__)
-    def createFromCurrent(self):
-        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-            dstname = self.curAsset
-            refresh = self.refreshAFile
-
-            prefix = os.path.basename(self.curAsset)
-            filepath = self.core.generateScenePath(
-                entity="asset",
-                entityName=prefix,
-                step=self.curaStep,
-                category=self.curaCat,
-                basePath=dstname,
-                extension=self.core.appPlugin.getSceneExtension(self),
-            )
-
-        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-            refresh = self.refreshSFile
-            filepath = self.core.generateScenePath(
-                entity="shot",
-                entityName=self.cursShots,
-                step=self.cursStep,
-                category=self.cursCat,
-                extension=self.core.appPlugin.getSceneExtension(self),
-            )
-        else:
-            return
-
-        if self.core.useLocalFiles:
-            filepath = filepath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-
-        if not os.path.exists(os.path.dirname(filepath)):
-            try:
-                os.makedirs(os.path.dirname(filepath))
-            except:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Warning",
-                    "The directory could not be created",
-                )
-                return None
-
-        filepath = filepath.replace("\\", "/")
-
-        asRunning = hasattr(self.core, "asThread") and self.core.asThread.isRunning()
-        self.core.startasThread(quit=True)
-
-        filepath = self.core.saveScene(prismReq=False, filepath=filepath)
-        self.core.sceneOpen()
-        if asRunning:
-            self.core.startasThread()
-
-        self.core.addToRecent(filepath)
-        self.setRecent()
-
-        refresh()
-
-    @err_catcher(name=__name__)
-    def autoback(self, tab, prog):
-        if prog == self.core.appPlugin.pluginName:
-            autobackpath, fileStr = self.core.appPlugin.getAutobackPath(self, tab)
-        else:
-            for i in self.core.unloadedAppPlugins.values():
-                if i.pluginName == prog:
-                    autobackpath, fileStr = i.getAutobackPath(self, tab)
-
-        autobfile = QFileDialog.getOpenFileName(
-            self, "Select Autoback File", autobackpath, fileStr
-        )[0]
-
-        if not autobfile:
-            return
-
-        if tab == "a":
-            dstname = self.curAsset
-            refresh = self.refreshAFile
-
-            prefix = os.path.basename(self.curAsset)
-            filepath = self.core.generateScenePath(
-                entity="asset",
-                entityName=prefix,
-                step=self.curaStep,
-                extension=os.path.splitext(autobfile)[1],
-                category=self.curaCat,
-                basePath=dstname,
-            )
-        elif tab == "sf":
-            refresh = self.refreshSFile
-
-            sceneData = self.core.getScenefileData(autobfile)
-            if sceneData["entity"] == "shot":
-                comment = sceneData["comment"]
-            else:
-                comment = ""
-
-            filepath = self.core.generateScenePath(
-                entity="shot",
-                entityName=self.cursShots,
-                step=self.cursStep,
-                category=self.cursCat,
-                extension=os.path.splitext(autobfile)[1],
-            )
-        else:
-            return
-
-        if self.core.useLocalFiles:
-            filepath = filepath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-
-        if not os.path.exists(os.path.dirname(filepath)):
-            try:
-                os.makedirs(os.path.dirname(filepath))
-            except:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Warning",
-                    "The directory could not be created",
-                )
-                return None
-
-        filepath = filepath.replace("\\", "/")
-
-        self.core.copySceneFile(autobfile, filepath)
-        if prog == self.core.appPlugin.pluginName:
-            self.exeFile(filepath=filepath)
-        else:
-            self.core.addToRecent(filepath)
-            self.setRecent()
-            refresh()
-
-    @err_catcher(name=__name__)
-    def createEmptyScene(
-        self,
-        entity,
-        fileName,
-        entityName=None,
-        assetPath=None,
-        step=None,
-        category=None,
-        comment=None,
-        openFile=True,
-        version=None,
-        location="local",
-    ):
-        if fileName == "createnew":
-            emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
-
-            newItem = CreateItem.CreateItem(
-                core=self.core,
-                startText=self.core.appPlugin.pluginName.replace(" ", ""),
-            )
-
-            self.core.parentWindow(newItem)
-            newItem.e_item.setFocus()
-            newItem.setWindowTitle("Create empty scene")
-            newItem.l_item.setText("Preset name:")
-            result = newItem.exec_()
-
-            if result == 1:
-                pName = newItem.e_item.text()
-
-                filepath = os.path.join(emptyDir, "EmptyScene_%s" % pName)
-                filepath = filepath.replace("\\", "/")
-                filepath += self.core.appPlugin.getSceneExtension(self)
-
-                self.core.saveScene(prismReq=False, filepath=filepath)
-            return
-
-        ext = os.path.splitext(fileName)[1]
-        comment = comment or ""
-
-        if entity == "asset":
-            refresh = self.refreshAFile
-            if entityName:
-                entityPath = ""
-                if assetPath:
-                    entityPath = os.path.join(self.core.getAssetPath(), assetPath)
-                for i in self.core.getAssetPaths():
-                    if assetPath:
-                        if os.path.normpath(i) == os.path.normpath(entityPath):
-                            dstname = i
-                            break
-                    else:
-                        if os.path.basename(i) == entityName:
-                            dstname = i
-                            break
-                else:
-                    self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
-                    return
-            else:
-                dstname = self.curAsset
-
-            assetName = entityName or os.path.basename(self.curAsset)
-            step = step or self.curaStep
-            category = category or self.curaCat
-            filePath = self.core.generateScenePath(
-                "asset",
-                assetName,
-                step,
-                assetPath=dstname,
-                category=category,
-                extension=ext,
-                comment=comment,
-                version=version,
-            )
-        elif entity == "shot":
-            refresh = self.refreshSFile
-            entityName = entityName or self.cursShots
-            step = step or self.cursStep
-            category = category or self.cursCat
-            filePath = self.core.generateScenePath(
-                "shot",
-                entityName,
-                step,
-                category=category,
-                extension=ext,
-                comment=comment,
-                version=version,
-            )
-        else:
-            self.core.popup("Invalid entity:\n\n%s" % entity)
-            return
-
-        if os.path.isabs(fileName):
-            scene = fileName
-        else:
-            scene = os.path.join(
-                os.path.dirname(self.core.prismIni), "EmptyScenes", fileName
-            )
-
-        if location == "local" and self.core.useLocalFiles:
-            filePath = filePath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-
-        if not os.path.exists(os.path.dirname(filePath)):
-            try:
-                os.makedirs(os.path.dirname(filePath))
-            except:
-                self.core.popup(
-                    "The directory could not be created:\n\n%s"
-                    % os.path.dirname(filePath)
-                )
-                return
-
-        filePath = filePath.replace("\\", "/")
-
-        shutil.copyfile(scene, filePath)
-
-        if self.core.uiAvailable:
-            if ext in self.core.appPlugin.sceneFormats and openFile:
-                self.core.callback(
-                    name="preLoadEmptyScene",
-                    types=["curApp", "custom"],
-                    args=[self, filePath],
-                )
-                self.exeFile(filepath=filePath)
-                self.core.callback(
-                    name="postLoadEmptyScene",
-                    types=["curApp", "custom"],
-                    args=[self, filePath],
-                )
-            else:
-                self.core.addToRecent(filePath)
-                self.setRecent()
-                refresh()
-
-        return filePath
-
-    @err_catcher(name=__name__)
-    def copyfile(self, path, mode=None):
-        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-            self.copiedFile = path
-        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-            self.copiedsFile = path
-        elif self.tbw_browser.currentWidget().property("tabType") == "Files":
-            self.fcopymode = mode
-            self.copiedfFile = path
-
-    @err_catcher(name=__name__)
-    def pastefile(self, tab):
-        if tab == "a":
-            dstname = self.curAsset
-
-            prefix = os.path.basename(self.curAsset)
-            dstname = self.core.generateScenePath(
-                entity="asset",
-                entityName=prefix,
-                step=self.curaStep,
-                category=self.curaCat,
-                extension=os.path.splitext(self.copiedFile)[1],
-                basePath=dstname,
-            )
-
-            if self.core.useLocalFiles:
-                dstname = dstname.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
-
-            if not os.path.exists(os.path.dirname(dstname)):
-                try:
-                    os.makedirs(os.path.dirname(dstname))
-                except:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Warning",
-                        "The directory could not be created",
-                    )
-                    return None
-
-            dstname = dstname.replace("\\", "/")
-
-            self.core.copySceneFile(self.copiedFile, dstname)
-
-            if os.path.splitext(dstname)[1] in self.core.appPlugin.sceneFormats:
-                self.exeFile(filepath=dstname)
-            else:
-                self.core.addToRecent(dstname)
-                self.setRecent()
-
-            self.refreshAFile()
-
-        elif tab == "sf":
-            oldfname = os.path.basename(self.copiedsFile)
-            dstname = self.core.generateScenePath(
-                entity="shot",
-                entityName=self.cursShots,
-                step=self.cursStep,
-                category=self.cursCat,
-                extension=os.path.splitext(oldfname)[1],
-            )
-
-            if self.core.useLocalFiles:
-                dstname = dstname.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
-
-            if not os.path.exists(os.path.dirname(dstname)):
-                try:
-                    os.makedirs(os.path.dirname(dstname))
-                except:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Warning",
-                        "The directory could not be created",
-                    )
-                    return None
-
-            dstname = dstname.replace("\\", "/")
-
-            self.core.copySceneFile(self.copiedsFile, dstname)
-
-            if os.path.splitext(dstname)[1] in self.core.appPlugin.sceneFormats:
-                self.exeFile(filepath=dstname)
-            else:
-                self.core.addToRecent(dstname)
-                self.setRecent()
-
-            self.refreshSFile()
-
-        elif tab == "f":
-            if type(self.copiedfFile) == list:
-                if self.fbottom:
-                    dstname = self.fpath + self.fclickedon
-                else:
-                    dstname = self.fpath
-                for i in self.copiedfFile:
-                    fname = os.path.basename(i)
-                    dstfname = os.path.join(dstname, fname)
-                    if i != dstfname:
-                        if self.fcopymode == "Copy":
-                            self.core.copySceneFile(i, dstfname)
-                        elif self.fcopymode == "Cut":
-                            shutil.move(i, dstfname)
-                    else:
-                        QMessageBox.warning(
-                            self.core.messageParent,
-                            "Warning",
-                            "Could not paste %s, because the root an the target are the same"
-                            % dstname,
-                        )
-            elif type(self.copiedfFile) == str:
-                if self.lw_fCategory.selectedIndexes() == []:
-                    dstname = self.fpath
-                else:
-                    dstname = os.path.join(
-                        self.fpath, self.lw_fCategory.selectedIndexes()[0].data()
-                    )
-                dstname = os.path.join(
-                    dstname,
-                    self.copiedfFile.split(os.sep)[
-                        len(self.copiedfFile.split(os.sep)) - 1
-                    ],
-                )
-                if self.copiedfFile != dstname:
-                    if self.fcopymode == "Copy":
-                        shutil.copytree(self.copiedfFile, dstname)
-                    elif self.fcopymode == "Cut":
-                        shutil.move(self.copiedfFile, dstname)
-                else:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Warning",
-                        "Could not paste %s\nbecause the root an the target are the same."
-                        % dstname.replace("\\", "/"),
-                    )
-
-            self.refreshFCat()
-
-    @err_catcher(name=__name__)
-    def getStep(self, steps, tab):
-        try:
-            del sys.modules["ItemList"]
-        except:
-            pass
-
-        if tab == "a":
-            entity = "asset"
-        elif tab == "s":
-            entity = "shot"
-
-        import ItemList
-
-        self.ss = ItemList.ItemList(core=self.core, entity=entity)
-        self.core.parentWindow(self.ss)
-        self.ss.tw_steps.setFocus()
-        self.ss.tw_steps.doubleClicked.connect(self.ss.accept)
-
-        abrSteps = list(steps.keys())
-        abrSteps.sort()
-        for i in abrSteps:
-            rc = self.ss.tw_steps.rowCount()
-            self.ss.tw_steps.insertRow(rc)
-            abrItem = QTableWidgetItem(i)
-            self.ss.tw_steps.setItem(rc, 0, abrItem)
-            stepItem = QTableWidgetItem(steps[i])
-            self.ss.tw_steps.setItem(rc, 1, stepItem)
-
-        self.core.callback(name="onStepDlgOpen", types=["custom"], args=[self, self.ss])
-
-        result = self.ss.exec_()
-
-        if result == 1:
-            steps = []
-            for i in self.ss.tw_steps.selectedItems():
-                if i.column() == 0:
-                    steps.append(i.text())
-
-                self.createSteps(entity, steps, createCat=self.ss.chb_category.isChecked())
-            else:
-                return False
-        else:
-            return False
-
-    @err_catcher(name=__name__)
-    def createSteps(self, entity, steps, createCat=True):
-        if len(steps) > 0:
-            if entity == "asset":
-                basePath = os.path.join(self.curAsset, "Scenefiles")
-            elif entity == "shot":
-                basePath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles")
-            else:
-                return
-
-            createdDirs = []
-
-            for i in steps:
-                dstname = os.path.join(basePath, i)
-                result = self.createStep(i, entity, stepPath=dstname, createCat=createCat)
-                if result:
-                    createdDirs.append(i)
-
-            if len(createdDirs) != 0:
-                if entity == "asset":
-                    self.curaStep = createdDirs[0]
-                    self.refreshAHierarchy()
-                    self.navigateToCurrent(path=dstname)
-                elif entity == "shot":
-                    self.cursStep = createdDirs[0]
-                    self.refreshsStep()
-                    for i in range(self.lw_sPipeline.model().rowCount()):
-                        if (
-                            self.lw_sPipeline.model().index(i, 0).data()
-                            == createdDirs[0]
-                        ):
-                            self.lw_sPipeline.selectionModel().setCurrentIndex(
-                                self.lw_sPipeline.model().index(i, 0),
-                                QItemSelectionModel.ClearAndSelect,
-                            )
-
-    @err_catcher(name=__name__)
-    def refreshAHierarchy(self, load=False):
-        self.tw_aHierarchy.blockSignals(True)
-        self.tw_aHierarchy.clear()
-        self.tw_aHierarchy.blockSignals(False)
-
-        if self.core.useLocalFiles:
-            lBasePath = self.aBasePath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-
-        dirs = []
-
-        for i in os.walk(self.aBasePath):
-            for k in i[1]:
-                if k in ["Export", "Playblasts", "Rendering", "Scenefiles"]:
-                    continue
-                dirs.append(os.path.join(i[0], k))
-            break
-
-        if self.core.useLocalFiles:
-            for i in os.walk(lBasePath):
-                for k in i[1]:
-                    if k in ["Export", "Playblasts", "Rendering", "Scenefiles"]:
-                        continue
-
-                    ldir = os.path.join(i[0], k)
-                    if (
-                        ldir.replace(self.core.localProjectPath, self.core.projectPath)
-                        not in dirs
-                    ):
-                        dirs.append(ldir)
-                break
-
-        self.refreshOmittedEntities()
-
-        self.filteredAssetPaths = self.core.getAssetPaths()
-        if self.e_assetSearch.isVisible():
-            filteredPaths = []
-            for assetPath in self.filteredAssetPaths:
-                assetPath = assetPath.replace(self.aBasePath, "")
-
-                if self.core.useLocalFiles:
-                    assetPath = assetPath.replace(
-                        self.aBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "",
-                    )
-                assetPath = assetPath[1:]
-
-                if self.e_assetSearch.text() in assetPath:
-                    filteredPaths.append(assetPath)
-
-            self.filteredAssetPaths = filteredPaths
-
-        for path in dirs:
-            val = os.path.basename(path)
-            if val not in self.omittedEntities["asset"]:
-                if self.e_assetSearch.isVisible():
-                    aPath = path.replace(self.aBasePath, "")
-
-                    if self.core.useLocalFiles:
-                        aPath = aPath.replace(
-                            self.aBasePath.replace(
-                                self.core.projectPath, self.core.localProjectPath
-                            ),
-                            "",
-                        )
-                    aPath = aPath[1:]
-
-                    if len([x for x in self.filteredAssetPaths if aPath in x]) == 0:
-                        continue
-
-                item = QTreeWidgetItem([val, path])
-                self.tw_aHierarchy.addTopLevelItem(item)
-                self.refreshAItem(item, expanded=False)
-
-        self.tw_aHierarchy.resizeColumnToContents(0)
-
-        if self.tw_aHierarchy.topLevelItemCount() > 0:
-            self.tw_aHierarchy.setCurrentItem(self.tw_aHierarchy.topLevelItem(0))
-        else:
-            self.curAsset = None
-            self.refreshAStep()
-            self.refreshAssetinfo()
-
-    @err_catcher(name=__name__)
-    def refreshAItem(self, item, expanded=True):
-        item.takeChildren()
-
-        path = item.text(1)
-
-        if expanded:
-            self.adclick = False
-            if (
-                item.text(1) not in self.aExpanded
-                and not self.e_assetSearch.isVisible()
-            ):
-                self.aExpanded.append(item.text(1))
-
-        if self.core.useLocalFiles:
-            path = path.replace(self.core.localProjectPath, self.core.projectPath)
-            lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
-
-        dirContent = []
-        dirContentPaths = []
-
-        if os.path.exists(path):
-            gContent = os.listdir(path)
-            dirContent += gContent
-            dirContentPaths += [os.path.join(path, x) for x in gContent]
-
-        if self.core.useLocalFiles and os.path.exists(lpath):
-            lContent = os.listdir(lpath)
-            dirContent += lContent
-            dirContentPaths += [os.path.join(lpath, x) for x in lContent]
-
-        isAsset = False
-        if (
-            "Export" in dirContent
-            and "Playblasts" in dirContent
-            and "Rendering" in dirContent
-            and "Scenefiles" in dirContent
-        ):
-            isAsset = True
-            item.setText(2, "asset")
-        else:
-            item.setText(2, "folder")
-            childs = []
-            for i in dirContentPaths:
-                if os.path.isdir(i):
-                    aName = i.replace(self.aBasePath, "")
-                    if self.core.useLocalFiles:
-                        aName = aName.replace(
-                            self.aBasePath.replace(
-                                self.core.projectPath, self.core.localProjectPath
-                            ),
-                            "",
-                        )
-                    aName = aName[1:]
-
-                    if self.e_assetSearch.isVisible():
-                        if len([x for x in self.filteredAssetPaths if aName in x]) == 0:
-                            continue
-
-                    if (
-                        os.path.basename(i) not in childs
-                        and aName not in self.omittedEntities["asset"]
-                    ):
-                        child = QTreeWidgetItem([os.path.basename(i), i])
-                        item.addChild(child)
-                        childs.append(os.path.basename(i))
-                        if expanded:
-                            self.refreshAItem(child, expanded=False)
-
-        if isAsset:
-            iFont = item.font(0)
-            iFont.setBold(True)
-            item.setFont(0, iFont)
-
-        if path in self.aExpanded and not expanded or self.e_assetSearch.isVisible():
-            item.setExpanded(True)
-
-    @err_catcher(name=__name__)
-    def hItemCollapsed(self, item):
-        self.adclick = False
-        if item.text(1) in self.aExpanded:
-            self.aExpanded.remove(item.text(1))
-
-    @err_catcher(name=__name__)
-    def refreshAStep(self, cur=None, prev=None):
-        self.lw_aPipeline.blockSignals(True)
-        self.lw_aPipeline.clear()
-        self.lw_aPipeline.blockSignals(False)
-
-        if not self.curAsset:
-            self.curaStep = None
-            self.refreshaCat()
-            return
-
-        path = os.path.join(self.curAsset, "Scenefiles")
-
-        if self.core.useLocalFiles:
-            path = path.replace(self.core.localProjectPath, self.core.projectPath)
-            lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
-
-        dirContent = []
-
-        if os.path.exists(path):
-            dirContent += [os.path.join(path, x) for x in os.listdir(path)]
-
-        if self.core.useLocalFiles and os.path.exists(lpath):
-            dirContent += [os.path.join(lpath, x) for x in os.listdir(lpath)]
-
-        addedSteps = []
-        for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
-            stepName = os.path.basename(i)
-            if os.path.isdir(i) and stepName not in addedSteps:
-                sItem = QListWidgetItem(stepName)
-                self.lw_aPipeline.addItem(sItem)
-                addedSteps.append(stepName)
-
-        if self.lw_aPipeline.count() > 0:
-            self.lw_aPipeline.setCurrentRow(0)
-        else:
-            self.curaStep = None
-            self.refreshaCat()
-
-    @err_catcher(name=__name__)
-    def refreshaCat(self):
-        self.lw_aCategory.blockSignals(True)
-        self.lw_aCategory.clear()
-        self.lw_aCategory.blockSignals(False)
-
-        if not self.curAsset or not self.curaStep:
-            if (
-                self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
-                == "lower"
-            ):
-                self.curaCat = "category"
-            else:
-                self.curaCat = None
-
-            self.refreshAFile()
-            return
-
-        path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
-
-        if self.core.useLocalFiles:
-            path = path.replace(self.core.localProjectPath, self.core.projectPath)
-            lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
-
-        dirContent = []
-
-        if os.path.exists(path):
-            dirContent += [os.path.join(path, x) for x in os.listdir(path)]
-
-        if self.core.useLocalFiles and os.path.exists(lpath):
-            dirContent += [os.path.join(lpath, x) for x in os.listdir(lpath)]
-
-        addedCats = []
-        for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
-            catName = os.path.basename(i)
-            if os.path.isdir(i) and catName not in addedCats:
-                sItem = QListWidgetItem(catName)
-                self.lw_aCategory.addItem(sItem)
-                addedCats.append(catName)
-
-        if self.lw_aCategory.count() > 0:
-            self.lw_aCategory.setCurrentRow(0)
-        else:
-            if (
-                self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
-                == "lower"
-            ):
-                self.curaCat = "category"
-            else:
-                self.curaCat = None
-
-            self.refreshAFile()
-
-    @err_catcher(name=__name__)
-    def refreshAFile(self, cur=None, prev=None):
-        scenefiles = []
-        if self.curAsset and self.curaStep and self.curaCat:
-            if (
-                self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
-                == "lower"
-            ):
-                path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
-            else:
-                path = os.path.join(
-                    self.curAsset, "Scenefiles", self.curaStep, self.curaCat
-                )
-
-            if self.core.useLocalFiles:
-                path = path.replace(self.core.localProjectPath, self.core.projectPath)
-                lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
-
-            dirContent = []
-
-            if os.path.exists(path):
-                for k in os.walk(path):
-                    dirContent += [os.path.join(path, x) for x in k[2]]
-                    break
-
-            if self.core.useLocalFiles and os.path.exists(lpath):
-                for k in os.walk(lpath):
-                    dirContent += [os.path.join(lpath, x) for x in k[2]]
-                    break
-
-            for k in dirContent:
-                if (
-                    self.core.useLocalFiles
-                    and k.replace(self.core.localProjectPath, self.core.projectPath)
-                    in scenefiles
-                ):
-                    continue
-                scenefiles.append(k)
-
-        twSorting = [
-            self.tw_aFiles.horizontalHeader().sortIndicatorSection(),
-            self.tw_aFiles.horizontalHeader().sortIndicatorOrder(),
-        ]
-
-        model = QStandardItemModel()
-        model.setHorizontalHeaderLabels(
-            [
-                "",
-                self.tableColumnLabels["Version"],
-                self.tableColumnLabels["Comment"],
-                self.tableColumnLabels["Date"],
-                self.tableColumnLabels["User"],
-            ]
-        )
-
-        appfilter = []
-
-        for i in self.appFilters:
-            if eval("self.chb_aShow%s.isChecked()" % self.appFilters[i]["shortName"]):
-                appfilter += self.appFilters[i]["formats"]
-
-        # example filename: Body_mod_v0002_details-added_rfr_.max
-        for i in scenefiles:
-            row = []
-            fname = self.core.getScenefileData(i)
-
-            if (
-                "extension" not in fname
-                or fname["extension"] not in appfilter
-                and not (
-                    "*" in appfilter
-                    and (
-                        fname["extension"] not in self.core.getPluginSceneFormats()
-                        and "info" not in fname["extension"]
-                        and "preview" not in fname["extension"]
-                    )
-                )
-            ):
-                continue
-
-            if fname["entity"] == "asset":
-                publicFile = self.core.useLocalFiles and i.startswith(
-                    os.path.join(self.core.projectPath, self.scenes, "Assets")
-                )
-
-                if pVersion == 2:
-                    item = QStandardItem(unicode("█", "utf-8"))
-                else:
-                    item = QStandardItem("█")
-                item.setFont(QFont("SansSerif", 100))
-                item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
-                item.setData(i, Qt.UserRole)
-
-                colorVals = [128, 128, 128]
-                if fname["extension"] in self.core.appPlugin.sceneFormats:
-                    colorVals = self.core.appPlugin.appColor
-                else:
-                    for k in self.core.unloadedAppPlugins.values():
-                        if fname["extension"] in k.sceneFormats:
-                            colorVals = k.appColor
-
-                item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
-
-                row.append(item)
-                item = QStandardItem(fname["version"])
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(item)
-                if fname["comment"] == "nocomment":
-                    item = QStandardItem("")
-                else:
-                    item = QStandardItem(fname["comment"])
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(QStandardItem(item))
-                filepath = i
-                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
-                cdate = cdate.replace(microsecond=0)
-                cdate = cdate.strftime("%d.%m.%y,  %X")
-                item = QStandardItem(str(cdate))
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                item.setData(
-                    QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0
-                )
-                #   item.setToolTip(cdate)
-                row.append(item)
-                item = QStandardItem(fname["user"])
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(item)
-
-                if publicFile:
-                    for k in row[1:]:
-                        iFont = k.font()
-                        iFont.setBold(True)
-                        k.setFont(iFont)
-                        k.setForeground(self.publicColor)
-
-                model.appendRow(row)
-
-        self.tw_aFiles.setModel(model)
-        if psVersion == 1:
-            self.tw_aFiles.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
-            self.tw_aFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
-        else:
-            self.tw_aFiles.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-            self.tw_aFiles.horizontalHeader().setSectionResizeMode(
-                2, QHeaderView.Stretch
-            )
-
-        self.tw_aFiles.resizeColumnsToContents()
-        self.tw_aFiles.horizontalHeader().setMinimumSectionSize(10)
-        self.tw_aFiles.setColumnWidth(0, 10 * self.core.uiScaleFactor)
-        self.tw_aFiles.setColumnWidth(1, 100 * self.core.uiScaleFactor)
-        self.tw_aFiles.setColumnWidth(3, 200 * self.core.uiScaleFactor)
-        self.tw_aFiles.setColumnWidth(4, 100 * self.core.uiScaleFactor)
-
-        self.tw_aFiles.sortByColumn(twSorting[0], twSorting[1])
-
-    @err_catcher(name=__name__)
-    def Assetclicked(self, item):
-        if (
-            item is not None
-            and item.childCount() == 0
-            and item.text(0) != None
-            and item.text(2) == "asset"
-        ):
-            self.curAsset = item.text(1)
-        else:
-            self.curAsset = None
-
-        self.refreshAssetinfo()
-        self.refreshAStep()
-
-        if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
-            self.updateTasks()
-
-    @err_catcher(name=__name__)
-    def aPipelineclicked(self, current, prev):
-        if current:
-            self.curaStep = current.text()
-        else:
-            self.curaStep = None
-
-        self.refreshaCat()
-
-    @err_catcher(name=__name__)
-    def aCatclicked(self, current, prev):
-        if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
-            self.curaCat = "category"
-
-        elif current:
-            self.curaCat = current.text()
-
-        else:
-            self.curaCat = None
-
-        self.refreshAFile()
-
-    @err_catcher(name=__name__)
-    def refreshAssetinfo(self):
-        pmap = None
-
-        if self.curAsset:
-            assetName = os.path.basename(self.curAsset)
-            assetFile = os.path.join(
-                os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml"
-            )
-
-            description = ""
-
-            assetInfos = self.core.readYaml(assetFile)
-            if not assetInfos:
-                assetInfos = {}
-
-            if assetName in assetInfos and "description" in assetInfos[assetName]:
-                description = assetInfos[assetName]["description"]
-
-            imgPath = os.path.join(
-                os.path.dirname(self.core.prismIni),
-                "Assetinfo",
-                "%s_preview.jpg" % assetName,
-            )
-
-            if os.path.exists(imgPath):
-                pm = self.getImgPMap(imgPath)
-                if pm.width() > 0 and pm.height() > 0:
-                    if (pm.width() / float(pm.height())) > 1.7778:
-                        pmap = pm.scaledToWidth(self.shotPrvXres)
-                    else:
-                        pmap = pm.scaledToHeight(self.shotPrvYres)
-        else:
-            curItem = self.tw_aHierarchy.currentItem()
-            if not curItem:
-                description = "No asset selected"
-            else:
-                description = "Folder selected"
-
-        if pmap is None:
-            pmap = self.emptypmapPrv
-
-        self.l_aDescription.setText(description)
-        self.l_assetPreview.setMinimumSize(pmap.width(), pmap.height())
-        self.l_assetPreview.setPixmap(pmap)
-
-    @err_catcher(name=__name__)
-    def getShots(self):
-        if self.core.useLocalFiles:
-            lBasePath = self.sBasePath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-
-        self.refreshOmittedEntities()
-
-        dirs = []
-        for i in os.walk(self.sBasePath):
-            for k in i[1]:
-                dirs.append(os.path.join(i[0], k))
-            break
-
-        if self.core.useLocalFiles:
-            for i in os.walk(lBasePath):
-                for k in i[1]:
-                    ldir = os.path.join(i[0], k)
-                    if (
-                        ldir.replace(self.core.localProjectPath, self.core.projectPath)
-                        not in dirs
-                    ):
-                        dirs.append(ldir)
-                break
-
-        sequences = []
-        shots = []
-
-        searchFilter = ""
-        if self.e_shotSearch.isVisible():
-            searchFilter = self.e_shotSearch.text()
-
-        for path in sorted(dirs):
-            val = os.path.basename(path)
-            if not val.startswith("_") and val not in self.omittedEntities["shot"]:
-                shotName, seqName = self.splitShotname(val)
-
-                if searchFilter not in seqName and searchFilter not in shotName:
-                    continue
-
-                if shotName != "":
-                    shots.append([seqName, shotName, val])
-
-                if seqName not in sequences:
-                    sequences.append(seqName)
-
-        sequences = sorted(sequences)
-        shots = sorted(shots, key=lambda x: self.core.naturalKeys(x[1]))
-
-        if "no sequence" in sequences:
-            sequences.insert(
-                len(sequences), sequences.pop(sequences.index("no sequence"))
-            )
-
-        return sequences, shots
-
-    @err_catcher(name=__name__)
-    def splitShotname(self, shotName):
-        if shotName and self.core.sequenceSeparator in shotName:
-            sname = shotName.split(self.core.sequenceSeparator, 1)
-            seqName = sname[0]
-            shotName = sname[1]
-        else:
-            seqName = "no sequence"
-            shotName = shotName
-
-        return shotName, seqName
-
-    @err_catcher(name=__name__)
-    def refreshShots(self):
-        self.lw_sPipeline.blockSignals(True)
-        self.tw_sShot.clear()
-        self.lw_sPipeline.blockSignals(False)
-
-        sequences, shots = self.getShots()
-
-        for seqName in sequences:
-            seqItem = QTreeWidgetItem([seqName, seqName + self.core.sequenceSeparator])
-            self.tw_sShot.addTopLevelItem(seqItem)
-            if seqName in self.sExpanded or self.e_shotSearch.isVisible():
-                seqItem.setExpanded(True)
-
-        for i in shots:
-            for k in range(self.tw_sShot.topLevelItemCount()):
-                tlItem = self.tw_sShot.topLevelItem(k)
-                if tlItem.text(0) == i[0]:
-                    seqItem = tlItem
-
-            sItem = QTreeWidgetItem([i[1], i[2]])
-            seqItem.addChild(sItem)
-
-        self.tw_sShot.resizeColumnToContents(0)
-
-        if self.tw_sShot.topLevelItemCount() > 0:
-            if self.tw_sShot.topLevelItem(0).isExpanded():
-                self.tw_sShot.setCurrentItem(self.tw_sShot.topLevelItem(0).child(0))
-            else:
-                self.tw_sShot.setCurrentItem(self.tw_sShot.topLevelItem(0))
-        else:
-            self.cursShots = None
-            self.refreshsStep()
-            self.refreshShotinfo()
-
-    @err_catcher(name=__name__)
-    def sItemCollapsed(self, item):
-        if self.e_shotSearch.isVisible():
-            return
-
-        self.sdclick = False
-        exp = item.isExpanded()
-
-        if exp:
-            if item.text(0) not in self.sExpanded:
-                self.sExpanded.append(item.text(0))
-        else:
-            if item.text(0) in self.sExpanded:
-                self.sExpanded.remove(item.text(0))
-
-    @err_catcher(name=__name__)
-    def refreshsStep(self, cur=None, prev=None):
-        self.lw_sPipeline.blockSignals(True)
-        self.lw_sPipeline.clear()
-        self.lw_sPipeline.blockSignals(False)
-
-        if not self.cursShots:
-            self.cursStep = None
-            self.refreshsCat()
-            return
-
-        path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles")
-
-        if self.core.useLocalFiles:
-            path = path.replace(self.core.localProjectPath, self.core.projectPath)
-            lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
-
-        dirContent = []
-
-        if os.path.exists(path):
-            dirContent += [os.path.join(path, x) for x in os.listdir(path)]
-
-        if self.core.useLocalFiles and os.path.exists(lpath):
-            dirContent += [os.path.join(lpath, x) for x in os.listdir(lpath)]
-
-        addedSteps = []
-        for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
-            stepName = os.path.basename(i)
-            if os.path.isdir(i) and stepName not in addedSteps:
-                sItem = QListWidgetItem(stepName)
-                self.lw_sPipeline.addItem(sItem)
-                addedSteps.append(stepName)
-
-        if self.lw_sPipeline.count() > 0:
-            self.lw_sPipeline.setCurrentRow(0)
-        else:
-            self.cursStep = None
-            self.refreshsCat()
-
-    @err_catcher(name=__name__)
-    def refreshsCat(self):
-        self.lw_sCategory.blockSignals(True)
-        self.lw_sCategory.clear()
-        self.lw_sCategory.blockSignals(False)
-
-        if not self.cursStep:
-            self.cursCat = None
-            self.refreshSFile()
-            return
-
-        path = os.path.join(self.sBasePath, self.cursShots, "Scenefiles", self.cursStep)
-
-        if self.core.useLocalFiles:
-            path = path.replace(self.core.localProjectPath, self.core.projectPath)
-            lpath = path.replace(self.core.projectPath, self.core.localProjectPath)
-
-        dirContent = []
-
-        if os.path.exists(path):
-            dirContent += [os.path.join(path, x) for x in os.listdir(path)]
-
-        if self.core.useLocalFiles and os.path.exists(lpath):
-            dirContent += [os.path.join(lpath, x) for x in os.listdir(lpath)]
-
-        addedCats = []
-        for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
-            catName = os.path.basename(i)
-            if os.path.isdir(i) and catName not in addedCats:
-                sItem = QListWidgetItem(catName)
-                self.lw_sCategory.addItem(sItem)
-                addedCats.append(catName)
-
-        if self.lw_sCategory.count() > 0:
-            self.lw_sCategory.setCurrentRow(0)
-        else:
-            self.cursCat = None
-            self.refreshSFile()
-
-    @err_catcher(name=__name__)
-    def refreshSFile(self, parm=None):
-        twSorting = [
-            self.tw_sFiles.horizontalHeader().sortIndicatorSection(),
-            self.tw_sFiles.horizontalHeader().sortIndicatorOrder(),
-        ]
-        model = QStandardItemModel()
-
-        model.setHorizontalHeaderLabels(
-            [
-                "",
-                self.tableColumnLabels["Version"],
-                self.tableColumnLabels["Comment"],
-                self.tableColumnLabels["Date"],
-                self.tableColumnLabels["User"],
-            ]
-        )
-        # example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
-
-        if self.cursCat is not None:
-            foldercont = ["", "", ""]
-            scenefiles = []
-            sscenepath = os.path.join(
-                self.sBasePath,
-                self.cursShots,
-                "Scenefiles",
-                self.cursStep,
-                self.cursCat,
-            )
-            for i in os.walk(sscenepath):
-                for k in i[2]:
-                    scenefiles.append(os.path.join(i[0], k))
-                break
-            if self.core.useLocalFiles:
-                for i in os.walk(
-                    sscenepath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-                ):
-                    for k in i[2]:
-                        fpath = os.path.join(i[0], k)
-                        if (
-                            not fpath.replace(
-                                self.core.localProjectPath, self.core.projectPath
-                            )
-                            in scenefiles
-                        ):
-                            scenefiles.append(fpath)
-                    break
-
-            appfilter = []
-
-            for i in self.appFilters:
-                if eval(
-                    "self.chb_sShow%s.isChecked()" % self.appFilters[i]["shortName"]
-                ):
-                    appfilter += self.appFilters[i]["formats"]
-
-            for i in scenefiles:
-                row = []
-                fname = self.core.getScenefileData(i)
-                tmpScene = False
-                try:
-                    x = int(fname["extension"][-5:])
-                    tmpScene = True
-                except:
-                    pass
-
-                if (
-                    "extension" not in fname
-                    or fname["extension"] not in appfilter
-                    and not (
-                        "*" in appfilter
-                        and (
-                            fname["extension"] not in self.core.getPluginSceneFormats()
-                            and "info" not in fname["extension"]
-                            and "preview" not in fname["extension"]
-                        )
-                    )
-                ):
-                    continue
-
-                if fname["entity"] == "shot" and not tmpScene:
-                    publicFile = self.core.useLocalFiles and i.startswith(
-                        os.path.join(self.core.projectPath, self.scenes, "Shots")
-                    )
-
-                    if pVersion == 2:
-                        item = QStandardItem(unicode("█", "utf-8"))
-                    else:
-                        item = QStandardItem("█")
-                    item.setFont(QFont("SansSerif", 100))
-                    item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
-                    item.setData(i, Qt.UserRole)
-
-                    colorVals = [128, 128, 128]
-                    if fname["extension"] in self.core.appPlugin.sceneFormats:
-                        colorVals = self.core.appPlugin.appColor
-                    else:
-                        for k in self.core.unloadedAppPlugins.values():
-                            if fname["extension"] in k.sceneFormats:
-                                colorVals = k.appColor
-
-                    item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
-
-                    row.append(item)
-                    item = QStandardItem(fname["version"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    if fname["comment"] == "nocomment":
-                        item = QStandardItem("")
-                    else:
-                        item = QStandardItem(fname["comment"])
-                    #   self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
-                    cdate = cdate.replace(microsecond=0)
-                    cdate = cdate.strftime("%d.%m.%y,  %X")
-                    item = QStandardItem(str(cdate))
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    item.setData(
-                        QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(
-                            100
-                        ),
-                        0,
-                    )
-                    #   item.setToolTip(cdate)
-                    row.append(item)
-                    item = QStandardItem(fname["user"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-
-                    if publicFile:
-                        for k in row[1:]:
-                            iFont = k.font()
-                            iFont.setBold(True)
-                            k.setFont(iFont)
-                            k.setForeground(self.publicColor)
-
-                    model.appendRow(row)
-
-        self.tw_sFiles.setModel(model)
-        if psVersion == 1:
-            self.tw_sFiles.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
-            self.tw_sFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
-        else:
-            self.tw_sFiles.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-            self.tw_sFiles.horizontalHeader().setSectionResizeMode(
-                2, QHeaderView.Stretch
-            )
-
-        self.tw_sFiles.resizeColumnsToContents()
-        self.tw_sFiles.horizontalHeader().setMinimumSectionSize(10)
-        self.tw_sFiles.setColumnWidth(0, 10 * self.core.uiScaleFactor)
-        self.tw_sFiles.setColumnWidth(1, 100 * self.core.uiScaleFactor)
-        self.tw_sFiles.setColumnWidth(3, 200 * self.core.uiScaleFactor)
-        self.tw_sFiles.setColumnWidth(4, 100 * self.core.uiScaleFactor)
-        self.tw_sFiles.sortByColumn(twSorting[0], twSorting[1])
-
-    @err_catcher(name=__name__)
-    def sShotclicked(self, item):
-        if item is not None and item.text(0) != None and item.text(0) != "no sequence":
-            self.cursShots = item.text(1)
-        else:
-            self.cursShots = None
-
-        self.refreshShotinfo()
-        self.refreshsStep()
-
-        if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
-            self.updateTasks()
-
-    @err_catcher(name=__name__)
-    def sPipelineclicked(self, current, prev):
-        if current:
-            self.cursStep = current.text()
-        else:
-            self.cursStep = None
-
-        self.refreshsCat()
-
-    @err_catcher(name=__name__)
-    def sCatclicked(self, current, prev):
-        if current:
-            self.cursCat = current.text()
-        else:
-            self.cursCat = None
-
-        self.refreshSFile()
-
-    @err_catcher(name=__name__)
-    def refreshShotinfo(self):
-        pmap = None
-
-        if self.cursShots is not None:
-            startFrame = "?"
-            endFrame = "?"
-
-            shotRange = self.core.getShotRange(self.cursShots)
-            if shotRange:
-                startFrame, endFrame = shotRange
-
-            shotName, seqName = self.splitShotname(self.cursShots)
-            if not shotName and seqName:
-                rangeText = "Sequence selected"
-            else:
-                rangeText = "Framerange:    %s - %s" % (startFrame, endFrame)
-
-            imgPath = os.path.join(
-                os.path.dirname(self.core.prismIni),
-                "Shotinfo",
-                "%s_preview.jpg" % self.cursShots,
-            )
-
-            if os.path.exists(imgPath):
-                pm = self.getImgPMap(imgPath)
-                if pm.width() > 0 and pm.height() > 0:
-                    if (pm.width() / float(pm.height())) > 1.7778:
-                        pmap = pm.scaledToWidth(self.shotPrvXres)
-                    else:
-                        pmap = pm.scaledToHeight(self.shotPrvYres)
-        else:
-            rangeText = "No shot selected"
-
-        if pmap is None:
-            pmap = self.emptypmapPrv
-
-        self.l_framerange.setText(rangeText)
-        self.l_shotPreview.setMinimumSize(pmap.width(), pmap.height())
-        self.l_shotPreview.setPixmap(pmap)
-
-    @err_catcher(name=__name__)
-    def rclEntityPreview(self, pos, entity):
-        rcmenu = QMenu()
-
-        if entity == "asset":
-            if not self.curAsset:
-                return
-
-            exp = QAction("Edit asset description", self)
-            exp.triggered.connect(lambda: self.editAsset(self.curAsset))
-            rcmenu.addAction(exp)
-
-            copAct = QAction("Capture assetpreview", self)
-            copAct.triggered.connect(
-                lambda: self.captureEntityPreview("asset", self.curAsset)
-            )
-            rcmenu.addAction(copAct)
-        else:
-            shotName, seqName = self.splitShotname(self.cursShots)
-            if not shotName:
-                return
-
-            exp = QAction("Edit shotinfo", self)
-            exp.triggered.connect(lambda: self.editShot(self.cursShots))
-            rcmenu.addAction(exp)
-
-            copAct = QAction("Capture shotpreview", self)
-            copAct.triggered.connect(
-                lambda: self.captureEntityPreview("shot", self.cursShots)
-            )
-            rcmenu.addAction(copAct)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
-        rcmenu.exec_(QCursor.pos())
-
-    @err_catcher(name=__name__)
-    def captureEntityPreview(self, entity, entityname):
-        if entity == "asset":
-            folderName = "Assetinfo"
-            entityname = os.path.basename(entityname)
-            refresh = self.refreshAssetinfo
-        else:
-            folderName = "Shotinfo"
-            refresh = self.refreshShotinfo
-
-        from PrismUtils import ScreenShot
-
-        previewImg = ScreenShot.grabScreenArea(self.core)
-
-        if previewImg:
-            if (previewImg.width() / float(previewImg.height())) > 1.7778:
-                pmsmall = previewImg.scaledToWidth(self.shotPrvXres)
-            else:
-                pmsmall = previewImg.scaledToHeight(self.shotPrvYres)
-
-            prvPath = os.path.join(
-                os.path.dirname(self.core.prismIni),
-                folderName,
-                "%s_preview.jpg" % entityname,
-            )
-            self.savePMap(pmsmall, prvPath)
-
-            refresh()
-
-    @err_catcher(name=__name__)
-    def editAsset(self, assetName=None):
-        if not assetName:
-            return
-
-        assetName = os.path.basename(assetName)
-
-        descriptionDlg = EnterText.EnterText()
-        self.core.parentWindow(descriptionDlg)
-        descriptionDlg.setWindowTitle("Enter description")
-        descriptionDlg.l_info.setText("Description:")
-        descriptionDlg.te_text.setPlainText(self.l_aDescription.text())
-
-        c = descriptionDlg.te_text.textCursor()
-        c.setPosition(0)
-        c.setPosition(len(self.l_aDescription.text()), QTextCursor.KeepAnchor)
-        descriptionDlg.te_text.setTextCursor(c)
-
-        result = descriptionDlg.exec_()
-
-        if result:
-            description = descriptionDlg.te_text.toPlainText()
-            self.l_aDescription.setText(description)
-
-            assetFile = os.path.join(
-                os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml"
-            )
-            assetInfos = self.core.readYaml(assetFile)
-            if not assetInfos:
-                assetInfos = {}
-
-            if assetName not in assetInfos:
-                assetInfos[assetName] = {}
-
-            assetInfos[assetName]["description"] = description
-
-            self.core.writeYaml(assetFile, assetInfos)
-
-    @err_catcher(name=__name__)
-    def editShot(self, shotName=None):
-        sequs = []
-        for i in range(self.tw_sShot.topLevelItemCount()):
-            sName = self.tw_sShot.topLevelItem(i).text(0)
-            if sName != "no sequence":
-                sequs.append(sName)
-
-        try:
-            del sys.modules["EditShot"]
-        except:
-            pass
-
-        import EditShot
-
-        self.es = EditShot.EditShot(core=self.core, shotName=shotName, sequences=sequs)
-        self.core.parentWindow(self.es)
-        sName, seqName = self.splitShotname(shotName)
-        if not sName:
-            self.es.setWindowTitle("Create Shot")
-
-            if self.cursShots is not None:
-                sName, seqName = self.splitShotname(self.cursShots)
-                if seqName != "no sequence":
-                    self.es.e_sequence.setText(seqName)
-                self.es.e_shotName.setFocus()
-
-        result = self.core.callback(
-            name="onShotDlgOpen", types=["custom"], args=[self, self.es, shotName]
-        )
-
-        if False in result:
-            return
-
-        result = self.es.exec_()
-
-        if result != 1 or self.es.shotName is None:
-            return
-
-        if shotName is None:
-            return
-
-        self.refreshShots()
-
-        shotName, seqName = self.splitShotname(self.es.shotName)
-
-        for i in range(self.tw_sShot.topLevelItemCount()):
-            sItem = self.tw_sShot.topLevelItem(i)
-            if sItem.text(0) == seqName:
-                sItem.setExpanded(True)
-                for k in range(sItem.childCount()):
-                    shotItem = sItem.child(k)
-                    if shotItem.text(0) == shotName:
-                        self.tw_sShot.setCurrentItem(shotItem)
-
-    @err_catcher(name=__name__)
-    def createShot(self, shotName, frameRange=None):
-        result = self.createShotFolders(shotName, "shot")
-
-        if result is True or not result:
-            return result
-
-        if frameRange:
-            shotFile = os.path.join(
-                os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini"
-            )
-
-            if not os.path.exists(os.path.dirname(shotFile)):
-                os.makedirs(os.path.dirname(shotFile))
-
-            if not os.path.exists(shotFile):
-                open(shotFile, "a").close()
-
-            sconfig = ConfigParser()
-            try:
-                sconfig.read(shotFile)
-            except:
-                pass
-            else:
-                if not sconfig.has_section("shotRanges"):
-                    sconfig.add_section("shotRanges")
-
-                sconfig.set("shotRanges", shotName, str(frameRange))
-
-                with open(shotFile, "w") as inifile:
-                    sconfig.write(inifile)
-
-        if self.core.uiAvailable:
-            self.refreshShots()
-
-        shotName, seqName = self.splitShotname(shotName)
-
-        self.core.callback(
-            name="onShotCreated", types=["custom"], args=[self, seqName, shotName]
-        )
-
-        if self.core.uiAvailable:
-            for i in range(self.tw_sShot.topLevelItemCount()):
-                sItem = self.tw_sShot.topLevelItem(i)
-                if sItem.text(0) == seqName:
-                    sItem.setExpanded(True)
-                    for k in range(sItem.childCount()):
-                        shotItem = sItem.child(k)
-                        if shotItem.text(0) == shotName:
-                            self.tw_sShot.setCurrentItem(shotItem)
-
-        return result
-
-    @err_catcher(name=__name__)
-    def showShotSearch(self):
-        self.l_shotSearch.setVisible(True)
-
-    @err_catcher(name=__name__)
-    def refreshFCat(self):
-
-        model = QStandardItemModel()
-        hpath = ""
-        for i in self.fhierarchy:
-            hpath += i + os.sep
-
-        hpath = hpath[6:]
-
-        self.fpath = os.path.join(
-            self.core.projectPath,
-            self.core.getConfig("paths", "assets", configPath=self.core.prismIni),
-            hpath,
-        )
-
-        foldercont = ["", "", ""]
-        for i in os.walk(self.fpath):
-            foldercont = i
-            break
-        dirs = foldercont[1]
-
-        for idx, val in enumerate(dirs):
-            item = QStandardItem(val)
-            if self.fbottom and val == self.fclickedon:
-                current = idx
-            model.appendRow(item)
-
-        self.lw_fCategory.setModel(model)
-
-        if self.fbottom:
-            index = model.createIndex(current, 0)
-            self.lw_fCategory.setCurrentIndex(index)
-            for i in os.walk(os.path.join(self.fpath, self.fclickedon)):
-                foldercont = i
-                break
-
-        twSorting = [
-            self.tw_fFiles.horizontalHeader().sortIndicatorSection(),
-            self.tw_fFiles.horizontalHeader().sortIndicatorOrder(),
-        ]
-        model = QStandardItemModel()
-
-        model.setHorizontalHeaderLabels(["Filename", "Date"])
-
-        for i in foldercont[2]:
-            row = []
-            item = QStandardItem(i)
-            row.append(item)
-            filepath = os.path.join(foldercont[0], i)
-            cdate = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
-            cdate = cdate.replace(microsecond=0)
-            cdate = cdate.strftime("%d.%m.%y,  %X")
-            item = QStandardItem()
-            item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-            item.setData(
-                QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0
-            )
-            #   item.setToolTip(cdate)
-            row.append(item)
-            item = QStandardItem(os.path.join(foldercont[0], i))
-            row.append(item)
-
-            model.appendRow(row)
-
-        self.tw_fFiles.setModel(model)
-        self.tw_fFiles.setColumnHidden(2, True)
-        self.tw_fFiles.resizeColumnsToContents()
-        self.tw_fFiles.setColumnWidth(0, self.tw_fFiles.columnWidth(0) + 1)
-        self.tw_fFiles.sortByColumn(twSorting[0], twSorting[1])
-
-        for i in range(len(self.fhierarchy)):
-            self.fhbuttons[i].setHidden(False)
-            self.fhbuttons[i].setText(self.fhierarchy[i])
-
-        for i in range(10, len(self.fhierarchy), -1):
-            self.fhbuttons[i - 1].setHidden(True)
-
-    @err_catcher(name=__name__)
-    def setRecent(self):
-        model = QStandardItemModel()
-
-        model.setHorizontalHeaderLabels(
-            [
-                "",
-                self.tableColumnLabels["Name"],
-                self.tableColumnLabels["Step"],
-                self.tableColumnLabels["Version"],
-                self.tableColumnLabels["Comment"],
-                self.tableColumnLabels["Date"],
-                self.tableColumnLabels["User"],
-                "Filepath",
-            ]
-        )
-        # example filename: Body_mod_v0002_details-added_rfr_.max
-        # example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
-        rSection = "recent_files_" + self.core.projectName
-
-        rcData = {}
-
-        rcData["recent01"] = [rSection, "recent01"]
-        rcData["recent02"] = [rSection, "recent02"]
-        rcData["recent03"] = [rSection, "recent03"]
-        rcData["recent04"] = [rSection, "recent04"]
-        rcData["recent05"] = [rSection, "recent05"]
-        rcData["recent06"] = [rSection, "recent06"]
-        rcData["recent07"] = [rSection, "recent07"]
-        rcData["recent08"] = [rSection, "recent08"]
-        rcData["recent09"] = [rSection, "recent09"]
-        rcData["recent10"] = [rSection, "recent10"]
-
-        rcData = self.core.getConfig(data=rcData)
-        recentfiles = [rcData[x] for x in sorted(rcData)]
-
-        for i in recentfiles:
-            if i is None:
-                continue
-
-            row = []
-            fname = self.core.getScenefileData(i)
-            if fname["entity"] == "invalid":
-                continue
-            if os.path.exists(i):
-                if pVersion == 2:
-                    item = QStandardItem(unicode("█", "utf-8"))
-                else:
-                    item = QStandardItem("█")
-                item.setFont(QFont("SansSerif", 100))
-                item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
-                item.setData(i, Qt.UserRole)
-
-                colorVals = [128, 128, 128]
-                if fname["extension"] in self.core.appPlugin.sceneFormats:
-                    colorVals = self.core.appPlugin.appColor
-                else:
-                    for k in self.core.unloadedAppPlugins.values():
-                        if fname["extension"] in k.sceneFormats:
-                            colorVals = k.appColor
-
-                item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
-
-                row.append(item)
-                if fname["entity"] == "asset":
-                    item = QStandardItem(fname["entityName"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    item = QStandardItem(fname["step"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    item = QStandardItem(fname["version"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    if fname["comment"] == "nocomment":
-                        item = QStandardItem("")
-                    else:
-                        item = QStandardItem(fname["comment"])
-                    row.append(item)
-                    cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
-                    cdate = cdate.replace(microsecond=0)
-                    cdate = cdate.strftime("%d.%m.%y,  %X")
-                    item = QStandardItem(str(cdate))
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    item.setData(
-                        QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(
-                            100
-                        ),
-                        0,
-                    )
-                    #   item.setToolTip(cdate)
-                    row.append(item)
-                    item = QStandardItem(fname["user"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                elif fname["entity"] == "shot":
-                    item = QStandardItem(fname["entityName"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    item = QStandardItem(fname["step"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    item = QStandardItem(fname["version"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                    if fname["comment"] == "nocomment":
-                        item = QStandardItem("")
-                    else:
-                        item = QStandardItem(fname["comment"])
-                    row.append(item)
-                    cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
-                    cdate = cdate.replace(microsecond=0)
-                    cdate = cdate.strftime("%d.%m.%y,  %X")
-                    item = QStandardItem(str(cdate))
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    item.setData(
-                        QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(
-                            100
-                        ),
-                        0,
-                    )
-                    #   item.setToolTip(cdate)
-                    row.append(item)
-                    item = QStandardItem(fname["user"])
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
-                else:
-                    continue
-
-                item = QStandardItem(i)
-                item.setToolTip(i)
-                row.append(item)
-
-                model.appendRow(row)
-
-        self.tw_recent.setModel(model)
-        self.tw_recent.resizeColumnsToContents()
-        self.tw_recent.horizontalHeader().setMinimumSectionSize(10)
-        self.tw_recent.setColumnWidth(0, 10 * self.core.uiScaleFactor)
-        #   self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
-        #   self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)
-        #   self.tw_recent.setColumnWidth(6,50*self.core.uiScaleFactor)
-
-        if psVersion == 1:
-            self.tw_recent.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
-        else:
-            self.tw_recent.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-
-    @err_catcher(name=__name__)
-    def refreshCurrent(self):
-        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
-            self.refreshAFile()
-        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
-            self.refreshSFile()
-        elif self.tbw_browser.currentWidget().property("tabType") == "Files":
-            self.refreshFCat()
-        elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
-            self.setRecent()
-
-    @err_catcher(name=__name__)
-    def FCatclicked(self, index):
-        if index.row() != -1:
-            for i in os.walk(self.fpath + index.data()):
-                foldercont = i
-                break
-            if len(foldercont[1]) != 0 and len(self.fhierarchy) < 10:
-                self.dclick = False
-                self.fhierarchy.append(index.data())
-                self.fbottom = False
-            else:
-                self.fbottom = True
-            self.fclickedon = index.data()
-        self.refreshFCat()
-
-    @err_catcher(name=__name__)
-    def filehiera(self, hieranum):
-        self.fhierarchy = self.fhierarchy[:hieranum]
-        self.fbottom = False
-        self.refreshFCat()
-
-    @err_catcher(name=__name__)
-    def triggerOpen(self, checked=False):
-        self.core.setConfig("globals", "showonstartup", str(checked))
-
-    @err_catcher(name=__name__)
-    def triggerUpdates(self, checked=False):
-        self.core.setConfig("globals", "checkversions", str(checked))
-
-    @err_catcher(name=__name__)
-    def triggerFrameranges(self, checked=False):
-        self.core.setConfig("globals", "checkframeranges", str(checked))
-
-    @err_catcher(name=__name__)
-    def triggerCloseLoad(self, checked=False):
-        self.core.setConfig("browser", self.closeParm, str(checked))
-
-    @err_catcher(name=__name__)
-    def triggerAutoplay(self, checked=False, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        self.core.setConfig("browser", "autoplaypreview", str(checked))
-
-        if "timeline" in mediaPlayback:
-            if checked and mediaPlayback["timeline"].state() == QTimeLine.Paused:
-                mediaPlayback["timeline"].setPaused(False)
-            elif not checked and mediaPlayback["timeline"].state() == QTimeLine.Running:
-                mediaPlayback["timeline"].setPaused(True)
-        else:
-            mediaPlayback["tlPaused"] = not checked
-
-    @err_catcher(name=__name__)
-    def triggerAssets(self, checked=False):
-        if checked:
-            self.tbw_browser.insertTab(
-                self.tabOrder["Assets"]["order"],
-                self.t_assets,
-                self.tabLabels["Assets"],
-            )
-            if self.tbw_browser.count() == 1:
-                self.tbw_browser.setVisible(True)
-        else:
-            self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_assets))
-            if self.tbw_browser.count() == 0:
-                self.tbw_browser.setVisible(False)
-
-    @err_catcher(name=__name__)
-    def triggerShots(self, checked=False):
-        if checked:
-            self.tbw_browser.insertTab(
-                self.tabOrder["Shots"]["order"], self.t_shots, self.tabLabels["Shots"]
-            )
-            if self.tbw_browser.count() == 1:
-                self.tbw_browser.setVisible(True)
-        else:
-            self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_shots))
-            if self.tbw_browser.count() == 0:
-                self.tbw_browser.setVisible(False)
-
-    @err_catcher(name=__name__)
-    def triggerFiles(self, checked=False):
-        if checked:
-            self.tbw_browser.insertTab(
-                self.tabOrder["Files"]["order"], self.t_files, self.tabLabels["Files"]
-            )
-            if self.tbw_browser.count() == 1:
-                self.tbw_browser.setVisible(True)
-        else:
-            self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_files))
-            if self.tbw_browser.count() == 0:
-                self.tbw_browser.setVisible(False)
-
-    @err_catcher(name=__name__)
-    def triggerRecent(self, checked=False):
-        if checked:
-            self.tbw_browser.insertTab(
-                self.tabOrder["Recent"]["order"],
-                self.t_recent,
-                self.tabLabels["Recent"],
-            )
-            if self.tbw_browser.count() == 1:
-                self.tbw_browser.setVisible(True)
-        else:
-            self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_recent))
-            if self.tbw_browser.count() == 0:
-                self.tbw_browser.setVisible(False)
-
-    @err_catcher(name=__name__)
-    def triggerRenderings(self, checked=False):
-        if (
-            self.tbw_browser.currentWidget()
-            and self.tabOrder[self.tbw_browser.currentWidget().property("tabType")][
-                "showRenderings"
-            ]
-        ):
-            self.gb_renderings.setVisible(checked)
-
-    @err_catcher(name=__name__)
-    def createCatWin(self, tab, name, startText=""):
-        if tab == "ah":
-            mode = "assetHierarchy"
-        elif tab == "ac":
-            mode = "assetCategory"
-        elif tab == "sc":
-            mode = "shotCategory"
-        else:
-            mode = ""
-
-        self.newItem = CreateItem.CreateItem(startText=startText, core=self.core, showType=tab == "ah", mode=mode)
-
-        self.newItem.setModal(True)
-        self.core.parentWindow(self.newItem)
-        self.newItem.e_item.setFocus()
-        self.newItem.setWindowTitle("Create " + name)
-        nameLabel = "Name:" if name == "Entity" else name + " Name:"
-        self.newItem.l_item.setText(nameLabel)
-        self.newItem.accepted.connect(lambda: self.createCat(tab))
-
-        if tab == "ah":
-            self.core.callback(
-                name="onAssetDlgOpen", types=["custom"], args=[self, self.newItem]
-            )
-        elif tab in ["ac", "sc"]:
-            self.core.callback(
-                name="onCategroyDlgOpen", types=["custom"], args=[self, self.newItem]
-            )
-
-        self.newItem.show()
-
-    @err_catcher(name=__name__)
-    def createCat(self, tab):
-        self.activateWindow()
-        self.itemName = self.newItem.e_item.text()
-
-        if tab == "ah":
-            curItem = self.tw_aHierarchy.currentItem()
-            if curItem is None:
-                path = self.aBasePath
-            else:
-                path = self.tw_aHierarchy.currentItem().text(1)
-            refresh = self.refreshAHierarchy
-            uielement = self.tw_aHierarchy
-        elif tab == "ac":
-            path = os.path.join(self.curAsset, "Scenefiles", self.curaStep)
-            refresh = self.refreshaCat
-            uielement = self.lw_aCategory
-            self.curaCat = self.itemName
-        elif tab == "sc":
-            path = os.path.join(
-                self.sBasePath, self.cursShots, "Scenefiles", self.cursStep
-            )
-            refresh = self.refreshsCat
-            uielement = self.lw_sCategory
-            self.cursCat = self.itemName
-        elif tab == "f":
-            path = self.fpath
-            hiera = self.fhierarchy
-            clickedon = self.fclickedon
-            refresh = self.refreshFCat
-            uielement = self.lw_fCategory
-            self.fbottom = True
-
-        if tab == "f" and self.newItem.windowTitle() == "Create Sub-Category":
-            if len(hiera) < 10:
-                try:
-                    os.makedirs(os.path.join(path, clickedon, self.itemName))
-                except:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Warning",
-                        "The directory could not be created",
-                    )
-                    return None
-
-                self.fhierarchy.append(self.fclickedon)
-        elif tab == "ah" and self.newItem.rb_asset.isChecked():
-            assetPath = os.path.join(path, self.itemName)
-            self.createShotFolders(assetPath, "asset")
-            self.core.callback(
-                name="onAssetCreated",
-                types=["custom"],
-                args=[self, self.itemName, path, self.newItem],
-            )
-            for i in self.core.prjManagers.values():
-                i.assetCreated(self, self.newItem, assetPath)
-        elif tab == "sc":
-            catPath = os.path.join(path, self.itemName)
-            self.createCategory(self.itemName, catPath)
-        else:
-            dirName = os.path.join(path, self.itemName)
-            if not os.path.exists(dirName):
-                try:
-                    os.makedirs(dirName)
-                except:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Warning",
-                        "The directory could not be created",
-                    )
-                    return None
-            else:
-                QMessageBox.warning(
-                    self.core.messageParent, "Warning", "The directory already exists"
-                )
-
-        if tab == "f":
-            self.fclickedon = self.itemName
-
-        refresh()
-        if tab == "ah":
-            self.navigateToCurrent(path=os.path.join(path, self.itemName))
-            if "createAsset" in self.newItem.postEvents:
-                self.createCatWin("ah", "Entity")
-            elif "createCategory" in self.newItem.postEvents:
-                self.createStepWindow("a")
-        else:
-            for i in range(uielement.model().rowCount()):
-                if uielement.model().index(i, 0).data() == self.itemName:
-                    uielement.selectionModel().setCurrentIndex(
-                        uielement.model().index(i, 0),
-                        QItemSelectionModel.ClearAndSelect,
-                    )
-
-    @err_catcher(name=__name__)
-    def createShotFolders(self, entityName, entityType, folders=[]):
-        if entityType == "asset":
-            basePath = self.aBasePath
-            entityName = entityName.replace(self.aBasePath, "")
-            if entityName[0] in ["/", "\\"]:
-                entityName = entityName[1:]
-        else:
-            basePath = self.sBasePath
-
-        sBase = os.path.join(basePath, entityName)
-
-        if os.path.exists(sBase) and not folders:
-            if entityName in self.omittedEntities[entityType] and self.core.uiAvailable:
-                msgText = (
-                    "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?"
-                    % (entityType, entityName)
-                )
-                if psVersion == 1:
-                    flags = QMessageBox.StandardButton.Yes
-                    flags |= QMessageBox.StandardButton.No
-                    result = QMessageBox.question(
-                        self.core.messageParent, "Warning", msgText, flags
-                    )
-                else:
-                    result = QMessageBox.question(
-                        self.core.messageParent, "Warning", msgText
-                    )
-
-                if str(result).endswith(".Yes"):
-                    omitPath = os.path.join(
-                        os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
-                    )
-                    items = self.core.getConfig(
-                        entityType, configPath=omitPath, getItems=True
-                    )
-                    eItem = [x[0] for x in items if x[1] == entityName]
-                    if len(eItem) > 0:
-                        self.core.setConfig(
-                            entityType, eItem[0], configPath=omitPath, delete=True
-                        )
-                else:
-                    return
-            else:
-                self.core.popup("The %s %s already exists" % (entityType, entityName))
-                return True
-
-        if not folders:
-            folders = [
-                "Scenefiles",
-                "Export",
-                "Playblasts",
-                "Rendering/3dRender",
-                "Rendering/2dRender",
-            ]
-
-        sFolders = []
-        for f in folders:
-            sFolders.append(os.path.join(sBase, f))
-
-        for i in sFolders:
-            if not os.path.exists(i):
-                os.makedirs(i)
-
-        return sBase
-
-    @err_catcher(name=__name__)
-    def createStepWindow(self, tab):
-        if tab == "a":
-            basePath = os.path.join(self.curAsset, "Scenefiles")
-        elif tab == "s":
-            basePath = os.path.join(self.sBasePath, self.cursShots, "Scenefiles")
-        else:
-            return
-
-        steps = self.getSteps()
-        steps = {
-            validSteps: steps[validSteps]
-            for validSteps in steps
-            if not os.path.exists(os.path.join(basePath, validSteps))
-        }
-
-        self.getStep(steps, tab)
-
-    @err_catcher(name=__name__)
-    def getSteps(self):
-        try:
-            steps = ast.literal_eval(
-                self.core.getConfig(
-                    "globals", "pipeline_steps", configPath=self.core.prismIni
-                )
-            )
-        except:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "Could not read steps from configuration file.\nCheck this file for errors:\n\n%s"
-                % self.core.prismIni,
-            )
-            return
-
-        if type(steps) != dict:
-            steps = {}
-
-        return steps
-
-    @err_catcher(name=__name__)
-    def createStep(
-        self, stepName, entity="shot", entityName="", stepPath="", createCat=True
-    ):
-        if not stepPath:
-            if entity == "asset":
-                for i in self.core.getAssetPaths():
-                    if os.path.basename(i) == entityName:
-                        stepPath = os.path.join(i, "Scenefiles", stepName)
-                        break
-                else:
-                    self.core.popup(
-                        "Asset '%s' doesn't exist. Could not create step." % entityName
-                    )
-                    return
-
-            elif entity == "shot":
-                stepPath = os.path.join(
-                    self.sBasePath, entityName, "Scenefiles", stepName
-                )
-
-        if not os.path.exists(stepPath):
-            try:
-                os.makedirs(stepPath)
-            except:
-                self.core.popup("The directory %s could not be created" % stepName)
-                return False
-
-        settings = {
-            "createDefaultCategory": (
-                entity == "shot"
-                or self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
-                != "lower"
-            )
-            and createCat
-        }
-
-        self.core.callback(
-            name="onStepCreated",
+            name="projectBrowserContextMenuRequested",
             types=["custom"],
-            args=[self, entity, stepName, stepPath, settings],
+            args=[self, menuType, menu],
         )
-
-        if settings["createDefaultCategory"]:
-            path = self.createDefaultCat(stepName, stepPath)
-            return path
-
-        return stepPath
-
-    @err_catcher(name=__name__)
-    def createDefaultCat(self, step, path):
-        existingSteps = ast.literal_eval(
-            self.core.getConfig(
-                "globals", "pipeline_steps", configPath=self.core.prismIni
-            )
-        )
-        if step not in existingSteps:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "Step '%s' doesn't exist in the project config. Couldn't create default category."
-                % step,
-            )
+        if not menu:
             return
 
-        catName = existingSteps[step]
-        dstname = os.path.join(path, catName)
-        path = self.createCategory(catName, dstname)
-        return path
+        self.core.appPlugin.setRCStyle(self, menu)
+        menu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
-    def createCategory(self, catName, path):
-        if os.path.basename(path) != catName:
-            path = os.path.join(path, catName)
-
-        if not os.path.exists(path):
-            try:
-                os.makedirs(path)
-            except:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Warning",
-                    ("The directory %s could not be created" % path),
-                )
-                return
-            else:
-                self.core.callback(
-                    name="onCategoryCreated",
-                    types=["custom"],
-                    args=[self, catName, path],
-                )
-
-        return path
-
-    @err_catcher(name=__name__)
-    def openFFile(self):
-        if self.fbottom:
-            self.core.openFolder(self.fpath + self.fclickedon)
-        else:
-            self.core.openFolder(self.fpath)
-
-    @err_catcher(name=__name__)
-    def copyToGlobal(self, localPath, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        dstPath = localPath.replace(self.core.localProjectPath, self.core.projectPath)
-
-        if os.path.isdir(localPath):
-            if os.path.exists(dstPath):
-                for i in os.walk(dstPath):
-                    if i[2] != []:
-                        QMessageBox.information(
-                            self.core.messageParent,
-                            "Copy to global",
-                            "Found existing files in the global directory. Copy to global was canceled.",
-                        )
-                        return
-
-                shutil.rmtree(dstPath)
-
-            shutil.copytree(localPath, dstPath)
-
-            if "vidPrw" in mediaPlayback and not mediaPlayback["vidPrw"].closed:
-                for i in range(6):
-                    mediaPlayback["vidPrw"].close()
-                    time.sleep(0.5)
-                    if mediaPlayback["vidPrw"].closed:
-                        break
-
-            try:
-                shutil.rmtree(localPath)
-            except:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Copy to global",
-                    "Could not delete the local file. Probably it is used by another process.",
-                )
-
-            curTab = self.tbw_browser.currentWidget().property("tabType")
-            curData = [
-                curTab,
-                self.cursShots,
-                self.curRTask,
-                self.curRVersion,
-                self.curRLayer,
-            ]
-            self.updateTasks()
-            self.showRender(
-                curData[0],
-                curData[1],
-                curData[2],
-                curData[3].replace(" (local)", ""),
-                curData[4],
-            )
-        else:
-            if not os.path.exists(os.path.dirname(dstPath)):
-                os.makedirs(os.path.dirname(dstPath))
-
-            self.core.copySceneFile(localPath, dstPath)
-
-            self.refreshCurrent()
-
-    @err_catcher(name=__name__)
-    def editComment(self, filepath):
-        data = self.core.getScenefileData(filepath)
-        comment = data["comment"] if "comment" in data else ""
-
-        dlg_ec = CreateItem.CreateItem(core=self.core,  startText=comment, showType=False, valueRequired=False)
-
-        dlg_ec.setModal(True)
-        self.core.parentWindow(dlg_ec)
-        dlg_ec.e_item.setFocus()
-        dlg_ec.setWindowTitle("Edit Comment")
-        dlg_ec.l_item.setText("New comment:")
-
-        result = dlg_ec.exec_()
-
-        if not result:
-            return
-
-        if self.core.useLocalFiles:
-            localPath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
-            if os.path.exists(localPath):
-                localData = self.core.getScenefileData(localPath)
-                localData["comment"] = dlg_ec.e_item.text()
-                newPath = self.core.generateScenePath(**localData)
-                self.core.copySceneFile(localPath, newPath, mode="move")
-
-        if os.path.exists(filepath):
-            data["comment"] = dlg_ec.e_item.text()
-            newPath = self.core.generateScenePath(**data)
-            self.core.copySceneFile(filepath, newPath, mode="move")
-
-        self.refreshCurrent()
-        self.navigateToCurrent(path=newPath)
-
-    @err_catcher(name=__name__)
-    def omitEntity(self, eType, ePath):
-        msgText = (
-            'Are you sure you want to omit %s "%s"?\n\nThis will make the %s be ignored by Prism, but all scenefiles and renderings remain on the hard drive.'
-            % (eType.lower(), ePath, eType.lower())
-        )
-        if psVersion == 1:
-            flags = QMessageBox.StandardButton.Yes
-            flags |= QMessageBox.StandardButton.No
-            result = QMessageBox.question(
-                self.core.messageParent, "Warning", msgText, flags
-            )
-        else:
-            result = QMessageBox.question(self.core.messageParent, "Warning", msgText)
-
-        if str(result).endswith(".Yes"):
-            omitConfig = os.path.join(
-                os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
-            )
-
-            if not os.path.exists(os.path.dirname(omitConfig)):
-                os.makedirs(os.path.dirname(omitConfig))
-
-            if not os.path.exists(omitConfig):
-                open(omitConfig, "w").close()
-
-            oconfig = ConfigParser()
-            oconfig.read(omitConfig)
-
-            if not oconfig.has_section(eType):
-                oconfig.add_section(eType)
-
-            num = len(oconfig.options(eType))
-            oconfig.set(eType, str(num), ePath)
-
-            with open(omitConfig, "w") as inifile:
-                oconfig.write(inifile)
-
-            if eType == "asset":
-                self.refreshAHierarchy()
-            elif eType == "shot":
-                self.refreshShots()
-
-    @err_catcher(name=__name__)
-    def refreshOmittedEntities(self):
-        self.omittedEntities = {"asset": [], "shot": []}
-        omitPath = os.path.join(
-            os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
-        )
-        if os.path.exists(omitPath):
-            oconfig = ConfigParser()
-            oconfig.read(omitPath)
-
-            if oconfig.has_section("Shot"):
-                self.omittedEntities["shot"] = [x[1] for x in oconfig.items("Shot")]
-
-            if oconfig.has_section("Asset"):
-                self.omittedEntities["asset"] = [x[1] for x in oconfig.items("Asset")]
-
-    @err_catcher(name=__name__)
-    def navigateToCurrent(self, path=None):
-        if path is None:
-            fileName = self.core.getCurrentFileName()
-            fileNameData = self.core.getScenefileData(fileName)
-        else:
-            fileName = path
-            fileNameData = {"entity": "invalid"}
-
-        if os.path.join(self.core.projectPath, self.scenes) in fileName or (
-            self.core.useLocalFiles
-            and os.path.join(self.core.localProjectPath, self.scenes) in fileName
-        ):
-            if (
-                fileNameData["entity"] == "asset"
-                or self.aBasePath in fileName
-                or (
-                    self.core.useLocalFiles
-                    and (
-                        self.aBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        )
-                        in fileName
-                    )
-                )
-            ):
-                itemPath = fileName.replace(self.core.projectPath, "")
-                if self.core.useLocalFiles:
-                    itemPath = itemPath.replace(self.core.localProjectPath, "")
-                if not itemPath.startswith(os.sep):
-                    itemPath = os.sep + itemPath
-                itemPath = itemPath.replace(
-                    os.sep + os.path.join(self.scenes, os.path.join("Assets", "")), ""
-                )
-                hierarchy = itemPath.split(os.sep)
-                hierarchy = [x for x in hierarchy if x != ""]
-                hItem = self.tw_aHierarchy.findItems(hierarchy[0], Qt.MatchExactly, 0)
-                if len(hItem) == 0:
-                    return
-                hItem = hItem[-1]
-
-                endIdx = None
-                if len(hierarchy) > 1:
-                    hItem.setExpanded(True)
-                    if hItem.text(1) not in self.aExpanded:
-                        self.aExpanded.append(hItem.text(1))
-
-                    for idx, i in enumerate((hierarchy[1:])):
-                        for k in range(hItem.childCount() - 1, -1, -1):
-                            if hItem.child(k).text(0) == i:
-                                hItem = hItem.child(k)
-                                if len(hierarchy) > (idx + 2):
-                                    hItem.setExpanded(True)
-                                    if hItem.text(1) not in self.aExpanded:
-                                        self.aExpanded.append(hItem.text(1))
-                                break
-                        else:
-                            endIdx = idx + 1
-                            break
-
-                self.tw_aHierarchy.setCurrentItem(hItem)
-
-                if endIdx is not None and hierarchy[endIdx] == "Scenefiles":
-                    endIdx += 1
-
-                if endIdx is not None and endIdx < len(hierarchy):
-                    stepName = hierarchy[endIdx]
-                    fItems = self.lw_aPipeline.findItems(stepName, Qt.MatchExactly)
-                    if len(fItems) > 0:
-                        self.lw_aPipeline.setCurrentItem(fItems[0])
-                        if len(hierarchy) > (endIdx + 1):
-                            for i in range(self.tw_aFiles.model().rowCount()):
-                                if fileName == self.tw_aFiles.model().index(i, 0).data(
-                                    Qt.UserRole
-                                ):
-                                    idx = self.tw_aFiles.model().index(i, 0)
-                                    self.tw_aFiles.selectRow(idx.row())
-                                    break
-
-            elif (
-                fileNameData["entity"] == "shot"
-                or self.sBasePath in fileName
-                or (
-                    self.core.useLocalFiles
-                    and self.sBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-                    in fileName
-                )
-            ) and self.tw_sShot.topLevelItemCount() > 0:
-                fnamePath = fileName.replace(self.sBasePath, "")
-                if self.core.useLocalFiles:
-                    lbase = self.sBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-                    fnamePath = fnamePath.replace(lbase, "")
-
-                fnameData = fnamePath.replace(self.sBasePath, "").split(os.sep)
-                fnameData = [x for x in fnameData if x != ""]
-
-                shotName = stepName = catName = ""
-                if len(fnameData) > 0:
-                    shotName = fnameData[0]
-                if len(fnameData) > 2:
-                    stepName = fnameData[2]
-                if len(fnameData) > 3:
-                    catName = fnameData[3]
-
-                shotName, seqName = self.splitShotname(shotName)
-
-                for i in range(self.tw_sShot.topLevelItemCount()):
-                    sItem = self.tw_sShot.topLevelItem(i)
-                    if sItem.text(0) == seqName:
-                        if shotName == "":
-                            self.tw_sShot.setCurrentItem(sItem)
-                        else:
-                            sItem.setExpanded(True)
-                            for k in range(sItem.childCount()):
-                                shotItem = sItem.child(k)
-                                if shotItem.text(0) == shotName:
-                                    self.tw_sShot.setCurrentItem(shotItem)
-                                    break
-
-                if stepName != "":
-                    for i in range(self.lw_sPipeline.model().rowCount()):
-                        if stepName == self.lw_sPipeline.model().index(i, 0).data():
-                            idx = self.lw_sPipeline.model().index(i, 0)
-                            self.lw_sPipeline.selectionModel().setCurrentIndex(
-                                idx, QItemSelectionModel.ClearAndSelect
-                            )
-                            break
-                    if catName != "":
-                        for i in range(self.lw_sCategory.model().rowCount()):
-                            if catName == self.lw_sCategory.model().index(i, 0).data():
-                                idx = self.lw_sCategory.model().index(i, 0)
-                                self.lw_sCategory.selectionModel().setCurrentIndex(
-                                    idx, QItemSelectionModel.ClearAndSelect
-                                )
-                                break
-
-                        for i in range(self.tw_sFiles.model().rowCount()):
-                            if fileName == self.tw_sFiles.model().index(i, 0).data(
-                                Qt.UserRole
-                            ):
-                                idx = self.tw_sFiles.model().index(i, 0)
-                                self.tw_sFiles.selectRow(idx.row())
-                                break
-
-    @err_catcher(name=__name__)
-    def updateChanged(self, state):
-        if state:
-            self.updateTasks()
-
-    @err_catcher(name=__name__)
-    def refreshRender(self):
-        curTab = self.tbw_browser.currentWidget().property("tabType")
-        curData = [
-            curTab,
-            self.cursShots,
-            self.curRTask,
-            self.curRVersion,
-            self.curRLayer,
-        ]
-        self.updateTasks()
-        self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
-
-    @err_catcher(name=__name__)
-    def getMediaBasePath(self, entityName=None, entityType=None):
-        basePath = None
-        if entityName is None:
-            if entityType == "Assets":
-                if self.curAsset:
-                    basePath = self.curAsset
-            elif entityType == "Shots" and self.splitShotname(self.cursShots)[0]:
-                basePath = os.path.join(
-                    self.core.projectPath, self.scenes, "Shots", self.cursShots
-                )
-        else:
-            if entityType == "Assets":
-                pass
-            elif entityType == "Shots":
-                basePath = os.path.join(
-                    self.core.projectPath, self.scenes, "Shots", entityName
-                )
-
-        return basePath
-
-    @err_catcher(name=__name__)
-    def getMediaTasks(self, entityName=None, entityType=None):
-        mediaTasks = {"3d": [], "2d": [], "playblast": [], "external": []}
-
-        if entityType is None:
-            if not self.tbw_browser.currentWidget():
-                return mediaTasks
-
-            entityType = self.tbw_browser.currentWidget().property("tabType")
-
-        foldercont = []
-        self.renderBasePath = self.getMediaBasePath(entityName, entityType)
-
-        if self.renderBasePath is not None:
-            for i in os.walk(
-                os.path.join(self.renderBasePath, "Rendering", "3dRender")
-            ):
-                for k in sorted(i[1]):
-                    mediaTasks["3d"].append([k, "3d", os.path.join(i[0], k)])
-                break
-
-            for i in os.walk(
-                os.path.join(self.renderBasePath, "Rendering", "2dRender")
-            ):
-                for k in sorted(i[1]):
-                    mediaTasks["2d"].append([k + " (2d)", "2d", os.path.join(i[0], k)])
-                break
-
-            for i in os.walk(
-                os.path.join(self.renderBasePath, "Rendering", "external")
-            ):
-                for k in sorted(i[1]):
-                    mediaTasks["external"].append(
-                        [k + " (external)", "external", os.path.join(i[0], k)]
-                    )
-                break
-
-            for i in os.walk(os.path.join(self.renderBasePath, "Playblasts")):
-                for k in sorted(i[1]):
-                    mediaTasks["playblast"].append(
-                        [k + " (playblast)", "playblast", os.path.join(i[0], k)]
-                    )
-                break
-
-            if self.core.useLocalFiles:
-                for i in os.walk(
-                    os.path.join(
-                        self.renderBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Rendering",
-                        "3dRender",
-                    )
-                ):
-                    for k in sorted(i[1]):
-                        tname = k + " (local)"
-                        taskNames = [x[0] for x in mediaTasks["3d"]]
-                        if tname not in taskNames and k not in taskNames:
-                            mediaTasks["3d"].append(
-                                [tname, "3d", os.path.join(i[0], k)]
-                            )
-                    break
-
-                for i in os.walk(
-                    os.path.join(
-                        self.renderBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Rendering",
-                        "2dRender",
-                    )
-                ):
-                    for k in sorted(i[1]):
-                        tname = k + " (2d)"
-                        taskNames = [x[0] for x in mediaTasks["2d"]]
-                        if tname not in mediaTasks["2d"]:
-                            mediaTasks["2d"].append(
-                                [tname, "2d", os.path.join(i[0], k)]
-                            )
-                    break
-
-                for i in os.walk(
-                    os.path.join(
-                        self.renderBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Playblasts",
-                    )
-                ):
-                    for k in sorted(i[1]):
-                        tname = k + " (playblast)"
-                        taskNames = [x[0] for x in mediaTasks["playblast"]]
-                        if tname not in mediaTasks["playblast"]:
-                            mediaTasks["playblast"].append(
-                                [tname, "playblast", os.path.join(i[0], k)]
-                            )
-                    break
-
-        return mediaTasks
-
-    @err_catcher(name=__name__)
-    def updateTasks(self):
-        self.renderRefreshEnabled = False
-
-        self.curRTask = ""
-        self.lw_task.clear()
-
-        mediaTasks = self.getMediaTasks()
-        taskNames = []
-        for i in ["3d", "2d", "playblast", "external"]:
-            taskNames += sorted(list({x[0] for x in mediaTasks[i]}))
-
-        self.lw_task.addItems(taskNames)
-
-        mIdx = self.lw_task.findItems("main", (Qt.MatchExactly & Qt.MatchCaseSensitive))
-        if len(mIdx) > 0:
-            self.lw_task.setCurrentItem(mIdx[0])
-            self.curRTask = "main"
-        elif self.lw_task.count() > 0:
-            self.lw_task.setCurrentRow(0)
-
-        self.renderRefreshEnabled = True
-
-        self.updateVersions()
-
-    @err_catcher(name=__name__)
-    def updateVersions(self):
-        if not self.renderRefreshEnabled:
-            return
-
-        self.curRVersion = ""
-        self.lw_version.clear()
-
-        if len(self.lw_task.selectedItems()) == 1:
-            foldercont = self.getRenderVersions(task=self.curRTask)
-            foldercont.sort()
-            for i in reversed(foldercont):
-                item = QListWidgetItem(i)
-                if self.curRTask.endswith(" (playblast)"):
-                    versionInfoPath = os.path.join(
-                        self.renderBasePath,
-                        "Playblasts",
-                        self.curRTask.replace(" (playblast)", ""),
-                        i,
-                        "versioninfo.ini",
-                    )
-                elif self.curRTask.endswith(" (2d)"):
-                    versionInfoPath = os.path.join(
-                        self.renderBasePath,
-                        "Rendering",
-                        "2dRender",
-                        self.curRTask.replace(" (2d)", ""),
-                        i,
-                        "versioninfo.ini",
-                    )
-                elif self.curRTask.endswith(" (external)"):
-                    versionInfoPath = os.path.join(
-                        self.renderBasePath,
-                        "Rendering",
-                        "external",
-                        self.curRTask.replace(" (external)", ""),
-                        i,
-                        "versioninfo.ini",
-                    )
-                else:
-                    versionInfoPath = os.path.join(
-                        self.renderBasePath,
-                        "Rendering",
-                        "3dRender",
-                        self.curRTask,
-                        i,
-                        "versioninfo.ini",
-                    )
-
-                if self.core.useLocalFiles and i.endswith(" (local)"):
-                    versionInfoPath = versionInfoPath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-
-                if os.path.exists(versionInfoPath):
-                    vConfig = ConfigParser()
-                    vConfig.read(versionInfoPath)
-
-                    prjMngNames = [
-                        [x, x.lower() + "-url"] for x in self.core.prjManagers
-                    ]
-                    for i in prjMngNames:
-                        if vConfig.has_option("information", i[1]):
-                            f = item.font()
-                            f.setBold(True)
-                            item.setFont(f)
-                            break
-
-                self.lw_version.addItem(item)
-
-        self.renderRefreshEnabled = False
-        self.lw_version.setCurrentRow(0)
-        self.renderRefreshEnabled = True
-
-        if self.lw_version.currentItem() is not None:
-            self.curRVersion = self.lw_version.currentItem().text()
-
-        self.updateLayers()
-
-    @err_catcher(name=__name__)
-    def updateLayers(self):
-        if not self.renderRefreshEnabled:
-            return
-
-        self.curRLayer = ""
-        self.cb_layer.clear()
-
-        if len(self.lw_version.selectedItems()) == 1:
-            foldercont = self.getRenderLayers(self.curRTask, self.curRVersion)
-            for i in foldercont:
-                self.cb_layer.addItem(i)
-
-        self.cb_layer.blockSignals(True)
-        bIdx = self.cb_layer.findText("beauty")
-        if bIdx != -1:
-            self.cb_layer.setCurrentIndex(bIdx)
-        else:
-            bIdx = self.cb_layer.findText("rgba")
-            if bIdx != -1:
-                self.cb_layer.setCurrentIndex(bIdx)
-            else:
-                self.cb_layer.setCurrentIndex(0)
-        self.cb_layer.blockSignals(False)
-
-        if self.cb_layer.currentIndex() != -1:
-            self.curRLayer = self.cb_layer.currentText()
-        else:
-            self.updatePreview()
-
-    @err_catcher(name=__name__)
-    def getRenderVersions(self, task="", taskPath=None):
-        foldercont = []
-
-        if taskPath is None:
-            if self.renderBasePath is None:
-                return foldercont
-
-            if task.endswith(" (playblast)"):
-                taskPath = os.path.join(
-                    self.renderBasePath, "Playblasts", task.replace(" (playblast)", "")
-                )
-            elif task.endswith(" (2d)"):
-                taskPath = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "2dRender",
-                    task.replace(" (2d)", ""),
-                )
-            elif task.endswith(" (external)"):
-                taskPath = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "external",
-                    task.replace(" (external)", ""),
-                )
-            else:
-                taskPath = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "3dRender",
-                    task.replace(" (local)", ""),
-                )
-
-        for i in os.walk(taskPath):
-            foldercont = i[1]
-            break
-
-        if self.core.useLocalFiles:
-            for i in os.walk(
-                taskPath.replace(self.core.projectPath, self.core.localProjectPath)
-            ):
-                for k in i[1]:
-                    foldercont.append(k + " (local)")
-                break
-
-        return foldercont
-
-    @err_catcher(name=__name__)
-    def getRenderLayerPath(self, task, version):
-        if version.endswith(" (local)"):
-            rPath = os.path.join(
-                self.renderBasePath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                ),
-                "Rendering",
-                "3dRender",
-                task.replace(" (local)", ""),
-                version.replace(" (local)", ""),
-            )
-        else:
-            rPath = os.path.join(
-                self.renderBasePath, "Rendering", "3dRender", task, version
-            )
-
-        return rPath
-
-    @err_catcher(name=__name__)
-    def getRenderLayers(self, task, version):
-        foldercont = []
-        if self.renderBasePath is None:
-            return foldercont
-
-        if (
-            " (playblast)" not in task
-            and " (2d)" not in task
-            and " (external)" not in task
-        ):
-            rPath = self.getRenderLayerPath(task, version)
-
-            for i in os.walk(rPath):
-                foldercont = i[1]
-                break
-
-        return foldercont
-
-    @err_catcher(name=__name__)
-    def getShotMediaPath(self):
-        foldercont = [None, None, None]
-        if (
-            len(self.lw_task.selectedItems()) > 1
-            or len(self.lw_version.selectedItems()) > 1
-        ):
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-            mediaPlayback["l_info"].setText("Multiple items selected")
-            mediaPlayback["l_info"].setToolTip("")
-            mediaPlayback["l_date"].setText("")
-            self.b_addRV.setEnabled(True)
-            self.b_compareRV.setEnabled(True)
-            self.b_combineVersions.setEnabled(True)
-            return ["multiple", None, None]
-        else:
-            self.b_addRV.setEnabled(False)
-            if len(self.compareStates) == 0:
-                self.b_compareRV.setEnabled(False)
-                self.b_combineVersions.setEnabled(False)
-
-            if self.curRLayer != "":
-                rPath = self.getRenderLayerPath(self.curRTask, self.curRVersion)
-                rPath = os.path.join(rPath, self.curRLayer)
-
-                for i in os.walk(rPath):
-                    foldercont = i
-                    break
-            elif self.curRTask.endswith(" (2d)"):
-                if self.curRVersion.endswith(" (local)"):
-                    base = self.renderBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-                else:
-                    base = self.renderBasePath
-                for i in os.walk(
-                    os.path.join(
-                        base,
-                        "Rendering",
-                        "2dRender",
-                        self.curRTask.replace(" (2d)", ""),
-                        self.curRVersion.replace(" (local)", ""),
-                    )
-                ):
-                    foldercont = i
-                    break
-            elif self.curRTask.endswith(" (playblast)"):
-                if self.curRVersion.endswith(" (local)"):
-                    base = self.renderBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-                else:
-                    base = self.renderBasePath
-                for i in os.walk(
-                    os.path.join(
-                        base,
-                        "Playblasts",
-                        self.curRTask.replace(" (playblast)", ""),
-                        self.curRVersion.replace(" (local)", ""),
-                    )
-                ):
-                    foldercont = i
-                    break
-            elif self.curRTask.endswith(" (external)"):
-                redirectFile = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "external",
-                    self.curRTask.replace(" (external)", ""),
-                    self.curRVersion,
-                    "REDIRECT.txt",
-                )
-
-                if os.path.exists(redirectFile):
-                    with open(redirectFile, "r") as rfile:
-                        rpath = rfile.read()
-
-                    if os.path.splitext(rpath)[1] == "":
-                        for i in os.walk(rpath):
-                            foldercont = i
-                            break
-                    else:
-                        files = []
-                        if os.path.exists(rpath):
-                            files = [os.path.basename(rpath)]
-                        foldercont = [os.path.dirname(rpath), [], files]
-
-        return foldercont
-
-    @err_catcher(name=__name__)
-    def updatePreview(self, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        if "timeline" in mediaPlayback:
-            if mediaPlayback["timeline"].state() != QTimeLine.NotRunning:
-                if mediaPlayback["timeline"].state() == QTimeLine.Running:
-                    mediaPlayback["tlPaused"] = False
-                elif mediaPlayback["timeline"].state() == QTimeLine.Paused:
-                    mediaPlayback["tlPaused"] = True
-                mediaPlayback["timeline"].stop()
-        else:
-            mediaPlayback["tlPaused"] = not self.actionAutoplay.isChecked()
-
-        mediaPlayback["sl_preview"].setValue(0)
-        mediaPlayback["prevCurImg"] = 0
-        mediaPlayback["curImg"] = 0
-        mediaPlayback["seq"] = []
-        mediaPlayback["prvIsSequence"] = False
-
-        QPixmapCache.clear()
-
-        mediaBase, mediaFolders, mediaFiles = mediaPlayback["getMediaBase"]()
-
-        if mediaBase != "multiple":
-            if mediaBase is not None:
-                mediaPlayback["basePath"] = mediaBase
-                base = None
-                for i in sorted(mediaFiles):
-                    if os.path.splitext(i)[1] in [
-                        ".jpg",
-                        ".jpeg",
-                        ".JPG",
-                        ".png",
-                        ".tif",
-                        ".tiff",
-                        ".exr",
-                        ".dpx",
-                        ".mp4",
-                        ".mov",
-                    ]:
-                        base = i
-                        break
-
-                if base is not None:
-                    baseName, extension = os.path.splitext(base)
-                    for i in sorted(mediaFiles):
-                        if i.startswith(baseName[:-4]) and (i.endswith(extension)):
-                            mediaPlayback["seq"].append(i)
-
-                    if len(mediaPlayback["seq"]) > 1 and extension not in [
-                        ".mp4",
-                        ".mov",
-                    ]:
-                        mediaPlayback["prvIsSequence"] = True
-                        try:
-                            mediaPlayback["pstart"] = int(baseName[-4:])
-                        except:
-                            mediaPlayback["pstart"] = "?"
-
-                        try:
-                            mediaPlayback["pend"] = int(
-                                os.path.splitext(
-                                    mediaPlayback["seq"][len(mediaPlayback["seq"]) - 1]
-                                )[0][-4:]
-                            )
-                        except:
-                            mediaPlayback["pend"] = "?"
-
-                    else:
-                        mediaPlayback["prvIsSequence"] = False
-                        mediaPlayback["seq"] = []
-                        for i in mediaFiles:
-                            if os.path.splitext(i)[1] in [
-                                ".jpg",
-                                ".jpeg",
-                                ".JPG",
-                                ".png",
-                                ".tif",
-                                ".tiff",
-                                ".exr",
-                                ".dpx",
-                                ".mp4",
-                                ".mov",
-                            ]:
-                                mediaPlayback["seq"].append(i)
-
-                    if not (
-                        self.curRTask == ""
-                        or self.curRVersion == ""
-                        or len(mediaPlayback["seq"]) == 0
-                    ):
-                        self.b_addRV.setEnabled(True)
-
-                    mediaPlayback["pduration"] = len(mediaPlayback["seq"])
-                    imgPath = str(os.path.join(mediaBase, base))
-                    if (
-                        os.path.exists(imgPath)
-                        and mediaPlayback["pduration"] == 1
-                        and os.path.splitext(imgPath)[1] in [".mp4", ".mov"]
-                    ):
-                        if os.stat(imgPath).st_size == 0:
-                            mediaPlayback["vidPrw"] = "Error"
-                        else:
-                            try:
-                                mediaPlayback["vidPrw"] = imageio.get_reader(
-                                    imgPath, "ffmpeg"
-                                )
-                            except:
-                                mediaPlayback["vidPrw"] = "Error"
-
-                        self.updatePrvInfo(
-                            imgPath,
-                            vidReader=mediaPlayback["vidPrw"],
-                            mediaPlayback=mediaPlayback,
-                        )
-                    else:
-                        self.updatePrvInfo(imgPath, mediaPlayback=mediaPlayback)
-
-                    if os.path.exists(imgPath):
-                        mediaPlayback["timeline"] = QTimeLine(
-                            mediaPlayback["pduration"] * 40, self
-                        )
-                        mediaPlayback["timeline"].setFrameRange(
-                            0, mediaPlayback["pduration"] - 1
-                        )
-                        mediaPlayback["timeline"].setEasingCurve(QEasingCurve.Linear)
-                        mediaPlayback["timeline"].setLoopCount(0)
-                        mediaPlayback["timeline"].frameChanged.connect(
-                            lambda x: self.changeImg(x, mediaPlayback=mediaPlayback)
-                        )
-                        QPixmapCache.setCacheLimit(2097151)
-                        mediaPlayback["curImg"] = 0
-                        mediaPlayback["timeline"].start()
-
-                        if mediaPlayback["tlPaused"]:
-                            mediaPlayback["timeline"].setPaused(True)
-                            self.changeImg(mediaPlayback=mediaPlayback)
-                        elif mediaPlayback["pduration"] < 3:
-                            self.changeImg(mediaPlayback=mediaPlayback)
-
-                        return True
-                else:
-                    self.updatePrvInfo(mediaPlayback=mediaPlayback)
-            else:
-                self.updatePrvInfo(mediaPlayback=mediaPlayback)
-
-        mediaPlayback["l_preview"].setPixmap(self.emptypmap)
-        mediaPlayback["sl_preview"].setEnabled(False)
-
-    @err_catcher(name=__name__)
-    def updatePrvInfo(self, prvFile="", vidReader=None, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        if not os.path.exists(prvFile):
-            mediaPlayback["l_info"].setText("No image found")
-            mediaPlayback["l_info"].setToolTip("")
-            mediaPlayback["l_date"].setText("")
-            mediaPlayback["l_preview"].setToolTip("")
-            return
-
-        mediaPlayback["pwidth"], mediaPlayback["pheight"] = self.getMediaResolution(
-            prvFile, vidReader=vidReader, setDuration=True, mediaPlayback=mediaPlayback
-        )
-
-        mediaPlayback["pformat"] = "*" + os.path.splitext(prvFile)[1]
-
-        cdate = datetime.datetime.fromtimestamp(os.path.getmtime(prvFile))
-        cdate = cdate.replace(microsecond=0)
-        pdate = cdate.strftime("%d.%m.%y,  %X")
-
-        mediaPlayback["sl_preview"].setEnabled(True)
-
-        if mediaPlayback["pduration"] == 1:
-            frStr = "frame"
-        else:
-            frStr = "frames"
-
-        if mediaPlayback["prvIsSequence"]:
-            infoStr = "%sx%s   %s   %s-%s (%s %s)" % (
-                mediaPlayback["pwidth"],
-                mediaPlayback["pheight"],
-                mediaPlayback["pformat"],
-                mediaPlayback["pstart"],
-                mediaPlayback["pend"],
-                mediaPlayback["pduration"],
-                frStr,
-            )
-        elif len(mediaPlayback["seq"]) > 1:
-            infoStr = "%s files %sx%s   %s   %s" % (
-                mediaPlayback["pduration"],
-                mediaPlayback["pwidth"],
-                mediaPlayback["pheight"],
-                mediaPlayback["pformat"],
-                os.path.basename(prvFile),
-            )
-        elif os.path.splitext(mediaPlayback["seq"][0])[1] in [".mp4", ".mov"]:
-            if mediaPlayback["pwidth"] == "?":
-                duration = "?"
-                frStr = "frames"
-            else:
-                duration = mediaPlayback["pduration"]
-
-            infoStr = "%sx%s   %s   %s %s" % (
-                mediaPlayback["pwidth"],
-                mediaPlayback["pheight"],
-                mediaPlayback["seq"][0],
-                duration,
-                frStr,
-            )
-        else:
-            infoStr = "%sx%s   %s" % (
-                mediaPlayback["pwidth"],
-                mediaPlayback["pheight"],
-                os.path.basename(prvFile),
-            )
-            mediaPlayback["sl_preview"].setEnabled(False)
-
-        mediaPlayback["l_info"].setText(infoStr)
-        mediaPlayback["l_info"].setToolTip(infoStr)
-        mediaPlayback["l_date"].setText(pdate)
-        mediaPlayback["l_preview"].setToolTip(
-            "Drag to drop the media to RV\nCtrl+Drag to drop the media to Nuke"
-        )
-
-    @err_catcher(name=__name__)
-    def getMediaResolution(
-        self, prvFile, vidReader=None, setDuration=False, mediaPlayback=None
-    ):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        pwidth = 0
-        pheight = 0
-
-        if os.path.splitext(prvFile)[1] in [
-            ".jpg",
-            ".jpeg",
-            ".JPG",
-            ".png",
-            ".tif",
-            ".tiff",
-        ]:
-            size = self.getImgPMap(prvFile).size()
-            pwidth = size.width()
-            pheight = size.height()
-        elif os.path.splitext(prvFile)[1] in [".exr", ".dpx"]:
-            pwidth = pheight = "?"
-            if self.oiioLoaded:
-                imgSpecs = oiio.ImageBuf(str(prvFile)).spec()
-                pwidth = imgSpecs.full_width
-                pheight = imgSpecs.full_height
-
-            elif self.wandLoaded:
-                try:
-                    with wand.image.Image(filename=prvFile) as img:
-                        pwidth = img.width
-                        pheight = img.height
-                except:
-                    pass
-
-        elif os.path.splitext(prvFile)[1] in [".mp4", ".mov"]:
-            if vidReader is None:
-                if os.stat(prvFile).st_size == 0:
-                    vidReader = "Error"
-                else:
-                    try:
-                        vidReader = imageio.get_reader(prvFile, "ffmpeg")
-                    except:
-                        vidReader = "Error"
-
-            if vidReader == "Error":
-                pwidth = pheight = "?"
-                if setDuration:
-                    mediaPlayback["pduration"] = 1
-            else:
-                pwidth = vidReader._meta["size"][0]
-                pheight = vidReader._meta["size"][1]
-                if len(mediaPlayback["seq"]) == 1 and setDuration:
-                    mediaPlayback["pduration"] = vidReader._meta["nframes"]
-
-        if pwidth == 0 and pheight == 0:
-            pwidth = pheight = "?"
-
-        return pwidth, pheight
-
-    @err_catcher(name=__name__)
-    def createPMap(self, resx, resy):
-        if resx == 300:
-            imgFile = os.path.join(
-                self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileBig.jpg"
-            )
-        else:
-            imgFile = os.path.join(
-                self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileSmall.jpg"
-            )
-
-        return self.getImgPMap(imgFile)
-
-    @err_catcher(name=__name__)
-    def getImgPMap(self, path):
-        if platform.system() == "Windows":
-            return QPixmap(path)
-        else:
-            try:
-                im = Image.open(path)
-                im = im.convert("RGBA")
-                r, g, b, a = im.split()
-                im = Image.merge("RGBA", (b, g, r, a))
-                data = im.tobytes("raw", "RGBA")
-
-                qimg = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
-
-                return QPixmap(qimg)
-            except:
-                return QPixmap(path)
-
-    @err_catcher(name=__name__)
-    def savePMap(self, pmap, path):
-        if not os.path.exists(os.path.dirname(path)):
-            os.makedirs(os.path.dirname(path))
-
-        if platform.system() == "Windows":
-            pmap.save(path, "JPG")
-        else:
-            try:
-                img = pmap.toImage()
-                buf = QBuffer()
-                buf.open(QIODevice.ReadWrite)
-                img.save(buf, "PNG")
-
-                strio = StringIO()
-                strio.write(buf.data())
-                buf.close()
-                strio.seek(0)
-                pimg = Image.open(strio)
-                pimg.save(path)
-            except:
-                pmap.save(path, "JPG")
-
-    @err_catcher(name=__name__)
-    def changeImg(self, frame=0, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        pmsmall = QPixmap()
-        if not QPixmapCache.find(("Frame" + str(mediaPlayback["curImg"])), pmsmall):
-            if len(mediaPlayback["seq"]) == 1 and os.path.splitext(
-                mediaPlayback["seq"][0]
-            )[1] in [".mp4", ".mov"]:
-                curFile = mediaPlayback["seq"][0]
-            else:
-                curFile = mediaPlayback["seq"][mediaPlayback["curImg"]]
-            fileName = os.path.join(mediaPlayback["basePath"], curFile)
-
-            if os.path.splitext(curFile)[1] in [
-                ".jpg",
-                ".jpeg",
-                ".JPG",
-                ".png",
-                ".tif",
-                ".tiff",
-            ]:
-                pm = self.getImgPMap(fileName)
-
-                if pm.width() == 0 or pm.height() == 0:
-                    pmsmall = self.getImgPMap(
-                        os.path.join(
-                            self.core.projectPath,
-                            "00_Pipeline",
-                            "Fallbacks",
-                            "%s.jpg" % os.path.splitext(curFile)[1][1:].lower(),
-                        )
-                    )
-                elif (pm.width() / float(pm.height())) > 1.7778:
-                    pmsmall = pm.scaledToWidth(self.renderResX)
-                else:
-                    pmsmall = pm.scaledToHeight(self.renderResY)
-            elif os.path.splitext(curFile)[1] in [".exr", ".dpx"]:
-                try:
-                    qimg = QImage(self.renderResX, self.renderResY, QImage.Format_RGB16)
-
-                    if self.oiioLoaded:
-                        imgSrc = oiio.ImageBuf(str(fileName))
-                        rgbImgSrc = oiio.ImageBuf()
-                        oiio.ImageBufAlgo.channels(rgbImgSrc, imgSrc, (0, 1, 2))
-                        imgWidth = rgbImgSrc.spec().full_width
-                        imgHeight = rgbImgSrc.spec().full_height
-                        xOffset = 0
-                        yOffset = 0
-                        if (imgWidth / float(imgHeight)) > 1.7778:
-                            newImgWidth = self.renderResX
-                            newImgHeight = self.renderResX / float(imgWidth) * imgHeight
-                        else:
-                            newImgHeight = self.renderResY
-                            newImgWidth = self.renderResY / float(imgHeight) * imgWidth
-                        imgDst = oiio.ImageBuf(
-                            oiio.ImageSpec(
-                                int(newImgWidth), int(newImgHeight), 3, oiio.UINT8
-                            )
-                        )
-                        oiio.ImageBufAlgo.resample(imgDst, rgbImgSrc)
-                        sRGBimg = oiio.ImageBuf()
-                        oiio.ImageBufAlgo.pow(
-                            sRGBimg, imgDst, (1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2)
-                        )
-                        bckImg = oiio.ImageBuf(
-                            oiio.ImageSpec(
-                                int(newImgWidth), int(newImgHeight), 3, oiio.UINT8
-                            )
-                        )
-                        oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
-                        oiio.ImageBufAlgo.paste(bckImg, xOffset, yOffset, 0, 0, sRGBimg)
-                        qimg = QImage(
-                            int(newImgWidth), int(newImgHeight), QImage.Format_RGB16
-                        )
-                        for i in range(int(newImgWidth)):
-                            for k in range(int(newImgHeight)):
-                                rgb = qRgb(
-                                    bckImg.getpixel(i, k)[0] * 255,
-                                    bckImg.getpixel(i, k)[1] * 255,
-                                    bckImg.getpixel(i, k)[2] * 255,
-                                )
-                                qimg.setPixel(i, k, rgb)
-                        pmsmall = QPixmap.fromImage(qimg)
-
-                    elif self.wandLoaded:
-                        with wand.image.Image(filename=fileName) as img:
-                            imgWidth, imgHeight = [img.width, img.height]
-                            img.depth = 8
-                            imgArr = numpy.fromstring(
-                                img.make_blob("RGB"), dtype="uint{}".format(img.depth)
-                            ).reshape(imgHeight, imgWidth, 3)
-
-                        qimg = QImage(imgArr, imgWidth, imgHeight, QImage.Format_RGB888)
-                        pm = QPixmap.fromImage(qimg)
-                        if (pm.width() / float(pm.height())) > 1.7778:
-                            pmsmall = pm.scaledToWidth(self.renderResX)
-                        else:
-                            pmsmall = pm.scaledToHeight(self.renderResY)
-
-                    else:
-                        raise RuntimeError("no image loader available")
-                except:
-                    pmsmall = self.getImgPMap(
-                        os.path.join(
-                            self.core.projectPath,
-                            "00_Pipeline",
-                            "Fallbacks",
-                            "%s.jpg" % os.path.splitext(curFile)[1][1:].lower(),
-                        )
-                    )
-            elif os.path.splitext(curFile)[1] in [".mp4", ".mov"]:
-                try:
-                    if len(mediaPlayback["seq"]) > 1:
-                        imgNum = 0
-                        vidFile = imageio.get_reader(fileName, "ffmpeg")
-                    else:
-                        imgNum = mediaPlayback["curImg"]
-                        vidFile = mediaPlayback["vidPrw"]
-
-                    image = vidFile.get_data(imgNum)
-                    qimg = QImage(
-                        image,
-                        vidFile._meta["size"][0],
-                        vidFile._meta["size"][1],
-                        QImage.Format_RGB888,
-                    )
-                    pm = QPixmap.fromImage(qimg)
-                    if (pm.width() / float(pm.height())) > 1.7778:
-                        pmsmall = pm.scaledToWidth(self.renderResX)
-                    else:
-                        pmsmall = pm.scaledToHeight(self.renderResY)
-                except:
-                    pmsmall = self.getImgPMap(
-                        os.path.join(
-                            self.core.projectPath,
-                            "00_Pipeline",
-                            "Fallbacks",
-                            "%s.jpg" % os.path.splitext(curFile)[1][1:].lower(),
-                        )
-                    )
-            else:
-                return False
-
-            QPixmapCache.insert(("Frame" + str(mediaPlayback["curImg"])), pmsmall)
-
-        if not mediaPlayback["prvIsSequence"] and len(mediaPlayback["seq"]) > 1:
-            curFile = mediaPlayback["seq"][mediaPlayback["curImg"]]
-            fileName = os.path.join(mediaPlayback["basePath"], curFile)
-            self.updatePrvInfo(fileName, mediaPlayback=mediaPlayback)
-
-        mediaPlayback["l_preview"].setPixmap(pmsmall)
-        if mediaPlayback["timeline"].state() == QTimeLine.Running:
-            mediaPlayback["sl_preview"].setValue(
-                int(100 * (mediaPlayback["curImg"] / float(mediaPlayback["pduration"])))
-            )
-        mediaPlayback["curImg"] += 1
-        if mediaPlayback["curImg"] == mediaPlayback["pduration"]:
-            mediaPlayback["curImg"] = 0
-
-    @err_catcher(name=__name__)
-    def taskClicked(self):
-        sItems = self.lw_task.selectedItems()
-        if len(sItems) == 1 and sItems[0].text() != self.curRTask:
-            self.curRTask = sItems[0].text()
-        else:
-            self.curRTask = ""
-
-        self.updateVersions()
-
-    @err_catcher(name=__name__)
-    def versionClicked(self):
-        sItems = self.lw_version.selectedItems()
-        if len(sItems) == 1 and sItems[0].text() != self.curRVersion:
-            self.curRVersion = sItems[0].text()
-        else:
-            self.curRVersion = ""
-
-        self.updateLayers()
-
-    @err_catcher(name=__name__)
-    def layerChanged(self, layer):
-        layertext = self.cb_layer.itemText(layer)
-        if layertext != "" and layer != self.curRLayer:
-            self.curRLayer = layertext
-            self.updatePreview()
-
-    @err_catcher(name=__name__)
-    def sliderChanged(self, val, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        if mediaPlayback["seq"] != []:
-            if (
-                val != (mediaPlayback["prevCurImg"] + 1)
-                or mediaPlayback["timeline"].state() != QTimeLine.Running
-            ):
-                mediaPlayback["prevCurImg"] = val
-                mediaPlayback["curImg"] = int(
-                    val / 99.0 * (mediaPlayback["pduration"] - 1)
-                )
-
-                if mediaPlayback["timeline"].state() != QTimeLine.Running:
-                    self.changeImg(mediaPlayback=mediaPlayback)
-            else:
-                mediaPlayback["prevCurImg"] = val
-
-    @err_catcher(name=__name__)
-    def saveClicked(self, num):
-        curTab = self.tbw_browser.currentWidget().property("tabType")
-        if curTab not in ["Assets", "Shots"]:
-            return False
-
-        btn = eval("self.b_saveRender" + str(num))
-        dataVar = eval("self.saveRender" + str(num))
-
-        if dataVar == []:
-            dataVar = [
-                curTab,
-                self.cursShots,
-                self.curRTask,
-                self.curRVersion,
-                self.curRLayer,
-            ]
-            self.core.appPlugin.setSaveColor(self, btn)
-
-            if curTab == "Assets":
-                btnText = self.curRTask
-            else:
-                btnText = self.cursShots
-
-            btn.setText(btnText)
-        else:
-            self.showRender(dataVar[0], dataVar[1], dataVar[2], dataVar[3], dataVar[4])
-
-        exec("self.saveRender%s = dataVar" % num)
-
-    @err_catcher(name=__name__)
-    def saverClicked(self, num):
-        btn = eval("self.b_saveRender" + str(num))
-        dataVar = eval("self.saveRender" + str(num))
-
-        btn.setText("--free--")
-        self.core.appPlugin.clearSaveColor(self, btn)
-        exec("self.saveRender%s = []" % num)
-
-    @err_catcher(name=__name__)
-    def getVersionInfoPath(self):
-        if self.curRVersion.endswith(" (local)"):
-            base = self.renderBasePath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-        else:
-            base = self.renderBasePath
-
-        if self.curRTask.endswith(" (playblast)"):
-            path = os.path.join(
-                base,
-                "Playblasts",
-                self.curRTask.replace(" (playblast)", ""),
-                self.curRVersion.replace(" (local)", ""),
-                "versioninfo.ini",
-            )
-        elif self.curRTask.endswith(" (2d)"):
-            path = os.path.join(
-                base,
-                "Rendering",
-                "2dRender",
-                self.curRTask.replace(" (2d)", ""),
-                self.curRVersion.replace(" (local)", ""),
-                "versioninfo.ini",
-            )
-        elif self.curRTask.endswith(" (external)"):
-            path = ""
-        else:
-            path = os.path.join(
-                base,
-                "Rendering",
-                "3dRender",
-                self.curRTask.replace(" (local)", ""),
-                self.curRVersion.replace(" (local)", ""),
-                "versioninfo.ini",
-            )
-
-        return path
-
-    @err_catcher(name=__name__)
-    def showVersionInfo(self, item=None):
-        vInfo = "No information is saved with this version."
-
-        path = self.getVersionInfoPath()
-
-        if os.path.exists(path):
-            vConfig = ConfigParser()
-            vConfig.read(path)
-
-            vInfo = []
-            for i in vConfig.options("information"):
-                i = i[0].upper() + i[1:]
-                vInfo.append([i, vConfig.get("information", i)])
-
-        if type(vInfo) == str or len(vInfo) == 0:
-            QMessageBox.information(self.core.messageParent, "Versioninfo", vInfo)
-            return
-
-        infoDlg = QDialog()
-        lay_info = QGridLayout()
-
-        infoDlg.setWindowTitle("Versioninfo %s %s:" % (self.curRTask, self.curRVersion))
-        for idx, val in enumerate(vInfo):
-            l_infoName = QLabel(val[0] + ":\t")
-            l_info = QLabel(val[1])
-            lay_info.addWidget(l_infoName)
-            lay_info.addWidget(l_info, idx, 1)
-
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        )
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
-        )
-
-        sa_info = QScrollArea()
-
-        lay_info.setContentsMargins(10, 10, 10, 10)
-        w_info = QWidget()
-        w_info.setLayout(lay_info)
-        sa_info.setWidget(w_info)
-        sa_info.setWidgetResizable(True)
-
-        bb_info = QDialogButtonBox()
-
-        bb_info.addButton("Ok", QDialogButtonBox.AcceptRole)
-
-        bb_info.accepted.connect(infoDlg.accept)
-
-        bLayout = QVBoxLayout()
-        bLayout.addWidget(sa_info)
-        bLayout.addWidget(bb_info)
-        infoDlg.setLayout(bLayout)
-        infoDlg.setParent(self.core.messageParent, Qt.Window)
-        infoDlg.resize(900 * self.core.uiScaleFactor, 200 * self.core.uiScaleFactor)
-
-        action = infoDlg.exec_()
-
-    @err_catcher(name=__name__)
-    def showDependencies(self):
-        path = self.getVersionInfoPath()
-
-        if not os.path.exists(path):
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "No dependency information was saved with this version.",
-            )
-            return
-
-        self.core.dependencyViewer(path)
-
-    @err_catcher(name=__name__)
-    def showRender(self, tab, shot, task, version, layer):
-        if tab != self.tbw_browser.currentWidget().property("tabType"):
-            for i in range(self.tbw_browser.count()):
-                if self.tbw_browser.widget(i).property("tabType") == tab:
-                    idx = i
-                    break
-            else:
-                return False
-
-            self.tbw_browser.setCurrentIndex(idx)
-
-        if tab == "Shots" and self.tw_sShot.currentIndex().data() != shot:
-            for i in range(self.tw_sShot.model().rowCount()):
-                if self.tw_sShot.model().index(i, 0).data() == shot:
-                    self.tw_sShot.selectionModel().setCurrentIndex(
-                        self.tw_sShot.model().index(i, 0),
-                        QItemSelectionModel.ClearAndSelect,
-                    )
-                    break
-
-        self.updateTasks()
-        if (
-            len(self.lw_task.findItems(task, (Qt.MatchExactly & Qt.MatchCaseSensitive)))
-            != 0
-        ):
-            self.lw_task.setCurrentItem(
-                self.lw_task.findItems(task, (Qt.MatchExactly & Qt.MatchCaseSensitive))[
-                    0
-                ]
-            )
-            if (
-                len(
-                    self.lw_version.findItems(
-                        version, (Qt.MatchExactly & Qt.MatchCaseSensitive)
-                    )
-                )
-                != 0
-            ):
-                self.lw_version.setCurrentItem(
-                    self.lw_version.findItems(
-                        version, (Qt.MatchExactly & Qt.MatchCaseSensitive)
-                    )[0]
-                )
-                if self.cb_layer.findText(layer) != -1:
-                    self.cb_layer.setCurrentIndex(self.cb_layer.findText(layer))
-                    self.updatePreview()
-
-    @err_catcher(name=__name__)
-    def previewClk(self, event, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        if mediaPlayback["seq"] != [] and event.button() == Qt.LeftButton:
-            if (
-                mediaPlayback["timeline"].state() == QTimeLine.Paused
-                and not mediaPlayback["openRV"]
-            ):
-                mediaPlayback["timeline"].setPaused(False)
-            else:
-                if mediaPlayback["timeline"].state() == QTimeLine.Running:
-                    mediaPlayback["timeline"].setPaused(True)
-                mediaPlayback["openRV"] = False
-        mediaPlayback["l_preview"].clickEvent(event)
-
-    @err_catcher(name=__name__)
-    def previewDclk(self, event, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        if mediaPlayback["seq"] != [] and event.button() == Qt.LeftButton:
-            mediaPlayback["openRV"] = True
-            self.compare(current=True, mediaPlayback=mediaPlayback)
-        mediaPlayback["l_preview"].dclickEvent(event)
-
-    @err_catcher(name=__name__)
-    def getShotMediaFolder(self):
-        if self.curRVersion == "" or (
-            self.curRLayer == ""
-            and not (
-                self.curRTask.endswith(" (playblast)")
-                or self.curRTask.endswith(" (2d)")
-                or self.curRTask.endswith(" (external)")
-            )
-        ):
-            return
-
-        if self.curRVersion.endswith(" (local)"):
-            base = self.renderBasePath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-        else:
-            base = self.renderBasePath
-
-        if self.curRTask.endswith(" (playblast)"):
-            path = os.path.join(
-                base,
-                "Playblasts",
-                self.curRTask.replace(" (playblast)", ""),
-                self.curRVersion.replace(" (local)", ""),
-                self.curRLayer,
-            )
-        elif self.curRTask.endswith(" (2d)"):
-            path = os.path.join(
-                base,
-                "Rendering",
-                "2dRender",
-                self.curRTask.replace(" (2d)", ""),
-                self.curRVersion.replace(" (local)", ""),
-                self.curRLayer,
-            )
-        elif self.curRTask.endswith(" (external)"):
-            redirectFile = os.path.join(
-                self.renderBasePath,
-                "Rendering",
-                "external",
-                self.curRTask.replace(" (external)", ""),
-                self.curRVersion,
-                "REDIRECT.txt",
-            )
-            path = ""
-            if os.path.exists(redirectFile):
-                with open(redirectFile, "r") as rfile:
-                    path = rfile.read()
-
-                if os.path.isfile(path):
-                    path = os.path.dirname(path)
-        else:
-            path = os.path.join(
-                base,
-                "Rendering",
-                "3dRender",
-                self.curRTask.replace(" (local)", ""),
-                self.curRVersion.replace(" (local)", ""),
-                self.curRLayer,
-            )
-
-        return path
-
-    @err_catcher(name=__name__)
-    def rclPreview(self, pos, mediaPlayback=None):
-        if mediaPlayback is None:
-            mediaPlayback = self.mediaPlaybacks["shots"]
-
-        path = mediaPlayback["getMediaBaseFolder"]()
-
-        if path is None:
+    def getMediaPreviewMenu(self, mediaPlayback=None):
+        path = mediaPlayback["getMediaBaseFolder"](
+                basepath=self.renderBasePath,
+                product=self.curRTask,
+                version=self.curRVersion,
+                layer=self.curRLayer
+            )[0]
+
+        if not path:
             return
 
         rcmenu = QMenu()
@@ -5960,8 +1347,3055 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             impAct.triggered.connect(lambda: self.core.appPlugin.importImages(self))
             rcmenu.addAction(impAct)
 
+        return rcmenu
+
+    @err_catcher(name=__name__)
+    def rclCat(self, tab, pos):
+        rcmenu = QMenu()
+        typename = "Category"
+        callbackName = ""
+
+        if tab == "ah":
+            lw = self.tw_aHierarchy
+            cItem = lw.itemFromIndex(lw.indexAt(pos))
+            if cItem is None:
+                path = self.aBasePath
+            else:
+                path = os.path.dirname(cItem.text(1))
+            typename = "Entity"
+            callbackName = "openPBAssetContextMenu"
+        elif tab == "ap":
+            lw = self.lw_aPipeline
+
+            if not self.curAsset:
+                return
+
+            path = self.core.getEntityPath(entity="step", asset=self.curAsset)
+            typename = "Step"
+            callbackName = "openPBAssetStepContextMenu"
+
+        elif tab == "ac":
+            lw = self.lw_aCategory
+            if self.curaStep is not None:
+                path = self.core.getEntityPath(asset=self.curAsset, step=self.curaStep)
+            else:
+                return False
+
+            callbackName = "openPBAssetCategoryContextMenu"
+
+        elif tab == "ss":
+            lw = self.tw_sShot
+            path = self.sBasePath
+            typename = "Shot"
+            callbackName = "openPBShotContextMenu"
+
+        elif tab == "sp":
+            lw = self.lw_sPipeline
+            if self.cursShots is not None:
+                path = self.core.getEntityPath(entity="step", shot=self.cursShots)
+            else:
+                return False
+            typename = "Step"
+            callbackName = "openPBShotStepContextMenu"
+
+        elif tab == "sc":
+            lw = self.lw_sCategory
+            if self.cursStep is not None:
+                path = self.core.getEntityPath(shot=self.cursShots, step=self.cursStep)
+            else:
+                return False
+
+            callbackName = "openPBShotCategoryContextMenu"
+
+        if tab in ["ap", "ac", "ss", "sp", "sc"]:
+            createAct = QAction("Create " + typename, self)
+            if tab == "ap":
+                createAct.triggered.connect(lambda: self.createStepWindow("a"))
+            elif tab == "sp":
+                createAct.triggered.connect(lambda: self.createStepWindow("s"))
+            elif tab == "ss":
+                createAct.triggered.connect(self.editShot)
+            else:
+                createAct.triggered.connect(lambda: self.createCatWin(tab, typename))
+            rcmenu.addAction(createAct)
+
+        iname = (lw.indexAt(pos)).data()
+
+        if iname:
+            prjMngMenus = []
+            addOmit = False
+            if tab == "ah":
+                args = [self, iname, cItem.text(1).replace(self.aBasePath, "")[1:], cItem.text(2)]
+                cmenu = self.core.callback(name="projectBrowser_getAssetMenu", args=args)
+                if cmenu:
+                    prjMngMenus += cmenu
+
+                if cItem and cItem.text(2) == "folder":
+                    subcat = QAction("Create entity", self)
+                    typename = "Entity"
+                    subcat.triggered.connect(lambda: self.createCatWin(tab, typename))
+                    rcmenu.addAction(subcat)
+
+                oAct = QAction("Omit Asset", self)
+                oAct.triggered.connect(
+                    lambda: self.omitEntity(
+                        "asset", cItem.text(1).replace(self.aBasePath, "")[1:]
+                    )
+                )
+                addOmit = True
+            elif tab == "ss":
+                iname = self.cursShots
+                if lw.itemAt(pos).childCount() == 0:
+                    editAct = QAction("Edit shot settings", self)
+                    editAct.triggered.connect(lambda: self.editShot(iname))
+                    rcmenu.addAction(editAct)
+
+                    for i in self.core.prjManagers.values():
+                        prjMngMenu = i.pbBrowser_getShotMenu(self, iname)
+                        if prjMngMenu is not None:
+                            prjMngMenus.append(prjMngMenu)
+
+                    oAct = QAction("Omit Shot", self)
+                    oAct.triggered.connect(lambda: self.omitEntity("shot", self.cursShots))
+                    addOmit = True
+            dirPath = os.path.join(path, iname)
+            if (
+                not os.path.exists(dirPath)
+                and self.core.useLocalFiles
+                and os.path.exists(
+                    dirPath.replace(self.core.projectPath, self.core.localProjectPath)
+                )
+            ):
+                dirPath = dirPath.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+            openex = QAction("Open in Explorer", self)
+            openex.triggered.connect(lambda: self.core.openFolder(dirPath))
+            rcmenu.addAction(openex)
+            copAct = QAction("Copy path", self)
+            copAct.triggered.connect(lambda: self.core.copyToClipboard(dirPath))
+            rcmenu.addAction(copAct)
+            for i in prjMngMenus:
+                if i:
+                    rcmenu.addAction(i)
+            if addOmit:
+                rcmenu.addAction(oAct)
+        elif "path" in locals():
+            if iname is None:
+                lw.setCurrentIndex(lw.model().createIndex(-1, 0))
+            if tab not in ["ap", "ac", "ss", "sp", "sc"]:
+                cat = QAction("Create " + typename, self)
+                cat.triggered.connect(lambda: self.createCatWin(tab, typename))
+                rcmenu.addAction(cat)
+            openex = QAction("Open in Explorer", self)
+            openex.triggered.connect(lambda: self.core.openFolder(path))
+            rcmenu.addAction(openex)
+            copAct = QAction("Copy path", self)
+            copAct.triggered.connect(lambda: self.core.copyToClipboard(path))
+            rcmenu.addAction(copAct)
+
         self.core.appPlugin.setRCStyle(self, rcmenu)
-        rcmenu.exec_(mediaPlayback["l_preview"].mapToGlobal(pos))
+
+        if callbackName:
+            self.core.callback(
+                name=callbackName,
+                types=["custom"],
+                args=[self, rcmenu, lw.indexAt(pos)],
+            )
+
+        rcmenu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def rclFile(self, tab, pos):
+        if tab == "a":
+            if self.curaStep is None or self.curaCat is None:
+                return
+
+            tw = self.tw_aFiles
+            filepath = self.core.getEntityPath(asset=self.curAsset, step=self.curaStep, category=self.curaCat)
+            tabName = "asset"
+        elif tab == "sf":
+            if self.cursStep is None or self.cursCat is None:
+                return
+
+            tw = self.tw_sFiles
+            filepath = self.core.getEntityPath(shot=self.cursShots, step=self.cursStep, category=self.cursCat)
+            tabName = "shot"
+        elif tab == "r":
+            tw = self.tw_recent
+
+        rcmenu = QMenu()
+
+        if tw.selectedIndexes() != []:
+            idx = tw.selectedIndexes()[0]
+            irow = idx.row()
+        else:
+            idx = None
+            irow = -1
+        cop = QAction("Copy", self)
+        if irow == -1:
+            if tab == "r":
+                return False
+            cop.setEnabled(False)
+            if (
+                not os.path.exists(filepath)
+                and self.core.useLocalFiles
+                and os.path.exists(
+                    filepath.replace(self.core.projectPath, self.core.localProjectPath)
+                )
+            ):
+                filepath = filepath.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+        else:
+            filepath = self.core.fixPath(tw.model().index(irow, 0).data(Qt.UserRole))
+            cop.triggered.connect(lambda: self.copyfile(filepath))
+            tw.setCurrentIndex(tw.model().createIndex(irow, 0))
+        if tab != "r":
+            rcmenu.addAction(cop)
+            past = QAction("Paste as new version", self)
+            past.triggered.connect(lambda: self.pastefile(tab))
+            if not (tab == "a" and self.copiedFile != None) and not (
+                tab == "sf" and self.copiedsFile != None
+            ):
+                past.setEnabled(False)
+            rcmenu.addAction(past)
+            current = QAction("Create new version from current", self)
+            current.triggered.connect(lambda: self.createFromCurrent())
+            if self.core.appPlugin.pluginName == "Standalone":
+                current.setEnabled(False)
+            rcmenu.addAction(current)
+            emp = QMenu("Create new version from preset")
+            emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
+            if os.path.exists(emptyDir):
+                for i in sorted(os.listdir(emptyDir)):
+                    base, ext = os.path.splitext(i)
+                    if ext in self.core.getPluginSceneFormats():
+                        empAct = QAction(base, self)
+                        empAct.triggered.connect(
+                            lambda y=None, x=tabName, fname=i: self.createEmptyScene(
+                                x, fname
+                            )
+                        )
+                        emp.addAction(empAct)
+
+            newPreset = QAction("< Create new preset from current >", self)
+            newPreset.triggered.connect(
+                lambda y=None, x=tabName: self.createEmptyScene(x, "createnew")
+            )
+            emp.addAction(newPreset)
+            if self.core.appPlugin.pluginName == "Standalone":
+                newPreset.setEnabled(False)
+
+            self.core.appPlugin.setRCStyle(self, emp)
+            rcmenu.addMenu(emp)
+            autob = QMenu("Create new version from autoback")
+            for i in self.core.getPluginNames():
+                if self.core.getPluginData(i, "appType") == "standalone":
+                    continue
+
+                autobAct = QAction(i, self)
+                autobAct.triggered.connect(lambda y=None, x=i: self.autoback(tab, x))
+                autob.addAction(autobAct)
+
+            self.core.appPlugin.setRCStyle(self, autob)
+            rcmenu.addMenu(autob)
+
+        if irow != -1:
+            if tab != "r":
+                globalAct = QAction("Copy to global", self)
+                if self.core.useLocalFiles and filepath.startswith(
+                    self.core.localProjectPath
+                ):
+                    globalAct.triggered.connect(lambda: self.copyToGlobal(filepath))
+                else:
+                    globalAct.setEnabled(False)
+                rcmenu.addAction(globalAct)
+
+            actDeps = QAction("Show dependencies...", self)
+            infoPath = os.path.splitext(filepath)[0] + "versioninfo.yml"
+            self.core.configs.findDeprecatedConfig(infoPath)
+            if os.path.exists(infoPath):
+                actDeps.triggered.connect(lambda: self.core.dependencyViewer(infoPath))
+            else:
+                actDeps.setEnabled(False)
+            rcmenu.addAction(actDeps)
+
+            actCom = QAction("Edit Comment...", self)
+            actCom.triggered.connect(lambda: self.editComment(filepath))
+            rcmenu.addAction(actCom)
+
+        openex = QAction("Open in Explorer", self)
+        openex.triggered.connect(lambda: self.core.openFolder(filepath))
+        rcmenu.addAction(openex)
+
+        copAct = QAction("Copy path", self)
+        copAct.triggered.connect(lambda: self.core.copyToClipboard(filepath))
+        rcmenu.addAction(copAct)
+
+        self.core.appPlugin.setRCStyle(self, rcmenu)
+        self.core.callback(
+            name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu, idx]
+        )
+
+        rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
+
+    @err_catcher(name=__name__)
+    def exeFile(self, index=None, filepath=""):
+        sm = getattr(self.core, "sm", None)
+        if sm:
+            openSm = not self.core.sm.isHidden()
+            self.core.sm.close()
+
+        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
+            refresh = self.refreshAFile
+        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
+            refresh = self.refreshSFile
+        elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
+            refresh = self.setRecent
+
+        if filepath == "":
+            filepath = index.model().index(index.row(), 0).data(Qt.UserRole)
+
+        if self.core.useLocalFiles and self.sceneBasePath in filepath:
+            lfilepath = filepath.replace(
+                self.core.projectPath, self.core.localProjectPath
+            )
+
+            if not os.path.exists(lfilepath):
+                if not os.path.exists(os.path.dirname(lfilepath)):
+                    try:
+                        os.makedirs(os.path.dirname(lfilepath))
+                    except:
+                        self.core.popup(self.core.messageParent, "The directory could not be created")
+                        return
+
+                self.core.copySceneFile(filepath, lfilepath)
+
+            filepath = lfilepath
+
+        filepath = filepath.replace("\\", "/")
+
+        logger.debug("Opening scene " + filepath)
+        isOpen = self.core.appPlugin.openScene(self, filepath)
+
+        if not isOpen and self.core.appPlugin.pluginName == "Standalone":
+            fileStarted = False
+            ext = os.path.splitext(filepath)[1]
+            appPath = ""
+
+            for i in self.core.unloadedAppPlugins.values():
+                if ext in i.sceneFormats:
+                    orApp = self.core.getConfig(
+                        "dccoverrides",
+                        "%s_override" % i.pluginName,
+                    )
+                    if orApp is not None and orApp:
+                        appOrPath = self.core.getConfig(
+                            "dccoverrides", "%s_path" % i.pluginName
+                        )
+                        if (
+                            appOrPath is not None
+                            and os.path.exists(appOrPath)
+                            and os.path.splitext(appOrPath)[1] == ".exe"
+                        ):
+                            appPath = appOrPath
+
+                    fileStarted = getattr(
+                        i, "customizeExecutable", lambda x1, x2, x3: False
+                    )(self, appPath, filepath)
+
+            if appPath != "" and not fileStarted:
+                try:
+                    subprocess.Popen([appPath, self.core.fixPath(filepath)])
+                except:
+                    msg = "Could not execute file:\n\n%s" % traceback.format_exc()
+                    self.core.popup(msg)
+                fileStarted = True
+
+            if not fileStarted:
+                try:
+                    if platform.system() == "Windows":
+                        os.startfile(self.core.fixPath(filepath))
+                    elif platform.system() == "Linux":
+                        subprocess.Popen(["xdg-open", filepath])
+                    elif platform.system() == "Darwin":
+                        subprocess.Popen(["open", filepath])
+                except:
+                    ext = os.path.splitext(filepath)[1]
+                    warnStr = (
+                        'Could not open the scenefile.\n\nPossibly there is no application connected to "%s" files on your computer.\nUse the overrides in the "DCC apps" tab of the Prism Settings to specify an application for this filetype.'
+                        % ext
+                    )
+                    self.core.popup(warnStr)
+
+        self.core.addToRecent(filepath)
+        self.setRecent()
+
+        self.core.callback(name="onSceneOpen", types=["custom"], args=[self, filepath])
+
+        if sm and openSm:
+            self.core.stateManager()
+
+        refresh()
+        if (
+            self.core.getCurrentFileName().replace("\\", "/") == filepath
+            and self.actionCloseAfterLoad.isChecked()
+        ):
+            self.close()
+
+    @err_catcher(name=__name__)
+    def createFromCurrent(self):
+        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
+            dstname = self.curAsset
+            refresh = self.refreshAFile
+
+            prefix = self.core.entities.getAssetNameFromPath(self.curAsset)
+            filepath = self.core.generateScenePath(
+                entity="asset",
+                entityName=prefix,
+                step=self.curaStep,
+                category=self.curaCat,
+                basePath=dstname,
+                extension=self.core.appPlugin.getSceneExtension(self),
+            )
+
+        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
+            refresh = self.refreshSFile
+            filepath = self.core.generateScenePath(
+                entity="shot",
+                entityName=self.cursShots,
+                step=self.cursStep,
+                category=self.cursCat,
+                extension=self.core.appPlugin.getSceneExtension(self),
+            )
+        else:
+            return
+
+        if self.core.useLocalFiles:
+            filepath = filepath.replace(
+                self.core.projectPath, self.core.localProjectPath
+            )
+
+        if not os.path.exists(os.path.dirname(filepath)):
+            try:
+                os.makedirs(os.path.dirname(filepath))
+            except:
+                self.core.popup("The directory could not be created")
+                return
+
+        filepath = filepath.replace("\\", "/")
+
+        asRunning = hasattr(self.core, "asThread") and self.core.asThread.isRunning()
+        self.core.startasThread(quit=True)
+
+        filepath = self.core.saveScene(prismReq=False, filepath=filepath)
+        self.core.sceneOpen()
+        if asRunning:
+            self.core.startasThread()
+
+        self.core.addToRecent(filepath)
+        self.setRecent()
+        logger.debug("Created scene from current: %s" % filepath)
+
+        refresh()
+
+    @err_catcher(name=__name__)
+    def getAutobackPath(self, tab, prog):
+        if prog == self.core.appPlugin.pluginName:
+            autobackpath, fileStr = self.core.appPlugin.getAutobackPath(self, tab)
+        else:
+            for i in self.core.unloadedAppPlugins.values():
+                if i.pluginName == prog:
+                    autobackpath, fileStr = i.getAutobackPath(self, tab)
+
+        if not autobackpath:
+            if tab == "a":
+                cVersion = self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
+                asset = self.tw_aHierarchy.currentItem().text(1)
+                step = self.lw_aPipeline.currentItem().text()
+                if cVersion == "lower":
+                    autobackpath = self.core.getEntityPath(asset=asset, step=step)
+                else:
+                    category = self.lw_aCategory.currentItem().text()
+                    autobackpath = self.core.getEntityPath(asset=asset, step=step, category=category)
+
+            elif tab == "sf":
+                autobackpath = self.core.getEntityPath(shot=self.cursShots, step=self.cursStep, category=self.cursCat)
+
+        return autobackpath, fileStr
+
+    @err_catcher(name=__name__)
+    def autoback(self, tab, prog):
+        autobackpath, fileStr = self.getAutobackPath(tab, prog)
+
+        autobfile = QFileDialog.getOpenFileName(
+            self, "Select Autoback File", autobackpath, fileStr
+        )[0]
+
+        if not autobfile:
+            return
+
+        if tab == "a":
+            dstname = self.curAsset
+            refresh = self.refreshAFile
+
+            prefix = self.core.entities.getAssetNameFromPath(self.curAsset)
+            filepath = self.core.generateScenePath(
+                entity="asset",
+                entityName=prefix,
+                step=self.curaStep,
+                extension=os.path.splitext(autobfile)[1],
+                category=self.curaCat,
+                basePath=dstname,
+            )
+        elif tab == "sf":
+            refresh = self.refreshSFile
+            filepath = self.core.generateScenePath(
+                entity="shot",
+                entityName=self.cursShots,
+                step=self.cursStep,
+                category=self.cursCat,
+                extension=os.path.splitext(autobfile)[1],
+            )
+        else:
+            return
+
+        if self.core.useLocalFiles:
+            filepath = filepath.replace(
+                self.core.projectPath, self.core.localProjectPath
+            )
+
+        if not os.path.exists(os.path.dirname(filepath)):
+            try:
+                os.makedirs(os.path.dirname(filepath))
+            except:
+                self.core.popup("The directory could not be created")
+                return
+
+        filepath = filepath.replace("\\", "/")
+
+        self.core.copySceneFile(autobfile, filepath)
+        logger.debug("Created scene from autoback: %s" % filepath)
+
+        if prog == self.core.appPlugin.pluginName:
+            self.exeFile(filepath=filepath)
+        else:
+            self.core.addToRecent(filepath)
+            self.setRecent()
+            refresh()
+
+    @err_catcher(name=__name__)
+    def createEmptyScene(
+        self,
+        entity,
+        fileName,
+        entityName=None,
+        assetPath=None,
+        step=None,
+        category=None,
+        comment=None,
+        openFile=True,
+        version=None,
+        location="local",
+    ):
+        if fileName == "createnew":
+            emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
+
+            newItem = CreateItem.CreateItem(
+                core=self.core,
+                startText=self.core.appPlugin.pluginName.replace(" ", ""),
+            )
+
+            self.core.parentWindow(newItem)
+            newItem.e_item.setFocus()
+            newItem.setWindowTitle("Create preset scene")
+            newItem.l_item.setText("Preset name:")
+            result = newItem.exec_()
+
+            if result == 1:
+                pName = newItem.e_item.text()
+
+                filepath = os.path.join(emptyDir, "EmptyScene_%s" % pName)
+                filepath = filepath.replace("\\", "/")
+                filepath += self.core.appPlugin.getSceneExtension(self)
+
+                self.core.saveScene(prismReq=False, filepath=filepath)
+            return
+
+        ext = os.path.splitext(fileName)[1]
+        comment = comment or ""
+
+        if entity == "asset":
+            refresh = self.refreshAFile
+            if entityName:
+                entityPath = ""
+                if assetPath:
+                    entityPath = os.path.join(self.core.getAssetPath(), assetPath)
+                for i in self.core.entities.getAssetPaths():
+                    if assetPath:
+                        if os.path.normpath(i) == os.path.normpath(entityPath):
+                            dstname = i
+                            break
+                    else:
+                        if os.path.basename(i) == entityName:
+                            dstname = i
+                            break
+                else:
+                    self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
+                    return
+            else:
+                dstname = self.curAsset
+
+            assetName = entityName or self.core.entities.getAssetNameFromPath(self.curAsset)
+            step = step or self.curaStep
+            category = category or self.curaCat
+            filePath = self.core.generateScenePath(
+                "asset",
+                assetName,
+                step,
+                assetPath=dstname,
+                category=category,
+                extension=ext,
+                comment=comment,
+                version=version,
+            )
+        elif entity == "shot":
+            refresh = self.refreshSFile
+            entityName = entityName or self.cursShots
+            step = step or self.cursStep
+            category = category or self.cursCat
+            filePath = self.core.generateScenePath(
+                "shot",
+                entityName,
+                step,
+                category=category,
+                extension=ext,
+                comment=comment,
+                version=version,
+            )
+        else:
+            self.core.popup("Invalid entity:\n\n%s" % entity)
+            return
+
+        if os.path.isabs(fileName):
+            scene = fileName
+        else:
+            scene = os.path.join(
+                os.path.dirname(self.core.prismIni), "EmptyScenes", fileName
+            )
+
+        if location == "local" and self.core.useLocalFiles:
+            filePath = filePath.replace(
+                self.core.projectPath, self.core.localProjectPath
+            )
+
+        if not os.path.exists(os.path.dirname(filePath)):
+            try:
+                os.makedirs(os.path.dirname(filePath))
+            except:
+                self.core.popup(
+                    "The directory could not be created:\n\n%s"
+                    % os.path.dirname(filePath)
+                )
+                return
+
+        filePath = filePath.replace("\\", "/")
+
+        shutil.copyfile(scene, filePath)
+        self.core.saveSceneInfo(filePath)
+
+        if self.core.uiAvailable:
+            if ext in self.core.appPlugin.sceneFormats and openFile:
+                self.core.callback(
+                    name="preLoadEmptyScene",
+                    types=["curApp", "custom"],
+                    args=[self, filePath],
+                )
+                self.exeFile(filepath=filePath)
+                self.core.callback(
+                    name="postLoadEmptyScene",
+                    types=["curApp", "custom"],
+                    args=[self, filePath],
+                )
+            else:
+                self.core.addToRecent(filePath)
+                self.setRecent()
+                refresh()
+
+        self.core.callback(
+            name="onEmptySceneCreated",
+            types=["custom"],
+            args=[self, filePath],
+        )
+
+        logger.debug("Created empty scene: %s" % filePath)
+        return filePath
+
+    @err_catcher(name=__name__)
+    def copyfile(self, path, mode=None):
+        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
+            self.copiedFile = path
+        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
+            self.copiedsFile = path
+
+    @err_catcher(name=__name__)
+    def pastefile(self, tab):
+        if tab == "a":
+            dstname = self.curAsset
+
+            prefix = self.core.entities.getAssetNameFromPath(self.curAsset)
+            dstname = self.core.generateScenePath(
+                entity="asset",
+                entityName=prefix,
+                step=self.curaStep,
+                category=self.curaCat,
+                extension=os.path.splitext(self.copiedFile)[1],
+                basePath=dstname,
+            )
+
+            if self.core.useLocalFiles:
+                dstname = dstname.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+
+            if not os.path.exists(os.path.dirname(dstname)):
+                try:
+                    os.makedirs(os.path.dirname(dstname))
+                except:
+                    self.core.popup("The directory could not be created")
+                    return
+
+            dstname = dstname.replace("\\", "/")
+
+            self.core.copySceneFile(self.copiedFile, dstname)
+
+            if os.path.splitext(dstname)[1] in self.core.appPlugin.sceneFormats:
+                self.exeFile(filepath=dstname)
+            else:
+                self.core.addToRecent(dstname)
+                self.setRecent()
+
+            self.refreshAFile()
+
+        elif tab == "sf":
+            oldfname = os.path.basename(self.copiedsFile)
+            dstname = self.core.generateScenePath(
+                entity="shot",
+                entityName=self.cursShots,
+                step=self.cursStep,
+                category=self.cursCat,
+                extension=os.path.splitext(oldfname)[1],
+            )
+
+            if self.core.useLocalFiles:
+                dstname = dstname.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+
+            if not os.path.exists(os.path.dirname(dstname)):
+                try:
+                    os.makedirs(os.path.dirname(dstname))
+                except:
+                    self.core.popup("The directory could not be created")
+                    return
+
+            dstname = dstname.replace("\\", "/")
+
+            self.core.copySceneFile(self.copiedsFile, dstname)
+
+            if os.path.splitext(dstname)[1] in self.core.appPlugin.sceneFormats:
+                self.exeFile(filepath=dstname)
+            else:
+                self.core.addToRecent(dstname)
+                self.setRecent()
+
+            self.refreshSFile()
+
+    @err_catcher(name=__name__)
+    def getStep(self, steps, tab):
+        try:
+            del sys.modules["ItemList"]
+        except:
+            pass
+
+        if tab == "a":
+            entity = "asset"
+        elif tab == "s":
+            entity = "shot"
+
+        import ItemList
+
+        self.ss = ItemList.ItemList(core=self.core, entity=entity)
+        self.core.parentWindow(self.ss)
+        self.ss.tw_steps.setFocus()
+        self.ss.tw_steps.doubleClicked.connect(self.ss.accept)
+
+        abrSteps = list(steps.keys())
+        abrSteps.sort()
+        for i in abrSteps:
+            rc = self.ss.tw_steps.rowCount()
+            self.ss.tw_steps.insertRow(rc)
+            abrItem = QTableWidgetItem(i)
+            self.ss.tw_steps.setItem(rc, 0, abrItem)
+            stepItem = QTableWidgetItem(steps[i])
+            self.ss.tw_steps.setItem(rc, 1, stepItem)
+
+        self.core.callback(name="onStepDlgOpen", types=["custom"], args=[self, self.ss])
+
+        result = self.ss.exec_()
+
+        if result != 1:
+            return False
+
+        steps = []
+        for i in self.ss.tw_steps.selectedItems():
+            if i.column() == 0:
+                steps.append(i.text())
+
+        self.createSteps(entity, steps, createCat=self.ss.chb_category.isChecked())
+
+    @err_catcher(name=__name__)
+    def createSteps(self, entity, steps, createCat=True):
+        if len(steps) > 0:
+            if entity == "asset":
+                basePath = self.core.getEntityPath(entity="step", asset=self.curAsset)
+                navData = {
+                    "entity": "asset",
+                    "basePath": self.curAsset,
+                }
+            elif entity == "shot":
+                basePath = self.core.getEntityPath(entity="step", shot=self.cursShots)
+                navData = {
+                    "entity": "shot",
+                    "entityName": self.cursShots,
+                }
+            else:
+                return
+
+            createdDirs = []
+
+            for i in steps:
+                dstname = os.path.join(basePath, i)
+                result = self.core.entities.createStep(i, entity, stepPath=dstname, createCat=createCat)
+                if result:
+                    createdDirs.append(i)
+                    navData["step"] = i
+
+            if createdDirs:
+                if entity == "asset":
+                    self.curaStep = createdDirs[-1]
+                    self.refreshAHierarchy()
+                    self.navigate(data=navData)
+                elif entity == "shot":
+                    self.cursStep = createdDirs[-1]
+                    self.refreshsStep()
+                    self.navigate(data=navData)
+
+    @err_catcher(name=__name__)
+    def refreshAHierarchy(self, load=False):
+        self.tw_aHierarchy.blockSignals(True)
+        self.tw_aHierarchy.clear()
+        self.tw_aHierarchy.blockSignals(False)
+
+        if self.e_assetSearch.isVisible():
+            assets, folders = self.core.entities.getAssetPaths(returnFolders=True, depth=0)
+            filterStr = self.e_assetSearch.text()
+            self.filteredAssets = []
+            self.filteredAssets += self.core.entities.filterAssets(assets, filterStr)
+            self.filteredAssets += self.core.entities.filterAssets(folders, filterStr)
+
+        self.refreshAssets()
+        self.tw_aHierarchy.resizeColumnToContents(0)
+
+        if self.tw_aHierarchy.topLevelItemCount() > 0:
+            self.tw_aHierarchy.setCurrentItem(self.tw_aHierarchy.topLevelItem(0))
+        else:
+            self.curAsset = None
+            self.refreshAStep()
+            self.refreshAssetinfo()
+
+    @err_catcher(name=__name__)
+    def refreshAssets(self, path=None, parent=None, refreshChildren=True):
+        if not path and parent:
+            path = parent.text(1)
+
+        assets, folders = self.core.entities.getAssetPaths(path=path, returnFolders=True, depth=1)
+
+        assets = self.core.entities.filterOmittedAssets(assets)
+        folders = self.core.entities.filterOmittedAssets(folders)
+
+        if self.e_assetSearch.isVisible():
+            filteredAssets = []
+            for asset in assets:
+                for fasset in self.filteredAssets:
+                    if (asset == fasset or asset + os.sep in fasset) and asset not in filteredAssets:
+                        filteredAssets.append(asset)
+
+            assets = filteredAssets
+
+            filteredFolders = []
+            for folder in folders:
+                for fasset in self.filteredAssets:
+                    if (folder == fasset or folder + os.sep in fasset) and folder not in filteredFolders:
+                        filteredFolders.append(folder)
+
+            folders = filteredFolders
+
+        itemPaths = copy.copy(assets)
+        itemPaths += folders
+        for path in sorted(itemPaths):
+            if path in assets:
+                pathType = "asset"
+            else:
+                pathType = "folder"
+            self.addAssetItem(path, itemType=pathType, parent=parent, refreshItem=refreshChildren)
+
+    @err_catcher(name=__name__)
+    def addAssetItem(self, path, itemType, parent=None, refreshItem=True):
+        name = os.path.basename(path)
+        item = QTreeWidgetItem([name, path, itemType])
+        if parent:
+            parent.addChild(item)
+        else:
+            self.tw_aHierarchy.addTopLevelItem(item)
+        if refreshItem:
+            self.refreshAItem(item)
+
+    @err_catcher(name=__name__)
+    def refreshAItem(self, item):
+        item.takeChildren()
+        path = item.text(1)
+        itemType = item.text(2)
+
+        if itemType == "asset":
+            item.setText(2, "asset")
+        else:
+            item.setText(2, "folder")
+            self.refreshAssets(path=path, parent=item, refreshChildren=False)
+
+        if itemType == "asset":
+            iFont = item.font(0)
+            iFont.setBold(True)
+            item.setFont(0, iFont)
+
+        if path in self.aExpanded or self.e_assetSearch.isVisible():
+            item.setExpanded(True)
+
+    @err_catcher(name=__name__)
+    def hItemExpanded(self, item):
+        self.adclick = False
+        if (
+            item.text(1) not in self.aExpanded
+            and not self.e_assetSearch.isVisible()
+        ):
+            self.aExpanded.append(item.text(1))
+
+        for childnum in range(item.childCount()):
+            self.refreshAItem(item.child(childnum))
+
+    @err_catcher(name=__name__)
+    def hItemCollapsed(self, item):
+        self.adclick = False
+        if item.text(1) in self.aExpanded:
+            self.aExpanded.remove(item.text(1))
+
+    @err_catcher(name=__name__)
+    def refreshAStep(self, cur=None, prev=None):
+        self.lw_aPipeline.blockSignals(True)
+        self.lw_aPipeline.clear()
+        self.lw_aPipeline.blockSignals(False)
+
+        if not self.curAsset:
+            self.curaStep = None
+            self.refreshaCat()
+            return
+
+        steps = self.core.entities.getSteps(asset=self.curAsset)
+
+        for s in steps:
+            sItem = QListWidgetItem(s)
+            self.lw_aPipeline.addItem(sItem)
+
+        if self.lw_aPipeline.count() > 0:
+            self.lw_aPipeline.setCurrentRow(0)
+        else:
+            self.curaStep = None
+            self.refreshaCat()
+
+    @err_catcher(name=__name__)
+    def refreshaCat(self):
+        self.lw_aCategory.blockSignals(True)
+        self.lw_aCategory.clear()
+        self.lw_aCategory.blockSignals(False)
+
+        if not self.curAsset or not self.curaStep:
+            if (
+                self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
+                == "lower"
+            ):
+                self.curaCat = "category"
+            else:
+                self.curaCat = None
+
+            self.refreshAFile()
+            return
+
+        cats = self.core.entities.getCategories(asset=self.curAsset, step=self.curaStep)
+
+        for c in cats:
+            aItem = QListWidgetItem(c)
+            self.lw_aCategory.addItem(aItem)
+
+        if self.lw_aCategory.count() > 0:
+            self.lw_aCategory.setCurrentRow(0)
+        else:
+            if (
+                self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
+                == "lower"
+            ):
+                self.curaCat = "category"
+            else:
+                self.curaCat = None
+
+            self.refreshAFile()
+
+    @err_catcher(name=__name__)
+    def refreshAFile(self, cur=None, prev=None):
+        twSorting = [
+            self.tw_aFiles.horizontalHeader().sortIndicatorSection(),
+            self.tw_aFiles.horizontalHeader().sortIndicatorOrder(),
+        ]
+        self.tw_aFiles.setSortingEnabled(False)
+
+        model = QStandardItemModel()
+        model.setHorizontalHeaderLabels(
+            [
+                "",
+                self.tableColumnLabels["Version"],
+                self.tableColumnLabels["Comment"],
+                self.tableColumnLabels["Date"],
+                self.tableColumnLabels["User"],
+            ]
+        )
+        # example filename: Body_mod_Modelling_v0002_details-added_rfr_.max
+
+        if self.curAsset and self.curaStep and self.curaCat:
+            appfilter = []
+
+            for i in self.appFilters:
+                chbName = "chb_aShow%s" % self.appFilters[i]["shortName"]
+                if getattr(self, chbName).isChecked():
+                    appfilter += self.appFilters[i]["formats"]
+
+            scenefiles = self.core.entities.getScenefiles(asset=self.curAsset, step=self.curaStep, category=self.curaCat, extensions=appfilter)
+
+            for i in scenefiles:
+                row = []
+                fname = self.core.getScenefileData(i)
+
+                publicFile = self.core.useLocalFiles and i.startswith(self.aBasePath)
+
+                if pVersion == 2:
+                    item = QStandardItem(unicode("█", "utf-8"))
+                else:
+                    item = QStandardItem("█")
+                item.setFont(QFont("SansSerif", 100))
+                item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+                item.setData(i, Qt.UserRole)
+
+                colorVals = [128, 128, 128]
+                if fname["extension"] in self.core.appPlugin.sceneFormats:
+                    colorVals = self.core.appPlugin.appColor
+                else:
+                    for k in self.core.unloadedAppPlugins.values():
+                        if fname["extension"] in k.sceneFormats:
+                            colorVals = k.appColor
+
+                item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
+
+                row.append(item)
+                item = QStandardItem(fname["version"])
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                row.append(item)
+                if fname["comment"] == "nocomment":
+                    item = QStandardItem("")
+                else:
+                    item = QStandardItem(fname["comment"])
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                row.append(QStandardItem(item))
+                filepath = i
+                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
+                cdate = cdate.replace(microsecond=0)
+                cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+                item = QStandardItem(str(cdate))
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                item.setData(
+                    QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0
+                )
+                #   item.setToolTip(cdate)
+                row.append(item)
+                item = QStandardItem(fname["user"])
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                row.append(item)
+
+                if publicFile:
+                    for k in row[1:]:
+                        iFont = k.font()
+                        iFont.setBold(True)
+                        k.setFont(iFont)
+                        k.setForeground(self.publicColor)
+
+                model.appendRow(row)
+
+        self.tw_aFiles.setModel(model)
+        if psVersion == 1:
+            self.tw_aFiles.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
+            self.tw_aFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
+        else:
+            self.tw_aFiles.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+            self.tw_aFiles.horizontalHeader().setSectionResizeMode(
+                2, QHeaderView.Stretch
+            )
+
+        self.tw_aFiles.resizeColumnsToContents()
+        self.tw_aFiles.horizontalHeader().setMinimumSectionSize(10)
+        self.tw_aFiles.setColumnWidth(0, 10 * self.core.uiScaleFactor)
+        self.tw_aFiles.setColumnWidth(1, 100 * self.core.uiScaleFactor)
+        self.tw_aFiles.setColumnWidth(3, 200 * self.core.uiScaleFactor)
+        self.tw_aFiles.setColumnWidth(4, 100 * self.core.uiScaleFactor)
+        self.tw_aFiles.sortByColumn(twSorting[0], twSorting[1])
+        self.tw_aFiles.setSortingEnabled(True)
+
+    @err_catcher(name=__name__)
+    def Assetclicked(self, item):
+        if (
+            item is not None
+            and item.childCount() == 0
+            and item.text(0) != None
+            and item.text(2) == "asset"
+        ):
+            self.curAsset = item.text(1)
+        else:
+            self.curAsset = None
+
+        self.refreshAssetinfo()
+        self.refreshAStep()
+
+        if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
+            self.updateTasks()
+
+    @err_catcher(name=__name__)
+    def aPipelineclicked(self, current, prev):
+        if current:
+            self.curaStep = current.text()
+        else:
+            self.curaStep = None
+
+        self.refreshaCat()
+
+    @err_catcher(name=__name__)
+    def aCatclicked(self, current, prev):
+        if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
+            self.curaCat = "category"
+
+        elif current:
+            self.curaCat = current.text()
+
+        else:
+            self.curaCat = None
+
+        self.refreshAFile()
+
+    @err_catcher(name=__name__)
+    def refreshAssetinfo(self):
+        pmap = None
+
+        if self.curAsset:
+            assetName = self.core.entities.getAssetNameFromPath(self.curAsset)
+            assetFile = os.path.join(
+                os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml"
+            )
+
+            description = "< no description >"
+
+            assetInfos = self.core.getConfig(configPath=assetFile)
+            if not assetInfos:
+                assetInfos = {}
+
+            if assetName in assetInfos and "description" in assetInfos[assetName]:
+                description = assetInfos[assetName]["description"]
+
+            imgPath = os.path.join(
+                os.path.dirname(self.core.prismIni),
+                "Assetinfo",
+                "%s_preview.jpg" % assetName,
+            )
+
+            if os.path.exists(imgPath):
+                pm = self.core.media.getPixmapFromPath(imgPath)
+                if pm.width() > 0 and pm.height() > 0:
+                    if (pm.width() / float(pm.height())) > 1.7778:
+                        pmap = pm.scaledToWidth(self.shotPrvXres)
+                    else:
+                        pmap = pm.scaledToHeight(self.shotPrvYres)
+        else:
+            curItem = self.tw_aHierarchy.currentItem()
+            if not curItem:
+                description = "No asset selected"
+            else:
+                description = "%s selected" % (curItem.text(2)[0].upper() + curItem.text(2)[1:])
+
+        if pmap is None:
+            pmap = self.emptypmapPrv
+
+        self.l_aDescription.setText(description)
+        self.l_assetPreview.setMinimumSize(pmap.width(), pmap.height())
+        self.l_assetPreview.setPixmap(pmap)
+
+    @err_catcher(name=__name__)
+    def refreshShots(self):
+        self.lw_sPipeline.blockSignals(True)
+        self.tw_sShot.clear()
+        self.lw_sPipeline.blockSignals(False)
+
+        searchFilter = ""
+        if self.e_shotSearch.isVisible():
+            searchFilter = self.e_shotSearch.text()
+
+        sequences, shots = self.core.entities.getShots(searchFilter=searchFilter)
+
+        for seqName in sequences:
+            seqItem = QTreeWidgetItem([seqName, seqName + self.core.sequenceSeparator])
+            self.tw_sShot.addTopLevelItem(seqItem)
+            if seqName in self.sExpanded or self.e_shotSearch.isVisible():
+                seqItem.setExpanded(True)
+
+        for i in shots:
+            for k in range(self.tw_sShot.topLevelItemCount()):
+                tlItem = self.tw_sShot.topLevelItem(k)
+                if tlItem.text(0) == i[0]:
+                    seqItem = tlItem
+
+            sItem = QTreeWidgetItem([i[1], i[2]])
+            seqItem.addChild(sItem)
+
+        self.tw_sShot.resizeColumnToContents(0)
+
+        if self.tw_sShot.topLevelItemCount() > 0:
+            if self.tw_sShot.topLevelItem(0).isExpanded():
+                self.tw_sShot.setCurrentItem(self.tw_sShot.topLevelItem(0).child(0))
+            else:
+                self.tw_sShot.setCurrentItem(self.tw_sShot.topLevelItem(0))
+        else:
+            self.cursShots = None
+            self.refreshsStep()
+            self.refreshShotinfo()
+
+    @err_catcher(name=__name__)
+    def sItemCollapsed(self, item):
+        if self.e_shotSearch.isVisible():
+            return
+
+        self.sdclick = False
+        exp = item.isExpanded()
+
+        if exp:
+            if item.text(0) not in self.sExpanded:
+                self.sExpanded.append(item.text(0))
+        else:
+            if item.text(0) in self.sExpanded:
+                self.sExpanded.remove(item.text(0))
+
+    @err_catcher(name=__name__)
+    def refreshsStep(self, cur=None, prev=None):
+        self.lw_sPipeline.blockSignals(True)
+        self.lw_sPipeline.clear()
+        self.lw_sPipeline.blockSignals(False)
+
+        if not self.cursShots:
+            self.cursStep = None
+            self.refreshsCat()
+            return
+
+        steps = self.core.entities.getSteps(shot=self.cursShots)
+
+        for s in steps:
+            sItem = QListWidgetItem(s)
+            self.lw_sPipeline.addItem(sItem)
+
+        if self.lw_sPipeline.count() > 0:
+            self.lw_sPipeline.setCurrentRow(0)
+        else:
+            self.cursStep = None
+            self.refreshsCat()
+
+    @err_catcher(name=__name__)
+    def refreshsCat(self):
+        self.lw_sCategory.blockSignals(True)
+        self.lw_sCategory.clear()
+        self.lw_sCategory.blockSignals(False)
+
+        if not self.cursStep:
+            self.cursCat = None
+            self.refreshSFile()
+            return
+
+        cats = self.core.entities.getCategories(shot=self.cursShots, step=self.cursStep)
+
+        for c in cats:
+            sItem = QListWidgetItem(c)
+            self.lw_sCategory.addItem(sItem)
+
+        if self.lw_sCategory.count() > 0:
+            self.lw_sCategory.setCurrentRow(0)
+        else:
+            self.cursCat = None
+            self.refreshSFile()
+
+    @err_catcher(name=__name__)
+    def refreshSFile(self, parm=None):
+        twSorting = [
+            self.tw_sFiles.horizontalHeader().sortIndicatorSection(),
+            self.tw_sFiles.horizontalHeader().sortIndicatorOrder(),
+        ]
+        self.tw_sFiles.setSortingEnabled(False)
+
+        model = QStandardItemModel()
+
+        model.setHorizontalHeaderLabels(
+            [
+                "",
+                self.tableColumnLabels["Version"],
+                self.tableColumnLabels["Comment"],
+                self.tableColumnLabels["Date"],
+                self.tableColumnLabels["User"],
+            ]
+        )
+        # example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
+
+        if self.cursCat is not None:
+            appfilter = []
+
+            for i in self.appFilters:
+                chbName = "chb_sShow%s" % self.appFilters[i]["shortName"]
+                if getattr(self, chbName).isChecked():
+                    appfilter += self.appFilters[i]["formats"]
+
+            scenefiles = self.core.entities.getScenefiles(shot=self.cursShots, step=self.cursStep, category=self.cursCat, extensions=appfilter)
+
+            for i in scenefiles:
+                row = []
+                fname = self.core.getScenefileData(i)
+
+                publicFile = self.core.useLocalFiles and i.startswith(self.sBasePath)
+
+                if pVersion == 2:
+                    item = QStandardItem(unicode("█", "utf-8"))
+                else:
+                    item = QStandardItem("█")
+                item.setFont(QFont("SansSerif", 100))
+                item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+                item.setData(i, Qt.UserRole)
+
+                colorVals = [128, 128, 128]
+                if fname["extension"] in self.core.appPlugin.sceneFormats:
+                    colorVals = self.core.appPlugin.appColor
+                else:
+                    for k in self.core.unloadedAppPlugins.values():
+                        if fname["extension"] in k.sceneFormats:
+                            colorVals = k.appColor
+
+                item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
+
+                row.append(item)
+                item = QStandardItem(fname["version"])
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                row.append(item)
+                if fname["comment"] == "nocomment":
+                    item = QStandardItem("")
+                else:
+                    item = QStandardItem(fname["comment"])
+                #   self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                row.append(item)
+                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
+                cdate = cdate.replace(microsecond=0)
+                cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+                item = QStandardItem(str(cdate))
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                item.setData(
+                    QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(
+                        100
+                    ),
+                    0,
+                )
+                #   item.setToolTip(cdate)
+                row.append(item)
+                item = QStandardItem(fname["user"])
+                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                row.append(item)
+
+                if publicFile:
+                    for k in row[1:]:
+                        iFont = k.font()
+                        iFont.setBold(True)
+                        k.setFont(iFont)
+                        k.setForeground(self.publicColor)
+
+                model.appendRow(row)
+
+        self.tw_sFiles.setModel(model)
+        if psVersion == 1:
+            self.tw_sFiles.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
+            self.tw_sFiles.horizontalHeader().setResizeMode(2, QHeaderView.Stretch)
+        else:
+            self.tw_sFiles.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+            self.tw_sFiles.horizontalHeader().setSectionResizeMode(
+                2, QHeaderView.Stretch
+            )
+
+        self.tw_sFiles.resizeColumnsToContents()
+        self.tw_sFiles.horizontalHeader().setMinimumSectionSize(10)
+        self.tw_sFiles.setColumnWidth(0, 10 * self.core.uiScaleFactor)
+        self.tw_sFiles.setColumnWidth(1, 100 * self.core.uiScaleFactor)
+        self.tw_sFiles.setColumnWidth(3, 200 * self.core.uiScaleFactor)
+        self.tw_sFiles.setColumnWidth(4, 100 * self.core.uiScaleFactor)
+        self.tw_sFiles.sortByColumn(twSorting[0], twSorting[1])
+        self.tw_sFiles.setSortingEnabled(True)
+
+    @err_catcher(name=__name__)
+    def sShotclicked(self, item):
+        if item is not None and item.text(0) != None and item.text(0) != "no sequence":
+            self.cursShots = item.text(1)
+        else:
+            self.cursShots = None
+
+        self.refreshShotinfo()
+        self.refreshsStep()
+
+        if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
+            self.updateTasks()
+
+    @err_catcher(name=__name__)
+    def sPipelineclicked(self, current, prev):
+        if current:
+            self.cursStep = current.text()
+        else:
+            self.cursStep = None
+
+        self.refreshsCat()
+
+    @err_catcher(name=__name__)
+    def sCatclicked(self, current, prev):
+        if current:
+            self.cursCat = current.text()
+        else:
+            self.cursCat = None
+
+        self.refreshSFile()
+
+    @err_catcher(name=__name__)
+    def refreshShotinfo(self):
+        pmap = None
+
+        if self.cursShots is not None:
+            startFrame = "?"
+            endFrame = "?"
+
+            shotRange = self.core.entities.getShotRange(self.cursShots)
+            if shotRange:
+                startFrame, endFrame = shotRange
+
+            shotName, seqName = self.core.entities.splitShotname(self.cursShots)
+            if not shotName and seqName:
+                rangeText = "Sequence selected"
+            else:
+                rangeText = "Framerange:    %s - %s" % (startFrame, endFrame)
+
+            imgPath = os.path.join(
+                os.path.dirname(self.core.prismIni),
+                "Shotinfo",
+                "%s_preview.jpg" % self.cursShots,
+            )
+
+            if os.path.exists(imgPath):
+                pm = self.core.media.getPixmapFromPath(imgPath)
+                if pm.width() > 0 and pm.height() > 0:
+                    if (pm.width() / float(pm.height())) > 1.7778:
+                        pmap = pm.scaledToWidth(self.shotPrvXres)
+                    else:
+                        pmap = pm.scaledToHeight(self.shotPrvYres)
+        else:
+            rangeText = "No shot selected"
+
+        if pmap is None:
+            pmap = self.emptypmapPrv
+
+        self.l_framerange.setText(rangeText)
+        self.l_shotPreview.setMinimumSize(pmap.width(), pmap.height())
+        self.l_shotPreview.setPixmap(pmap)
+
+    @err_catcher(name=__name__)
+    def rclEntityPreview(self, pos, entity):
+        rcmenu = QMenu()
+
+        if entity == "asset":
+            if not self.curAsset:
+                return
+
+            exp = QAction("Edit asset description", self)
+            exp.triggered.connect(lambda: self.editAsset(self.curAsset))
+            rcmenu.addAction(exp)
+
+            copAct = QAction("Capture assetpreview", self)
+            copAct.triggered.connect(
+                lambda: self.captureEntityPreview("asset", self.curAsset)
+            )
+            rcmenu.addAction(copAct)
+        else:
+            shotName, seqName = self.core.entities.splitShotname(self.cursShots)
+            if not shotName:
+                return
+
+            exp = QAction("Edit shot settings", self)
+            exp.triggered.connect(lambda: self.editShot(self.cursShots))
+            rcmenu.addAction(exp)
+
+            copAct = QAction("Capture shotpreview", self)
+            copAct.triggered.connect(
+                lambda: self.captureEntityPreview("shot", self.cursShots)
+            )
+            rcmenu.addAction(copAct)
+
+        self.core.appPlugin.setRCStyle(self, rcmenu)
+        rcmenu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def captureEntityPreview(self, entity, entityname):
+        if entity == "asset":
+            folderName = "Assetinfo"
+            entityname = os.path.basename(entityname)
+            refresh = self.refreshAssetinfo
+        else:
+            folderName = "Shotinfo"
+            refresh = self.refreshShotinfo
+
+        from PrismUtils import ScreenShot
+
+        previewImg = ScreenShot.grabScreenArea(self.core)
+
+        if previewImg:
+            if (previewImg.width() / float(previewImg.height())) > 1.7778:
+                pmsmall = previewImg.scaledToWidth(self.shotPrvXres)
+            else:
+                pmsmall = previewImg.scaledToHeight(self.shotPrvYres)
+
+            prvPath = os.path.join(
+                os.path.dirname(self.core.prismIni),
+                folderName,
+                "%s_preview.jpg" % entityname,
+            )
+            self.core.media.savePixmap(pmsmall, prvPath)
+
+            refresh()
+
+    @err_catcher(name=__name__)
+    def editAsset(self, assetPath=None):
+        if not assetPath:
+            return
+
+        assetName = self.core.entities.getAssetNameFromPath(assetPath)
+
+        descriptionDlg = EnterText.EnterText()
+        self.core.parentWindow(descriptionDlg)
+        descriptionDlg.setWindowTitle("Enter description")
+        descriptionDlg.l_info.setText("Description:")
+        descriptionDlg.te_text.setPlainText(self.l_aDescription.text())
+
+        c = descriptionDlg.te_text.textCursor()
+        c.setPosition(0)
+        c.setPosition(len(self.l_aDescription.text()), QTextCursor.KeepAnchor)
+        descriptionDlg.te_text.setTextCursor(c)
+
+        result = descriptionDlg.exec_()
+
+        if result:
+            description = descriptionDlg.te_text.toPlainText()
+            self.l_aDescription.setText(description)
+
+            assetFile = os.path.join(
+                os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml"
+            )
+            assetInfos = self.core.getConfig(configPath=assetFile)
+            if not assetInfos:
+                assetInfos = {}
+
+            if assetName not in assetInfos:
+                assetInfos[assetName] = {}
+
+            assetInfos[assetName]["description"] = description
+
+            self.core.writeYaml(assetFile, assetInfos)
+
+    @err_catcher(name=__name__)
+    def editShot(self, shotName=None):
+        sequs = []
+        for i in range(self.tw_sShot.topLevelItemCount()):
+            sName = self.tw_sShot.topLevelItem(i).text(0)
+            if sName != "no sequence":
+                sequs.append(sName)
+
+        if not shotName:
+            shotName, seqName = self.core.entities.splitShotname(self.cursShots)
+            shotName = seqName + self.core.sequenceSeparator
+
+        try:
+            del sys.modules["EditShot"]
+        except:
+            pass
+
+        import EditShot
+
+        self.es = EditShot.EditShot(core=self.core, shotName=shotName, sequences=sequs)
+
+        result = self.core.callback(
+            name="onShotDlgOpen", types=["custom"], args=[self, self.es, shotName]
+        )
+
+        if False in result:
+            return
+
+        result = self.es.exec_()
+
+        if result != 1 or self.es.shotName is None:
+            return
+
+        if shotName is None:
+            return
+
+        self.refreshShots()
+
+        shotName, seqName = self.core.entities.splitShotname(self.es.shotName)
+
+        for i in range(self.tw_sShot.topLevelItemCount()):
+            sItem = self.tw_sShot.topLevelItem(i)
+            if sItem.text(0) == seqName:
+                sItem.setExpanded(True)
+                for k in range(sItem.childCount()):
+                    shotItem = sItem.child(k)
+                    if shotItem.text(0) == shotName:
+                        self.tw_sShot.setCurrentItem(shotItem)
+                        break
+                else:
+                    self.tw_sShot.setCurrentItem(sItem)
+
+    @err_catcher(name=__name__)
+    def createShot(self, shotName, frameRange=None):
+        result = self.core.entities.createEntity("shot", shotName, frameRange=frameRange)
+
+        if self.core.uiAvailable:
+            self.refreshShots()
+            shotName, seqName = self.core.entities.splitShotname(shotName)
+
+            for i in range(self.tw_sShot.topLevelItemCount()):
+                sItem = self.tw_sShot.topLevelItem(i)
+                if sItem.text(0) == seqName:
+                    sItem.setExpanded(True)
+                    for k in range(sItem.childCount()):
+                        shotItem = sItem.child(k)
+                        if shotItem.text(0) == shotName:
+                            self.tw_sShot.setCurrentItem(shotItem)
+
+        return result
+
+    @err_catcher(name=__name__)
+    def showShotSearch(self):
+        self.l_shotSearch.setVisible(True)
+
+    @err_catcher(name=__name__)
+    def setRecent(self):
+        model = QStandardItemModel()
+
+        model.setHorizontalHeaderLabels(
+            [
+                "",
+                self.tableColumnLabels["Name"],
+                self.tableColumnLabels["Step"],
+                self.tableColumnLabels["Version"],
+                self.tableColumnLabels["Comment"],
+                self.tableColumnLabels["Date"],
+                self.tableColumnLabels["User"],
+                "Filepath",
+            ]
+        )
+        # example filename: Body_mod_v0002_details-added_rfr_.max
+        # example filename: shot_0010_mod_main_v0002_details-added_rfr_.max
+        rSection = "recent_files_" + self.core.projectName
+        recentfiles = self.core.getConfig(cat=rSection) or []
+
+        for i in recentfiles:
+            if i is None:
+                continue
+
+            row = []
+            fname = self.core.getScenefileData(i)
+
+            if fname["entity"] == "invalid":
+                continue
+            if os.path.exists(i):
+                if pVersion == 2:
+                    item = QStandardItem(unicode("█", "utf-8"))
+                else:
+                    item = QStandardItem("█")
+                item.setFont(QFont("SansSerif", 100))
+                item.setFlags(~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled)
+                item.setData(i, Qt.UserRole)
+
+                colorVals = [128, 128, 128]
+                if fname["extension"] in self.core.appPlugin.sceneFormats:
+                    colorVals = self.core.appPlugin.appColor
+                else:
+                    for k in self.core.unloadedAppPlugins.values():
+                        if fname["extension"] in k.sceneFormats:
+                            colorVals = k.appColor
+
+                item.setForeground(QColor(colorVals[0], colorVals[1], colorVals[2]))
+
+                row.append(item)
+                if fname["entity"] == "asset":
+                    item = QStandardItem(fname["entityName"])
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                    item = QStandardItem(fname.get("step", ""))
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                    item = QStandardItem(fname["version"])
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                    if fname["comment"] == "nocomment":
+                        item = QStandardItem("")
+                    else:
+                        item = QStandardItem(fname["comment"])
+                    row.append(item)
+                    cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
+                    cdate = cdate.replace(microsecond=0)
+                    cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+                    item = QStandardItem(str(cdate))
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    item.setData(
+                        QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(
+                            100
+                        ),
+                        0,
+                    )
+                    #   item.setToolTip(cdate)
+                    row.append(item)
+                    item = QStandardItem(fname["user"])
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                elif fname["entity"] == "shot":
+                    item = QStandardItem(fname["entityName"])
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                    item = QStandardItem(fname.get("step", ""))
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                    item = QStandardItem(fname["version"])
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                    if fname.get("comment", "nocomment") == "nocomment":
+                        item = QStandardItem("")
+                    else:
+                        item = QStandardItem(fname["comment"])
+                    row.append(item)
+                    cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
+                    cdate = cdate.replace(microsecond=0)
+                    cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+                    item = QStandardItem(str(cdate))
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    item.setData(
+                        QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(
+                            100
+                        ),
+                        0,
+                    )
+                    #   item.setToolTip(cdate)
+                    row.append(item)
+                    item = QStandardItem(fname["user"])
+                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+                    row.append(item)
+                else:
+                    continue
+
+                item = QStandardItem(i)
+                item.setToolTip(i)
+                row.append(item)
+
+                model.appendRow(row)
+
+        self.tw_recent.setModel(model)
+        self.tw_recent.resizeColumnsToContents()
+        self.tw_recent.horizontalHeader().setMinimumSectionSize(10)
+        self.tw_recent.setColumnWidth(0, 10 * self.core.uiScaleFactor)
+        #   self.tw_recent.setColumnWidth(2,40*self.core.uiScaleFactor)
+        #   self.tw_recent.setColumnWidth(3,60*self.core.uiScaleFactor)
+        #   self.tw_recent.setColumnWidth(6,50*self.core.uiScaleFactor)
+
+        if psVersion == 1:
+            self.tw_recent.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
+        else:
+            self.tw_recent.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+
+    @err_catcher(name=__name__)
+    def refreshCurrent(self):
+        if self.tbw_browser.currentWidget().property("tabType") == "Assets":
+            self.refreshAFile()
+        elif self.tbw_browser.currentWidget().property("tabType") == "Shots":
+            self.refreshSFile()
+        elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
+            self.setRecent()
+
+    @err_catcher(name=__name__)
+    def triggerOpen(self, checked=False):
+        self.core.setConfig("globals", "showonstartup", checked)
+
+    @err_catcher(name=__name__)
+    def triggerUpdates(self, checked=False):
+        self.core.setConfig("globals", "check_import_versions", checked)
+
+    @err_catcher(name=__name__)
+    def triggerFrameranges(self, checked=False):
+        self.core.setConfig("globals", "checkframeranges", checked)
+
+    @err_catcher(name=__name__)
+    def triggerCloseLoad(self, checked=False):
+        self.core.setConfig("browser", self.closeParm, checked)
+
+    @err_catcher(name=__name__)
+    def triggerAutoplay(self, checked=False, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        self.core.setConfig("browser", "autoplaypreview", checked)
+
+        if "timeline" in mediaPlayback:
+            if checked and mediaPlayback["timeline"].state() == QTimeLine.Paused:
+                mediaPlayback["timeline"].setPaused(False)
+            elif not checked and mediaPlayback["timeline"].state() == QTimeLine.Running:
+                mediaPlayback["timeline"].setPaused(True)
+        else:
+            mediaPlayback["tlPaused"] = not checked
+
+    @err_catcher(name=__name__)
+    def triggerAssets(self, checked=False):
+        if checked:
+            self.tbw_browser.insertTab(
+                self.tabOrder["Assets"]["order"],
+                self.t_assets,
+                self.tabLabels["Assets"],
+            )
+            if self.tbw_browser.count() == 1:
+                self.tbw_browser.setVisible(True)
+        else:
+            self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_assets))
+            if self.tbw_browser.count() == 0:
+                self.tbw_browser.setVisible(False)
+
+    @err_catcher(name=__name__)
+    def triggerShots(self, checked=False):
+        if checked:
+            self.tbw_browser.insertTab(
+                self.tabOrder["Shots"]["order"], self.t_shots, self.tabLabels["Shots"]
+            )
+            if self.tbw_browser.count() == 1:
+                self.tbw_browser.setVisible(True)
+        else:
+            self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_shots))
+            if self.tbw_browser.count() == 0:
+                self.tbw_browser.setVisible(False)
+
+    @err_catcher(name=__name__)
+    def triggerRecent(self, checked=False):
+        if checked:
+            self.tbw_browser.insertTab(
+                self.tabOrder["Recent"]["order"],
+                self.t_recent,
+                self.tabLabels["Recent"],
+            )
+            if self.tbw_browser.count() == 1:
+                self.tbw_browser.setVisible(True)
+        else:
+            self.tbw_browser.removeTab(self.tbw_browser.indexOf(self.t_recent))
+            if self.tbw_browser.count() == 0:
+                self.tbw_browser.setVisible(False)
+
+    @err_catcher(name=__name__)
+    def triggerRenderings(self, checked=False):
+        if (
+            self.tbw_browser.currentWidget()
+            and self.tabOrder[self.tbw_browser.currentWidget().property("tabType")][
+                "showRenderings"
+            ]
+        ):
+            self.gb_renderings.setVisible(checked)
+
+    @err_catcher(name=__name__)
+    def createCatWin(self, tab, name, startText=""):
+        if tab == "ah":
+            mode = "assetHierarchy"
+        elif tab == "ac":
+            mode = "assetCategory"
+        elif tab == "sc":
+            mode = "shotCategory"
+        else:
+            mode = ""
+
+        self.newItem = CreateItem.CreateItem(startText=startText, core=self.core, showType=tab == "ah", mode=mode)
+
+        self.newItem.setModal(True)
+        self.core.parentWindow(self.newItem)
+        self.newItem.e_item.setFocus()
+        self.newItem.setWindowTitle("Create " + name)
+        nameLabel = "Name:" if name == "Entity" else name + " Name:"
+        self.newItem.l_item.setText(nameLabel)
+        self.newItem.accepted.connect(lambda: self.createCat(tab))
+
+        if tab == "ah":
+            self.core.callback(
+                name="onAssetDlgOpen", types=["custom"], args=[self, self.newItem]
+            )
+        elif tab in ["ac", "sc"]:
+            self.core.callback(
+                name="onCategroyDlgOpen", types=["custom"], args=[self, self.newItem]
+            )
+
+        self.newItem.show()
+
+    @err_catcher(name=__name__)
+    def createCat(self, tab):
+        self.activateWindow()
+        self.itemName = self.newItem.e_item.text()
+
+        if tab == "ah":
+            curItem = self.tw_aHierarchy.currentItem()
+            if curItem is None:
+                path = self.aBasePath
+            else:
+                path = self.tw_aHierarchy.currentItem().text(1)
+            refresh = self.refreshAHierarchy
+            uielement = self.tw_aHierarchy
+        elif tab == "ac":
+            path = self.core.getEntityPath(asset=self.curAsset, step=self.curaStep)
+            refresh = self.refreshaCat
+            uielement = self.lw_aCategory
+            self.curaCat = self.itemName
+        elif tab == "sc":
+            path = self.core.getEntityPath(shot=self.cursShots, step=self.cursStep)
+            refresh = self.refreshsCat
+            uielement = self.lw_sCategory
+            self.cursCat = self.itemName
+
+        if tab == "ah":
+            assetPath = os.path.join(path, self.itemName)
+            if self.newItem.rb_asset.isChecked():
+                result = self.core.entities.createEntity("asset", assetPath, dialog=self.newItem)
+            else:
+                result = self.core.entities.createEntity("assetFolder", assetPath, dialog=self.newItem)
+            dirName = result["entityPath"] if result else ""
+        else:
+            catPath = os.path.join(path, self.itemName)
+            self.core.entities.createCategory(self.itemName, catPath)
+
+        refresh()
+        if tab == "ah":
+            self.navigate(data={"entity": "asset", "basePath": dirName})
+            if "createAsset" in self.newItem.postEvents:
+                self.createCatWin("ah", "Entity")
+            elif "createCategory" in self.newItem.postEvents:
+                self.createStepWindow("a")
+        else:
+            for i in range(uielement.model().rowCount()):
+                if uielement.model().index(i, 0).data() == self.itemName:
+                    uielement.selectionModel().setCurrentIndex(
+                        uielement.model().index(i, 0),
+                        QItemSelectionModel.ClearAndSelect,
+                    )
+
+    @err_catcher(name=__name__)
+    def createStepWindow(self, tab):
+        if tab == "a":
+            basePath = self.core.getEntityPath(entity="step", asset=self.curAsset)
+        elif tab == "s":
+            basePath = self.core.getEntityPath(entity="step", shot=self.cursShots)
+        else:
+            return
+
+        steps = self.getSteps()
+        steps = {
+            validSteps: steps[validSteps]
+            for validSteps in steps
+            if not os.path.exists(os.path.join(basePath, validSteps))
+        }
+
+        self.getStep(steps, tab)
+
+    @err_catcher(name=__name__)
+    def getSteps(self):
+        try:
+            steps = self.core.getConfig(
+                        "globals", "pipeline_steps", configPath=self.core.prismIni
+                    )
+        except:
+            msgStr = "Could not read steps from configuration file.\nCheck this file for errors:\n\n%s" % self.core.prismIni
+            self.core.popup(msgStr)
+            return {}
+
+        try:
+            dict(steps)
+        except:
+            steps = {}
+
+        return steps
+
+    @err_catcher(name=__name__)
+    def copyToGlobal(self, localPath, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        dstPath = localPath.replace(self.core.localProjectPath, self.core.projectPath)
+
+        if os.path.isdir(localPath):
+            if os.path.exists(dstPath):
+                for i in os.walk(dstPath):
+                    if i[2] != []:
+                        msg = "Found existing files in the global directory. Copy to global was canceled."
+                        self.popup(msg)
+                        return
+
+                shutil.rmtree(dstPath)
+
+            shutil.copytree(localPath, dstPath)
+
+            if "vidPrw" in mediaPlayback and not mediaPlayback["vidPrw"].closed:
+                for i in range(6):
+                    mediaPlayback["vidPrw"].close()
+                    time.sleep(0.5)
+                    if mediaPlayback["vidPrw"].closed:
+                        break
+
+            try:
+                shutil.rmtree(localPath)
+            except:
+                msg = "Could not delete the local file. Probably it is used by another process."
+                self.core.popup(msg)
+
+            curTab = self.tbw_browser.currentWidget().property("tabType")
+            curData = [
+                curTab,
+                self.cursShots,
+                self.curRTask,
+                self.curRVersion,
+                self.curRLayer,
+            ]
+            self.updateTasks()
+            self.showRender(
+                curData[0],
+                curData[1],
+                curData[2],
+                curData[3].replace(" (local)", ""),
+                curData[4],
+            )
+        else:
+            if not os.path.exists(os.path.dirname(dstPath)):
+                os.makedirs(os.path.dirname(dstPath))
+
+            self.core.copySceneFile(localPath, dstPath)
+
+            self.refreshCurrent()
+
+    @err_catcher(name=__name__)
+    def editComment(self, filepath):
+        data = self.core.getScenefileData(filepath)
+        comment = data["comment"] if "comment" in data else ""
+
+        dlg_ec = CreateItem.CreateItem(core=self.core,  startText=comment, showType=False, valueRequired=False)
+
+        dlg_ec.setModal(True)
+        self.core.parentWindow(dlg_ec)
+        dlg_ec.e_item.setFocus()
+        dlg_ec.setWindowTitle("Edit Comment")
+        dlg_ec.l_item.setText("New comment:")
+        dlg_ec.buttonBox.buttons()[0].setText("Save")
+
+        result = dlg_ec.exec_()
+
+        if not result:
+            return
+
+        comment = dlg_ec.e_item.text()
+        newPath = self.core.entities.setComment(filepath, comment)
+
+        self.refreshCurrent()
+        fileNameData = self.core.getScenefileData(newPath)
+        self.navigate(data=fileNameData)
+
+    @err_catcher(name=__name__)
+    def omitEntity(self, eType, ePath):
+        msgText = (
+            'Are you sure you want to omit %s "%s"?\n\nThis will make the %s be ignored by Prism, but all scenefiles and renderings remain on the hard drive.'
+            % (eType.lower(), ePath, eType.lower())
+        )
+        result = self.core.popupQuestion(msgText)
+
+        if result == "Yes":
+            self.core.entities.omitEntity(eType, ePath)
+
+            if eType == "asset":
+                self.refreshAHierarchy()
+            elif eType == "shot":
+                self.refreshShots()
+
+    @err_catcher(name=__name__)
+    def navigateToCurrent(self):
+        fileName = self.core.getCurrentFileName()
+        fileNameData = self.core.getScenefileData(fileName)
+
+        self.navigate(fileNameData)
+
+    @err_catcher(name=__name__)
+    def navigate(self, data):
+        # logger.debug("navigate to: %s" % data)
+        if data["entity"] == "asset":
+            self.showTab("Assets")
+
+            itemPath = self.core.entities.getAssetRelPathFromPath(data.get("basePath", ""))
+            hierarchy = itemPath.split(os.sep)
+            hierarchy = [x for x in hierarchy if x != ""]
+            if not hierarchy:
+                return
+            hItem = self.tw_aHierarchy.findItems(hierarchy[0], Qt.MatchExactly, 0)
+            if len(hItem) == 0:
+                return
+            hItem = hItem[-1]
+
+            if len(hierarchy) > 1:
+                hItem.setExpanded(True)
+                if hItem.text(1) not in self.aExpanded:
+                    self.aExpanded.append(hItem.text(1))
+
+                for idx, i in enumerate((hierarchy[1:])):
+                    for k in range(hItem.childCount() - 1, -1, -1):
+                        if hItem.child(k).text(0) == i:
+                            hItem = hItem.child(k)
+                            if len(hierarchy) > (idx + 2):
+                                hItem.setExpanded(True)
+                                if hItem.text(1) not in self.aExpanded:
+                                    self.aExpanded.append(hItem.text(1))
+                            break
+                    else:
+                        break
+
+            self.tw_aHierarchy.setCurrentItem(hItem)
+
+            if "step" in data:
+                fItems = self.lw_aPipeline.findItems(data["step"], Qt.MatchExactly)
+                if len(fItems) > 0:
+                    self.lw_aPipeline.setCurrentItem(fItems[0])
+                    if "category" in data:
+                        fItems = self.lw_aCategory.findItems(data["category"], Qt.MatchExactly)
+                        if len(fItems) > 0:
+                            self.lw_aCategory.setCurrentItem(fItems[0])
+                            if os.path.isabs(data.get("filename", "")):
+                                for i in range(self.tw_aFiles.model().rowCount()):
+                                    if data["filename"] == self.tw_aFiles.model().index(i, 0).data(
+                                        Qt.UserRole
+                                    ):
+                                        idx = self.tw_aFiles.model().index(i, 0)
+                                        self.tw_aFiles.selectRow(idx.row())
+                                        break
+
+        elif data["entity"] == "shot" and self.tw_sShot.topLevelItemCount() > 0:
+            self.showTab("Shots")
+            shotName = data.get("entityName", "")
+            stepName = data.get("step", "")
+            catName = data.get("category", "")
+
+            shotName, seqName = self.core.entities.splitShotname(shotName)
+            for i in range(self.tw_sShot.topLevelItemCount()):
+                sItem = self.tw_sShot.topLevelItem(i)
+                if sItem.text(0) == seqName:
+                    if shotName == "":
+                        self.tw_sShot.setCurrentItem(sItem)
+                    else:
+                        sItem.setExpanded(True)
+                        for k in range(sItem.childCount()):
+                            shotItem = sItem.child(k)
+                            if shotItem.text(0) == shotName:
+                                self.tw_sShot.setCurrentItem(shotItem)
+                                break
+
+            if stepName:
+                for i in range(self.lw_sPipeline.model().rowCount()):
+                    if stepName == self.lw_sPipeline.model().index(i, 0).data():
+                        idx = self.lw_sPipeline.model().index(i, 0)
+                        self.lw_sPipeline.selectionModel().setCurrentIndex(
+                            idx, QItemSelectionModel.ClearAndSelect
+                        )
+                        break
+                if catName:
+                    for i in range(self.lw_sCategory.model().rowCount()):
+                        if catName == self.lw_sCategory.model().index(i, 0).data():
+                            idx = self.lw_sCategory.model().index(i, 0)
+                            self.lw_sCategory.selectionModel().setCurrentIndex(
+                                idx, QItemSelectionModel.ClearAndSelect
+                            )
+                            break
+
+                    if os.path.isabs(data.get("filename", "")):
+                        for i in range(self.tw_sFiles.model().rowCount()):
+                            if data["filename"] == self.tw_sFiles.model().index(i, 0).data(
+                                Qt.UserRole
+                            ):
+                                idx = self.tw_sFiles.model().index(i, 0)
+                                self.tw_sFiles.selectRow(idx.row())
+                                break
+
+    @err_catcher(name=__name__)
+    def showTab(self, tab):
+        if tab != self.tbw_browser.currentWidget().property("tabType"):
+            for i in range(self.tbw_browser.count()):
+                if self.tbw_browser.widget(i).property("tabType") == tab:
+                    idx = i
+                    break
+            else:
+                return False
+
+            self.tbw_browser.setCurrentIndex(idx)
+            return True
+
+    @err_catcher(name=__name__)
+    def updateChanged(self, state):
+        if state:
+            self.updateTasks()
+
+    @err_catcher(name=__name__)
+    def refreshRender(self):
+        curTab = self.tbw_browser.currentWidget().property("tabType")
+        curData = [
+            curTab,
+            self.cursShots,
+            self.curRTask,
+            self.curRVersion,
+            self.curRLayer,
+        ]
+        self.updateTasks()
+        self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
+
+    @err_catcher(name=__name__)
+    def getMediaTasks(self, entityName=None, entityType=None):
+        mediaTasks = {"3d": [], "2d": [], "playblast": [], "external": []}
+
+        if entityType is None:
+            if not self.tbw_browser.currentWidget():
+                return mediaTasks
+
+            entityType = self.tbw_browser.currentWidget().property("tabType")
+
+        if entityType == "Assets":
+            entityType = "asset"
+            entityName = self.curAsset
+            step = self.curaStep
+            cat = self.curaCat
+        elif entityType == "Shots":
+            entityType = "shot"
+            entityName = self.cursShots
+            step = self.cursStep
+            cat = self.cursCat
+        else:
+            self.renderBasePath = ""
+            return
+
+        self.renderBasePath = self.core.products.getMediaProductBase(entityType, entityName, step=step, category=cat)
+        mediaTasks = self.core.products.getMediaProductNames(
+            basepath=self.renderBasePath,
+            entityType=entityType,
+            entityName=entityName,
+            step=step,
+            category=cat
+        )
+
+        return mediaTasks
+
+    @err_catcher(name=__name__)
+    def updateTasks(self):
+        self.renderRefreshEnabled = False
+
+        self.curRTask = ""
+        self.lw_task.clear()
+
+        taskNames = []
+        mediaTasks = self.getMediaTasks()
+        if mediaTasks:
+            for i in ["3d", "2d", "playblast", "external"]:
+                taskNames += sorted(list({x[0] for x in mediaTasks[i]}))
+
+        self.lw_task.addItems(taskNames)
+
+        mIdx = self.lw_task.findItems("main", (Qt.MatchExactly & Qt.MatchCaseSensitive))
+        if len(mIdx) > 0:
+            self.lw_task.setCurrentItem(mIdx[0])
+            self.curRTask = "main"
+        elif self.lw_task.count() > 0:
+            self.lw_task.setCurrentRow(0)
+
+        self.renderRefreshEnabled = True
+
+        self.updateVersions()
+
+    @err_catcher(name=__name__)
+    def updateVersions(self):
+        if not self.renderRefreshEnabled:
+            return
+
+        self.curRVersion = ""
+        self.lw_version.clear()
+
+        if len(self.lw_task.selectedItems()) == 1:
+            foldercont = self.core.products.getMediaVersions(basepath=self.renderBasePath, product=self.curRTask)
+            foldercont.sort()
+            for i in reversed(foldercont):
+                item = QListWidgetItem(i)
+                versionInfoPath = self.getVersionInfoPath()
+                vData = self.core.getConfig("information", configPath=versionInfoPath)
+                if vData:
+                    prjMngNames = [
+                        [x, x.lower() + "-url"] for x in self.core.prjManagers
+                    ]
+                    for i in prjMngNames:
+                        if i[1] in vData:
+                            f = item.font()
+                            f.setBold(True)
+                            item.setFont(f)
+                            break
+
+                self.lw_version.addItem(item)
+
+        self.renderRefreshEnabled = False
+        self.lw_version.setCurrentRow(0)
+        self.renderRefreshEnabled = True
+
+        if self.lw_version.currentItem() is not None:
+            self.curRVersion = self.lw_version.currentItem().text()
+
+        self.updateLayers()
+
+    @err_catcher(name=__name__)
+    def updateLayers(self):
+        if not self.renderRefreshEnabled:
+            return
+
+        self.curRLayer = ""
+        self.cb_layer.clear()
+
+        if len(self.lw_version.selectedItems()) == 1:
+            foldercont = self.core.products.getRenderLayers(self.renderBasePath, self.curRTask, self.curRVersion)
+            for i in foldercont:
+                self.cb_layer.addItem(i)
+
+        self.cb_layer.blockSignals(True)
+        bIdx = self.cb_layer.findText("beauty")
+        if bIdx != -1:
+            self.cb_layer.setCurrentIndex(bIdx)
+        else:
+            bIdx = self.cb_layer.findText("rgba")
+            if bIdx != -1:
+                self.cb_layer.setCurrentIndex(bIdx)
+            else:
+                self.cb_layer.setCurrentIndex(0)
+        self.cb_layer.blockSignals(False)
+
+        if self.cb_layer.currentIndex() != -1:
+            self.curRLayer = self.cb_layer.currentText()
+        else:
+            self.updatePreview()
+
+    @err_catcher(name=__name__)
+    def getShotMediaPath(self):
+        foldercont = [None, None, None]
+        if (
+            len(self.lw_task.selectedItems()) > 1
+            or len(self.lw_version.selectedItems()) > 1
+        ):
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+            mediaPlayback["l_info"].setText("Multiple items selected")
+            mediaPlayback["l_info"].setToolTip("")
+            mediaPlayback["l_date"].setText("")
+            self.b_addRV.setEnabled(True)
+            self.b_compareRV.setEnabled(True)
+            self.b_combineVersions.setEnabled(True)
+            return ["multiple", None, None]
+        else:
+            self.b_addRV.setEnabled(False)
+            if len(self.compareStates) == 0:
+                self.b_compareRV.setEnabled(False)
+                self.b_combineVersions.setEnabled(False)
+
+            foldercont = self.core.products.getMediaProductPath(
+                basepath=self.renderBasePath,
+                product=self.curRTask,
+                version=self.curRVersion,
+                layer=self.curRLayer
+            )
+
+        return foldercont
+
+    @err_catcher(name=__name__)
+    def updatePreview(self, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        if "timeline" in mediaPlayback:
+            if mediaPlayback["timeline"].state() != QTimeLine.NotRunning:
+                if mediaPlayback["timeline"].state() == QTimeLine.Running:
+                    mediaPlayback["tlPaused"] = False
+                elif mediaPlayback["timeline"].state() == QTimeLine.Paused:
+                    mediaPlayback["tlPaused"] = True
+                mediaPlayback["timeline"].stop()
+        else:
+            mediaPlayback["tlPaused"] = not self.actionAutoplay.isChecked()
+
+        mediaPlayback["sl_preview"].setValue(0)
+        mediaPlayback["prevCurImg"] = 0
+        mediaPlayback["curImg"] = 0
+        mediaPlayback["seq"] = []
+        mediaPlayback["prvIsSequence"] = False
+
+        QPixmapCache.clear()
+
+        mediaBase, mediaFolders, mediaFiles = mediaPlayback["getMediaBase"]()
+
+        if mediaBase != "multiple":
+            if mediaBase is not None:
+                mediaPlayback["basePath"] = mediaBase
+                base = None
+                for i in sorted(mediaFiles):
+                    if os.path.splitext(i)[1] in [
+                        ".jpg",
+                        ".jpeg",
+                        ".JPG",
+                        ".png",
+                        ".tif",
+                        ".tiff",
+                        ".exr",
+                        ".dpx",
+                        ".mp4",
+                        ".mov",
+                        ".avi",
+                    ]:
+                        base = i
+                        break
+
+                if base is not None:
+                    baseName, extension = os.path.splitext(base)
+                    for i in sorted(mediaFiles):
+                        if i.startswith(baseName[:-4]) and (i.endswith(extension)):
+                            mediaPlayback["seq"].append(i)
+
+                    if len(mediaPlayback["seq"]) > 1 and extension not in [
+                        ".mp4",
+                        ".mov",
+                        ".avi",
+                    ]:
+                        mediaPlayback["prvIsSequence"] = True
+                        try:
+                            mediaPlayback["pstart"] = int(baseName[-4:])
+                        except:
+                            mediaPlayback["pstart"] = "?"
+
+                        try:
+                            mediaPlayback["pend"] = int(
+                                os.path.splitext(
+                                    mediaPlayback["seq"][len(mediaPlayback["seq"]) - 1]
+                                )[0][-4:]
+                            )
+                        except:
+                            mediaPlayback["pend"] = "?"
+
+                    else:
+                        mediaPlayback["prvIsSequence"] = False
+                        mediaPlayback["seq"] = []
+                        for i in mediaFiles:
+                            if os.path.splitext(i)[1] in [
+                                ".jpg",
+                                ".jpeg",
+                                ".JPG",
+                                ".png",
+                                ".tif",
+                                ".tiff",
+                                ".exr",
+                                ".dpx",
+                                ".mp4",
+                                ".mov",
+                                ".avi",
+                            ]:
+                                mediaPlayback["seq"].append(i)
+
+                    if not (
+                        self.curRTask == ""
+                        or self.curRVersion == ""
+                        or len(mediaPlayback["seq"]) == 0
+                    ):
+                        self.b_addRV.setEnabled(True)
+
+                    mediaPlayback["pduration"] = len(mediaPlayback["seq"])
+                    imgPath = str(os.path.join(mediaBase, base))
+                    if (
+                        os.path.exists(imgPath)
+                        and mediaPlayback["pduration"] == 1
+                        and os.path.splitext(imgPath)[1] in [".mp4", ".mov", ".avi"]
+                    ):
+                        if os.stat(imgPath).st_size == 0:
+                            mediaPlayback["vidPrw"] = "Error"
+                        else:
+                            try:
+                                mediaPlayback["vidPrw"] = imageio.get_reader(
+                                    imgPath, "ffmpeg"
+                                )
+                            except:
+                                mediaPlayback["vidPrw"] = "Error"
+                                logger.debug("failed to read videofile: %s" % traceback.format_exc())
+
+                        self.updatePrvInfo(
+                            imgPath,
+                            vidReader=mediaPlayback["vidPrw"],
+                            mediaPlayback=mediaPlayback,
+                        )
+                    else:
+                        self.updatePrvInfo(imgPath, mediaPlayback=mediaPlayback)
+
+                    if os.path.exists(imgPath):
+                        mediaPlayback["timeline"] = QTimeLine(
+                            mediaPlayback["pduration"] * 40, self
+                        )
+                        mediaPlayback["timeline"].setFrameRange(
+                            0, mediaPlayback["pduration"] - 1
+                        )
+                        mediaPlayback["timeline"].setEasingCurve(QEasingCurve.Linear)
+                        mediaPlayback["timeline"].setLoopCount(0)
+                        mediaPlayback["timeline"].frameChanged.connect(
+                            lambda x: self.changeImg(x, mediaPlayback=mediaPlayback)
+                        )
+                        QPixmapCache.setCacheLimit(2097151)
+                        mediaPlayback["curImg"] = 0
+                        mediaPlayback["timeline"].start()
+
+                        if mediaPlayback["tlPaused"]:
+                            mediaPlayback["timeline"].setPaused(True)
+                            self.changeImg(mediaPlayback=mediaPlayback)
+                        elif mediaPlayback["pduration"] < 3:
+                            self.changeImg(mediaPlayback=mediaPlayback)
+
+                        return True
+                else:
+                    self.updatePrvInfo(mediaPlayback=mediaPlayback)
+            else:
+                self.updatePrvInfo(mediaPlayback=mediaPlayback)
+
+        mediaPlayback["l_preview"].setPixmap(self.emptypmap)
+        mediaPlayback["sl_preview"].setEnabled(False)
+
+    @err_catcher(name=__name__)
+    def updatePrvInfo(self, prvFile="", vidReader=None, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        if not os.path.exists(prvFile):
+            mediaPlayback["l_info"].setText("No image found")
+            mediaPlayback["l_info"].setToolTip("")
+            mediaPlayback["l_date"].setText("")
+            mediaPlayback["l_preview"].setToolTip("")
+            return
+
+        mediaPlayback["pwidth"], mediaPlayback["pheight"] = self.getMediaResolution(
+            prvFile, vidReader=vidReader, setDuration=True, mediaPlayback=mediaPlayback
+        )
+
+        mediaPlayback["pformat"] = "*" + os.path.splitext(prvFile)[1]
+
+        cdate = datetime.datetime.fromtimestamp(os.path.getmtime(prvFile))
+        cdate = cdate.replace(microsecond=0)
+        pdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+
+        mediaPlayback["sl_preview"].setEnabled(True)
+
+        if mediaPlayback["pduration"] == 1:
+            frStr = "frame"
+        else:
+            frStr = "frames"
+
+        if mediaPlayback["prvIsSequence"]:
+            infoStr = "%sx%s   %s   %s-%s (%s %s)" % (
+                mediaPlayback["pwidth"],
+                mediaPlayback["pheight"],
+                mediaPlayback["pformat"],
+                mediaPlayback["pstart"],
+                mediaPlayback["pend"],
+                mediaPlayback["pduration"],
+                frStr,
+            )
+        elif len(mediaPlayback["seq"]) > 1:
+            infoStr = "%s files %sx%s   %s   %s" % (
+                mediaPlayback["pduration"],
+                mediaPlayback["pwidth"],
+                mediaPlayback["pheight"],
+                mediaPlayback["pformat"],
+                os.path.basename(prvFile),
+            )
+        elif os.path.splitext(mediaPlayback["seq"][0])[1] in [".mp4", ".mov", ".avi"]:
+            if mediaPlayback["pwidth"] == "?":
+                duration = "?"
+                frStr = "frames"
+            else:
+                duration = mediaPlayback["pduration"]
+
+            infoStr = "%sx%s   %s   %s %s" % (
+                mediaPlayback["pwidth"],
+                mediaPlayback["pheight"],
+                mediaPlayback["seq"][0],
+                duration,
+                frStr,
+            )
+        else:
+            infoStr = "%sx%s   %s" % (
+                mediaPlayback["pwidth"],
+                mediaPlayback["pheight"],
+                os.path.basename(prvFile),
+            )
+            mediaPlayback["sl_preview"].setEnabled(False)
+
+        mediaPlayback["l_info"].setText(infoStr)
+        mediaPlayback["l_info"].setToolTip(infoStr)
+        mediaPlayback["l_date"].setText(pdate)
+        mediaPlayback["l_preview"].setToolTip(
+            "Drag to drop the media to RV\nCtrl+Drag to drop the media to Nuke"
+        )
+
+    @err_catcher(name=__name__)
+    def getMediaResolution(
+        self, prvFile, vidReader=None, setDuration=False, mediaPlayback=None
+    ):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        pwidth = 0
+        pheight = 0
+
+        if os.path.splitext(prvFile)[1] in [
+            ".jpg",
+            ".jpeg",
+            ".JPG",
+            ".png",
+            ".tif",
+            ".tiff",
+        ]:
+            size = self.core.media.getPixmapFromPath(prvFile).size()
+            pwidth = size.width()
+            pheight = size.height()
+        elif os.path.splitext(prvFile)[1] in [".exr", ".dpx"]:
+            pwidth = pheight = "?"
+            if self.oiio:
+                imgSpecs = self.oiio.ImageBuf(str(prvFile)).spec()
+                pwidth = imgSpecs.full_width
+                pheight = imgSpecs.full_height
+
+        elif os.path.splitext(prvFile)[1] in [".mp4", ".mov", ".avi"]:
+            if vidReader is None:
+                if os.stat(prvFile).st_size == 0:
+                    vidReader = "Error"
+                else:
+                    try:
+                        vidReader = imageio.get_reader(prvFile, "ffmpeg")
+                    except:
+                        vidReader = "Error"
+                        logger.debug("failed to read videofile: %s" % traceback.format_exc())
+
+            if vidReader == "Error":
+                pwidth = pheight = "?"
+                if setDuration:
+                    mediaPlayback["pduration"] = 1
+            else:
+                pwidth = vidReader._meta["size"][0]
+                pheight = vidReader._meta["size"][1]
+                if len(mediaPlayback["seq"]) == 1 and setDuration:
+                    mediaPlayback["pduration"] = vidReader._meta["nframes"]
+
+        if pwidth == 0 and pheight == 0:
+            pwidth = pheight = "?"
+
+        return pwidth, pheight
+
+    @err_catcher(name=__name__)
+    def createPMap(self, resx, resy):
+        if resx == 300:
+            imgFile = os.path.join(
+                self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileBig.jpg"
+            )
+        else:
+            imgFile = os.path.join(
+                self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileSmall.jpg"
+            )
+
+        return self.core.media.getPixmapFromPath(imgFile)
+
+    @err_catcher(name=__name__)
+    def changeImg(self, frame=0, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        pmsmall = QPixmap()
+        if not QPixmapCache.find(("Frame" + str(mediaPlayback["curImg"])), pmsmall):
+            if len(mediaPlayback["seq"]) == 1 and os.path.splitext(
+                mediaPlayback["seq"][0]
+            )[1] in [".mp4", ".mov", ".avi"]:
+                curFile = mediaPlayback["seq"][0]
+            else:
+                curFile = mediaPlayback["seq"][mediaPlayback["curImg"]]
+            fileName = os.path.join(mediaPlayback["basePath"], curFile)
+
+            if os.path.splitext(curFile)[1] in [
+                ".jpg",
+                ".jpeg",
+                ".JPG",
+                ".png",
+                ".tif",
+                ".tiff",
+            ]:
+                pm = self.core.media.getPixmapFromPath(fileName)
+
+                if pm.width() == 0 or pm.height() == 0:
+                    pmsmall = self.core.media.getPixmapFromPath(
+                        os.path.join(
+                            self.core.projectPath,
+                            "00_Pipeline",
+                            "Fallbacks",
+                            "%s.jpg" % os.path.splitext(curFile)[1][1:].lower(),
+                        )
+                    )
+                elif (pm.width() / float(pm.height())) > 1.7778:
+                    pmsmall = pm.scaledToWidth(self.renderResX)
+                else:
+                    pmsmall = pm.scaledToHeight(self.renderResY)
+            elif os.path.splitext(curFile)[1] in [".exr", ".dpx"]:
+                try:
+                    qimg = QImage(self.renderResX, self.renderResY, QImage.Format_RGB16)
+
+                    if self.oiio:
+                        imgSrc = self.oiio.ImageBuf(str(fileName))
+                        rgbImgSrc = self.oiio.ImageBuf()
+                        self.oiio.ImageBufAlgo.channels(rgbImgSrc, imgSrc, (0, 1, 2))
+                        imgWidth = rgbImgSrc.spec().full_width
+                        imgHeight = rgbImgSrc.spec().full_height
+                        xOffset = 0
+                        yOffset = 0
+                        if (imgWidth / float(imgHeight)) > 1.7778:
+                            newImgWidth = self.renderResX
+                            newImgHeight = self.renderResX / float(imgWidth) * imgHeight
+                        else:
+                            newImgHeight = self.renderResY
+                            newImgWidth = self.renderResY / float(imgHeight) * imgWidth
+                        imgDst = self.oiio.ImageBuf(
+                            self.oiio.ImageSpec(
+                                int(newImgWidth), int(newImgHeight), 3, self.oiio.UINT8
+                            )
+                        )
+                        self.oiio.ImageBufAlgo.resample(imgDst, rgbImgSrc)
+                        sRGBimg = self.oiio.ImageBuf()
+                        self.oiio.ImageBufAlgo.pow(
+                            sRGBimg, imgDst, (1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2)
+                        )
+                        bckImg = self.oiio.ImageBuf(
+                            self.oiio.ImageSpec(
+                                int(newImgWidth), int(newImgHeight), 3, self.oiio.UINT8
+                            )
+                        )
+                        self.oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
+                        self.oiio.ImageBufAlgo.paste(bckImg, xOffset, yOffset, 0, 0, sRGBimg)
+                        qimg = QImage(
+                            int(newImgWidth), int(newImgHeight), QImage.Format_RGB16
+                        )
+                        for i in range(int(newImgWidth)):
+                            for k in range(int(newImgHeight)):
+                                rgb = qRgb(
+                                    bckImg.getpixel(i, k)[0] * 255,
+                                    bckImg.getpixel(i, k)[1] * 255,
+                                    bckImg.getpixel(i, k)[2] * 255,
+                                )
+                                qimg.setPixel(i, k, rgb)
+                        pmsmall = QPixmap.fromImage(qimg)
+
+                    else:
+                        raise RuntimeError("no image loader available")
+                except:
+                    pmsmall = self.core.media.getPixmapFromPath(
+                        os.path.join(
+                            self.core.projectPath,
+                            "00_Pipeline",
+                            "Fallbacks",
+                            "%s.jpg" % os.path.splitext(curFile)[1][1:].lower(),
+                        )
+                    )
+            elif os.path.splitext(curFile)[1] in [".mp4", ".mov", ".avi"]:
+                try:
+                    if len(mediaPlayback["seq"]) > 1:
+                        imgNum = 0
+                        vidFile = imageio.get_reader(fileName, "ffmpeg")
+                    else:
+                        imgNum = mediaPlayback["curImg"]
+                        vidFile = mediaPlayback["vidPrw"]
+
+                    image = vidFile.get_data(imgNum)
+                    qimg = QImage(
+                        image,
+                        vidFile._meta["size"][0],
+                        vidFile._meta["size"][1],
+                        QImage.Format_RGB888,
+                    )
+                    pm = QPixmap.fromImage(qimg)
+                    if (pm.width() / float(pm.height())) > 1.7778:
+                        pmsmall = pm.scaledToWidth(self.renderResX)
+                    else:
+                        pmsmall = pm.scaledToHeight(self.renderResY)
+                except:
+                    pmsmall = self.core.media.getPixmapFromPath(
+                        os.path.join(
+                            self.core.projectPath,
+                            "00_Pipeline",
+                            "Fallbacks",
+                            "%s.jpg" % os.path.splitext(curFile)[1][1:].lower(),
+                        )
+                    )
+            else:
+                return False
+
+            QPixmapCache.insert(("Frame" + str(mediaPlayback["curImg"])), pmsmall)
+
+        if not mediaPlayback["prvIsSequence"] and len(mediaPlayback["seq"]) > 1:
+            curFile = mediaPlayback["seq"][mediaPlayback["curImg"]]
+            fileName = os.path.join(mediaPlayback["basePath"], curFile)
+            self.updatePrvInfo(fileName, mediaPlayback=mediaPlayback)
+
+        mediaPlayback["l_preview"].setPixmap(pmsmall)
+        if mediaPlayback["timeline"].state() == QTimeLine.Running:
+            mediaPlayback["sl_preview"].setValue(
+                int(100 * (mediaPlayback["curImg"] / float(mediaPlayback["pduration"])))
+            )
+        mediaPlayback["curImg"] += 1
+        if mediaPlayback["curImg"] == mediaPlayback["pduration"]:
+            mediaPlayback["curImg"] = 0
+
+    @err_catcher(name=__name__)
+    def taskClicked(self):
+        sItems = self.lw_task.selectedItems()
+        if len(sItems) == 1 and sItems[0].text() != self.curRTask:
+            self.curRTask = sItems[0].text()
+        else:
+            self.curRTask = ""
+
+        self.updateVersions()
+
+    @err_catcher(name=__name__)
+    def versionClicked(self):
+        sItems = self.lw_version.selectedItems()
+        if len(sItems) == 1 and sItems[0].text() != self.curRVersion:
+            self.curRVersion = sItems[0].text()
+        else:
+            self.curRVersion = ""
+
+        self.updateLayers()
+
+    @err_catcher(name=__name__)
+    def layerChanged(self, layer):
+        layertext = self.cb_layer.itemText(layer)
+        if layertext != "" and layer != self.curRLayer:
+            self.curRLayer = layertext
+            self.updatePreview()
+
+    @err_catcher(name=__name__)
+    def sliderChanged(self, val, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        if mediaPlayback["seq"] != []:
+            if (
+                val != (mediaPlayback["prevCurImg"] + 1)
+                or mediaPlayback["timeline"].state() != QTimeLine.Running
+            ):
+                mediaPlayback["prevCurImg"] = val
+                mediaPlayback["curImg"] = int(
+                    val / 99.0 * (mediaPlayback["pduration"] - 1)
+                )
+
+                if mediaPlayback["timeline"].state() != QTimeLine.Running:
+                    self.changeImg(mediaPlayback=mediaPlayback)
+            else:
+                mediaPlayback["prevCurImg"] = val
+
+    @err_catcher(name=__name__)
+    def getVersionInfoPath(self):
+        path = self.core.products.getMediaVersionInfoPath(self.renderBasePath, self.curRTask, self.curRVersion)
+        return path
+
+    @err_catcher(name=__name__)
+    def showVersionInfo(self, item=None):
+        vInfo = "No information is saved with this version."
+
+        path = self.getVersionInfoPath()
+
+        if os.path.exists(path):
+            vData = self.core.getConfig("information", configPath=path)
+
+            vInfo = []
+            for i in vData:
+                i = i[0].upper() + i[1:]
+                vInfo.append([i, vData[i]])
+
+        if type(vInfo) == str or len(vInfo) == 0:
+            self.core.popup(vInfo, severity="info")
+            return
+
+        infoDlg = QDialog()
+        lay_info = QGridLayout()
+
+        infoDlg.setWindowTitle("Versioninfo %s %s:" % (self.curRTask, self.curRVersion))
+        for idx, val in enumerate(vInfo):
+            l_infoName = QLabel(val[0] + ":\t")
+            l_info = QLabel(str(val[1]))
+            lay_info.addWidget(l_infoName)
+            lay_info.addWidget(l_info, idx, 1)
+
+        lay_info.addItem(
+            QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+        lay_info.addItem(
+            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
+        )
+
+        sa_info = QScrollArea()
+
+        lay_info.setContentsMargins(10, 10, 10, 10)
+        w_info = QWidget()
+        w_info.setLayout(lay_info)
+        sa_info.setWidget(w_info)
+        sa_info.setWidgetResizable(True)
+
+        bb_info = QDialogButtonBox()
+
+        bb_info.addButton("Ok", QDialogButtonBox.AcceptRole)
+
+        bb_info.accepted.connect(infoDlg.accept)
+
+        bLayout = QVBoxLayout()
+        bLayout.addWidget(sa_info)
+        bLayout.addWidget(bb_info)
+        infoDlg.setLayout(bLayout)
+        infoDlg.setParent(self.core.messageParent, Qt.Window)
+        infoDlg.resize(900 * self.core.uiScaleFactor, 200 * self.core.uiScaleFactor)
+
+        infoDlg.exec_()
+
+    @err_catcher(name=__name__)
+    def showDependencies(self):
+        path = self.getVersionInfoPath()
+
+        if not os.path.exists(path):
+            self.core.popup("No dependency information was saved with this version.")
+            return
+
+        self.core.dependencyViewer(path)
+
+    @err_catcher(name=__name__)
+    def showRender(self, tab, shot, task, version, layer):
+        if tab != self.tbw_browser.currentWidget().property("tabType"):
+            for i in range(self.tbw_browser.count()):
+                if self.tbw_browser.widget(i).property("tabType") == tab:
+                    idx = i
+                    break
+            else:
+                return False
+
+            self.tbw_browser.setCurrentIndex(idx)
+
+        if tab == "Shots" and self.tw_sShot.currentIndex().data() != shot:
+            for i in range(self.tw_sShot.model().rowCount()):
+                if self.tw_sShot.model().index(i, 0).data() == shot:
+                    self.tw_sShot.selectionModel().setCurrentIndex(
+                        self.tw_sShot.model().index(i, 0),
+                        QItemSelectionModel.ClearAndSelect,
+                    )
+                    break
+
+        self.updateTasks()
+        if (
+            len(self.lw_task.findItems(task, (Qt.MatchExactly & Qt.MatchCaseSensitive)))
+            != 0
+        ):
+            self.lw_task.setCurrentItem(
+                self.lw_task.findItems(task, (Qt.MatchExactly & Qt.MatchCaseSensitive))[
+                    0
+                ]
+            )
+            if (
+                len(
+                    self.lw_version.findItems(
+                        version, (Qt.MatchExactly & Qt.MatchCaseSensitive)
+                    )
+                )
+                != 0
+            ):
+                self.lw_version.setCurrentItem(
+                    self.lw_version.findItems(
+                        version, (Qt.MatchExactly & Qt.MatchCaseSensitive)
+                    )[0]
+                )
+                if self.cb_layer.findText(layer) != -1:
+                    self.cb_layer.setCurrentIndex(self.cb_layer.findText(layer))
+                    self.updatePreview()
+
+    @err_catcher(name=__name__)
+    def previewClk(self, event, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        if mediaPlayback["seq"] != [] and event.button() == Qt.LeftButton:
+            if (
+                mediaPlayback["timeline"].state() == QTimeLine.Paused
+                and not mediaPlayback["openRV"]
+            ):
+                mediaPlayback["timeline"].setPaused(False)
+            else:
+                if mediaPlayback["timeline"].state() == QTimeLine.Running:
+                    mediaPlayback["timeline"].setPaused(True)
+                mediaPlayback["openRV"] = False
+        mediaPlayback["l_preview"].clickEvent(event)
+
+    @err_catcher(name=__name__)
+    def previewDclk(self, event, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        if mediaPlayback["seq"] != [] and event.button() == Qt.LeftButton:
+            mediaPlayback["openRV"] = True
+            self.compare(current=True, mediaPlayback=mediaPlayback)
+        mediaPlayback["l_preview"].dclickEvent(event)
+
+    @err_catcher(name=__name__)
+    def rclPreview(self, pos, mediaPlayback=None):
+        if mediaPlayback is None:
+            mediaPlayback = self.mediaPlaybacks["shots"]
+
+        self.showContextMenu(menuType="mediaPreview", mediaPlayback=mediaPlayback)
 
     @err_catcher(name=__name__)
     def setPreview(self):
@@ -5986,7 +4420,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             pmap = pm.scaledToHeight(self.shotPrvYres)
 
-        self.savePMap(pmap, prvPath)
+        self.core.media.savePixmap(pmap, prvPath)
 
         refresh()
 
@@ -6005,7 +4439,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.core.projectPath,
             dailiesName,
             curDate,
-            self.core.getConfig("globals", "UserName"),
+            self.core.getConfig("globals", "username"),
         )
         if not os.path.exists(dailiesFolder):
             os.makedirs(dailiesFolder)
@@ -6053,22 +4487,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 try:
                     os.remove(slinkPath)
                 except:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Dailies",
-                        "An existing reference in the dailies folder couldn't be replaced.",
-                    )
+                    msg = "An existing reference in the dailies folder couldn't be replaced."
+                    self.core.popup(msg)
                     return
 
             os.symlink(mediaPlayback["basePath"], slinkPath)
 
         self.core.copyToClipboard(dailiesFolder)
 
-        QMessageBox.information(
-            self.core.messageParent,
-            "Dailies",
-            "The version was sent to the current dailies folder. (path in clipboard)",
-        )
+        msg = "The version was sent to the current dailies folder. (path in clipboard)"
+        self.core.popup(msg, severity="info")
 
     @err_catcher(name=__name__)
     def sliderDrag(self, event, mediaPlayback=None):
@@ -6121,96 +4549,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             return False
 
         if lw == self.lw_task:
-            if itemName.endswith(" (local)"):
-                path = os.path.join(
-                    self.renderBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    ),
-                    "Rendering",
-                    "3dRender",
-                    itemName.replace(" (local)", ""),
-                )
-            elif itemName.endswith(" (2d)"):
-                path = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "2dRender",
-                    itemName.replace(" (2d)", ""),
-                )
-                if not os.path.exists(path) and self.core.useLocalFiles:
-                    path = os.path.join(
-                        self.renderBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Rendering",
-                        "2dRender",
-                        itemName.replace(" (2d)", ""),
-                    )
-            elif itemName.endswith(" (playblast)"):
-                path = os.path.join(
-                    self.renderBasePath,
-                    "Playblasts",
-                    itemName.replace(" (playblast)", ""),
-                )
-                if not os.path.exists(path) and self.core.useLocalFiles:
-                    path = os.path.join(
-                        self.renderBasePath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Playblasts",
-                        itemName.replace(" (playblast)", ""),
-                    )
-            elif itemName.endswith(" (external)"):
-                path = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "external",
-                    itemName.replace(" (external)", ""),
-                )
-            else:
-                path = os.path.join(
-                    self.renderBasePath, "Rendering", "3dRender", itemName
-                )
+            path = mediaPlayback["getMediaBaseFolder"](
+                basepath=self.renderBasePath,
+                product=itemName,
+            )[0]
         elif lw == self.lw_version:
-            if itemName.endswith(" (local)"):
-                base = self.renderBasePath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
-            else:
-                base = self.renderBasePath
-            path = os.path.join(
-                base,
-                "Rendering",
-                "3dRender",
-                self.curRTask.replace(" (playblast)", "")
-                .replace(" (2d)", "")
-                .replace(" (local)", ""),
-                itemName.replace(" (local)", ""),
-            )
-
-            if self.curRTask.endswith(" (playblast)"):
-                path = path.replace(os.path.join("Rendering", "3dRender"), "Playblasts")
-            elif self.curRTask.endswith(" (2d)"):
-                path = path.replace(
-                    os.path.join("Rendering", "3dRender"),
-                    os.path.join("Rendering", "2dRender"),
-                )
-            elif self.curRTask.endswith(" (external)"):
-                redirectFile = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "external",
-                    self.curRTask.replace(" (external)", ""),
-                    self.curRVersion,
-                    "REDIRECT.txt",
-                )
-                path = ""
-                if os.path.exists(redirectFile):
-                    with open(redirectFile, "r") as rfile:
-                        path = rfile.read()
-
-                    if os.path.isfile(path):
-                        path = os.path.dirname(path)
+            path = mediaPlayback["getMediaBaseFolder"](
+                basepath=self.renderBasePath,
+                product=self.curRTask,
+                version=itemName,
+            )[0]
 
         rcmenu = QMenu()
 
@@ -6227,7 +4575,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         ):
             rcmenu.addAction(add)
 
-        if lw == self.lw_task and self.renderBasePath != self.aBasePath:
+        if lw == self.lw_task and self.renderBasePath and self.renderBasePath != self.aBasePath:
             exAct = QAction("Create external task", self)
             exAct.triggered.connect(self.createExternalTask)
             rcmenu.addAction(exAct)
@@ -6468,14 +4816,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if len(sTasks) > 1:
             for i in sTasks:
                 render = {"task": i.text(), "version": "", "layer": ""}
-                versions = self.getRenderVersions(task=i.text())
+                versions = self.core.products.getMediaVersions(basepath=self.renderBasePath, product=i.text())
 
                 if len(versions) > 0:
                     versions.sort()
                     versions = versions[::-1]
 
                     render["version"] = versions[0]
-                    layers = self.getRenderLayers(i.text(), versions[0])
+                    layers = self.core.products.getRenderLayers(self.renderBasePath, i.text(), versions[0])
 
                     if len(layers) > 0:
                         if "beauty" in layers:
@@ -6490,7 +4838,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         elif len(sVersions) > 1:
             for i in sVersions:
                 render = {"task": self.curRTask, "version": i.text(), "layer": ""}
-                layers = self.getRenderLayers(self.curRTask, i.text())
+                layers = self.core.products.getRenderLayers(self.renderBasePath, self.curRTask, i.text())
 
                 if len(layers) > 0:
                     if "beauty" in layers:
@@ -6514,76 +4862,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         paths = []
 
         for i in renders:
-            if i["layer"] != "":
-                if i["version"].endswith(" (local)"):
-                    paths.append(
-                        os.path.join(
-                            self.renderBasePath.replace(
-                                self.core.projectPath, self.core.localProjectPath
-                            ),
-                            "Rendering",
-                            "3dRender",
-                            i["task"].replace(" (local)", ""),
-                            i["version"].replace(" (local)", ""),
-                            i["layer"],
-                        )
-                    )
-                else:
-                    paths.append(
-                        os.path.join(
-                            self.renderBasePath,
-                            "Rendering",
-                            "3dRender",
-                            i["task"],
-                            i["version"],
-                            i["layer"],
-                        )
-                    )
-            elif i["task"].endswith(" (2d)"):
-                if i["version"].endswith(" (local)"):
-                    base = self.renderBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-                else:
-                    base = self.renderBasePath
-                paths.append(
-                    os.path.join(
-                        base,
-                        "Rendering",
-                        "2dRender",
-                        i["task"].replace(" (2d)", ""),
-                        i["version"].replace(" (local)", ""),
-                    )
-                )
-            elif i["task"].endswith(" (external)"):
-                redirectFile = os.path.join(
-                    self.renderBasePath,
-                    "Rendering",
-                    "external",
-                    i["task"].replace(" (external)", ""),
-                    i["version"],
-                    "REDIRECT.txt",
-                )
-                if os.path.exists(redirectFile):
-                    with open(redirectFile, "r") as rfile:
-                        paths.append(rfile.read())
-            elif i["task"].endswith(" (playblast)"):
-                if i["version"].endswith(" (local)"):
-                    base = self.renderBasePath.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-                else:
-                    base = self.renderBasePath
-                paths.append(
-                    os.path.join(
-                        base,
-                        "Playblasts",
-                        i["task"].replace(" (playblast)", ""),
-                        i["version"].replace(" (local)", ""),
-                    )
-                )
-            else:
-                continue
+            foldercont = self.core.products.getMediaProductPath(basepath=self.renderBasePath, product=i["task"], version=i["version"], layer=i["layer"])
+            if foldercont[0]:
+                paths.append(foldercont[0])
 
         return [paths, renders]
 
@@ -6679,7 +4960,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 (self.rv is None)
                 or (
                     self.djv is not None
-                    and self.core.getConfig("globals", "prefer_djv", ptype="bool")
+                    and self.core.getConfig("globals", "prefer_djv")
                 )
             )
         ):
@@ -6696,7 +4977,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if mediaPlayback["name"] == "shots":
                 curRenders = self.getCurRenders()[0]
             else:
-                curRenders = [mediaPlayback["getMediaBaseFolder"]()]
+                curRenders = [mediaPlayback["getMediaBaseFolder"](
+                    basepath=self.renderBasePath,
+                    product=self.curRTask,
+                    version=self.curRVersion,
+                    layer=self.curRLayer
+                )[0]]
 
             if len(curRenders) > 0:
                 if os.path.isfile(curRenders[0]):
@@ -6722,6 +5008,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         ".dpx",
                         ".mp4",
                         ".mov",
+                        ".avi",
                     ]:
                         if progPath == "":
                             if platform.system() == "Windows":
@@ -6903,7 +5190,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         mData = QMimeData()
 
         mData.setUrls(urlList)
-        mData.setData("text/plain", str(urlList[0].toLocalFile()))
+        mData.setData("text/plain", str(urlList[0].toLocalFile()).encode())
         drag.setMimeData(mData)
 
         drag.exec_()
@@ -6926,6 +5213,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     ".exr",
                     ".mp4",
                     ".mov",
+                    ".avi",
                     ".dpx",
                 ]:
                     src = [baseName, extension]
@@ -6950,6 +5238,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     ".exr",
                     ".mp4",
                     ".mov",
+                    ".avi",
                     ".dpx",
                 ]:
                     fname = m
@@ -6963,7 +5252,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         if (
                             endStr.isnumeric()
                             and len(psources) == psources.count(psources[0])
-                            and extension not in [".mp4", ".mov"]
+                            and extension not in [".mp4", ".mov", ".avi"]
                         ):
                             fname = "%s@@@@%s" % (baseName[:-4], extension)
 
@@ -6976,19 +5265,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             break
 
         return foundSrc
-
-    @err_catcher(name=__name__)
-    def loadOiio(self):
-        try:
-            global oiio
-            if platform.system() == "Windows":
-                from oiio1618 import OpenImageIO as oiio
-            elif platform.system() in ["Linux", "Darwin"]:
-                import OpenImageIO as oiio
-
-            self.oiioLoaded = True
-        except:
-            pass
 
     @err_catcher(name=__name__)
     def getRVpath(self):
@@ -7101,7 +5377,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.vlc = None
 
     @err_catcher(name=__name__)
-    def convertImgs(self, extension, mediaPlayback=None):
+    def convertImgs(self, extension, mediaPlayback=None, checkRes=True, settings=None):
+        if not extension:
+            if settings:
+                extension = settings.get("extension")
+
+            if not extension:
+                logger.warning("No extension specified")
+                return
+
+            settings.pop("extension")
+
+        if extension[0] != ".":
+            extension = "." + extension
+
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
 
@@ -7109,63 +5398,38 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             mediaPlayback["basePath"], mediaPlayback["seq"][0]
         ).replace("\\", "/")
         inputExt = os.path.splitext(inputpath)[1]
-        videoFormats = [".mp4", ".mov"]
-        videoInput = inputExt in videoFormats
 
-        if "pwidth" in mediaPlayback and mediaPlayback["pwidth"] == "?":
-            QMessageBox.warning(
-                self.core.messageParent, "Media conversion", "Cannot read media file."
-            )
-            return
+        if checkRes:
+            if "pwidth" in mediaPlayback and mediaPlayback["pwidth"] == "?":
+                self.core.popup("Cannot read media file.")
+                return
 
-        conversionSettings = OrderedDict()
+            if (
+                extension == ".mp4"
+                and "pwidth" in mediaPlayback
+                and "pheight" in mediaPlayback
+                and (
+                    int(mediaPlayback["pwidth"]) % 2 == 1
+                    or int(mediaPlayback["pheight"]) % 2 == 1
+                )
+            ):
+                self.core.popup("Media with odd resolution can't be converted to mp4.")
+                return
 
-        if (
-            extension == ".mp4"
-            and "pwidth" in mediaPlayback
-            and "pheight" in mediaPlayback
-            and (
-                int(mediaPlayback["pwidth"]) % 2 == 1
-                or int(mediaPlayback["pheight"]) % 2 == 1
-            )
-        ):
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Media conversion",
-                "Media with odd resolution can't be converted to mp4.",
-            )
-            return
+        conversionSettings = settings or OrderedDict()
 
-        if extension == ".mov":
+        if extension == ".mov" and not settings:
             conversionSettings["-c"] = "prores"
             conversionSettings["-profile"] = 2
             conversionSettings["-pix_fmt"] = "yuv422p10le"
 
         if mediaPlayback["prvIsSequence"]:
-            inputpath = os.path.splitext(inputpath)[0][:-4] + "%04d" + inputExt
+            inputpath = os.path.splitext(inputpath)[0][:-self.core.framePadding] + "%04d".replace("4", str(self.core.framePadding)) + inputExt
 
-        if (
-            self.curRTask.endswith(" (external)")
-            or self.curRTask.endswith(" (2d)")
-            or self.curRTask.endswith(" (playblast)")
-        ):
-            outputpath = os.path.join(
-                os.path.dirname(inputpath) + "(%s)" % extension[1:],
-                os.path.basename(inputpath),
-            )
-        else:
-            outputpath = os.path.join(
-                os.path.dirname(os.path.dirname(inputpath)) + "(%s)" % extension[1:],
-                os.path.basename(os.path.dirname(inputpath)),
-                os.path.basename(inputpath),
-            )
+        outputpath = self.core.paths.getMediaConversionOutputPath(self.curRTask, inputpath, extension)
 
-        if extension in videoFormats and mediaPlayback["prvIsSequence"]:
-            outputpath = os.path.splitext(outputpath)[0][:-5] + extension
-        elif videoInput and extension not in videoFormats:
-            outputpath = "%s.%%04d%s" % (os.path.splitext(outputpath)[0], extension)
-        else:
-            outputpath = os.path.splitext(outputpath)[0] + extension
+        if not outputpath:
+            return
 
         if self.curRTask.endswith(" (external)"):
             curPath = os.path.join(
@@ -7187,11 +5451,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             startNum = mediaPlayback["pstart"]
         else:
             startNum = 0
+            if inputExt == ".dpx":
+                conversionSettings["-start_number"] = None
+                conversionSettings["-start_number_out"] = None
 
-        result = self.core.convertMedia(inputpath, startNum, outputpath, settings=conversionSettings)
+        result = self.core.media.convertMedia(inputpath, startNum, outputpath, settings=conversionSettings)
 
-        if mediaPlayback["prvIsSequence"] or videoInput:
-            outputpath = outputpath.replace("%04d", "%04d" % int(startNum))
+        if extension not in self.core.products.videoFormats and mediaPlayback["prvIsSequence"]:
+            outputpath = outputpath % int(startNum)
 
         curTab = self.tbw_browser.currentWidget().property("tabType")
         curData = [
@@ -7205,15 +5472,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if os.path.exists(outputpath) and os.stat(outputpath).st_size > 0:
             self.core.copyToClipboard(outputpath)
-            QMessageBox.information(
-                self.core.messageParent,
-                "Image conversion",
-                "The images were converted successfully. (path is in clipboard)",
-            )
+            msg = "The images were converted successfully. (path is in clipboard)"
+            self.core.popup(msg, severity="info")
         else:
-            self.core.ffmpegError(
-                "Image conversion", "The images could not be converted.", result
-            )
+            msg = "The images could not be converted."
+            logger.debug("expected outputpath: %s" % outputpath)
+            self.core.ffmpegError("Image conversion", msg, result)
 
     @err_catcher(name=__name__)
     def compGetImportSource(self, mediaPlayback=None):

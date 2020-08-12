@@ -52,7 +52,7 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def startup(self, origin):
-        # 	for obj in qApp.topLevelWidgets():
+        # 	for obj in QApplication.topLevelWidgets():
         # 		if obj.objectName() == 'PluginEmptyWindow':
         # 			QtParent = obj
         # 			break
@@ -146,7 +146,6 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
-        origin.loadOiio()
         # 	origin.sl_preview.mousePressEvent = origin.sliderDrag
         origin.sl_preview.mousePressEvent = origin.sl_preview.origMousePressEvent
 
@@ -189,7 +188,7 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_startup(self, origin):
-        origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):

@@ -66,7 +66,7 @@ class Prism_Natron_Functions(object):
 
     @err_catcher(name=__name__)
     def startup(self, origin):
-        for obj in qApp.topLevelWidgets():
+        for obj in QApplication.topLevelWidgets():
             if (
                 obj.inherits("QMainWindow")
                 and obj.metaObject().className() == "Gui"

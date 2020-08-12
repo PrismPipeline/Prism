@@ -34,6 +34,7 @@
 import os
 import platform
 import shutil
+import logging
 
 try:
     from PySide2.QtCore import *
@@ -47,6 +48,9 @@ if platform.system() != "Windows":
     import pwd
 
 from PrismUtils.Decorators import err_catcher as err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class Prism_Standalone_Functions(object):
@@ -69,8 +73,6 @@ class Prism_Standalone_Functions(object):
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
-        origin.loadOiio()
-
         origin.closeParm = "closeafterloadsa"
         origin.actionStateManager.setEnabled(False)
 
@@ -116,7 +118,7 @@ class Prism_Standalone_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_startup(self, origin):
-        origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
@@ -125,37 +127,47 @@ class Prism_Standalone_Functions(object):
     @err_catcher(name=__name__)
     def createWinStartMenu(self, origin):
         if os.environ.get("prism_skip_root_install"):
-            print "skipped creating Prism startmenu because of missing permissions."
+            logger.warning("skipped creating Prism startmenu because of missing permissions.")
             return
 
         if platform.system() == "Windows":
             startMenuPath = os.path.join(
                 os.environ["AppData"], "Microsoft", "Windows", "Start Menu", "Programs"
             )
-            trayStartup = os.path.join(startMenuPath, "Startup", "PrismTray.lnk")
-            trayStartMenu = os.path.join(startMenuPath, "Prism", "PrismTray.lnk")
+            trayStartup = os.path.join(startMenuPath, "Startup", "Prism Tray.lnk")
+            trayStartMenu = os.path.join(startMenuPath, "Prism", "Prism Tray.lnk")
             pbStartMenu = os.path.join(
-                startMenuPath, "Prism", "PrismProjectBrowser.lnk"
+                startMenuPath, "Prism", "Prism Project Browser.lnk"
             )
             settingsStartMenu = os.path.join(
-                startMenuPath, "Prism", "PrismSettings.lnk"
+                startMenuPath, "Prism", "Prism Settings.lnk"
             )
 
-            trayLnk = os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk")
+            trayLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Tray.lnk")
             pbLnk = os.path.join(
-                self.core.prismRoot, "Tools", "PrismProjectBrowser.lnk"
+                self.core.prismRoot, "Tools", "Prism Project Browser.lnk"
             )
             settingsLnk = os.path.join(
-                self.core.prismRoot, "Tools", "PrismSettings.lnk"
+                self.core.prismRoot, "Tools", "Prism Settings.lnk"
             )
 
             cbPath = trayStartup
 
             toolList = [
-                [trayLnk, "PrismTray.exe", "PrismTray.py"],
-                [pbLnk, "PrismProjectBrowser.exe", "PrismCore.py"],
-                [settingsLnk, "PrismSettings.exe", "PrismSettings.py"],
+                [trayLnk, "Prism Tray.exe", "PrismTray.py"],
+                [pbLnk, "Prism Project Browser.exe", "PrismCore.py"],
+                [settingsLnk, "Prism Settings.exe", "PrismSettings.py"],
             ]
+
+            tools = [trayStartup, trayStartMenu, pbStartMenu, settingsStartMenu]
+            for tool in tools:
+                oldPath = os.path.dirname(tool) + os.sep + os.path.basename(tool).replace(" ", "")
+                if os.path.exists(oldPath):
+                    try:
+                        os.remove(oldPath)
+                        logger.debug("removed %s" % oldPath)
+                    except:
+                        logger.debug("couldn't remove %s" % oldPath)
 
             for i in toolList:
                 if not os.path.exists(os.path.dirname(i[0])):
@@ -163,8 +175,8 @@ class Prism_Standalone_Functions(object):
 
                 self.core.createShortcut(
                     i[0],
-                    vTarget=("%s\Python27\%s" % (self.core.prismRoot, i[1])),
-                    args=('"%s\Scripts\%s" standalone' % (self.core.prismRoot, i[2])),
+                    vTarget=("%s\\Python37\\%s" % (self.core.prismRoot, i[1])),
+                    args=('"%s\\Scripts\\%s" standalone' % (self.core.prismRoot, i[2])),
                 )
 
         elif platform.system() == "Linux":
@@ -246,7 +258,7 @@ class Prism_Standalone_Functions(object):
                 shutil.copy2(pMenuSource, pMenuTarget)
                 os.chmod(pMenuTarget, 0o777)
             else:
-                print("could not create Prism startmenu entry")
+                logger.warning("could not create Prism startmenu entry")
 
             if os.path.exists(pbLnk):
                 userName = (
@@ -359,7 +371,7 @@ class Prism_Standalone_Functions(object):
                     shutil.copy2(trayLnk, trayStartup)
                 os.chmod(trayStartup, 0o777)
             else:
-                print("could not create PrismTray autostart entry")
+                logger.warning("could not create Prism Tray autostart entry")
 
             if trayStartMenu != "":
                 if os.path.exists(os.path.dirname(trayStartMenu)):
@@ -369,7 +381,7 @@ class Prism_Standalone_Functions(object):
                         shutil.copy2(trayLnk, trayStartMenu)
                     os.chmod(trayStartMenu, 0o777)
                 else:
-                    print("could not create PrismTray startmenu entry")
+                    logger.warning("could not create Prism Tray startmenu entry")
 
         if pbStartMenu != "":
             if os.path.exists(pbLnk) and os.path.exists(os.path.dirname(pbStartMenu)):
@@ -379,7 +391,7 @@ class Prism_Standalone_Functions(object):
                     shutil.copy2(pbLnk, pbStartMenu)
                 os.chmod(pbStartMenu, 0o777)
             else:
-                print("could not create PrismProjectBrowser startmenu entry")
+                logger.warning("could not create Prism Project Browser startmenu entry")
 
         if settingsStartMenu != "":
             if os.path.exists(settingsLnk) and os.path.exists(
@@ -391,7 +403,7 @@ class Prism_Standalone_Functions(object):
                     shutil.copy2(settingsLnk, settingsStartMenu)
                 os.chmod(settingsStartMenu, 0o777)
             else:
-                print("could not create PrismSettings startmenu entry")
+                logger.warning("could not create Prism Settings startmenu entry")
 
         if platform.system() == "Darwin":
             templateTools = [

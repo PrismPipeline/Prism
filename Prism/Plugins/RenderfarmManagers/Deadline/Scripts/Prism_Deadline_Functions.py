@@ -32,7 +32,9 @@
 
 
 import os
+import sys
 import subprocess
+import time
 
 try:
     import hou
@@ -67,7 +69,10 @@ class Prism_Deadline_Functions(object):
         deadlineBin = os.getenv("DEADLINE_PATH")
         if deadlineBin is None:
             return False
+
         deadlineCommand = os.path.join(deadlineBin, "deadlinecommand.exe")
+        if not os.path.exists(deadlineCommand):
+            return False
 
         startupinfo = None
         creationflags = 0
@@ -121,7 +126,7 @@ class Prism_Deadline_Functions(object):
     @err_catcher(name=__name__)
     def getDeadlineGroups(self, subdir=None):
         if not hasattr(self, "deadlineGroups"):
-            if self.core.appPlugin.pluginName == "Blender":
+            if sys.version[0] == "3":
                 deadlineCommand = self.blenderDeadlineCommand()
 
                 if deadlineCommand is None:
@@ -427,12 +432,20 @@ class Prism_Deadline_Functions(object):
             self.deadlineCommand(["-GetCurrentUserHomeDirectory"], background=False)
         ).decode("utf-8")
 
-        if homeDir == False:
+        if homeDir is False:
             return "Execute Canceled: Deadline is not installed"
 
         homeDir = homeDir.replace("\r", "").replace("\n", "")
 
         dependencies = parent.dependencies
+
+        if hasattr(origin, "w_renderNSIs") and not origin.w_renderNSIs.isHidden():
+            renderNSIs = True
+            jobOutputFileOrig = jobOutputFile
+            jobOutputFile = os.path.join(os.path.dirname(jobOutputFile), "_nsi", os.path.basename(jobOutputFile))
+            jobOutputFile = os.path.splitext(jobOutputFile)[0] + ".nsi"
+        else:
+            renderNSIs = False
 
         jobName = (
             os.path.splitext(self.core.getCurrentFileName(path=False))[0]
@@ -442,56 +455,59 @@ class Prism_Deadline_Functions(object):
         jobPrio = origin.sp_rjPrio.value()
         jobTimeOut = str(origin.sp_rjTimeout.value())
         jobMachineLimit = "0"
-        jobFamesPerTask = origin.sp_rjFramesPerTask.value()
-        concurrentTasks = (
-            1
-            if not hasattr(origin, "sp_dlConcurrentTasks")
-            else origin.sp_dlConcurrentTasks.value()
-        )
-
-        if origin.chb_globalRange.isChecked():
-            jobFrames = (
-                str(origin.stateManager.sp_rangeStart.value())
-                + "-"
-                + str(origin.stateManager.sp_rangeEnd.value())
-            )
-        else:
-            jobFrames = (
-                str(origin.sp_rangeStart.value())
-                + "-"
-                + str(origin.sp_rangeEnd.value())
-            )
-
-        # Create submission info file
-
-        jobInfos = {}
-
-        jobInfos["Name"] = jobName
-        jobInfos["Group"] = jobGroup
-        jobInfos["Priority"] = jobPrio
-        jobInfos["TaskTimeoutMinutes"] = jobTimeOut
-        jobInfos["MachineLimit"] = jobMachineLimit
-        jobInfos["Frames"] = jobFrames
-        jobInfos["ChunkSize"] = jobFamesPerTask
-        jobInfos["OutputFilename0"] = jobOutputFile
-        jobInfos[
-            "EnvironmentKeyValue0"
-        ] = "prism_project=%s" % self.core.prismIni.replace("\\", "/")
-
-        if origin.chb_rjSuspended.isChecked():
-            jobInfos["InitialStatus"] = "Suspended"
+        jobFramesPerTask = origin.sp_rjFramesPerTask.value()
+        jobBatchName = jobName
+        suspended = origin.chb_rjSuspended.isChecked()
 
         if (
             hasattr(origin, "w_dlConcurrentTasks")
             and not origin.w_dlConcurrentTasks.isHidden()
         ):
-            jobInfos["ConcurrentTasks"] = concurrentTasks
+            jobConcurrentTasks = origin.sp_dlConcurrentTasks.value()
+        else:
+            jobConcurrentTasks = None
+
+        rangeType = origin.cb_rangeType.currentText()
+        frames = origin.getFrameRange(rangeType)
+        if rangeType != "Expression":
+            startFrame, endFrame = frames
+            if rangeType == "Single Frame":
+                endFrame = startFrame
+            frameStr = "%s-%s" % (int(startFrame), int(endFrame))
+        else:
+            frameStr = ",".join([str(x) for x in frames])
+
+        # Create submission info file
+
+        jobInfos = {}
+
+        if renderNSIs:
+            jobInfos["Name"] = jobName + "_nsi"
+        else:
+            jobInfos["Name"] = jobName
+        jobInfos["Group"] = jobGroup
+        jobInfos["Priority"] = jobPrio
+        jobInfos["TaskTimeoutMinutes"] = jobTimeOut
+        jobInfos["MachineLimit"] = jobMachineLimit
+        jobInfos["Frames"] = frameStr
+        jobInfos["ChunkSize"] = jobFramesPerTask
+        jobInfos["OutputFilename0"] = jobOutputFile
+        jobInfos[
+            "EnvironmentKeyValue0"
+        ] = "prism_project=%s" % self.core.prismIni.replace("\\", "/")
+
+        if suspended:
+            jobInfos["InitialStatus"] = "Suspended"
+
+        if jobConcurrentTasks:
+            jobInfos["ConcurrentTasks"] = jobConcurrentTasks
+
+        if renderNSIs:
+            jobInfos["BatchName"] = jobBatchName
 
         if len(dependencies) > 0:
             jobInfos["IsFrameDependent"] = "true"
-            jobInfos["ScriptDependencies"] = os.path.join(
-                self.core.projectPath, "00_Pipeline", "Scripts", "DeadlineDependency.py"
-            )
+            jobInfos["ScriptDependencies"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "DeadlineDependency.py"))
 
         # Create plugin info file
 
@@ -531,17 +547,158 @@ class Prism_Deadline_Functions(object):
         if "dependencyFile" in locals():
             arguments.append(dependencyFile)
 
+        result = self.deadlineSubmitJob(jobInfos, pluginInfos, arguments)
+        if renderNSIs:
+            code = origin.curRenderer.getNsiRenderScript()
+            nsiDep = [[0, jobOutputFile]]
+            dlpath = os.getenv("DELIGHT")
+            environment = [["DELIGHT", dlpath]]
+            args = [jobOutputFile, jobOutputFileOrig]
+
+            self.submitPythonJob(
+                code=code,
+                jobName=jobName + "_render",
+                jobOutput=jobOutputFileOrig,
+                jobPrio=jobPrio,
+                jobGroup=jobGroup,
+                jobTimeOut=jobTimeOut,
+                jobMachineLimit=jobMachineLimit,
+                jobFramesPerTask=jobFramesPerTask,
+                jobConcurrentTasks=jobConcurrentTasks,
+                jobBatchName=jobBatchName,
+                frames=frameStr,
+                suspended=suspended,
+                dependencies=nsiDep,
+                environment=environment,
+                args=args,
+            )
+        return result
+
+    @err_catcher(name=__name__)
+    def submitPythonJob(
+            self,
+            code="",
+            version="3.7",
+            jobName=None,
+            jobOutput=None,
+            jobGroup="None",
+            jobPrio=50,
+            jobTimeOut=180,
+            jobMachineLimit=0,
+            jobFramesPerTask=1,
+            jobConcurrentTasks=None,
+            jobComment=None,
+            jobBatchName=None,
+            frames="1",
+            suspended=False,
+            dependencies=None,
+            environment=None,
+            args=None,
+    ):
+        homeDir = (
+            self.deadlineCommand(["-GetCurrentUserHomeDirectory"], background=False)
+        ).decode("utf-8")
+
+        if homeDir is False:
+            return "Execute Canceled: Deadline is not installed"
+
+        homeDir = homeDir.replace("\r", "").replace("\n", "")
+
+        if not jobName:
+            jobName = os.path.splitext(self.core.getCurrentFileName(path=False))[0].strip("_")
+
+        scriptFile = os.path.join(homeDir, "temp", "%s_%s.py" % (jobName, int(time.time())))
+        with open(scriptFile, "w") as f:
+            f.write(code)
+
+        environment = environment or []
+        environment.insert(0, ["prism_project", self.core.prismIni.replace("\\", "/")])
+
+        # Create submission info file
+
+        jobInfos = {}
+
+        jobInfos["Name"] = jobName
+        jobInfos["Group"] = jobGroup
+        jobInfos["Priority"] = jobPrio
+        jobInfos["TaskTimeoutMinutes"] = jobTimeOut
+        jobInfos["MachineLimit"] = jobMachineLimit
+        jobInfos["Frames"] = frames
+        jobInfos["ChunkSize"] = jobFramesPerTask
+        for idx, env in enumerate(environment):
+            jobInfos["EnvironmentKeyValue%s" % idx] = "%s=%s" % (env[0], env[1])
+        jobInfos["Plugin"] = "Python"
+        jobInfos["Comment"] = jobComment or "Prism-Submission-Python"
+
+        if jobOutput:
+            jobInfos["OutputFilename0"] = jobOutput
+
+        if suspended:
+            jobInfos["InitialStatus"] = "Suspended"
+
+        if jobConcurrentTasks:
+            jobInfos["ConcurrentTasks"] = jobConcurrentTasks
+
+        if jobBatchName:
+            jobInfos["BatchName"] = jobBatchName
+
+        if dependencies:
+            jobInfos["IsFrameDependent"] = "true"
+            jobInfos["ScriptDependencies"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "DeadlineDependency.py"))
+
+        # Create plugin info file
+
+        pluginInfos = {}
+        pluginInfos["Version"] = version
+
+        # pluginInfos["ScriptFile"] = scriptFile
+        pluginInfos["Arguments"] = "<STARTFRAME> <ENDFRAME>"
+        if args:
+            pluginInfos["Arguments"] += " " + " ".join(args)
+
+        dlParams = {
+            "jobInfos": jobInfos,
+            "pluginInfos": pluginInfos,
+            "jobInfoFile": os.path.join(homeDir, "temp", "python_plugin_info.job"),
+            "pluginInfoFile": os.path.join(homeDir, "temp", "python_job_info.job"),
+        }
+
+        if dependencies:
+            dependencyFile = os.path.join(homeDir, "temp", "dependencies.txt")
+            fileHandle = open(dependencyFile, "w")
+
+            for i in dependencies:
+                fileHandle.write(str(i[0]) + "\n")
+                fileHandle.write(str(i[1]) + "\n")
+
+            fileHandle.close()
+
+        arguments = []
+        arguments.append(dlParams["jobInfoFile"])
+        arguments.append(dlParams["pluginInfoFile"])
+        arguments.append(scriptFile)
+        for i in self.core.appPlugin.getCurrentSceneFiles(self):
+            arguments.append(i)
+
+        if "dependencyFile" in locals():
+            arguments.append(dependencyFile)
+
+        result = self.deadlineSubmitJob(jobInfos, pluginInfos, arguments)
+        return result
+
+    @err_catcher(name=__name__)
+    def deadlineSubmitJob(self, jobInfos, pluginInfos, arguments):
         self.core.callback(
             name="preSubmit_Deadline",
             types=["custom"],
             args=[self, jobInfos, pluginInfos, arguments],
         )
 
-        with open(dlParams["jobInfoFile"], "w") as fileHandle:
+        with open(arguments[0], "w") as fileHandle:
             for i in jobInfos:
                 fileHandle.write("%s=%s\n" % (i, jobInfos[i]))
 
-        with open(dlParams["pluginInfoFile"], "w") as fileHandle:
+        with open(arguments[1], "w") as fileHandle:
             for i in pluginInfos:
                 fileHandle.write("%s=%s\n" % (i, pluginInfos[i]))
 

@@ -64,40 +64,21 @@ class Prism_Nuke_externalAccess_Functions(object):
         tab.layout().addWidget(origin.chb_nukeX)
 
     @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin):
-        saveData = []
-        saveData.append(["nuke", "usenukex", str(origin.chb_nukeX.isChecked())])
+    def prismSettings_saveSettings(self, origin, settings):
+        if "nuke" not in settings:
+            settings["nuke"] = {}
 
-        return saveData
+        settings["nuke"]["usenukex"] = origin.chb_nukeX.isChecked()
 
     @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin):
-        loadData = {}
-        loadFunctions = {}
-
-        loadData["nuke_usenukex"] = ["nuke", "usenukex", "bool"]
-        loadFunctions["nuke_usenukex"] = lambda x: origin.chb_nukeX.setChecked(x)
-
-        return loadData, loadFunctions
+    def prismSettings_loadSettings(self, origin, settings):
+        if "nuke" in settings:
+            if "usenukex" in settings["nuke"]:
+                origin.chb_nukeX.setChecked(settings["nuke"]["usenukex"])
 
     @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):
         autobackpath = ""
-
-        if tab == "a":
-            autobackpath = os.path.join(
-                origin.tw_aHierarchy.currentItem().text(1),
-                "Scenefiles",
-                origin.lw_aPipeline.currentItem().text(),
-            )
-        elif tab == "sf":
-            autobackpath = os.path.join(
-                origin.sBasePath,
-                origin.cursShots,
-                "Scenefiles",
-                origin.cursStep,
-                origin.cursCat,
-            )
 
         fileStr = "Nuke Script ("
         for i in self.sceneFormats:
@@ -110,7 +91,7 @@ class Prism_Nuke_externalAccess_Functions(object):
     @err_catcher(name=__name__)
     def customizeExecutable(self, origin, appPath, filepath):
         fileStarted = False
-        if self.core.getConfig("nuke", "usenukex", ptype="bool"):
+        if self.core.getConfig("nuke", "usenukex"):
             if appPath == "":
                 if not hasattr(self, "nukePath"):
                     self.getNukePath(origin)

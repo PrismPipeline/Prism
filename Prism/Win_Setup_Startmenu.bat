@@ -1,1 +1,1 @@
-start Python27/pythonw.exe Scripts/PrismCore.py setupStartMenu
+start Python37/pythonw.exe Scripts/PrismCore.py setupStartMenu

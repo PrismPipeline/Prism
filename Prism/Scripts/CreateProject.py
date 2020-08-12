@@ -33,44 +33,17 @@
 
 import os
 import sys
-import shutil
 import imp
-
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
     psVersion = 2
 except:
-    try:
-        if "standalone" in sys.argv:
-            raise
-
-        from PySide.QtCore import *
-        from PySide.QtGui import *
-
-        psVersion = 1
-    except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
-        try:
-            from PySide2.QtCore import *
-            from PySide2.QtGui import *
-            from PySide2.QtWidgets import *
-
-            psVersion = 2
-        except:
-            from PySide.QtCore import *
-            from PySide.QtGui import *
-
-            psVersion = 1
-
-if sys.version[0] == "3":
-    pVersion = 3
-else:
-    pVersion = 2
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+    psVersion = 1
 
 for i in ["CreateProject_ui", "CreateProject_ui_ps2"]:
     try:
@@ -78,14 +51,10 @@ for i in ["CreateProject_ui", "CreateProject_ui_ps2"]:
     except:
         pass
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
-
 if psVersion == 1:
     import CreateProject_ui
 else:
     import CreateProject_ui_ps2 as CreateProject_ui
-
-from UserInterfacesPrism import qdarkstyle
 
 try:
     import ProjectCreated
@@ -123,13 +92,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
 
             self.e_name.setFocus()
 
-        self.prjFolders = [
-            ["01_Management", "Default"],
-            ["02_Designs", "Default"],
-            ["03_Workflow", "Scenes*"],
-            ["04_Assets", "Assets*"],
-            ["05_Dailies", "Dailies"],
-        ]
+        self.prjFolders = self.core.projects.getDefaultProjectFolders()
         self.enableCleanup = True
 
         self.setupFolders()
@@ -289,71 +252,9 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             model.setData(model.index(i, 0), "%02d_" % (i + 1))
 
     @err_catcher(name=__name__)
-    def create(self, name, path, settings={}):
-        prjName = name
-        prjPath = path
-
-        pipeline_steps = settings.get(
-            "pipeline_steps",
-            str(
-                {
-                    "mod": "Modeling",
-                    "shd": "Shading",
-                    "rig": "Rigging",
-                    "anm": "Animation",
-                    "ren": "Rendering",
-                    "rnd": "Research",
-                    "sim": "Simulation",
-                    "cmp": "Compositing",
-                }
-            ),
-        )
-
-        uselocalfiles = settings.get("uselocalfiles", "False")
-        checkframerange = settings.get("checkframerange", "True")
-        forcefps = settings.get("forcefps", "False")
-        fps = settings.get("fps", "24")
-        forceversions = settings.get("forceversions", "False")
-        filenameseparator = settings.get("filenameseparator", "_")
-        sequenceseparator = settings.get("sequenceseparator", "-")
-
-        # check valid project name
-        if not prjName:
-            self.core.popup("The project name is invalid")
-            return
-
-        # create project folder
-        if not os.path.isabs(prjPath):
-            self.core.popup("The project path is invalid")
-            return
-
-        if not os.path.exists(prjPath):
-            try:
-                os.makedirs(prjPath)
-            except:
-                self.core.popup("The project folder could not be created")
-                return
-        else:
-            if not os.listdir(prjPath) == []:
-                if self.core.uiAvailable:
-                    mStr = "The project folder is not empty.\nExisting files will be overwritten.\n"
-                    msg = QMessageBox(
-                        QMessageBox.Warning, "Project setup", mStr, QMessageBox.Cancel
-                    )
-                    msg.addButton("Continue", QMessageBox.YesRole)
-                    self.core.parentWindow(msg)
-                    action = msg.exec_()
-
-                    if action != 0:
-                        return
-                else:
-                    self.core.popup("Project directory already exists.")
-                    if os.path.exists(
-                        os.path.join(prjPath, "00_Pipeline", "pipeline.ini")
-                    ):
-                        return True
-                    else:
-                        return
+    def createClicked(self):
+        prjName = self.e_name.text()
+        prjPath = self.e_path.text()
 
         if self.core.uiAvailable:
             self.prjFolders = []
@@ -367,114 +268,11 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
                         [model.index(i, 0).data() + fName, model.index(i, 2).data()]
                     )
 
-        # check if all required folders are defined
-        req = ["Scenes*", "Assets*"]
-
-        for i in req:
-            if i not in [x[1] for x in self.prjFolders]:
-                self.core.popup("Not all required folders are defined")
-                return
-
-        # create folders
-
-        pPath = os.path.join(prjPath, "00_Pipeline")
-
-        if os.path.exists(pPath):
-            try:
-                if self.enableCleanup:
-                    shutil.rmtree(pPath)
-                else:
-                    self.core.popup('Projects Exists "%s"' % pPath)
-            except:
-                self.core.popup('Could not remove folder "%s"' % pPath)
-                return
-
-        try:
-            shutil.copytree(
-                os.path.abspath(
-                    os.path.join(__file__, os.pardir, os.pardir, "ProjectFiles")
-                ),
-                pPath,
-            )
-        except Exception as e:
-            self.core.popup("Could not copy folders to %s.\n\n%s" % (pPath, str(e)))
-            return
-
-        for i in (
-            pf
-            for pf in self.prjFolders
-            if not os.path.exists(os.path.join(prjPath, pf[0]))
-        ):
-            try:
-                os.makedirs(os.path.join(prjPath, i[0]))
-            except:
-                self.core.popup('Could not create folder "%s"' % i[0])
-                return
-
-        # create ini file
-
-        inipath = os.path.join(pPath, "pipeline.ini")
-        for i in self.prjFolders:
-            if i[1] == "Scenes*":
-                scname = i[0]
-            if i[1] == "Assets*":
-                assetname = i[0]
-            if i[1] == "Dailies":
-                dailiesname = i[0]
-
-        cfolders = [
-            os.path.join(prjPath, scname, "Assets"),
-            os.path.join(prjPath, scname, "Shots"),
-            os.path.join(prjPath, assetname, "Textures"),
-            os.path.join(prjPath, assetname, "HDAs"),
-        ]
-
-        for i in cfolders:
-            if not os.path.exists(i):
-                os.makedirs(i)
-
-        cData = []
-
-        cData.append(["globals", "project_name", prjName])
-        cData.append(["globals", "prism_version", self.core.version])
-        cData.append(["globals", "pipeline_steps", pipeline_steps])
-        cData.append(["globals", "uselocalfiles", uselocalfiles])
-        cData.append(["globals", "checkframerange", checkframerange])
-        cData.append(["globals", "forcefps", forcefps])
-        cData.append(["globals", "fps", fps])
-        cData.append(["globals", "forceversions", forceversions])
-        cData.append(["globals", "filenameseparator", filenameseparator])
-        cData.append(["globals", "sequenceseparator", sequenceseparator])
-        cData.append(["paths", "pipeline", "00_Pipeline"])
-        cData.append(["paths", "scenes", scname])
-        cData.append(["paths", "assets", assetname])
-        if "dailiesname" in locals():
-            cData.append(["paths", "dailies", dailiesname])
-
-        for i in self.core.getPluginNames():
-            passes = self.core.getPluginData(i, "renderPasses")
-            if type(passes) == list:
-                cData += passes
-
-        self.core.setConfig(data=cData, configPath=inipath)
-
-        self.inipath = inipath
-
-        self.core.callback(
-            name="onProjectCreated",
-            types=["curApp", "unloadedApps", "custom"],
-            args=[self, prjPath, prjName],
-        )
-        return True
-
-    @err_catcher(name=__name__)
-    def createClicked(self):
-        prjName = self.e_name.text()
-        prjPath = self.e_path.text()
-        result = self.create(name=prjName, path=prjPath)
+        settings = {"projectFolders": self.prjFolders}
+        result = self.core.projects.createProject(name=prjName, path=prjPath, settings=settings)
 
         if result:
-            self.core.changeProject(self.inipath)
+            self.core.changeProject(prjPath)
             self.pc = ProjectCreated.ProjectCreated(
                 prjName, core=self.core, basepath=prjPath
             )
@@ -485,31 +283,3 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
     @err_catcher(name=__name__)
     def closeEvent(self, event):
         self.setParent(None)
-
-
-def createProject(core, name, path, settings={}):
-    cp = CreateProject(core=core)
-    return cp.create(name, path, settings)
-
-
-if __name__ == "__main__":
-    qapp = QApplication(sys.argv)
-    qapp.setStyleSheet(qdarkstyle.load_stylesheet(pyside=True))
-    appIcon = QIcon(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "UserInterfacesPrism",
-            "p_tray.png",
-        )
-    )
-    qapp.setWindowIcon(appIcon)
-    import PrismCore
-
-    pc = PrismCore.PrismCore()
-    try:
-        pc.createProject()
-    except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        print("ERROR -- %s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno))
-
-    qapp.exec_()

@@ -33,7 +33,6 @@
 
 import os
 import sys
-import ast
 import imp
 
 try:
@@ -66,6 +65,8 @@ except:
         os.remove(modPath)
     import CreateItem
 
+from PrismUtils.Decorators import err_catcher
+
 
 class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
     def __init__(self, core, entity="passes"):
@@ -88,19 +89,18 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
 
         self.buttonBox.buttons()[0].setText("Create")
 
-        self.btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+        self.btext = "Next"
         if entity in ["asset", "shot"]:
             b = self.buttonBox.addButton(self.btext, QDialogButtonBox.RejectRole)
             b.setToolTip("Create step and open category dialog")
-            b.setMaximumWidth(20*self.core.uiScaleFactor)
             b.setEnabled(False)
-            b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
             self.buttonBox.clicked.connect(self.stepBbClicked)
 
         self.b_addStep.clicked.connect(self.addStep)
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
         self.tw_steps.itemSelectionChanged.connect(self.enableOk)
 
+    @err_catcher(name=__name__)
     def enableOk(self):
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(
             len(self.tw_steps.selectedItems()) > 0
@@ -110,6 +110,7 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
                 len([x for x in self.tw_steps.selectedItems() if x.column() == 0]) == 1
             )
 
+    @err_catcher(name=__name__)
     def addStep(self):
         self.newItem = CreateItem.CreateItem(core=self.core, getStep=True)
         self.core.parentWindow(self.newItem)
@@ -129,18 +130,19 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
 
             self.saveStep(abrName, stepName)
 
+    @err_catcher(name=__name__)
     def saveStep(self, abrev, name):
-        psteps = ast.literal_eval(
-            self.core.getConfig(
-                "globals", "pipeline_steps", configPath=self.core.prismIni
+        psteps = self.core.getConfig(
+                "globals", "pipeline_steps", configPath=self.core.prismIni, dft={}
             )
-        )
+
         if abrev not in psteps:
             psteps[str(abrev)] = str(name)
             self.core.setConfig(
-                "globals", "pipeline_steps", str(psteps), configPath=self.core.prismIni
+                "globals", "pipeline_steps", psteps, configPath=self.core.prismIni
             )
 
+    @err_catcher(name=__name__)
     def stepBbClicked(self, button):
         if button.text() == self.btext:
             if self.entity == "asset":
@@ -156,12 +158,14 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
             self.core.pb.createSteps(self.entity, [step], createCat=False)
             self.core.pb.createCatWin(tab, "Category", startText=startText)
 
+    @err_catcher(name=__name__)
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
-            if self.entity in ["asset", "shot"]:
-                self.reject()
-                self.stepBbClicked(self.buttonBox.buttons()[-1])
-            else:
-                self.accept()
+            if self.tw_steps.selectedItems():
+                if self.entity in ["asset", "shot"]:
+                    self.reject()
+                    self.stepBbClicked(self.buttonBox.buttons()[-1])
+                else:
+                    self.accept()
         elif event.key() == Qt.Key_Escape:
             self.reject()

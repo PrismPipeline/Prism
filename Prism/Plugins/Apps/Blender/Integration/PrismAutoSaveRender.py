@@ -35,21 +35,17 @@ import os
 
 import bpy
 from bpy.app.handlers import persistent
-from configparser import ConfigParser
 
 
 @persistent
 def saveRender(scene):
-    userConfig = ConfigParser()
-    configPath = os.path.join(
-        os.environ["userprofile"], "Documents", "Prism", "Prism.ini"
-    )
-    userConfig.read(configPath)
+    import PrismInit
+    bData = PrismInit.pcore.getConfig("blender")
 
-    saveActive = userConfig.has_option(
-        "blender", "autosaverender"
-    ) and userConfig.getboolean("blender", "autosaverender")
-    if not saveActive:
+    if not bData:
+        return
+
+    if not bData.get("autosaverender"):
         return
 
     if (
@@ -58,31 +54,13 @@ def saveRender(scene):
     ):
         return
 
-    if userConfig.has_option("blender", "autosaveperproject") and userConfig.getboolean(
-        "blender", "autosaveperproject"
-    ):
-        if not (
-            userConfig.has_option("globals", "current project")
-            and os.path.exists(userConfig.get("globals", "current project"))
-        ):
-            return
-
-        prjConfig = ConfigParser()
-        prjConfig.read(userConfig.get("globals", "current project"))
-
-        if not prjConfig.has_option("globals", "project_name"):
-            return
-
-        prjName = prjConfig.get("globals", "project_name")
-
-        if not userConfig.has_option("blender", "autosavepath_%s" % prjName):
-            return
-
-        savePath = userConfig.get("blender", "autosavepath_%s" % prjName)
-
-    elif userConfig.has_option("blender", "autosavepath"):
-        savePath = userConfig.get("blender", "autosavepath")
+    if bData.get("autosaveperproject"):
+        bpData = PrismInit.pcore.getConfig("blender", configPath=PrismInit.pcore.prismIni)
+        savePath = bpData.get("autosavepath_%s" % PrismInit.pcore.projectName, "")
     else:
+        savePath = bData.get("autosavepath")
+
+    if not savePath:
         return
 
     if not os.path.exists(savePath):

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>660</height>
+    <height>712</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -197,72 +197,38 @@
           </spacer>
          </item>
          <item>
-          <widget class="QCheckBox" name="chb_globalRange">
-           <property name="text">
-            <string>global</string>
-           </property>
-           <property name="checked">
-            <bool>false</bool>
-           </property>
-          </widget>
+          <widget class="QComboBox" name="cb_rangeType"/>
          </item>
-         <item>
-          <widget class="QLabel" name="l_rangeStart">
-           <property name="enabled">
-            <bool>true</bool>
-           </property>
-           <property name="text">
-            <string>from:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="sp_rangeStart">
-           <property name="enabled">
-            <bool>true</bool>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>55</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="maximum">
-            <number>99999</number>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_5">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Fixed</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>5</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="f_frameRange_2" native="true">
+        <layout class="QGridLayout" name="gridLayout">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item row="1" column="5">
           <widget class="QLabel" name="l_rangeEnd">
-           <property name="enabled">
-            <bool>true</bool>
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>0</height>
+            </size>
            </property>
            <property name="text">
-            <string>to:</string>
+            <string>1100</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
            </property>
           </widget>
          </item>
-         <item>
+         <item row="1" column="6">
           <widget class="QSpinBox" name="sp_rangeEnd">
-           <property name="enabled">
-            <bool>true</bool>
-           </property>
            <property name="maximumSize">
             <size>
              <width>55</width>
@@ -273,7 +239,66 @@
             <number>99999</number>
            </property>
            <property name="value">
-            <number>0</number>
+            <number>1100</number>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="6">
+          <widget class="QSpinBox" name="sp_rangeStart">
+           <property name="maximumSize">
+            <size>
+             <width>55</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="maximum">
+            <number>99999</number>
+           </property>
+           <property name="value">
+            <number>1001</number>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="5">
+          <widget class="QLabel" name="l_rangeStart">
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>1001</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="l_rangeStartInfo">
+           <property name="text">
+            <string>Start:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="4">
+          <spacer name="horizontalSpacer_7">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="l_rangeEndInfo">
+           <property name="text">
+            <string>End:</string>
            </property>
           </widget>
          </item>

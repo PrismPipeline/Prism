@@ -37,56 +37,24 @@ import platform
 
 import bpy
 
-prismRoot = PRISMROOT
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
 
-if sys.version_info[0] == 3 and sys.version_info[1] == 5:
-    libFolder = "Python35"
-if sys.version_info[0] == 3 and sys.version_info[1] == 7:
-    libFolder = "Python37"
+if sys.version_info[1] != 7:
+    raise RuntimeError("Prism supports only Blender versions, which are using Python 3.7")
 
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python3"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libFolder).replace("\\", "/"))
+libFolder = "Python37"
+
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "CrossPlatform"))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libFolder))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libFolder, "PySide"))
 sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    if not bpy.app.background:
-        import subprocess
-        import site
-        import importlib
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
 
-        dScript = os.path.join(
-            prismRoot, "Plugins", "Apps", "Blender", "Scripts", "Download_PySide2.py"
-        )
-
-        if platform.system() == "Windows":
-            pythonPath = os.path.join(prismRoot, "Python27", "pythonw.exe")
-        else:
-            pythonPath = "python"
-
-        result = subprocess.Popen(
-            [pythonPath, dScript, libFolder],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdOutData, stderrdata = result.communicate()
-
-        importlib.reload(site)
-
-        try:
-            from PySide2.QtCore import *
-            from PySide2.QtGui import *
-            from PySide2.QtWidgets import *
-        except:
-            msg = (
-                "Prism requires the PySide2 library for Python %s.%s in order to display its user interfaces.\n\nThe automatic download failed but you can download it manually from the Prism website: https://prism-pipeline.com/downloads/"
-                % (libFolder[-2], libFolder[-1])
-            )
-            raise RuntimeError(msg)
 
 from bpy.app.handlers import persistent
 

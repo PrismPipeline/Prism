@@ -32,29 +32,19 @@
 
 
 import os
-import sys
 import datetime
+
+from collections import OrderedDict
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
     psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
     psVersion = 1
-
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-
-    pVersion = 3
-else:
-    from ConfigParser import ConfigParser
-
-    pVersion = 2
 
 if psVersion == 1:
     import TaskSelection_ui
@@ -78,17 +68,19 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.preferredUnit = self.importState.preferredUnit
 
-        if not hasattr(self.core, "pb"):
+        if not getattr(self.core, "pb", None):
             self.core.projectBrowser(openUi=False)
 
         self.export_paths = self.core.getExportPaths()
 
         if len(self.export_paths) > 1:
-            self.export_paths.insert(0, ["all", "all"])
+            newExportPaths = OrderedDict([("all", "all")])
+            newExportPaths.update(self.export_paths)
+            self.export_paths = newExportPaths
         else:
             self.w_paths.setVisible(False)
 
-        self.cb_paths.addItems([x[0] for x in self.export_paths])
+        self.cb_paths.addItems(list(self.export_paths.keys()))
 
         self.connectEvents()
         self.updateAssets()
@@ -268,13 +260,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                         self.tw_assets.model().createIndex(-1, 0)
                     )
                     self.updateTasks()
-                path = os.path.join(
-                    self.core.projectPath,
-                    self.core.getConfig(
-                        "paths", "scenes", configPath=self.core.prismIni
-                    ),
-                    "Assets",
-                )
+                path = self.core.getAssetPath()
             else:
                 path = item.data(0, Qt.UserRole)[0]
 
@@ -287,13 +273,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                         self.tw_shots.model().createIndex(-1, 0)
                     )
                     self.updateTasks()
-                path = os.path.join(
-                    self.core.projectPath,
-                    self.core.getConfig(
-                        "paths", "scenes", configPath=self.core.prismIni
-                    ),
-                    "Shots",
-                )
+                path = self.core.getShotPath()
             else:
                 path = item.data(0, Qt.UserRole)[0]
 
@@ -356,7 +336,10 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             )
             rcmenu.addAction(infoAct)
 
-            infoPath = os.path.join(os.path.dirname(path), "versioninfo.ini")
+            infoPath = os.path.join(os.path.dirname(path), "versioninfo.yml")
+
+            if not os.path.exists(infoPath):
+                self.core.configs.findDeprecatedConfig(infoPath)
 
             depAct = QAction("Show dependencies", self)
             depAct.triggered.connect(
@@ -372,19 +355,18 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     def showVersionInfo(self, path):
         vInfo = "No information is saved with this version."
 
-        infoPath = os.path.join(path, "versioninfo.ini")
+        infoPath = os.path.join(path, "versioninfo.yml")
 
-        if os.path.exists(infoPath):
-            vConfig = ConfigParser()
-            vConfig.read(infoPath)
+        iData = self.core.getConfig("information", configPath=infoPath)
 
+        if iData:
             vInfo = ""
-            for i in vConfig.options("information"):
+            for i in iData:
                 i = i[0].upper() + i[1:]
                 if i == "Version":
-                    vInfo += "%s:\t\t\t%s\n" % (i, vConfig.get("information", i))
+                    vInfo += "%s:\t\t\t%s\n" % (i, iData[i])
                 else:
-                    vInfo += "%s:\t\t%s\n" % (i, vConfig.get("information", i))
+                    vInfo += "%s:\t\t%s\n" % (i, iData[i])
 
         QMessageBox.information(self.core.messageParent, "Versioninfo", vInfo)
 
@@ -422,11 +404,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     def entityClicked(self, entityType=None):
         if entityType is None:
             if self.tbw_entity.tabText(self.tbw_entity.currentIndex()) == "Assets":
-                entityType = "Assets"
+                entityType = "assets"
             else:
-                entityType = "Shots"
+                entityType = "shots"
 
-        if entityType == "Assets":
+        if entityType == "assets":
             uielement = self.tw_assets
         else:
             uielement = self.tw_shots
@@ -454,52 +436,18 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     def updateAssets(self, load=False):
         self.tw_assets.clear()
 
-        omittedAssets = []
-        omitPath = os.path.join(
-            os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
-        )
-        if os.path.exists(omitPath):
-            oconfig = ConfigParser()
-            oconfig.read(omitPath)
-
-            if oconfig.has_section("Asset"):
-                omittedAssets = [x[1] for x in oconfig.items("Asset")]
-
-        basePath = self.export_paths[self.cb_paths.currentIndex()][1]
+        basePath = self.cb_paths.currentText()
         if basePath == "all":
-            basePaths = self.export_paths[1:]
+            basePaths = list(self.export_paths.keys())[1:]
         else:
-            basePaths = [[self.cb_paths.currentText(), basePath]]
+            basePaths = [basePath]
 
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
-        assetPaths = self.core.getAssetPaths()
+        assetPaths = self.getFilteredAssetPaths(basePaths)
 
-        for ePath in basePaths:
-            location = ePath[0]
-            basePath = ePath[1]
-            if not basePath.endswith(os.sep):
-                basePath += os.sep
-
-            for aPath in assetPaths:
-                assetPath = aPath.replace(self.core.projectPath, basePath)
-
-                if (
-                    assetPath != basePath
-                    and assetPath.replace(basePath + os.sep, "") in omittedAssets
-                ):
-                    continue
-
-                taskPath = os.path.join(assetPath, "Export")
-                tasks = []
-                for k in os.walk(taskPath):
-                    tasks += k[1]
-                    break
-
-                if len(tasks) == 0:
-                    continue
-
-                assetBase = os.path.join(basePath, sceneDir, "Assets")
-                relPath = assetPath.replace(assetBase, "")
+        for basePath in assetPaths:
+            for path in assetPaths[basePath]:
+                assetBase = self.core.getAssetPath().replace(self.core.projectPath, basePath)
+                relPath = path.replace(assetBase, "")
                 pathData = relPath.split(os.sep)[1:]
 
                 lastItem = None
@@ -552,6 +500,42 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.entityClicked()
 
     @err_catcher(name=__name__)
+    def getFilteredAssetPaths(self, basePaths):
+        filteredAssets = {}
+        assetPaths = self.core.entities.getAssetPaths()
+        omittedAssets = self.core.getConfig("asset", config="omit", dft=[])
+
+        for ePath in basePaths:
+            basePath = self.export_paths[ePath]
+            if not basePath.endswith(os.sep):
+                basePath += os.sep
+
+            for aPath in assetPaths:
+                assetPath = aPath.replace(self.core.projectPath, basePath)
+
+                if (
+                    assetPath != basePath
+                    and assetPath.replace(basePath + os.sep, "") in omittedAssets
+                ):
+                    continue
+
+                taskPath = os.path.join(assetPath, "Export")
+                tasks = []
+                for k in os.walk(taskPath):
+                    tasks += k[1]
+                    break
+
+                if len(tasks) == 0:
+                    continue
+
+                if basePath not in filteredAssets:
+                    filteredAssets[basePath] = []
+
+                filteredAssets[basePath].append(assetPath)
+
+        return filteredAssets
+
+    @err_catcher(name=__name__)
     def aItemCollapsed(self, item):
         self.adclick = False
 
@@ -563,64 +547,44 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     def updateShots(self):
         self.tw_shots.clear()
 
-        omittedShots = []
-
-        omitPath = os.path.join(
-            os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
-        )
-        if os.path.exists(omitPath):
-            oconfig = ConfigParser()
-            oconfig.read(omitPath)
-
-            if oconfig.has_section("Shot"):
-                omittedShots = [x[1] for x in oconfig.items("Shot")]
-
-        basePath = self.export_paths[self.cb_paths.currentIndex()][1]
+        basePath = self.cb_paths.currentText()
         if basePath == "all":
-            basePaths = [x[1] for x in self.export_paths[1:]]
+            basePaths = list(self.export_paths.keys())[1:]
         else:
             basePaths = [basePath]
 
+        fBasePaths = []
+        for path in basePaths:
+            fpath = self.export_paths[path]
+            ppath = os.path.normpath(self.core.projectPath)
+            fpath = self.core.shotPath.replace(ppath, fpath)
+            fBasePaths.append(fpath)
+
+        sequences, shotData = self.core.entities.getShots(basepaths=fBasePaths)
+
         shots = {}
+        for shot in shotData:
+            seqName = shot[0]
+            shotName = shot[1]
+            shotPath = shot[3]
 
-        for basePath in basePaths:
-            relsPath = os.path.join(
-                self.core.getConfig("paths", "scenes", configPath=self.core.prismIni),
-                "Shots",
-            )
-            shotPath = os.path.join(basePath, relsPath)
+            taskPath = os.path.join(shot[3], "Export")
+            tasks = []
+            for k in os.walk(taskPath):
+                tasks = k[1]
+                break
 
-            dirs = []
-            if os.path.exists(shotPath):
-                for i in os.walk(shotPath):
-                    dirs += [os.path.join(shotPath, k) for k in i[1]]
-                    break
+            if len(tasks) == 0:
+                continue
 
-            for path in dirs:
-                val = os.path.basename(path)
-                if val.startswith("_") or val in omittedShots:
-                    continue
+            if seqName not in shots:
+                shots[seqName] = {}
 
-                taskPath = os.path.join(path, "Export")
+            if shotName not in shots[seqName]:
+                shots[seqName][shotName] = []
 
-                tasks = []
-                for k in os.walk(taskPath):
-                    tasks = k[1]
-                    break
-
-                if len(tasks) == 0:
-                    continue
-
-                shotName, seqName = self.core.pb.splitShotname(val)
-
-                if seqName not in shots:
-                    shots[seqName] = {}
-
-                if shotName not in shots[seqName]:
-                    shots[seqName][shotName] = []
-
-                if path not in shots[seqName][shotName]:
-                    shots[seqName][shotName].append(path)
+            if shotPath not in shots[seqName][shotName]:
+                shots[seqName][shotName].append(shotPath)
 
         sequences = self.core.sortNatural(shots.keys())
         if "no sequence" in sequences:
@@ -692,6 +656,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             self.tw_versions.horizontalHeader().sortIndicatorSection(),
             self.tw_versions.horizontalHeader().sortIndicatorOrder(),
         ]
+        self.tw_versions.setSortingEnabled(False)
 
         # currentItem() leads to crashes in blender
         taskItem = self.lw_tasks.currentItem()
@@ -718,7 +683,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                             for i in m[2]:
                                 if (
                                     os.path.splitext(i)[1]
-                                    not in [".txt", ".ini", ".xgen"]
+                                    not in [".txt", ".ini", ".yml", ".xgen"]
                                     and i[0] != "."
                                 ):
                                     fileName[n] = os.path.join(k[1], k[0], unit, i)
@@ -796,8 +761,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
                 if len(self.export_paths) > 1:
                     for ePath in self.export_paths:
-                        if ePath[1] in depPath:
-                            location = ePath[0]
+                        if self.export_paths[ePath] in depPath:
+                            location = ePath
 
                     item = QStandardItem(location)
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -845,16 +810,14 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             len(versionLabels) - 2, 150 * self.core.uiScaleFactor
         )
         self.tw_versions.sortByColumn(twSorting[0], twSorting[1])
+        self.tw_versions.setSortingEnabled(True)
 
         if self.tw_versions.model().rowCount() > 0:
             self.tw_versions.selectRow(0)
 
     @err_catcher(name=__name__)
     def getCurSelection(self):
-        curPath = os.path.join(
-            self.core.projectPath,
-            self.core.getConfig("paths", "scenes", configPath=self.core.prismIni),
-        )
+        curPath = self.core.getScenePath()
 
         if self.tbw_entity.tabText(self.tbw_entity.currentIndex()) == "Assets":
             entityItem = self.tw_assets.currentItem()
@@ -890,20 +853,20 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             if not os.path.exists(fileName):
                 return False
 
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
         relFileName = None
-        for ePath in self.export_paths:
-            if os.path.join(ePath[1], sceneDir) in fileName:
-                relFileName = fileName.replace(os.path.join(ePath[1], sceneDir), "")
-                fileExportPath = ePath[1]
+        for ePath in self.export_paths.values():
+            sceneBase = self.core.scenePath.replace(os.path.normpath(self.core.projectPath), ePath)
+            if sceneBase in os.path.normpath(fileName):
+                relFileName = fileName.replace(sceneBase, "")
+                fileExportPath = ePath
 
         if relFileName:
             fileNameData = relFileName.split(os.sep)
-
-            if os.path.join(fileExportPath, sceneDir, "Assets") in fileName:
-                entityType = "Asset"
+            aBase = self.core.getAssetPath().replace(self.core.projectPath, fileExportPath)
+            if aBase in fileName:
+                entityType = "asset"
             else:
-                entityType = "Shot"
+                entityType = "shot"
 
             taskName = task or self.importState.taskName
             versionName = version or self.importState.l_curVersion.text()
@@ -913,20 +876,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
             foundEntity = False
 
-            if entityType == "Asset":
+            if entityType == "asset":
                 uielement = self.tw_assets
                 entityName = fileNameData[-4]
                 self.tbw_entity.setCurrentIndex(0)
 
-                itemPath = fileName.replace(fileExportPath, "")
-                if not itemPath.startswith(os.sep):
-                    itemPath = os.sep + itemPath
-                itemPath = itemPath.replace(
-                    os.sep + os.path.join(sceneDir, "Assets", "Scenefiles", ""), ""
-                )
-                itemPath = itemPath.replace(
-                    os.sep + os.path.join(sceneDir, "Assets", ""), ""
-                )
+                itemPath = fileName.replace(aBase + os.sep, "")
                 hierarchy = itemPath.split(os.sep)
                 hItem = self.tw_assets.findItems(hierarchy[0], Qt.MatchExactly, 0)
                 if len(hItem) == 0:
@@ -956,7 +911,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 entityName = fileNameData[2]
                 self.tbw_entity.setCurrentIndex(1)
 
-                shotName, seqName = self.core.pb.splitShotname(entityName)
+                shotName, seqName = self.core.entities.splitShotname(entityName)
 
                 for i in range(self.tw_shots.topLevelItemCount()):
                     sItem = self.tw_shots.topLevelItem(i)
@@ -972,12 +927,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                         if foundEntity:
                             break
                 else:
-                    if entityType == "Shot" and self.tw_shots.topLevelItemCount() > 0:
+                    if entityType == "shot" and self.tw_shots.topLevelItemCount() > 0:
                         seqItem = self.tw_shots.topLevelItem(0)
                         seqItem.setExpanded(True)
                         self.tw_shots.setCurrentItem(seqItem.child(0))
                         foundEntity = True
-
             if foundEntity:
                 self.updateTasks()
 

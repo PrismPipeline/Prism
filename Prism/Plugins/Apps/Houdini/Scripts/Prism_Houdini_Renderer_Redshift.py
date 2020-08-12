@@ -76,7 +76,7 @@ def getDefaultPasses(origin):
         "defaultpasses", "houdini_redshift", configPath=origin.core.prismIni
     )
     if aovs is None:
-        aovs = origin.core.appPlugin.redshiftPasses[2]
+        aovs = origin.core.appPlugin.renderPasses["houdini_redshift"]
 
     return aovs
 

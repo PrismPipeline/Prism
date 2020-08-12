@@ -1,1 +1,1 @@
-start Python27/pythonw.exe Scripts/PrismInstaller.py uninstall
+start Python37/pythonw.exe Scripts/PrismInstaller.py uninstall

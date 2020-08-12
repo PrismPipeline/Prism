@@ -90,6 +90,29 @@ if node:
             ]]></scriptCode>
         </scriptItem>
 
+        <scriptToggleItem  id="h.pane.wsheet.edit_images">
+            <insertAfter>opmenu.capture_thumbnail</insertAfter>
+            <label>[Prism] Edit Thumbnails</label>
+            <variableName>backgroundimageediting</variableName>
+            <scriptCode><![CDATA[
+hou.hscript("""
+if( $backgroundimageediting ) then
+set -g backgroundimageediting = 0;
+else
+set -g backgroundimageediting = 1;
+endif
+""")
+hou.hscript('varchange backgroundimageediting')
+(out, err) = hou.hscript('echo $backgroundimageediting')
+nwPane = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+if( int(out) ):
+    nwPane.setPref("backgroundimageediting", "1")
+else:
+    nwPane.setPref("backgroundimageediting", "0")
+        ]]></scriptCode>
+
+        </scriptToggleItem>
+
 
     </menu>
 </menuDocument>

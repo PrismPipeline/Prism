@@ -34,6 +34,8 @@
 import sys
 import traceback
 import time
+import logging
+from datetime import datetime
 from functools import wraps
 
 try:
@@ -43,6 +45,9 @@ try:
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
+
+
+logger = logging.getLogger(__name__)
 
 
 def err_handler(func, name="", plugin=False):
@@ -55,7 +60,7 @@ def err_handler(func, name="", plugin=False):
 
             versionStr = ""
             versionStr += "\nCore: %s" % args[0].core.version
-            if hasattr(args[0].core, "appPlugin"):
+            if getattr(args[0].core, "appPlugin", None):
                 versionStr += "\nApp plugin: %s %s" % (args[0].core.appPlugin.pluginName, args[0].core.appPlugin.version)
             if plugin:
                 versionStr += "\nPlugin: %s %s" % (args[0].plugin.pluginName, args[0].plugin.version)
@@ -99,3 +104,18 @@ def err_catcher_standalone(name):
 
         return func_wrapper
     return err_decorator
+
+
+def timmer(name):
+    def timer_decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            startTime = datetime.now()
+            logger.info("starttime: %s" % startTime.strftime('%Y-%m-%d %H:%M:%S'))
+            func(*args, **kwargs)
+            endTime = datetime.now()
+            logger.info("endtime: %s" % endTime.strftime('%Y-%m-%d %H:%M:%S'))
+            logger.info("duration: %s" % (endTime-startTime))
+
+        return func_wrapper
+    return timer_decorator

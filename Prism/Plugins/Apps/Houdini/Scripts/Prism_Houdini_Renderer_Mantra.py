@@ -76,7 +76,7 @@ def getDefaultPasses(origin):
         "defaultpasses", "houdini_mantra", configPath=origin.core.prismIni
     )
     if aovs is None:
-        aovs = origin.core.appPlugin.mantraPasses[2]
+        aovs = origin.core.appPlugin.renderPasses["houdini_mantra"]
 
     return aovs
 

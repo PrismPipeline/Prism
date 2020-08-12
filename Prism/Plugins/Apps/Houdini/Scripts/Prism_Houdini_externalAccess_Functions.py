@@ -35,14 +35,6 @@ import os
 import platform
 import shutil
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
@@ -52,44 +44,15 @@ class Prism_Houdini_externalAccess_Functions(object):
         self.plugin = plugin
 
     @err_catcher(name=__name__)
-    def prismSettings_loadUI(self, origin, tab):
-        pass
-
-    @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin):
-        saveData = []
-        return saveData
-
-    @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin):
-        loadData = {}
-        loadFunctions = {}
-        return loadData, loadFunctions
-
-    @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):
+        autobackpath = ""
         if platform.system() == "Windows":
             autobackpath = os.path.join(
                 os.getenv("LocalAppdata"), "Temp", "houdini_temp"
             )
-        else:
-            if tab == "a":
-                autobackpath = os.path.join(
-                    origin.tw_aHierarchy.currentItem().text(1),
-                    "Scenefiles",
-                    origin.lw_aPipeline.currentItem().text(),
-                )
-            elif tab == "sf":
-                autobackpath = os.path.join(
-                    origin.sBasePath,
-                    origin.cursShots,
-                    "Scenefiles",
-                    origin.cursStep,
-                    origin.cursCat,
-                )
 
-        if not os.path.exists(autobackpath):
-            autobackpath = os.path.dirname(autobackpath)
+            if not os.path.exists(autobackpath):
+                autobackpath = os.path.dirname(autobackpath)
 
         fileStr = "Houdini Scene File ("
         for i in self.sceneFormats:

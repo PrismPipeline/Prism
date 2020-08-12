@@ -33,7 +33,6 @@
 
 import os
 import sys
-import platform
 
 try:
     from PySide2.QtCore import *
@@ -61,29 +60,32 @@ from PrismUtils.Decorators import err_catcher
 
 
 class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
-    def __init__(self, core, shotName, sequences):
+    def __init__(self, core, shotName, sequences, editSequence=False):
         QDialog.__init__(self)
         self.setupUi(self)
 
         self.core = core
         self.shotName = shotName
         self.sequences = sequences
+        self.editSequence = editSequence
+        self.core.parentWindow(self)
+
+        if self.shotName == "no sequence":
+            self.shotName = None
 
         if len(self.sequences) == 0:
             self.b_showSeq.setVisible(False)
 
         self.b_deleteShot.setVisible(False)
 
-        self.oiioLoaded = False
-        self.wandLoaded = False
-
         self.core.appPlugin.editShot_startup(self)
         getattr(self.core.appPlugin, "editShot_loadLibs", lambda x: self.loadLibs())(
             self
         )
+        self.oiio = self.core.media.getOIIO()
 
         self.imgPath = ""
-        self.btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+        self.btext = "Next"
 
         self.loadData()
         self.connectEvents()
@@ -99,29 +101,8 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.b_deleteShot.clicked.connect(self.deleteShot)
 
     @err_catcher(name=__name__)
-    def loadOiio(self):
-        try:
-            global oiio
-            if platform.system() == "Windows":
-                from oiio1618 import OpenImageIO as oiio
-            elif platform.system() in ["Linux", "Darwin"]:
-                import OpenImageIO as oiio
-
-            self.oiioLoaded = True
-        except:
-            pass
-
-    @err_catcher(name=__name__)
     def loadLibs(self):
-        if not self.oiioLoaded:
-            global numpy, wand
-            try:
-                import numpy
-                import wand, wand.image
-
-                self.wandLoaded = True
-            except:
-                pass
+        pass
 
     @err_catcher(name=__name__)
     def showSequences(self):
@@ -156,10 +137,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                     QImage.Format_RGB16,
                 )
 
-                if self.oiioLoaded:
-                    imgSrc = oiio.ImageBuf(str(imgPath))
-                    rgbImgSrc = oiio.ImageBuf()
-                    oiio.ImageBufAlgo.channels(rgbImgSrc, imgSrc, (0, 1, 2))
+                if self.oiio:
+                    imgSrc = self.oiio.ImageBuf(str(imgPath))
+                    rgbImgSrc = self.oiio.ImageBuf()
+                    self.oiio.ImageBufAlgo.channels(rgbImgSrc, imgSrc, (0, 1, 2))
                     imgWidth = rgbImgSrc.spec().full_width
                     imgHeight = rgbImgSrc.spec().full_height
                     xOffset = 0
@@ -174,23 +155,23 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                         newImgWidth = (
                             self.core.pb.shotPrvYres / float(imgHeight) * imgWidth
                         )
-                    imgDst = oiio.ImageBuf(
-                        oiio.ImageSpec(
-                            int(newImgWidth), int(newImgHeight), 3, oiio.UINT8
+                    imgDst = self.oiio.ImageBuf(
+                        self.oiio.ImageSpec(
+                            int(newImgWidth), int(newImgHeight), 3, self.oiio.UINT8
                         )
                     )
-                    oiio.ImageBufAlgo.resample(imgDst, rgbImgSrc)
-                    sRGBimg = oiio.ImageBuf()
-                    oiio.ImageBufAlgo.pow(
+                    self.oiio.ImageBufAlgo.resample(imgDst, rgbImgSrc)
+                    sRGBimg = self.oiio.ImageBuf()
+                    self.oiio.ImageBufAlgo.pow(
                         sRGBimg, imgDst, (1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2)
                     )
-                    bckImg = oiio.ImageBuf(
-                        oiio.ImageSpec(
-                            int(newImgWidth), int(newImgHeight), 3, oiio.UINT8
+                    bckImg = self.oiio.ImageBuf(
+                        self.oiio.ImageSpec(
+                            int(newImgWidth), int(newImgHeight), 3, self.oiio.UINT8
                         )
                     )
-                    oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
-                    oiio.ImageBufAlgo.paste(bckImg, xOffset, yOffset, 0, 0, sRGBimg)
+                    self.oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
+                    self.oiio.ImageBufAlgo.paste(bckImg, xOffset, yOffset, 0, 0, sRGBimg)
                     qimg = QImage(
                         int(newImgWidth), int(newImgHeight), QImage.Format_RGB16
                     )
@@ -204,20 +185,6 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                             qimg.setPixel(i, k, rgb)
 
                     pmsmall = QPixmap.fromImage(qimg)
-                elif self.wandLoaded:
-                    with wand.image.Image(filename=imgPath) as img:
-                        imgWidth, imgHeight = [img.width, img.height]
-                        img.depth = 8
-                        imgArr = numpy.fromstring(
-                            img.make_blob("RGB"), dtype="uint{}".format(img.depth)
-                        ).reshape(imgHeight, imgWidth, 3)
-
-                    qimg = QImage(imgArr, imgWidth, imgHeight, QImage.Format_RGB888)
-                    pm = QPixmap.fromImage(qimg)
-                    if (pm.width() / float(pm.height())) > 1.7778:
-                        pmsmall = pm.scaledToWidth(self.core.pb.shotPrvXres)
-                    else:
-                        pmsmall = pm.scaledToHeight(self.core.pb.shotPrvYres)
                 else:
                     QMessageBox.critical(
                         self.core.messageParent,
@@ -226,7 +193,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                     )
                     return
             else:
-                pm = self.core.pb.getImgPMap(imgPath)
+                pm = self.core.media.getPixmapFromPath(imgPath)
                 if pm.width() == 0:
                     warnStr = "Cannot read image: %s" % imgPath
                     msg = QMessageBox(
@@ -296,27 +263,27 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
     @err_catcher(name=__name__)
     def getShotName(self):
-        if self.e_sequence.text() == "":
-            newSName = self.e_shotName.text()
-        else:
-            newSName = "%s%s%s" % (
-                self.e_sequence.text(),
-                self.core.sequenceSeparator,
-                self.e_shotName.text(),
-            )
-
+        newSName = self.core.entities.getShotname(
+            self.e_sequence.text(),
+            self.e_shotName.text(),
+        )
         return newSName
 
     @err_catcher(name=__name__)
     def saveInfo(self):
         newSName = self.getShotName()
-        shotName, seqName = self.core.pb.splitShotname(newSName)
+        shotName, seqName = self.core.entities.splitShotname(newSName)
+        shotNameOrig, seqNameOrig = self.core.entities.splitShotname(self.shotName)
 
-        if not shotName:
+        if not self.editSequence and not shotName:
             self.core.popup("Invalid shotname")
             return False
 
-        if self.shotName is not None and newSName != self.shotName:
+        if self.editSequence and not seqName:
+            self.core.popup("Invalid sequencename")
+            return False
+
+        if shotNameOrig and newSName != self.shotName:
             msgText = (
                 'Are you sure you want to rename this shot from "%s" to "%s"?\n\nThis will rename all files in the subfolders of the shot, which may cause errors, if these files are referenced somewhere else.'
                 % (self.shotName, newSName)
@@ -335,11 +302,14 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             if str(result).endswith(".Yes"):
                 self.core.createCmd(["renameShot", self.shotName, newSName])
                 self.core.checkCommands()
+                self.shotName = newSName
+        else:
+            self.shotName = newSName
 
-        self.shotName = newSName
-        self.core.setShotRange(
-            self.shotName, self.sp_startFrame.value(), self.sp_endFrame.value()
-        )
+        if not self.editSequence:
+            self.core.entities.setShotRange(
+                self.shotName, self.sp_startFrame.value(), self.sp_endFrame.value()
+            )
 
         if hasattr(self, "pmap"):
             prvPath = os.path.join(
@@ -347,7 +317,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                 "Shotinfo",
                 "%s_preview.jpg" % self.shotName,
             )
-            self.core.pb.savePMap(self.pmap, prvPath)
+            self.core.media.savePixmap(self.pmap, prvPath)
 
         for i in self.core.prjManagers.values():
             i.editShot_closed(self, self.shotName)
@@ -356,13 +326,14 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
     @err_catcher(name=__name__)
     def loadData(self):
-        if self.shotName is not None:
-            shotName, seqName = self.core.pb.splitShotname(self.shotName)
-            if seqName and seqName != "no sequence":
-                self.e_sequence.setText(seqName)
+        shotName, seqName = self.core.entities.splitShotname(self.shotName)
+        if seqName and seqName != "no sequence":
+            self.e_sequence.setText(seqName)
+
+        if shotName:
             self.e_shotName.setText(shotName)
 
-            shotRange = self.core.getShotRange(self.shotName)
+            shotRange = self.core.entities.getShotRange(self.shotName)
             if shotRange:
                 self.sp_startFrame.setValue(shotRange[0])
                 self.sp_endFrame.setValue(shotRange[1])
@@ -373,18 +344,19 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                 "%s_preview.jpg" % self.shotName,
             )
         else:
+            self.setWindowTitle("Create Shot")
             self.b_deleteShot.setVisible(False)
             self.buttonBox.removeButton(self.buttonBox.buttons()[0])
             self.buttonBox.addButton("Create and close", QDialogButtonBox.AcceptRole)
             self.buttonBox.addButton("Create", QDialogButtonBox.ApplyRole)
             b = self.buttonBox.addButton(self.btext, QDialogButtonBox.ApplyRole)
-            b.setMaximumWidth(20*self.core.uiScaleFactor)
             b.setToolTip("Create shot and open step dialog")
-            b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
             self.buttonBox.setStyleSheet("* { button-layout: 2}")
+            if self.e_sequence.text():
+                self.e_shotName.setFocus()
 
-        if self.shotName is not None and os.path.exists(imgPath):
-            pm = self.core.pb.getImgPMap(imgPath)
+        if shotName and os.path.exists(imgPath):
+            pm = self.core.media.getPixmapFromPath(imgPath)
             if (pm.width() / float(pm.height())) > 1.7778:
                 pmap = pm.scaledToWidth(self.core.pb.shotPrvXres)
             else:
@@ -393,7 +365,7 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             imgFile = os.path.join(
                 self.core.projectPath, "00_Pipeline", "Fallbacks", "noFileSmall.jpg"
             )
-            pmap = self.core.pb.getImgPMap(imgFile)
+            pmap = self.core.media.getPixmapFromPath(imgFile)
 
         self.l_shotPreview.setMinimumSize(pmap.width(), pmap.height())
         self.l_shotPreview.setPixmap(pmap)

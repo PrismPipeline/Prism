@@ -12,10 +12,12 @@
 import os
 import sys
 
-prismRoot = PRISMROOT
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:
     from PySide2.QtCore import *
@@ -52,10 +54,12 @@ pcore.saveScene()
 import os
 import sys
 
-prismRoot = PRISMROOT
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:
     from PySide2.QtCore import *
@@ -92,10 +96,12 @@ pcore.saveWithComment()
 import os
 import sys
 
-prismRoot = PRISMROOT
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:
     from PySide2.QtCore import *
@@ -136,10 +142,12 @@ if result == True:
 import os
 import sys
 
-prismRoot = PRISMROOT
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:
     from PySide2.QtCore import *
@@ -177,10 +185,12 @@ pcore.appPlugin.updateReadNodes()
 import os
 import sys
 
-prismRoot = PRISMROOT
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:
     from PySide2.QtCore import *

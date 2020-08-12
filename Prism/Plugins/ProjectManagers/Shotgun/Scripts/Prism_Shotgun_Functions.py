@@ -38,24 +38,20 @@ try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
 if sys.version[0] == "3":
-    from configparser import ConfigParser
-
     pVersion = 3
 else:
-    from ConfigParser import ConfigParser
-
     pVersion = 2
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
+
+
+modulePath = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), "external_modules")
+sys.path.append(modulePath)
 
 
 class Prism_Shotgun_Functions(object):
@@ -63,12 +59,25 @@ class Prism_Shotgun_Functions(object):
         self.core = core
         self.plugin = plugin
 
+        self.callbacks = []
+        self.registerCallbacks()
+
     @err_catcher(name=__name__)
     def isActive(self):
-        if pVersion == 2:
-            return True
+        return True
 
-        return False
+    @err_catcher(name=__name__)
+    def registerCallbacks(self):
+        self.callbacks.append(self.core.registerCallback("projectBrowser_getAssetMenu", self.projectBrowser_getAssetMenu))
+
+    @err_catcher(name=__name__)
+    def unregister(self):
+        self.unregisterCallbacks()
+
+    @err_catcher(name=__name__)
+    def unregisterCallbacks(self):
+        for cb in self.callbacks:
+            self.core.unregisterCallback(cb["id"])
 
     @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
@@ -133,74 +142,56 @@ class Prism_Shotgun_Functions(object):
         )
 
     @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin):
-        loadData = {}
-        loadFunctions = {}
+    def prismSettings_loadSettings(self, origin, settings):
+        if "shotgun" in settings:
+            if "sguseaccount" in settings["shotgun"]:
+                origin.gb_sgAccount.setChecked(settings["shotgun"]["sguseaccount"])
 
-        loadData["sguseaccount"] = ["shotgun", "sguseaccount", "bool"]
-        loadFunctions["sguseaccount"] = lambda x: origin.gb_sgAccount.setChecked(x)
+            if "sgusername" in settings["shotgun"]:
+                origin.e_sgUserName.setText(settings["shotgun"]["sgusername"])
 
-        loadData["sgusername"] = ["shotgun", "sgusername"]
-        loadFunctions["sgusername"] = lambda x: origin.e_sgUserName.setText(x)
-
-        loadData["sguserpassword"] = ["shotgun", "sguserpassword"]
-        loadFunctions["sguserpassword"] = lambda x: origin.e_sgUserPassword.setText(x)
-
-        return loadData, loadFunctions
+            if "sguserpassword" in settings["shotgun"]:
+                origin.e_sgUserPassword.setText(settings["shotgun"]["sguserpassword"])
 
     @err_catcher(name=__name__)
-    def prismSettings_loadPrjSettings(self, origin):
-        loadData = {}
-        loadFunctions = {}
+    def prismSettings_loadPrjSettings(self, origin, settings):
+        if "shotgun" in settings:
+            if "active" in settings["shotgun"]:
+                origin.gb_sgPrjIntegration.setChecked(settings["shotgun"]["active"])
 
-        loadData["sgActive"] = ["shotgun", "active", "bool"]
-        loadFunctions["sgActive"] = lambda x: origin.gb_sgPrjIntegration.setChecked(x)
+            if "site" in settings["shotgun"]:
+                origin.e_sgSite.setText(settings["shotgun"]["site"])
 
-        loadData["sgSite"] = ["shotgun", "site"]
-        loadFunctions["sgSite"] = lambda x: origin.e_sgSite.setText(x)
+            if "projectname" in settings["shotgun"]:
+                origin.e_sgPrjName.setText(settings["shotgun"]["projectname"])
 
-        loadData["sgPrjName"] = ["shotgun", "projectname"]
-        loadFunctions["sgPrjName"] = lambda x: origin.e_sgPrjName.setText(x)
+            if "scriptname" in settings["shotgun"]:
+                origin.e_sgScriptName.setText(settings["shotgun"]["scriptname"])
 
-        loadData["sgScriptName"] = ["shotgun", "scriptname"]
-        loadFunctions["sgScriptName"] = lambda x: origin.e_sgScriptName.setText(x)
+            if "apikey" in settings["shotgun"]:
+                origin.e_sgApiKey.setText(settings["shotgun"]["apikey"])
 
-        loadData["sgApiKey"] = ["shotgun", "apikey"]
-        loadFunctions["sgApiKey"] = lambda x: origin.e_sgApiKey.setText(x)
-
-        return loadData, loadFunctions
-
-    @err_catcher(name=__name__)
-    def prismSettings_postLoadSettings(self, origin):
         self.prismSettings_sgToggled(origin, origin.gb_sgPrjIntegration.isChecked())
 
     @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin):
-        saveData = []
+    def prismSettings_saveSettings(self, origin, settings):
+        if "shotgun" not in settings:
+            settings["shotgun"] = {}
 
-        saveData.append(
-            ["shotgun", "sguseaccount", str(origin.gb_sgAccount.isChecked())]
-        )
-        saveData.append(["shotgun", "sgusername", str(origin.e_sgUserName.text())])
-        saveData.append(
-            ["shotgun", "sguserpassword", str(origin.e_sgUserPassword.text())]
-        )
-
-        return saveData
+        settings["shotgun"]["sguseaccount"] = origin.gb_sgAccount.isChecked()
+        settings["shotgun"]["sgusername"] = origin.e_sgUserName.text()
+        settings["shotgun"]["sguserpassword"] = origin.e_sgUserPassword.text()
 
     @err_catcher(name=__name__)
-    def prismSettings_savePrjSettings(self, origin):
-        saveData = []
+    def prismSettings_savePrjSettings(self, origin, settings):
+        if "shotgun" not in settings:
+            settings["shotgun"] = {}
 
-        saveData.append(
-            ["shotgun", "active", str(origin.gb_sgPrjIntegration.isChecked())]
-        )
-        saveData.append(["shotgun", "site", str(origin.e_sgSite.text())])
-        saveData.append(["shotgun", "projectname", str(origin.e_sgPrjName.text())])
-        saveData.append(["shotgun", "scriptname", str(origin.e_sgScriptName.text())])
-        saveData.append(["shotgun", "apikey", str(origin.e_sgApiKey.text())])
-
-        return saveData
+        settings["shotgun"]["active"] = origin.gb_sgPrjIntegration.isChecked()
+        settings["shotgun"]["site"] = origin.e_sgSite.text()
+        settings["shotgun"]["projectname"] = origin.e_sgPrjName.text()
+        settings["shotgun"]["scriptname"] = origin.e_sgScriptName.text()
+        settings["shotgun"]["apikey"] = origin.e_sgApiKey.text()
 
     @err_catcher(name=__name__)
     def prismSettings_sgToggled(self, origin, checked):
@@ -210,7 +201,7 @@ class Prism_Shotgun_Functions(object):
     @err_catcher(name=__name__)
     def pbBrowser_getMenu(self, origin):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-        if sg is not None and eval(sg) and pVersion == 2:
+        if sg:
             sgMenu = QMenu("Shotgun")
 
             actSg = QAction("Open Shotgun", origin)
@@ -240,9 +231,12 @@ class Prism_Shotgun_Functions(object):
             return sgMenu
 
     @err_catcher(name=__name__)
-    def pbBrowser_getAssetMenu(self, origin, assetname, assetPath):
+    def projectBrowser_getAssetMenu(self, origin, assetname, assetPath, entityType):
+        if entityType != "asset":
+            return
+
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-        if sg is not None and eval(sg) and pVersion == 2:
+        if sg:
             sgAct = QAction("Open in Shotgun", origin)
             sgAct.triggered.connect(
                 lambda: self.openSg(assetname, eType="Asset", assetPath=assetPath)
@@ -252,7 +246,7 @@ class Prism_Shotgun_Functions(object):
     @err_catcher(name=__name__)
     def pbBrowser_getShotMenu(self, origin, shotname):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-        if sg is not None and eval(sg) and pVersion == 2:
+        if sg:
             sgAct = QAction("Open in Shotgun", origin)
             sgAct.triggered.connect(lambda: self.openSg(shotname))
             return sgAct
@@ -260,7 +254,7 @@ class Prism_Shotgun_Functions(object):
     @err_catcher(name=__name__)
     def createAsset_open(self, origin):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-        if sg is None or not eval(sg) or pVersion != 2:
+        if not sg:
             return
 
         origin.chb_createInShotgun = QCheckBox("Create asset in Shotgun")
@@ -284,7 +278,7 @@ class Prism_Shotgun_Functions(object):
     def editShot_open(self, origin, shotName):
         if shotName is None:
             sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-            if sg is None or not eval(sg) or pVersion != 2:
+            if not sg:
                 return
 
             origin.chb_createInShotgun = QCheckBox("Create shot in Shotgun")
@@ -302,12 +296,7 @@ class Prism_Shotgun_Functions(object):
     @err_catcher(name=__name__)
     def pbBrowser_getPublishMenu(self, origin):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
-        if (
-            sg is not None
-            and eval(sg)
-            and len(origin.mediaPlaybacks["shots"]["seq"]) > 0
-            and pVersion == 2
-        ):
+        if sg and origin.mediaPlaybacks["shots"]["seq"]:
             sgAct = QAction("Publish to Shotgun", origin)
             sgAct.triggered.connect(lambda: self.sgPublish(origin))
             return sgAct
@@ -335,10 +324,10 @@ class Prism_Shotgun_Functions(object):
             )
 
             if (
-                sgSite is None
-                or sgProjectName is None
-                or sgScriptName is None
-                or sgApiKey is None
+                not sgSite
+                or not sgProjectName
+                or not sgScriptName
+                or not sgApiKey
             ):
                 QMessageBox.warning(
                     self.core.messageParent,
@@ -354,11 +343,9 @@ class Prism_Shotgun_Functions(object):
                 sgPw = self.core.getConfig("shotgun", "sguserpassword")
 
                 if (
-                    useUserAccount == "True"
-                    and sgUsername is not None
-                    and sgUsername != ""
-                    and sgPw is not None
-                    and sgPw != ""
+                    useUserAccount
+                    and sgUsername
+                    and sgPw
                 ):
                     try:
                         self.sg = shotgun_api3.Shotgun(
@@ -406,7 +393,7 @@ class Prism_Shotgun_Functions(object):
             if not user:
                 return [self.sg, self.sgPrjId, None]
 
-            if useUserAccount == "True":
+            if useUserAccount is True:
                 userName = sgUsername
                 filterStr = "login"
             else:
@@ -463,11 +450,7 @@ class Prism_Shotgun_Functions(object):
             if x["entity_type"] == "Asset"
         }
 
-        aBasePath = os.path.join(
-            self.core.projectPath,
-            self.core.getConfig("paths", "scenes", configPath=self.core.prismIni),
-            "Assets",
-        )
+        aBasePath = self.core.getAssetPath()
         assets = [[os.path.basename(x), x.replace(aBasePath, "")[1:]] for x in assets]
 
         createdAssets = []
@@ -527,7 +510,7 @@ class Prism_Shotgun_Functions(object):
         createdShots = []
         updatedShots = []
         for shot in shots:
-            shotName, seqName = self.core.pb.splitShotname(shot)
+            shotName, seqName = self.core.entities.splitShotname(shot)
             if seqName == "no sequence":
                 seqName = ""
 
@@ -539,22 +522,14 @@ class Prism_Shotgun_Functions(object):
             else:
                 shotImg = ""
 
-            shotFile = os.path.join(
-                os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini"
-            )
+            shotRange = self.core.getConfig("shotRanges", shot, config="shotinfo")
 
-            startFrame = ""
-            endFrame = ""
-
-            if os.path.exists(shotFile):
-                sconfig = ConfigParser()
-                sconfig.read(shotFile)
-
-                if sconfig.has_option("shotRanges", shot):
-                    shotRange = eval(sconfig.get("shotRanges", shot))
-                    if type(shotRange) == list and len(shotRange) == 2:
-                        startFrame = shotRange[0]
-                        endFrame = shotRange[1]
+            if type(shotRange) == list and len(shotRange) == 2:
+                startFrame = shotRange[0]
+                endFrame = shotRange[1]
+            else:
+                startFrame = ""
+                endFrame = ""
 
             shotSeq = {"code": ""}
             if seqName != "" and shot not in sgShots.keys():
@@ -731,7 +706,7 @@ class Prism_Shotgun_Functions(object):
             if eType == "Asset":
                 filters += [["sg_localhierarchy", "is", assetPath]]
             elif eType == "Shot":
-                shotName, seqName = self.core.pb.splitShotname(shotName)
+                shotName, seqName = self.core.entities.splitShotname(shotName)
                 if seqName and seqName != "no sequence":
                     seqFilters = [
                         ["project", "is", {"type": "Project", "id": sgPrjId}],
@@ -794,7 +769,7 @@ class Prism_Shotgun_Functions(object):
                 )
 
             if not os.path.exists(assetPath):
-                origin.createShotFolders(assetPath, "Asset")
+                self.core.entities.createEntity("asset", assetPath)
                 createdAssets.append(assetName)
 
         if len(createdAssets) > 0:
@@ -843,12 +818,12 @@ class Prism_Shotgun_Functions(object):
             if x["entity_type"] == "Asset"
         }
 
-        assets = self.core.getAssetPaths()
+        assets = self.core.entities.getAssetPaths()
         localAssets = [
             [os.path.basename(x), x.replace(origin.aBasePath, "")[1:]]
             for x in assets
             if x.replace(os.path.join(self.core.fixPath(origin.aBasePath), ""), "")
-            not in origin.omittedEntities["asset"]
+            not in self.core.entities.omittedEntities["asset"]
         ]
 
         createdAssets = []
@@ -935,41 +910,24 @@ class Prism_Shotgun_Functions(object):
         updatedShots = []
         for shotName, shotData in sgShots.items():
             if not os.path.exists(os.path.join(origin.sBasePath, shotName)):
-                origin.createShotFolders(shotName, "Shot")
-                createdShots.append(shotName)
+                self.core.entities.createEntity("shot", shotName)
 
-            shotFile = os.path.join(
-                os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini"
-            )
+                createdShots.append(shotName)
 
             startFrame = shotData["sg_cut_in"]
             endFrame = shotData["sg_cut_out"]
 
             if startFrame is not None and endFrame is not None:
-                if not os.path.exists(os.path.dirname(shotFile)):
-                    os.makedirs(os.path.dirname(shotFile))
+                shotRange = self.core.getConfig("shotRanges", shotName, config="shotinfo")
 
-                if not os.path.exists(shotFile):
-                    open(shotFile, "w").close()
+                if type(shotRange) == list and len(shotRange) == 2:
+                    prvStartFrame = shotRange[0]
+                    prvEndFrame = shotRange[1]
+                else:
+                    prvStartFrame = ""
+                    prvEndFrame = ""
 
-                sconfig = ConfigParser()
-                sconfig.read(shotFile)
-
-                if not sconfig.has_section("shotRanges"):
-                    sconfig.add_section("shotRanges")
-
-                prvStartFrame = ""
-                prvEndFrame = ""
-                if sconfig.has_option("shotRanges", shotName):
-                    shotRange = eval(sconfig.get("shotRanges", shotName))
-                    if type(shotRange) == list and len(shotRange) == 2:
-                        prvStartFrame = shotRange[0]
-                        prvEndFrame = shotRange[1]
-
-                sconfig.set("shotRanges", shotName, str([startFrame, endFrame]))
-
-                with open(shotFile, "w") as inifile:
-                    sconfig.write(inifile)
+                self.core.setConfig("shotRanges", shotName, [startFrame, endFrame], config="shotinfo")
 
                 if (
                     shotName not in createdShots
@@ -1120,12 +1078,12 @@ class Prism_Shotgun_Functions(object):
             foldercont = i
             break
 
-        origin.refreshOmittedEntities()
+        self.core.entities.refreshOmittedEntities()
 
         localShots = []
         for x in foldercont[1]:
-            if not x.startswith("_") and x not in origin.omittedEntities["shot"]:
-                shotName, seqName = self.core.pb.splitShotname(x)
+            if not x.startswith("_") and x not in self.core.entities.omittedEntities["shot"]:
+                shotName, seqName = self.core.entities.splitShotname(x)
                 if seqName == "no sequence":
                     seqName = ""
 
@@ -1144,22 +1102,14 @@ class Prism_Shotgun_Functions(object):
             else:
                 shotImg = ""
 
-            shotFile = os.path.join(
-                os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.ini"
-            )
+            shotRange = self.core.getConfig("shotRanges", shot[0], config="shotinfo")
 
-            startFrame = ""
-            endFrame = ""
-
-            if os.path.exists(shotFile):
-                sconfig = ConfigParser()
-                sconfig.read(shotFile)
-
-                if sconfig.has_option("shotRanges", shot[0]):
-                    shotRange = eval(sconfig.get("shotRanges", shot[0]))
-                    if type(shotRange) == list and len(shotRange) == 2:
-                        startFrame = shotRange[0]
-                        endFrame = shotRange[1]
+            if type(shotRange) == list and len(shotRange) == 2:
+                startFrame = shotRange[0]
+                endFrame = shotRange[1]
+            else:
+                startFrame = ""
+                endFrame = ""
 
             shotSeq = {"code": ""}
             if shot[1] != "" and shot[0] not in sgShots.keys():
@@ -1227,15 +1177,15 @@ class Prism_Shotgun_Functions(object):
                         updatedShots.append(shot[0])
 
             shotSteps = []
-            for k in os.walk(os.path.join(origin.sBasePath, shot[0], "Scenefiles")):
+            stepsPath = self.core.getEntityPath(entity="step", shot=shot[0])
+            for k in os.walk(stepsPath):
                 shotSteps = k[1]
                 break
 
             shotTasks = {}
             for k in shotSteps:
-                for m in os.walk(
-                    os.path.join(origin.sBasePath, shot[0], "Scenefiles", k)
-                ):
+                stepPath = self.core.getEntityPath(shot=shot[0], step=k)
+                for m in os.walk(stepPath):
                     shotTasks[k] = m[1]
                     break
 

@@ -33,7 +33,7 @@
 
 class Prism_3dsMax_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v1.2.1.23"
+        self.version = "v1.3.0.0"
         self.pluginName = "3dsMax"
         self.pluginType = "App"
         self.appShortName = "Max"
@@ -44,10 +44,8 @@ class Prism_3dsMax_Variables(object):
         self.outputFormats = [".abc", ".obj", ".fbx", ".max", "ShotCam"]
         self.appColor = [0, 170, 170]
         self.appVersionPresets = ["21,0,0,845", "20,4,0,4254", "19,3,533"]
-        scanlinePasses = [
-            "defaultpasses",
-            "max_scanline",
-            str(
+        self.renderPasses = {
+            "max_scanline":
                 [
                     "diffuseRenderElement",
                     "emissionRenderElement",
@@ -62,13 +60,8 @@ class Prism_3dsMax_Variables(object):
                     "specularRenderElement",
                     "velocity",
                     "ZRenderElement",
-                ]
-            ),
-        ]
-        vrayPasses = [
-            "defaultpasses",
-            "max_vray",
-            str(
+                ],
+            "max_vray":
                 [
                     "MultiMatteElement",
                     "VRayCaustics",
@@ -84,10 +77,8 @@ class Prism_3dsMax_Variables(object):
                     "VRaySpecular",
                     "VRayVelocity",
                     "VRayZDepth",
-                ]
-            ),
-        ]
-        self.renderPasses = [scanlinePasses, vrayPasses]
+                ],
+        }
         self.shotcamFormat = ".fbx"
         self.preferredUnit = "centimeter"
         self.platforms = ["Windows"]

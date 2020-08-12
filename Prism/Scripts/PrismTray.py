@@ -36,11 +36,18 @@ import sys
 import time
 import subprocess
 import platform
+import logging
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+if sys.version[0] == "3":
+    libDir = "Python37"
+    sys.path.append(os.path.dirname(__file__))
+else:
+    libDir = "Python27"
+
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libDir))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libDir, "PySide"))
 
 if platform.system() == "Windows":
     import psutil
@@ -49,24 +56,14 @@ try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
 
-    psVersion = 1
-
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-
-    pVersion = 3
-else:
-    from ConfigParser import ConfigParser
-
-    pVersion = 2
-
 from UserInterfacesPrism import qdarkstyle
+
+
+logger = logging.getLogger(__name__)
 
 
 class PrismTray:
@@ -74,6 +71,8 @@ class PrismTray:
         self.core = core
 
         try:
+            self.launching = False
+
             pIcon = QIcon(
                 os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
@@ -81,22 +80,22 @@ class PrismTray:
                     "p_tray.ico",
                 )
             )
-            qApp.setWindowIcon(pIcon)
+            QApplication.setWindowIcon(pIcon)
 
-            # if platform.system() == "Windows":
-            # 	coreProc = []
-            # 	for x in psutil.pids():
-            # 		try:
-            # 			if x != os.getpid() and os.path.basename(psutil.Process(x).exe()) ==  "PrismTray.exe":
-            # 				coreProc.append(x)
-            # 		except:
-            # 			pass
+            if platform.system() == "Windows":
+                coreProc = []
+                for x in psutil.pids():
+                    try:
+                        if x != os.getpid() and os.path.basename(psutil.Process(x).exe()) == "Prism Tray.exe":
+                            coreProc.append(x)
+                    except:
+                        pass
 
-            # 	if len(coreProc) > 0:
-            # 		QMessageBox.warning(self.core.messageParent, "PrismTray", "PrismTray is already running.")
-            # 		qApp.quit()
-            # 		sys.exit()
-            # 		return
+                if len(coreProc) > 0:
+                    QMessageBox.warning(self.core.messageParent, "PrismTray", "PrismTray is already running.")
+                    QApplication.quit()
+                    sys.exit()
+                    return
 
             self.createTrayIcon()
             self.trayIcon.show()
@@ -206,10 +205,16 @@ class PrismTray:
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
-        # 	QMessageBox.critical(self.core.messageParent, "Unknown Error", "iconActivated - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno))
+        #   QMessageBox.critical(self.core.messageParent, "Unknown Error", "iconActivated - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno))
 
     def startBrowser(self):
+        if self.launching:
+            logger.debug("Launching in progress. Skipped opening Project Browser")
+            return
+
+        self.launching = True
         self.core.projectBrowser()
+        self.launching = False
         return
 
         # the following code starts the RenderHandler in a new process, but is a lot slower
@@ -224,7 +229,7 @@ class PrismTray:
                 return None
 
             if platform.system() == "Windows":
-                command = '"%s/Tools/PrismProjectBrowser.lnk"' % prismRoot
+                command = '"%s/Tools/Prism Project Browser.lnk"' % prismRoot
             else:
                 command = "python %s" % os.path.join(
                     prismRoot, "Scripts", "PrismCore.py"
@@ -233,7 +238,7 @@ class PrismTray:
             self.browserProc = subprocess.Popen(command, shell=True)
 
             if platform.system() == "Windows":
-                PROCNAME = "PrismProjectBrowser.exe"
+                PROCNAME = "Prism Project Browser.exe"
                 for proc in psutil.process_iter():
                     if proc.name() == PROCNAME:
                         if proc.pid == self.browserProc.pid:
@@ -253,35 +258,19 @@ class PrismTray:
 
     def openDailies(self):
         try:
-            curProject = self.core.getConfig("globals", "current project")
-            if curProject is None:
-                return None
+            dailiesName = self.core.getConfig("paths", "dailies", configPath=curProject)
 
-            projectPath = os.path.dirname(os.path.dirname(curProject))
-            if not os.path.exists(curProject):
-                self.trayIcon.showMessage(
-                    "Config missing",
-                    "Project config does not exist.",
-                    icon=QSystemTrayIcon.Warning,
-                )
-                return None
-
-            projectConfig = ConfigParser()
-            projectConfig.read(curProject)
-
-            if not projectConfig.has_option("paths", "dailies"):
+            if not dailiesName:
                 self.trayIcon.showMessage(
                     "Information missing",
                     "The dailies folder is not set in the project config.",
                     icon=QSystemTrayIcon.Warning,
                 )
-                return None
-
-            dailiesName = projectConfig.get("paths", "dailies")
+                return
 
             curDate = time.strftime("%Y_%m_%d", time.localtime())
 
-            dailiesFolder = os.path.join(projectPath, dailiesName, curDate)
+            dailiesFolder = os.path.join(self.core.projectPath, dailiesName, curDate)
             if os.path.exists(dailiesFolder):
                 self.openFolder(dailiesFolder)
             else:
@@ -351,7 +340,7 @@ class PrismTray:
             self.settingsProc = subprocess.Popen(command, shell=True)
 
             if platform.system() == "Windows":
-                PROCNAME = "PrismSettings.exe"
+                PROCNAME = "Prism Settings.exe"
                 for proc in psutil.process_iter():
                     if proc.name() == PROCNAME:
                         if proc.pid == self.settingsProc.pid:
@@ -384,6 +373,6 @@ if __name__ == "__main__":
 
     import PrismCore
 
-    pc = PrismCore.PrismCore(prismArgs=["loadProject", "silent"])
+    pc = PrismCore.PrismCore(prismArgs=["loadProject", "noProjectBrowser", "tray"])
     pc.startTray()
     sys.exit(qApp.exec_())

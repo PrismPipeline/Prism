@@ -105,69 +105,6 @@ class Prism_PluginEmpty_Functions(object):
         )
 
     @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin):
-        loadData = {}
-        loadFunctions = {}
-
-        return loadData, loadFunctions
-
-    @err_catcher(name=__name__)
-    def prismSettings_loadPrjSettings(self, origin):
-        loadData = {}
-        loadFunctions = {}
-
-        loadData["prjmanActive"] = ["PluginEmpty", "active", "bool"]
-        loadFunctions[
-            "prjmanActive"
-        ] = lambda x: origin.gb_prjmanPrjIntegration.setChecked(x)
-
-        loadData["prjmanSite"] = ["PluginEmpty", "site"]
-        loadFunctions["prjmanSite"] = lambda x: origin.e_prjmanSite.setText(x)
-
-        loadData["prjmanPrjName"] = ["PluginEmpty", "projectname"]
-        loadFunctions["prjmanPrjName"] = lambda x: origin.e_prjmanPrjName.setText(x)
-
-        loadData["prjmanScriptName"] = ["PluginEmpty", "scriptname"]
-        loadFunctions["prjmanScriptName"] = lambda x: origin.e_prjmanScriptName.setText(
-            x
-        )
-
-        loadData["prjmanApiKey"] = ["PluginEmpty", "apikey"]
-        loadFunctions["prjmanApiKey"] = lambda x: origin.e_prjmanApiKey.setText(x)
-
-        return loadData, loadFunctions
-
-    @err_catcher(name=__name__)
-    def prismSettings_postLoadSettings(self, origin):
-        self.prismSettings_prjmanToggled(
-            origin, origin.gb_prjmanPrjIntegration.isChecked()
-        )
-
-    @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin):
-        saveData = []
-
-        return saveData
-
-    @err_catcher(name=__name__)
-    def prismSettings_savePrjSettings(self, origin):
-        saveData = []
-
-        saveData.append(
-            ["PluginEmpty", "active", str(origin.gb_prjmanPrjIntegration.isChecked())]
-        )
-        saveData.append(["PluginEmpty", "site", str(origin.e_prjmanSite.text())])
-        saveData.append(
-            ["PluginEmpty", "projectname", str(origin.e_prjmanPrjName.text())]
-        )
-        saveData.append(
-            ["PluginEmpty", "scriptname", str(origin.e_prjmanScriptName.text())]
-        )
-        saveData.append(["PluginEmpty", "apikey", str(origin.e_prjmanApiKey.text())])
-
-        return saveData
-
-    @err_catcher(name=__name__)
     def prismSettings_prjmanToggled(self, origin, checked):
         origin.w_PluginEmpty.setVisible(checked)
 
@@ -176,7 +113,7 @@ class Prism_PluginEmpty_Functions(object):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
         )
-        if prjman is not None and eval(prjman) and pVersion == 2:
+        if prjman and pVersion == 2:
             prjmanMenu = QMenu("PluginEmpty")
 
             actprjman = QAction("Open PluginEmpty", origin)
@@ -206,23 +143,11 @@ class Prism_PluginEmpty_Functions(object):
             return prjmanMenu
 
     @err_catcher(name=__name__)
-    def pbBrowser_getAssetMenu(self, origin, assetname, assetPath):
-        prjman = self.core.getConfig(
-            "PluginEmpty", "active", configPath=self.core.prismIni
-        )
-        if prjman is not None and eval(prjman) and pVersion == 2:
-            prjmanAct = QAction("Open in PluginEmpty", origin)
-            prjmanAct.triggered.connect(
-                lambda: self.openprjman(assetname, eType="Asset", assetPath=assetPath)
-            )
-            return prjmanAct
-
-    @err_catcher(name=__name__)
     def pbBrowser_getShotMenu(self, origin, shotname):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
         )
-        if prjman is not None and eval(prjman) and pVersion == 2:
+        if prjman and pVersion == 2:
             prjmanAct = QAction("Open in PluginEmpty", origin)
             prjmanAct.triggered.connect(lambda: self.openprjman(shotname))
             return prjmanAct
@@ -232,7 +157,7 @@ class Prism_PluginEmpty_Functions(object):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
         )
-        if prjman is None or not eval(prjman) or pVersion != 2:
+        if not prjman or pVersion != 2:
             return
 
         origin.chb_createInPluginEmpty = QCheckBox("Create asset in PluginEmpty")
@@ -258,7 +183,7 @@ class Prism_PluginEmpty_Functions(object):
             prjman = self.core.getConfig(
                 "PluginEmpty", "active", configPath=self.core.prismIni
             )
-            if prjman is None or not eval(prjman) or pVersion != 2:
+            if not prjman or pVersion != 2:
                 return
 
             origin.chb_createInPluginEmpty = QCheckBox("Create shot in PluginEmpty")
@@ -279,9 +204,8 @@ class Prism_PluginEmpty_Functions(object):
             "PluginEmpty", "active", configPath=self.core.prismIni
         )
         if (
-            prjman is not None
-            and eval(prjman)
-            and len(origin.seq) > 0
+            prjman
+            and origin.seq
             and pVersion == 2
         ):
             prjmanAct = QAction("Publish to PluginEmpty", origin)
@@ -385,3 +309,11 @@ class Prism_PluginEmpty_Functions(object):
         msgString = "No shots were created or updated."
 
         QMessageBox.information(self.core.messageParent, "PluginEmpty Sync", msgString)
+
+    @err_catcher(name=__name__)
+    def onProjectBrowserClose(self, origin):
+        pass
+
+    @err_catcher(name=__name__)
+    def onSetProjectStartup(self, origin):
+        pass

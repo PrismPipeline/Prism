@@ -72,7 +72,7 @@ class Prism_3dsMax_Integration(object):
         execPath = ""
         if platform.system() == "Windows":
             try:
-                for i in ["22.0", "21.0", "20.0", "19.0"]:
+                for i in ["23.0", "22.0", "21.0", "20.0", "19.0"]:
                     try:
                         key = _winreg.OpenKey(
                             _winreg.HKEY_LOCAL_MACHINE,
@@ -241,6 +241,11 @@ deleteFile curPath
                         userFolders["LocalAppdata"]
                         + "\\Autodesk\\3dsMax\\2020 - 64bit",
                         "2020",
+                    ],
+                    [
+                        userFolders["LocalAppdata"]
+                        + "\\Autodesk\\3dsMax\\2021 - 64bit",
+                        "2021",
                     ],
                 ]
 

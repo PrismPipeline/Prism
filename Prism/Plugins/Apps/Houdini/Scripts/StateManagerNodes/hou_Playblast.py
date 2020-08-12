@@ -73,14 +73,19 @@ class PlayblastClass(object):
 
         self.resolutionPresets = [
             "Cam resolution",
+            "3840x2160",
             "1920x1080",
             "1280x720",
+            "960x540",
             "640x360",
-            "4000x2000",
-            "2000x1000",
         ]
         self.outputformats = ["jpg", "mp4"]
         self.cb_formats.addItems(self.outputformats)
+
+        self.rangeTypes = ["State Manager", "Scene", "Shot", "Single Frame", "Custom"]
+        self.cb_rangeType.addItems(self.rangeTypes)
+        for idx, rtype in enumerate(self.rangeTypes):
+            self.cb_rangeType.setItemData(idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole)
 
         self.cb_displayMode.addItems(
             ["Smooth Shaded", "Smooth Wire Shaded", "Wireframe"]
@@ -90,13 +95,19 @@ class PlayblastClass(object):
         self.connectEvents()
 
         self.b_changeTask.setStyleSheet(
-            "QPushButton { background-color: rgb(150,0,0); }"
+            "QPushButton { background-color: rgb(150,0,0); border: none;}"
         )
         self.f_localOutput.setVisible(self.core.useLocalFiles)
 
         self.updateUi()
         if stateData is not None:
             self.loadData(stateData)
+        else:
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData.get("category"):
+                self.l_taskName.setText(fnameData.get("category"))
+                self.b_changeTask.setStyleSheet("")
 
     @err_catcher(name=__name__)
     def loadData(self, data):
@@ -107,8 +118,11 @@ class PlayblastClass(object):
             if data["taskname"] != "":
                 self.b_changeTask.setStyleSheet("")
                 self.nameChanged(self.e_name.text())
-        if "globalrange" in data:
-            self.chb_globalRange.setChecked(eval(data["globalrange"]))
+        if "rangeType" in data:
+            idx = self.cb_rangeType.findText(data["rangeType"])
+            if idx != -1:
+                self.cb_rangeType.setCurrentIndex(idx)
+                self.updateRange()
         if "startframe" in data:
             self.sp_rangeStart.setValue(int(data["startframe"]))
         if "endframe" in data:
@@ -157,7 +171,7 @@ class PlayblastClass(object):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_changeTask.clicked.connect(self.changeTask)
-        self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
+        self.cb_rangeType.activated.connect(self.rangeTypeChanged)
         self.sp_rangeStart.editingFinished.connect(self.startChanged)
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
         self.cb_cams.activated.connect(self.setCam)
@@ -176,10 +190,7 @@ class PlayblastClass(object):
 
     @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
-        self.l_rangeEnd.setEnabled(not state)
-        self.sp_rangeStart.setEnabled(not state)
-        self.sp_rangeEnd.setEnabled(not state)
-
+        self.updateRange()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -230,6 +241,7 @@ class PlayblastClass(object):
         self.core.parentWindow(self.nameWin)
         self.nameWin.setWindowTitle("Change Taskname")
         self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
         result = self.nameWin.exec_()
 
@@ -321,9 +333,53 @@ class PlayblastClass(object):
             self.curCam = None
             self.stateManager.saveStatesToScene()
 
+        self.updateRange()
         self.nameChanged(self.e_name.text())
 
         return True
+
+    @err_catcher(name=__name__)
+    def updateRange(self):
+        rangeType = self.cb_rangeType.currentText()
+        isCustom = rangeType == "Custom"
+        self.l_rangeStart.setVisible(not isCustom)
+        self.l_rangeEnd.setVisible(not isCustom)
+        self.sp_rangeStart.setVisible(isCustom)
+        self.sp_rangeEnd.setVisible(isCustom)
+
+        if not isCustom:
+            frange = self.getFrameRange(rangeType=rangeType)
+            start = str(int(frange[0])) if frange[0] else "-"
+            end = str(int(frange[1])) if frange[1] else "-"
+            self.l_rangeStart.setText(start)
+            self.l_rangeEnd.setText(end)
+
+    @err_catcher(name=__name__)
+    def getFrameRange(self, rangeType):
+        startFrame = None
+        endFrame = None
+        if rangeType == "State Manager":
+            startFrame = self.stateManager.sp_rangeStart.value()
+            endFrame = self.stateManager.sp_rangeEnd.value()
+        elif rangeType == "Scene":
+            startFrame, endFrame = self.core.appPlugin.getFrameRange(self)
+        elif rangeType == "Shot":
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData["entity"] == "shot":
+                frange = self.core.entities.getShotRange(fnameData["entityName"])
+                if frange:
+                    startFrame, endFrame = frange
+        elif rangeType == "Node" and self.node:
+            startFrame = self.node.parm("f1").eval()
+            endFrame = self.node.parm("f2").eval()
+        elif rangeType == "Single Frame":
+            startFrame = self.core.appPlugin.getCurrentFrame()
+        elif rangeType == "Custom":
+            startFrame = self.sp_rangeStart.value()
+            endFrame = self.sp_rangeEnd.value()
+
+        return startFrame, endFrame
 
     @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
@@ -335,6 +391,12 @@ class PlayblastClass(object):
 
         if self.l_taskName.text() == "":
             warnings.append(["No taskname is given.", "", 3])
+
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
+
+        if not startFrame:
+            warnings.append(["Framerange is invalid.", "", 3])
 
         if self.core.uiAvailable:
             sceneViewer = hou.ui.paneTabOfType(hou.paneTabType.SceneViewer)
@@ -368,22 +430,11 @@ class PlayblastClass(object):
             return
 
         fileName = self.core.getCurrentFileName()
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
-
-        basePath = self.core.projectPath
         if self.core.useLocalFiles:
             if self.chb_localOutput.isChecked():
-                basePath = self.core.localProjectPath
-                if fileName.startswith(os.path.join(self.core.projectPath, sceneDir)):
-                    fileName = fileName.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-            elif fileName.startswith(
-                os.path.join(self.core.localProjectPath, sceneDir)
-            ):
-                fileName = fileName.replace(
-                    self.core.localProjectPath, self.core.projectPath
-                )
+                fileName = self.core.convertPath(fileName, target="local")
+            else:
+                fileName = self.core.convertPath(fileName, target="global")
 
         hVersion = ""
         if useVersion != "next":
@@ -391,6 +442,7 @@ class PlayblastClass(object):
             pComment = useVersion.split(self.core.filenameSeparator)[1]
 
         fnameData = self.core.getScenefileData(fileName)
+        framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
         if fnameData["entity"] == "shot":
             outputPath = os.path.join(
                 self.core.getEntityBasePath(fileName),
@@ -412,7 +464,8 @@ class PlayblastClass(object):
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
                 + hVersion
-                + ".$F4.jpg"
+                + framePadding
+                + ".jpg"
             )
         elif fnameData["entity"] == "asset":
             outputPath = os.path.join(
@@ -433,7 +486,8 @@ class PlayblastClass(object):
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
                 + hVersion
-                + ".$F4.jpg"
+                + framePadding
+                + ".jpg"
             )
         else:
             return
@@ -558,14 +612,16 @@ class PlayblastClass(object):
 
         hou.hipFile.save()
 
-        if self.chb_globalRange.isChecked():
-            jobFrames = (
-                self.stateManager.sp_rangeStart.value(),
-                self.stateManager.sp_rangeEnd.value(),
-            )
-        else:
-            jobFrames = (self.sp_rangeStart.value(), self.sp_rangeEnd.value())
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
 
+        if not startFrame or not endFrame:
+            return [self.state.text(0) + ": error - Framerange is invalid"]
+
+        if rangeType == "Single Frame":
+            endFrame = startFrame
+
+        jobFrames = (startFrame, endFrame)
         psettings.frameRange(jobFrames)
 
         self.core.callHook(
@@ -574,7 +630,7 @@ class PlayblastClass(object):
                 "prismCore": self.core,
                 "scenefile": fileName,
                 "startFrame": jobFrames[0],
-                "endFrame": jobFrames[0],
+                "endFrame": jobFrames[1],
                 "outputName": outputName,
             },
         )
@@ -589,10 +645,10 @@ class PlayblastClass(object):
                 videoOutput = mediaBaseName + "mp4"
                 inputpath = (
                     os.path.splitext(outputName)[0][:-3]
-                    + "%04d"
+                    + "%04d".replace("4", str(self.core.framePadding))
                     + os.path.splitext(outputName)[1]
                 )
-                result = self.core.convertMedia(inputpath, jobFrames[0], videoOutput)
+                result = self.core.media.convertMedia(inputpath, jobFrames[0], videoOutput)
 
                 if not os.path.exists(videoOutput):
                     return [
@@ -622,7 +678,7 @@ class PlayblastClass(object):
                     "prismCore": self.core,
                     "scenefile": fileName,
                     "startFrame": jobFrames[0],
-                    "endFrame": jobFrames[0],
+                    "endFrame": jobFrames[1],
                     "outputName": outputName,
                 },
             )
@@ -649,7 +705,7 @@ class PlayblastClass(object):
         stateProps = {
             "statename": self.e_name.text(),
             "taskname": self.l_taskName.text(),
-            "globalrange": str(self.chb_globalRange.isChecked()),
+            "rangeType": str(self.cb_rangeType.currentText()),
             "startframe": self.sp_rangeStart.value(),
             "endframe": self.sp_rangeEnd.value(),
             "currentcam": self.cb_cams.currentText(),

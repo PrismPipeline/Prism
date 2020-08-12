@@ -33,7 +33,7 @@
 
 class Prism_Maya_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v1.2.1.23"
+        self.version = "v1.3.0.0"
         self.pluginName = "Maya"
         self.pluginType = "App"
         self.appShortName = "Maya"
@@ -44,10 +44,8 @@ class Prism_Maya_Variables(object):
         self.outputFormats = [".abc", ".obj", ".fbx", ".ma", ".mb", "ShotCam"]
         self.appColor = [44, 121, 207]
         self.appVersionPresets = ["20180100", "201720", "201600"]
-        vrayPasses = [
-            "defaultpasses",
-            "maya_vray",
-            str(
+        self.renderPasses = {
+            "maya_vray":
                 {
                     "Background": "backgroundChannel",
                     "Caustics": "causticsChannel",
@@ -65,13 +63,9 @@ class Prism_Maya_Variables(object):
                     "Specular": "specularChannel",
                     "Velocity": "velocityChannel",
                     "Z-depth": "zdepthChannel",
-                }
-            ),
-        ]
-        arnoldPasses = [
-            "defaultpasses",
-            "maya_arnold",
-            str(
+                },
+
+            "maya_arnold":
                 [
                     "N",
                     "Z",
@@ -88,13 +82,9 @@ class Prism_Maya_Variables(object):
                     "transmission",
                     "volume",
                     "shadow",
-                ]
-            ),
-        ]
-        redshiftPasses = [
-            "defaultpasses",
-            "maya_redshift",
-            str(
+                ],
+
+            "maya_redshift":
                 [
                     "Ambient Occlusion",
                     "Background",
@@ -114,10 +104,8 @@ class Prism_Maya_Variables(object):
                     "Specular Lighting",
                     "Volume Lighting",
                     "World Position",
-                ]
-            ),
-        ]
-        self.renderPasses = [vrayPasses, arnoldPasses, redshiftPasses]
+                ],
+        }
         self.preferredUnit = "centimeter"
         self.platforms = ["Windows", "Linux", "Darwin"]
         self.playblastSettings = {

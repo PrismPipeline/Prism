@@ -33,7 +33,7 @@
 
 class Prism_Houdini_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v1.2.1.23"
+        self.version = "v1.3.0.0"
         self.pluginName = "Houdini"
         self.pluginType = "App"
         self.appShortName = "Hou"
@@ -53,10 +53,8 @@ class Prism_Houdini_Variables(object):
         self.appSpecificFormats = self.sceneFormats + [".bgeo", ".bgeo.sc", ".hda"]
         self.appColor = [242, 103, 34]
         self.appVersionPresets = ["16, 5, 323", "16, 0, 559"]
-        self.arnoldPasses = [
-            "defaultpasses",
-            "houdini_mantra",
-            str(
+        self.renderPasses = {
+            "houdini_arnold":
                 [
                     ["direct", "DirectLight"],
                     ["indirect", "IndirectLight"],
@@ -73,13 +71,9 @@ class Prism_Houdini_Variables(object):
                     ["crypto_asset", "CryptoAsset"],
                     ["crypto_object", "CryptoObject"],
                     ["crypto_material", "CryptoMaterial"],
-                ]
-            ),
-        ]
-        self.mantraPasses = [
-            "defaultpasses",
-            "houdini_mantra",
-            str(
+                ],
+
+            "houdini_mantra":
                 [
                     ["Color", "Cf"],
                     ["Opacity", "Of"],
@@ -88,13 +82,9 @@ class Prism_Houdini_Variables(object):
                     ["Position-Z", "Pz"],
                     ["Normal", "N"],
                     ["Emission", "Ce"],
-                ]
-            ),
-        ]
-        self.redshiftPasses = [
-            "defaultpasses",
-            "houdini_redshift",
-            str(
+                ],
+
+            "houdini_redshift":
                 [
                     ["Cryptomatte", "cryptomatte"],
                     ["Z Depth", "Z"],
@@ -105,13 +95,9 @@ class Prism_Houdini_Variables(object):
                     ["Global Illumination", "gi"],
                     ["Shadows", "shadows"],
                     ["Normals", "N"],
-                ]
-            ),
-        ]
-        self.vrayPasses = [
-            "defaultpasses",
-            "houdini_vray",
-            str(
+                ],
+
+            "houdini_vray":
                 [
                     ["Diffuse", "diffuse"],
                     ["Reflection", "reflection"],
@@ -119,15 +105,25 @@ class Prism_Houdini_Variables(object):
                     ["Self Illumination", "illum"],
                     ["Shadow", "shadow"],
                     ["Specular", "specular"],
-                    ["Lighting", "lighting"],
                     ["GI", "gi"],
-                    ["Z-Depth", "Z"],
                     ["SSS", "sss"],
-                    ["Normal", "N"],
-                ]
-            ),
-        ]
-        self.renderPasses = [self.mantraPasses, self.redshiftPasses, self.vrayPasses]
+                ],
+
+            "houdini_3delight":
+                [
+                    ["Ci"],
+                    ["Diffuse"],
+                    ["Subsurface-scattering"],
+                    ["Reflection"],
+                    ["Refraction"],
+                    ["Volume scattering"],
+                    ["Incandescence"],
+                    ["Z (depth)"],
+                    ["Ci"],
+                    ["Camera space position"],
+                    ["Camera space normal"],
+                ],
+        }
         self.preferredUnit = "meter"
         self.colorButtonWithStyleSheet = True
         self.platforms = ["Windows", "Linux", "Darwin"]

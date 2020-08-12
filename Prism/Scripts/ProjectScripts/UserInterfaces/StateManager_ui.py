@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'StateManager.ui'
 #
-# Created: Mon Sep 30 23:46:08 2019
+# Created: Thu Jul 23 16:27:07 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -307,7 +307,7 @@ class Ui_mw_StateManager(object):
         self.b_createImport.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create an ImportFile state", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createImport.setText(QtGui.QApplication.translate("mw_StateManager", "Import", None, QtGui.QApplication.UnicodeUTF8))
         self.b_shotCam.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Import the latest Shot Camera", None, QtGui.QApplication.UnicodeUTF8))
-        self.b_shotCam.setText(QtGui.QApplication.translate("mw_StateManager", "Import Cam", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_shotCam.setText(QtGui.QApplication.translate("mw_StateManager", "Import Camera", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_2.setTitle(QtGui.QApplication.translate("mw_StateManager", "Export", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createExport.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create an Export state", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createExport.setText(QtGui.QApplication.translate("mw_StateManager", "Export", None, QtGui.QApplication.UnicodeUTF8))
@@ -318,7 +318,7 @@ class Ui_mw_StateManager(object):
         self.b_createDependency.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create an Dependency state", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createDependency.setText(QtGui.QApplication.translate("mw_StateManager", "Dep", None, QtGui.QApplication.UnicodeUTF8))
         self.b_stateFromNode.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create states from nodes in the scene", None, QtGui.QApplication.UnicodeUTF8))
-        self.b_stateFromNode.setText(QtGui.QApplication.translate("mw_StateManager", "States from Nodes", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_stateFromNode.setText(QtGui.QApplication.translate("mw_StateManager", "From Node", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_publish.setTitle(QtGui.QApplication.translate("mw_StateManager", "Publish", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_3.setTitle(QtGui.QApplication.translate("mw_StateManager", "Global Framerange:", None, QtGui.QApplication.UnicodeUTF8))
         self.label_6.setText(QtGui.QApplication.translate("mw_StateManager", "to:", None, QtGui.QApplication.UnicodeUTF8))

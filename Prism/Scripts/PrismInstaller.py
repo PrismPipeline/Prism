@@ -35,30 +35,34 @@ import os
 import sys
 import shutil
 import platform
+import logging
 
 if sys.version[0] == "3":
     pVersion = 3
+    pyLibs = "Python37"
 else:
     pVersion = 2
-
-if platform.system() == "Windows":
-    import win32com
-    from win32com.shell import shellcon
-    import win32com.shell.shell as shell
-    import win32con, win32event, win32process
-
-    if pVersion == 3:
-        import winreg as _winreg
-    elif pVersion == 2:
-        import _winreg
-else:
-    import pwd
+    pyLibs = "Python27"
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+scriptPath = os.path.abspath(os.path.dirname(__file__))
+if scriptPath not in sys.path:
+    sys.path.append(scriptPath)
+
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "win32"))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "win32", "lib"))
+sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "PySide"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
+os.environ['PATH'] = os.path.join(prismRoot, "PythonLibs", pyLibs, "pywin32_system32") + os.pathsep + os.environ['PATH']
+
+if platform.system() == "Windows":
+    from win32com.shell import shellcon
+    import win32com.shell.shell as shell
+    import win32con, win32event, win32process
+else:
+    import pwd
 
 try:
     from PySide2.QtCore import *
@@ -67,8 +71,11 @@ try:
 
     psVersion = 2
 except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+    try:
+        from PySide.QtCore import *
+        from PySide.QtGui import *
+    except:
+        pass
 
     psVersion = 1
 
@@ -78,6 +85,10 @@ else:
     import PrismInstaller_ui_ps2 as PrismInstaller_ui
 
 from UserInterfacesPrism import qdarkstyle
+
+logger = logging.getLogger(__name__)
+logging.basicConfig()
+logging.root.setLevel("INFO")
 
 
 class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
@@ -93,8 +104,6 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
             self.setupUi(self)
             try:
                 if platform.system() == "Windows":
-                    from win32com.shell import shell, shellcon
-
                     self.documents = shell.SHGetFolderPath(
                         0, shellcon.CSIDL_PERSONAL, None, 0
                     )
@@ -206,9 +215,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
             if not os.environ.get("prism_skip_root_install"):
                 self.core.setupStartMenu(quiet=True)
 
-            if platform.system() == "Windows":
-                self.addImageMagic()
-            else:
+            if platform.system() != "Windows":
                 self.updatePrefPermissions()
 
             # print "Finished"
@@ -267,51 +274,6 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
         self.updatePrefPermissions()
         event.accept()
 
-    def addImageMagic(self):
-        # setting regestry keys for wand module (EXR preview in Blender and Nuke)
-        curkey = _winreg.CreateKey(
-            _winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ImageMagick\Current"
-        )
-        _winreg.SetValueEx(curkey, "Version", 0, _winreg.REG_SZ, "6.9.9")
-        key = _winreg.CreateKey(
-            _winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ImageMagick\6.9.9\Q:16"
-        )
-        _winreg.SetValueEx(
-            key,
-            "LibPath",
-            0,
-            _winreg.REG_SZ,
-            os.path.join(self.core.prismRoot, "Tools", "ImageMagick-6.9.9-Q16"),
-        )
-        _winreg.SetValueEx(
-            key,
-            "CoderModulesPath",
-            0,
-            _winreg.REG_SZ,
-            os.path.join(
-                self.core.prismRoot,
-                "Tools",
-                "ImageMagick-6.9.9-Q16",
-                "modules",
-                "coders",
-            ),
-        )
-        _winreg.SetValueEx(
-            key,
-            "FilterModulesPath",
-            0,
-            _winreg.REG_SZ,
-            os.path.join(
-                self.core.prismRoot,
-                "Tools",
-                "ImageMagick-6.9.9-Q16",
-                "modules",
-                "filters",
-            ),
-        )
-        key.Close()
-        curkey.Close()
-
     def uninstall(self):
         msg = QMessageBox(
             QMessageBox.Question,
@@ -363,9 +325,9 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                 pass
             else:
                 PROCNAMES = [
-                    "PrismTray.exe",
-                    "PrismProjectBrowser.exe",
-                    "PrismSettings.exe",
+                    "Prism Tray.exe",
+                    "Prism Project Browser.exe",
+                    "Prism Settings.exe",
                 ]
                 for proc in psutil.process_iter():
                     if proc.name() in PROCNAMES:
@@ -389,7 +351,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                     "Start Menu",
                     "Programs",
                     "Prism",
-                    "PrismTray.lnk",
+                    "Prism Tray.lnk",
                 )
                 smBrowser = os.path.join(
                     os.environ["appdata"],
@@ -398,7 +360,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                     "Start Menu",
                     "Programs",
                     "Prism",
-                    "PrismProjectBrowser.lnk",
+                    "Prism Project Browser.lnk",
                 )
                 smSettings = os.path.join(
                     os.environ["appdata"],
@@ -407,7 +369,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                     "Start Menu",
                     "Programs",
                     "Prism",
-                    "PrismSettings.lnk",
+                    "Prism Settings.lnk",
                 )
                 suTray = os.path.join(
                     os.environ["appdata"],
@@ -416,7 +378,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                     "Start Menu",
                     "Programs",
                     "Startup",
-                    "PrismTray.lnk",
+                    "Prism Tray.lnk",
                 )
 
                 pFiles = [smTray, smBrowser, smSettings, suTray]
@@ -507,10 +469,6 @@ def force_elevated():
 
 
 def startInstaller_Windows():
-    from win32com.shell import shell, shellcon
-
-    documents = shell.SHGetFolderPath(0, shellcon.CSIDL_PERSONAL, None, 0)
-
     if sys.argv[-1] != "asadmin":
         force_elevated()
         sys.exit()
@@ -577,6 +535,7 @@ def checkRootUser():
 The additional permissions are required to:
 - add Prism to the system autostart
 - add Prism to the system startmenu
+- add Prism integration for some DCCs
 
 If you continue Prism will skip these features.
 """

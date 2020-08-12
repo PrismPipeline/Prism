@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_RenderSettings.ui'
 #
-# Created: Wed Oct  9 23:58:30 2019
+# Created: Tue Jul 28 08:56:40 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_wg_RenderSettings(object):
     def setupUi(self, wg_RenderSettings):
         wg_RenderSettings.setObjectName("wg_RenderSettings")
-        wg_RenderSettings.resize(340, 420)
+        wg_RenderSettings.resize(340, 449)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -81,6 +81,23 @@ class Ui_wg_RenderSettings(object):
         self.b_loadPreset.setObjectName("b_loadPreset")
         self.horizontalLayout_11.addWidget(self.b_loadPreset)
         self.verticalLayout_2.addWidget(self.w_loadCurrent)
+        self.w_addSetting = QtGui.QWidget(self.gb_general)
+        self.w_addSetting.setObjectName("w_addSetting")
+        self.horizontalLayout = QtGui.QHBoxLayout(self.w_addSetting)
+        self.horizontalLayout.setSpacing(6)
+        self.horizontalLayout.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.cb_addSetting = QtGui.QComboBox(self.w_addSetting)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.cb_addSetting.sizePolicy().hasHeightForWidth())
+        self.cb_addSetting.setSizePolicy(sizePolicy)
+        self.cb_addSetting.setEditable(True)
+        self.cb_addSetting.setMaxVisibleItems(30)
+        self.cb_addSetting.setObjectName("cb_addSetting")
+        self.horizontalLayout.addWidget(self.cb_addSetting)
+        self.verticalLayout_2.addWidget(self.w_addSetting)
         self.gb_settings = QtGui.QGroupBox(self.gb_general)
         self.gb_settings.setObjectName("gb_settings")
         self.verticalLayout_3 = QtGui.QVBoxLayout(self.gb_settings)

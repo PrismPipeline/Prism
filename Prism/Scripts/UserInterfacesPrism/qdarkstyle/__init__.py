@@ -28,91 +28,32 @@ Initialise the QDarkStyleSheet module when used with python.
 This modules provides a function to transparently load the stylesheets
 with the correct rc file.
 """
-import logging
+import os
 import platform
 
 
 __version__ = "2.3.0"
 
 
-def _logger():
-    return logging.getLogger("qdarkstyle")
-
-
 def load_stylesheet(pyside=True):
-    """
-    Loads the stylesheet. Takes care of importing the rc module.
-
-    :param pyside: True to load the pyside rc file, False to load the PyQt rc file
-
-    :return the stylesheet string
-    """
-    # Smart import of the rc file
-    if pyside:
-        from UserInterfacesPrism.qdarkstyle import pyside_style_rc
-    else:
-        import qdarkstyle.pyqt_style_rc
-
-    # Load the stylesheet content from resources
-    if not pyside:
-        from PyQt4.QtCore import QFile, QTextStream
-    else:
-        try:
-            from PySide.QtCore import QFile, QTextStream
-        except:
-            from PySide2.QtCore import QFile, QTextStream
-
-    f = QFile(":qdarkstyle/style.qss")
-    if not f.exists():
-        _logger().error("Unable to load stylesheet, file not found in " "resources")
+    sFile = os.path.dirname(__file__) + "/style.qss"
+    if not os.path.exists(sFile):
         return ""
-    else:
-        f.open(QFile.ReadOnly | QFile.Text)
-        ts = QTextStream(f)
-        stylesheet = ts.readAll()
-        if platform.system().lower() == "darwin":  # see issue #12 on github
-            mac_fix = """
-            QDockWidget::title
-            {
-                background-color: #31363b;
-                text-align: center;
-                height: 12px;
-            }
-            """
-            stylesheet += mac_fix
-        return stylesheet
 
+    with open(sFile, "r") as f:
+        stylesheet = f.read()
 
-def load_stylesheet_pyqt5():
-    """
-    Loads the stylesheet for use in a pyqt5 application.
+    stylesheet = stylesheet.replace(":/qss_icons", os.path.dirname(__file__).replace("\\", "/"))
 
-    :param pyside: True to load the pyside rc file, False to load the PyQt rc file
+    if platform.system().lower() == "darwin":  # see issue #12 on github
+        mac_fix = """
+        QDockWidget::title
+        {
+            background-color: #31363b;
+            text-align: center;
+            height: 12px;
+        }
+        """
+        stylesheet += mac_fix
 
-    :return the stylesheet string
-    """
-    # Smart import of the rc file
-    import qdarkstyle.pyqt5_style_rc
-
-    # Load the stylesheet content from resources
-    from PyQt5.QtCore import QFile, QTextStream
-
-    f = QFile(":qdarkstyle/style.qss")
-    if not f.exists():
-        _logger().error("Unable to load stylesheet, file not found in " "resources")
-        return ""
-    else:
-        f.open(QFile.ReadOnly | QFile.Text)
-        ts = QTextStream(f)
-        stylesheet = ts.readAll()
-        if platform.system().lower() == "darwin":  # see issue #12 on github
-            mac_fix = """
-            QDockWidget::title
-            {
-                background-color: #31363b;
-                text-align: center;
-                height: 12px;
-            }
-            """
-            stylesheet += mac_fix
-        return stylesheet
+    return stylesheet

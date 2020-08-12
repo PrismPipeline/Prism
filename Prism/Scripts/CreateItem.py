@@ -128,11 +128,10 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
             self.w_type.setVisible(False)
 
         self.buttonBox.buttons()[0].setText("Create")
-        self.btext = u"⯈" if self.core.appPlugin.pluginName != "Standalone" else u"➤"
+        self.btext = "Next"
 
         if self.mode in ["assetHierarchy", "assetCategory", "shotCategory"]:
             b = self.buttonBox.addButton(self.btext, QDialogButtonBox.RejectRole)
-            b.setMaximumWidth(20*self.core.uiScaleFactor)
             if self.mode == "assetHierarchy":
                 b.setToolTip("Create asset and open the step dialog")
             elif self.mode in ["assetCategory", "shotCategory"]:
@@ -141,7 +140,6 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
                 b.setEnabled(False)
             b.setFocusPolicy(Qt.StrongFocus)
             b.setTabOrder(b, self.buttonBox.buttons()[0])
-            b.setStyleSheet("QPushButton::disabled{ color: rgb(50,50,50);} QPushButton{ color: rgb(50,150,50);}")
             self.buttonBox.clicked.connect(self.bbClicked)
 
         self.resize(self.width(), 10)

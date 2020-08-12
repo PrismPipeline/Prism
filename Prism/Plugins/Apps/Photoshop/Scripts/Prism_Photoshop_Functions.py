@@ -122,10 +122,10 @@ class Prism_Photoshop_Functions(object):
 
             scpt = (
                 """
-			tell application "%s"
-				activate
-			end tell
-			"""
+            tell application "%s"
+                activate
+            end tell
+            """
                 % self.psAppName
             )
             self.executeAppleScript(scpt)
@@ -174,11 +174,11 @@ class Prism_Photoshop_Functions(object):
             else:
                 scpt = (
                     """
-				tell application "%s"
-					set fpath to file path of current document
-					POSIX path of fpath
-				end tell
-				"""
+                tell application "%s"
+                    set fpath to file path of current document
+                    POSIX path of fpath
+                end tell
+                """
                     % self.psAppName
                 )
                 currentFileName = self.executeAppleScript(scpt)
@@ -238,8 +238,17 @@ class Prism_Photoshop_Functions(object):
             if self.win:
                 doc = self.psApp.ActiveDocument
             else:
-                doc = self.core.getCurrentFileName()
-                if doc == "":
+                scpt = (
+                    """
+                tell application "%s"
+                    set fpath to name of current document
+                    POSIX path of fpath
+                end tell
+                """
+                    % self.psAppName
+                )
+                name = self.executeAppleScript(scpt)
+                if name is None:
                     raise
         except:
             QMessageBox.warning(
@@ -269,36 +278,36 @@ class Prism_Photoshop_Functions(object):
             else:
                 if os.path.splitext(filepath)[1] == ".psb":
                     scpt = """
-					tell application "%s"
-						do javascript "
-							var idsave = charIDToTypeID( 'save' );
-							var desc12 = new ActionDescriptor();
-							var idAs = charIDToTypeID( 'As  ' );
-							var desc13 = new ActionDescriptor();
-							var idmaximizeCompatibility = stringIDToTypeID( 'maximizeCompatibility' );
-							desc13.putBoolean( idmaximizeCompatibility, true );
-							var idPhteight = charIDToTypeID( 'Pht8' );
-							desc12.putObject( idAs, idPhteight, desc13 );
-							var idIn = charIDToTypeID( 'In  ' );
-							desc12.putPath( idIn, new File( '%s' ) );
-							var idsaveStage = stringIDToTypeID( 'saveStage' );
-							var idsaveStageType = stringIDToTypeID( 'saveStageType' );
-							var idsaveSucceeded = stringIDToTypeID( 'saveSucceeded' );
-							desc12.putEnumerated( idsaveStage, idsaveStageType, idsaveSucceeded );
-							executeAction( idsave, desc12, DialogModes.NO );
-						" show debugger on runtime error
-					end tell
-					""" % (
+                    tell application "%s"
+                        do javascript "
+                            var idsave = charIDToTypeID( 'save' );
+                            var desc12 = new ActionDescriptor();
+                            var idAs = charIDToTypeID( 'As  ' );
+                            var desc13 = new ActionDescriptor();
+                            var idmaximizeCompatibility = stringIDToTypeID( 'maximizeCompatibility' );
+                            desc13.putBoolean( idmaximizeCompatibility, true );
+                            var idPhteight = charIDToTypeID( 'Pht8' );
+                            desc12.putObject( idAs, idPhteight, desc13 );
+                            var idIn = charIDToTypeID( 'In  ' );
+                            desc12.putPath( idIn, new File( '%s' ) );
+                            var idsaveStage = stringIDToTypeID( 'saveStage' );
+                            var idsaveStageType = stringIDToTypeID( 'saveStageType' );
+                            var idsaveSucceeded = stringIDToTypeID( 'saveSucceeded' );
+                            desc12.putEnumerated( idsaveStage, idsaveStageType, idsaveSucceeded );
+                            executeAction( idsave, desc12, DialogModes.NO );
+                        " show debugger on runtime error
+                    end tell
+                    """ % (
                         self.psAppName,
                         filepath,
                     )
                     doc = self.executeAppleScript(scpt)
                 else:
                     scpt = """
-					tell application "%s"
-						save current document in file "%s"
-					end tell
-					""" % (
+                    tell application "%s"
+                        save current document in file "%s"
+                    end tell
+                    """ % (
                         self.psAppName,
                         filepath,
                     )
@@ -332,10 +341,10 @@ class Prism_Photoshop_Functions(object):
         else:
             scpt = (
                 """
-				tell application "%s"
-					application version
-				end tell
-			"""
+                tell application "%s"
+                    application version
+                end tell
+            """
                 % self.psAppName
             )
             version = self.executeAppleScript(scpt)
@@ -344,7 +353,6 @@ class Prism_Photoshop_Functions(object):
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
-        origin.loadOiio()
         origin.actionStateManager.setEnabled(False)
         psMenu = QMenu("Photoshop")
         psAction = QAction("Open tools", origin)
@@ -370,10 +378,10 @@ class Prism_Photoshop_Functions(object):
             self.psApp.Open(filepath)
         else:
             scpt = """
-				tell application "%s"
-					open file "%s"
-				end tell
-			""" % (
+                tell application "%s"
+                    open file "%s"
+                end tell
+            """ % (
                 self.psAppName,
                 filepath,
             )
@@ -400,17 +408,17 @@ class Prism_Photoshop_Functions(object):
             QMessageBox.NoIcon, "Photoshop Import", fString, QMessageBox.Cancel
         )
         msg.addButton("Current pass", QMessageBox.YesRole)
-        # 	msg.addButton("All passes", QMessageBox.YesRole)
-        # 	msg.addButton("Layout all passes", QMessageBox.YesRole)
+        #   msg.addButton("All passes", QMessageBox.YesRole)
+        #   msg.addButton("Layout all passes", QMessageBox.YesRole)
         self.core.parentWindow(msg)
         action = msg.exec_()
 
         if action == 0:
             self.photoshopImportSource(origin)
-        # 	elif action == 1:
-        # 		self.photoshopImportPasses(origin)
-        # 	elif action == 2:
-        # 		self.photoshopLayout(origin)
+        #   elif action == 1:
+        #       self.photoshopImportPasses(origin)
+        #   elif action == 2:
+        #       self.photoshopLayout(origin)
         else:
             return
 
@@ -436,7 +444,7 @@ class Prism_Photoshop_Functions(object):
                     firstFrame = mpb["pstart"]
                     lastFrame = mpb["pend"]
 
-                filePath = curSourcePath.replace("@@@@", "%04d" % firstFrame).replace(
+                filePath = curSourcePath.replace("@"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame).replace(
                     "\\", "/"
                 )
             else:
@@ -513,7 +521,7 @@ class Prism_Photoshop_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_startup(self, origin):
-        origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
@@ -553,6 +561,12 @@ class Prism_Photoshop_Functions(object):
 
     @err_catcher(name=__name__)
     def exportImage(self):
+        if not self.core.projects.ensureProject():
+            return False
+
+        if not self.core.users.ensureUser():
+            return False
+
         self.dlg_export = QDialog()
         self.core.parentWindow(self.dlg_export)
         self.dlg_export.setWindowTitle("Prism - Export image")
@@ -615,13 +629,13 @@ class Prism_Photoshop_Functions(object):
 
         rb_custom = QRadioButton("Export to custom location")
 
-        b_export = QPushButton("Export")
+        self.b_export = QPushButton("Export")
 
         lo_export.addWidget(self.rb_task)
         lo_export.addWidget(self.w_task)
         lo_export.addWidget(rb_custom)
         lo_export.addStretch()
-        lo_export.addWidget(b_export)
+        lo_export.addWidget(self.b_export)
 
         self.rb_task.setChecked(True)
         self.dlg_export.resize(400, 300)
@@ -631,12 +645,17 @@ class Prism_Photoshop_Functions(object):
         self.le_comment.textChanged.connect(self.validateComment)
         self.chb_useNextVersion.toggled.connect(self.exportVersionToggled)
         self.le_task.editingFinished.connect(self.exportGetVersions)
-        b_export.clicked.connect(self.saveExport)
+        self.b_export.clicked.connect(self.saveExport)
 
         if not self.core.useLocalFiles:
             self.chb_localOutput.setVisible(False)
 
         self.exportGetTasks()
+        self.core.callback(
+            name="photoshop_onExportOpen",
+            types=[],
+            args=[self],
+        )
 
         self.dlg_export.show()
 
@@ -703,24 +722,13 @@ class Prism_Photoshop_Functions(object):
             return
 
         extension = self.cb_formats.currentText()
-
         fileName = self.core.getCurrentFileName()
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
 
-        basePath = self.core.projectPath
         if self.core.useLocalFiles:
             if self.chb_localOutput.isChecked():
-                basePath = self.core.localProjectPath
-                if fileName.startswith(os.path.join(self.core.projectPath, sceneDir)):
-                    fileName = fileName.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-            elif fileName.startswith(
-                os.path.join(self.core.localProjectPath, sceneDir)
-            ):
-                fileName = fileName.replace(
-                    self.core.localProjectPath, self.core.projectPath
-                )
+                fileName = self.core.convertPath(fileName, target="local")
+            else:
+                fileName = self.core.convertPath(fileName, target="global")
 
         hVersion = ""
         pComment = self.le_comment.text()
@@ -907,10 +915,10 @@ class Prism_Photoshop_Functions(object):
                 self.psApp.Application.ActiveDocument.SaveAs(outputPath, options, True)
         else:
             bdScpt = """
-					tell application "%s"
-						bits per channel of current document
-					end tell
-				""" % (
+                    tell application "%s"
+                        bits per channel of current document
+                    end tell
+                """ % (
                 self.psAppName
             )
 
@@ -926,32 +934,32 @@ class Prism_Photoshop_Functions(object):
                     return
 
                 scpt = """
-					tell application "%s"
-						do javascript "
-							var idsave = charIDToTypeID( 'save' );
-							    var desc26 = new ActionDescriptor();
-							    var idAs = charIDToTypeID( 'As  ' );
-							        var desc27 = new ActionDescriptor();
-							        var idBtDp = charIDToTypeID( 'BtDp' );
-							        desc27.putInteger( idBtDp, 16 );
-							        var idCmpr = charIDToTypeID( 'Cmpr' );
-							        desc27.putInteger( idCmpr, 4 );
-							        var idAChn = charIDToTypeID( 'AChn' );
-							        desc27.putInteger( idAChn, 0 );
-							    var idEXRf = charIDToTypeID( 'EXRf' );
-							    desc26.putObject( idAs, idEXRf, desc27 );
-							    var idIn = charIDToTypeID( 'In  ' );
-							    desc26.putPath( idIn, new File( '%s' ) );
-							    var idCpy = charIDToTypeID( 'Cpy ' );
-							    desc26.putBoolean( idCpy, true );
-							    var idsaveStage = stringIDToTypeID( 'saveStage' );
-							    var idsaveStageType = stringIDToTypeID( 'saveStageType' );
-							    var idsaveSucceeded = stringIDToTypeID( 'saveSucceeded' );
-							    desc26.putEnumerated( idsaveStage, idsaveStageType, idsaveSucceeded );
-							executeAction( idsave, desc26, DialogModes.NO );
-						" show debugger on runtime error
-					end tell
-				""" % (
+                    tell application "%s"
+                        do javascript "
+                            var idsave = charIDToTypeID( 'save' );
+                                var desc26 = new ActionDescriptor();
+                                var idAs = charIDToTypeID( 'As  ' );
+                                    var desc27 = new ActionDescriptor();
+                                    var idBtDp = charIDToTypeID( 'BtDp' );
+                                    desc27.putInteger( idBtDp, 16 );
+                                    var idCmpr = charIDToTypeID( 'Cmpr' );
+                                    desc27.putInteger( idCmpr, 4 );
+                                    var idAChn = charIDToTypeID( 'AChn' );
+                                    desc27.putInteger( idAChn, 0 );
+                                var idEXRf = charIDToTypeID( 'EXRf' );
+                                desc26.putObject( idAs, idEXRf, desc27 );
+                                var idIn = charIDToTypeID( 'In  ' );
+                                desc26.putPath( idIn, new File( '%s' ) );
+                                var idCpy = charIDToTypeID( 'Cpy ' );
+                                desc26.putBoolean( idCpy, true );
+                                var idsaveStage = stringIDToTypeID( 'saveStage' );
+                                var idsaveStageType = stringIDToTypeID( 'saveStageType' );
+                                var idsaveSucceeded = stringIDToTypeID( 'saveSucceeded' );
+                                desc26.putEnumerated( idsaveStage, idsaveStageType, idsaveSucceeded );
+                            executeAction( idsave, desc26, DialogModes.NO );
+                        " show debugger on runtime error
+                    end tell
+                """ % (
                     self.psAppName,
                     outputPath,
                 )
@@ -972,10 +980,10 @@ class Prism_Photoshop_Functions(object):
                     formatName = "TIFF"
 
                 scpt = """
-					tell application "%s"
-						save current document in file "%s" as %s with copying
-					end tell
-				""" % (
+                    tell application "%s"
+                        save current document in file "%s" as %s with copying
+                    end tell
+                """ % (
                     self.psAppName,
                     outputPath,
                     formatName,
@@ -984,6 +992,7 @@ class Prism_Photoshop_Functions(object):
 
         self.dlg_export.accept()
         self.core.copyToClipboard(outputPath)
+        self.core.callback(name="photoshop_onImageExported", types=[], args=[self, outputPath])
 
         try:
             self.core.pb.refreshRender()

@@ -74,15 +74,23 @@ class PlayblastClass(object):
 
         self.camlist = []
 
-        self.resolutionPresets = [
+        self.rangeTypes = ["State Manager", "Scene", "Shot", "Single Frame", "Custom"]
+        self.cb_rangeType.addItems(self.rangeTypes)
+        for idx, rtype in enumerate(self.rangeTypes):
+            self.cb_rangeType.setItemData(idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole)
+
+        dftResPresets = [
+            "3840x2160",
             "1920x1080",
             "1280x720",
+            "960x540",
             "640x360",
-            "4000x2000",
-            "2000x1000",
+            "Get from rendersettings",
         ]
-        self.outputformats = ["jpg", "mp4"]
 
+        self.resolutionPresets = self.core.getConfig("globals", "resolutionPresets", configPath=self.core.prismIni, dft=dftResPresets)
+
+        self.outputformats = ["jpg", "mp4"]
         self.cb_formats.addItems(self.outputformats)
         getattr(self.core.appPlugin, "sm_playblast_startup", lambda x: None)(self)
         self.connectEvents()
@@ -99,6 +107,11 @@ class PlayblastClass(object):
         self.updateUi()
         if stateData is not None:
             self.loadData(stateData)
+        else:
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData.get("category"):
+                self.l_taskName.setText(fnameData.get("category"))
 
     @err_catcher(name=__name__)
     def loadData(self, data):
@@ -109,8 +122,11 @@ class PlayblastClass(object):
             if data["taskname"] != "":
                 self.setTaskWarn(False)
                 self.nameChanged(self.e_name.text())
-        if "globalrange" in data:
-            self.chb_globalRange.setChecked(eval(data["globalrange"]))
+        if "rangeType" in data:
+            idx = self.cb_rangeType.findText(data["rangeType"])
+            if idx != -1:
+                self.cb_rangeType.setCurrentIndex(idx)
+                self.updateRange()
         if "startframe" in data:
             self.sp_rangeStart.setValue(int(data["startframe"]))
         if "endframe" in data:
@@ -161,7 +177,7 @@ class PlayblastClass(object):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_changeTask.clicked.connect(self.changeTask)
-        self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
+        self.cb_rangeType.activated.connect(self.rangeTypeChanged)
         self.sp_rangeStart.editingFinished.connect(self.startChanged)
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
         self.cb_cams.activated.connect(self.setCam)
@@ -180,10 +196,7 @@ class PlayblastClass(object):
 
     @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
-        self.l_rangeEnd.setEnabled(not state)
-        self.sp_rangeStart.setEnabled(not state)
-        self.sp_rangeEnd.setEnabled(not state)
-
+        self.updateRange()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -239,6 +252,7 @@ class PlayblastClass(object):
         self.core.parentWindow(self.nameWin)
         self.nameWin.setWindowTitle("Change Taskname")
         self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
         result = self.nameWin.exec_()
 
@@ -262,10 +276,14 @@ class PlayblastClass(object):
     def showResPresets(self):
         pmenu = QMenu()
 
-        for i in self.resolutionPresets:
-            pAct = QAction(i, self)
-            pwidth = int(i.split("x")[0])
-            pheight = int(i.split("x")[1])
+        for preset in self.resolutionPresets:
+            pAct = QAction(preset, self)
+            res = self.getResolution(preset)
+            if not res:
+                continue
+
+            pwidth, pheight = res
+
             pAct.triggered.connect(
                 lambda x=None, v=pwidth: self.sp_resWidth.setValue(v)
             )
@@ -277,6 +295,21 @@ class PlayblastClass(object):
 
         self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def getResolution(self, resolution):
+        res = None
+        if resolution == "Get from rendersettings":
+            res = self.core.appPlugin.getResolution()
+        else:
+            try:
+                pwidth = int(resolution.split("x")[0])
+                pheight = int(resolution.split("x")[1])
+                res = [pwidth, pheight]
+            except:
+                res = getattr(self.core.appPlugin, "evaluateResolution", lambda x: None)(resolution)
+
+        return res
 
     @err_catcher(name=__name__)
     def updateUi(self):
@@ -297,6 +330,8 @@ class PlayblastClass(object):
             self.cb_cams.setCurrentIndex(0)
             self.curCam = None
 
+        self.updateRange()
+
         if self.l_taskName.text() != "":
             self.setTaskWarn(False)
 
@@ -305,11 +340,57 @@ class PlayblastClass(object):
         return True
 
     @err_catcher(name=__name__)
+    def updateRange(self):
+        rangeType = self.cb_rangeType.currentText()
+        isCustom = rangeType == "Custom"
+        self.l_rangeStart.setVisible(not isCustom)
+        self.l_rangeEnd.setVisible(not isCustom)
+        self.sp_rangeStart.setVisible(isCustom)
+        self.sp_rangeEnd.setVisible(isCustom)
+
+        if not isCustom:
+            frange = self.getFrameRange(rangeType=rangeType)
+            start = str(int(frange[0])) if frange[0] else "-"
+            end = str(int(frange[1])) if frange[1] else "-"
+            self.l_rangeStart.setText(start)
+            self.l_rangeEnd.setText(end)
+
+    @err_catcher(name=__name__)
+    def getFrameRange(self, rangeType):
+        startFrame = None
+        endFrame = None
+        if rangeType == "State Manager":
+            startFrame = self.stateManager.sp_rangeStart.value()
+            endFrame = self.stateManager.sp_rangeEnd.value()
+        elif rangeType == "Scene":
+            startFrame, endFrame = self.core.appPlugin.getFrameRange(self)
+        elif rangeType == "Shot":
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData["entity"] == "shot":
+                frange = self.core.entities.getShotRange(fnameData["entityName"])
+                if frange:
+                    startFrame, endFrame = frange
+        elif rangeType == "Single Frame":
+            startFrame = self.core.appPlugin.getCurrentFrame()
+        elif rangeType == "Custom":
+            startFrame = self.sp_rangeStart.value()
+            endFrame = self.sp_rangeEnd.value()
+
+        return startFrame, endFrame
+
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
         if self.l_taskName.text() == "":
             warnings.append(["No taskname is given.", "", 3])
+
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
+
+        if not startFrame:
+            warnings.append(["Framerange is invalid.", "", 3])
 
         warnings += self.core.appPlugin.sm_playblast_preExecute(self)
 
@@ -321,22 +402,11 @@ class PlayblastClass(object):
             return
 
         fileName = self.core.getCurrentFileName()
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
-
-        basePath = self.core.projectPath
         if self.core.useLocalFiles:
             if self.chb_localOutput.isChecked():
-                basePath = self.core.localProjectPath
-                if fileName.startswith(os.path.join(self.core.projectPath, sceneDir)):
-                    fileName = fileName.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
-            elif fileName.startswith(
-                os.path.join(self.core.localProjectPath, sceneDir)
-            ):
-                fileName = fileName.replace(
-                    self.core.localProjectPath, self.core.projectPath
-                )
+                fileName = self.core.convertPath(fileName, target="local")
+            else:
+                fileName = self.core.convertPath(fileName, target="global")
 
         hVersion = ""
         if useVersion != "next":
@@ -344,6 +414,7 @@ class PlayblastClass(object):
             pComment = useVersion.split(self.core.filenameSeparator)[1]
 
         fnameData = self.core.getScenefileData(fileName)
+        framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
         if fnameData["entity"] == "shot":
             outputPath = os.path.join(
                 self.core.getEntityBasePath(fileName),
@@ -365,23 +436,15 @@ class PlayblastClass(object):
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
                 + hVersion
-                + "..jpg"
+                + framePadding
+                + ".jpg"
             )
         elif fnameData["entity"] == "asset":
-            if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-                outputPath = os.path.join(
-                    self.core.fixPath(basePath),
-                    sceneDir,
-                    "Assets",
-                    "Playblasts",
-                    self.l_taskName.text(),
-                )
-            else:
-                outputPath = os.path.join(
-                    self.core.getEntityBasePath(fileName),
-                    "Playblasts",
-                    self.l_taskName.text(),
-                )
+            outputPath = os.path.join(
+                self.core.getEntityBasePath(fileName),
+                "Playblasts",
+                self.l_taskName.text(),
+            )
 
             if hVersion == "":
                 hVersion = self.core.getHighestTaskVersion(outputPath)
@@ -396,7 +459,8 @@ class PlayblastClass(object):
                 + self.l_taskName.text()
                 + self.core.filenameSeparator
                 + hVersion
-                + "..jpg"
+                + framePadding
+                + ".jpg"
             )
         else:
             return
@@ -428,13 +492,15 @@ class PlayblastClass(object):
                 % outLength
             ]
 
-        if self.chb_globalRange.isChecked():
-            jobFrames = (
-                self.stateManager.sp_rangeStart.value(),
-                self.stateManager.sp_rangeEnd.value(),
-            )
-        else:
-            jobFrames = (self.sp_rangeStart.value(), self.sp_rangeEnd.value())
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
+        if not startFrame:
+            return [self.state.text(0) + ": error - Framerange is invalid"]
+
+        if rangeType == "Single Frame":
+            endFrame = startFrame
+
+        jobFrames = [startFrame, endFrame]
 
         exCheck = self.core.appPlugin.sm_playblast_execute(self)
         if exCheck is not None:
@@ -491,10 +557,10 @@ class PlayblastClass(object):
                 videoOutput = mediaBaseName + "mp4"
                 inputpath = (
                     os.path.splitext(outputName)[0]
-                    + "%04d"
+                    + "%04d".replace("4", str(self.core.framePadding))
                     + os.path.splitext(outputName)[1]
                 )
-                result = self.core.convertMedia(inputpath, jobFrames[0], videoOutput)
+                result = self.core.media.convertMedia(inputpath, jobFrames[0], videoOutput)
 
                 if not os.path.exists(videoOutput):
                     return [
@@ -571,7 +637,7 @@ class PlayblastClass(object):
             {
                 "statename": self.e_name.text(),
                 "taskname": self.l_taskName.text(),
-                "globalrange": str(self.chb_globalRange.isChecked()),
+                "rangeType": str(self.cb_rangeType.currentText()),
                 "startframe": self.sp_rangeStart.value(),
                 "endframe": self.sp_rangeEnd.value(),
                 "currentcam": str(self.curCam),

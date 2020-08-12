@@ -33,14 +33,6 @@
 
 import os
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
@@ -50,35 +42,8 @@ class Prism_Natron_externalAccess_Functions(object):
         self.plugin = plugin
 
     @err_catcher(name=__name__)
-    def prismSettings_loadUI(self, origin, tab):
-        pass
-
-    @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):
         autobackpath = ""
-
-        if tab == "a":
-            autobackpath = os.path.join(
-                origin.tw_aHierarchy.currentItem().text(1),
-                "Scenefiles",
-                origin.lw_aPipeline.currentItem().text(),
-            )
-        elif tab == "sf":
-            autobackpath = os.path.join(
-                origin.sBasePath,
-                origin.cursShots,
-                "Scenefiles",
-                origin.cursStep,
-                origin.cursCat,
-            )
 
         fileStr = "Natron project ("
         for i in self.sceneFormats:

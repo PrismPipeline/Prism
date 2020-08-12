@@ -73,7 +73,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                 self.core.projectPath,
                 dailiesName,
                 curDate,
-                self.core.getConfig("globals", "UserName"),
+                self.core.getConfig("globals", "username"),
                 "combined_video.mp4",
             )
             self.e_output.setText(outputpreset)
@@ -201,12 +201,12 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
             isSequence = not inputExt in [".mp4", ".mov"]
 
             if isSequence:
-                outputpath = os.path.splitext(inputpath)[0][:-5] + ".mp4"
+                outputpath = os.path.splitext(inputpath)[0][:-(self.core.framePadding+1)] + ".mp4"
                 if not os.path.exists(os.path.dirname(outputpath)):
                     os.makedirs(os.path.dirname(outputpath))
 
-                startNum = os.path.splitext(inputpath)[0][-4:]
-                inputpath = os.path.splitext(inputpath)[0][:-4] + "%04d" + inputExt
+                startNum = os.path.splitext(inputpath)[0][-self.core.framePadding:]
+                inputpath = os.path.splitext(inputpath)[0][:-self.core.framePadding] + "%04d".replace("4", str(self.core.framePadding)) + inputExt
                 nProc = subprocess.Popen(
                     [
                         ffmpegPath,

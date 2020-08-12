@@ -166,7 +166,7 @@
                     <string>Import the latest Shot Camera</string>
                    </property>
                    <property name="text">
-                    <string>Import Cam</string>
+                    <string>Import Camera</string>
                    </property>
                   </widget>
                  </item>
@@ -403,7 +403,7 @@
                     <string>Create states from nodes in the scene</string>
                    </property>
                    <property name="text">
-                    <string>States from Nodes</string>
+                    <string>From Node</string>
                    </property>
                    <property name="autoDefault">
                     <bool>false</bool>

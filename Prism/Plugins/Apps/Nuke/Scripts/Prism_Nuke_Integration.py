@@ -107,15 +107,6 @@ class Prism_Nuke_Integration(object):
 
             addedFiles.append(menuFile)
 
-            wPrismFile = os.path.join(integrationBase, "WritePrism.gizmo")
-            wpPath = os.path.join(installPath, "WritePrism.gizmo")
-
-            if os.path.exists(wpPath):
-                os.remove(wpPath)
-
-            shutil.copy2(wPrismFile, wpPath)
-            addedFiles.append(wpPath)
-
             if platform.system() in ["Linux", "Darwin"]:
                 for i in addedFiles:
                     os.chmod(i, 0o777)
@@ -136,6 +127,7 @@ class Prism_Nuke_Integration(object):
 
     def removeIntegration(self, installPath):
         try:
+            # kept for backwards compatibility
             gizmo = os.path.join(installPath, "WritePrism.gizmo")
 
             for i in [gizmo]:

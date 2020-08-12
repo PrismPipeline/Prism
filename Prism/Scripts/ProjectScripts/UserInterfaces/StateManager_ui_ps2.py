@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'StateManager.ui',
 # licensing of 'StateManager.ui' applies.
 #
-# Created: Mon Sep 30 23:46:09 2019
+# Created: Thu Jul 23 16:27:08 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -308,7 +308,7 @@ class Ui_mw_StateManager(object):
         self.b_createImport.setToolTip(QtWidgets.QApplication.translate("mw_StateManager", "Create an ImportFile state", None, -1))
         self.b_createImport.setText(QtWidgets.QApplication.translate("mw_StateManager", "Import", None, -1))
         self.b_shotCam.setToolTip(QtWidgets.QApplication.translate("mw_StateManager", "Import the latest Shot Camera", None, -1))
-        self.b_shotCam.setText(QtWidgets.QApplication.translate("mw_StateManager", "Import Cam", None, -1))
+        self.b_shotCam.setText(QtWidgets.QApplication.translate("mw_StateManager", "Import Camera", None, -1))
         self.groupBox_2.setTitle(QtWidgets.QApplication.translate("mw_StateManager", "Export", None, -1))
         self.b_createExport.setToolTip(QtWidgets.QApplication.translate("mw_StateManager", "Create an Export state", None, -1))
         self.b_createExport.setText(QtWidgets.QApplication.translate("mw_StateManager", "Export", None, -1))
@@ -319,7 +319,7 @@ class Ui_mw_StateManager(object):
         self.b_createDependency.setToolTip(QtWidgets.QApplication.translate("mw_StateManager", "Create an Dependency state", None, -1))
         self.b_createDependency.setText(QtWidgets.QApplication.translate("mw_StateManager", "Dep", None, -1))
         self.b_stateFromNode.setToolTip(QtWidgets.QApplication.translate("mw_StateManager", "Create states from nodes in the scene", None, -1))
-        self.b_stateFromNode.setText(QtWidgets.QApplication.translate("mw_StateManager", "States from Nodes", None, -1))
+        self.b_stateFromNode.setText(QtWidgets.QApplication.translate("mw_StateManager", "From Node", None, -1))
         self.gb_publish.setTitle(QtWidgets.QApplication.translate("mw_StateManager", "Publish", None, -1))
         self.groupBox_3.setTitle(QtWidgets.QApplication.translate("mw_StateManager", "Global Framerange:", None, -1))
         self.label_6.setText(QtWidgets.QApplication.translate("mw_StateManager", "to:", None, -1))

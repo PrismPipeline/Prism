@@ -34,10 +34,12 @@
 import os
 import sys
 
-prismRoot = PRISMROOT
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:
     from PySide2.QtCore import *
@@ -61,6 +63,6 @@ curPrj = pcore.getConfig("globals", "current project")
 if curPrj is not None and curPrj != "":
     pcore.changeProject(curPrj, openUi="projectBrowser")
 else:
-    pcore.setProject(openUi="projectBrowser")
+    pcore.projects.setProject(openUi="projectBrowser")
 
 qapp.exec_()

@@ -99,6 +99,8 @@ class RenderSettingsClass(object):
         self.className = "RenderSettings"
         self.listType = "Export"
 
+        self.cb_addSetting.lineEdit().setPlaceholderText("Select setting to add")
+
         getattr(self.core.appPlugin, "sm_renderSettings_startup", lambda x: None)(self)
         if state:
             self.e_name.setText(state.text(0))
@@ -150,6 +152,8 @@ class RenderSettingsClass(object):
         self.b_loadPreset.clicked.connect(self.showPresets)
         self.b_savePreset.clicked.connect(self.savePreset)
         self.chb_editSettings.stateChanged.connect(self.editChanged)
+        self.cb_addSetting.activated.connect(self.settingActivated)
+        self.cb_addSetting.lineEdit().editingFinished.connect(self.settingActivated)
         self.te_settings.origFocusOutEvent = self.te_settings.focusOutEvent
         self.te_settings.focusOutEvent = self.focusOut
         self.e_name.textChanged.connect(self.nameChanged)
@@ -170,6 +174,7 @@ class RenderSettingsClass(object):
     def editChanged(self, state):
         self.w_presetOption.setVisible(not state)
         self.w_loadCurrent.setVisible(state)
+        self.w_addSetting.setVisible(state)
         self.gb_settings.setVisible(state)
         self.te_settings.setPlainText("")
         self.stateManager.saveStatesToScene()
@@ -188,6 +193,14 @@ class RenderSettingsClass(object):
             self.stateManager.saveStatesToScene()
         if self.state:
             self.nameChanged(self.e_name.text())
+
+        settings = getattr(
+            self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x, y: {}
+        )(self, asString=False)
+        self.cb_addSetting.clear()
+        settingNames = [x.keys()[0] for x in settings]
+        settingNames.insert(0, "")
+        self.cb_addSetting.addItems(settingNames)
 
     @err_catcher(name=__name__)
     def focusOut(self, event):
@@ -209,6 +222,19 @@ class RenderSettingsClass(object):
         )(self)
 
     @err_catcher(name=__name__)
+    def settingActivated(self, text=None):
+        text = self.cb_addSetting.currentText()
+        settings = getattr(
+            self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x, y: {}
+        )(self, asString=False)
+        setting = [x for x in settings if x.keys()[0] == text]
+        if setting:
+            settingsStr = self.core.writeYaml(data=setting)
+            curStr = self.te_settings.toPlainText()
+            self.te_settings.setPlainText(curStr + settingsStr)
+            self.cb_addSetting.setCurrentIndex(0)
+
+    @err_catcher(name=__name__)
     def showPresets(self):
         presets = self.getPresets(self.core)
         if not presets:
@@ -219,7 +245,7 @@ class RenderSettingsClass(object):
 
         for preset in sorted(presets):
             add = QAction(preset, self)
-            add.triggered.connect(lambda p=preset: self.loadPreset(presets[p]))
+            add.triggered.connect(lambda x=None, p=preset: self.loadPreset(presets[p]))
             pmenu.addAction(add)
 
         self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
@@ -277,7 +303,7 @@ class RenderSettingsClass(object):
                 self.core.appPlugin,
                 "sm_renderSettings_setCurrentSettings",
                 lambda x, y: None,
-            )(self, preset)
+            )(self, preset, state=self)
         else:
             presets = self.getPresets(self.core)
             selPreset = self.cb_presetOption.currentText()

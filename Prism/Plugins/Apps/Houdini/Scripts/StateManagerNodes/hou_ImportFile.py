@@ -32,7 +32,6 @@
 
 
 import os
-import sys
 
 try:
     from PySide2.QtCore import *
@@ -41,11 +40,6 @@ try:
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-else:
-    from ConfigParser import ConfigParser
 
 import hou
 
@@ -124,10 +118,14 @@ class ImportFileClass(object):
             self.node = hou.node(data["connectednode"])
             if self.node is None:
                 self.node = self.findNode(data["connectednode"])
+            if self.node and self.node.type().name() == "merge":
+                self.node = None
         if "filenode" in data:
             self.fileNode = hou.node(data["filenode"])
             if self.fileNode is None:
                 self.fileNode = self.findNode(data["filenode"])
+            if self.fileNode and self.fileNode.type().name() == "merge":
+                self.fileNode = None
         if "taskname" in data:
             self.taskName = data["taskname"]
             self.nameChanged(self.e_name.text())
@@ -247,7 +245,8 @@ class ImportFileClass(object):
 
         paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         if paneTab is not None:
-            paneTab.frameSelection()
+            paneTab.setCurrentNode(self.node)
+            paneTab.homeToSelection()
 
     @err_catcher(name=__name__)
     def autoNameSpaceChanged(self, checked):
@@ -256,16 +255,6 @@ class ImportFileClass(object):
             if checked:
                 self.removeNameSpaces()
             self.stateManager.saveStatesToScene()
-
-    @err_catcher(name=__name__)
-    def getScenePath(self, location="global"):
-        sceneName = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
-        if location == "global":
-            prjPath = self.core.projectPath
-        elif location == "local":
-            prjPath == self.core.localProjectPath
-        scenePath = os.path.join(prjPath, sceneName).replace("\\", "/")
-        return scenePath
 
     @err_catcher(name=__name__)
     def getImportPath(self):
@@ -281,31 +270,27 @@ class ImportFileClass(object):
 
         if impFileName != "":
             versionInfoPath = os.path.join(
-                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.ini"
+                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.yml"
             )
-            if os.path.exists(versionInfoPath):
-                vConfig = ConfigParser()
-                vConfig.read(versionInfoPath)
-                if vConfig.has_option("information", "fps"):
-                    impFPS = float(vConfig.get("information", "fps"))
-                    curFPS = self.core.getFPS()
-                    if impFPS != curFPS:
-                        fString = (
-                            "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:\t%s\nImport FPS:\t\t%s"
-                            % (curFPS, impFPS)
-                        )
-                        msg = QMessageBox(
-                            QMessageBox.Warning,
-                            "FPS mismatch",
-                            fString,
-                            QMessageBox.Cancel,
-                        )
-                        msg.addButton("Continue", QMessageBox.YesRole)
-                        self.core.parentWindow(msg)
-                        action = msg.exec_()
+            impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
+            curFPS = self.core.getFPS()
+            if impFPS and impFPS != curFPS:
+                fString = (
+                    "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:\t%s\nImport FPS:\t\t%s"
+                    % (curFPS, impFPS)
+                )
+                msg = QMessageBox(
+                    QMessageBox.Warning,
+                    "FPS mismatch",
+                    fString,
+                    QMessageBox.Cancel,
+                )
+                msg.addButton("Continue", QMessageBox.YesRole)
+                self.core.parentWindow(msg)
+                action = msg.exec_()
 
-                        if action != 0:
-                            return False
+                if action != 0:
+                    return False
 
             if taskName is None:
                 vPath = os.path.dirname(impFileName)
@@ -316,10 +301,10 @@ class ImportFileClass(object):
                     vName = os.path.basename(vPath)
 
                 if len(vName.split(self.core.filenameSeparator)) == 3 and (
-                    self.getScenePath() in impFileName
+                    self.core.getScenePath() in impFileName
                     or (
                         self.core.useLocalFiles
-                        and self.getScenePath(location="local")
+                        and self.core.getScenePath(location="local")
                         in impFileName
                     )
                 ):
@@ -609,7 +594,7 @@ class ImportFileClass(object):
                 if len(i[2]) > 0:
                     for m in i[2]:
                         if (
-                            os.path.splitext(m)[1] not in [".txt", ".ini", ".xgen"]
+                            os.path.splitext(m)[1] not in [".txt", ".ini", ".yml", ".xgen"]
                             and m[0] != "."
                         ):
                             if m.endswith(".bgeo.sc"):
@@ -708,7 +693,7 @@ class ImportFileClass(object):
 
         if (
             len(versionData) == 3
-            and self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
+            and self.core.getScenePath().replace(self.core.projectPath, "")
             in self.e_file.text()
         ):
             curVersion = (
@@ -813,7 +798,7 @@ class ImportFileClass(object):
 
         if (
             len(versionData) == 3
-            and self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
+            and self.core.getScenePath().replace(self.core.projectPath, "")
             in self.e_file.text()
         ):
             self.l_curVersion.setText(

@@ -93,12 +93,12 @@ class Ingegration(object):
             if "# >>>PrismStart" in content and "# <<<PrismEnd" in content:
                 content = (
                     content[:content.find("# >>>PrismStart")]
-                    + content[content.find("# <<<PrismEnd") + len("# <<<PrismEnd"):]
+                    + content[content.find("# <<<PrismEnd", content.find("# >>>PrismStart")) + len("# <<<PrismEnd"):]
                 )
             elif "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
                 content = (
                     content[:content.find("#>>>PrismStart")]
-                    + content[content.find("#<<<PrismEnd") + len("#<<<PrismEnd"):]
+                    + content[content.find("#<<<PrismEnd", content.find("#>>>PrismStart")) + len("#<<<PrismEnd"):]
                 )
             else:
                 break
@@ -125,10 +125,8 @@ class Ingegration(object):
 
         if not os.path.exists(installConfigPath):
             return
-        installConfig = self.core.getConfig(
-            configPath=installConfigPath, getConf=True
-        )
 
+        installConfig = self.core.configs.readIni(path=installConfigPath)
         integrations = self.getIntegrations()
         for section in installConfig.sections():
             if section not in integrations:

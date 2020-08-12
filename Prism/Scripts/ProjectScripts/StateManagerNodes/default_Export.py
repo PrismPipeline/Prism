@@ -40,22 +40,9 @@ try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
-    psVersion = 2
 except:
     from PySide.QtCore import *
     from PySide.QtGui import *
-
-    psVersion = 1
-
-if sys.version[0] == "3":
-    from configparser import ConfigParser
-
-    pVersion = 3
-else:
-    from ConfigParser import ConfigParser
-
-    pVersion = 2
 
 from PrismUtils.Decorators import err_catcher
 
@@ -91,6 +78,11 @@ class ExportClass(object):
 
         self.preDelete = lambda item: self.core.appPlugin.sm_export_preDelete(self)
 
+        self.rangeTypes = ["State Manager", "Scene", "Shot", "Single Frame", "Custom"]
+        self.cb_rangeType.addItems(self.rangeTypes)
+        for idx, rtype in enumerate(self.rangeTypes):
+            self.cb_rangeType.setItemData(idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole)
+
         if self.stateManager.standalone:
             outputFormats = []
             if self.core.appPlugin.pluginName != "Houdini":
@@ -104,15 +96,12 @@ class ExportClass(object):
 
         self.cb_outType.addItems(outputFormats)
         self.export_paths = self.core.getExportPaths()
-        self.cb_outPath.addItems([x[0] for x in self.export_paths])
+        self.cb_outPath.addItems(list(self.export_paths.keys()))
         if len(self.export_paths) < 2:
             self.w_outPath.setVisible(False)
         getattr(self.core.appPlugin, "sm_export_startup", lambda x: None)(self)
         self.nameChanged(state.text(0))
         self.connectEvents()
-
-        if not self.stateManager.loading and not self.stateManager.standalone:
-            self.addObjects()
 
         if stateData is not None:
             self.loadData(stateData)
@@ -122,24 +111,21 @@ class ExportClass(object):
             self.sp_rangeEnd.setValue(startFrame)
             fileName = self.core.getCurrentFileName()
             fnameData = self.core.getScenefileData(fileName)
-            sceneDir = self.core.getConfig(
-                "paths", "scenes", configPath=self.core.prismIni
-            )
             if (
                 os.path.exists(fileName)
                 and fnameData["entity"] == "shot"
-                and (
-                    os.path.join(self.core.projectPath, sceneDir) in fileName
-                    or (
-                        self.core.useLocalFiles
-                        and os.path.join(self.core.localProjectPath, sceneDir)
-                        in fileName
-                    )
-                )
+                and self.core.fileInPipeline(fileName)
             ):
                 idx = self.cb_sCamShot.findText(fnameData["entityName"])
                 if idx != -1:
                     self.cb_sCamShot.setCurrentIndex(idx)
+
+            if fnameData.get("category"):
+                self.l_taskName.setText(fnameData.get("category"))
+                getattr(self.core.appPlugin, "sm_export_updateObjects", lambda x: None)(self)
+
+            if not self.stateManager.standalone:
+                self.addObjects()
 
         self.typeChanged(self.cb_outType.currentText())
 
@@ -156,8 +142,11 @@ class ExportClass(object):
 
         if "statename" in data:
             self.e_name.setText(data["statename"])
-        if "globalrange" in data:
-            self.chb_globalRange.setChecked(eval(data["globalrange"]))
+        if "rangeType" in data:
+            idx = self.cb_rangeType.findText(data["rangeType"])
+            if idx != -1:
+                self.cb_rangeType.setCurrentIndex(idx)
+                self.updateRange()
         if "startframe" in data:
             self.sp_rangeStart.setValue(int(data["startframe"]))
         if "endframe" in data:
@@ -216,7 +205,7 @@ class ExportClass(object):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_changeTask.clicked.connect(self.changeTask)
-        self.chb_globalRange.stateChanged.connect(self.rangeTypeChanged)
+        self.cb_rangeType.activated.connect(self.rangeTypeChanged)
         self.sp_rangeStart.editingFinished.connect(self.startChanged)
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
         self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
@@ -244,11 +233,7 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
-        checked = state == Qt.Checked
-        self.l_rangeStart.setEnabled(not checked)
-        self.l_rangeEnd.setEnabled(not checked)
-        self.sp_rangeStart.setEnabled(not checked)
-        self.sp_rangeEnd.setEnabled(not checked)
+        self.updateRange()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -292,6 +277,7 @@ class ExportClass(object):
         self.core.parentWindow(self.nameWin)
         self.nameWin.setWindowTitle("Change Taskname")
         self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
         prevTaskName = self.l_taskName.text()
         result = self.nameWin.exec_()
@@ -375,25 +361,13 @@ class ExportClass(object):
                 self.curCam = None
             self.stateManager.saveStatesToScene()
 
+        self.updateRange()
+
         curShot = self.cb_sCamShot.currentText()
         self.cb_sCamShot.clear()
-        shotPath = os.path.join(
-            self.core.projectPath,
-            self.core.getConfig("paths", "scenes", configPath=self.core.prismIni),
-            "Shots",
-        )
+        shotPath = self.core.getShotPath()
         shotNames = []
-        omittedShots = []
-
-        omitPath = os.path.join(
-            os.path.dirname(self.core.prismIni), "Configs", "omits.ini"
-        )
-        if os.path.exists(omitPath):
-            oconfig = ConfigParser()
-            oconfig.read(omitPath)
-
-            if oconfig.has_section("Shot"):
-                omittedShots = [x[1] for x in oconfig.items("Shot")]
+        omittedShots = self.core.getConfig("shot", config="omit", dft=[])
 
         if os.path.exists(shotPath):
             shotNames += [
@@ -450,6 +424,46 @@ class ExportClass(object):
         self.nameChanged(self.e_name.text())
 
     @err_catcher(name=__name__)
+    def updateRange(self):
+        rangeType = self.cb_rangeType.currentText()
+        isCustom = rangeType == "Custom"
+        self.l_rangeStart.setVisible(not isCustom)
+        self.l_rangeEnd.setVisible(not isCustom)
+        self.sp_rangeStart.setVisible(isCustom)
+        self.sp_rangeEnd.setVisible(isCustom)
+
+        if not isCustom:
+            frange = self.getFrameRange(rangeType=rangeType)
+            start = str(int(frange[0])) if frange[0] else "-"
+            end = str(int(frange[1])) if frange[1] else "-"
+            self.l_rangeStart.setText(start)
+            self.l_rangeEnd.setText(end)
+
+    @err_catcher(name=__name__)
+    def getFrameRange(self, rangeType):
+        startFrame = None
+        endFrame = None
+        if rangeType == "State Manager":
+            startFrame = self.stateManager.sp_rangeStart.value()
+            endFrame = self.stateManager.sp_rangeEnd.value()
+        elif rangeType == "Scene":
+            startFrame, endFrame = self.core.appPlugin.getFrameRange(self)
+        elif rangeType == "Shot":
+            fileName = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fileName)
+            if fnameData["entity"] == "shot":
+                frange = self.core.entities.getShotRange(fnameData["entityName"])
+                if frange:
+                    startFrame, endFrame = frange
+        elif rangeType == "Single Frame":
+            startFrame = self.core.appPlugin.getCurrentFrame()
+        elif rangeType == "Custom":
+            startFrame = self.sp_rangeStart.value()
+            endFrame = self.sp_rangeEnd.value()
+
+        return startFrame, endFrame
+
+    @err_catcher(name=__name__)
     def typeChanged(self, idx):
         isSCam = idx == "ShotCam"
         self.w_cam.setVisible(isSCam)
@@ -487,12 +501,8 @@ class ExportClass(object):
     def preExecuteState(self):
         warnings = []
 
-        if self.chb_globalRange.isChecked():
-            startFrame = self.stateManager.sp_rangeStart.value()
-            endFrame = self.stateManager.sp_rangeEnd.value()
-        else:
-            startFrame = self.sp_rangeStart.value()
-            endFrame = self.sp_rangeEnd.value()
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
 
         if self.cb_outType.currentText() == "ShotCam":
             if self.curCam is None:
@@ -504,6 +514,9 @@ class ExportClass(object):
             if not self.chb_wholeScene.isChecked() and len(self.nodes) == 0:
                 warnings.append(["No objects are selected for export.", "", 3])
 
+        if not startFrame:
+            warnings.append(["Framerange is invalid.", "", 3])
+
         warnings += self.core.appPlugin.sm_export_preExecute(self, startFrame, endFrame)
 
         return [self.state.text(0), warnings]
@@ -511,14 +524,10 @@ class ExportClass(object):
     @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next", startFrame=0, endFrame=0):
         prefUnit = self.core.appPlugin.preferredUnit
-
         fileName = self.core.getCurrentFileName()
-        sceneDir = self.core.getConfig("paths", "scenes", configPath=self.core.prismIni)
 
         if self.cb_outType.currentText() == "ShotCam":
-            outputBase = os.path.join(
-                self.core.projectPath, sceneDir, "Shots", self.cb_sCamShot.currentText()
-            )
+            outputBase = os.path.join(self.core.getShotPath(), self.cb_sCamShot.currentText())
             fnameData = self.core.getScenefileData(fileName)
             comment = fnameData["comment"]
             versionUser = self.core.user
@@ -612,20 +621,11 @@ class ExportClass(object):
                     + self.cb_outType.currentText(),
                 )
             elif fnameData["entity"] == "asset":
-                if os.path.join(sceneDir, "Assets", "Scenefiles") in fileName:
-                    outputPath = os.path.join(
-                        self.core.projectPath,
-                        sceneDir,
-                        "Assets",
-                        "Export",
-                        self.l_taskName.text(),
-                    )
-                else:
-                    outputPath = os.path.join(
-                        self.core.getEntityBasePath(fileName),
-                        "Export",
-                        self.l_taskName.text(),
-                    )
+                outputPath = os.path.join(
+                    self.core.getEntityBasePath(fileName),
+                    "Export",
+                    self.l_taskName.text(),
+                )
                 if hVersion == "":
                     hVersion = self.core.getHighestTaskVersion(outputPath)
                     pComment = fnameData["comment"]
@@ -652,7 +652,7 @@ class ExportClass(object):
             else:
                 return
 
-        basePath = self.export_paths[self.cb_outPath.currentIndex()][1]
+        basePath = self.export_paths[self.cb_outPath.currentText()]
         prjPath = os.path.normpath(self.core.projectPath)
         basePath = os.path.normpath(basePath)
         outputName = outputName.replace(prjPath, basePath)
@@ -662,12 +662,13 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
-        if self.chb_globalRange.isChecked():
-            startFrame = self.stateManager.sp_rangeStart.value()
-            endFrame = self.stateManager.sp_rangeEnd.value()
-        else:
-            startFrame = self.sp_rangeStart.value()
-            endFrame = self.sp_rangeEnd.value()
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
+        if not startFrame:
+            return [self.state.text(0) + ": error - Framerange is invalid"]
+
+        if rangeType == "Single Frame":
+            endFrame = startFrame
 
         if self.cb_outType.currentText() == "ShotCam":
             if self.curCam is None:
@@ -853,7 +854,7 @@ class ExportClass(object):
             {
                 "statename": self.e_name.text(),
                 "taskname": self.l_taskName.text(),
-                "globalrange": str(self.chb_globalRange.isChecked()),
+                "rangeType": str(self.cb_rangeType.currentText()),
                 "startframe": self.sp_rangeStart.value(),
                 "endframe": self.sp_rangeEnd.value(),
                 "unitconvert": str(self.chb_convertExport.isChecked()),

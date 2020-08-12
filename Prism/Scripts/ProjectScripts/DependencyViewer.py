@@ -74,7 +74,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         self.core = core
         self.core.parentWindow(self)
 
-        if os.path.basename(depRoot) == "versioninfo.ini":
+        if os.path.basename(depRoot).startswith("versioninfo"):
             rootName = self.core.getConfig(
                 cat="information", param="version", configPath=depRoot
             )
@@ -168,26 +168,14 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             cat="information", param="source scene", configPath=versionInfo
         )
         deps = self.core.getConfig(
-            cat="information", param="dependencies", configPath=versionInfo
-        )
+            cat="information", param="Dependencies", configPath=versionInfo
+        ) or []
         extFiles = self.core.getConfig(
-            cat="information", param="external files", configPath=versionInfo
-        )
+            cat="information", param="External files", configPath=versionInfo
+        ) or []
 
-        try:
-            deps = eval(deps)
-            if source is not None:
-                deps.append(source)
-
-            extFiles = eval(extFiles)
-        except:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "Could not read dependencies from file:\n\n%s" % versionInfo,
-            )
-            deps = []
-            extFiles = []
+        if source is not None:
+            deps.append(source)
 
         if depID == "0":
             depItem = self.tw_dependencies.invisibleRootItem()
@@ -236,11 +224,13 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             iFont.setBold(True)
             item.setFont(0, iFont)
 
-            depInfo = os.path.join(os.path.dirname(i), "versioninfo.ini")
+            depInfo = os.path.join(os.path.dirname(i), "versioninfo.yml")
+            self.core.configs.findDeprecatedConfig(depInfo)
             if not os.path.exists(depInfo):
                 depInfo = os.path.join(
-                    os.path.dirname(os.path.dirname(i)), "versioninfo.ini"
+                    os.path.dirname(os.path.dirname(i)), "versioninfo.yml"
                 )
+                self.core.configs.findDeprecatedConfig(depInfo)
 
             if os.path.exists(depInfo):
                 self.updateDependencies(curID, depInfo)

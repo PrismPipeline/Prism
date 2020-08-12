@@ -37,9 +37,21 @@ import subprocess
 import shutil
 import platform
 import datetime
+import logging
 from collections import OrderedDict
 
+if sys.version[0] == "3":
+    pVersion = 3
+    pyLibs = "Python37"
+else:
+    pVersion = 2
+    pyLibs = "Python27"
+
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
+scriptPath = os.path.abspath(os.path.dirname(__file__))
+if scriptPath not in sys.path:
+    sys.path.append(scriptPath)
 
 try:
     from PySide2.QtCore import *
@@ -57,7 +69,7 @@ except:
 
         psVersion = 1
     except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
+        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "PySide"))
         try:
             from PySide2.QtCore import *
             from PySide2.QtGui import *
@@ -74,8 +86,6 @@ for i in [
     "PrismSettings_ui",
     "PrismSettings_ui_ps2",
     "SetProject",
-    "SetProject_ui",
-    "SetProject_ui_ps2",
 ]:
     try:
         del sys.modules[i]
@@ -88,26 +98,14 @@ import SetProject
 
 if psVersion == 1:
     import PrismSettings_ui
-    import SetProject_ui
 else:
     import PrismSettings_ui_ps2 as PrismSettings_ui
-    import SetProject_ui_ps2 as SetProject_ui
-
-if sys.version[0] == "3":
-    pVersion = 3
-else:
-    pVersion = 2
 
 from UserInterfacesPrism import qdarkstyle
 from PrismUtils.Decorators import err_catcher
 
 
-class SetProjectImp(
-    QDialog, SetProject_ui.Ui_dlg_setProject, SetProject.SetProjectClass
-):
-    def __init__(self):
-        QDialog.__init__(self)
-        self.setupUi(self)
+logger = logging.getLogger(__name__)
 
 
 class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
@@ -118,8 +116,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.core = core
         self.core.parentWindow(self)
 
-        projectsUi = SetProjectImp()
-        projectsUi.setup(self.core, self)
+        projectsUi = SetProject.SetProjectClass(self.core, self)
         projectsUi.l_project.setVisible(False)
         projectsUi.w_startup.setVisible(False)
 
@@ -128,9 +125,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.groupboxes = [self.gb_curPversions]
         self.updateIntervals = OrderedDict([
             ("On every launch", 0),
-            ("Every day", 1),
-            ("Every week", 7),
-            ("Every month", 30),
+            ("Once per day", 1),
+            ("Once per week", 7),
+            ("Once per month", 30),
             ("Never", -1),
         ])
 
@@ -143,8 +140,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.refreshPlugins()
 
         self.forceVersionsToggled(self.gb_curPversions.isChecked())
-        for i in self.core.prjManagers.values():
-            i.prismSettings_postLoadSettings(self)
 
         self.core.callback(
             name="onPrismSettingsOpen", types=["curApp", "custom"], args=[self]
@@ -172,6 +167,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         )
         self.e_curPname.textEdited.connect(self.curPnameEdited)
         self.chb_curPuseFps.toggled.connect(self.pfpsToggled)
+        self.chb_prjResolution.toggled.connect(self.prjResolutionToggled)
         self.gb_curPversions.toggled.connect(self.forceVersionsToggled)
         for i in self.forceVersionPlugins:
             self.forceVersionPlugins[i]["b"].clicked.connect(
@@ -212,13 +208,14 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.b_reloadPlugins.clicked.connect(self.reloadPlugins)
         self.b_createPlugin.clicked.connect(self.createPlugin)
         self.buttonBox.accepted.connect(self.saveSettings)
+        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(lambda: self.saveSettings(changeProject=False))
 
     @err_catcher(name=__name__)
     def validate(self, uiWidget, origText=None):
         self.core.validateLineEdit(uiWidget)
 
         if uiWidget != self.e_abbreviation:
-            abbrev = self.core.getUserAbbreviation(
+            abbrev = self.core.users.getUserAbbreviation(
                 "%s %s" % (self.e_fname.text(), self.e_lname.text()), fromConfig=False
             )
             self.e_abbreviation.setText(abbrev)
@@ -226,6 +223,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     @err_catcher(name=__name__)
     def pfpsToggled(self, checked):
         self.sp_curPfps.setEnabled(checked)
+
+    @err_catcher(name=__name__)
+    def prjResolutionToggled(self, checked):
+        self.sp_prjResolutionWidth.setEnabled(checked)
+        self.l_prjResolutionX.setEnabled(checked)
+        self.sp_prjResolutionHeight.setEnabled(checked)
 
     @err_catcher(name=__name__)
     def forceVersionsToggled(self, checked):
@@ -273,23 +276,27 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
     @err_catcher(name=__name__)
     def rclPluginList(self, pos=None):
-        rcmenu = QMenu()
-
-        unloadAct = QAction("Unload", self)
-        unloadAct.triggered.connect(self.unloadPlugins)
-        rcmenu.addAction(unloadAct)
-
-        openAct = QAction("Open in explorer", self)
-        openAct.triggered.connect(self.openPluginFolder)
-        rcmenu.addAction(openAct)
-
         selPlugs = []
         for i in self.tw_plugins.selectedItems():
             if i.row() not in selPlugs:
                 selPlugs.append(i.row())
 
+        rcmenu = QMenu()
+
+        act_reload = rcmenu.addAction("Reload", lambda: self.reloadPlugins(selected=True))
+        act_load = rcmenu.addAction("Load", lambda: self.loadPlugins(selected=True))
+        act_unload = rcmenu.addAction("Unload", lambda: self.loadPlugins(selected=True, unload=True))
+        act_open = rcmenu.addAction("Open in explorer", self.openPluginFolder)
+
         if len(selPlugs) > 1:
-            openAct.setEnabled(False)
+            act_open.setEnabled(False)
+
+        if len(selPlugs) == 1:
+            if self.tw_plugins.cellWidget(selPlugs[0], 0).isChecked():
+                act_load.setEnabled(False)
+            else:
+                act_reload.setEnabled(False)
+                act_unload.setEnabled(False)
 
         getattr(self.core.appPlugin, "setRCStyle", lambda x, y: None)(self, rcmenu)
 
@@ -315,24 +322,21 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
     @err_catcher(name=__name__)
     def changeProject(self):
-        self.core.setProject()
+        self.core.projects.setProject()
         self.close()
 
     @err_catcher(name=__name__)
-    def saveSettings(self):
-        cData = []
+    def saveSettings(self, changeProject=True):
+        logger.debug("save prism settings")
+        cData = {
+            "globals": {},
+            "localfiles": {},
+            "dccoverrides": {},
+        }
 
         if len(self.e_fname.text()) > 0 and len(self.e_lname.text()) > 1:
-            cData.append(
-                [
-                    "globals",
-                    "username",
-                    (self.e_fname.text() + " " + self.e_lname.text()),
-                ]
-            )
-            cData.append(
-                ["globals", "username_abbreviation", self.e_abbreviation.text()]
-            )
+            cData["globals"]["username"] = self.e_fname.text() + " " + self.e_lname.text()
+            cData["globals"]["username_abbreviation"] = self.e_abbreviation.text()
             self.core.user = self.e_abbreviation.text()
 
         if hasattr(self.core, "projectName") and self.e_localPath.isEnabled():
@@ -340,7 +344,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             if not lpath.endswith(os.sep):
                 lpath += os.sep
 
-            cData.append(["localfiles", self.core.projectName, lpath])
+            cData["localfiles"][self.core.projectName] = lpath
 
         if self.e_localPath.text() != "disabled":
             self.core.localProjectPath = lpath
@@ -348,34 +352,28 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         rvPath = self.core.fixPath(self.e_rvPath.text())
         if rvPath != "" and not rvPath.endswith(os.sep):
             rvPath += os.sep
-        cData.append(["globals", "rvpath", rvPath])
+        cData["globals"]["rvpath"] = rvPath
 
         djvPath = self.core.fixPath(self.e_djvPath.text())
         if djvPath != "" and not djvPath.endswith(os.sep):
             djvPath += os.sep
-        cData.append(["globals", "djvpath", djvPath])
+        cData["globals"]["djvpath"] = djvPath
 
-        cData.append(["globals", "prefer_djv", str(self.chb_preferDJV.isChecked())])
-        cData.append(
-            ["globals", "showonstartup", str(self.chb_browserStartup.isChecked())]
-        )
-        cData.append(
-            ["globals", "checkForUpdates", self.updateIntervals[self.cb_checkForUpdates.currentText()]]
-        )
-        cData.append(["globals", "autosave", str(self.chb_autosave.isChecked())])
-        cData.append(["globals", "highdpi", str(self.chb_highDPI.isChecked())])
-        cData.append(["globals", "debug_mode", str(self.chb_debug.isChecked())])
+        cData["globals"]["prefer_djv"] = self.chb_preferDJV.isChecked()
+        cData["globals"]["showonstartup"] = self.chb_browserStartup.isChecked()
+        cData["globals"]["checkForUpdates"] = self.updateIntervals[self.cb_checkForUpdates.currentText()]
+        cData["globals"]["autosave"] = self.chb_autosave.isChecked()
+        cData["globals"]["highdpi"] = self.chb_highDPI.isChecked()
+        cData["globals"]["send_error_reports"] = self.chb_errorReports.isChecked()
+        cData["globals"]["debug_mode"] = self.chb_debug.isChecked()
 
         for i in self.exOverridePlugins:
-            c = str(self.exOverridePlugins[i]["chb"].isChecked())
-            ct = str(self.exOverridePlugins[i]["le"].text())
-            cData.append(["dccoverrides", "%s_override" % i, c])
-            cData.append(["dccoverrides", "%s_path" % i, ct])
+            c = self.exOverridePlugins[i]["chb"].isChecked()
+            ct = self.exOverridePlugins[i]["le"].text()
+            cData["dccoverrides"]["%s_override" % i] = c
+            cData["dccoverrides"]["%s_path" % i] = ct
 
-        result = self.core.callback(name="prismSettings_saveSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
-        for res in result:
-            if type(res) == list:
-                cData += res
+        self.core.callback(name="prismSettings_saveSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self, cData])
 
         if self.core.appPlugin.appType == "3d":
             if self.chb_autosave.isChecked():
@@ -389,41 +387,29 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.core.setConfig(data=cData)
 
-        logLevel = "DEBUG" if self.chb_debug.isChecked() else "WARNING"
-        self.core.updateLogging(level=logLevel)
+        self.core.setDebugMode(self.chb_debug.isChecked())
 
         if os.path.exists(self.core.prismIni):
-            cData = []
+            cData = {"globals": {}}
 
-            cData.append(["globals", "project_name", (self.e_curPname.text())])
-            cData.append(
-                ["globals", "uselocalfiles", str(self.chb_curPuseLocal.isChecked())]
-            )
-            cData.append(["globals", "forcefps", str(self.chb_curPuseFps.isChecked())])
-            cData.append(["globals", "fps", str(self.sp_curPfps.value())])
-            cData.append(
-                ["globals", "forceversions", str(self.gb_curPversions.isChecked())]
-            )
-
-            result = self.core.callback(name="prismSettings_savePrjSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
-            for res in result:
-                if type(res) == list:
-                    cData += res
+            cData["globals"]["debug_mode"] = self.chb_debug.isChecked()
+            cData["globals"]["project_name"] = self.e_curPname.text()
+            cData["globals"]["uselocalfiles"] = self.chb_curPuseLocal.isChecked()
+            cData["globals"]["forcefps"] = self.chb_curPuseFps.isChecked()
+            cData["globals"]["fps"] = self.sp_curPfps.value()
+            cData["globals"]["forceResolution"] = self.chb_prjResolution.isChecked()
+            cData["globals"]["resolution"] = [self.sp_prjResolutionWidth.value(), self.sp_prjResolutionHeight.value()]
+            cData["globals"]["forceversions"] = self.gb_curPversions.isChecked()
 
             for i in self.forceVersionPlugins:
-                cData.append(
-                    [
-                        "globals",
-                        "%s_version" % i,
-                        str(self.forceVersionPlugins[i]["le"].text()),
-                    ]
-                )
+                cData["globals"]["%s_version" % i] = self.forceVersionPlugins[i]["le"].text()
+
+            self.core.callback(name="prismSettings_savePrjSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self, cData])
 
             self.core.setConfig(data=cData, configPath=self.core.prismIni)
-
             self.core.useLocalFiles = self.chb_curPuseLocal.isChecked()
-
-            self.core.changeProject(self.core.prismIni)
+            if changeProject:
+                self.core.changeProject(self.core.prismIni)
 
         if platform.system() == "Windows":
             trayStartup = os.path.join(
@@ -433,10 +419,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 "Start Menu",
                 "Programs",
                 "Startup",
-                "PrismTray.lnk",
+                "Prism Tray.lnk",
             )
             trayLnk = self.core.fixPath(
-                os.path.join(self.core.prismRoot, "Tools", "PrismTray.lnk")
+                os.path.join(self.core.prismRoot, "Tools", "Prism Tray.lnk")
             )
 
             if self.chb_trayStartup.isChecked():
@@ -568,7 +554,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 "Start Menu",
                 "Programs",
                 "Startup",
-                "PrismTray.lnk",
+                "Prism Tray.lnk",
             )
         elif platform.system() == "Linux":
             trayStartupPath = "/etc/xdg/autostart/PrismTray.desktop"
@@ -584,174 +570,126 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.chb_trayStartup.setChecked(os.path.exists(trayStartupPath))
 
-        ucData = {}
+        configData = self.core.getConfig()
+        self.core.callback(name="prismSettings_loadSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self, configData])
 
-        for i in self.exOverridePlugins:
-            ucData["%s_override" % i] = ["dccoverrides", "%s_override" % i, "bool"]
-            ucData["%s_path" % i] = ["dccoverrides", "%s_path" % i]
+        if not configData:
+            self.core.popup("Loading Prism Settings failed.")
+        else:
+            gblData = configData.get("globals", {})
+            if "username" in gblData:
+                uname = gblData["username"].split()
 
-        ucData["username"] = ["globals", "username"]
-        ucData["username_abbreviation"] = ["globals", "username_abbreviation"]
-        ucData["showonstartup"] = ["globals", "showonstartup", "bool"]
-        ucData["updateStatus"] = ["globals", "update_status"]
-        ucData["updateCheckTime"] = ["globals", "lastUpdateCheck"]
-        ucData["checkForUpdates"] = ["globals", "checkForUpdates"]
-        ucData["autosave"] = ["globals", "autosave", "bool"]
-        ucData["highdpi"] = ["globals", "highdpi", "bool"]
-        ucData["debug_mode"] = ["globals", "debug_mode", "bool"]
-        ucData["rvpath"] = ["globals", "rvpath"]
-        ucData["djvpath"] = ["globals", "djvpath"]
-        ucData["prefer_djv"] = ["globals", "prefer_djv", "bool"]
+                if len(uname) == 2:
+                    self.e_fname.setText(uname[0])
+                    self.e_lname.setText(uname[1])
 
-        loadFunctions = {}
+                    self.validate(uiWidget=self.e_fname)
+                    self.validate(uiWidget=self.e_lname)
 
-        result = self.core.callback(name="prismSettings_loadSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
-        for res in result:
-            if type(res) == tuple:
-                loadData, pLoadFunctions = res
-                ucData.update(loadData)
-                loadFunctions.update(pLoadFunctions)
+            if "username_abbreviation" in gblData:
+                self.e_abbreviation.setText(gblData["username_abbreviation"])
+                self.validate(uiWidget=self.e_abbreviation)
 
-        result = self.core.getConfig(data=ucData)
+            if "showonstartup" in gblData:
+                self.chb_browserStartup.setChecked(gblData["showonstartup"])
 
-        if result is None:
-            QMessageBox.warning(self, "Load Settings", "Loading Prism Settings failed.")
-            return
+            updateStatus = gblData.get("update_status", "")
+            updateCheckTime = gblData.get("lastUpdateCheck", "")
 
-        ucData = result
+            self.setUpdateStatus(status=updateStatus, checkTime=updateCheckTime)
 
-        if ucData["username"] is not None:
-            uname = ucData["username"].split()
+            if "checkForUpdates" in gblData:
+                if gblData["checkForUpdates"] is True:
+                    gblData["checkForUpdates"] = 7
+                elif gblData["checkForUpdates"] is False:
+                    gblData["checkForUpdates"] = -1
 
-            if len(uname) == 2:
-                self.e_fname.setText(uname[0])
-                self.e_lname.setText(uname[1])
+                idx = 1
+                for i in self.updateIntervals:
+                    if self.updateIntervals[i] == gblData["checkForUpdates"]:
+                        fidx = self.cb_checkForUpdates.findText(i)
+                        if fidx != -1:
+                            idx = fidx
+                        break
 
-                self.validate(uiWidget=self.e_fname)
-                self.validate(uiWidget=self.e_lname)
+                self.cb_checkForUpdates.setCurrentIndex(idx)
 
-        if ucData["username_abbreviation"] is not None:
-            self.e_abbreviation.setText(ucData["username_abbreviation"])
-            self.validate(uiWidget=self.e_abbreviation)
+            if "autosave" in gblData:
+                self.chb_autosave.setChecked(gblData["autosave"])
 
-        if ucData["showonstartup"] is not None:
-            self.chb_browserStartup.setChecked(ucData["showonstartup"])
+            if "highdpi" in gblData:
+                self.chb_highDPI.setChecked(gblData["highdpi"])
 
-        for i in sorted(loadFunctions):
-            if ucData[i] is not None:
-                loadFunctions[i](ucData[i])
+            if "send_error_reports" in gblData:
+                self.chb_errorReports.setChecked(gblData["send_error_reports"])
 
-        updateStatus = ucData["updateStatus"] or ""
-        updateCheckTime = ucData["updateCheckTime"] or ""
+            if "debug_mode" in gblData:
+                self.chb_debug.setChecked(gblData["debug_mode"])
 
-        self.setUpdateStatus(status=updateStatus, checkTime=updateCheckTime)
+            if "rvpath" in gblData:
+                self.e_rvPath.setText(gblData["rvpath"])
 
-        if ucData["checkForUpdates"] is not None:
-            if ucData["checkForUpdates"] == "True":
-                ucData["checkForUpdates"] = 7
-            elif ucData["checkForUpdates"] == "False":
-                ucData["checkForUpdates"] = -1
-            else:
-                ucData["checkForUpdates"] = int(ucData["checkForUpdates"])
+            if "djvpath" in gblData:
+                self.e_djvPath.setText(gblData["djvpath"])
 
-            idx = 1
-            for i in self.updateIntervals:
-                if self.updateIntervals[i] == ucData["checkForUpdates"]:
-                    fidx = self.cb_checkForUpdates.findText(i)
-                    if fidx != -1:
-                        idx = fidx
-                    break
+            if "prefer_djv" in gblData:
+                self.chb_preferDJV.setChecked(gblData["prefer_djv"])
 
-            self.cb_checkForUpdates.setCurrentIndex(idx)
+            dccData = configData.get("dccoverrides", {})
+            for i in self.exOverridePlugins:
+                if "%s_override" % i in dccData:
+                    self.exOverridePlugins[i]["chb"].setChecked(dccData["%s_override" % i])
 
-        if ucData["autosave"] is not None:
-            self.chb_autosave.setChecked(ucData["autosave"])
+                if "%s_path" % i in dccData:
+                    self.exOverridePlugins[i]["le"].setText(dccData["%s_path" % i])
 
-        if ucData["highdpi"] is not None:
-            self.chb_highDPI.setChecked(ucData["highdpi"])
+                if (
+                    not self.exOverridePlugins[i]["chb"].isChecked()
+                    and self.exOverridePlugins[i]["le"].text() == ""
+                ):
+                    execFunc = self.core.getPluginData(i, "getExecutable")
+                    if execFunc is not None:
+                        examplePath = execFunc()
+                        if examplePath is not None:
+                            if not os.path.exists(examplePath) and os.path.exists(
+                                os.path.dirname(examplePath)
+                            ):
+                                examplePath = os.path.dirname(examplePath)
 
-        if ucData["debug_mode"] is not None:
-            self.chb_debug.setChecked(ucData["debug_mode"])
+                            self.exOverridePlugins[i]["le"].setText(examplePath)
 
-        if ucData["rvpath"] is not None:
-            self.e_rvPath.setText(ucData["rvpath"])
-
-        if ucData["djvpath"] is not None:
-            self.e_djvPath.setText(ucData["djvpath"])
-
-        if ucData["prefer_djv"] is not None:
-            self.chb_preferDJV.setChecked(ucData["prefer_djv"])
-
-        for i in self.exOverridePlugins:
-            if ucData["%s_override" % i] is not None:
-                self.exOverridePlugins[i]["chb"].setChecked(ucData["%s_override" % i])
-
-            if ucData["%s_path" % i] is not None:
-                self.exOverridePlugins[i]["le"].setText(ucData["%s_path" % i])
-
-            if (
-                not self.exOverridePlugins[i]["chb"].isChecked()
-                and self.exOverridePlugins[i]["le"].text() == ""
-            ):
-                execFunc = self.core.getPluginData(i, "getExecutable")
-                if execFunc is not None:
-                    examplePath = execFunc()
-                    if examplePath is not None:
-                        if not os.path.exists(examplePath) and os.path.exists(
-                            os.path.dirname(examplePath)
-                        ):
-                            examplePath = os.path.dirname(examplePath)
-
-                        self.exOverridePlugins[i]["le"].setText(examplePath)
-
-            self.exOverridePlugins[i]["le"].setEnabled(
-                self.exOverridePlugins[i]["chb"].isChecked()
-            )
-            self.exOverridePlugins[i]["b"].setEnabled(
-                self.exOverridePlugins[i]["chb"].isChecked()
-            )
+                self.exOverridePlugins[i]["le"].setEnabled(
+                    self.exOverridePlugins[i]["chb"].isChecked()
+                )
+                self.exOverridePlugins[i]["b"].setEnabled(
+                    self.exOverridePlugins[i]["chb"].isChecked()
+                )
 
         if os.path.exists(self.core.prismIni):
-            pcData = {}
+            configData = self.core.getConfig(configPath=self.core.prismIni)
+            self.core.callback(name="prismSettings_loadPrjSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self, configData])
+            gblData = configData.get("globals", {})
+
+            if "project_name" in gblData:
+                self.e_curPname.setText(gblData["project_name"])
+            if "uselocalfiles" in gblData:
+                self.chb_curPuseLocal.setChecked(gblData["uselocalfiles"])
+            if "forcefps" in gblData:
+                self.chb_curPuseFps.setChecked(gblData["forcefps"])
+            if "fps" in gblData:
+                self.sp_curPfps.setValue(gblData["fps"])
+            if "forceResolution" in gblData:
+                self.chb_prjResolution.setChecked(gblData["forceResolution"])
+            if "resolution" in gblData:
+                self.sp_prjResolutionWidth.setValue(gblData["resolution"][0])
+                self.sp_prjResolutionHeight.setValue(gblData["resolution"][1])
+            if "forceversions" in gblData:
+                self.gb_curPversions.setChecked(gblData["forceversions"])
 
             for i in self.forceVersionPlugins:
-                pcData["%s_version" % i] = ["globals", "%s_version" % i]
-
-            pcData["pName"] = ["globals", "project_name"]
-            pcData["lFiles"] = ["globals", "uselocalfiles"]
-            pcData["fpfps"] = ["globals", "forcefps"]
-            pcData["pfps"] = ["globals", "fps"]
-            pcData["fVersion"] = ["globals", "forceversions"]
-
-            loadFunctions = {}
-
-            result = self.core.callback(name="prismSettings_loadPrjSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self])
-            for res in result:
-                if type(res) == tuple:
-                    loadData, pLoadFunctions = res
-                    pcData.update(loadData)
-                    loadFunctions.update(pLoadFunctions)
-
-            pcData = self.core.getConfig(data=pcData, configPath=self.core.prismIni)
-
-            if pcData["pName"] is not None:
-                self.e_curPname.setText(pcData["pName"])
-            if pcData["lFiles"] is not None:
-                self.chb_curPuseLocal.setChecked(eval(pcData["lFiles"]))
-            if pcData["fpfps"] is not None:
-                self.chb_curPuseFps.setChecked(eval(pcData["fpfps"]))
-            if pcData["pfps"] is not None:
-                self.sp_curPfps.setValue(float(pcData["pfps"]))
-            if pcData["fVersion"] is not None:
-                self.gb_curPversions.setChecked(eval(pcData["fVersion"]))
-
-            for i in sorted(loadFunctions):
-                if pcData[i] is not None:
-                    loadFunctions[i](pcData[i])
-
-            for i in self.forceVersionPlugins:
-                if pcData["%s_version" % i] is not None:
-                    self.forceVersionPlugins[i]["le"].setText(pcData["%s_version" % i])
+                if "%s_version" % i in gblData:
+                    self.forceVersionPlugins[i]["le"].setText(gblData["%s_version" % i])
 
         else:
             self.l_localPath.setEnabled(False)
@@ -761,6 +699,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.pfpsToggled(self.chb_curPuseFps.isChecked())
         self.w_curPfps.setToolTip(
             "When this option is enabled, Prism checks the fps of scenefiles when they are opened and shows a warning, if they don't match the project fps."
+        )
+
+        self.prjResolutionToggled(self.chb_prjResolution.isChecked())
+        self.w_prjResolution.setToolTip(
+            "When this option is enabled, Prism checks the resolution of Nuke scripts when they are opened and shows a warning, if they don't match the project resolution."
         )
 
     @err_catcher(name=__name__)
@@ -877,10 +820,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                     "lexample": l_examplePath,
                 }
 
-                self.core.getPlugin(i).prismSettings_loadUI(self, tab)
+                getattr(self.core.getPlugin(i), "prismSettings_loadUI", lambda x, y: None)(self, tab)
 
                 lo_tab.addStretch()
-
                 self.dccTabs.addTab(tab, i)
 
         if self.dccTabs.count() > 0:
@@ -890,9 +832,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         self.tab_dccApps.layout().addStretch()
 
-        self.tw_plugins.setColumnCount(4)
+        self.tw_plugins.setColumnCount(5)
         self.tw_plugins.setHorizontalHeaderLabels(
-            ["Name", "Type", "Version", "Location"]
+            ["Active", "Name", "Type", "Version", "Location"]
         )
         self.tw_plugins.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
         self.tw_plugins.verticalHeader().setDefaultSectionSize(25)
@@ -947,73 +889,103 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.tw_plugins.setSortingEnabled(False)
 
         plugins = self.core.getLoadedPlugins()
+        plugins["inactive"] = self.core.inactivePlugins
 
         for pType in plugins:
             for pluginName in plugins[pType]:
+                activeCheckBox = QCheckBox("")
+                if pType == "inactive":
+                    version = ""
+                    location = ""
+                    pluginPath = plugins[pType][pluginName]
+                else:
+                    activeCheckBox.setChecked(True)
+                    version = plugins[pType][pluginName].version
+                    location = (plugins[pType][pluginName]
+                                .location.replace("prismRoot", "Root")
+                                .replace("prismProject", "Project")
+                                )
+                    pluginPath = plugins[pType][pluginName].pluginPath
+                activeCheckBox.toggled.connect(lambda x, y=pluginPath: self.loadPlugins([y], unload=not x))
+                activeItem = QTableWidgetItem()
                 nameItem = QTableWidgetItem(pluginName)
                 typeItem = QTableWidgetItem(pType)
-                versionItem = QTableWidgetItem(plugins[pType][pluginName].version)
-                locItem = QTableWidgetItem(
-                    plugins[pType][pluginName]
-                    .location.replace("prismRoot", "Root")
-                    .replace("prismProject", "Project")
-                )
+                versionItem = QTableWidgetItem(version)
+                locItem = QTableWidgetItem(location)
 
-                nameItem.setData(Qt.UserRole, plugins[pType][pluginName])
+                activeItem.setData(Qt.UserRole, pluginPath)
 
                 rc = self.tw_plugins.rowCount()
                 self.tw_plugins.insertRow(rc)
 
-                self.tw_plugins.setItem(rc, 0, nameItem)
-                self.tw_plugins.setItem(rc, 1, typeItem)
-                self.tw_plugins.setItem(rc, 2, versionItem)
-                self.tw_plugins.setItem(rc, 3, locItem)
+                self.tw_plugins.setItem(rc, 0, activeItem)
+                self.tw_plugins.setItem(rc, 1, nameItem)
+                self.tw_plugins.setItem(rc, 2, typeItem)
+                self.tw_plugins.setItem(rc, 3, versionItem)
+                self.tw_plugins.setItem(rc, 4, locItem)
+
+                self.tw_plugins.setCellWidget(rc, 0, activeCheckBox)
 
         self.tw_plugins.resizeColumnsToContents()
-        self.tw_plugins.setColumnWidth(0, 450)
-        self.tw_plugins.setColumnWidth(1, 120)
-        self.tw_plugins.setColumnWidth(2, 80)
+        self.tw_plugins.setColumnWidth(1, 450)
+        self.tw_plugins.setColumnWidth(2, 120)
+        self.tw_plugins.setColumnWidth(3, 80)
         self.tw_plugins.setSortingEnabled(True)
-        self.tw_plugins.sortByColumn(0, Qt.AscendingOrder)
+        self.tw_plugins.sortByColumn(1, Qt.AscendingOrder)
 
     @err_catcher(name=__name__)
-    def unloadPlugins(self):
-        for i in self.tw_plugins.selectedItems():
-            if i.column() != 0:
-                continue
+    def loadPlugins(self, plugins=None, selected=False, unload=False):
+        if plugins is None and selected:
+            plugins = []
+            for i in self.tw_plugins.selectedItems():
+                if i.column() != 0:
+                    continue
 
-            plugin = i.data(Qt.UserRole)
-            if plugin == self.core.appPlugin:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Prism",
-                    "Cannot unload the currently active app plugin.",
-                )
-                continue
-            elif plugin in self.core.unloadedAppPlugins.values():
-                cat = self.core.unloadedAppPlugins
-            elif plugin in self.core.rfManagers.values():
-                cat = self.core.rfManagers
-            elif plugin in self.core.prjManagers.values():
-                cat = self.core.prjManagers
-            elif plugin in self.core.customPlugins.values():
-                cat = self.core.customPlugins
+                pluginPath = i.data(Qt.UserRole)
+                if pluginPath:
+                    plugins.append(pluginPath)
 
-            self.core.unloadPlugin(plugin.pluginName, cat)
+        if not plugins:
+            return
+
+        for pluginPath in plugins:
+            pluginName = self.core.plugins.getPluginNameFromPath(pluginPath)
+            if unload:
+                if pluginName == self.core.appPlugin.pluginName:
+                    self.core.popup("Cannot unload the currently active app plugin.")
+                    if len(plugins) == 1:
+                        return
+                    else:
+                        continue
+
+                self.core.plugins.deactivatePlugin(pluginName)
+            else:
+                self.core.plugins.activatePlugin(pluginPath)
 
         if os.path.exists(self.core.prismIni):
             self.core.changeProject(self.core.prismIni)
 
-        self.core.prismSettings(tab=5)
+        self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
-    def reloadPlugins(self):
-        self.core.reloadPlugins()
+    def reloadPlugins(self, plugins=None, selected=False):
+        if plugins is None and selected:
+            plugins = []
+            for i in self.tw_plugins.selectedItems():
+                if i.column() != 0:
+                    continue
+
+                pluginPath = i.data(Qt.UserRole)
+                if pluginPath:
+                    pluginName = self.core.plugins.getPluginNameFromPath(pluginPath)
+                    plugins.append(pluginName)
+
+        self.core.reloadPlugins(plugins)
 
         if os.path.exists(self.core.prismIni):
             self.core.changeProject(self.core.prismIni)
 
-        self.core.prismSettings(tab=5)
+        self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
     def createPlugin(self):
@@ -1046,7 +1018,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             if i.column() != 0:
                 continue
 
-            plugin = i.data(Qt.UserRole)
+            pluginPath = i.data(Qt.UserRole)
+            pluginName = self.core.plugins.getPluginNameFromPath(pluginPath)
+            plugin = self.core.plugins.getPlugin(pluginName)
             self.core.openFolder(plugin.pluginPath)
 
     @err_catcher(name=__name__)
@@ -1090,24 +1064,21 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     @err_catcher(name=__name__)
     def setUpdateStatus(self, status=None, checkTime=None):
         if not status or not checkTime:
-            ucData = {}
+            result = self.core.getConfig()
+            gblData = result.get("globals", {})
 
-            ucData["updateStatus"] = ["globals", "update_status"]
-            ucData["updateCheckTime"] = ["globals", "lastUpdateCheck"]
-
-            result = self.core.getConfig(data=ucData)
-            status = result["updateStatus"] or ""
-            checkTime = result["updateCheckTime"] or ""
+            status = gblData.get("update_status", "")
+            checkTime = gblData.get("lastUpdateCheck", "")
 
         if checkTime:
             checkTime = datetime.datetime.strptime(checkTime, "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M:%S   %d.%m.%Y")
 
         if "update available" in status:
-            self.l_updateInfo.setStyleSheet("QLabel { color: rgba(250,150,50); }")
+            self.l_updateInfo.setStyleSheet("QLabel { color: rgb(250,150,50); }")
             self.b_checkForUpdates.setText("Update")
             self.l_updateInfo.setText(status)
         elif status == "latest version installed":
-            self.l_updateInfo.setStyleSheet("QLabel { color: rgba(100,200,100); }")
+            self.l_updateInfo.setStyleSheet("QLabel { color: rgb(100,200,100); }")
             self.b_checkForUpdates.setText("Check now")
             self.l_updateInfo.setText("%s - last check %s" % (status, checkTime))
         else:
@@ -1123,7 +1094,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     def startTray(self):
         if platform.system() == "Windows":
             slavePath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
-            pythonPath = os.path.join(self.core.prismRoot, "Python27", "PrismTray.exe")
+            pythonPath = os.path.join(self.core.prismRoot, pyLibs, "Prism Tray.exe")
             for i in [slavePath, pythonPath]:
                 if not os.path.exists(i):
                     QMessageBox.warning(
@@ -1143,7 +1114,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
     @err_catcher(name=__name__)
     def enterEvent(self, event):
-        QApplication.restoreOverrideCursor()
+        try:
+            QApplication.restoreOverrideCursor()
+        except:
+            pass
 
 
 if __name__ == "__main__":
@@ -1159,7 +1133,7 @@ if __name__ == "__main__":
     qapp.setWindowIcon(appIcon)
     import PrismCore
 
-    pc = PrismCore.PrismCore(prismArgs=["loadProject", "silent"])
+    pc = PrismCore.PrismCore(prismArgs=["loadProject", "noProjectBrowser"])
 
     pc.prismSettings()
     qapp.exec_()

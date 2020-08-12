@@ -54,6 +54,9 @@ class Prism_Nuke_Functions(object):
         self.core = core
         self.plugin = plugin
 
+        self.isRendering = [False, ""]
+        self.useLastVersion = False
+
     @err_catcher(name=__name__)
     def startup(self, origin):
         origin.timer.stop()
@@ -79,11 +82,11 @@ class Prism_Nuke_Functions(object):
 
         nuke.addOnScriptLoad(origin.sceneOpen)
 
-        self.isRendering = [False, ""]
-        self.useLastVersion = False
-
     @err_catcher(name=__name__)
     def addMenus(self):
+        gdir = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), "Gizmos")
+        nuke.pluginAddPath(gdir)
+
         nuke.menu("Nuke").addCommand("Prism/Save Version", self.core.saveScene)
         nuke.menu("Nuke").addCommand("Prism/Save Comment", self.core.saveWithComment)
         nuke.menu("Nuke").addCommand("Prism/Project Browser", self.core.projectBrowser)
@@ -165,6 +168,16 @@ class Prism_Nuke_Functions(object):
     @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
         return nuke.knob("root.fps", str(fps))
+
+    @err_catcher(name=__name__)
+    def getResolution(self, origin):
+        resFormatStr = nuke.knob("root.format")
+        resFormat = [int(resFormatStr.split()[0]), int(resFormatStr.split()[1])]
+        return resFormat
+
+    @err_catcher(name=__name__)
+    def setResolution(self, origin, resolution):
+        return nuke.knob("root.format", "%s %s" % (resolution[0], resolution[1]))
 
     @err_catcher(name=__name__)
     def updateNukeNodes(self):
@@ -265,7 +278,6 @@ class Prism_Nuke_Functions(object):
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
-        origin.loadOiio()
         origin.actionStateManager.setEnabled(False)
 
     @err_catcher(name=__name__)
@@ -355,6 +367,11 @@ class Prism_Nuke_Functions(object):
 
     @err_catcher(name=__name__)
     def nukeLayout(self, origin):
+        if nuke.env["nc"]:
+            msg = "This feature is disabled because of the scripting limitations in Nuke non-commercial."
+            self.core.popup(msg)
+            return
+
         allExistingNodes = nuke.allNodes()
         try:
             allBBx = max([node.xpos() for node in allExistingNodes])
@@ -878,3 +895,22 @@ class Prism_Nuke_Functions(object):
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
         pass
+
+    @err_catcher(name=__name__)
+    def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
+        """
+        origin:     PrismCore instance
+        filepath:   The filepath of the scenefile, which was saved
+        versionUp:  (bool) True if this save increments the version of that scenefile
+        comment:    The string, which is used as the comment for the scenefile. Empty string if no comment was given.
+        isPublish:  (bool) True if this save was triggered by a publish
+        """
+        self.refreshWriteNodes()
+
+    @err_catcher(name=__name__)
+    def refreshWriteNodes(self):
+        for node in nuke.allNodes():
+            nodeClass = node.Class()
+
+            if nodeClass == "WritePrism":
+                node.knob("refresh").execute()

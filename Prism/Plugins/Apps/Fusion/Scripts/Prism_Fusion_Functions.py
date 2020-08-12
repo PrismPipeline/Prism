@@ -229,7 +229,6 @@ class Prism_Fusion_Functions(object):
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
-        origin.loadOiio()
         origin.actionStateManager.setEnabled(False)
 
     @err_catcher(name=__name__)
@@ -290,7 +289,7 @@ class Prism_Fusion_Functions(object):
             firstFrame = i[1]
             lastFrame = i[2]
 
-            filePath = filePath.replace("####", "%04d" % firstFrame)
+            filePath = filePath.replace("#"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame)
 
             tool = self.fusion.GetCurrentComp().AddTool("Loader", -32768, -32768)
             tool.Clip = filePath
@@ -313,7 +312,7 @@ class Prism_Fusion_Functions(object):
             firstFrame = i[1]
             lastFrame = i[2]
 
-            filePath = filePath.replace("####", "%04d" % firstFrame)
+            filePath = filePath.replace("#"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame)
 
             self.fusion.GetCurrentComp().CurrentFrame.FlowView.Select()
             tool = self.fusion.GetCurrentComp().AddTool("Loader", -32768, -32768)
@@ -340,7 +339,7 @@ class Prism_Fusion_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_startup(self, origin):
-        origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):

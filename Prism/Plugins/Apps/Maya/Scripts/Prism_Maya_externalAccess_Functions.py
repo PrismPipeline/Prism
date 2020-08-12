@@ -74,16 +74,42 @@ class Prism_Maya_externalAccess_Functions(object):
             if not os.path.exists(self.core.prismIni):
                 origin.b_addModulePath.setEnabled(False)
 
-    @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin):
-        pass
+        origin.w_sceneType = QWidget()
+        origin.l_sceneType = QLabel("Save scene as:")
+        origin.cb_sceneType = QComboBox()
+        lo_sceneType = QHBoxLayout()
+        origin.w_sceneType.setLayout(lo_sceneType)
+        lo_sceneType.setContentsMargins(0, 9, 0, 9)
+        lo_sceneType.addStretch()
+        lo_sceneType.addWidget(origin.l_sceneType)
+        lo_sceneType.addWidget(origin.cb_sceneType)
+        tab.layout().addWidget(origin.w_sceneType)
+
+        self.saveSceneTypes = [
+            ".ma",
+            ".mb",
+            ".ma (prefer current scene type)",
+            ".mb (prefer current scene type)",
+        ]
+
+        origin.cb_sceneType.addItems(self.saveSceneTypes)
 
     @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin):
-        pass
+    def prismSettings_saveSettings(self, origin, settings):
+        if "maya" not in settings:
+            settings["maya"] = {}
+
+        settings["maya"]["saveSceneType"] = origin.cb_sceneType.currentText()
+
+    @err_catcher(name=__name__)
+    def prismSettings_loadSettings(self, origin, settings):
+        if "maya" in settings:
+            if "saveSceneType" in settings["maya"]:
+                origin.cb_sceneType.setCurrentText(settings["maya"]["saveSceneType"])
 
     @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):
+        autobackpath = ""
         if self.core.appPlugin.pluginName == "Maya":
             autobackpath = self.executeScript(
                 origin, "cmds.autoSave( q=True, destinationFolder=True )"
@@ -98,21 +124,6 @@ class Prism_Maya_externalAccess_Functions(object):
                     "default",
                     "autosave",
                 )
-            else:
-                if tab == "a":
-                    autobackpath = os.path.join(
-                        origin.tw_aHierarchy.currentItem().text(1),
-                        "Scenefiles",
-                        origin.lw_aPipeline.currentItem().text(),
-                    )
-                elif tab == "sf":
-                    autobackpath = os.path.join(
-                        origin.sBasePath,
-                        origin.cursShots,
-                        "Scenefiles",
-                        origin.cursStep,
-                        origin.cursCat,
-                    )
 
         fileStr = "Maya Scene File ("
         for i in self.sceneFormats:

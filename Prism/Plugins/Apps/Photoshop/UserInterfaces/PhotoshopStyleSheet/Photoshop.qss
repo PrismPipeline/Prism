@@ -1687,7 +1687,7 @@ QRadioButton:disabled {
 }
 
 QRadioButton {
-    color: black;
+    color: white;
 }
 
 QRadioButton:disabled {

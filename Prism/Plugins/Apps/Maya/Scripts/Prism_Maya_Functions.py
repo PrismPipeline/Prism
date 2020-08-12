@@ -181,10 +181,44 @@ class Prism_Maya_Functions(object):
         return self.sceneFormats[0]
 
     @err_catcher(name=__name__)
-    def saveScene(self, origin, filepath, details={}):
+    def saveScene(self, origin, filepath, details=None, allowChangedExtension=True):
+        if allowChangedExtension:
+            saveSceneType = self.core.getConfig("maya", "saveSceneType")
+            if saveSceneType == ".ma":
+                sType = "mayaAscii"
+            elif saveSceneType == ".mb":
+                sType = "mayaBinary"
+            else:
+                curExt = os.path.splitext(self.core.getCurrentFileName())[1]
+                if curExt == ".ma":
+                    sType = "mayaAscii"
+                elif curExt == ".mb":
+                    sType = "mayaBinary"
+                else:
+                    if saveSceneType == ".ma (prefer current scene type)":
+                        sType = "mayaAscii"
+                    elif saveSceneType == ".mb (prefer current scene type)":
+                        sType = "mayaBinary"
+                    else:
+                        sType = "mayaAscii"
+
+            if sType == "mayaBinary":
+                sceneExtension = ".mb"
+            else:
+                sceneExtension = ".ma"
+
+            filepath = os.path.splitext(filepath)[0] + sceneExtension
+        else:
+            ext = os.path.splitext(filepath)[1]
+            if ext == ".mb":
+                sType = "mayaBinary"
+            else:
+                sType = "mayaAscii"
+
         cmds.file(rename=filepath)
+
         try:
-            return cmds.file(save=True, type="mayaAscii")
+            return cmds.file(save=True, type=sType)
         except:
             return False
 
@@ -203,6 +237,11 @@ class Prism_Maya_Functions(object):
         endframe = cmds.playbackOptions(q=True, maxTime=True)
 
         return [startframe, endframe]
+
+    @err_catcher(name=__name__)
+    def getCurrentFrame(self):
+        currentFrame = cmds.currentTime(q=True)
+        return currentFrame
 
     @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
@@ -232,12 +271,24 @@ class Prism_Maya_Functions(object):
             )
 
     @err_catcher(name=__name__)
+    def getResolution(self):
+        width = cmds.getAttr("defaultResolution.width")
+        height = cmds.getAttr("defaultResolution.height")
+        return width, height
+
+    @err_catcher(name=__name__)
+    def setResolution(self, width=None, height=None):
+        if width:
+            cmds.setAttr("defaultResolution.width", width)
+        if height:
+            cmds.setAttr("defaultResolution.height", height)
+
+    @err_catcher(name=__name__)
     def getAppVersion(self, origin):
         return str(cmds.about(apiVersion=True))
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
-        origin.loadOiio()
         # 	origin.sl_preview.mousePressEvent = origin.sliderDrag
         origin.sl_preview.mousePressEvent = origin.sl_preview.origMousePressEvent
 
@@ -356,7 +407,7 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_startup(self, origin):
-        origin.loadOiio()
+        pass
 
     @err_catcher(name=__name__)
     def shotgunPublish_startup(self, origin):
@@ -367,10 +418,11 @@ class Prism_Maya_Functions(object):
         if objects:
             cmds.select(objects)
 
+        setName = self.validate(origin.l_taskName.text())
         for i in cmds.ls(selection=True, long=True):
-            if not i in origin.nodes:
+            if i not in origin.nodes:
                 try:
-                    cmds.sets(i, include=origin.l_taskName.text())
+                    cmds.sets(i, include=setName)
                 except Exception as e:
                     QMessageBox.warning(
                         self.core.messageParent,
@@ -386,13 +438,7 @@ class Prism_Maya_Functions(object):
     @err_catcher(name=__name__)
     def getNodeName(self, origin, node):
         if self.isNodeValid(origin, node):
-            try:
-                return str(cmds.ls(node)[0])
-            except:
-                QMessageBox.warning(
-                    self.core.messageParent, "Warning", "Cannot get name from %s" % node
-                )
-                return node
+            return cmds.ls(node)[0]
         else:
             return "invalid"
 
@@ -442,10 +488,6 @@ class Prism_Maya_Functions(object):
             "QFrame { border: 0px solid rgb(150,150,150); }"
         )
         origin.w_additionalOptions.setVisible(False)
-
-        if not origin.stateManager.loading:
-            origin.l_taskName.setText(cmds.sets(name="Export1"))
-            origin.b_changeTask.setPalette(origin.oldPalette)
 
         origin.w_exportNamespaces = QWidget()
         origin.lo_exportNamespaces = QHBoxLayout()
@@ -534,12 +576,19 @@ class Prism_Maya_Functions(object):
         )
 
     @err_catcher(name=__name__)
+    def validate(self, string):
+        vstr = self.core.validateStr(string, allowChars=["_"], denyChars=["-"])
+        return vstr
+
+    @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
-        origin.l_taskName.setText(cmds.rename(prevTaskName, newTaskName))
+        prev = self.validate(prevTaskName)
+        origin.l_taskName.setText(cmds.rename(prev, newTaskName))
 
     @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
-        cmds.sets(node, remove=origin.l_taskName.text())
+        setName = self.validate(origin.l_taskName.text())
+        cmds.sets(node, remove=setName)
 
     @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
@@ -550,14 +599,14 @@ class Prism_Maya_Functions(object):
     @err_catcher(name=__name__)
     def sm_export_updateObjects(self, origin):
         prevSel = cmds.ls(selection=True, long=True)
+        setName = self.validate(origin.l_taskName.text())
         try:
             # the nodes in the set need to be selected to get their long dag path
-            cmds.select(origin.l_taskName.text())
+            cmds.select(setName)
         except:
-            cmds.sets(name=origin.l_taskName.text())
+            cmds.sets(name=setName)
 
-        setNodes = cmds.ls(selection=True, long=True)
-        origin.nodes = [str(x) for x in setNodes]
+        origin.nodes = cmds.ls(selection=True, long=True)
         try:
             cmds.select(prevSel, noExpand=True)
         except:
@@ -596,13 +645,14 @@ class Prism_Maya_Functions(object):
     ):
         cmds.select(clear=True)
         if nodes is None:
-            if not self.isNodeValid(origin, origin.l_taskName.text()):
+            setName = self.validate(origin.l_taskName.text())
+            if not self.isNodeValid(origin, setName):
                 return (
                     'Canceled: The selection set "%s" is invalid.'
-                    % origin.l_taskName.text()
+                    % setName
                 )
 
-            cmds.select(origin.l_taskName.text(), noExpand=True)
+            cmds.select(setName, noExpand=True)
             expNodes = origin.nodes
         else:
             cmds.select(nodes)
@@ -958,8 +1008,9 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
+        setName = self.validate(origin.l_taskName.text())
         try:
-            cmds.delete(origin.l_taskName.text())
+            cmds.delete(setName)
         except:
             pass
 
@@ -1433,10 +1484,16 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 "defaultRenderGlobals.exrCompression"
             )
 
-            if curRenderer in ["mayaSoftware", "mayaHardware", "mayaVector"]:
-                rndFormat = 4  # .tif
-            else:
-                rndFormat = 40  # .exr
+            if imgFormat == ".exr":
+                if curRenderer in ["mayaSoftware", "mayaHardware", "mayaVector"]:
+                    rndFormat = 4  # .tif
+                else:
+                    rndFormat = 40  # .exr
+            elif imgFormat == ".png":
+                rndFormat = 32
+            elif imgFormat == ".jpg":
+                rndFormat = 8
+
             cmds.setAttr("defaultRenderGlobals.imageFormat", rndFormat)
             cmds.setAttr("defaultRenderGlobals.exrPixelType", 1)  # 16 bit
             cmds.setAttr("defaultRenderGlobals.exrCompression", 3)  # ZIP compression
@@ -1463,39 +1520,37 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             editor = cmds.renderWindowEditor("renderView")
         cmds.renderWindowEditor(editor, e=True, currentCamera=rndCam)
 
-        if origin.chb_globalRange.isChecked():
-            jobFrames = [
-                origin.stateManager.sp_rangeStart.value(),
-                origin.stateManager.sp_rangeEnd.value(),
-            ]
+        if rSettings["startFrame"] is None:
+            frameChunks = [[x, x] for x in rSettings["frames"]]
         else:
-            jobFrames = [origin.sp_rangeStart.value(), origin.sp_rangeEnd.value()]
+            frameChunks = [[rSettings["startFrame"], rSettings["endFrame"]]]
 
         try:
             curRenderer = cmds.getAttr("defaultRenderGlobals.currentRenderer")
             if curRenderer == "vray":
-                rSettings["startFrame"] = cmds.getAttr(
+                rSettings["prev_startFrame"] = cmds.getAttr(
                     "defaultRenderGlobals.startFrame"
                 )
-                rSettings["endFrame"] = cmds.getAttr("defaultRenderGlobals.endFrame")
+                rSettings["prev_endFrame"] = cmds.getAttr("defaultRenderGlobals.endFrame")
 
-                cmds.setAttr("defaultRenderGlobals.startFrame", jobFrames[0])
-                cmds.setAttr("defaultRenderGlobals.endFrame", jobFrames[1])
+                for frameChunk in frameChunks:
+                    cmds.setAttr("defaultRenderGlobals.startFrame", frameChunk[0])
+                    cmds.setAttr("defaultRenderGlobals.endFrame", frameChunk[1])
+                    mel.eval("renderWindowRender redoPreviousRender renderView;")
 
-                mel.eval("renderWindowRender redoPreviousRender renderView;")
             elif curRenderer == "redshift":
-                rSettings["startFrame"] = cmds.getAttr(
+                rSettings["prev_startFrame"] = cmds.getAttr(
                     "defaultRenderGlobals.startFrame"
                 )
-                rSettings["endFrame"] = cmds.getAttr("defaultRenderGlobals.endFrame")
-
-                cmds.setAttr("defaultRenderGlobals.startFrame", jobFrames[0])
-                cmds.setAttr("defaultRenderGlobals.endFrame", jobFrames[1])
+                rSettings["prev_endFrame"] = cmds.getAttr("defaultRenderGlobals.endFrame")
 
                 try:
-                    cmds.rsRender(
-                        render=True, blocking=True, animation=True, cam=rndCam
-                    )
+                    for frameChunk in frameChunks:
+                        cmds.setAttr("defaultRenderGlobals.startFrame", frameChunk[0])
+                        cmds.setAttr("defaultRenderGlobals.endFrame", frameChunk[1])
+                        cmds.rsRender(
+                            render=True, blocking=True, animation=True, cam=rndCam
+                        )
                 except RuntimeError as e:
                     if str(e) == "Maya command error":
                         warnStr = "Rendering canceled: %s" % origin.state.text(0)
@@ -1511,10 +1566,10 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     else:
                         raise e
             else:
-                for i in range(jobFrames[0], jobFrames[1] + 1):
-                    cmds.currentTime(i, edit=True)
-
-                    mel.eval("renderWindowRender redoPreviousRender renderView;")
+                for frameChunk in frameChunks:
+                    for i in range(frameChunk[0], frameChunk[1] + 1):
+                        cmds.currentTime(i, edit=True)
+                        mel.eval("renderWindowRender redoPreviousRender renderView;")
 
             tmpPath = os.path.join(os.path.dirname(rSettings["outputName"]), "tmp")
             if os.path.exists(tmpPath):
@@ -1604,10 +1659,10 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             cmds.setAttr("vraySettings.animType", rSettings["vr_animation"])
         if "vr_dontSave" in rSettings:
             cmds.setAttr("vraySettings.dontSaveImage", rSettings["vr_dontSave"])
-        if "startFrame" in rSettings:
-            cmds.setAttr("defaultRenderGlobals.startFrame", rSettings["startFrame"])
-        if "endFrame" in rSettings:
-            cmds.setAttr("defaultRenderGlobals.endFrame", rSettings["endFrame"])
+        if "prev_startFrame" in rSettings:
+            cmds.setAttr("defaultRenderGlobals.startFrame", rSettings["prev_startFrame"])
+        if "prev_endFrame" in rSettings:
+            cmds.setAttr("defaultRenderGlobals.endFrame", rSettings["prev_endFrame"])
         if "vr_imageFilePrefix" in rSettings:
             if rSettings["vr_imageFilePrefix"] is None:
                 rSettings["vr_imageFilePrefix"] = ""
@@ -2148,8 +2203,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         except:
             pass
 
-        setNodes = cmds.ls(selection=True, long=True)
-        origin.nodes = [str(x) for x in setNodes]
+        origin.nodes = cmds.ls(selection=True, long=True)
         try:
             cmds.select(prevSel)
         except:
@@ -2249,6 +2303,10 @@ Show only polygon objects in viewport.
         origin.chb_useRecommendedSettings.stateChanged.connect(
             origin.stateManager.saveStatesToScene
         )
+        if platform.system() == "Windows":
+            origin.cb_formats.addItem("avi (with audio)")
+
+        origin.cb_formats.addItem("qt (with audio)")
 
     @err_catcher(name=__name__)
     def sm_playblast_loadData(self, origin, data):
@@ -2323,9 +2381,20 @@ Show only polygon objects in viewport.
         cmds.setAttr("defaultRenderGlobals.imageFormat", self.playblastSettings["imageFormat"])
         outputName = outputName[:-5]
 
+        selFmt = origin.cb_formats.currentText()
+        if selFmt == "avi (with audio)":
+            fmt = "avi"
+        elif selFmt == "qt (with audio)":
+            fmt = "qt"
+        else:
+            fmt = "image"
+
+        aPlayBackSliderPython = mel.eval('$tmpVar=$gPlayBackSlider')
+        soundNode = cmds.timeControl(aPlayBackSliderPython, query=True, sound=True)
+
         cmdString = (
-            'cmds.playblast( startTime=%s, endTime=%s, format="image", percent=100, viewer=False, forceOverwrite=True, offScreen=True, showOrnaments=False, filename="%s"'
-            % (jobFrames[0], jobFrames[1], outputName.replace("\\", "\\\\"))
+            'cmds.playblast( startTime=%s, endTime=%s, format="%s", percent=100, viewer=False, forceOverwrite=True, offScreen=True, showOrnaments=False, filename="%s", sound="%s"'
+            % (jobFrames[0], jobFrames[1], fmt, outputName.replace("\\", "\\\\"), soundNode)
         )
 
         if origin.chb_resOverride.isChecked():
@@ -2336,7 +2405,9 @@ Show only polygon objects in viewport.
 
         cmdString += ")"
 
-        self.executeScript(origin, cmdString)
+        self.executeScript(origin, cmdString, logErr=False)
+        if len(os.listdir(os.path.dirname(outputName))) < 2 and fmt == "qt":
+            self.core.popup("Couldn't create quicktime video. Make sure quicktime is installed on your system and try again.")
 
     @err_catcher(name=__name__)
     def sm_playblast_preExecute(self, origin):
@@ -2430,7 +2501,14 @@ Show only polygon objects in viewport.
     def sm_readStates(self, origin):
         val = cmds.fileInfo("PrismStates", query=True)
         if len(val) != 0:
-            return eval('"%s"' % val[0].replace("\\\\", "\\"))
+            stateStr = val[0].decode('string_escape')
+
+            # for backwards compatibility with scenes created before v1.3.0
+            jsonData = self.core.configs.readJson(data=stateStr)
+            if not jsonData:
+                stateStr = eval("\"%s\"" % val[0].replace("\\\\", "\\"))
+
+            return stateStr
 
     @err_catcher(name=__name__)
     def sm_deleteStates(self, origin):
@@ -2446,18 +2524,9 @@ Show only polygon objects in viewport.
 
         prjPath = os.path.join(prjPath, "untitled")
         extFiles = []
-        for i in cmds.file(query=True, list=True):
-            try:
-                if self.core.fixPath(str(i)) != self.core.fixPath(prjPath):
-                    extFiles.append(self.core.fixPath(str(i)))
-            except UnicodeEncodeError:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Get external files",
-                    "Cannot process external filepath because it contains illegal characters:\n\n%s"
-                    % (unicode(i)),
-                    QMessageBox.Ok,
-                )
+        for path in cmds.file(query=True, list=True):
+            if self.core.fixPath(path) != self.core.fixPath(prjPath):
+                extFiles.append(self.core.fixPath(path))
 
         return [extFiles, []]
 
@@ -2466,10 +2535,14 @@ Show only polygon objects in viewport.
         origin.createPressed("Render")
 
     @err_catcher(name=__name__)
-    def sm_renderSettings_getCurrentSettings(self, origin):
+    def sm_renderSettings_getCurrentSettings(self, origin, asString=True):
         import maya.app.renderSetup.model.renderSettings as renderSettings
+        settings = renderSettings.encode()
 
-        settings = self.core.writeYaml(data=renderSettings.encode())
+        if not asString:
+            return settings
+
+        settings = self.core.writeYaml(data=settings)
         return settings
 
     @err_catcher(name=__name__)

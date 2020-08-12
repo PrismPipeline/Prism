@@ -22,16 +22,16 @@ The documentation can be found here: [Documentation](https://prism-pipeline.read
 
 * To install the latest development version download or clone this repository and the Prism dependencies for your OS:
 
-[Windows-dependencies](https://dl.dropboxusercontent.com/s/p39sdnkmtgqxml1/Prism1.2.0_depependencies_Win.zip?dl=0)
+[Windows-dependencies](https://dl.dropboxusercontent.com/s/w6yj55g3x3m5qx4/Prism_v1.3.0.0_dependencies_win.zip?dl=1)
 
-[Linux-dependencies](https://dl.dropboxusercontent.com/s/0ivvj69dv5a62z9/Prism1.2.0_depependencies_Linux.zip?dl=0)
+[Linux-dependencies](https://dl.dropboxusercontent.com/s/n43ffvhasye066l/Prism_v1.3.0.0_dependencies_linux.zip?dl=1)
 
-[MacOSX-dependencies](https://dl.dropboxusercontent.com/s/2ylt2z5anipks75/Prism1.2.0_depependencies_Mac.zip?dl=0)
+[MacOSX-dependencies](https://dl.dropboxusercontent.com/s/f2jebuvq62xf1xq/Prism_v1.3.0.0_dependencies_mac.zip?dl=1)
 
-* Extract the dependencies and copy the extracted folders into Prism/PrismFiles of this repository.
+* Extract the dependencies and copy the extracted folders into Prism/Prism of this repository.
 
-* Now the "PrismFiles" folder should contain the folders like:
-"ProjectFiles", "Python27", "PythonLibs"...
+* Now the "Prism" folder should contain the folders like:
+"ProjectFiles", "Python37", "PythonLibs"...
 
 * Now go two folders up and execute the Prism_Setup file.
 
