@@ -152,10 +152,7 @@ except Exception as e:
             self.core.prismRoot,
         )
 
-        if platform.system() == "Windows":
-            pythonPath = os.path.join(self.core.prismRoot, "Python37", "pythonw.exe")
-        else:
-            pythonPath = "python"
+        pythonPath = self.core.getPythonPath()
 
         result = subprocess.Popen(
             [pythonPath, "-c", pStr],
@@ -433,11 +430,7 @@ or move Prism to a location where no admin privileges are required." % target)
                     pass
 
         corePath = os.path.join(self.core.prismRoot, "Scripts", "PrismCore.py")
-
-        if platform.system() == "Windows":
-            pythonPath = os.path.join(self.core.prismRoot, "Python37", "pythonw.exe")
-        else:
-            pythonPath = "python"
+        pythonPath = self.core.getPythonPath()
 
         result = subprocess.Popen(
             [pythonPath, corePath, "silent", "refreshIntegrations"],
@@ -558,10 +551,7 @@ except Exception as e:
             self.core.prismRoot,
         )
 
-        if platform.system() == "Windows":
-            pythonPath = os.path.join(self.core.prismRoot, "Python37", "pythonw.exe")
-        else:
-            pythonPath = "python"
+        pythonPath = self.core.getPythonPath()
 
         result = subprocess.Popen(
             [pythonPath, "-c", pStr],

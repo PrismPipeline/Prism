@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.0"
+            self.version = "v1.3.0.1"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -382,12 +382,6 @@ class PrismCore:
         if result is not None:
             return result
 
-        if "silent" not in self.prismArgs and "tray" not in self.prismArgs and self.uiAvailable:
-            curPrj = self.getConfig("globals", "current project")
-            autoStart = self.getConfig("globals", "showonstartup")
-            if not curPrj and autoStart is not False:
-                self.projects.setProject(startup=True, openUi="projectBrowser")
-
         if "prism_project" in os.environ and os.path.exists(
             os.environ["prism_project"]
         ):
@@ -395,7 +389,12 @@ class PrismCore:
         else:
             curPrj = self.getConfig("globals", "current project")
 
-        if curPrj != "":
+        if "silent" not in self.prismArgs and "tray" not in self.prismArgs and self.uiAvailable:
+            autoStart = self.getConfig("globals", "showonstartup")
+            if not curPrj and autoStart is not False:
+                self.projects.setProject(startup=True, openUi="projectBrowser")
+
+        if curPrj:
             self.changeProject(curPrj)
             if (
                 "silent" not in self.prismArgs
@@ -1215,6 +1214,13 @@ License: GNU GPL-3.0-or-later<br>
         return validText
 
     @err_catcher(name=__name__)
+    def isStr(self, data):
+        if pVersion == 3:
+            return isinstance(data, str)
+        else:
+            return isinstance(data, basestring)
+
+    @err_catcher(name=__name__)
     def getCurrentFileName(self, path=True):
         currentFileName = self.appPlugin.getCurrentFileName(self, path)
         currentFileName = self.fixPath(currentFileName)
@@ -1311,7 +1317,12 @@ License: GNU GPL-3.0-or-later<br>
 
         sceneName = getattr(self, "_sceneName", "")
         if not sceneName:
-            self._sceneName = self.getConfig("paths", "scenes", configPath=self.prismIni)
+            sceneName = self.getConfig("paths", "scenes", configPath=self.prismIni)
+            if not sceneName:
+                self.core.popup("Required setting \"paths - scenes\" is missing in the project config.\n\nSet this setting to the scenefoldername in this config to solve this issue: %s" % self.prismIni)
+                return ""
+
+            self._sceneName = sceneName
 
         if location == "global":
             prjPath = self.projectPath
@@ -1893,6 +1904,21 @@ License: GNU GPL-3.0-or-later<br>
         self.setConfig(data=cData, configPath=infoFilePath)
 
     @err_catcher(name=__name__)
+    def getPythonPath(self):
+        if platform.system() == "Windows":
+            pythonPath = os.path.join(self.prismRoot, "Python37", "pythonw.exe")
+            if not os.path.exists(pythonPath):
+                pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
+                if not os.path.exists(pythonPath):
+                    pythonPath = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+                    if not os.path.exists(pythonPath):
+                        pythonPath = sys.executable
+        else:
+            pythonPath = "python"
+
+        return pythonPath
+
+    @err_catcher(name=__name__)
     def sendEmail(self, text, subject="Prism Error", quiet=False, attachment=None):
         if not quiet:
             waitmsg = QMessageBox(
@@ -1908,15 +1934,7 @@ License: GNU GPL-3.0-or-later<br>
             QCoreApplication.processEvents()
 
         try:
-            if platform.system() == "Windows":
-                pythonPath = os.path.join(self.prismRoot, "Python37", "pythonw.exe")
-                if not os.path.exists(pythonPath):
-                    pythonPath = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
-                    if not os.path.exists(pythonPath):
-                        pythonPath = sys.executable
-            else:
-                pythonPath = "python"
-
+            pythonPath = self.getPythonPath()
             attachment = attachment or ""
 
             scriptPath = os.path.join(os.path.dirname(PrismUtils.__file__), "SendEmail.py")
@@ -2058,12 +2076,12 @@ License: GNU GPL-3.0-or-later<br>
         if pVersion == 3:
             if not isinstance(text, str):
                 text = str(text)
-            if not isinstance(text, str):
+            if not isinstance(title, str):
                 title = str(title)
         else:
             if not isinstance(text, basestring):
                 text = unicode(text)
-            if not isinstance(text, basestring):
+            if not isinstance(title, basestring):
                 title = unicode(title)
 
         if "silent" not in self.prismArgs and self.uiAvailable:

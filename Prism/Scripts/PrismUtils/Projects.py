@@ -116,6 +116,13 @@ class Projects(object):
         if configPath is None:
             return
 
+        if sys.version[0] == "3":
+            if not isinstance(configPath, str):
+                return
+        else:
+            if not isinstance(configPath, basestring):
+                return
+
         if os.path.isdir(configPath):
             if os.path.basename(configPath) == "00_Pipeline":
                 configPath = os.path.join(configPath, "pipeline.yml")
@@ -199,18 +206,27 @@ class Projects(object):
         self.core.dv = None
 
         configPath = self.core.fixPath(configPath)
+        projectPath = os.path.abspath(
+            os.path.join(configPath, os.pardir, os.pardir)
+        )
+        if not projectPath.endswith(os.sep):
+            projectPath += os.sep
+        projectName = self.core.getConfig(
+            "globals", "project_name", configPath=configPath
+        )
+        projectVersion = (
+            self.core.getConfig("globals", "prism_version", configPath=configPath) or ""
+        )
+
+        if not projectName or not projectVersion:
+            self.core.popup("The project config doesn't contain all required information (project_name, project_version).\n\nCannot open project.")
+            return
+
         self.core.prismIni = configPath
-        self.core.projectPath = os.path.abspath(
-            os.path.join(self.core.prismIni, os.pardir, os.pardir)
-        )
-        if not self.core.projectPath.endswith(os.sep):
-            self.core.projectPath += os.sep
-        self.core.projectName = self.core.getConfig(
-            "globals", "project_name", configPath=self.core.prismIni
-        )
-        self.core.projectVersion = (
-            self.core.getConfig("globals", "prism_version", configPath=self.core.prismIni) or ""
-        )
+        self.core.projectPath = projectPath
+        self.core.projectName = projectName
+        self.core.projectVersion = projectVersion
+
         if (
             self.core.getConfig("globals", "uselocalfiles", configPath=self.core.prismIni)
             is not None
@@ -311,7 +327,20 @@ class Projects(object):
         if pItems and path == pItems[0] and action == "add":
             return
 
-        recentProjects = [self.core.fixPath(x) for x in pItems if x]
+        recentProjects = []
+        for pItem in pItems:
+            if not pItem:
+                continue
+
+            if sys.version[0] == "3":
+                if not isinstance(pItem, str):
+                    continue
+            else:
+                if not isinstance(pItem, basestring):
+                    continue
+
+            recentProjects.append(self.core.fixPath(pItem))
+
         recentProjects = [os.path.splitext(x)[0] + ".yml" for x in recentProjects]
 
         if path in recentProjects:

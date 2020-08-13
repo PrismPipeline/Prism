@@ -311,7 +311,11 @@ You will need to set your last project again, but no project files (like scenefi
                 return yamlData
 
             with open(path, "r") as config:
-                yamlData = yaml.load(config)
+                try:
+                    yamlData = yaml.load(config)
+                except Exception:
+                    self.core.popup("Failed to open file: %s" % path)
+                    return yamlData
         else:
             if not stream:
                 if not data:
@@ -424,25 +428,31 @@ You will need to set your last project again, but no project files (like scenefi
             pass
 
         for section in config.sections():
-            if section in ["recent_projects"] or section.startswith("recent_files"):
+            if section in ["recent_projects"] or section.startswith("recent_files") or os.path.basename(path) == "omits.ini":
                 toList = True
-                data[section] = []
+                if os.path.basename(path) == "omits.ini":
+                    data[section.lower()] = []
+                else:
+                    data[section] = []
             else:
                 toList = False
                 data[section] = OrderedDict([])
 
             items = config.items(section)
             for item in items:
-                if os.path.basename(path) == "omits.ini":
-                    section = section.lower()
-
                 try:
-                    val = eval(item[1])
+                    if os.path.basename(path) == "omits.ini":
+                        val = item[1]
+                    else:
+                        val = eval(item[1])
                 except:
                     val = item[1]
 
                 if toList:
-                    data[section].append(val)
+                    if os.path.basename(path) == "omits.ini":
+                        data[section.lower()].append(val)
+                    else:
+                        data[section].append(val)
                 else:
                     data[section][item[0]] = val
 

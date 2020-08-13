@@ -334,7 +334,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         rPrjPaths = self.core.getConfig(cat="recent_projects", dft=[])
         for prjPath in rPrjPaths:
-            if not prjPath or prjPath == self.core.prismIni:
+            if not prjPath or not self.core.isStr(prjPath) or prjPath == self.core.prismIni:
                 continue
 
             rpName = self.core.getConfig("globals", "project_name", configPath=prjPath)

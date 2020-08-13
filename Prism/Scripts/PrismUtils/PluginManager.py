@@ -184,6 +184,19 @@ class PluginManager(object):
         if pluginName == "PluginEmpty":
             return
 
+        if pluginName == "LoadExternalPlugins":
+            result = self.core.getConfig("plugins", "load_deprExternalPlugins")
+            if result is None:
+                qstr = "Deprecated plugin found: \"LoadExternalPlugins\"\nLoading this plugin can cause errors if you haven't modified it to work with this Prism version.\n\nAre you sure you want to load this plugin? (if unsure click \"No\")"
+                answer = self.core.popupQuestion(qstr, buttons=["Yes", "No"])
+                if answer == "No":
+                    self.core.setConfig("plugins", "load_deprExternalPlugins", False)
+                    return
+                else:
+                    self.core.setConfig("plugins", "load_deprExternalPlugins", True)
+            elif not result:
+                return
+
         initmodule = "Prism_%s_init" % pluginName
         pluginPath = os.path.join(path, "Scripts")
         initPath = os.path.join(pluginPath, initmodule + ".py")

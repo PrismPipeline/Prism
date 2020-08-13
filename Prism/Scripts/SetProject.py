@@ -105,7 +105,10 @@ class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
 
     @err_catcher(name=__name__)
     def enterEvent(self, event):
-        QApplication.restoreOverrideCursor()
+        try:
+            QApplication.restoreOverrideCursor()
+        except:
+            pass
 
     @err_catcher(name=__name__)
     def preCreate(self):

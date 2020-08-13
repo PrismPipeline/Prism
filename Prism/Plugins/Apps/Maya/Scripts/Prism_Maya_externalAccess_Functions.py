@@ -105,7 +105,10 @@ class Prism_Maya_externalAccess_Functions(object):
     def prismSettings_loadSettings(self, origin, settings):
         if "maya" in settings:
             if "saveSceneType" in settings["maya"]:
-                origin.cb_sceneType.setCurrentText(settings["maya"]["saveSceneType"])
+                saveType = settings["maya"]["saveSceneType"]
+                idx = origin.cb_sceneType.findText(saveType)
+                if idx != -1:
+                    origin.cb_sceneType.setCurrentIndex(idx)
 
     @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):

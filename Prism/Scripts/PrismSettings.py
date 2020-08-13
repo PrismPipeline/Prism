@@ -1094,7 +1094,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     def startTray(self):
         if platform.system() == "Windows":
             slavePath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
-            pythonPath = os.path.join(self.core.prismRoot, pyLibs, "Prism Tray.exe")
+            pythonPath = os.path.join(self.core.prismRoot, "Python37", "Prism Tray.exe")
             for i in [slavePath, pythonPath]:
                 if not os.path.exists(i):
                     QMessageBox.warning(

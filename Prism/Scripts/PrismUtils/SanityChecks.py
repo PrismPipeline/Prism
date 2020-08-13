@@ -67,6 +67,9 @@ class SanityChecks(object):
         if not checkImpVersions:
             return
 
+        if not getattr(self.core, "projectPath", None) or not os.path.exists(self.core.prismIni):
+            return
+
         paths = self.core.appPlugin.getImportPaths(self.core)
 
         if not paths:
@@ -93,7 +96,7 @@ class SanityChecks(object):
 
             if (
                 len(versionData) != 3
-                or not self.core.core.getScenePath().replace(self.core.core.projectPath, "")
+                or not self.core.core.getScenePath().replace(self.core.projectPath, "")
                 in i[0]
             ):
                 continue

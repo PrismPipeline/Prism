@@ -1,3 +1,55 @@
+v1.3.0.1:
+- several bugfixes
+
+v1.3.0.0:
+- added: Support for Mac Catalina
+- added: Support for DJV v2+
+- added: Automatic notification when a Prism update is available
+- added: Option to define custom export paths in the project config
+- added: Various additions and improvements to the API
+- added: Option to change the username abbreviation in the Prism Settings
+- added: Option to send error reports automatically
+- added: Option to attach a screengrab to feedback or error reports
+- added: (Project Browser) Option to convert media to .mov (prores)
+- added: (Project Browser) Option to preview .avi videos
+- added: (Project Browser) Drag&Drop media into the tasks list of the Project Browser to create an external task
+- added: (Project Browser) Categories for assets in the Project Browser (visible only in newly created projects)
+- added: (Project Browser) Assetinfo panel in the Project Browser (description and preview)
+- added: (Project Browser) Option to change the comment of scenefiles (added to the context menu in the Project Browser)
+- added: (Project Browser) Option to set the asset/shotpreviewimage by capturing a screen area (accessable from the contextmenu of the preview)
+- added: (Project Browser) Search bar for the assets and shots list in the Project Browser (start typing to show it, hit escape to hide it)
+- added: (State Manager) Extended framerange options for exports, playblasts and renderings (from scene, from shot, single frame, epxression and more)
+- added: (State Manager) Render Settings state to apply renderer specific settings and to manage presets for different render states
+- added: (State Manager) Option to render to .jpg and .png
+- added: (State Manager) Option to set the shotrange from the State Manager (from the context menu of the "Set" button)
+- added: (State Manager) Option to Import states to load always the latest version automatically
+- added: (Blender) Support on Linux
+- added: (Blender) Option to add AOVs in the State Manager
+- added: (Blender) Option to import individual objects or collections from another .blend file
+- added: (Houdini) Support for Houdini 18
+- added: (Houdini) Support for 3Delight
+- added: (Houdini) Support for V-Ray
+- added: (Houdini) Support for Arnold
+- added: (Houdini) Option to capture a screen area and use it as a preview in the network editor. This option can be accessed from the context menu of any Houdini node.
+- added: (Houdini) Option to delete Redshift AOVs from the State Manager
+- added: (Houdini) Support for multilayer EXRs with Redshift
+- added: (Houdini) Option to skip locked parameters of ROP nodes or canceling the publish if the parameter cannot be set. Allows to prevent parameter modifications through Prism during a publish
+- added: (Houdini) Option to override the take for exports and renderings
+- added: (Houdini) New environment variables: $PRISMJOBLOCAL, $PRISM_STEP, $PRISM_CATEGORY, $PRISM_USER, $PRISM_FILE_VERSION, $PRISM_ASSET, $PRISM_SEQUENCE, $PRISM_SHOT
+- added: (Maya) Option to apply alembic caches to existing objects in the scene
+- added: (Maya) Option to save scenes as .ma, .mb or using current scenetype
+- added: (Maya) Option to use recommmended playblast settings
+- added: (Maya) Option to create playblasts with audio (avi or qt)
+- added: (Maya): Support for mayapy
+- added: (Maya): Support for Maya 2020
+- added: (3ds Max) Support for 3ds Max 2020
+- added: (Nuke) Support for Nuke 12
+- added: (Photoshop) Support on Mac
+- added: (Photoshop) Support opening and saving as .psb files
+- added: (Photoshop) Support for exporting .exr files
+- changed: (Houdini) Prism is integrated now into Houdini through a package file
+- changed: (Houdini) Prism sets the $PRISMJOB variable to the current Prism project now (instead of $JOB in previous versions)
+
 v1.2.1.75:
 - added horizontal scroll bars to the asset and shot list when needed
 - fixed an error in Maya 2020 when the High DPI mode was enabled
