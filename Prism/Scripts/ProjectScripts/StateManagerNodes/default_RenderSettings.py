@@ -194,13 +194,14 @@ class RenderSettingsClass(object):
         if self.state:
             self.nameChanged(self.e_name.text())
 
-        settings = getattr(
-            self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x, y: {}
-        )(self, asString=False)
-        self.cb_addSetting.clear()
-        settingNames = [x.keys()[0] for x in settings]
-        settingNames.insert(0, "")
-        self.cb_addSetting.addItems(settingNames)
+        if not self.cb_addSetting.isHidden():
+            settings = getattr(
+                self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x, y: {}
+            )(self, asString=False)
+            self.cb_addSetting.clear()
+            settingNames = [x.keys()[0] for x in settings]
+            settingNames.insert(0, "")
+            self.cb_addSetting.addItems(settingNames)
 
     @err_catcher(name=__name__)
     def focusOut(self, event):

@@ -76,6 +76,7 @@ class ProjectEntities(object):
 
         self.omittedEntities["shot"] = oShots
         self.omittedEntities["asset"] = oAssets
+        self.omittedEntities["assetFolder"] = oAssets
 
     @err_catcher(name=__name__)
     def splitShotname(self, shotName):
@@ -299,17 +300,18 @@ class ProjectEntities(object):
             return {}
 
         if result["existed"]:
-            if entityName in self.omittedEntities[entityType] and self.core.uiAvailable:
+            eName = self.getAssetRelPathFromPath(entityName)
+            if eName in self.omittedEntities[entityType] and self.core.uiAvailable:
                 msgText = (
                     "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?"
-                    % (entityType, entityName)
+                    % (entityType, eName)
                 )
                 resultq = self.core.popupQuestion(msgText)
 
                 if resultq == "Yes":
-                    self.omitEntity(entityType, entityName, omit=False)
+                    self.omitEntity(entityType, eName, omit=False)
             else:
-                self.core.popup("The %s %s already exists" % (entityType, entityName))
+                self.core.popup("The %s already exists:\n\n%s" % (entityType, eName))
 
         return result
 
@@ -501,6 +503,9 @@ class ProjectEntities(object):
 
     @err_catcher(name=__name__)
     def omitEntity(self, entityType, entityName, omit=True):
+        if entityType == "assetFolder":
+            entityType = "asset"
+
         if omit:
             omits = self.core.getConfig(entityType, config="omit") or []
 

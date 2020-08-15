@@ -112,24 +112,47 @@ class Projects(object):
             self.core.popup("Invalid project folder")
 
     @err_catcher(name=__name__)
-    def changeProject(self, configPath, openUi="", settingsTab=2):
-        if configPath is None:
-            return
-
-        if sys.version[0] == "3":
-            if not isinstance(configPath, str):
-                return
-        else:
-            if not isinstance(configPath, basestring):
+    def changeProject(self, configPath=None, openUi="", settingsTab=2, unset=False):
+        if not unset:
+            if configPath is None:
                 return
 
-        if os.path.isdir(configPath):
-            if os.path.basename(configPath) == "00_Pipeline":
-                configPath = os.path.join(configPath, "pipeline.yml")
+            if sys.version[0] == "3":
+                if not isinstance(configPath, str):
+                    return
             else:
-                configPath = os.path.join(configPath, "00_Pipeline", "pipeline.yml")
+                if not isinstance(configPath, basestring):
+                    return
 
-        configPath = self.core.configs.findDeprecatedConfig(configPath) or configPath
+            if os.path.isdir(configPath):
+                if os.path.basename(configPath) == "00_Pipeline":
+                    configPath = os.path.join(configPath, "pipeline.yml")
+                else:
+                    configPath = os.path.join(configPath, "00_Pipeline", "pipeline.yml")
+
+            configPath = self.core.configs.findDeprecatedConfig(configPath) or configPath
+
+            if not os.path.exists(configPath):
+                self.core.popup("Cannot set project. File doesn't exist:\n\n%s" % configPath)
+                return
+
+            configPath = self.core.fixPath(configPath)
+            projectPath = os.path.abspath(
+                os.path.join(configPath, os.pardir, os.pardir)
+            )
+            if not projectPath.endswith(os.sep):
+                projectPath += os.sep
+
+            projectName = self.core.getConfig(
+                "globals", "project_name", configPath=configPath
+            )
+            projectVersion = (
+                self.core.getConfig("globals", "prism_version", configPath=configPath) or ""
+            )
+
+            if not projectName or not projectVersion:
+                self.core.popup("The project config doesn't contain all required information (project_name, project_version).\n\nCannot open project.")
+                return
 
         delModules = []
 
@@ -157,19 +180,6 @@ class Projects(object):
                     del sys.modules[i]
 
         self.core.unloadProjectPlugins()
-
-        if not os.path.exists(configPath):
-            self.core.prismIni = ""
-            self.core.setConfig("globals", "current project", "")
-            if hasattr(self.core, "projectName"):
-                del self.core.projectName
-            if hasattr(self.core, "projectPath"):
-                del self.core.projectPath
-            if hasattr(self.core, "useLocalFiles"):
-                del self.core.useLocalFiles
-
-            self.core.popup("Couldn't set project. File doesn't exist:\n\n%s" % configPath)
-            return
 
         openPb = False
         openSm = False
@@ -205,27 +215,25 @@ class Projects(object):
         self.core.ps = None
         self.core.dv = None
 
-        configPath = self.core.fixPath(configPath)
-        projectPath = os.path.abspath(
-            os.path.join(configPath, os.pardir, os.pardir)
-        )
-        if not projectPath.endswith(os.sep):
-            projectPath += os.sep
-        projectName = self.core.getConfig(
-            "globals", "project_name", configPath=configPath
-        )
-        projectVersion = (
-            self.core.getConfig("globals", "prism_version", configPath=configPath) or ""
-        )
-
-        if not projectName or not projectVersion:
-            self.core.popup("The project config doesn't contain all required information (project_name, project_version).\n\nCannot open project.")
+        if unset:
+            self.core.prismIni = ""
+            self.core.setConfig("globals", "current project", "")
+            if hasattr(self.core, "projectName"):
+                del self.core.projectName
+            if hasattr(self.core, "projectPath"):
+                del self.core.projectPath
+            if hasattr(self.core, "useLocalFiles"):
+                del self.core.useLocalFiles
+            if hasattr(self.core, "projectVersion"):
+                del self.core.projectVersion
             return
 
         self.core.prismIni = configPath
         self.core.projectPath = projectPath
         self.core.projectName = projectName
         self.core.projectVersion = projectVersion
+
+        self.core.configs.clearCache()
 
         if (
             self.core.getConfig("globals", "uselocalfiles", configPath=self.core.prismIni)
@@ -240,7 +248,7 @@ class Projects(object):
                 else:
                     result = self.core.getLocalPath()
                     if not result:
-                        self.core.changeProject("")
+                        self.core.changeProject(unset=True)
                         return
 
                 self.core.localProjectPath = self.core.fixPath(self.core.localProjectPath)
@@ -257,7 +265,7 @@ class Projects(object):
         self.core.versionFormatVan = self.core.getConfig("globals", "versionFormat", dft=self.core.versionFormatVan, configPath=configPath)
         self.core.versionFormat = self.core.versionFormatVan.replace("#", "%0{}d".format(self.core.versionPadding))
 
-        self.core.getScenePath()
+        self.core.getScenePath(cached=False)
         self.core.getShotPath()
         self.core.getAssetPath()
         self.core.getTexturePath()
@@ -332,12 +340,8 @@ class Projects(object):
             if not pItem:
                 continue
 
-            if sys.version[0] == "3":
-                if not isinstance(pItem, str):
-                    continue
-            else:
-                if not isinstance(pItem, basestring):
-                    continue
+            if not self.core.isStr(pItem):
+                continue
 
             recentProjects.append(self.core.fixPath(pItem))
 

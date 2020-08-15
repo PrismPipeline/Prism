@@ -1741,7 +1741,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.core.callback(name="onPublish", types=["custom"], args=[self])
 
         if executeState:
-            text = "Executing \"%s\" - please wait.." % self.execStates[0].state.text(0)
+            text = "Executing \"%s\" - please wait.." % self.execStates[0].ui.state.text(0)
             waitmsg = self.core.popupNoButton(text)
             if self.execStates[0].ui.className in [
                 "ImageRender",

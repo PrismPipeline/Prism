@@ -82,6 +82,10 @@ class ConfigManager(object):
             return self.generateConfigPath(name=config, location=location)
 
     @err_catcher(name=__name__)
+    def clearCache(self):
+        self.cachedConfigs = {}
+
+    @err_catcher(name=__name__)
     def createUserPrefs(self):
         if os.path.exists(self.core.userini):
             try:
@@ -264,7 +268,10 @@ You will need to set your last project again, but no project files (like scenefi
                 if delete:
                     if cat:
                         if param in configData[cat]:
-                            del configData[cat][param]
+                            if isinstance(configData[cat], list):
+                                configData[cat].remove(param)
+                            else:
+                                del configData[cat][param]
                 else:
                     if param:
                         configData[cat][param] = val

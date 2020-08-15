@@ -182,6 +182,9 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details=None, allowChangedExtension=True):
+        if not filepath:
+            filepath = "untitled"
+
         if allowChangedExtension:
             saveSceneType = self.core.getConfig("maya", "saveSceneType")
             if saveSceneType == ".ma":
@@ -583,7 +586,15 @@ class Prism_Maya_Functions(object):
     @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
         prev = self.validate(prevTaskName)
-        origin.l_taskName.setText(cmds.rename(prev, newTaskName))
+        if self.isNodeValid(origin, prev) and "objectSet" in cmds.nodeType(prev, inherited=True):
+            setName = cmds.rename(prev, newTaskName)
+        else:
+            if self.isNodeValid(origin, newTaskName) and "objectSet" in cmds.nodeType(newTaskName, inherited=True):
+                setName = newTaskName
+            else:
+                setName = cmds.sets(name=newTaskName)
+
+        origin.l_taskName.setText(setName)
 
     @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
@@ -2533,6 +2544,10 @@ Show only polygon objects in viewport.
     @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         origin.createPressed("Render")
+
+    @err_catcher(name=__name__)
+    def sm_renderSettings_startup(self, origin):
+        origin.cb_addSetting.setHidden(True)
 
     @err_catcher(name=__name__)
     def sm_renderSettings_getCurrentSettings(self, origin, asString=True):

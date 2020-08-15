@@ -141,7 +141,7 @@ class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
 
         rPrjPaths = self.core.getConfig(cat="recent_projects") or []
         for prjPath in rPrjPaths:
-            if not prjPath or prjPath == self.core.prismIni:
+            if not prjPath or not self.core.isStr(prjPath) or prjPath == self.core.prismIni:
                 continue
 
             rpName = self.core.getConfig(

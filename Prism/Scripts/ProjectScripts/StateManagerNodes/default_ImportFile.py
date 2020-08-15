@@ -147,6 +147,8 @@ class ImportFileClass(object):
             self.chb_preferUnit.setChecked(eval(data["preferunit"]))
             self.updatePrefUnits()
         if "connectednodes" in data:
+            if self.core.isStr(data["connectednodes"]):
+                data["connectednodes"] = eval(data["connectednodes"])
             self.nodes = [
                 x[1]
                 for x in data["connectednodes"]

@@ -72,7 +72,19 @@ class Lockfile(object):
     def release(self):
         if self.isLocked:
             os.close(self.lockFile)
-            os.remove(self.lockPath)
+            startTime = time.time()
+            while True:
+                try:
+                    if os.path.exists(self.lockPath):
+                        os.remove(self.lockPath)
+                    break
+                except:
+                    if time.time() - startTime >= self.timeout:
+                        self.core.popup("Couldn't remove lockfile:\n\n%s\n\nIt might be used by another process. Prism won't be able to write to this file as long as it's lockfile exists." % self.lockPath)
+                        break
+
+                time.sleep(self.delay)
+
             self.isLocked = False
 
     def __enter__(self):

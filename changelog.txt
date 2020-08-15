@@ -1,3 +1,14 @@
+v1.3.0.2:
+- fixed an error when trying to create an assetFolder, which already exists
+- fixed an error when restoring an omitted asset/shot
+- fixed an error when loading import states in scenes saved with Prism versions before v1.3.0
+- fixed an error when saving with the autosave popup when no scene is loaded in Maya
+- fixed an error when changing the taskname of an export state when the selectionset of that state was deleted in the scene
+- fixed an error when creating the Render Settings state in Maya
+- fixed an error when a lockfile couldn't be removed
+- fixed an error when opning the Set Project dialog when the userconfig contains invalid recent projects
+- fixed a bug that some settings were not updated correctly when switching projects
+
 v1.3.0.1:
 - several bugfixes
 

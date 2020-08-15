@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.1"
+            self.version = "v1.3.0.2"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -415,6 +415,10 @@ class PrismCore:
         if hasattr(self, "asThread") and self.asThread.isRunning():
             self.asObject.active = False
             self.asThread.quit()
+            if hasattr(self, "autosave_msg") and self.autosave_msg.isVisible():
+                self.autosave_msg.blockSignals(True)
+                self.autosave_msg.done(2)
+                self.autosave_msg.blockSignals(False)
 
         if quit:
             return
@@ -429,6 +433,7 @@ class PrismCore:
         self.asThread.started.connect(self.asObject.run)
         self.asObject.finished.connect(self.checkAutoSave)
         self.asThread.start()
+        logger.debug("started autosave thread")
 
     @err_catcher(name=__name__)
     def checkAutoSave(self):
@@ -440,10 +445,11 @@ class PrismCore:
         self.autosave_msg.setText("Autosave is disabled. Would you like to save now?")
         self.autosave_msg.addButton("Save", QMessageBox.YesRole)
         self.autosave_msg.addButton("Save new version", QMessageBox.YesRole)
-        self.autosave_msg.addButton("No", QMessageBox.YesRole)
+        b_no = self.autosave_msg.addButton("No", QMessageBox.YesRole)
         self.autosave_msg.addButton(
             "No, don't ask again in this session", QMessageBox.YesRole
         )
+        self.autosave_msg.setDefaultButton(b_no)
 
         self.parentWindow(self.autosave_msg)
         self.autosave_msg.finished.connect(self.autoSaveDone)
@@ -1311,18 +1317,24 @@ License: GNU GPL-3.0-or-later<br>
         return resolver.resolvePath(uri, uriType)
 
     @err_catcher(name=__name__)
-    def getScenePath(self, location="global"):
+    def getScenePath(self, location="global", cached=True):
         if not getattr(self, "projectPath", None):
             return ""
 
-        sceneName = getattr(self, "_sceneName", "")
+        sceneName = None
+        self._sceneName = None
+        self._scenePath = None
+
+        if cached:
+            sceneName = getattr(self, "_sceneName", "")
+
         if not sceneName:
             sceneName = self.getConfig("paths", "scenes", configPath=self.prismIni)
             if not sceneName:
-                self.core.popup("Required setting \"paths - scenes\" is missing in the project config.\n\nSet this setting to the scenefoldername in this config to solve this issue: %s" % self.prismIni)
+                self.core.popup("Required setting \"paths - scenes\" is missing in the project config.\n\nSet this setting to the scenefoldername in this config to solve this issue:\n\n%s" % self.prismIni)
                 return ""
 
-            self._sceneName = sceneName
+        self._sceneName = sceneName
 
         if location == "global":
             prjPath = self.projectPath
@@ -1429,6 +1441,8 @@ License: GNU GPL-3.0-or-later<br>
         if filepath == "":
             curfile = self.getCurrentFileName()
             filepath = curfile.replace("\\", "/")
+        else:
+            versionUp = False
 
         if prismReq:
             if not self.projects.ensureProject():
@@ -1437,7 +1451,7 @@ License: GNU GPL-3.0-or-later<br>
             if not self.users.ensureUser():
                 return False
 
-            if not self.fileInPipeline():
+            if not self.fileInPipeline(filepath):
                 title = "Could not save the file"
                 msg = "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline."
                 self.popup(msg, title=title)
@@ -1509,7 +1523,8 @@ License: GNU GPL-3.0-or-later<br>
         )
 
         result = self.appPlugin.saveScene(self, filepath, details)
-        self.saveSceneInfo(filepath, details, preview=preview)
+        if prismReq:
+            self.saveSceneInfo(filepath, details, preview=preview)
 
         self.callback(
             name="onSaveFile",
@@ -1665,6 +1680,9 @@ License: GNU GPL-3.0-or-later<br>
 
     @err_catcher(name=__name__)
     def addToRecent(self, filepath):
+        if not self.isStr(filepath):
+            return
+
         rSection = "recent_files_" + self.projectName
         recentfiles = list(self.getConfig(rSection, dft=[]))
         if filepath in recentfiles:
@@ -1939,11 +1957,11 @@ License: GNU GPL-3.0-or-later<br>
 
             scriptPath = os.path.join(os.path.dirname(PrismUtils.__file__), "SendEmail.py")
             args = [pythonPath, scriptPath]
-            args.append(self.prismRoot.replace("\\", "\\\\"))
+            args.append(self.prismRoot)
             args.append(pyLibs)
             args.append(subject)
-            args.append(text.replace("\\", "\\\\").replace('"', '\\"').replace("'", '\\"'))
-            args.append(attachment.replace("\\", "\\\\"))
+            args.append(text)
+            args.append(attachment)
 
             result = subprocess.Popen(
                 args,

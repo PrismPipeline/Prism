@@ -1789,7 +1789,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         asRunning = hasattr(self.core, "asThread") and self.core.asThread.isRunning()
         self.core.startasThread(quit=True)
 
-        filepath = self.core.saveScene(prismReq=False, filepath=filepath)
+        filepath = self.core.saveScene(filepath=filepath)
         self.core.sceneOpen()
         if asRunning:
             self.core.startasThread()
@@ -1920,7 +1920,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 filepath = filepath.replace("\\", "/")
                 filepath += self.core.appPlugin.getSceneExtension(self)
 
-                self.core.saveScene(prismReq=False, filepath=filepath)
+                self.core.saveScene(filepath=filepath)
             return
 
         ext = os.path.splitext(fileName)[1]
@@ -2341,7 +2341,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.refreshAFile()
             return
 
-        cats = self.core.entities.getCategories(asset=self.curAsset, step=self.curaStep)
+        if (
+                self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
+                == "lower"
+        ):
+            cats = []
+        else:
+            cats = self.core.entities.getCategories(asset=self.curAsset, step=self.curaStep)
 
         for c in cats:
             aItem = QListWidgetItem(c)
@@ -3035,7 +3041,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         recentfiles = self.core.getConfig(cat=rSection) or []
 
         for i in recentfiles:
-            if i is None:
+            if not self.core.isStr(i):
                 continue
 
             row = []
