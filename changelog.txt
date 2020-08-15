@@ -1,3 +1,7 @@
+v1.3.0.3:
+- fixed an error when HighDPI mode is enabled
+- fixed an issue that the Prism process kept running when the installer couldn't be launched
+
 v1.3.0.2:
 - fixed an error when trying to create an assetFolder, which already exists
 - fixed an error when restoring an omitted asset/shot
