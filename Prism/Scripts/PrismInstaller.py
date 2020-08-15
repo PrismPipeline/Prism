@@ -586,5 +586,5 @@ if __name__ == "__main__":
             "Prism Installation",
             "Errors occurred.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno),
         )
-
-    sys.exit(qApp.exec_())
+    else:
+        sys.exit(qApp.exec_())

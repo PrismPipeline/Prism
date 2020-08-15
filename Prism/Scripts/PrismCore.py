@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.2"
+            self.version = "v1.3.0.3"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -667,7 +667,7 @@ class PrismCore:
             elif "PySide.QtCore" in sys.modules:
                 qtVers = sys.modules["PySide.QtCore"].__version_info__
 
-            if qtVers[0] >= 5 and qtVers >= 6:
+            if qtVers[0] >= 5 and qtVers[1] >= 6:
                 screen_resolution = QApplication.desktop().screenGeometry()
                 screenWidth, screenHeight = (
                     screen_resolution.width(),
