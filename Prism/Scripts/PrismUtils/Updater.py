@@ -274,6 +274,10 @@ except Exception as e:
             dirs = i[1]
             break
 
+        if not dirs:
+            self.core.popup("Failed to extract Prism update archive")
+            return
+
         updateRoot = os.path.join(targetdir, dirs[0], "Prism")
 
         msgText = "Are you sure you want to continue?\n\nThis will overwrite existing files in your Prism installation folder."

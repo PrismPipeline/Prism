@@ -268,7 +268,8 @@ class PathManager(object):
         if step:
             path = os.path.join(path, "Scenefiles", step)
 
-            if category:
+            odlPrj = self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower"
+            if (not asset or not odlPrj) and category:
                 path = os.path.join(path, category)
 
         return path

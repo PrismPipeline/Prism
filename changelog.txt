@@ -1,3 +1,16 @@
+v1.3.0.4:
+- fixed a bug that asset scenefiles were not saved in the correct folder in project created with version 1.2.1.6 and earlier
+- fixed a bug that some project created with version before v1.2.0 couldn't be opened
+- fixed an error during Prism startup in Python 3, when the DEADLINE_PATH environment variable existed, but the Deadline executable didn't exist
+- added a warning when configs can't be saved because of not enough free disk space
+- fixed an error when requesting the context menu of a shot without sequence in the Project Browser
+- fixed a display bug when creating a new shot without sequence
+- fixed an error when confirming the "create plugin" dialog with enter
+- fixed a bug that a restart was required to load a newly created plugin
+- fixed an error when creating an export state in Blender when the scenefile wasn't saved in a Prism project
+- fixed a bug when creating an export state in Maya when the scenefile wasn't saved in a Prism project
+- fixed an error when using the project resolution setting and opening a scene in 3dsMax, Maya or Blender
+
 v1.3.0.3:
 - fixed an error when HighDPI mode is enabled
 - fixed an issue that the Prism process kept running when the installer couldn't be launched

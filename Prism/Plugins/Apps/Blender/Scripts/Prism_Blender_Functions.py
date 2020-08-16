@@ -337,19 +337,23 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_addObjects(self, origin, objects=None):
-        if origin.l_taskName.text() not in self.getGroups():
-            self.createGroups(name=origin.l_taskName.text())
+        taskName = origin.l_taskName.text()
+        if not taskName:
+            taskName = self.sm_export_setTaskText(origin, None, "Export")
+
+        if taskName not in self.getGroups():
+            self.createGroups(name=taskName)
 
         if not objects:
             objects = [
                 o
                 for o in bpy.context.scene.objects
                 if self.getSelectObject(o)
-                and o not in list(self.getGroups()[origin.l_taskName.text()].objects)
+                and o not in list(self.getGroups()[taskName].objects)
             ]
 
         for i in objects:
-            self.getGroups()[origin.l_taskName.text()].objects.link(i)
+            self.getGroups()[taskName].objects.link(i)
 
         origin.updateUi()
         origin.stateManager.saveStatesToScene()
@@ -406,12 +410,13 @@ class Prism_Blender_Functions(object):
                 setName += "_%s" % extension
             extension += 1
 
-        if prevTaskName in self.getGroups():
+        if prevTaskName and prevTaskName in self.getGroups():
             self.getGroups()[prevTaskName].name = setName
         else:
             self.createGroups(name=setName)
 
         origin.l_taskName.setText(setName)
+        return setName
 
     @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):

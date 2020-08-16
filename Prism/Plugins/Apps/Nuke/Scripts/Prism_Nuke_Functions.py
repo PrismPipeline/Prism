@@ -170,14 +170,14 @@ class Prism_Nuke_Functions(object):
         return nuke.knob("root.fps", str(fps))
 
     @err_catcher(name=__name__)
-    def getResolution(self, origin):
+    def getResolution(self):
         resFormatStr = nuke.knob("root.format")
         resFormat = [int(resFormatStr.split()[0]), int(resFormatStr.split()[1])]
         return resFormat
 
     @err_catcher(name=__name__)
-    def setResolution(self, origin, resolution):
-        return nuke.knob("root.format", "%s %s" % (resolution[0], resolution[1]))
+    def setResolution(self, width=None, height=None):
+        return nuke.knob("root.format", "%s %s" % (width, height))
 
     @err_catcher(name=__name__)
     def updateNukeNodes(self):

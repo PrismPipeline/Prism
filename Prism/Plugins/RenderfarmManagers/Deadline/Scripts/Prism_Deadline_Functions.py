@@ -117,9 +117,12 @@ class Prism_Deadline_Functions(object):
             pass
 
         if deadlineBin == "":
-            return None
+            return
 
-        deadlineCommand = os.path.join(deadlineBin, "deadlinecommand")
+        deadlineCommand = os.path.join(deadlineBin, "deadlinecommand.exe")
+
+        if not os.path.exists(deadlineCommand):
+            return
 
         return deadlineCommand
 

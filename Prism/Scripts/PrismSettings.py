@@ -1006,11 +1006,16 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         action = newPDlg.exec_()
 
         if action != 0:
-            pluginName = newPDlg.itemName
+            pluginName = newPDlg.e_item.text()
             pluginType = newPDlg.cb_type.currentText()
 
-            self.core.createPlugin(pluginName, pluginType)
-            self.reloadPlugins()
+            pluginPath = self.core.createPlugin(pluginName, pluginType)
+            self.core.plugins.loadPlugin(pluginPath)
+
+            if os.path.exists(self.core.prismIni):
+                self.core.changeProject(self.core.prismIni)
+
+            self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
     def openPluginFolder(self):

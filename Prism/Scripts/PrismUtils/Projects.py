@@ -150,8 +150,8 @@ class Projects(object):
                 self.core.getConfig("globals", "prism_version", configPath=configPath) or ""
             )
 
-            if not projectName or not projectVersion:
-                self.core.popup("The project config doesn't contain all required information (project_name, project_version).\n\nCannot open project.")
+            if not projectName:
+                self.core.popup("The project config doesn't contain the \"project_name\" setting.\n\nCannot open project.")
                 return
 
         delModules = []

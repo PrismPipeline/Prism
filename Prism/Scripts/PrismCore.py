@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.3"
+            self.version = "v1.3.0.4"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1864,7 +1864,7 @@ License: GNU GPL-3.0-or-later<br>
     @err_catcher(name=__name__)
     def getResolution(self):
         if hasattr(self.appPlugin, "getResolution"):
-            return self.appPlugin.getResolution(self)
+            return self.appPlugin.getResolution()
 
     @err_catcher(name=__name__)
     def getCompositingOut(self, *args, **kwargs):

@@ -348,7 +348,7 @@ class SanityChecks(object):
             action = infoDlg.exec_()
 
             if action == 1:
-                self.core.appPlugin.setResolution(self.core, pRes)
+                self.core.appPlugin.setResolution(*pRes)
 
     @err_catcher(name=__name__)
     def checkAppVersion(self):

@@ -422,6 +422,10 @@ class Prism_Maya_Functions(object):
             cmds.select(objects)
 
         setName = self.validate(origin.l_taskName.text())
+        if not setName:
+            setName = self.sm_export_setTaskText(origin, None, "Export")
+
+        setName = self.validate(origin.l_taskName.text())
         for i in cmds.ls(selection=True, long=True):
             if i not in origin.nodes:
                 try:
@@ -585,7 +589,7 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
-        prev = self.validate(prevTaskName)
+        prev = self.validate(prevTaskName) if prevTaskName else ""
         if self.isNodeValid(origin, prev) and "objectSet" in cmds.nodeType(prev, inherited=True):
             setName = cmds.rename(prev, newTaskName)
         else:
@@ -595,6 +599,7 @@ class Prism_Maya_Functions(object):
                 setName = cmds.sets(name=newTaskName)
 
         origin.l_taskName.setText(setName)
+        return setName
 
     @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
@@ -611,6 +616,9 @@ class Prism_Maya_Functions(object):
     def sm_export_updateObjects(self, origin):
         prevSel = cmds.ls(selection=True, long=True)
         setName = self.validate(origin.l_taskName.text())
+        if not setName:
+            setName = self.sm_export_setTaskText(origin, None, "Export")
+
         try:
             # the nodes in the set need to be selected to get their long dag path
             cmds.select(setName)

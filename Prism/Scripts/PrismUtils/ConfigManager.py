@@ -250,6 +250,8 @@ You will need to set your last project again, but no project files (like scenefi
         if isUserConfig and not data and not configData:
             self.createUserPrefs()
             configData = self.readYaml(configPath)
+            if configData is None:
+                return
 
         if data:
             self.updateNestedDicts(configData, data)
@@ -354,8 +356,14 @@ You will need to set your last project again, but no project files (like scenefi
             if not os.path.exists(os.path.dirname(path)):
                 os.makedirs(os.path.dirname(path))
 
-            with open(path, "w") as config:
-                yaml.dump(data, config)
+            try:
+                with open(path, "w") as config:
+                    yaml.dump(data, config)
+            except Exception as e:
+                if e.errno == 28:
+                    self.core.popup("Not enough diskspace to save config:\n\n%s" % path)
+                else:
+                    raise
         else:
             if not stream:
                 stream = StringIO()
@@ -448,7 +456,8 @@ You will need to set your last project again, but no project files (like scenefi
             items = config.items(section)
             for item in items:
                 try:
-                    if os.path.basename(path) == "omits.ini":
+                    bname = os.path.basename(path)
+                    if bname == "omits.ini" or bname == "pipeline.ini" and item[0] == "project_name":
                         val = item[1]
                     else:
                         val = eval(item[1])

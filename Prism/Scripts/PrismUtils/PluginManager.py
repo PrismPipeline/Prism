@@ -513,3 +513,4 @@ class PluginManager(object):
             scriptPath = targetPath
 
         self.core.openFolder(scriptPath)
+        return targetPath

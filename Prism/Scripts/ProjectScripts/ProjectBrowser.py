@@ -1444,7 +1444,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 )
                 addOmit = True
             elif tab == "ss":
-                iname = self.cursShots
+                iname = self.cursShots or iname
                 if lw.itemAt(pos).childCount() == 0:
                     editAct = QAction("Edit shot settings", self)
                     editAct.triggered.connect(lambda: self.editShot(iname))
@@ -2571,7 +2571,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         sequences, shots = self.core.entities.getShots(searchFilter=searchFilter)
 
+        if "" in sequences and "no sequence" not in sequences:
+            sequences.append("no sequence")
+
         for seqName in sequences:
+            if not seqName:
+                continue
+
             seqItem = QTreeWidgetItem([seqName, seqName + self.core.sequenceSeparator])
             self.tw_sShot.addTopLevelItem(seqItem)
             if seqName in self.sExpanded or self.e_shotSearch.isVisible():
@@ -2580,7 +2586,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         for i in shots:
             for k in range(self.tw_sShot.topLevelItemCount()):
                 tlItem = self.tw_sShot.topLevelItem(k)
-                if tlItem.text(0) == i[0]:
+                seqName = i[0]
+                if not seqName:
+                    seqName = "no sequence"
+
+                if tlItem.text(0) == seqName:
                     seqItem = tlItem
 
             sItem = QTreeWidgetItem([i[1], i[2]])
@@ -2983,6 +2993,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.refreshShots()
 
         shotName, seqName = self.core.entities.splitShotname(self.es.shotName)
+        if not seqName:
+            seqName = "no sequence"
 
         for i in range(self.tw_sShot.topLevelItemCount()):
             sItem = self.tw_sShot.topLevelItem(i)
@@ -3003,6 +3015,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.core.uiAvailable:
             self.refreshShots()
             shotName, seqName = self.core.entities.splitShotname(shotName)
+            if not seqName:
+                seqName = "no sequence"
 
             for i in range(self.tw_sShot.topLevelItemCount()):
                 sItem = self.tw_sShot.topLevelItem(i)
@@ -3528,8 +3542,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             catName = data.get("category", "")
 
             shotName, seqName = self.core.entities.splitShotname(shotName)
+            if not seqName:
+                seqName = "no sequence"
+
             for i in range(self.tw_sShot.topLevelItemCount()):
                 sItem = self.tw_sShot.topLevelItem(i)
+
                 if sItem.text(0) == seqName:
                     if shotName == "":
                         self.tw_sShot.setCurrentItem(sItem)
