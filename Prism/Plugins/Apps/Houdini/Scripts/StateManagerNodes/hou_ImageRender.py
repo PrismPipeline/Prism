@@ -677,8 +677,8 @@ class ImageRenderClass(object):
 
         if not isCustom and not isExp:
             frange = self.getFrameRange(rangeType=rangeType)
-            start = str(int(frange[0])) if frange[0] else "-"
-            end = str(int(frange[1])) if frange[1] else "-"
+            start = str(int(frange[0])) if frange[0] is not None else "-"
+            end = str(int(frange[1])) if frange[1] is not None else "-"
             self.l_rangeStart.setText(start)
             self.l_rangeEnd.setText(end)
 
@@ -947,7 +947,7 @@ class ImageRenderClass(object):
         if rangeType != "Expression":
             frames = frames[0]
 
-        if not frames:
+        if frames is None or frames == []:
             warnings.append(["Framerange is invalid.", "", 3])
 
         try:
@@ -1158,7 +1158,7 @@ class ImageRenderClass(object):
             startFrame = None
             endFrame = None
 
-        if not frames or not frames[0]:
+        if frames is None or frames == [] or frames[0] is None:
             return [self.state.text(0) + ": error - Framerange is invalid"]
 
         if rangeType == "Single Frame":

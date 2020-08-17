@@ -350,8 +350,8 @@ class PlayblastClass(object):
 
         if not isCustom:
             frange = self.getFrameRange(rangeType=rangeType)
-            start = str(int(frange[0])) if frange[0] else "-"
-            end = str(int(frange[1])) if frange[1] else "-"
+            start = str(int(frange[0])) if frange[0] is not None else "-"
+            end = str(int(frange[1])) if frange[1] is not None else "-"
             self.l_rangeStart.setText(start)
             self.l_rangeEnd.setText(end)
 
@@ -389,7 +389,7 @@ class PlayblastClass(object):
         rangeType = self.cb_rangeType.currentText()
         startFrame, endFrame = self.getFrameRange(rangeType)
 
-        if not startFrame:
+        if startFrame is None:
             warnings.append(["Framerange is invalid.", "", 3])
 
         warnings += self.core.appPlugin.sm_playblast_preExecute(self)
@@ -494,7 +494,7 @@ class PlayblastClass(object):
 
         rangeType = self.cb_rangeType.currentText()
         startFrame, endFrame = self.getFrameRange(rangeType)
-        if not startFrame:
+        if startFrame is None:
             return [self.state.text(0) + ": error - Framerange is invalid"]
 
         if rangeType == "Single Frame":

@@ -63,7 +63,8 @@ class Lockfile(object):
                     msg = "This config seems to be in use by another process:\n\n%s\n\nForcing to write to this file while another process is writing to it could result in data loss.\n\nDo you want to force writing to this file?" % self.fileName
                     result = self.core.popupQuestion(msg)
                     if result == "Yes":
-                        os.remove(self.lockPath)
+                        if os.path.exists(self.lockPath):
+                            os.remove(self.lockPath)
                     else:
                         raise LockfileException("Timeout occurred while writing to file: %s" % self.fileName)
 

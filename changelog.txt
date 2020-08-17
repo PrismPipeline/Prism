@@ -1,3 +1,8 @@
+v1.3.0.5:
+- fixed a bug that frameranges starting with frame 0 were considered invalid in some cases
+- fixed a bug that .exr previews were not working in Python 3 (Prism Standalone and Blender)
+- fixed an error when a lockfile got deleted by another process
+
 v1.3.0.4:
 - fixed a bug that asset scenefiles were not saved in the correct folder in project created with version 1.2.1.6 and earlier
 - fixed a bug that some project created with version before v1.2.0 couldn't be opened

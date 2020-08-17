@@ -789,7 +789,7 @@ class ImageRenderClass(object):
         if rangeType != "Expression":
             frames = frames[0]
 
-        if not frames:
+        if frames is None or frames == []:
             warnings.append(["Framerange is invalid.", "", 3])
 
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
@@ -907,7 +907,7 @@ class ImageRenderClass(object):
             startFrame = None
             endFrame = None
 
-        if not frames or not frames[0]:
+        if frames is None or frames == [] or frames[0] is None:
             return [self.state.text(0) + ": error - Framerange is invalid"]
 
         if rangeType == "Single Frame":
