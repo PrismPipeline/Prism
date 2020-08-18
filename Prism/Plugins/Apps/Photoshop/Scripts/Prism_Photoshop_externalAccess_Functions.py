@@ -32,7 +32,6 @@
 
 
 import os
-import platform
 import subprocess
 
 try:
@@ -80,12 +79,7 @@ class Prism_Photoshop_externalAccess_Functions(object):
 
     @err_catcher(name=__name__)
     def connectToPhotoshop(self, origin, filepath=""):
-        if platform.system() == "Windows":
-            pythonPath = os.path.join(
-                self.core.prismRoot, "Python37", "Prism Project Browser.exe"
-            )
-        else:
-            pythonPath = "python"
+        pythonPath = self.core.getPythonPath(executable="Prism Project Browser")
 
         menuPath = os.path.join(
             self.core.prismRoot,

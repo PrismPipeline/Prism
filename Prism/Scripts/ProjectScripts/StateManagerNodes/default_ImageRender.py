@@ -612,6 +612,12 @@ class ImageRenderClass(object):
         elif rangeType == "Expression":
             return self.core.resolveFrameExpression(self.le_frameExpression.text())
 
+        if startFrame is not None:
+            startFrame = int(startFrame)
+
+        if endFrame is not None:
+            endFrame = int(endFrame)
+
         return startFrame, endFrame
 
     @err_catcher(name=__name__)

@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.5"
+            self.version = "v1.3.0.6"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1922,8 +1922,13 @@ License: GNU GPL-3.0-or-later<br>
         self.setConfig(data=cData, configPath=infoFilePath)
 
     @err_catcher(name=__name__)
-    def getPythonPath(self):
+    def getPythonPath(self, executable=None):
         if platform.system() == "Windows":
+            if executable:
+                pythonPath = os.path.join(self.prismRoot, "Python37", "%s.exe" % executable)
+                if os.path.exists(pythonPath):
+                    return pythonPath
+
             pythonPath = os.path.join(self.prismRoot, "Python37", "pythonw.exe")
             if not os.path.exists(pythonPath):
                 pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")

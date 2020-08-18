@@ -461,6 +461,12 @@ class ExportClass(object):
             startFrame = self.sp_rangeStart.value()
             endFrame = self.sp_rangeEnd.value()
 
+        if startFrame is not None:
+            startFrame = int(startFrame)
+
+        if endFrame is not None:
+            endFrame = int(endFrame)
+
         return startFrame, endFrame
 
     @err_catcher(name=__name__)

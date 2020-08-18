@@ -1,6 +1,10 @@
+v1.3.0.6:
+- fixed an error that Prism couldn't connect to Photoshop in some cases on Windows
+- fixed an error when exporting .obj sequences in some cases
+
 v1.3.0.5:
 - fixed a bug that frameranges starting with frame 0 were considered invalid in some cases
-- fixed a bug that .exr previews were not working in Python 3 (Prism Standalone and Blender)
+- fixed a bug that .exr previews were not working in Python 3 (Prism Standalone and Blender) - requires updated dependencies
 - fixed an error when a lockfile got deleted by another process
 
 v1.3.0.4:
