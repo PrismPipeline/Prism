@@ -267,9 +267,7 @@ class Prism_Maya_Functions(object):
             mel.eval("currentUnit -time %sfps;" % int(fps))
             self.setFrameRange(origin, frange[0], frange[1])
         except:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Prism",
+            self.core.popup(
                 "Cannot set the FPS in the current scene to %s." % fps,
             )
 
@@ -277,7 +275,7 @@ class Prism_Maya_Functions(object):
     def getResolution(self):
         width = cmds.getAttr("defaultResolution.width")
         height = cmds.getAttr("defaultResolution.height")
-        return width, height
+        return [width, height]
 
     @err_catcher(name=__name__)
     def setResolution(self, width=None, height=None):

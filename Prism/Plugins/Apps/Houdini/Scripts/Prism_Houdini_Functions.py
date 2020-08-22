@@ -390,7 +390,6 @@ class Prism_Houdini_Functions(object):
 
     @err_catcher(name=__name__)
     def onPrismSettingsOpen(self, origin):
-        origin.w_startTray.setVisible(False)
         if self.core.uiAvailable:
             origin.scrollArea.setStyleSheet(
                 hou.qt.styleSheet().replace("QLabel", "QScrollArea")

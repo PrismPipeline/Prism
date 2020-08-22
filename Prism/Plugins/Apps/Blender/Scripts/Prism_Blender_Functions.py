@@ -206,7 +206,7 @@ class Prism_Blender_Functions(object):
     def getResolution(self):
         width = bpy.context.scene.render.resolution_x
         height = bpy.context.scene.render.resolution_y
-        return width, height
+        return [width, height]
 
     @err_catcher(name=__name__)
     def setResolution(self, width=None, height=None):

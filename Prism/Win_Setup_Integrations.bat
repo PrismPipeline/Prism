@@ -1,1 +1,1 @@
-start Python37/pythonw.exe Scripts/PrismInstaller.py
+start %~dp0/Python37/pythonw.exe %~dp0/Scripts/PrismInstaller.py

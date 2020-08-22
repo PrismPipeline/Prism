@@ -588,8 +588,9 @@ class ExportClass(object):
                 or not self.chb_saveToExistingHDA.isChecked()
             )
 
-            self.w_externalReferences.setEnabled(
-                self.node.canCreateDigitalAsset()
+            self.w_externalReferences.setEnabled(bool(
+                self.node and
+                self.node.canCreateDigitalAsset())
             )
 
         self.nameChanged(self.e_name.text())

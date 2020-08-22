@@ -331,7 +331,7 @@ class Projects(object):
     def setRecentPrj(self, path, action="add"):
         path = self.core.fixPath(path)
 
-        pItems = self.core.getConfig(cat="recent_projects", dft=[])
+        pItems = self.core.getConfig(cat="recent_projects", dft=[]) or []
         if pItems and path == pItems[0] and action == "add":
             return
 

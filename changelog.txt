@@ -1,3 +1,10 @@
+v1.3.0.7:
+- added the "Start Prism tray now" button to the Prism Settings in Houdini
+- fixed an error when switching the output type of an export state to .hda in Houdini when no node was connected
+- fixed a bug that a resolution mismatch was incorrectly reported when the project resolution was used
+- fixed a problem that .exr and .mp4 files where not showing a preview in some DCCs on some windows systems (requires updated dependencies. Use the installer from the website.)
+- fixed a problem that the Prism .bat files were not executed correctly when the cwd was not set to the parent folder of the .bat file
+
 v1.3.0.6:
 - fixed an error that Prism couldn't connect to Photoshop in some cases on Windows
 - fixed an error when exporting .obj sequences in some cases

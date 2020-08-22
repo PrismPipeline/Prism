@@ -3622,6 +3622,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if entityType is None:
             if not self.tbw_browser.currentWidget():
+                self.renderBasePath = ""
                 return mediaTasks
 
             entityType = self.tbw_browser.currentWidget().property("tabType")

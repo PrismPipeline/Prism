@@ -174,7 +174,7 @@ class Prism_3dsMax_Functions(object):
     def getResolution(self):
         width = MaxPlus.RenderSettings.GetWidth()
         height = MaxPlus.RenderSettings.GetHeight()
-        return width, height
+        return [width, height]
 
     @err_catcher(name=__name__)
     def setResolution(self, width=None, height=None):

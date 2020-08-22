@@ -177,6 +177,10 @@ class PluginManager(object):
 
     @err_catcher(name=__name__)
     def loadPlugin(self, path):
+        if not path:
+            logger.debug("invalid pluginpath: \"%s\"" % path)
+            return
+
         if os.path.basename(path) == "Scripts":
             path = os.path.dirname(path)
 
