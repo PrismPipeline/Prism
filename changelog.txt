@@ -1,3 +1,6 @@
+v1.3.0.8:
+- fixed a bug that app plugins couldn't be loaded from a projects plugin directory
+
 v1.3.0.7:
 - added the "Start Prism tray now" button to the Prism Settings in Houdini
 - fixed an error when switching the output type of an export state to .hda in Houdini when no node was connected

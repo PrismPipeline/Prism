@@ -211,28 +211,23 @@ class PluginManager(object):
             logger.debug("skipped loading plugin %s - plugin is set as inactive in the preferences" % pluginName)
             return
 
-        if os.path.basename(os.path.dirname(path)) == "Apps":
-            if pluginName == self.core.appPlugin.pluginName:
-                return
+        if pluginName == self.core.appPlugin.pluginName:
+            return
 
-            if not (
-                os.path.exists(initPath)
-                or os.path.exists(initPath.replace("_init", "_init_unloaded"))
-            ):
-                logger.debug("skipped loading plugin %s - plugin has no init script" % pluginName)
-                return
+        if not (
+            os.path.exists(initPath)
+            or os.path.exists(initPath.replace("_init", "_init_unloaded"))
+        ):
+            logger.debug("skipped loading plugin %s - plugin has no init script" % pluginName)
+            return
 
-            sys.path.append(os.path.dirname(initPath))
+        sys.path.append(os.path.dirname(initPath))
+        if os.path.exists(initPath.replace("_init", "_init_unloaded")):
             pPlug = getattr(
                 __import__("Prism_%s_init_unloaded" % (pluginName)),
                 "Prism_%s_unloaded" % pluginName,
             )(self.core)
         else:
-            if not os.path.exists(initPath):
-                logger.debug("skipped loading plugin %s - plugin has no init script" % pluginName)
-                return
-
-            sys.path.append(os.path.dirname(initPath))
             pPlug = getattr(__import__("Prism_%s_init" % (pluginName)), "Prism_%s" % pluginName)(
                 self.core
             )
