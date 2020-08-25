@@ -1563,7 +1563,7 @@ class ExportClass(object):
 
                 if idx == 1:
                     if not self.core.appPlugin.setNodeParm(
-                        transformNode, scale, val=100
+                        transformNode, "scale", val=100
                     ):
                         return [self.state.text(0) + ": error - Publish canceled"]
 
@@ -1718,7 +1718,7 @@ class ExportClass(object):
                         ]
 
                 if idx == 1:
-                    if not self.core.appPlugin.setNodeParm(transformNode, scale, val=1):
+                    if not self.core.appPlugin.setNodeParm(transformNode, "scale", val=1):
                         return [self.state.text(0) + ": error - Publish canceled"]
 
             self.core.callHook(

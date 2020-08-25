@@ -1742,37 +1742,35 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         if executeState:
             text = "Executing \"%s\" - please wait.." % self.execStates[0].ui.state.text(0)
-            waitmsg = self.core.popupNoButton(text)
-            if self.execStates[0].ui.className in [
-                "ImageRender",
-                "Export",
-                "Playblast",
-                "Folder",
-            ]:
-                result = self.execStates[0].ui.executeState(
-                    parent=self, useVersion=useVersion
-                )
-            else:
-                result = self.execStates[0].ui.executeState(parent=self)
+            self.pubMsg = self.core.waitPopup(self.core, text)
+            with self.pubMsg:
+                if self.execStates[0].ui.className in [
+                    "ImageRender",
+                    "Export",
+                    "Playblast",
+                    "Folder",
+                ]:
+                    result = self.execStates[0].ui.executeState(
+                        parent=self, useVersion=useVersion
+                    )
+                else:
+                    result = self.execStates[0].ui.executeState(parent=self)
 
-            if waitmsg and waitmsg.isVisible():
-                waitmsg.close()
+                if self.execStates[0].ui.className == "Folder":
+                    self.publishResult += result
 
-            if self.execStates[0].ui.className == "Folder":
-                self.publishResult += result
+                    for k in result:
+                        if "publish paused" in k["result"][0]:
+                            self.publishPaused = True
+                            return
+                else:
+                    self.publishResult.append(
+                        {"state": self.execStates[0].ui, "result": result}
+                    )
 
-                for k in result:
-                    if "publish paused" in k["result"][0]:
+                    if "publish paused" in result[0]:
                         self.publishPaused = True
                         return
-            else:
-                self.publishResult.append(
-                    {"state": self.execStates[0].ui, "result": result}
-                )
-
-                if "publish paused" in result[0]:
-                    self.publishPaused = True
-                    return
 
         else:
             for i in range(self.tw_export.topLevelItemCount()):

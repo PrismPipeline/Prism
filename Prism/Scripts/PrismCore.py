@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.8"
+            self.version = "v1.3.0.9"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -327,8 +327,8 @@ class PrismCore:
         return self.plugins.unloadProjectPlugins()
 
     @err_catcher(name=__name__)
-    def unloadPlugin(self, pluginName, pluginCategory=None):
-        return self.plugins.unloadPlugin(pluginName=pluginName, pluginCategory=pluginCategory)
+    def unloadPlugin(self, pluginName):
+        return self.plugins.unloadPlugin(pluginName=pluginName)
 
     @err_catcher(name=__name__)
     def getPluginNames(self):
@@ -1840,8 +1840,9 @@ License: GNU GPL-3.0-or-later<br>
             return
 
         # trigger auto imports
+        openSm = getattr(self, "sm", None) and self.sm.isVisible()
         if os.path.exists(self.prismIni):
-            self.stateManager(openUi=False)
+            self.stateManager(openUi=openSm)
         self.appPlugin.sceneOpen(self)
 
         self.sanities.checkImportVersions()

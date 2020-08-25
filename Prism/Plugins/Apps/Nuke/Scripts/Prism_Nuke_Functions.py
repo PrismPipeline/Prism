@@ -293,7 +293,14 @@ class Prism_Nuke_Functions(object):
         if os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False
 
-        cleared = nuke.scriptSaveAndClear()
+        try:
+            cleared = nuke.scriptSaveAndClear()
+        except Exception as e:
+            if "cannot clear script whilst executing" in str(e):
+                self.core.popup(e)
+
+            cleared = False
+
         if cleared:
             try:
                 nuke.scriptOpen(filepath)

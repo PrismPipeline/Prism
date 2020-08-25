@@ -360,7 +360,7 @@ You will need to set your last project again, but no project files (like scenefi
                 with open(path, "w") as config:
                     yaml.dump(data, config)
             except Exception as e:
-                if e.errno == 28:
+                if getattr(e, "errno", None) == 28:
                     self.core.popup("Not enough diskspace to save config:\n\n%s" % path)
                 else:
                     raise

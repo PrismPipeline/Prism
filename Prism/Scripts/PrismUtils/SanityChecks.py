@@ -33,10 +33,6 @@
 
 import os
 import logging
-import platform
-import subprocess
-
-from collections import OrderedDict
 
 try:
     from PySide2.QtCore import *
