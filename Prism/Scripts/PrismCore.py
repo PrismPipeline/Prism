@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.9"
+            self.version = "v1.3.0.10"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -2142,7 +2142,7 @@ License: GNU GPL-3.0-or-later<br>
             parent=self.messageParent,
         )
         for button in buttons:
-            if button in ["Close", "Cancel"]:
+            if button in ["Close", "Cancel", "Ignore"]:
                 role = QMessageBox.RejectRole
             else:
                 role = QMessageBox.YesRole

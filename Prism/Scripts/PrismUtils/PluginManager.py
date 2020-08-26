@@ -207,6 +207,10 @@ class PluginManager(object):
 
         inactivePluginNames = self.core.getConfig("plugins", "inactive", dft=[])
         if pluginName in inactivePluginNames:
+            if not os.path.exists(path):
+                logger.debug("pluginpath doesn't exist: %s" % path)
+                return
+
             self.core.inactivePlugins[pluginName] = pluginPath
             logger.debug("skipped loading plugin %s - plugin is set as inactive in the preferences" % pluginName)
             return
@@ -281,13 +285,24 @@ class PluginManager(object):
 
                 curPlugins.append(plug)
 
+        for plug in self.core.inactivePlugins:
+            if plugins and plug not in plugins:
+                continue
+
+            curPlugins.append(plug)
+
         for plug in curPlugins:
             self.reloadPlugin(plug)
 
     @err_catcher(name=__name__)
     def reloadPlugin(self, pluginName):
         appPlug = pluginName == self.core.appPlugin.pluginName
-        pluginPath = self.unloadPlugin(pluginName)
+        if pluginName in self.core.inactivePlugins:
+            pluginPath = self.core.inactivePlugins[pluginName]
+            self.core.inactivePlugins.pop(pluginName)
+        else:
+            pluginPath = self.unloadPlugin(pluginName)
+
         if appPlug:
             pluginName = self.getPluginNameFromPath(pluginPath)
             plugin = self.loadAppPlugin(pluginName)
