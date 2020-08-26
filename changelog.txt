@@ -1,3 +1,6 @@
+v1.3.0.10:
+- fixed a bug that inactive plugins were not reloaded correctly when the reload was triggered in the Prism Settings
+
 v1.3.0.9:
 - fixed an error when exporting a Houdini cache in centimeter units
 - fixed an error when trying to load a Nuke script while Nuke is rendering
@@ -5,7 +8,6 @@ v1.3.0.9:
 - fixed a bug that the State Manager was closed instead of restarted when opening a scene
 - fixed an error when a config file couldn't be read in some cases
 - fixed an error when executing a render state outside of a publish in Blender
-
 
 v1.3.0.8:
 - fixed a bug that app plugins couldn't be loaded from a projects plugin directory
