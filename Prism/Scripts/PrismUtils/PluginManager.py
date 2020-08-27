@@ -131,7 +131,7 @@ class PluginManager(object):
         return self.core.appPlugin
 
     @err_catcher(name=__name__)
-    def loadPlugins(self, pluginPaths=None, directory=None, directories=None):
+    def loadPlugins(self, pluginPaths=None, directory=None, directories=None, recursive=False, force=True):
         result = []
         if pluginPaths:
             for pPath in pluginPaths:
@@ -146,17 +146,25 @@ class PluginManager(object):
                 if not os.path.exists(dr):
                     continue
 
-                for root, dirs, files in os.walk(dr):
-                    for pDir in dirs:
-                        if pDir == "PluginEmpty":
-                            continue
+                if recursive:
+                    for root, dirs, files in os.walk(dr):
+                        for f in files:
+                            if f.endswith("_init.py"):
+                                path = os.path.dirname(root)
+                                result.append(self.loadPlugin(path, force=force))
+                                break
+                else:
+                    for root, dirs, files in os.walk(dr):
+                        for pDir in dirs:
+                            if pDir == "PluginEmpty":
+                                continue
 
-                        if pDir == self.core.appPlugin.pluginName:
-                            continue
+                            if pDir == self.core.appPlugin.pluginName:
+                                continue
 
-                        path = os.path.join(dr, pDir)
-                        result.append(self.loadPlugin(path))
-                    break
+                            path = os.path.join(dr, pDir)
+                            result.append(self.loadPlugin(path, force=force))
+                        break
 
         return result
 
@@ -176,7 +184,7 @@ class PluginManager(object):
             self.loadPlugin(path)
 
     @err_catcher(name=__name__)
-    def loadPlugin(self, path):
+    def loadPlugin(self, path, force=True):
         if not path:
             logger.debug("invalid pluginpath: \"%s\"" % path)
             return
@@ -199,6 +207,13 @@ class PluginManager(object):
                 else:
                     self.core.setConfig("plugins", "load_deprExternalPlugins", True)
             elif not result:
+                return
+
+        if self.core.getPlugin(pluginName):
+            if force:
+                self.unloadPlugin(pluginName)
+            else:
+                logger.warning("plugin is already loaded: \"%s\"" % pluginName)
                 return
 
         initmodule = "Prism_%s_init" % pluginName
@@ -240,7 +255,7 @@ class PluginManager(object):
             logger.debug("skipped loading plugin %s - plugin doesn't support this OS" % pPlug.pluginName)
             return
 
-        if path.startswith(self.core.prismRoot):
+        if os.path.normpath(path).startswith(os.path.normpath(self.core.prismRoot)):
             pPlug.location = "prismRoot"
         elif path.startswith(getattr(self.core, "projectPath", ())):
             pPlug.location = "prismProject"
@@ -375,6 +390,9 @@ class PluginManager(object):
                 del sys.modules[k]
             except:
                 pass
+
+        if pluginPath in sys.path:
+            sys.path.remove(pluginPath)
 
         if pluginName in self.core.unloadedAppPlugins:
             pluginCategory = self.core.unloadedAppPlugins

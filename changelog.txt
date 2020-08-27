@@ -1,3 +1,9 @@
+v1.3.0.11:
+- fixed a bug that the .bat files were not executed correctly when they were located in a path with spaces
+- changed the default of the polysoup setting on alembic SOPs to "No Poly Soup Primitives" when importing exports in Houdini
+- added the option to put Prism plugins in subfolders in the Prism project
+- when having two Prism plugins with the same name in the installation directory and the project, the project plugin will be loaded
+
 v1.3.0.10:
 - fixed a bug that inactive plugins were not reloaded correctly when the reload was triggered in the Prism Settings
 

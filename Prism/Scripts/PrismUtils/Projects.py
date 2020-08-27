@@ -282,7 +282,7 @@ class Projects(object):
 
         pluginPath = os.path.join(self.core.projectPath, "00_Pipeline", "Plugins")
         if os.path.exists(pluginPath):
-            self.core.plugins.loadPlugins(directories=[pluginPath])
+            self.core.plugins.loadPlugins(directories=[pluginPath], recursive=True)
 
         sep = self.core.getConfig("globals", "filenameseparator", configPath=self.core.prismIni)
         if not sep:

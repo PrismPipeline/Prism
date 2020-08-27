@@ -404,6 +404,7 @@ class ImportFileClass(object):
                         self.fileNode.moveToGoodPosition()
                         self.fileNode.parm("fileName").set(impFileName)
                         self.fileNode.parm("loadmode").set(1)
+                        self.fileNode.parm("polysoup").set(0)
                         self.fileNode.parm("groupnames").set(3)
                     elif os.path.splitext(impFileName)[1] == ".fbx":
                         self.node.destroy()
