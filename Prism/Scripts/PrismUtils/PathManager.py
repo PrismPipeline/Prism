@@ -250,7 +250,7 @@ class PathManager(object):
         return os.path.abspath(basePath)
 
     @err_catcher(name=__name__)
-    def getEntityPath(self, entity=None, asset=None, shot=None, step=None, category=None):
+    def getEntityPath(self, entity=None, asset=None, sequence=None, shot=None, step=None, category=None):
         if asset:
             if os.path.isabs(asset):
                 asset = self.core.entities.getAssetRelPathFromPath(asset)
@@ -258,6 +258,8 @@ class PathManager(object):
             path = os.path.join(base, asset)
         elif shot:
             base = self.core.getShotPath()
+            if sequence:
+                shot = self.core.entities.getShotname(sequence, shot)
             path = os.path.join(base, shot)
         else:
             return ""

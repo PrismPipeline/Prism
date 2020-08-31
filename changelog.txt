@@ -1,3 +1,7 @@
+v1.3.0.12:
+- fixed a bug that shotnames appear twice in the project folder when using the local project folder
+- fixed an error which could happen in some cases when switching the outputtype of an export state in Houdini to .hda
+
 v1.3.0.11:
 - fixed a bug that the .bat files were not executed correctly when they were located in a path with spaces
 - changed the default of the polysoup setting on alembic SOPs to "No Poly Soup Primitives" when importing exports in Houdini

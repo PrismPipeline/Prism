@@ -547,7 +547,8 @@ class ExportClass(object):
                 self.curCam = None
             self.stateManager.saveStatesToScene()
 
-        self.updateRange()
+        if self.cb_outType.currentText() != ".hda":
+            self.updateRange()
 
         curShot = self.cb_sCamShot.currentText()
         self.cb_sCamShot.clear()
@@ -628,8 +629,11 @@ class ExportClass(object):
                 if frange:
                     startFrame, endFrame = frange
         elif rangeType == "Node" and self.node:
-            startFrame = self.node.parm("f1").eval()
-            endFrame = self.node.parm("f2").eval()
+            try:
+                startFrame = self.node.parm("f1").eval()
+                endFrame = self.node.parm("f2").eval()
+            except:
+                pass
         elif rangeType == "Single Frame":
             startFrame = self.core.appPlugin.getCurrentFrame()
         elif rangeType == "Custom":
@@ -653,6 +657,7 @@ class ExportClass(object):
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
+            self.w_frameRangeValues.setVisible(True)
             self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
@@ -672,6 +677,7 @@ class ExportClass(object):
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(False)
+            self.w_frameRangeValues.setVisible(False)
             self.f_convertExport.setVisible(False)
             self.gb_submit.setVisible(False)
             if (
@@ -694,6 +700,7 @@ class ExportClass(object):
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
+            self.w_frameRangeValues.setVisible(True)
             self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
@@ -713,6 +720,7 @@ class ExportClass(object):
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
+            self.w_frameRangeValues.setVisible(True)
             self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
@@ -732,6 +740,7 @@ class ExportClass(object):
             self.f_status.setVisible(False)
             self.f_connect.setVisible(False)
             self.f_frameRange.setVisible(True)
+            self.w_frameRangeValues.setVisible(True)
             self.f_convertExport.setVisible(True)
             self.gb_submit.setVisible(False)
         elif idx == "other":
@@ -745,6 +754,7 @@ class ExportClass(object):
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
+            self.w_frameRangeValues.setVisible(True)
             self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
@@ -800,6 +810,7 @@ class ExportClass(object):
             self.f_status.setVisible(True)
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
+            self.w_frameRangeValues.setVisible(True)
             self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
@@ -1031,11 +1042,12 @@ class ExportClass(object):
             except:
                 warnings.append(["Node is invalid.", "", 3])
 
-        rangeType = self.cb_rangeType.currentText()
-        startFrame, endFrame = self.getFrameRange(rangeType)
+        if self.cb_outType.currentText() != ".hda":
+            rangeType = self.cb_rangeType.currentText()
+            startFrame, endFrame = self.getFrameRange(rangeType)
 
-        if startFrame is None:
-            warnings.append(["Framerange is invalid.", "", 3])
+            if startFrame is None:
+                warnings.append(["Framerange is invalid.", "", 3])
 
         if not hou.simulationEnabled():
             warnings.append(["Simulations are disabled.", "", 2])
@@ -1214,13 +1226,17 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
-        rangeType = self.cb_rangeType.currentText()
-        startFrame, endFrame = self.getFrameRange(rangeType)
-        if startFrame is None:
-            return [self.state.text(0) + ": error - Framerange is invalid"]
+        if self.cb_outType.currentText() != ".hda":
+            rangeType = self.cb_rangeType.currentText()
+            startFrame, endFrame = self.getFrameRange(rangeType)
+            if startFrame is None:
+                return [self.state.text(0) + ": error - Framerange is invalid"]
 
-        if rangeType == "Single Frame":
-            endFrame = startFrame
+            if rangeType == "Single Frame":
+                endFrame = startFrame
+        else:
+            startFrame = None
+            endFrame = None
 
         if self.cb_outType.currentText() == "ShotCam":
             if self.curCam is None:

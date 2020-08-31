@@ -139,6 +139,9 @@ class ProjectEntities(object):
                 continue
 
             if shotName:
+                if shotName in [x[1] for x in shots]:
+                    continue
+
                 shots.append([seqName, shotName, val, path])
 
             if seqName not in sequences:
