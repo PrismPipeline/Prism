@@ -880,17 +880,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
     @err_catcher(name=__name__)
     def removeAllStates(self):
         if self.core.uiAvailable:
-            msg = QMessageBox(
-                QMessageBox.Warning,
-                "Publish",
-                "Are you sure you want to delete all states in the current scene?",
-                QMessageBox.Cancel,
-            )
-            msg.addButton("Yes", QMessageBox.YesRole)
-            self.core.parentWindow(msg)
-            action = msg.exec_()
+            msg = "Are you sure you want to delete all states in the current scene?"
+            result = self.core.popupQuestion(msg, buttons=["Yes", "Cancel"])
 
-            if action != 0:
+            if result == "Cancel":
                 return
 
         self.core.appPlugin.sm_deleteStates(self)

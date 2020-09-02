@@ -1,3 +1,8 @@
+v1.3.0.13:
+- fixed a bug that states in Houdini scenes couldn't be loaded in some cases
+- fixed an error when combining media in the Project Browser in some cases
+- fixed an error when copying a scene from the local project folder to the global folder in some cases
+
 v1.3.0.12:
 - fixed a bug that shotnames appear twice in the project folder when using the local project folder
 - fixed an error which could happen in some cases when switching the outputtype of an export state in Houdini to .hda

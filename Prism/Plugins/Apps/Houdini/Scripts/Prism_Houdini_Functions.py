@@ -558,7 +558,7 @@ class Prism_Houdini_Functions(object):
         msg = QMessageBox(
             QMessageBox.NoIcon,
             "State Manager",
-            "Houdini still has no decent callback system, so you need to tell me what to do:",
+            "A problem happened with the scene load callbacks.",
         )
         msg.addButton("Save current states to scene", QMessageBox.YesRole)
         msg.addButton("Reload states from scene", QMessageBox.NoRole)

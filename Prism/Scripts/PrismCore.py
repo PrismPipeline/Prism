@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.12"
+            self.version = "v1.3.0.13"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -868,7 +868,7 @@ License: GNU GPL-3.0-or-later<br>
         return sm
 
     @err_catcher(name=__name__)
-    def stateManager(self, stateDataPath=None, restart=False, openUi=True):
+    def stateManager(self, stateDataPath=None, restart=False, openUi=True, reload_module=False):
         if self.appPlugin.appType != "3d":
             return False
 
@@ -878,7 +878,7 @@ License: GNU GPL-3.0-or-later<br>
         if not self.users.ensureUser():
             return False
 
-        if not getattr(self, "sm", None) or self.debugMode:
+        if not getattr(self, "sm", None) or self.debugMode or reload_module:
             self.closeSM()
 
             if self.uiAvailable:
@@ -922,7 +922,7 @@ License: GNU GPL-3.0-or-later<br>
                 self.sm.close()
 
             if restart:
-                self.stateManager()
+                self.stateManager(reload_module=True)
 
     @err_catcher(name=__name__)
     def projectBrowser(self, openUi=True):
@@ -1842,7 +1842,8 @@ License: GNU GPL-3.0-or-later<br>
         # trigger auto imports
         openSm = getattr(self, "sm", None) and self.sm.isVisible()
         if os.path.exists(self.prismIni):
-            self.stateManager(openUi=openSm)
+            self.stateManager(openUi=openSm, reload_module=True)
+
         self.appPlugin.sceneOpen(self)
 
         self.sanities.checkImportVersions()

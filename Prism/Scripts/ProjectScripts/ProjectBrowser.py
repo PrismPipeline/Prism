@@ -3390,7 +3390,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 for i in os.walk(dstPath):
                     if i[2] != []:
                         msg = "Found existing files in the global directory. Copy to global was canceled."
-                        self.popup(msg)
+                        self.core.popup(msg)
                         return
 
                 shutil.rmtree(dstPath)
@@ -5609,6 +5609,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.join(prismRoot, "Scripts"))
     import PrismCore
 
-    pc = PrismCore.PrismCore(prismArgs=["loadProject"])
+    pc = PrismCore.PrismCore(prismArgs=["loadProject", "noProjectBrowser"])
+    pc.projectBrowser()
 
     sys.exit(qapp.exec_())

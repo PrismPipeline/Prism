@@ -229,8 +229,8 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                     stderr=subprocess.PIPE,
                 )
                 result = nProc.communicate()
-                stdout += result[0]
-                stderr += result[1]
+                stdout += str(result[0])
+                stderr += str(result[1])
                 if not os.path.exists(outputpath) or os.stat(outputpath).st_size == 0:
                     continue
 
@@ -274,8 +274,8 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                 stderr=subprocess.PIPE,
             )
             result = nProc.communicate()
-            stdout += result[0]
-            stderr += result[1]
+            stdout += str(result[0])
+            stderr += str(result[1])
             nProc = subprocess.Popen(
                 [
                     ffmpegPath,
@@ -294,8 +294,8 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                 stderr=subprocess.PIPE,
             )
             result = nProc.communicate()
-            stdout += result[0]
-            stderr += result[1]
+            stdout += str(result[0])
+            stderr += str(result[1])
 
             tmpFiles.append(outputpath)
             tmpFiles.append(outputpathts)
