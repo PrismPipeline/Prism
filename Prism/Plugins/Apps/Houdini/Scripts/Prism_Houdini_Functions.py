@@ -54,6 +54,21 @@ class Prism_Houdini_Functions(object):
         self.core = core
         self.plugin = plugin
         self.startupDelay = 0
+        self.callbacks = []
+        self.registerCallbacks()
+
+    @err_catcher(name=__name__)
+    def registerCallbacks(self):
+        self.callbacks.append(self.core.registerCallback("sceneSaved", self.updateEnvironment))
+
+    @err_catcher(name=__name__)
+    def unregister(self):
+        self.unregisterCallbacks()
+
+    @err_catcher(name=__name__)
+    def unregisterCallbacks(self):
+        for cb in self.callbacks:
+            self.core.unregisterCallback(cb["id"])
 
     @err_catcher(name=__name__)
     def startup(self, origin):
@@ -111,30 +126,53 @@ class Prism_Houdini_Functions(object):
     @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         origin.sceneUnload()
+        self.updateEnvironment()
+
+    @err_catcher(name=__name__)
+    def updateEnvironment(self):
+        envvars = {
+            "PRISM_SEQUENCE": "",
+            "PRISM_SHOT": "",
+            "PRISM_ASSET": "",
+            "PRISM_STEP": "",
+            "PRISM_CATEGORY": "",
+            "PRISM_USER": "",
+            "PRISM_FILE_VERSION": "",
+        }
+
+        for envvar in envvars:
+            envvars[envvar] = hou.hscript("echo $%s" % envvar)
+
+        newenv = {}
 
         fn = self.core.getCurrentFileName()
         data = self.core.getScenefileData(fn)
         if data["entity"] == "asset":
-            hou.hscript("set PRISM_SEQUENCE=")
-            hou.hscript("set PRISM_SHOT=")
-            hou.hscript("set PRISM_ASSET=" + data["entityName"])
+            newenv["PRISM_SEQUENCE"] = ""
+            newenv["PRISM_SHOT"] = ""
+            newenv["PRISM_ASSET"] = data["entityName"]
         elif data["entity"] == "shot":
-            hou.hscript("set PRISM_ASSET=")
+            hou.hscript("setenv PRISM_ASSET=")
+            newenv["PRISM_ASSET"] = ""
 
             sData = self.core.entities.splitShotname(data["entityName"])
-            hou.hscript("set PRISM_SEQUENCE=" + sData[1])
-            hou.hscript("set PRISM_SHOT=" + sData[0])
-
+            newenv["PRISM_SEQUENCE"] = sData[1]
+            newenv["PRISM_SHOT"] = sData[0]
         if data["entity"] != "invalid":
-            hou.hscript("set PRISM_STEP=" + data["step"])
-            hou.hscript("set PRISM_CATEGORY=" + data["category"])
-            hou.hscript("set PRISM_USER=" + getattr(self.core, "user", ""))
-            hou.hscript("set PRISM_FILE_VERSION =" + data["version"])
+            newenv["PRISM_STEP"] = data["step"]
+            newenv["PRISM_CATEGORY"] = data["category"]
+            newenv["PRISM_USER"] = getattr(self.core, "user", "")
+            newenv["PRISM_FILE_VERSION"] = data["version"]
         else:
-            hou.hscript("set PRISM_STEP=")
-            hou.hscript("set PRISM_CATEGORY=")
-            hou.hscript("set PRISM_USER=")
-            hou.hscript("set PRISM_FILE_VERSION =")
+            newenv["PRISM_STEP"] = ""
+            newenv["PRISM_CATEGORY"] = ""
+            newenv["PRISM_USER"] = ""
+            newenv["PRISM_FILE_VERSION"] = ""
+
+        for var in newenv:
+            if newenv[var] != envvars[var]:
+                hou.hscript("setenv %s=%s" % (var, newenv[var]))
+                hou.hscript("varchange %s" % var)
 
     @err_catcher(name=__name__)
     def loadPrjHDAs(self, origin):

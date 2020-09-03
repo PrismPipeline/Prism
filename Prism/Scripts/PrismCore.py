@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.13"
+            self.version = "v1.3.0.14"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1824,6 +1824,8 @@ License: GNU GPL-3.0-or-later<br>
 
         if hasattr(self, "asThread") and self.asThread.isRunning():
             self.startasThread()
+
+        self.callback(name="sceneSaved")
 
     @err_catcher(name=__name__)
     def sceneUnload(self, arg=None):  # callback function

@@ -1,3 +1,6 @@
+v1.3.0.14:
+- fixed a bug that the environment variables were not updated in Houdini when saving to a different filename
+
 v1.3.0.13:
 - fixed a bug that states in Houdini scenes couldn't be loaded in some cases
 - fixed an error when combining media in the Project Browser in some cases
