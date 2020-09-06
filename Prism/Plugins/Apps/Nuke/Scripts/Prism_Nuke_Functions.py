@@ -151,8 +151,8 @@ class Prism_Nuke_Functions(object):
 
     @err_catcher(name=__name__)
     def getFrameRange(self, origin):
-        startframe = nuke.knob("root.first_frame")
-        endframe = nuke.knob("root.last_frame")
+        startframe = nuke.root().knob("first_frame").value()
+        endframe = nuke.root().knob("last_frame").value()
 
         return [startframe, endframe]
 

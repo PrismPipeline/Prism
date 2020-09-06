@@ -535,7 +535,7 @@ class ExportClass(object):
         if self.cb_outType.currentText() == "ShotCam":
             outputBase = os.path.join(self.core.getShotPath(), self.cb_sCamShot.currentText())
             fnameData = self.core.getScenefileData(fileName)
-            comment = fnameData["comment"]
+            comment = fnameData.get("comment", "")
             versionUser = self.core.user
 
             outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))

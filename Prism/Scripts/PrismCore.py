@@ -173,7 +173,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.14"
+            self.version = "v1.3.0.15"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1234,13 +1234,17 @@ License: GNU GPL-3.0-or-later<br>
         return currentFileName
 
     @err_catcher(name=__name__)
-    def fileInPipeline(self, filepath=None):
+    def fileInPipeline(self, filepath=None, validateFilename=True):
         if filepath is None:
             filepath = self.getCurrentFileName()
 
         filepath = self.fixPath(filepath)
 
-        fileNameData = self.getScenefileData(filepath)
+        validName = False
+        if validateFilename:
+            fileNameData = self.getScenefileData(filepath)
+            validName = fileNameData["entity"] != "invalid"
+
         if (
             self.fixPath(self.scenePath) in filepath
             or (
@@ -1248,7 +1252,7 @@ License: GNU GPL-3.0-or-later<br>
                 and self.fixPath(self.core.getScenePath(location="local"))
                 in filepath
             )
-        ) and fileNameData["entity"] != "invalid":
+        ) and (validName or not validateFilename):
             return True
         else:
             return False
@@ -1451,7 +1455,7 @@ License: GNU GPL-3.0-or-later<br>
             if not self.users.ensureUser():
                 return False
 
-            if not self.fileInPipeline(filepath):
+            if not self.fileInPipeline(filepath, validateFilename=False):
                 title = "Could not save the file"
                 msg = "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline."
                 self.popup(msg, title=title)

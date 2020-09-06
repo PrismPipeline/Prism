@@ -345,11 +345,25 @@ class Prism_3dsMax_Functions(object):
             self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame)
 
         self.executeScript(origin, "AlembicExport.CoordinateSystem = #Maya")
-        self.executeScript(origin, "AlembicExport.CacheTimeRange = #StartEnd")
-        self.executeScript(origin, "AlembicExport.StepFrameTime = 1")
-        self.executeScript(origin, "AlembicExport.StartFrameTime = %s" % startFrame)
-        self.executeScript(origin, "AlembicExport.EndFrameTime = %s" % endFrame)
-        self.executeScript(origin, "AlembicExport.ParticleAsMesh = False")
+
+        if self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"')[:2] in [
+            "19",
+            "20",
+        ]:
+            self.executeScript(origin, "AlembicExport.CacheTimeRange = #StartEnd")
+            self.executeScript(origin, "AlembicExport.StepFrameTime = 1")
+            self.executeScript(
+                origin, "AlembicExport.StartFrameTime = %s" % startFrame
+            )
+            self.executeScript(origin, "AlembicExport.EndFrameTime = %s" % endFrame)
+            self.executeScript(origin, "AlembicExport.ParticleAsMesh = False")
+        else:
+            self.executeScript(origin, "AlembicExport.AnimTimeRange = #StartEnd")
+            self.executeScript(origin, "AlembicExport.SamplesPerFrame = 1")
+            self.executeScript(origin, "AlembicExport.StartFrame = %s" % startFrame)
+            self.executeScript(origin, "AlembicExport.EndFrame = %s" % endFrame)
+            self.executeScript(origin, "AlembicExport.ParticleAsMesh = False")
+
         if startFrame == endFrame:
             self.executeScript(
                 origin, 'FbxExporterSetParam "Animation" False', returnVal=False

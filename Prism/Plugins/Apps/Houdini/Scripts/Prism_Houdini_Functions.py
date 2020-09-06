@@ -115,13 +115,18 @@ class Prism_Houdini_Functions(object):
         job = self.core.projectPath.replace("\\", "/")
         if job.endswith("/"):
             job = job[:-1]
-        hou.hscript("set PRISMJOB=" + job)
+        hou.hscript("setenv PRISMJOB=" + job)
+        hou.hscript("varchange PRISMJOB")
 
         if self.core.useLocalFiles:
             ljob = self.core.localProjectPath.replace("\\", "/")
             if ljob.endswith("/"):
                 ljob = ljob[:-1]
-            hou.hscript("set PRISMJOBLOCAL=" + ljob)
+        else:
+            ljob = ""
+
+        hou.hscript("setenv PRISMJOBLOCAL=" + ljob)
+        hou.hscript("varchange PRISMJOBLOCAL")
 
     @err_catcher(name=__name__)
     def sceneOpen(self, origin):
@@ -158,6 +163,11 @@ class Prism_Houdini_Functions(object):
             sData = self.core.entities.splitShotname(data["entityName"])
             newenv["PRISM_SEQUENCE"] = sData[1]
             newenv["PRISM_SHOT"] = sData[0]
+        else:
+            newenv["PRISM_SEQUENCE"] = ""
+            newenv["PRISM_SHOT"] = ""
+            newenv["PRISM_ASSET"] = ""
+
         if data["entity"] != "invalid":
             newenv["PRISM_STEP"] = data["step"]
             newenv["PRISM_CATEGORY"] = data["category"]

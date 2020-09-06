@@ -1,3 +1,10 @@
+v1.3.0.15:
+- fixed a bug that some icons in the Blender stylesheet were not set correctly
+- fixed a bug that some environment variables in Houdini were not visible in the "Aliases and Variables..." window
+- fixed an error when exporting shotcams in 3ds Max
+- fixed an error when opening the context menu of a shotcam export state in a not saved 3ds Max scene
+- some minor internal changes
+
 v1.3.0.14:
 - fixed a bug that the environment variables were not updated in Houdini when saving to a different filename
 

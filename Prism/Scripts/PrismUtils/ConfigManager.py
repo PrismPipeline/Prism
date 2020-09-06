@@ -181,6 +181,7 @@ class ConfigManager(object):
             return dft
 
         isUserConfig = configPath == self.core.userini
+        configPath = os.path.normpath(configPath)
 
         if isUserConfig and not os.path.exists(configPath):
             self.createUserPrefs()
@@ -292,7 +293,7 @@ You will need to set your last project again, but no project files (like scenefi
         except Lockfile.LockfileException:
             pass
         else:
-            self.cachedConfigs[configPath] = configData
+            self.cachedConfigs[os.path.normpath(configPath)] = configData
 
     @err_catcher(name=__name__)
     def updateNestedDicts(self, d, u):

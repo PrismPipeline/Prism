@@ -1016,7 +1016,7 @@ QSplitter::handle:horizontal {
     width: 2px;
     margin: 0px;
     padding: 0px;
-    background-image: url(qss:images_photoshop/vertical_line.png);
+    background-image: url(qss:images_blender/vertical_line.png);
     background-position: center center;
     background-repeat: repeat-y;
 }
@@ -1025,7 +1025,7 @@ QSplitter::handle:vertical {
     height: 2px;
     margin: 0px;
     padding: 0px;
-    background-image: url(qss:images_photoshop/horizontal_line.png);
+    background-image: url(qss:images_blender/horizontal_line.png);
     background-position: center center;
     background-repeat: repeat-x;
 }
@@ -1040,7 +1040,7 @@ QMainWindow::separator:horizontal {
     width: 2px;
     margin: 0px;
     padding: 0px;
-    background-image: url(qss:images_photoshop/horizontal_line.png);
+    background-image: url(qss:images_blender/horizontal_line.png);
     background-position: center center;
     background-repeat: repeat-x;
 }
@@ -1049,7 +1049,7 @@ QMainWindow::separator:vertical {
     height: 2px;
     margin: 0px;
     padding: 0px;
-    background-image: url(qss:images_photoshop/vertical_line.png);
+    background-image: url(qss:images_blender/vertical_line.png);
     background-position: center center;
     background-repeat: repeat-y;
 }
