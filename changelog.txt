@@ -1,3 +1,7 @@
+v1.3.0.16:
+- added the option to paste asset- and shotpreviews from clipboard (e.g. from win + shift + s)
+- fixed a bug that some shots didn't show up in the shotlist
+
 v1.3.0.15:
 - fixed a bug that some icons in the Blender stylesheet were not set correctly
 - fixed a bug that some environment variables in Houdini were not visible in the "Aliases and Variables..." window

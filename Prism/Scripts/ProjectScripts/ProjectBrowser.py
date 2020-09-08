@@ -2868,7 +2868,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             copAct.triggered.connect(
                 lambda: self.captureEntityPreview("asset", self.curAsset)
             )
-            rcmenu.addAction(copAct)
+            clipAct = QAction("Paste assetpreview from clipboard", self)
+            clipAct.triggered.connect(
+                lambda: self.PasteEntityPreviewFromClipboard("asset", self.curAsset)
+            )
+            rcmenu.addAction(clipAct)
         else:
             shotName, seqName = self.core.entities.splitShotname(self.cursShots)
             if not shotName:
@@ -2883,6 +2887,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 lambda: self.captureEntityPreview("shot", self.cursShots)
             )
             rcmenu.addAction(copAct)
+            clipAct = QAction("Paste shotpreview from clipboard", self)
+            clipAct.triggered.connect(
+                lambda: self.PasteEntityPreviewFromClipboard("shot", self.cursShots)
+            )
+            rcmenu.addAction(clipAct)
 
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_(QCursor.pos())
@@ -2890,11 +2899,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     @err_catcher(name=__name__)
     def captureEntityPreview(self, entity, entityname):
         if entity == "asset":
-            folderName = "Assetinfo"
             entityname = os.path.basename(entityname)
             refresh = self.refreshAssetinfo
         else:
-            folderName = "Shotinfo"
             refresh = self.refreshShotinfo
 
         from PrismUtils import ScreenShot
@@ -2902,19 +2909,24 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         previewImg = ScreenShot.grabScreenArea(self.core)
 
         if previewImg:
-            if (previewImg.width() / float(previewImg.height())) > 1.7778:
-                pmsmall = previewImg.scaledToWidth(self.shotPrvXres)
-            else:
-                pmsmall = previewImg.scaledToHeight(self.shotPrvYres)
-
-            prvPath = os.path.join(
-                os.path.dirname(self.core.prismIni),
-                folderName,
-                "%s_preview.jpg" % entityname,
-            )
-            self.core.media.savePixmap(pmsmall, prvPath)
-
+            self.core.entities.setEntityPreview(entity, entityname, previewImg)
             refresh()
+
+    @err_catcher(name=__name__)
+    def PasteEntityPreviewFromClipboard(self, entity, entityname):
+        pmap = self.core.media.getPixmapFromClipboard()
+        if not pmap:
+            self.core.popup("No image in clipboard.")
+            return
+
+        if entity == "asset":
+            entityname = os.path.basename(entityname)
+            refresh = self.refreshAssetinfo
+        else:
+            refresh = self.refreshShotinfo
+
+        self.core.entities.setEntityPreview(entity, entityname, pmap, width=self.shotPrvXres, height=self.shotPrvYres)
+        refresh()
 
     @err_catcher(name=__name__)
     def editAsset(self, assetPath=None):

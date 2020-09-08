@@ -273,6 +273,10 @@ class MediaManager(object):
         return pmap
 
     @err_catcher(name=__name__)
+    def getPixmapFromClipboard(self):
+        return QApplication.clipboard().pixmap()
+
+    @err_catcher(name=__name__)
     def scalePixmap(self, pixmap, width, height, keepRatio=True, fitIntoBounds=True):
         if keepRatio:
             if fitIntoBounds:

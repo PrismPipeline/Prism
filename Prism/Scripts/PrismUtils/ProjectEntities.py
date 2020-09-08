@@ -139,10 +139,12 @@ class ProjectEntities(object):
                 continue
 
             if shotName:
-                if shotName in [x[1] for x in shots]:
-                    continue
-
-                shots.append([seqName, shotName, val, path])
+                for shot in shots:
+                    if seqName == shot[0] and shotName == shot[1]:
+                        break
+                else:
+                    shotData = [seqName, shotName, val, path]
+                    shots.append(shotData)
 
             if seqName not in sequences:
                 sequences.append(seqName)
@@ -1199,3 +1201,23 @@ class ProjectEntities(object):
             ]
 
         return taskList
+
+    @err_catcher(name=__name__)
+    def setEntityPreview(self, entityType, entityName, pixmap, width=250, height=141):
+        if pixmap:
+            if entityType == "asset":
+                folderName = "Assetinfo"
+            else:
+                folderName = "Shotinfo"
+
+            if (pixmap.width() / float(pixmap.height())) > 1.7778:
+                pmsmall = pixmap.scaledToWidth(width)
+            else:
+                pmsmall = pixmap.scaledToHeight(height)
+
+            prvPath = os.path.join(
+                os.path.dirname(self.core.prismIni),
+                folderName,
+                "%s_preview.jpg" % entityName,
+            )
+            self.core.media.savePixmap(pmsmall, prvPath)
