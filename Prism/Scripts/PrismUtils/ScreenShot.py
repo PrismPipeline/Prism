@@ -61,10 +61,9 @@ class ScreenShot(QDialog):
         for i in range(desktop.screenCount()):
             uRect = uRect.united(desktop.screenGeometry(i))
 
-        width, height = uRect.width(), uRect.height()
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setCursor(Qt.CrossCursor)
-        self.setGeometry(0, 0, width, height)
+        self.setGeometry(uRect)
 
         self.setWindowFlags(
             Qt.FramelessWindowHint  # hides the window controls
@@ -101,7 +100,7 @@ class ScreenShot(QDialog):
         painter.drawRect(event.rect())
 
         if self.origin is not None:
-            rect = QRect(self.origin, QCursor.pos())
+            rect = QRect(self.origin, self.mapFromGlobal(QCursor.pos()))
             painter.setCompositionMode(QPainter.CompositionMode_Clear)
             painter.drawRect(rect)
             painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
@@ -134,15 +133,17 @@ class ScreenShot(QDialog):
                 except:
                     pass
 
+            pos = self.mapToGlobal(rect.topLeft())
             try:
                 self.imgmap = screen.grabWindow(
-                    winID, rect.x(), rect.y(), rect.width(), rect.height()
+                    winID, pos.x(), pos.y(), rect.width(), rect.height()
                 )
             except:
                 self.imgmap = screen.grabWindow(
-                    int(winID), rect.x(), rect.y(), rect.width(), rect.height()
+                    int(winID), pos.x(), pos.y(), rect.width(), rect.height()
                 )
             self.close()
+
         QWidget.mouseReleaseEvent(self, event)
 
 

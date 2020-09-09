@@ -2868,6 +2868,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             copAct.triggered.connect(
                 lambda: self.captureEntityPreview("asset", self.curAsset)
             )
+            rcmenu.addAction(copAct)
             clipAct = QAction("Paste assetpreview from clipboard", self)
             clipAct.triggered.connect(
                 lambda: self.PasteEntityPreviewFromClipboard("asset", self.curAsset)

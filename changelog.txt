@@ -1,3 +1,7 @@
+v1.3.0.17:
+- fixed a bug with the screencapture tool on multi-monitor setups
+- fixed the assetpreview cature menu
+
 v1.3.0.16:
 - added the option to paste asset- and shotpreviews from clipboard (e.g. from win + shift + s)
 - fixed a bug that some shots didn't show up in the shotlist
