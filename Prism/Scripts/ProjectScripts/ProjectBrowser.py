@@ -847,6 +847,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
             self.updateTasks()
 
+        for idx in range(self.tbw_browser.count()):
+            if idx != tab:
+                self.tbw_browser.widget(idx).setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+
+        self.tbw_browser.widget(tab).setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
     @err_catcher(name=__name__)
     def checkVisibleTabs(self):
         cw = self.tbw_browser.currentWidget()
