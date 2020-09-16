@@ -3,6 +3,6 @@ try:
     import PrismInit
 
     PrismInit.createPrismCore()
-except:
-    pass
+except Exception as e:
+    print str(e)
 # <<<PrismEnd

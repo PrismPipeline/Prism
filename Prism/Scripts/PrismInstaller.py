@@ -45,17 +45,20 @@ else:
     pyLibs = "Python27"
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+prismLibs = os.getenv("PRISM_LIBS")
+if not prismLibs:
+    prismLibs = prismRoot
 
-scriptPath = os.path.abspath(os.path.dirname(__file__))
+scriptPath = os.path.join(prismRoot, "Scripts")
 if scriptPath not in sys.path:
     sys.path.append(scriptPath)
 
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "win32"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "win32", "lib"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "PySide"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
-os.environ['PATH'] = os.path.join(prismRoot, "PythonLibs", pyLibs, "pywin32_system32") + os.pathsep + os.environ['PATH']
+sys.path.insert(0, os.path.join(prismLibs, "PythonLibs", pyLibs))
+sys.path.insert(0, os.path.join(prismLibs, "PythonLibs", pyLibs, "win32"))
+sys.path.insert(0, os.path.join(prismLibs, "PythonLibs", pyLibs, "win32", "lib"))
+sys.path.insert(0, os.path.join(prismLibs, "PythonLibs", pyLibs, "PySide"))
+sys.path.insert(0, os.path.join(scriptPath, "UserInterfacesPrism"))
+os.environ['PATH'] = os.path.join(prismLibs, "PythonLibs", pyLibs, "pywin32_system32") + os.pathsep + os.environ['PATH']
 
 if platform.system() == "Windows":
     from win32com.shell import shellcon

@@ -55,7 +55,9 @@ if sys.version[0] == "3":
 else:
     pVersion = 2
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfaces"))
+uiPath = os.path.join(os.path.dirname(__file__), "UserInterfaces")
+if uiPath not in sys.path:
+    sys.path.append(uiPath)
 
 for i in ["StateManager_ui", "StateManager_ui_ps2", "CreateItem"]:
     try:

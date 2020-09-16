@@ -44,12 +44,8 @@ if not prismRoot:
 if sys.version_info[1] != 7:
     raise RuntimeError("Prism supports only Blender versions, which are using Python 3.7")
 
-libFolder = "Python37"
-
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "CrossPlatform"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libFolder))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libFolder, "PySide"))
 sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
+import PrismCore
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -60,8 +56,6 @@ from bpy.app.handlers import persistent
 
 
 def prismInit():
-    import PrismCore
-
     pcore = PrismCore.PrismCore(app="Blender")
     return pcore
 

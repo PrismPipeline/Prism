@@ -143,12 +143,12 @@ class Prism_Standalone_Functions(object):
                 startMenuPath, "Prism", "Prism Settings.lnk"
             )
 
-            trayLnk = os.path.join(self.core.prismRoot, "Tools", "Prism Tray.lnk")
+            trayLnk = os.path.join(self.core.prismLibs, "Tools", "Prism Tray.lnk")
             pbLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Prism Project Browser.lnk"
+                self.core.prismLibs, "Tools", "Prism Project Browser.lnk"
             )
             settingsLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Prism Settings.lnk"
+                self.core.prismLibs, "Tools", "Prism Settings.lnk"
             )
 
             cbPath = trayStartup
@@ -175,7 +175,7 @@ class Prism_Standalone_Functions(object):
 
                 self.core.createShortcut(
                     i[0],
-                    vTarget=("%s\\Python37\\%s" % (self.core.prismRoot, i[1])),
+                    vTarget=("%s\\Python37\\%s" % (self.core.prismLibs, i[1])),
                     args=('"%s\\Scripts\\%s" standalone' % (self.core.prismRoot, i[2])),
                 )
 
@@ -196,19 +196,19 @@ class Prism_Standalone_Functions(object):
             pbStartMenu = "/usr/share/applications/PrismProjectBrowser.desktop"
             settingsStartMenu = "/usr/share/applications/PrismSettings.desktop"
 
-            trayLnk = os.path.join(self.core.prismRoot, "Tools", "PrismTray.desktop")
+            trayLnk = os.path.join(self.core.prismLibs, "Tools", "PrismTray.desktop")
             pbLnk = os.path.join(
-                self.core.prismRoot, "Tools", "PrismProjectBrowser.desktop"
+                self.core.prismLibs, "Tools", "PrismProjectBrowser.desktop"
             )
             settingsLnk = os.path.join(
-                self.core.prismRoot, "Tools", "PrismSettings.desktop"
+                self.core.prismLibs, "Tools", "PrismSettings.desktop"
             )
             spbPath = os.path.join(
-                self.core.prismRoot, "Tools", "PrismProjectBrowser.sh"
+                self.core.prismLibs, "Tools", "PrismProjectBrowser.sh"
             )
-            ssPath = os.path.join(self.core.prismRoot, "Tools", "PrismSettings.sh")
-            cbPath = os.path.join(self.core.prismRoot, "Tools", "PrismTray.sh")
-            pMenuSource = os.path.join(self.core.prismRoot, "Tools", "Prism.menu")
+            ssPath = os.path.join(self.core.prismLibs, "Tools", "PrismSettings.sh")
+            cbPath = os.path.join(self.core.prismLibs, "Tools", "PrismTray.sh")
+            pMenuSource = os.path.join(self.core.prismLibs, "Tools", "Prism.menu")
 
             for i in [
                 trayLnk,
@@ -238,9 +238,7 @@ class Prism_Standalone_Functions(object):
                         initStr = init.read()
 
                     with open(i, "w") as init:
-                        initStr = initStr.replace(
-                            "PRISMROOT", self.core.prismRoot.replace("\\", "/")
-                        )
+                        initStr = initStr.replace("PRISMROOT", self.core.prismRoot)
                         init.write(initStr)
 
             if not os.path.exists(os.path.dirname(pMenuTarget)):
@@ -300,16 +298,16 @@ class Prism_Standalone_Functions(object):
             settingsStartMenu = "/Applications/Prism/Prism Settings.command"
 
             trayStartupSrc = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "com.user.PrismTray.plist"
+                self.core.prismLibs, "Tools", "Templates", "com.user.PrismTray.plist"
             )
             trayLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Tray.command"
+                self.core.prismLibs, "Tools", "Templates", "Prism Tray.command"
             )
             pbLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Project Browser.command"
+                self.core.prismLibs, "Tools", "Templates", "Prism Project Browser.command"
             )
             settingsLnk = os.path.join(
-                self.core.prismRoot, "Tools", "Templates", "Prism Settings.command"
+                self.core.prismLibs, "Tools", "Templates", "Prism Settings.command"
             )
 
             if os.path.exists(trayStartupSrc):
@@ -317,7 +315,7 @@ class Prism_Standalone_Functions(object):
                     initStr = init.read()
 
                 try:
-                    tmpPath = os.path.join(self.core.prismRoot, "Tools", "tmp.txt")
+                    tmpPath = os.path.join(self.core.prismLibs, "Tools", "tmp.txt")
                     open(tmpPath, "w").close()
                     os.remove(tmpPath)
                 except IOError:
@@ -436,9 +434,7 @@ class Prism_Standalone_Functions(object):
                     scriptStr = init.read()
 
                 with open(i, "w") as init:
-                    scriptStr = scriptStr.replace(
-                        "PRISMROOT", self.core.prismRoot.replace("\\", "/")
-                    )
+                    scriptStr = scriptStr.replace("PRISMROOT", self.core.prismRoot)
                     init.write(scriptStr)
 
                 os.chown(i, uid, -1)

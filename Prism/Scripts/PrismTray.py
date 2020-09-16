@@ -38,16 +38,11 @@ import subprocess
 import platform
 import logging
 
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
 if sys.version[0] == "3":
-    libDir = "Python37"
     sys.path.append(os.path.dirname(__file__))
-else:
-    libDir = "Python27"
 
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libDir))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", libDir, "PySide"))
+if __name__ == "__main__":
+    import PrismCore
 
 if platform.system() == "Windows":
     import psutil
@@ -229,10 +224,10 @@ class PrismTray:
                 return None
 
             if platform.system() == "Windows":
-                command = '"%s/Tools/Prism Project Browser.lnk"' % prismRoot
+                command = '"%s/Tools/Prism Project Browser.lnk"' % self.core.prismLibs
             else:
                 command = "python %s" % os.path.join(
-                    prismRoot, "Scripts", "PrismCore.py"
+                    self.core.prismRoot, "Scripts", "PrismCore.py"
                 )
 
             self.browserProc = subprocess.Popen(command, shell=True)
@@ -300,7 +295,7 @@ class PrismTray:
 
     def openFolder(self, path="", location=None):
         if location == "Prism":
-            path = prismRoot
+            path = self.core.prismRoot
         elif location == "Project":
             curProject = self.core.getConfig("globals", "current project")
             if curProject is None:
@@ -331,10 +326,10 @@ class PrismTray:
                 return None
 
             if platform.system() == "Windows":
-                command = '"%s/Tools/PrismSettings.lnk"' % prismRoot
+                command = '"%s/Tools/PrismSettings.lnk"' % self.core.prismLibs
             else:
                 command = "python %s" % os.path.join(
-                    prismRoot, "Scripts", "PrismSettings.py"
+                    self.core.prismRoot, "Scripts", "PrismSettings.py"
                 )
 
             self.settingsProc = subprocess.Popen(command, shell=True)
@@ -370,8 +365,6 @@ if __name__ == "__main__":
     if not QSystemTrayIcon.isSystemTrayAvailable():
         QMessageBox.critical(None, "PrismTray", "Could not launch PrismTray. Tray icons are not supported on this OS.")
         sys.exit(1)
-
-    import PrismCore
 
     pc = PrismCore.PrismCore(prismArgs=["loadProject", "noProjectBrowser", "tray"])
     pc.startTray()

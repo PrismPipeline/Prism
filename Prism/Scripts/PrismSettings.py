@@ -42,45 +42,26 @@ from collections import OrderedDict
 
 if sys.version[0] == "3":
     pVersion = 3
-    pyLibs = "Python37"
 else:
     pVersion = 2
-    pyLibs = "Python27"
-
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 scriptPath = os.path.abspath(os.path.dirname(__file__))
 if scriptPath not in sys.path:
     sys.path.append(scriptPath)
 
+if __name__ == "__main__":
+    import PrismCore
+
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
     psVersion = 2
 except:
-    try:
-        if "standalone" in sys.argv:
-            raise
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+    psVersion = 1
 
-        from PySide.QtCore import *
-        from PySide.QtGui import *
-
-        psVersion = 1
-    except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "PySide"))
-        try:
-            from PySide2.QtCore import *
-            from PySide2.QtGui import *
-            from PySide2.QtWidgets import *
-
-            psVersion = 2
-        except:
-            from PySide.QtCore import *
-            from PySide.QtGui import *
-
-            psVersion = 1
 
 for i in [
     "PrismSettings_ui",
@@ -91,8 +72,6 @@ for i in [
         del sys.modules[i]
     except:
         pass
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfacesPrism"))
 
 import SetProject
 
@@ -422,7 +401,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 "Prism Tray.lnk",
             )
             trayLnk = self.core.fixPath(
-                os.path.join(self.core.prismRoot, "Tools", "Prism Tray.lnk")
+                os.path.join(self.core.prismLibs, "Tools", "Prism Tray.lnk")
             )
 
             if self.chb_trayStartup.isChecked():
@@ -450,7 +429,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                         "Cannot add Prism to the autostart because this shortcut doesn't exist:\n\n%s\n\nExecute '%s\\Win_Setup_Startmenu.bat' to create the shortcut."
                         % (
                             trayLnk,
-                            self.core.fixPath(self.core.prismRoot).replace("/", "\\"),
+                            self.core.fixPath(self.core.prismLibs).replace("/", "\\"),
                         ),
                     )
             elif os.path.exists(trayStartup):
@@ -470,7 +449,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         elif platform.system() == "Linux":
             trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
             trayLnk = self.core.fixPath(
-                os.path.join(self.core.prismRoot, "Tools", "PrismTray.desktop")
+                os.path.join(self.core.prismLibs, "Tools", "PrismTray.desktop")
             )
 
             if os.path.exists(trayStartup):
@@ -497,7 +476,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 "/Users/%s/Library/LaunchAgents/com.user.PrismTray.plist" % userName
             )
             trayLnk = self.core.fixPath(
-                os.path.join(self.core.prismRoot, "Tools", "com.user.PrismTray.plist")
+                os.path.join(self.core.prismLibs, "Tools", "com.user.PrismTray.plist")
             )
 
             if os.path.exists(trayStartup):
@@ -1099,7 +1078,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     def startTray(self):
         if platform.system() == "Windows":
             slavePath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
-            pythonPath = os.path.join(self.core.prismRoot, "Python37", "Prism Tray.exe")
+            pythonPath = os.path.join(self.core.prismLibs, "Python37", "Prism Tray.exe")
             for i in [slavePath, pythonPath]:
                 if not os.path.exists(i):
                     QMessageBox.warning(
@@ -1111,9 +1090,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
             command = ["%s" % pythonPath, "%s" % slavePath]
         elif platform.system() == "Linux":
-            command = "bash %s/Tools/PrismTray.sh" % self.core.prismRoot
+            command = "bash %s/Tools/PrismTray.sh" % self.core.prismLibs
         elif platform.system() == "Darwin":
-            command = "bash %s/Tools/PrismTray.sh" % self.core.prismRoot
+            command = "bash %s/Tools/PrismTray.sh" % self.core.prismLibs
 
         subprocess.Popen(command, shell=True)
 
@@ -1136,7 +1115,6 @@ if __name__ == "__main__":
         )
     )
     qapp.setWindowIcon(appIcon)
-    import PrismCore
 
     pc = PrismCore.PrismCore(prismArgs=["loadProject", "noProjectBrowser"])
 

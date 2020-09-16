@@ -138,7 +138,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         ffmpegIsInstalled = False
         if platform.system() == "Windows":
             ffmpegPath = os.path.join(
-                self.core.prismRoot, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
+                self.core.prismLibs, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
             )
             if os.path.exists(ffmpegPath):
                 ffmpegIsInstalled = True
@@ -150,7 +150,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
             except:
                 pass
         elif platform.system() == "Darwin":
-            ffmpegPath = os.path.join(self.core.prismRoot, "Tools", "ffmpeg")
+            ffmpegPath = os.path.join(self.core.prismLibs, "Tools", "ffmpeg")
             if os.path.exists(ffmpegPath):
                 ffmpegIsInstalled = True
 

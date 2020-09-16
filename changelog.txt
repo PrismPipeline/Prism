@@ -1,3 +1,6 @@
+v1.3.0.19:
+- a new environment variable "PRISM_LIBS" can be used to load libraries from a separate folder than the Prism root folder
+
 v1.3.0.17:
 - fixed a bug with the screencapture tool on multi-monitor setups
 - fixed the assetpreview cature menu

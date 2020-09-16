@@ -117,7 +117,7 @@ class MediaManager(object):
     @err_catcher(name=__name__)
     def getFFmpeg(self):
         ffmpegPath = os.path.join(
-            self.core.prismRoot, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
+            self.core.prismLibs, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
         )
         return ffmpegPath
 

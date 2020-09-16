@@ -32,45 +32,22 @@
 
 
 import os
-import sys
-
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
     psVersion = 2
 except:
-    try:
-        if "standalone" in sys.argv:
-            raise
-
-        from PySide.QtCore import *
-        from PySide.QtGui import *
-
-        psVersion = 1
-    except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
-        try:
-            from PySide2.QtCore import *
-            from PySide2.QtGui import *
-            from PySide2.QtWidgets import *
-
-            psVersion = 2
-        except:
-            from PySide.QtCore import *
-            from PySide.QtGui import *
-
-            psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+    psVersion = 1
 
 if psVersion == 1:
     from UserInterfacesPrism import ChangeUser_ui
 else:
     from UserInterfacesPrism import ChangeUser_ui_ps2 as ChangeUser_ui
 
-from UserInterfacesPrism import qdarkstyle
 from PrismUtils.Decorators import err_catcher
 
 
@@ -141,8 +118,3 @@ class ChangeUser(QDialog, ChangeUser_ui.Ui_dlg_ChangeUser):
                 self, "Warning (setUser)", "Error - Setting user failed\n" + str(e)
             )
             return
-
-
-def show():
-    cu = ChangeUser()
-    cu.show()

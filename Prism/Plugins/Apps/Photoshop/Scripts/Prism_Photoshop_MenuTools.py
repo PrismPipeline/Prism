@@ -40,7 +40,7 @@ prismRoot = os.path.abspath(
 )
 
 sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
+import PrismCore
 
 try:
     from PySide2.QtCore import *
@@ -53,8 +53,6 @@ except:
 qapp = QApplication.instance()
 if qapp == None:
     qapp = QApplication(sys.argv)
-
-import PrismCore
 
 pcore = PrismCore.PrismCore(app="Photoshop")
 

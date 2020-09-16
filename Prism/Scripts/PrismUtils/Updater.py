@@ -148,8 +148,8 @@ try:
 except Exception as e:
     sys.stdout.write('failed %%s' %% traceback.format_exc())
 """ % (
-            self.core.prismRoot,
-            self.core.prismRoot,
+            self.core.prismLibs,
+            self.core.prismLibs,
         )
 
         pythonPath = self.core.getPythonPath()
@@ -182,7 +182,7 @@ except Exception as e:
         libVersion = stdOutData.split("__")[1] or "v1.3.0.0"
 
         curLibVersion = "v1.3.0.0"
-        libConfig = os.path.join(self.core.prismRoot, "PythonLibs", "libraries.yml")
+        libConfig = os.path.join(self.core.prismLibs, "PythonLibs", "libraries.yml")
         if os.path.exists(libConfig):
             libInfo = self.core.readYaml(libConfig)
             if "version" in libInfo:
@@ -455,7 +455,7 @@ or move Prism to a location where no admin privileges are required." % target)
 
         self.core.popup(msgStr, severity="info")
 
-        trayPath = os.path.join(self.core.prismRoot, "Tools", "Prism Tray.lnk")
+        trayPath = os.path.join(self.core.prismLibs, "Tools", "Prism Tray.lnk")
         if os.path.exists(trayPath):
             subprocess.Popen([trayPath], shell=True)
 
@@ -551,8 +551,8 @@ try:
 except Exception as e:
     sys.stdout.write('failed %%s' %% e)
 """ % (
-            self.core.prismRoot,
-            self.core.prismRoot,
+            self.core.prismLibs,
+            self.core.prismLibs,
         )
 
         pythonPath = self.core.getPythonPath()

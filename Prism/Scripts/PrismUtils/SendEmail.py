@@ -35,18 +35,18 @@ import os
 import sys
 import traceback
 
-prismRoot = sys.argv[-5]
+prismLibs = sys.argv[-5]
 pyLibs = sys.argv[-4]
 subject = sys.argv[-3]
 message = sys.argv[-2]
 attachment = sys.argv[-1]
 
 try:
-    pyLibPath = os.path.join(prismRoot, 'PythonLibs', pyLibs)
+    pyLibPath = os.path.join(prismLibs, 'PythonLibs', pyLibs)
     if pyLibPath not in sys.path:
         sys.path.insert(0, pyLibPath)
 
-    pyLibPath = os.path.join(prismRoot, 'PythonLibs', 'CrossPlatform')
+    pyLibPath = os.path.join(prismLibs, 'PythonLibs', 'CrossPlatform')
     if pyLibPath not in sys.path:
         sys.path.insert(0, pyLibPath)
 

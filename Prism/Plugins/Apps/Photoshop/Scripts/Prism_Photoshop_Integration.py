@@ -132,9 +132,8 @@ class Prism_Photoshop_Integration(object):
                 with open(targetFile, "r") as init:
                     initStr = init.read()
 
-                initStr = initStr.replace(
-                    "PRISMROOT", "%s" % self.core.prismRoot.replace("\\", "/")
-                )
+                initStr = initStr.replace("PRISMROOT", "%s" % self.core.prismRoot)
+                initStr = initStr.replace("PRISMLIBS", "%s" % self.core.prismLibs)
 
                 with open(targetFile, "w") as init:
                     init.write(initStr)

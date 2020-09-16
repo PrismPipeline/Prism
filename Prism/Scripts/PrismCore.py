@@ -58,13 +58,20 @@ else:
     pyLibs = "Python27"
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+prismLibs = os.getenv("PRISM_LIBS")
 
-scriptPath = os.path.abspath(os.path.dirname(__file__))
+if not prismLibs:
+    prismLibs = prismRoot
+
+if not os.path.exists(os.path.join(prismLibs, "PythonLibs")):
+    raise Exception("Prism: Couldn't find libraries. Set \"PRISM_LIBS\" to fix this.")
+
+scriptPath = os.path.join(prismRoot, "Scripts")
 if scriptPath not in sys.path:
     sys.path.append(scriptPath)
 
-pyLibPath = os.path.join(prismRoot, "PythonLibs", pyLibs)
-cpLibs = os.path.join(prismRoot, "PythonLibs", "CrossPlatform")
+pyLibPath = os.path.join(prismLibs, "PythonLibs", pyLibs)
+cpLibs = os.path.join(prismLibs, "PythonLibs", "CrossPlatform")
 
 if cpLibs not in sys.path:
     sys.path.append(cpLibs)
@@ -78,7 +85,8 @@ if platform.system() == "Windows":
     os.environ['PATH'] = os.path.join(pyLibPath, "pywin32_system32") + os.pathsep + os.environ['PATH']
 
 guiPath = os.path.join(prismRoot, "Scripts", "UserInterfacesPrism")
-sys.path.append(guiPath)
+if guiPath not in sys.path:
+    sys.path.append(guiPath)
 
 try:
     from PySide2.QtCore import *
@@ -92,7 +100,7 @@ except:
         from PySide.QtCore import *
         from PySide.QtGui import *
     except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "PySide"))
+        sys.path.insert(0, os.path.join(prismLibs, "PythonLibs", pyLibs, "PySide"))
         try:
             from PySide2.QtCore import *
             from PySide2.QtGui import *
@@ -173,15 +181,14 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.18"
+            self.version = "v1.3.0.19"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
             startTime = datetime.now()
 
-            self.prismRoot = os.path.abspath(
-                os.path.dirname(os.path.dirname(__file__))
-            ).replace("\\", "/")
+            self.prismRoot = prismRoot.replace("\\", "/")
+            self.prismLibs = prismLibs.replace("\\", "/")
 
             if platform.system() == "Windows":
                 self.userini = os.path.join(
@@ -251,6 +258,7 @@ class PrismCore:
             self.dv = None
             self.ps = None
             self.status = "starting"
+            self.missingModules = []
 
             # delete old paths from the path variable
             for val in sys.path:
@@ -1097,11 +1105,13 @@ License: GNU GPL-3.0-or-later<br>
 
     @err_catcher(name=__name__)
     def missingModule(self, moduleName):
-        self.popup(
-            'Module "%s" couldn\'t be loaded.\nMake sure you have the latest Prism version installed.'
-            % moduleName,
-            title="Couldn't load module",
-        )
+        if moduleName not in self.missingModules:
+            self.missingModules.append(moduleName)
+            self.popup(
+                'Module "%s" couldn\'t be loaded.\nMake sure you have the latest Prism version installed.'
+                % moduleName,
+                title="Couldn't load module",
+            )
 
     @err_catcher(name=__name__)
     def resolveFrameExpression(self, expression):
@@ -1933,17 +1943,20 @@ License: GNU GPL-3.0-or-later<br>
     def getPythonPath(self, executable=None):
         if platform.system() == "Windows":
             if executable:
-                pythonPath = os.path.join(self.prismRoot, "Python37", "%s.exe" % executable)
+                pythonPath = os.path.join(self.prismLibs, "Python37", "%s.exe" % executable)
                 if os.path.exists(pythonPath):
                     return pythonPath
 
-            pythonPath = os.path.join(self.prismRoot, "Python37", "pythonw.exe")
+            pythonPath = os.path.join(self.prismLibs, "Python37", "pythonw.exe")
             if not os.path.exists(pythonPath):
-                pythonPath = os.path.join(self.prismRoot, "Python27", "pythonw.exe")
+                pythonPath = os.path.join(self.prismLibs, "Python27", "pythonw.exe")
                 if not os.path.exists(pythonPath):
                     pythonPath = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
                     if not os.path.exists(pythonPath):
                         pythonPath = sys.executable
+                        if "ython" not in os.path.basename(pythonPath):
+                            pythonPath = "python"
+
         else:
             pythonPath = "python"
 
@@ -1970,7 +1983,7 @@ License: GNU GPL-3.0-or-later<br>
 
             scriptPath = os.path.join(os.path.dirname(PrismUtils.__file__), "SendEmail.py")
             args = [pythonPath, scriptPath]
-            args.append(self.prismRoot)
+            args.append(self.prismLibs)
             args.append(pyLibs)
             args.append(subject)
             args.append(text)

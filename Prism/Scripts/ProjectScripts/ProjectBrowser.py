@@ -46,42 +46,24 @@ from collections import OrderedDict
 
 if sys.version[0] == "3":
     pVersion = 3
-    pyLibs = "Python37"
 else:
     pVersion = 2
-    pyLibs = "Python27"
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+if __name__ == "__main__":
+    sys.path.append(os.path.join(prismRoot, "Scripts"))
+    import PrismCore
 
 try:
     from PySide2.QtCore import *
     from PySide2.QtGui import *
     from PySide2.QtWidgets import *
-
     psVersion = 2
 except:
-    try:
-        if "standalone" in sys.argv:
-            raise
-
-        from PySide.QtCore import *
-        from PySide.QtGui import *
-
-        psVersion = 1
-    except:
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs))
-        sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", pyLibs, "PySide"))
-        try:
-            from PySide2.QtCore import *
-            from PySide2.QtGui import *
-            from PySide2.QtWidgets import *
-
-            psVersion = 2
-        except:
-            from PySide.QtCore import *
-            from PySide.QtGui import *
-
-            psVersion = 1
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+    psVersion = 1
 
 if platform.system() == "Windows":
     if pVersion == 3:
@@ -89,21 +71,9 @@ if platform.system() == "Windows":
     elif pVersion == 2:
         import _winreg
 
-elif platform.system() in ["Linux", "Darwin"]:
-    if pVersion == 3:
-        from io import BytesIO as StringIO
-    elif pVersion == 2:
-        pyLibDir = os.path.join(prismRoot, "PythonLibs", "Python27")
-        if pyLibDir not in sys.path:
-            sys.path.append(pyLibDir)
-        try:
-            from PIL import Image
-            from cStringIO import StringIO
-        except:
-            pass
-
-sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(os.path.dirname(__file__), "UserInterfaces"))
+uiPath = os.path.join(os.path.dirname(__file__), "UserInterfaces")
+if uiPath not in sys.path:
+    sys.path.append(uiPath)
 
 for i in [
     "ProjectBrowser_ui",
@@ -787,10 +757,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     @err_catcher(name=__name__)
     def loadLibs(self):
         global imageio
-        ffmpegPath = os.path.join(
-            self.core.prismRoot, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
-        )
-        os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpegPath
+        os.environ["IMAGEIO_FFMPEG_EXE"] = self.core.media.getFFmpeg()
         try:
             import imageio
         except:
@@ -5625,8 +5592,6 @@ if __name__ == "__main__":
     )
 
     qapp.setWindowIcon(appIcon)
-    sys.path.append(os.path.join(prismRoot, "Scripts"))
-    import PrismCore
 
     pc = PrismCore.PrismCore(prismArgs=["loadProject", "noProjectBrowser"])
     pc.projectBrowser()
