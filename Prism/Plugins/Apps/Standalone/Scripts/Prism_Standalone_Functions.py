@@ -296,6 +296,10 @@ class Prism_Standalone_Functions(object):
             trayStartMenu = "/Applications/Prism/Prism Tray.command"
             pbStartMenu = "/Applications/Prism/Prism Project Browser.command"
             settingsStartMenu = "/Applications/Prism/Prism Settings.command"
+            desktopPath = "/Users/%s/Desktop/%s" % (
+                userName,
+                os.path.splitext(os.path.basename(pbStartMenu))[0],
+            )
 
             trayStartupSrc = os.path.join(
                 self.core.prismLibs, "Tools", "Templates", "com.user.PrismTray.plist"
@@ -327,10 +331,6 @@ class Prism_Standalone_Functions(object):
                     return False
 
             if os.path.exists(pbLnk):
-                desktopPath = "/Users/%s/Desktop/%s" % (
-                    userName,
-                    os.path.splitext(os.path.basename(pbLnk))[0],
-                )
                 if os.path.exists(desktopPath):
                     try:
                         os.remove(desktopPath)
@@ -410,7 +410,7 @@ class Prism_Standalone_Functions(object):
                 settingsLnk,
             ]
 
-            shortCuts = [trayStartup, trayStartMenu, pbStartMenu, settingsStartMenu]
+            shortCuts = [trayStartup, trayStartMenu, pbStartMenu, settingsStartMenu, desktopPath]
             uid = pwd.getpwnam(userName).pw_uid
 
             for i in templateTools:

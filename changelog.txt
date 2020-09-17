@@ -1,3 +1,11 @@
+v1.3.0.20:
+- added the resolution preset "Cam Resolution" for Houdini render states and "Get from rendersettings" for Maya, Blender and 3ds Max render states
+- changed the refresh option in the menubar of the Project Browser to an icon in the right corner
+- fixed an error when opening the resolution presets in some cases
+- fixed a bug that the desktop shortcut on MacOS didn't work
+- fixed a bug that project hooks weren't called
+- fixed a bug that the render preview in the Project Browser showed the wrong AOV in some cases
+
 v1.3.0.19:
 - a new environment variable "PRISM_LIBS" can be used to load libraries from a separate folder than the Prism root folder
 

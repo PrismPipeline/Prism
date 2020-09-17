@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'ProjectBrowser.ui',
 # licensing of 'ProjectBrowser.ui' applies.
 #
-# Created: Thu Jul  9 07:47:43 2020
+# Created: Fri Sep 18 01:11:46 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!

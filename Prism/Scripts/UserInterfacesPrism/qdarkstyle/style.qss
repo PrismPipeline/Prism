@@ -26,7 +26,7 @@ QToolTip
     border: 1px solid #76797C;
     background-color: rgb(90, 102, 117);;
     color: white;
-    padding: 5px;
+    padding: 1px;
     opacity: 200;
 }
 

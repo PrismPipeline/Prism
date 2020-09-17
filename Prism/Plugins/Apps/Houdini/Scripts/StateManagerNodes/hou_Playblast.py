@@ -71,7 +71,7 @@ class PlayblastClass(object):
         self.sp_rangeStart.setValue(hou.playbar.playbackRange()[0])
         self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
 
-        self.resolutionPresets = [
+        dftResPresets = [
             "Cam resolution",
             "3840x2160",
             "1920x1080",
@@ -79,6 +79,12 @@ class PlayblastClass(object):
             "960x540",
             "640x360",
         ]
+
+        self.resolutionPresets = self.core.getConfig("globals", "resolutionPresets", configPath=self.core.prismIni, dft=dftResPresets)
+
+        if "Cam resolution" not in self.resolutionPresets:
+            self.resolutionPresets.insert(0, "Cam resolution")
+
         self.outputformats = ["jpg", "mp4"]
         self.cb_formats.addItems(self.outputformats)
 
@@ -271,8 +277,11 @@ class PlayblastClass(object):
             if i == "Cam resolution":
                 pAct.triggered.connect(lambda: self.setCamResolution())
             else:
-                pwidth = int(i.split("x")[0])
-                pheight = int(i.split("x")[1])
+                try:
+                    pwidth = int(i.split("x")[0])
+                    pheight = int(i.split("x")[1])
+                except ValueError:
+                    continue
 
                 pAct.triggered.connect(
                     lambda x=None, v=pwidth: self.sp_resWidth.setValue(v)

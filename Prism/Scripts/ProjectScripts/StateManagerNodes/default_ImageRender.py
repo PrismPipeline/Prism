@@ -112,9 +112,13 @@ class ImageRenderClass(object):
             "1280x720",
             "960x540",
             "640x360",
+            "Get from rendersettings",
         ]
 
         self.resolutionPresets = self.core.getConfig("globals", "resolutionPresets", configPath=self.core.prismIni, dft=dftResPresets)
+
+        if "Get from rendersettings" not in self.resolutionPresets:
+            self.resolutionPresets.append("Get from rendersettings")
 
         self.f_localOutput.setVisible(self.core.useLocalFiles)
         self.e_osSlaves.setText("All")
@@ -357,8 +361,7 @@ class ImageRenderClass(object):
         frames = self.core.resolveFrameExpression(self.le_frameExpression.text())
         frameStr = ",".join([str(x) for x in frames]) or "invalid expression"
         self.expressionWinLabel.setText(frameStr)
-        self.expressionWin.resize(1,1)
-
+        self.expressionWin.resize(1, 1)
 
     @err_catcher(name=__name__)
     def exprMoveEvent(self, event):
@@ -477,10 +480,14 @@ class ImageRenderClass(object):
     def showResPresets(self):
         pmenu = QMenu()
 
-        for i in self.resolutionPresets:
-            pAct = QAction(i, self)
-            pwidth = int(i.split("x")[0])
-            pheight = int(i.split("x")[1])
+        for preset in self.resolutionPresets:
+            pAct = QAction(preset, self)
+            res = self.getResolution(preset)
+            if not res:
+                continue
+
+            pwidth, pheight = res
+
             pAct.triggered.connect(
                 lambda x=None, v=pwidth: self.sp_resWidth.setValue(v)
             )
@@ -491,6 +498,21 @@ class ImageRenderClass(object):
             pmenu.addAction(pAct)
 
         pmenu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def getResolution(self, resolution):
+        res = None
+        if resolution == "Get from rendersettings":
+            res = self.core.appPlugin.getResolution()
+        else:
+            try:
+                pwidth = int(resolution.split("x")[0])
+                pheight = int(resolution.split("x")[1])
+                res = [pwidth, pheight]
+            except:
+                res = getattr(self.core.appPlugin, "evaluateResolution", lambda x: None)(resolution)
+
+        return res
 
     @err_catcher(name=__name__)
     def overrideChanged(self, checked):

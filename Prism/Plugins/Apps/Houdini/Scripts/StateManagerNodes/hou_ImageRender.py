@@ -87,14 +87,18 @@ class ImageRenderClass(object):
         self.cb_renderer.addItems([x.label for x in self.renderers])
 
         dftResPresets = [
+            "Cam resolution",
+            "3840x2160",
             "1920x1080",
             "1280x720",
+            "960x540",
             "640x360",
-            "4000x2000",
-            "2000x1000",
         ]
 
         self.resolutionPresets = self.core.getConfig("globals", "resolutionPresets", configPath=self.core.prismIni, dft=dftResPresets)
+
+        if "Cam resolution" not in self.resolutionPresets:
+            self.resolutionPresets.insert(0, "Cam resolution")
 
         self.outputFormats = [
             ".exr",
@@ -585,19 +589,47 @@ class ImageRenderClass(object):
 
         for i in self.resolutionPresets:
             pAct = QAction(i, self)
-            pwidth = int(i.split("x")[0])
-            pheight = int(i.split("x")[1])
-            pAct.triggered.connect(
-                lambda x=None, v=pwidth: self.sp_resWidth.setValue(v)
-            )
-            pAct.triggered.connect(
-                lambda x=None, v=pheight: self.sp_resHeight.setValue(v)
-            )
-            pAct.triggered.connect(lambda: self.stateManager.saveStatesToScene())
+            if i == "Cam resolution":
+                pAct.triggered.connect(lambda: self.setCamResolution())
+            else:
+                try:
+                    pwidth = int(i.split("x")[0])
+                    pheight = int(i.split("x")[1])
+                except ValueError:
+                    continue
+
+                pAct.triggered.connect(
+                    lambda x=None, v=pwidth: self.sp_resWidth.setValue(v)
+                )
+                pAct.triggered.connect(
+                    lambda x=None, v=pheight: self.sp_resHeight.setValue(v)
+                )
+                pAct.triggered.connect(lambda: self.stateManager.saveStatesToScene())
+
             pmenu.addAction(pAct)
 
         pmenu.setStyleSheet(self.stateManager.parent().styleSheet())
         pmenu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def setCamResolution(self):
+        pbCam = None
+
+        if self.node:
+            camParm = self.node.parm("camera")
+            if camParm:
+                cam = camParm.evalAsNode()
+
+        if cam is None:
+            QMessageBox.warning(
+                self, "Resolution Override", "No camera is selected or active."
+            )
+            return
+
+        self.sp_resWidth.setValue(cam.parm("resx").eval())
+        self.sp_resHeight.setValue(cam.parm("resy").eval())
+
+        self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def updateUi(self):

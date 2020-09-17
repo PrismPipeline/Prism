@@ -1646,54 +1646,55 @@ class %s(QWidget, %s.%s, %s.%sClass):
                                 + "\n"
                             )
 
-            if warnString != "" and self.core.uiAvailable:
-                warnDlg = QDialog()
+            if warnString != "":
+                if self.core.uiAvailable:
+                    warnDlg = QDialog()
 
-                warnDlg.setWindowTitle("Publish warnings")
-                l_info = QLabel(str("The following warnings have occurred:\n"))
+                    warnDlg.setWindowTitle("Publish warnings")
+                    l_info = QLabel(str("The following warnings have occurred:\n"))
 
-                warnString = "<pre>%s</pre>" % warnString.replace(
-                    "\n", "<br />"
-                ).replace("\t", "    ")
-                l_warnings = QLabel(warnString)
-                l_warnings.setAlignment(Qt.AlignTop)
+                    warnString = "<pre>%s</pre>" % warnString.replace(
+                        "\n", "<br />"
+                    ).replace("\t", "    ")
+                    l_warnings = QLabel(warnString)
+                    l_warnings.setAlignment(Qt.AlignTop)
 
-                sa_warns = QScrollArea()
+                    sa_warns = QScrollArea()
 
-                lay_warns = QHBoxLayout()
-                lay_warns.addWidget(l_warnings)
-                lay_warns.setContentsMargins(10, 10, 10, 10)
-                lay_warns.addStretch()
-                w_warns = QWidget()
-                w_warns.setLayout(lay_warns)
-                sa_warns.setWidget(w_warns)
-                sa_warns.setWidgetResizable(True)
+                    lay_warns = QHBoxLayout()
+                    lay_warns.addWidget(l_warnings)
+                    lay_warns.setContentsMargins(10, 10, 10, 10)
+                    lay_warns.addStretch()
+                    w_warns = QWidget()
+                    w_warns.setLayout(lay_warns)
+                    sa_warns.setWidget(w_warns)
+                    sa_warns.setWidgetResizable(True)
 
-                bb_warn = QDialogButtonBox()
+                    bb_warn = QDialogButtonBox()
 
-                bb_warn.addButton("Continue", QDialogButtonBox.AcceptRole)
-                bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
+                    bb_warn.addButton("Continue", QDialogButtonBox.AcceptRole)
+                    bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
 
-                bb_warn.accepted.connect(warnDlg.accept)
-                bb_warn.rejected.connect(warnDlg.reject)
+                    bb_warn.accepted.connect(warnDlg.accept)
+                    bb_warn.rejected.connect(warnDlg.reject)
 
-                bLayout = QVBoxLayout()
-                bLayout.addWidget(l_info)
-                bLayout.addWidget(sa_warns)
-                bLayout.addWidget(bb_warn)
-                warnDlg.setLayout(bLayout)
-                warnDlg.setParent(self.core.messageParent, Qt.Window)
-                warnDlg.resize(
-                    1000 * self.core.uiScaleFactor, 500 * self.core.uiScaleFactor
-                )
+                    bLayout = QVBoxLayout()
+                    bLayout.addWidget(l_info)
+                    bLayout.addWidget(sa_warns)
+                    bLayout.addWidget(bb_warn)
+                    warnDlg.setLayout(bLayout)
+                    warnDlg.setParent(self.core.messageParent, Qt.Window)
+                    warnDlg.resize(
+                        1000 * self.core.uiScaleFactor, 500 * self.core.uiScaleFactor
+                    )
 
-                action = warnDlg.exec_()
+                    action = warnDlg.exec_()
 
-                if action == 0:
-                    return
+                    if action == 0:
+                        return
 
-            else:
-                logger.warning(warnString)
+                else:
+                    logger.warning(warnString)
 
             details = {}
             if self.description != "":

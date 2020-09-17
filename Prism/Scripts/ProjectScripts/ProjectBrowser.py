@@ -432,10 +432,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def loadLayout(self):
-        self.actionRefresh = QAction("Refresh", self)
-        self.actionRefresh.triggered.connect(self.refreshUI)
-        self.menubar.addAction(self.actionRefresh)
-
         self.helpMenu = QMenu("Help")
 
         self.actionWebsite = QAction("Visit website", self)
@@ -465,6 +461,19 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.actionSendFeedback = QAction("Send feedback...", self)
         self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
         self.menubar.addAction(self.actionSendFeedback)
+
+        self.w_menuCorner = QWidget()
+        self.b_refreshTabs = QPushButton()
+        self.lo_corner = QHBoxLayout()
+        self.w_menuCorner.setLayout(self.lo_corner)
+        self.lo_corner.addWidget(self.b_refreshTabs)
+        self.lo_corner.setContentsMargins(0, 0, 10, 0)
+        self.b_refreshTabs.setIcon(QIcon(os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png")))
+        self.b_refreshTabs.clicked.connect(self.refreshUI)
+        self.b_refreshTabs.setIconSize(QSize(20, 20))
+        self.b_refreshTabs.setToolTip("Refresh")
+        self.b_refreshTabs.setStyleSheet("QWidget{padding: 0; border-width: 0px;} QWidget:hover{border-width: 1px; }")
+        self.menubar.setCornerWidget(self.w_menuCorner)
 
         self.core.appPlugin.setRCStyle(self, self.helpMenu)
 
@@ -836,6 +845,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if not self.checkVisibleTabs():
             return
 
+        self.setEnabled(False)
+        QCoreApplication.processEvents()
         cw = self.tbw_browser.currentWidget()
         curTab = cw.property("tabType")
         curData = [
@@ -870,9 +881,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.refreshShots()
         elif curTab == "Recent":
             self.setRecent()
+            self.setEnabled(True)
             return
         else:
+            self.setEnabled(True)
             return
+
+        self.setEnabled(True)
 
         self.navigate(data=navData)
         self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
@@ -3728,8 +3743,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if self.cb_layer.currentIndex() != -1:
             self.curRLayer = self.cb_layer.currentText()
-        else:
-            self.updatePreview()
+
+        self.updatePreview()
 
     @err_catcher(name=__name__)
     def getShotMediaPath(self):

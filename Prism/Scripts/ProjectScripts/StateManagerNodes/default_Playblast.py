@@ -90,6 +90,9 @@ class PlayblastClass(object):
 
         self.resolutionPresets = self.core.getConfig("globals", "resolutionPresets", configPath=self.core.prismIni, dft=dftResPresets)
 
+        if "Get from rendersettings" not in self.resolutionPresets:
+            self.resolutionPresets.append("Get from rendersettings")
+
         self.outputformats = ["jpg", "mp4"]
         self.cb_formats.addItems(self.outputformats)
         getattr(self.core.appPlugin, "sm_playblast_startup", lambda x: None)(self)

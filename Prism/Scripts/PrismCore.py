@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.19"
+            self.version = "v1.3.0.20"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -376,7 +376,7 @@ class PrismCore:
 
     @err_catcher(name=__name__)
     def callHook(self, *args, **kwargs):
-        return self.callbacks.callback(*args, **kwargs)
+        return self.callbacks.callHook(*args, **kwargs)
 
     @err_catcher(name=__name__)
     def startup(self):
