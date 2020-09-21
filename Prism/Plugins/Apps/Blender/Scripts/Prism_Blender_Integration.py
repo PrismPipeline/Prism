@@ -322,6 +322,8 @@ class Prism_Blender_Integration(object):
                 bldItem.setToolTip(0, blenderPath)
             else:
                 bldItem.setCheckState(0, Qt.Unchecked)
+                bldItem.setText(1, "< doubleclick to browse path >")
+
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(

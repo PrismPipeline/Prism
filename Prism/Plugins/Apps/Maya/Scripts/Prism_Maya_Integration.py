@@ -303,24 +303,22 @@ class Prism_Maya_Integration(object):
             mayacItem = QTreeWidgetItem(["Custom"])
             mayacItem.setToolTip(0, 'e.g. "%s"' % self.examplePath)
             mayacItem.setToolTip(1, 'e.g. "%s"' % self.examplePath)
+            mayacItem.setText(1, "< doubleclick to browse path >")
             mayacItem.setCheckState(0, Qt.Unchecked)
             mayaItem.addChild(mayacItem)
-            # mayaItem.setExpanded(True)
+            mayaItem.setExpanded(True)
 
             activeVersion = False
             for i in mayaPath:
-                mayavItem = QTreeWidgetItem([i[-4:]])
-                mayaItem.addChild(mayavItem)
+                if not os.path.exists(i):
+                    continue
 
-                if os.path.exists(i):
-                    mayavItem.setCheckState(0, Qt.Checked)
-                    mayavItem.setText(1, i)
-                    mayavItem.setToolTip(0, i)
-                    mayacItem.setText(1, i)
-                    activeVersion = True
-                else:
-                    mayavItem.setCheckState(0, Qt.Unchecked)
-                    mayavItem.setFlags(~Qt.ItemIsEnabled)
+                mayavItem = QTreeWidgetItem([i[-4:]])
+                mayavItem.setCheckState(0, Qt.Checked)
+                mayavItem.setText(1, i)
+                mayavItem.setToolTip(0, i)
+                activeVersion = True
+                mayaItem.addChild(mayavItem)
 
             if not activeVersion:
                 mayaItem.setCheckState(0, Qt.Unchecked)

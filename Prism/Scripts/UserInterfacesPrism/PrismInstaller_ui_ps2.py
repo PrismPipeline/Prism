@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'PrismInstaller.ui'
+# Form implementation generated from reading ui file 'PrismInstaller.ui',
+# licensing of 'PrismInstaller.ui' applies.
 #
-# Created: Tue Oct 23 18:43:05 2018
-#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
+# Created: Mon Sep 21 20:34:16 2020
+#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +13,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 class Ui_dlg_installer(object):
     def setupUi(self, dlg_installer):
         dlg_installer.setObjectName("dlg_installer")
-        dlg_installer.resize(680, 547)
+        dlg_installer.resize(680, 720)
         self.verticalLayout = QtWidgets.QVBoxLayout(dlg_installer)
         self.verticalLayout.setContentsMargins(-1, 15, -1, -1)
         self.verticalLayout.setObjectName("verticalLayout")

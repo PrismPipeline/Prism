@@ -1,3 +1,10 @@
+v1.3.0.21:
+- Prism integrations for multiple Houdini and Photoshop versions can be installed at once in the "setup Integrations" dialog
+- added Prism Tray and Prism Settings shortcuts on the desktop for Mac
+- fixed an error during updating on Mac
+- fixed a problem that the refresh button wasn't visible on Mac
+- fixed a bug that the size of the Project Browser tabs could be incorrect in some cases
+
 v1.3.0.20:
 - added the resolution preset "Cam Resolution" for Houdini render states and "Get from rendersettings" for Maya, Blender and 3ds Max render states
 - changed the refresh option in the menubar of the Project Browser to an icon in the right corner

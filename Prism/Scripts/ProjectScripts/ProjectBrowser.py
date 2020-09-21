@@ -473,7 +473,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_refreshTabs.setIconSize(QSize(20, 20))
         self.b_refreshTabs.setToolTip("Refresh")
         self.b_refreshTabs.setStyleSheet("QWidget{padding: 0; border-width: 0px;} QWidget:hover{border-width: 1px; }")
-        self.menubar.setCornerWidget(self.w_menuCorner)
+
+        if platform.system() == "Darwin":
+            parentWidget = self.tbw_browser
+        else:
+            parentWidget = self.menubar
+
+        parentWidget.setCornerWidget(self.w_menuCorner)
 
         self.core.appPlugin.setRCStyle(self, self.helpMenu)
 
@@ -685,6 +691,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
             self.w_aCategory.setVisible(False)
 
+        self.updateTabSize(self.tbw_browser.currentIndex())
+
         self.lw_task.setAcceptDrops(True)
         self.lw_task.dragEnterEvent = self.taskDragEnterEvent
         self.lw_task.dragMoveEvent = self.taskDragMoveEvent
@@ -823,6 +831,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.gb_renderings.isVisible() and self.chb_autoUpdate.isChecked():
             self.updateTasks()
 
+        self.updateTabSize(tab)
+
+    @err_catcher(name=__name__)
+    def updateTabSize(self, tab):
         for idx in range(self.tbw_browser.count()):
             if idx != tab:
                 self.tbw_browser.widget(idx).setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)

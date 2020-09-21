@@ -34,6 +34,7 @@ import os
 import sys
 import platform
 import shutil
+import glob
 
 try:
     from PySide2.QtCore import *
@@ -56,30 +57,11 @@ class Prism_Houdini_Integration(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
-
-        if platform.system() == "Windows":
-            self.examplePath = os.environ["userprofile"] + "\\Documents\\houdini18.0"
-        elif platform.system() == "Linux":
-            userName = (
-                os.environ["SUDO_USER"]
-                if "SUDO_USER" in os.environ
-                else os.environ["USER"]
-            )
-            self.examplePath = os.path.join("/home", userName, "houdini18.0")
-        elif platform.system() == "Darwin":
-            userName = (
-                os.environ["SUDO_USER"]
-                if "SUDO_USER" in os.environ
-                else os.environ["USER"]
-            )
-            self.examplePath = "/Users/%s/Library/Preferences/houdini/18.0" % userName
-
-        if not os.path.exists(self.examplePath):
-            for i in ["18.0", "17.5", "17.0", "16.5", "16.0"]:
-                path = self.examplePath[:-4] + i
-                if os.path.exists(path):
-                    self.examplePath = path
-                    break
+        prefPaths = self.getPreferencesPaths()
+        if prefPaths:
+            self.examplePath = prefPaths[-1]
+        else:
+            self.examplePath = self.getPreferencesBasePath() + "18.0"
 
     @err_catcher(name=__name__)
     def getExecutable(self):
@@ -114,12 +96,43 @@ class Prism_Houdini_Integration(object):
         except:
             return ""
 
+    @err_catcher(name=__name__)
+    def getPreferencesPaths(self):
+        houdiniPaths = []
+        basepath = self.getPreferencesBasePath()
+
+        for path in glob.glob(basepath + "*"):
+            try:
+                float(path[-4:])
+            except:
+                continue
+
+            houdiniPaths.append(path)
+
+        return houdiniPaths
+
+    def getPreferencesBasePath(self):
+        if platform.system() == "Windows":
+            basepath = os.environ["userprofile"] + "\\Documents\\houdini"
+        elif platform.system() == "Linux":
+            userName = (
+                os.environ["SUDO_USER"]
+                if "SUDO_USER" in os.environ
+                else os.environ["USER"]
+            )
+            basepath = os.path.join("/home", userName, "houdini")
+        elif platform.system() == "Darwin":
+            userName = (
+                os.environ["SUDO_USER"]
+                if "SUDO_USER" in os.environ
+                else os.environ["USER"]
+            )
+            basepath = "/Users/%s/Library/Preferences/houdini/" % userName
+
+        return basepath
+
     def addIntegration(self, installPath):
         try:
-
-            # python rc
-            pyrc = os.path.join(installPath, "python2.7libs", "pythonrc.py")
-
             if not os.path.exists(installPath):
                 msg = QMessageBox(
                     QMessageBox.Warning,
@@ -238,15 +251,34 @@ class Prism_Houdini_Integration(object):
     def updateInstallerUI(self, userFolders, pItem):
         try:
             houItem = QTreeWidgetItem(["Houdini"])
+            houItem.setCheckState(0, Qt.Checked)
             pItem.addChild(houItem)
 
-            houdiniPath = self.examplePath
+            houPaths = self.getPreferencesPaths() or []
+            houCustomItem = QTreeWidgetItem(["Custom"])
+            houCustomItem.setToolTip(0, 'e.g. "%s"' % self.examplePath)
+            houCustomItem.setToolTip(1, 'e.g. "%s"' % self.examplePath)
+            houCustomItem.setText(1, "< doubleclick to browse path >")
+            houCustomItem.setCheckState(0, Qt.Unchecked)
+            houItem.addChild(houCustomItem)
+            houItem.setExpanded(True)
 
-            if houdiniPath != None and os.path.exists(houdiniPath):
-                houItem.setCheckState(0, Qt.Checked)
-                houItem.setText(1, houdiniPath)
-                houItem.setToolTip(0, houdiniPath)
-            else:
+            activeVersion = False
+            for i in houPaths:
+                houVItem = QTreeWidgetItem([i[-4:]])
+                houItem.addChild(houVItem)
+
+                if os.path.exists(i):
+                    houVItem.setCheckState(0, Qt.Checked)
+                    houVItem.setText(1, i)
+                    houVItem.setToolTip(0, i)
+                    houVItem.setText(1, i)
+                    activeVersion = True
+                else:
+                    houVItem.setCheckState(0, Qt.Unchecked)
+                    houVItem.setFlags(~Qt.ItemIsEnabled)
+
+            if not activeVersion:
                 houItem.setCheckState(0, Qt.Unchecked)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()

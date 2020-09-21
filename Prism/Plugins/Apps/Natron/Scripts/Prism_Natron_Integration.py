@@ -183,6 +183,7 @@ class Prism_Natron_Integration(object):
                 natronItem.setToolTip(0, natronPath)
             else:
                 natronItem.setCheckState(0, Qt.Unchecked)
+                natronItem.setText(1, "< doubleclick to browse path >")
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(

@@ -60,8 +60,9 @@ class Prism_Photoshop_Integration(object):
         self.examplePath = str(self.getPhotoshopPath())
 
     @err_catcher(name=__name__)
-    def getPhotoshopPath(self):
+    def getPhotoshopPath(self, single=True):
         try:
+            psPaths = []
             if platform.system() == "Windows":
                 key = _winreg.OpenKey(
                     _winreg.HKEY_LOCAL_MACHINE,
@@ -69,23 +70,35 @@ class Prism_Photoshop_Integration(object):
                     0,
                     _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
                 )
-                psVersion = _winreg.EnumKey(key, 0)
-                psKey = _winreg.OpenKey(
-                    _winreg.HKEY_LOCAL_MACHINE,
-                    "SOFTWARE\\Adobe\\Photoshop\\" + psVersion,
-                    0,
-                    _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
-                )
-                psPath = (_winreg.QueryValueEx(psKey, "ApplicationPath"))[0]
+                idx = 0
+                while True:
+                    try:
+                        psVersion = _winreg.EnumKey(key, idx)
+                        psKey = _winreg.OpenKey(
+                            _winreg.HKEY_LOCAL_MACHINE,
+                            "SOFTWARE\\Adobe\\Photoshop\\" + psVersion,
+                            0,
+                            _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
+                        )
+                        path = _winreg.QueryValueEx(psKey, "ApplicationPath")[0]
+                        path = os.path.normpath(path)
+                        psPaths.append(path)
+                        idx += 1
+                    except:
+                        break
             elif platform.system() == "Darwin":
                 for foldercont in os.walk("/Applications"):
                     for folder in reversed(sorted(foldercont[1])):
                         if folder.startswith("Adobe Photoshop"):
-                            psPath = os.path.join(foldercont[0], folder)
-                            break
+                            psPaths.append(os.path.join(foldercont[0], folder))
+                            if single:
+                                break
                     break
 
-            return psPath
+            if single:
+                return psPaths[0] if psPaths else None
+            else:
+                return psPaths if psPaths else []
         except:
             return None
 
@@ -180,16 +193,37 @@ class Prism_Photoshop_Integration(object):
 
     def updateInstallerUI(self, userFolders, pItem):
         try:
-            photoshopItem = QTreeWidgetItem(["Photoshop"])
-            pItem.addChild(photoshopItem)
+            psItem = QTreeWidgetItem(["Photoshop"])
+            psItem.setCheckState(0, Qt.Checked)
+            pItem.addChild(psItem)
 
-            photoshopPath = self.examplePath
-            if photoshopPath is not None and os.path.exists(photoshopPath):
-                photoshopItem.setCheckState(0, Qt.Checked)
-                photoshopItem.setText(1, photoshopPath)
-                photoshopItem.setToolTip(0, photoshopPath)
-            else:
-                photoshopItem.setCheckState(0, Qt.Unchecked)
+            psPaths = self.getPhotoshopPath(single=False) or []
+            psCustomItem = QTreeWidgetItem(["Custom"])
+            psCustomItem.setToolTip(0, 'e.g. "%s"' % self.examplePath)
+            psCustomItem.setToolTip(1, 'e.g. "%s"' % self.examplePath)
+            psCustomItem.setText(1, "< doubleclick to browse path >")
+            psCustomItem.setCheckState(0, Qt.Unchecked)
+            psItem.addChild(psCustomItem)
+            psItem.setExpanded(True)
+
+            activeVersion = False
+            for i in reversed(psPaths):
+                psVItem = QTreeWidgetItem([i[-4:]])
+                psItem.addChild(psVItem)
+
+                if os.path.exists(i):
+                    psVItem.setCheckState(0, Qt.Checked)
+                    psVItem.setText(1, i)
+                    psVItem.setToolTip(0, i)
+                    psVItem.setText(1, i)
+                    activeVersion = True
+                else:
+                    psVItem.setCheckState(0, Qt.Unchecked)
+                    psVItem.setFlags(~Qt.ItemIsEnabled)
+
+            if not activeVersion:
+                psItem.setCheckState(0, Qt.Unchecked)
+
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(

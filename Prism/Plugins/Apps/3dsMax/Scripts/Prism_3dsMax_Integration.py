@@ -256,24 +256,22 @@ deleteFile curPath
             maxcItem = QTreeWidgetItem(["Custom"])
             maxcItem.setToolTip(0, 'e.g. "%s"' % self.examplePath)
             maxcItem.setToolTip(1, 'e.g. "%s"' % self.examplePath)
+            maxcItem.setText(1, "< doubleclick to browse path >")
             maxcItem.setCheckState(0, Qt.Unchecked)
             maxItem.addChild(maxcItem)
-            # maxItem.setExpanded(True)
+            maxItem.setExpanded(True)
 
             activeVersion = False
             for i in maxPath:
+                if not os.path.exists(i[0]):
+                    continue
+
                 maxvItem = QTreeWidgetItem([i[1]])
                 maxItem.addChild(maxvItem)
-
-                if os.path.exists(i[0]):
-                    maxvItem.setCheckState(0, Qt.Checked)
-                    maxvItem.setText(1, i[0])
-                    maxvItem.setToolTip(0, i[0])
-                    maxcItem.setText(1, i[0])
-                    activeVersion = True
-                else:
-                    maxvItem.setCheckState(0, Qt.Unchecked)
-                    maxvItem.setFlags(~Qt.ItemIsEnabled)
+                maxvItem.setCheckState(0, Qt.Checked)
+                maxvItem.setText(1, i[0])
+                maxvItem.setToolTip(0, i[0])
+                activeVersion = True
 
             if not activeVersion:
                 maxItem.setCheckState(0, Qt.Unchecked)

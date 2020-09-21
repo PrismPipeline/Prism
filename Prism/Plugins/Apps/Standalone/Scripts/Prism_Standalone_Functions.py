@@ -296,10 +296,11 @@ class Prism_Standalone_Functions(object):
             trayStartMenu = "/Applications/Prism/Prism Tray.command"
             pbStartMenu = "/Applications/Prism/Prism Project Browser.command"
             settingsStartMenu = "/Applications/Prism/Prism Settings.command"
-            desktopPath = "/Users/%s/Desktop/%s" % (
-                userName,
-                os.path.splitext(os.path.basename(pbStartMenu))[0],
-            )
+
+            desktopPath = "/Users/%s/Desktop/" % (userName)
+            pbDesktop = desktopPath + os.path.splitext(os.path.basename(pbStartMenu))[0]
+            trayDesktop = desktopPath + os.path.splitext(os.path.basename(trayStartMenu))[0]
+            settingsDesktop = desktopPath + os.path.splitext(os.path.basename(settingsStartMenu))[0]
 
             trayStartupSrc = os.path.join(
                 self.core.prismLibs, "Tools", "Templates", "com.user.PrismTray.plist"
@@ -331,16 +332,40 @@ class Prism_Standalone_Functions(object):
                     return False
 
             if os.path.exists(pbLnk):
-                if os.path.exists(desktopPath):
+                if os.path.exists(pbDesktop):
                     try:
-                        os.remove(desktopPath)
+                        os.remove(pbDesktop)
                     except:
                         pass
 
-                if os.path.lexists(desktopPath):
-                    os.unlink(desktopPath)
+                if os.path.lexists(pbDesktop):
+                    os.unlink(pbDesktop)
 
-                os.symlink(pbLnk, desktopPath)
+                os.system("cp \"%s\" \"%s\"" % (pbLnk, pbDesktop))
+
+            if os.path.exists(trayLnk):
+                if os.path.exists(trayDesktop):
+                    try:
+                        os.remove(trayDesktop)
+                    except:
+                        pass
+
+                if os.path.lexists(trayDesktop):
+                    os.unlink(trayDesktop)
+
+                os.system("cp \"%s\" \"%s\"" % (trayLnk, trayDesktop))
+
+            if os.path.exists(settingsLnk):
+                if os.path.exists(settingsDesktop):
+                    try:
+                        os.remove(settingsDesktop)
+                    except:
+                        pass
+
+                if os.path.lexists(settingsDesktop):
+                    os.unlink(settingsDesktop)
+
+                os.system("cp \"%s\" \"%s\"" % (settingsLnk, settingsDesktop))
 
             # subprocess.Popen(['bash', "/usr/local/Prism/Tools/PrismTray.sh"])
 
@@ -410,7 +435,7 @@ class Prism_Standalone_Functions(object):
                 settingsLnk,
             ]
 
-            shortCuts = [trayStartup, trayStartMenu, pbStartMenu, settingsStartMenu, desktopPath]
+            shortCuts = [trayStartup, trayStartMenu, pbStartMenu, settingsStartMenu, pbDesktop, trayDesktop, settingsDesktop]
             uid = pwd.getpwnam(userName).pw_uid
 
             for i in templateTools:

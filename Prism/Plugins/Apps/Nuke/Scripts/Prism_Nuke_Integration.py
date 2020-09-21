@@ -180,6 +180,7 @@ class Prism_Nuke_Integration(object):
                 nukeItem.setToolTip(0, nukePath)
             else:
                 nukeItem.setCheckState(0, Qt.Unchecked)
+                nukeItem.setText(1, "< doubleclick to browse path >")
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(

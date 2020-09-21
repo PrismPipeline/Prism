@@ -310,6 +310,7 @@ class Prism_Fusion_Integration(object):
                 fusionItem.setToolTip(0, fusionPath)
             else:
                 fusionItem.setCheckState(0, Qt.Unchecked)
+                fusionItem.setText(1, "< doubleclick to browse path >")
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(

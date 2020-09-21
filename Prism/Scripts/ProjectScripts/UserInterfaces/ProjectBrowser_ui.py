@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ProjectBrowser.ui'
 #
-# Created: Fri Sep 18 01:11:46 2020
+# Created: Tue Sep 22 00:38:34 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -40,20 +40,20 @@ class Ui_mw_ProjectBrowser(object):
         self.horizontalLayout_3.setSpacing(10)
         self.horizontalLayout_3.setContentsMargins(15, 15, 15, 15)
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
-        self.widget_3 = QtGui.QWidget(self.t_assets)
-        self.widget_3.setMinimumSize(QtCore.QSize(140, 0))
-        self.widget_3.setMaximumSize(QtCore.QSize(200, 16777215))
-        self.widget_3.setObjectName("widget_3")
-        self.verticalLayout_3 = QtGui.QVBoxLayout(self.widget_3)
+        self.w_assetHierarchy = QtGui.QWidget(self.t_assets)
+        self.w_assetHierarchy.setMinimumSize(QtCore.QSize(140, 0))
+        self.w_assetHierarchy.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.w_assetHierarchy.setObjectName("w_assetHierarchy")
+        self.verticalLayout_3 = QtGui.QVBoxLayout(self.w_assetHierarchy)
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
-        self.l_aHierarchy = QtGui.QLabel(self.widget_3)
+        self.l_aHierarchy = QtGui.QLabel(self.w_assetHierarchy)
         self.l_aHierarchy.setObjectName("l_aHierarchy")
         self.verticalLayout_3.addWidget(self.l_aHierarchy)
-        self.e_assetSearch = QtGui.QLineEdit(self.widget_3)
+        self.e_assetSearch = QtGui.QLineEdit(self.w_assetHierarchy)
         self.e_assetSearch.setObjectName("e_assetSearch")
         self.verticalLayout_3.addWidget(self.e_assetSearch)
-        self.tw_aHierarchy = QtGui.QTreeWidget(self.widget_3)
+        self.tw_aHierarchy = QtGui.QTreeWidget(self.w_assetHierarchy)
         self.tw_aHierarchy.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.tw_aHierarchy.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.tw_aHierarchy.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
@@ -61,7 +61,7 @@ class Ui_mw_ProjectBrowser(object):
         self.tw_aHierarchy.headerItem().setText(0, "1")
         self.tw_aHierarchy.header().setVisible(False)
         self.verticalLayout_3.addWidget(self.tw_aHierarchy)
-        self.horizontalLayout_3.addWidget(self.widget_3)
+        self.horizontalLayout_3.addWidget(self.w_assetHierarchy)
         self.verticalWidget_3 = QtGui.QWidget(self.t_assets)
         self.verticalWidget_3.setMaximumSize(QtCore.QSize(272, 16777215))
         self.verticalWidget_3.setObjectName("verticalWidget_3")

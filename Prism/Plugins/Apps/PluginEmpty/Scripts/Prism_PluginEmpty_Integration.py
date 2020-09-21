@@ -163,7 +163,7 @@ class Prism_PluginEmpty_Integration(object):
 
     def updateInstallerUI(self, userFolders, pItem):
         try:
-            pluginItem = QTreeWidgetItem(["Houdini"])
+            pluginItem = QTreeWidgetItem([self.plugin.pluginName])
             pItem.addChild(pluginItem)
 
             pluginPath = self.examplePath
@@ -174,6 +174,7 @@ class Prism_PluginEmpty_Integration(object):
                 pluginItem.setToolTip(0, pluginPath)
             else:
                 pluginItem.setCheckState(0, Qt.Unchecked)
+                pluginItem.setText(1, "< doubleclick to browse path >")
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(

@@ -4,7 +4,7 @@ fname = "SetProject"
 fname = "PrismSettings"
 # fname = "ExternalPandoraSubmitter"
 # fname = "ProjectCreated"
-# fname = "PrismInstaller"
+fname = "PrismInstaller"
 # fname = "SaveComment"
 
 pyside = 0

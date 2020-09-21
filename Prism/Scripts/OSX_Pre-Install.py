@@ -16,8 +16,11 @@ sys.path.insert(0, modulePath)
 pipPath = os.path.join(libPath, "PythonLibs", "CrossPlatform", "PrismModules")
 sys.path.insert(0, pipPath)
 
-targetPath = os.path.join(libPath, "PythonLibs", "Python27", "PySide")
-sys.path.append(targetPath)
+lib27Path = os.path.join(libPath, "PythonLibs", "Python27")
+sys.path.append(lib27Path)
+
+pysidePath = os.path.join(libPath, "PythonLibs", "Python27", "PySide")
+sys.path.append(pysidePath)
 
 
 def installPackage(package, targetPath):
@@ -33,4 +36,9 @@ if __name__ == '__main__':
         try:
             import PySide
         except:
-            installPackage("PySide2 <5.15.0", targetPath)
+            installPackage("PySide2 <5.15.0", pysidePath)
+
+    try:
+        import psutil
+    except:
+        installPackage("psutil", lib27Path)
