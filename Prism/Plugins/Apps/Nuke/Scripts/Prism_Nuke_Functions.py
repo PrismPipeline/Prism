@@ -171,8 +171,7 @@ class Prism_Nuke_Functions(object):
 
     @err_catcher(name=__name__)
     def getResolution(self):
-        resFormatStr = nuke.knob("root.format")
-        resFormat = [int(resFormatStr.split()[0]), int(resFormatStr.split()[1])]
+        resFormat = [nuke.root().width(), nuke.root().height()]
         return resFormat
 
     @err_catcher(name=__name__)

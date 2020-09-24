@@ -699,6 +699,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.lw_task.dragLeaveEvent = self.taskDragLeaveEvent
         self.lw_task.dropEvent = self.taskDropEvent
 
+        self.tw_aFiles.setAcceptDrops(True)
+        self.tw_aFiles.dragEnterEvent = self.sceneDragEnterEvent
+        self.tw_aFiles.dragMoveEvent = lambda x: self.sceneDragMoveEvent(x, self.tw_aFiles)
+        self.tw_aFiles.dragLeaveEvent = lambda x: self.sceneDragLeaveEvent(x, self.tw_aFiles)
+        self.tw_aFiles.dropEvent = lambda x: self.sceneDropEvent(x, "asset", self.tw_aFiles)
+
+        self.tw_sFiles.setAcceptDrops(True)
+        self.tw_sFiles.dragEnterEvent = self.sceneDragEnterEvent
+        self.tw_sFiles.dragMoveEvent = lambda x: self.sceneDragMoveEvent(x, self.tw_sFiles)
+        self.tw_sFiles.dragLeaveEvent = lambda x: self.sceneDragLeaveEvent(x, self.tw_sFiles)
+        self.tw_sFiles.dropEvent = lambda x: self.sceneDropEvent(x, "shot", self.tw_sFiles)
+
     @err_catcher(name=__name__)
     def closeEvent(self, event):
         tabOrder = []
@@ -4658,6 +4670,83 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_((lw.viewport()).mapToGlobal(pos))
 
+    @err_catcher(name=__name__)
+    def sceneDragEnterEvent(self, e):
+        if e.mimeData().hasUrls:
+            e.accept()
+        else:
+            e.ignore()
+
+    @err_catcher(name=__name__)
+    def sceneDragMoveEvent(self, e, widget):
+        if e.mimeData().hasUrls:
+            e.accept()
+            widget.setStyleSheet("QTableView { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }")
+        else:
+            e.ignore()
+
+    @err_catcher(name=__name__)
+    def sceneDragLeaveEvent(self, e, widget):
+        widget.setStyleSheet("")
+
+    @err_catcher(name=__name__)
+    def sceneDropEvent(self, e, entityType, widget):
+        if e.mimeData().hasUrls:
+            widget.setStyleSheet("")
+            e.setDropAction(Qt.LinkAction)
+            e.accept()
+
+            files = [os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()]
+            self.ingestScenefiles(entityType, files)
+        else:
+            e.ignore()
+
+    @err_catcher(name=__name__)
+    def ingestScenefiles(self, entityType, files):
+        kwargs = {"entity": entityType}
+
+        if entityType == "asset":
+            if not self.curaCat:
+                self.core.popup("No valid asset context is selected")
+                return
+
+            assetName = self.core.entities.getAssetNameFromPath(self.curAsset)
+            kwargs["entityName"] = assetName
+            kwargs["step"] = self.curaStep
+            kwargs["category"] = self.curaCat
+            kwargs["basePath"] = self.curAsset
+            refresh = self.refreshAFile
+        elif entityType == "shot":
+            if not self.cursCat:
+                self.core.popup("No valid shot context is selected")
+                return
+
+            kwargs["entityName"] = self.cursShots
+            kwargs["step"] = self.cursStep
+            kwargs["category"] = self.cursCat
+            kwargs["basePath"] = self.cursShots
+            refresh = self.refreshSFile
+
+        for file in files:
+            kwargs["extension"] = os.path.splitext(file)[1]
+            targetPath = self.core.paths.generateScenePath(**kwargs)
+            targetPath = self.core.convertPath(targetPath, target="local")
+
+            if not os.path.exists(os.path.dirname(targetPath)):
+                try:
+                    os.makedirs(os.path.dirname(targetPath))
+                except:
+                    self.core.popup("The directory could not be created")
+                    return
+
+            targetPath = targetPath.replace("\\", "/")
+
+            shutil.copy2(file, targetPath)
+            self.core.saveSceneInfo(targetPath)
+
+        refresh()
+
+    @err_catcher(name=__name__)
     def taskDragEnterEvent(self, e):
         if e.mimeData().hasUrls:
             e.accept()

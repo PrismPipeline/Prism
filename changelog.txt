@@ -1,3 +1,7 @@
+v1.3.0.22:
+- added the option to drag&drop any file into the scenefile list in the project browser to create a copy of the file with the naming convention of a Prism scenefile
+- fixed an error when getting the resolution in Nuke in some cases
+
 v1.3.0.21:
 - Prism integrations for multiple Houdini and Photoshop versions can be installed at once in the "setup Integrations" dialog
 - added Prism Tray and Prism Settings shortcuts on the desktop for Mac
