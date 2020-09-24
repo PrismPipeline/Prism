@@ -119,8 +119,8 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
-        job = self.core.projectPath.replace("\\", "/")
-        cmds.workspace(job, openWorkspace=True)
+        if self.core.getConfig("maya", "setMayaProject", dft=True):
+            self.setMayaProject(self.core.projectPath)
 
         pluginPath = os.path.join(
             self.core.projectPath, "00_Pipeline", "CustomModules", "Maya", "plug-ins"
@@ -143,6 +143,25 @@ class Prism_Maya_Functions(object):
 
         if scriptPath not in sys.path:
             sys.path.append(scriptPath)
+
+    @err_catcher(name=__name__)
+    def setMayaProject(self, path=None, default=False):
+        if default:
+            base = QDir.homePath()
+            if platform.system() == "Windows":
+                base = os.path.join(base, "Documents")
+
+            path = os.path.join(base, "maya", "projects", "default")
+
+        path = path.replace("\\", "/")
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        cmds.workspace(path, openWorkspace=True)
+
+    @err_catcher(name=__name__)
+    def getMayaProject(self):
+        return cmds.workspace(fullName=True, q=True)
 
     @err_catcher(name=__name__)
     def sceneOpen(self, origin):

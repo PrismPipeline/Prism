@@ -74,16 +74,15 @@ class Prism_Maya_externalAccess_Functions(object):
             if not os.path.exists(self.core.prismIni):
                 origin.b_addModulePath.setEnabled(False)
 
-        origin.w_sceneType = QWidget()
+        lo_settings = QGridLayout()
+        tab.layout().addLayout(lo_settings)
+        spacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Expanding)
+        lo_settings.addItem(spacer, 0, 0)
+
         origin.l_sceneType = QLabel("Save scene as:")
         origin.cb_sceneType = QComboBox()
-        lo_sceneType = QHBoxLayout()
-        origin.w_sceneType.setLayout(lo_sceneType)
-        lo_sceneType.setContentsMargins(0, 9, 0, 9)
-        lo_sceneType.addStretch()
-        lo_sceneType.addWidget(origin.l_sceneType)
-        lo_sceneType.addWidget(origin.cb_sceneType)
-        tab.layout().addWidget(origin.w_sceneType)
+        lo_settings.addWidget(origin.l_sceneType, 1, 1)
+        lo_settings.addWidget(origin.cb_sceneType, 1, 2)
 
         self.saveSceneTypes = [
             ".ma",
@@ -94,12 +93,28 @@ class Prism_Maya_externalAccess_Functions(object):
 
         origin.cb_sceneType.addItems(self.saveSceneTypes)
 
+        origin.l_mayaProject = QLabel("Set Maya project to Prism project: ")
+        origin.chb_mayaProject = QCheckBox("")
+        origin.chb_mayaProject.setChecked(True)
+        origin.chb_mayaProject.setLayoutDirection(Qt.RightToLeft)
+        lo_settings.addWidget(origin.l_mayaProject, 2, 1)
+        lo_settings.addWidget(origin.chb_mayaProject, 2, 2)
+
     @err_catcher(name=__name__)
     def prismSettings_saveSettings(self, origin, settings):
         if "maya" not in settings:
             settings["maya"] = {}
 
         settings["maya"]["saveSceneType"] = origin.cb_sceneType.currentText()
+        settings["maya"]["setMayaProject"] = origin.chb_mayaProject.isChecked()
+        if self.core.appPlugin.pluginName == "Maya":
+            if settings["maya"]["setMayaProject"]:
+                if getattr(self.core, "projectPath", None):
+                    prj = self.core.appPlugin.getMayaProject()
+                    if os.path.normpath(prj) == os.path.normpath(self.core.projectPath):
+                        self.core.appPlugin.setMayaProject(self.core.projectPath)
+            else:
+                self.core.appPlugin.setMayaProject(default=True)
 
     @err_catcher(name=__name__)
     def prismSettings_loadSettings(self, origin, settings):
@@ -109,6 +124,10 @@ class Prism_Maya_externalAccess_Functions(object):
                 idx = origin.cb_sceneType.findText(saveType)
                 if idx != -1:
                     origin.cb_sceneType.setCurrentIndex(idx)
+
+            if "setMayaProject" in settings["maya"]:
+                mayaProject = settings["maya"]["setMayaProject"]
+                origin.chb_mayaProject.setChecked(mayaProject)
 
     @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):

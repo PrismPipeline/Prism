@@ -1,3 +1,6 @@
+v1.3.0.23:
+- added option to set Maya project to Prism project in the Project Settings dialog
+
 v1.3.0.22:
 - added the option to drag&drop any file into the scenefile list in the project browser to create a copy of the file with the naming convention of a Prism scenefile
 - fixed an error when getting the resolution in Nuke in some cases

@@ -918,10 +918,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def mousedb(self, event, tab, uielement):
+        createCat = True
         if tab == "ah":
             cItem = uielement.itemFromIndex(uielement.indexAt(event.pos()))
             if cItem and cItem.text(2) != "folder":
-                return
+                createCat = False
             name = "Entity"
         elif tab == "ap":
             if self.curAsset:
@@ -960,10 +961,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 name = "Category"
 
         if (
-            (tab != "ah" and tab != "ss")
-            or self.dclick
-            or self.adclick
-            or self.sdclick
+            createCat
+            and (
+                (tab != "ah" and tab != "ss")
+                or self.dclick
+                or self.adclick
+                or self.sdclick
+            )
         ):
             if "name" in locals():
                 self.createCatWin(tab, name)
