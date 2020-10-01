@@ -53,7 +53,9 @@ class Prism_Houdini_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
-        self.startupDelay = 0
+        self.eventLoopIterations = 0
+        self.eventLoopCallbackAdded = False
+        self.guiReady = False
         self.callbacks = []
         self.registerCallbacks()
 
@@ -71,6 +73,12 @@ class Prism_Houdini_Functions(object):
             self.core.unregisterCallback(cb["id"])
 
     @err_catcher(name=__name__)
+    def onEventLoopCallback(self):
+        self.eventLoopIterations += 1
+        if self.eventLoopIterations == 2:
+            self.guiReady = True
+
+    @err_catcher(name=__name__)
     def startup(self, origin):
         if self.core.uiAvailable:
             if not hou.isUIAvailable():
@@ -79,9 +87,11 @@ class Prism_Houdini_Functions(object):
             if not hou.ui.mainQtWindow():
                 return False
 
-            self.startupDelay += 1
+            if not self.eventLoopCallbackAdded:
+                self.eventLoopCallbackAdded = True
+                hou.ui.addEventLoopCallback(self.onEventLoopCallback)
 
-            if self.core.status == "starting" and self.startupDelay < 3:
+            if not self.guiReady:
                 return False
 
             if platform.system() == "Darwin":
@@ -94,7 +104,6 @@ class Prism_Houdini_Functions(object):
             else:
                 origin.messageParent = hou.ui.mainQtWindow()
 
-            origin.startasThread()
             origin.timer.stop()
         else:
             QApplication.addLibraryPath(

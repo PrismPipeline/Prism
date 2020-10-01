@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.23"
+            self.version = "v1.3.0.24"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -303,8 +303,6 @@ class PrismCore:
                 self.integration.refreshAllIntegrations()
                 sys.exit()
 
-            self.status = "loaded"
-
             endTime = datetime.now()
             logger.debug("startup duration: %s" % (endTime-startTime))
 
@@ -390,33 +388,21 @@ class PrismCore:
         if result is not None:
             return result
 
-        if "prism_project" in os.environ and os.path.exists(
-            os.environ["prism_project"]
+        if (
+            "silent" not in self.prismArgs
+            and "noProjectBrowser" not in self.prismArgs
+            and self.getConfig("globals", "showonstartup") is not False
+            and self.uiAvailable
         ):
-            curPrj = os.environ["prism_project"]
-        else:
-            curPrj = self.getConfig("globals", "current project")
-
-        if "silent" not in self.prismArgs and "tray" not in self.prismArgs and self.uiAvailable:
-            autoStart = self.getConfig("globals", "showonstartup")
-            if not curPrj and autoStart is not False:
-                self.projects.setProject(startup=True, openUi="projectBrowser")
-
-        if curPrj:
-            self.changeProject(curPrj)
-            if (
-                "silent" not in self.prismArgs
-                and "noProjectBrowser" not in self.prismArgs
-                and self.getConfig("globals", "showonstartup") is not False
-                and self.uiAvailable
-            ):
-                self.projectBrowser()
+            self.projectBrowser()
 
         if self.getCurrentFileName() != "":
             self.sceneOpen()
 
         if self.uiAvailable:
             self.updater.startup()
+
+        self.status = "loaded"
 
     @err_catcher(name=__name__)
     def startasThread(self, quit=False):
@@ -441,6 +427,7 @@ class PrismCore:
         self.asThread.started.connect(self.asObject.run)
         self.asObject.finished.connect(self.checkAutoSave)
         self.asThread.start()
+
         logger.debug("started autosave thread")
 
     @err_catcher(name=__name__)
@@ -880,7 +867,7 @@ License: GNU GPL-3.0-or-later<br>
         if self.appPlugin.appType != "3d":
             return False
 
-        if not self.projects.ensureProject():
+        if not self.projects.ensureProject(openUi="stateManager"):
             return False
 
         if not self.users.ensureUser():
@@ -934,7 +921,7 @@ License: GNU GPL-3.0-or-later<br>
 
     @err_catcher(name=__name__)
     def projectBrowser(self, openUi=True):
-        if not self.projects.ensureProject():
+        if not self.projects.ensureProject(openUi="projectBrowser"):
             return False
 
         if getattr(self, "pb", None) and self.pb.isVisible():

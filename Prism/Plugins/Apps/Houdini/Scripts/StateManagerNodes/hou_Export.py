@@ -1159,7 +1159,7 @@ class ExportClass(object):
 
                 hVersion = (
                     (hVersion + "-wedge`$WEDGENUM`")
-                    if self.node.type().name() == "wedge"
+                    if self.node and self.node.type().name() == "wedge"
                     else hVersion
                 )
 

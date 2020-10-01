@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'SetProject.ui'
 #
-# Created: Wed Jul  1 03:54:17 2020
+# Created: Thu Oct  1 15:52:31 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_dlg_setProject(object):
     def setupUi(self, dlg_setProject):
         dlg_setProject.setObjectName("dlg_setProject")
-        dlg_setProject.resize(550, 408)
+        dlg_setProject.resize(993, 607)
         self.verticalLayout = QtGui.QVBoxLayout(dlg_setProject)
         self.verticalLayout.setSpacing(6)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -56,7 +56,7 @@ class Ui_dlg_setProject(object):
         self.sa_recent.setWidgetResizable(True)
         self.sa_recent.setObjectName("sa_recent")
         self.scrollAreaWidgetContents = QtGui.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 528, 146))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 971, 345))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.scl_recent = QtGui.QVBoxLayout(self.scrollAreaWidgetContents)
         self.scl_recent.setSpacing(6)

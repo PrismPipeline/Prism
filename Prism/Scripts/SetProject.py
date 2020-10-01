@@ -74,8 +74,23 @@ class SetProject(QDialog):
         grid.addWidget(self.projectsUi)
 
         self.setLayout(grid)
-        self.resize(self.width(), self.minimumSizeHint().height())
+        self.resize(self.projectsUi.width(), self.projectsUi.height())
         self.setFocus()
+
+    @err_catcher(name=__name__)
+    def showEvent(self, event):
+        super(SetProject, self).showEvent(event)
+        if self.projectsUi.gb_recent.isVisible():
+            recentEmptySpace = self.projectsUi.spacer_recent.geometry().height()
+            if recentEmptySpace > 0:
+                height = self.height() - recentEmptySpace
+                self.resize(self.width(), height)
+                self.move(self.pos().x(), self.pos().y() + recentEmptySpace/2)
+        else:
+            newHeight = self.minimumSizeHint().height()
+            difference = self.height() - newHeight
+            self.resize(self.width(), newHeight)
+            self.move(self.pos().x(), self.pos().y() + difference/2)
 
 
 class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
@@ -91,8 +106,6 @@ class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
         self.connectEvents()
 
         self.core.appPlugin.setProject_loading(self)
-        self.resize(self.width(), self.minimumSizeHint().height())
-
         self.core.callback(
             name="onSetProjectStartup", types=["prjManagers", "custom"], args=[self]
         )
@@ -194,8 +207,8 @@ class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
         if self.scl_recent.count() == 0:
             self.gb_recent.setVisible(False)
         else:
-            spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
-            self.scl_recent.addSpacerItem(spacer)
+            self.spacer_recent = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+            self.scl_recent.addSpacerItem(self.spacer_recent)
 
         ssu = self.core.getConfig("globals", "showonstartup")
         if ssu is None:
@@ -225,8 +238,6 @@ class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
 
         if self.scl_recent.count() == 0:
             self.gb_recent.setVisible(False)
-
-        self.resize(self.width(), self.minimumSizeHint().height())
 
     @err_catcher(name=__name__)
     def startupChanged(self, state):

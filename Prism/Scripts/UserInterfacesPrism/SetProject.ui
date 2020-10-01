@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>550</width>
-    <height>408</height>
+    <width>993</width>
+    <height>607</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -141,8 +141,8 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>528</width>
-           <height>146</height>
+           <width>971</width>
+           <height>345</height>
           </rect>
          </property>
          <layout class="QVBoxLayout" name="scl_recent">

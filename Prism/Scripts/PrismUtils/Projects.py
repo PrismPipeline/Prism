@@ -59,7 +59,7 @@ class Projects(object):
         self.core = core
 
     @err_catcher(name=__name__)
-    def setProject(self, startup=False, openUi=""):
+    def setProject(self, startup=None, openUi=""):
         try:
             del sys.modules["SetProject"]
         except:
@@ -72,6 +72,9 @@ class Projects(object):
             if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
                 os.remove(modPath)
             import SetProject
+
+        if startup is None:
+            startup = self.core.status == "starting"
 
         self.dlg_setProject = SetProject.SetProject(core=self.core, openUi=openUi)
         if not startup:
@@ -579,11 +582,17 @@ class Projects(object):
         return folders
 
     @err_catcher(name=__name__)
-    def ensureProject(self):
+    def ensureProject(self, openUi=""):
         if getattr(self.core, "projectPath", None) and os.path.exists(self.core.prismIni):
             return True
 
-        curPrj = self.core.getConfig("globals", "current project")
+        if "prism_project" in os.environ and os.path.exists(
+            os.environ["prism_project"]
+        ):
+            curPrj = os.environ["prism_project"]
+        else:
+            curPrj = self.core.getConfig("globals", "current project")
+
         if curPrj:
             if self.changeProject(curPrj):
                 return True
@@ -591,6 +600,6 @@ class Projects(object):
             msg = "Could not find project:\n%s" % os.path.dirname(os.path.dirname(curPrj))
             self.core.popup(msg)
 
-        self.setProject()
+        self.setProject(openUi=openUi)
         hasPrj = getattr(self.core, "projectPath", None) and os.path.exists(self.core.prismIni)
         return hasPrj
