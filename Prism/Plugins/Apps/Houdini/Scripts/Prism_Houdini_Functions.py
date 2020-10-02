@@ -77,6 +77,7 @@ class Prism_Houdini_Functions(object):
         self.eventLoopIterations += 1
         if self.eventLoopIterations == 2:
             self.guiReady = True
+            hou.ui.removeEventLoopCallback(self.onEventLoopCallback)
 
     @err_catcher(name=__name__)
     def startup(self, origin):

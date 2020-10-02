@@ -1,3 +1,7 @@
+v1.3.0.25:
+- fixed a bug that the UI was not refreshed when loading/unloading plugins when no project was set
+- fixed a bug that the current project was not set on startup in some cases
+
 v1.3.0.24:
 - fixed a problem with Houdini 18.0, which caused modal dialogs during Houdini startup to not react to mouseclicks
 - fixed an error when rightclicking on an Export state when no node is connected to it in Houdini

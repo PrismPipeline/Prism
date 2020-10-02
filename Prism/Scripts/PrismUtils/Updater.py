@@ -113,56 +113,11 @@ class Updater(object):
 
     @err_catcher(name=__name__)
     def checkForUpdates(self, silent=False):
-        pStr = """
-try:
-    import os
-    import sys
-    import traceback
+        logger.debug("checking for updates")
+        url = "https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py"
+        result = self.getPrismVersionFromGithub(url)
 
-    pyLibs = os.path.join('%s', 'PythonLibs', 'Python37')
-    if pyLibs not in sys.path:
-        sys.path.insert(0, pyLibs)
-
-    pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
-    if pyLibs not in sys.path:
-        sys.path.insert(0, pyLibs)
-
-    import requests
-    page = requests.get('https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py', verify=False)
-
-    cStr = page.content.decode("utf-8")
-    lines = cStr.split('\\n')
-    latestVersionStr = libVersionStr = ''
-    for line in lines:
-        if not latestVersionStr and 'self.version =' in line:
-            latestVersionStr = line[line.find('\\"')+2:-1]
-
-        if not libVersionStr and 'self.requiredLibraries =' in line:
-            libVersionStr = line[line.find('\\"')+1:-1]
-
-        if latestVersionStr and libVersionStr:
-            break
-
-    sys.stdout.write(latestVersionStr + '__' + libVersionStr)
-
-except Exception as e:
-    sys.stdout.write('failed %%s' %% traceback.format_exc())
-""" % (
-            self.core.prismLibs,
-            self.core.prismLibs,
-        )
-
-        pythonPath = self.core.getPythonPath()
-
-        result = subprocess.Popen(
-            [pythonPath, "-c", pStr],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdOutData, stderrdata = result.communicate()
-
-        if "failed" in str(stdOutData) or len(str(stdOutData).split("__")) < 2:
+        if not result:
             if not silent:
                 msg = "Unable to read https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py. Could not check for updates.\n\n(%s)" % stdOutData
                 self.core.popup(msg)
@@ -173,14 +128,12 @@ except Exception as e:
             )
             return
 
-        if pVersion == 3:
-            stdOutData = stdOutData.decode("utf-8")
-
         updateStatus = "latest version installed"
 
-        latestVersion = stdOutData.split("__")[0]
-        libVersion = stdOutData.split("__")[1] or "v1.3.0.0"
+        latestVersion = result[0]
+        libVersion = result[1]
 
+        curVersion = self.core.version
         curLibVersion = "v1.3.0.0"
         libConfig = os.path.join(self.core.prismLibs, "PythonLibs", "libraries.yml")
         if os.path.exists(libConfig):
@@ -188,49 +141,22 @@ except Exception as e:
             if "version" in libInfo:
                 curLibVersion = libInfo["version"]
 
-        if self.core.compareVersions(self.core.version, latestVersion) == "lower":
+        versionComp = self.core.compareVersions(curVersion, latestVersion)
+        updatePossible = True
+        if versionComp == "lower":
             if curLibVersion != libVersion:
                 self.core.popup("The version of the currently installed Prism libraries (%s) doesn't match the required version of the latest Prism version (%s). Please download the latest installer from the Prism website to update the Prism libraries." % (curLibVersion, libVersion))
                 updateStatus = "update available: %s" % latestVersion
-            else:
-                msg = QDialog()
-                msg.setWindowTitle("Prism")
-                msg.setLayout(QVBoxLayout())
-                msg.layout().addWidget(QLabel("A newer version of Prism is available:\n"))
-                self.core.parentWindow(msg)
+                updatePossible = False
 
-                bb_update = QDialogButtonBox()
-                bb_update.addButton("Ignore", QDialogButtonBox.RejectRole)
-                bb_update.addButton("Update Prism", QDialogButtonBox.AcceptRole)
-                bb_update.accepted.connect(msg.accept)
-                bb_update.rejected.connect(msg.reject)
+        if updatePossible:
+            dlg_update = self.getUpdateDialog(installedVersion=curVersion, latestVersion=latestVersion)
+            action = dlg_update.exec_()
 
-                lo_version = QGridLayout()
-                l_curVersion = QLabel(self.core.version)
-                l_latestVersion = QLabel("v" + latestVersion)
-                l_curVersion.setAlignment(Qt.AlignRight)
-                l_latestVersion.setAlignment(Qt.AlignRight)
-
-                lo_version.addWidget(QLabel("Installed version:"), 0, 0)
-                lo_version.addWidget(l_curVersion, 0, 1)
-
-                lo_version.addWidget(QLabel("Latest version:\n"), 1, 0)
-                lo_version.addWidget(l_latestVersion, 1, 1)
-
-                msg.layout().addLayout(lo_version)
-
-                msg.layout().addWidget(bb_update)
-                msg.resize(300 * self.core.uiScaleFactor, 10)
-                action = msg.exec_()
-
-                if action:
-                    self.updatePrism(source="github")
-                else:
-                    updateStatus = "update available: %s" % latestVersion
-        else:
-            if not silent:
-                msg = "The latest version of Prism is already installed. (%s)" % self.core.version
-                self.core.popup(msg, severity="info")
+            if action:
+                self.updatePrism(source="github")
+            elif versionComp == "lower":
+                updateStatus = "update available: %s" % latestVersion
 
         self.core.setConfig(
             cat="globals",
@@ -243,6 +169,47 @@ except Exception as e:
             param="lastUpdateCheck",
             val=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
         )
+
+    @err_catcher(name=__name__)
+    def getUpdateDialog(self, installedVersion="", latestVersion=""):
+        versionComp = self.core.compareVersions(installedVersion, latestVersion)
+        if versionComp == "lower":
+            title = "A newer version of Prism is available:\n"
+        elif versionComp == "higher":
+            title = "The installed Prism version in newer than the latest available version:\n"
+        elif versionComp == "equal":
+            title = "The latest version of Prism is already installed:\n"
+
+        msg = QDialog()
+        msg.setWindowTitle("Prism")
+        msg.setLayout(QVBoxLayout())
+        msg.l_title = QLabel(title)
+        msg.layout().addWidget(msg.l_title)
+        self.core.parentWindow(msg)
+
+        bb_update = QDialogButtonBox()
+        bb_update.addButton("Close", QDialogButtonBox.RejectRole)
+        bb_update.addButton("Update Prism", QDialogButtonBox.AcceptRole)
+        bb_update.accepted.connect(msg.accept)
+        bb_update.rejected.connect(msg.reject)
+
+        lo_version = QGridLayout()
+        l_curVersion = QLabel(installedVersion)
+        l_latestVersion = QLabel("v" + latestVersion)
+        l_curVersion.setAlignment(Qt.AlignRight)
+        l_latestVersion.setAlignment(Qt.AlignRight)
+
+        lo_version.addWidget(QLabel("Installed version:"), 0, 0)
+        lo_version.addWidget(l_curVersion, 0, 1)
+
+        lo_version.addWidget(QLabel("Latest version:\n"), 1, 0)
+        lo_version.addWidget(l_latestVersion, 1, 1)
+
+        msg.layout().addLayout(lo_version)
+
+        msg.layout().addWidget(bb_update)
+        msg.resize(300 * self.core.uiScaleFactor, 10)
+        return msg
 
     @err_catcher(name=__name__)
     def updatePrism(self, filepath="", source="", url=None, token=None):
@@ -333,6 +300,85 @@ except Exception as e:
         result["success"] = True
         result["data"] = data
         return result
+
+    @err_catcher(name=__name__)
+    def getPrismVersionFromGithub(self, url, token=""):
+        pStr = """
+try:
+    import os
+    import sys
+    import traceback
+
+    pyLibs = os.path.join('%s', 'PythonLibs', 'Python37')
+    if pyLibs not in sys.path:
+        sys.path.insert(0, pyLibs)
+
+    pyLibs = os.path.join('%s', 'PythonLibs', 'CrossPlatform')
+    if pyLibs not in sys.path:
+        sys.path.insert(0, pyLibs)
+
+    import ssl
+    from urllib.request import Request, urlopen
+
+    url = "%s"
+    token = "%s"
+
+    if token:
+        request = Request(url)
+        request.add_header('Authorization', 'token ' + token)
+    else:
+        request = url
+
+    try:
+        u = urlopen(request, context=ssl._create_unverified_context())
+    except:
+        u = urlopen(request)
+
+    data = u.read().decode("utf-8")
+    u.close()
+
+    lines = data.split('\\n')
+    latestVersionStr = libVersionStr = ''
+    for line in lines:
+        if not latestVersionStr and 'self.version =' in line:
+            latestVersionStr = line[line.find('\\"')+2:-1]
+
+        if not libVersionStr and 'self.requiredLibraries =' in line:
+            libVersionStr = line[line.find('\\"')+1:-1]
+
+        if latestVersionStr and libVersionStr:
+            break
+
+    sys.stdout.write(latestVersionStr + '__' + libVersionStr)
+
+except Exception as e:
+    sys.stdout.write('failed %%s' %% traceback.format_exc())
+""" % (
+            self.core.prismLibs,
+            self.core.prismLibs,
+            url,
+            token,
+        )
+
+        pythonPath = self.core.getPythonPath()
+
+        result = subprocess.Popen(
+            [pythonPath, "-c", pStr],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdOutData, stderrdata = result.communicate()
+
+        if "failed" in str(stdOutData) or len(str(stdOutData).split("__")) < 2:
+            return
+
+        if pVersion == 3:
+            stdOutData = stdOutData.decode("utf-8")
+
+        latestVersion = stdOutData.split("__")[0]
+        libVersion = stdOutData.split("__")[1] or "v1.3.0.0"
+        return latestVersion, libVersion
 
     @err_catcher(name=__name__)
     def getGithubApiUrl(self, url, branch=""):

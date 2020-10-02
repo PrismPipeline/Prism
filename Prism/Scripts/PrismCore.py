@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.24"
+            self.version = "v1.3.0.25"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -388,6 +388,16 @@ class PrismCore:
         if result is not None:
             return result
 
+        if "prism_project" in os.environ and os.path.exists(
+            os.environ["prism_project"]
+        ):
+            curPrj = os.environ["prism_project"]
+        else:
+            curPrj = self.getConfig("globals", "current project")
+
+        if curPrj:
+            self.changeProject(curPrj)
+
         if (
             "silent" not in self.prismArgs
             and "noProjectBrowser" not in self.prismArgs
@@ -490,14 +500,14 @@ class PrismCore:
         if not version2:
             return "higher"
 
-        if version1 == version2:
-            return "equal"
-
         if version1[0] == "v":
             version1 = version1[1:]
 
         if version2[0] == "v":
             version2 = version2[1:]
+
+        if version1 == version2:
+            return "equal"
 
         version1 = str(version1).split(".")
         version1 = [int(str(x)) for x in version1]

@@ -943,6 +943,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         if os.path.exists(self.core.prismIni):
             self.core.changeProject(self.core.prismIni)
+        else:
+            self.core.prismSettings()
 
         self.core.ps.tw_settings.setCurrentIndex(5)
 
@@ -963,6 +965,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         if os.path.exists(self.core.prismIni):
             self.core.changeProject(self.core.prismIni)
+        else:
+            self.core.prismSettings()
 
         self.core.ps.tw_settings.setCurrentIndex(5)
 
