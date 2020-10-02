@@ -292,12 +292,21 @@ class Prism_Houdini_Integration(object):
 
     def installerExecute(self, houItem, result):
         try:
+            houPaths = []
             installLocs = []
 
-            if houItem.checkState(0) == Qt.Checked and os.path.exists(houItem.text(1)):
-                result["Houdini integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=houItem.text(1), quiet=True)
+            if houItem.checkState(0) != Qt.Checked:
+                return installLocs
+
+            for i in range(houItem.childCount()):
+                item = houItem.child(i)
+                if item.checkState(0) == Qt.Checked and os.path.exists(item.text(1)):
+                    houPaths.append(item.text(1))
+
+            for i in houPaths:
+                result["Houdini integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=i, quiet=True)
                 if result["Houdini integration"]:
-                    installLocs.append(houItem.text(1))
+                    installLocs.append(i)
 
             return installLocs
         except Exception as e:

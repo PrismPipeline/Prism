@@ -236,14 +236,21 @@ class Prism_Photoshop_Integration(object):
 
     def installerExecute(self, photoshopItem, result):
         try:
+            psPaths = []
             installLocs = []
 
-            if photoshopItem.checkState(0) == Qt.Checked and os.path.exists(
-                photoshopItem.text(1)
-            ):
-                result["Photoshop integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=photoshopItem.text(1), quiet=True)
+            if photoshopItem.checkState(0) != Qt.Checked:
+                return installLocs
+
+            for i in range(photoshopItem.childCount()):
+                item = photoshopItem.child(i)
+                if item.checkState(0) == Qt.Checked and os.path.exists(item.text(1)):
+                    psPaths.append(item.text(1))
+
+            for i in psPaths:
+                result["Photoshop integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=i, quiet=True)
                 if result["Photoshop integration"]:
-                    installLocs.append(photoshopItem.text(1))
+                    installLocs.append(i)
 
             return installLocs
         except Exception as e:

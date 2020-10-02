@@ -1,3 +1,6 @@
+v1.3.0.26:
+- fixed a bug in the integration setup, which caused that Houdini and Photoshop integrations were not setup correctly
+
 v1.3.0.25:
 - fixed a bug that the UI was not refreshed when loading/unloading plugins when no project was set
 - fixed a bug that the current project was not set on startup in some cases
