@@ -1,3 +1,10 @@
+v1.3.0.27:
+- turned on "Create Directories" on the write node inside the WritePrism node in Nuke
+- linked the disabled state of the WritePrism node to the internal write node
+- fixed an error when using the WritePrism node in Nuke Assist
+- fixed a bug that the Prism update dialog was shown in some cases when no new version was available
+- prevented executing states when the scenefile was not saved correctly in the Prism project
+
 v1.3.0.26:
 - fixed a bug in the integration setup, which caused that Houdini and Photoshop integrations were not setup correctly
 

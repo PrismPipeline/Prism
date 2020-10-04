@@ -1704,6 +1704,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 }
 
             if executeState:
+                if not self.core.fileInPipeline():
+                    msg = "The current scenefile is not inside the pipeline.\nUse the Project Browser to create a file in the pipeline."
+                    self.core.popup(msg)
+                    return False
+
                 sceneSaved = self.core.saveScene(
                     versionUp=False, details=details, preview=self.previewImg
                 )

@@ -36,6 +36,8 @@ Gizmo {
   name WritePrismBase
   xpos -263
   ypos -143
+  disable {{parent.disable}}
+  create_directories 1
  }
  Output {
   name Output1

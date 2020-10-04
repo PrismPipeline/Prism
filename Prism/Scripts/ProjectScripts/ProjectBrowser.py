@@ -1440,6 +1440,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if iname:
             prjMngMenus = []
             addOmit = False
+            dirPath = None
             if tab == "ah":
                 args = [self, iname, cItem.text(1).replace(self.aBasePath, "")[1:], cItem.text(2)]
                 cmenu = self.core.callback(name="projectBrowser_getAssetMenu", args=args)
@@ -1461,6 +1462,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 addOmit = True
             elif tab == "ss":
                 iname = self.cursShots or iname
+                shotName, seqName = self.core.entities.splitShotname(iname)
+                dirPath = self.core.getEntityPath(sequence=seqName, shot=shotName)
                 if lw.itemAt(pos).childCount() == 0:
                     editAct = QAction("Edit shot settings", self)
                     editAct.triggered.connect(lambda: self.editShot(iname))
@@ -1474,7 +1477,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     oAct = QAction("Omit Shot", self)
                     oAct.triggered.connect(lambda: self.omitEntity("shot", self.cursShots))
                     addOmit = True
-            dirPath = os.path.join(path, iname)
+            dirPath = dirPath or os.path.join(path, iname)
             if (
                 not os.path.exists(dirPath)
                 and self.core.useLocalFiles
@@ -2150,11 +2153,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         abrSteps = list(steps.keys())
         abrSteps.sort()
         for i in abrSteps:
+            catName = steps[i]
+            if isinstance(catName, list):
+                catName = catName[0]
             rc = self.ss.tw_steps.rowCount()
             self.ss.tw_steps.insertRow(rc)
             abrItem = QTableWidgetItem(i)
             self.ss.tw_steps.setItem(rc, 0, abrItem)
-            stepItem = QTableWidgetItem(steps[i])
+            stepItem = QTableWidgetItem(catName)
             self.ss.tw_steps.setItem(rc, 1, stepItem)
 
         self.core.callback(name="onStepDlgOpen", types=["custom"], args=[self, self.ss])

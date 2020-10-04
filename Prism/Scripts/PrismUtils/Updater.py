@@ -148,6 +148,9 @@ class Updater(object):
                 self.core.popup("The version of the currently installed Prism libraries (%s) doesn't match the required version of the latest Prism version (%s). Please download the latest installer from the Prism website to update the Prism libraries." % (curLibVersion, libVersion))
                 updateStatus = "update available: %s" % latestVersion
                 updatePossible = False
+        else:
+            if silent:
+                updatePossible = False
 
         if updatePossible:
             dlg_update = self.getUpdateDialog(installedVersion=curVersion, latestVersion=latestVersion)

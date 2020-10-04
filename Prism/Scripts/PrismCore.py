@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.26"
+            self.version = "v1.3.0.27"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1464,7 +1464,7 @@ License: GNU GPL-3.0-or-later<br>
 
             if not self.fileInPipeline(filepath, validateFilename=False):
                 title = "Could not save the file"
-                msg = "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline."
+                msg = "The current scenefile is not inside the pipeline.\nUse the Project Browser to create a file in the pipeline."
                 self.popup(msg, title=title)
                 return False
 

@@ -462,8 +462,8 @@ class ProjectEntities(object):
             logger.debug("step created %s" % stepPath)
 
         if settings["createDefaultCategory"]:
-            path = self.createDefaultCat(stepName, stepPath)
-            return path
+            paths = self.createDefaultCat(stepName, stepPath)
+            return paths
 
         return stepPath
 
@@ -477,10 +477,16 @@ class ProjectEntities(object):
             self.core.popup(msgStr)
             return
 
-        catName = existingSteps[step]
-        dstname = os.path.join(path, catName)
-        path = self.createCategory(catName, dstname)
-        return path
+        categories = existingSteps[step]
+        if not isinstance(categories, list):
+            categories = [categories]
+
+        paths = []
+        for category in categories:
+            dstname = os.path.join(path, category)
+            paths.append(self.createCategory(category, dstname))
+
+        return paths
 
     @err_catcher(name=__name__)
     def createCategory(self, catName, path):

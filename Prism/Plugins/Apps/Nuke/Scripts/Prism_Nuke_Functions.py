@@ -221,7 +221,8 @@ class Prism_Nuke_Functions(object):
             taskName, fileType, self.useLastVersion, render, localOut, comment
         )
 
-        if not self.isRendering[0]:
+        isNukeAssist = "--nukeassist" in nuke.rawArgs
+        if not self.isRendering[0] and not isNukeAssist:
             group.knob("fileName").setValue(outputName)
             # group.knob("fileName").clearFlag(0x10000000) # makes knob read-only, but leads to double property Uis
 

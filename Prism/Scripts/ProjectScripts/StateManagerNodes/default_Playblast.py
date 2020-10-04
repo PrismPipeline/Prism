@@ -35,6 +35,7 @@ import sys
 import time
 import traceback
 import platform
+import logging
 
 try:
     from PySide2.QtCore import *
@@ -54,6 +55,9 @@ else:
     pVersion = 2
 
 from PrismUtils.Decorators import err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class PlayblastClass(object):
@@ -472,6 +476,7 @@ class PlayblastClass(object):
                 + ".jpg"
             )
         else:
+            logger.debug("could't generate outputpath")
             return
 
         outputName = os.path.join(outputPath, outputFile)
@@ -491,7 +496,15 @@ class PlayblastClass(object):
 
         fileName = self.core.getCurrentFileName()
 
-        outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
+        result = self.getOutputName(useVersion=useVersion)
+        if not result:
+            return [
+                self.state.text(0)
+                + ": error - Couldn't generate an outputpath for this state.\nMake sure your scenefile is saved correctly in the pipeline."
+            ]
+            return
+
+        outputName, outputPath, hVersion = result
 
         outLength = len(outputName)
         if platform.system() == "Windows" and outLength > 255:
