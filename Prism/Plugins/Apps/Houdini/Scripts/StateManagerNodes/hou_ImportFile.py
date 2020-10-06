@@ -60,7 +60,7 @@ class ImportFileClass(object):
         self.taskName = None
 
         stateNameTemplate = "{entity}_{task}_{version}"
-        self.stateNameTemplate = self.core.getConfig("globals", "defaultImportStateName", dft=stateNameTemplate)
+        self.stateNameTemplate = self.core.getConfig("globals", "defaultImportStateName", dft=stateNameTemplate, configPath=self.core.prismIni)
         self.e_name.setText(self.stateNameTemplate)
 
         # 	self.l_name.setVisible(False)

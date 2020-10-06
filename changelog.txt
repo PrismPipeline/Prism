@@ -1,3 +1,6 @@
+v1.3.0.30:
+- moved the "defaultImportStateName" setting from the userconfig to the project config
+
 v1.3.0.29:
 - fixed a bug when requesting the list of shots in python3
 
