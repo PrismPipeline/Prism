@@ -362,3 +362,42 @@ class PathManager(object):
         scenePath = os.path.join(dstname, fileName)
 
         return scenePath
+
+    @err_catcher(name=__name__)
+    def getCachePathData(self, cachePath):
+        cachePath = os.path.normpath(cachePath)
+        if os.path.splitext(cachePath)[1]:
+            cacheDir = os.path.dirname(cachePath)
+        else:
+            cacheDir = cachePath
+
+        cacheConfig = os.path.join(os.path.dirname(cacheDir), "versioninfo.yml")
+        cacheData = self.core.getConfig(configPath=cacheConfig) or {}
+
+        taskPath = os.path.dirname(os.path.dirname(cacheDir))
+        cacheData["task"] = os.path.basename(taskPath)
+
+        entityPath = os.path.dirname(os.path.dirname(taskPath))
+
+        relAssetPath = self.core.assetPath.replace(self.core.projectPath, "")
+        relShotPath = self.core.shotPath.replace(self.core.projectPath, "")
+        if relAssetPath in entityPath:
+            cacheData["entityType"] = "asset"
+            cacheData["assetHierarchy"] = self.core.entities.getAssetRelPathFromPath(entityPath)
+            cacheData["assetName"] = os.path.basename(cacheData["assetHierarchy"])
+            cacheData["entity"] = cacheData["assetName"]
+        elif relShotPath in entityPath:
+            cacheData["entityType"] = "shot"
+            shot, seq = self.core.entities.splitShotname(os.path.basename(entityPath))
+            cacheData["sequence"] = seq
+            cacheData["shot"] = shot
+            cacheData["entity"] = cacheData["shot"]
+        else:
+            cacheData["entityType"] = ""
+
+        cacheData["extension"] = os.path.splitext(cachePath)[1]
+        cacheData["version"] = cacheData.get("information", {}).get("Version", "")
+        if not cacheData["version"]:
+            cacheData["version"] = cacheData.get("information", {}).get("version", "")
+
+        return cacheData

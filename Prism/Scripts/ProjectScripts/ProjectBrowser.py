@@ -1463,7 +1463,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             elif tab == "ss":
                 iname = self.cursShots or iname
                 shotName, seqName = self.core.entities.splitShotname(iname)
-                dirPath = self.core.getEntityPath(sequence=seqName, shot=shotName)
+                dirPath = lw.itemAt(pos).data(0, Qt.UserRole)[0]["path"]
                 if lw.itemAt(pos).childCount() == 0:
                     editAct = QAction("Edit shot settings", self)
                     editAct.triggered.connect(lambda: self.editShot(iname))
@@ -1599,9 +1599,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         emp.addAction(empAct)
 
             newPreset = QAction("< Create new preset from current >", self)
-            newPreset.triggered.connect(
-                lambda y=None, x=tabName: self.createEmptyScene(x, "createnew")
-            )
+            newPreset.triggered.connect(self.core.entities.createPresetScene)
             emp.addAction(newPreset)
             if self.core.appPlugin.pluginName == "Standalone":
                 newPreset.setEnabled(False)
@@ -1918,33 +1916,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         version=None,
         location="local",
     ):
-        if fileName == "createnew":
-            emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
-
-            newItem = CreateItem.CreateItem(
-                core=self.core,
-                startText=self.core.appPlugin.pluginName.replace(" ", ""),
-            )
-
-            self.core.parentWindow(newItem)
-            newItem.e_item.setFocus()
-            newItem.setWindowTitle("Create preset scene")
-            newItem.l_item.setText("Preset name:")
-            result = newItem.exec_()
-
-            if result == 1:
-                pName = newItem.e_item.text()
-
-                filepath = os.path.join(emptyDir, "EmptyScene_%s" % pName)
-                filepath = filepath.replace("\\", "/")
-                filepath += self.core.appPlugin.getSceneExtension(self)
-
-                self.core.saveScene(filepath=filepath)
-            return
-
         ext = os.path.splitext(fileName)[1]
-        comment = comment or ""
-
         if entity == "asset":
             refresh = self.refreshAFile
             if entityName:
@@ -1954,75 +1926,41 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 for i in self.core.entities.getAssetPaths():
                     if assetPath:
                         if os.path.normpath(i) == os.path.normpath(entityPath):
-                            dstname = i
+                            assetPath = i
                             break
                     else:
                         if os.path.basename(i) == entityName:
-                            dstname = i
+                            assetPath = i
                             break
                 else:
                     self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
                     return
             else:
-                dstname = self.curAsset
+                assetPath = self.curAsset
 
-            assetName = entityName or self.core.entities.getAssetNameFromPath(self.curAsset)
+            entityName = entityName or self.core.entities.getAssetNameFromPath(self.curAsset)
             step = step or self.curaStep
             category = category or self.curaCat
-            filePath = self.core.generateScenePath(
-                "asset",
-                assetName,
-                step,
-                assetPath=dstname,
-                category=category,
-                extension=ext,
-                comment=comment,
-                version=version,
-            )
         elif entity == "shot":
             refresh = self.refreshSFile
             entityName = entityName or self.cursShots
             step = step or self.cursStep
             category = category or self.cursCat
-            filePath = self.core.generateScenePath(
-                "shot",
-                entityName,
-                step,
-                category=category,
-                extension=ext,
-                comment=comment,
-                version=version,
-            )
         else:
             self.core.popup("Invalid entity:\n\n%s" % entity)
             return
 
-        if os.path.isabs(fileName):
-            scene = fileName
-        else:
-            scene = os.path.join(
-                os.path.dirname(self.core.prismIni), "EmptyScenes", fileName
-            )
-
-        if location == "local" and self.core.useLocalFiles:
-            filePath = filePath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-
-        if not os.path.exists(os.path.dirname(filePath)):
-            try:
-                os.makedirs(os.path.dirname(filePath))
-            except:
-                self.core.popup(
-                    "The directory could not be created:\n\n%s"
-                    % os.path.dirname(filePath)
-                )
-                return
-
-        filePath = filePath.replace("\\", "/")
-
-        shutil.copyfile(scene, filePath)
-        self.core.saveSceneInfo(filePath)
+        filePath = self.core.entities.createEmptyScene(
+            entity,
+            fileName,
+            entityName=entityName,
+            assetPath=assetPath,
+            step=step,
+            category=category,
+            comment=comment,
+            version=version,
+            location=location,
+        )
 
         if self.core.uiAvailable:
             if ext in self.core.appPlugin.sceneFormats and openFile:
@@ -2042,13 +1980,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.setRecent()
                 refresh()
 
-        self.core.callback(
-            name="onEmptySceneCreated",
-            types=["custom"],
-            args=[self, filePath],
-        )
-
-        logger.debug("Created empty scene: %s" % filePath)
         return filePath
 
     @err_catcher(name=__name__)
@@ -2616,6 +2547,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     seqItem = tlItem
 
             sItem = QTreeWidgetItem([i[1], i[2]])
+            sItem.setData(0, Qt.UserRole, i[3])
             seqItem.addChild(sItem)
 
         self.tw_sShot.resizeColumnToContents(0)

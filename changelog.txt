@@ -1,3 +1,10 @@
+v1.3.0.28:
+- added the option to set the default import state name in the project config
+- added colors for the import states in Houdini to indicate their status
+- changed the default name of import states (Houdini only for now) to "{entity}_{task}_{version}"
+- fixed a bug that some caches were not displayed in the "Task Selection" window when using custom export paths
+- improved handling of plugins, which failed to load
+
 v1.3.0.27:
 - turned on "Create Directories" on the write node inside the WritePrism node in Nuke
 - linked the disabled state of the WritePrism node to the internal write node

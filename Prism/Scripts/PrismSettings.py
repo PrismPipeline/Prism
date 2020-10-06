@@ -939,7 +939,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
                 self.core.plugins.deactivatePlugin(pluginName)
             else:
-                self.core.plugins.activatePlugin(pluginPath)
+                result = self.core.plugins.activatePlugin(pluginPath)
+                if not result:
+                    self.refreshPlugins()
+                    return
 
         if os.path.exists(self.core.prismIni):
             self.core.changeProject(self.core.prismIni)

@@ -36,6 +36,7 @@ import sys
 import shutil
 import platform
 import logging
+import traceback
 
 try:
     from PySide2.QtCore import *
@@ -179,9 +180,12 @@ class PluginManager(object):
             if pluginName in inactives:
                 inactives.remove(pluginName)
             self.core.setConfig("plugins", "inactive", inactives)
+
+        if pluginName in self.core.inactivePlugins:
             self.core.inactivePlugins.pop(pluginName)
-            logger.debug("activating plugin %s" % pluginName)
-            self.loadPlugin(path)
+
+        logger.debug("activating plugin %s" % pluginName)
+        return self.loadPlugin(path)
 
     @err_catcher(name=__name__)
     def loadPlugin(self, path, force=True):
@@ -241,15 +245,24 @@ class PluginManager(object):
             return
 
         sys.path.append(os.path.dirname(initPath))
-        if os.path.exists(initPath.replace("_init", "_init_unloaded")):
-            pPlug = getattr(
-                __import__("Prism_%s_init_unloaded" % (pluginName)),
-                "Prism_%s_unloaded" % pluginName,
-            )(self.core)
-        else:
-            pPlug = getattr(__import__("Prism_%s_init" % (pluginName)), "Prism_%s" % pluginName)(
-                self.core
-            )
+        try:
+            if os.path.exists(initPath.replace("_init", "_init_unloaded")):
+                pPlug = getattr(
+                    __import__("Prism_%s_init_unloaded" % (pluginName)),
+                    "Prism_%s_unloaded" % pluginName,
+                )(self.core)
+            else:
+                pPlug = getattr(__import__("Prism_%s_init" % (pluginName)), "Prism_%s" % pluginName)(
+                    self.core
+                )
+        except:
+            msg = "Failed to load plugin: %s" % pluginName
+            result = self.core.popupQuestion(msg, buttons=["Details", "Close"], icon=QMessageBox.Warning)
+            if result == "Details":
+                detailMsg = msg + "\n\n" + traceback.format_exc()
+                self.core.showErrorDetailPopup(detailMsg)
+            self.core.inactivePlugins[pluginName] = pluginPath
+            return
 
         if platform.system() not in pPlug.platforms:
             logger.debug("skipped loading plugin %s - plugin doesn't support this OS" % pPlug.pluginName)

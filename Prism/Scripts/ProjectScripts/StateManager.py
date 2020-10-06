@@ -1129,6 +1129,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
             pass
 
     def showEvent(self, event):
+        for state in self.states:
+            state.ui.updateUi()
+
         self.core.callback("onStateManagerShow", args=[self])
 
     @err_catcher(name=__name__)

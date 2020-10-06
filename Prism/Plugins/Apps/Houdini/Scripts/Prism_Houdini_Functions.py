@@ -200,14 +200,7 @@ class Prism_Houdini_Functions(object):
             return
 
         self.core.users.ensureUser()
-
-        for i in origin.prjHDAs:
-            if not os.path.exists(i):
-                continue
-
-            defs = hou.hda.definitionsInFile(i)
-            if len(defs) > 0 and defs[0].isInstalled():
-                hou.hda.uninstallFile(i)
+        self.uninstallHDAs(origin.prjHDAs)
 
         hdaFolders = [os.path.join(origin.projectPath, "00_Pipeline", "HDAs")]
 
@@ -220,30 +213,55 @@ class Prism_Houdini_Functions(object):
             hdaUFolder = os.path.join(prjHDAs, origin.user)
             hdaFolders += [prjHDAs, hdaUFolder]
 
-        origin.prjHDAs = []
+        origin.prjHDAs = self.findHDAs(hdaFolders)
 
-        for k in hdaFolders:
-            if os.path.exists(k):
-                for i in os.walk(k):
-                    if os.path.basename(i[0]) == "backup":
-                        continue
+        oplib = os.path.join(prjHDAs, "ProjectHDAs.oplib")
+        self.installHDAs(origin.prjHDAs, oplib)
 
-                    for m in i[2]:
-                        if os.path.splitext(m)[1] in [
-                            ".hda",
-                            ".hdanc",
-                            ".hdalc",
-                            ".otl",
-                            ".otlnc",
-                            ".otllc",
-                        ]:
-                            origin.prjHDAs.append(
-                                os.path.join(i[0], m).replace("\\", "/")
-                            )
+    @err_catcher(name=__name__)
+    def uninstallHDAs(self, hdaPaths):
+        for path in hdaPaths:
+            if not os.path.exists(path):
+                continue
 
-        oplib = os.path.join(prjHDAs, "ProjectHDAs.oplib").replace("\\", "/")
-        for i in origin.prjHDAs:
-            hou.hda.installFile(i, oplib)
+            defs = hou.hda.definitionsInFile(path)
+            if len(defs) > 0 and defs[0].isInstalled():
+                hou.hda.uninstallFile(path)
+
+    @err_catcher(name=__name__)
+    def installHDAs(self, hdaPaths, oplibPath):
+        oplibPath = oplibPath.replace("\\", "/")
+        for path in hdaPaths:
+            hou.hda.installFile(path, oplibPath)
+
+    @err_catcher(name=__name__)
+    def findHDAs(self, paths):
+        if self.core.isStr(paths):
+            paths = [paths]
+
+        hdas = []
+
+        for path in paths:
+            if not os.path.exists(path):
+                continue
+
+            for root, folders, files in os.walk(path):
+                if os.path.basename(root) == "backup":
+                    continue
+
+                for file in files:
+                    if os.path.splitext(file)[1] in [
+                        ".hda",
+                        ".hdanc",
+                        ".hdalc",
+                        ".otl",
+                        ".otlnc",
+                        ".otllc",
+                    ]:
+                        hdaPath = os.path.join(root, file).replace("\\", "/")
+                        hdas.append(hdaPath)
+
+        return hdas
 
     @err_catcher(name=__name__)
     def executeScript(self, origin, code, execute=False):
@@ -303,11 +321,12 @@ class Prism_Houdini_Functions(object):
         return currentFrame
 
     @err_catcher(name=__name__)
-    def setFrameRange(self, origin, startFrame, endFrame):
+    def setFrameRange(self, origin, startFrame, endFrame, currentFrame=None):
         setGobalFrangeExpr = "tset `(%d-1)/$FPS` `%d/$FPS`" % (startFrame, endFrame)
         hou.hscript(setGobalFrangeExpr)
         hou.playbar.setPlaybackRange(startFrame, endFrame)
-        hou.setFrame(startFrame)
+        currentFrame = currentFrame or startFrame
+        hou.setFrame(currentFrame)
 
     @err_catcher(name=__name__)
     def getFPS(self, origin):

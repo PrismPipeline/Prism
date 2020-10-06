@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.27"
+            self.version = "v1.3.0.28"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -2296,11 +2296,11 @@ If this plugin is an official Prism plugin, please submit this error to the deve
             msg = "ERROR - writeErrorLog - %s\n\n%s" % (traceback.format_exc(), text)
             logger.warning(msg)
 
-    def showErrorDetailPopup(self, text):
+    def showErrorDetailPopup(self, text, sendReport=True):
         result = self.popupQuestion(text, buttons=["Report with note", "Close"], icon=QMessageBox.Warning)
         if result == "Report with note":
             self.sendError(text)
-        elif self.getConfig("globals", "send_error_reports", dft=True):
+        elif sendReport and self.getConfig("globals", "send_error_reports", dft=True):
             self.sendAutomaticErrorReport(text)
 
     def sendAutomaticErrorReport(self, text):

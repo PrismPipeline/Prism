@@ -54,11 +54,14 @@ class ImportFileClass(object):
         self.state = state
         self.core = core
         self.stateManager = stateManager
-        self.e_name.setText(state.text(0))
 
         self.className = "ImportFile"
         self.listType = "Import"
         self.taskName = None
+
+        stateNameTemplate = "{entity}_{task}_{version}"
+        self.stateNameTemplate = self.core.getConfig("globals", "defaultImportStateName", dft=stateNameTemplate)
+        self.e_name.setText(self.stateNameTemplate)
 
         # 	self.l_name.setVisible(False)
         # 	self.e_name.setVisible(False)
@@ -90,7 +93,7 @@ class ImportFileClass(object):
 
         if self.importPath is not None:
             self.e_file.setText(self.importPath[1])
-            result = self.importObject(taskName=self.importPath[0])
+            result = self.importObject()
             self.importPath = None
 
             if not result:
@@ -102,11 +105,13 @@ class ImportFileClass(object):
         ):
             return False
 
-        self.nameChanged(state.text(0))
+        self.nameChanged()
         self.connectEvents()
 
         if stateData is not None:
             self.loadData(stateData)
+
+        self.updateUi()
 
     @err_catcher(name=__name__)
     def loadData(self, data):
@@ -126,9 +131,6 @@ class ImportFileClass(object):
                 self.fileNode = self.findNode(data["filenode"])
             if self.fileNode and self.fileNode.type().name() == "merge":
                 self.fileNode = None
-        if "taskname" in data:
-            self.taskName = data["taskname"]
-            self.nameChanged(self.e_name.text())
         if "updatepath" in data:
             self.chb_updateOnly.setChecked(eval(data["updatepath"]))
         if "autonamespaces" in data:
@@ -173,21 +175,27 @@ class ImportFileClass(object):
             )
 
     @err_catcher(name=__name__)
-    def nameChanged(self, text):
-        isShotCam = self.taskName == "ShotCam"
-        self.f_nameSpaces.setVisible(not isShotCam)
-        self.b_objMerge.setVisible(not isShotCam)
-
+    def nameChanged(self, text=None):
+        text = self.e_name.text()
+        cacheData = self.core.paths.getCachePathData(self.getImportPath())
         try:
-            self.state.setText(0, text + " (" + self.taskName + ")")
-        except:
-            self.state.setText(0, text + " (None)")
+            name = text.format(**cacheData)
+        except Exception:
+            name = text
+
+        self.state.setText(0, name)
 
     @err_catcher(name=__name__)
     def pathChanged(self):
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def isShotCam(self, path=None):
+        if not path:
+            path = self.getImportPath()
+        return path.endswith(".abc") and "/_ShotCam/" in path
 
     @err_catcher(name=__name__)
     def autoUpdateChanged(self, checked):
@@ -261,6 +269,249 @@ class ImportFileClass(object):
         return self.e_file.text().replace("\\", "/")
 
     @err_catcher(name=__name__)
+    def runSanityChecks(self, cachePath):
+        result = self.checkFrameRange(cachePath)
+        if not result:
+            return False
+
+        return True
+
+    @err_catcher(name=__name__)
+    def checkFrameRange(self, cachePath):
+        versionInfoPath = os.path.join(
+            os.path.dirname(os.path.dirname(cachePath)), "versioninfo.yml"
+        )
+        impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
+        curFPS = self.core.getFPS()
+        if not impFPS or impFPS == curFPS:
+            return True
+
+        fString = (
+            "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:\t%s\nImport FPS:\t\t%s"
+            % (curFPS, impFPS)
+        )
+
+        result = self.core.popupQuestion(fString, title="FPS mismatch", buttons=["Continue", "Cancel"], icon=QMessageBox.Warning)
+
+        if result == "Cancel":
+            return False
+
+        return True
+
+    @err_catcher(name=__name__)
+    def convertToPreferredUnit(self, path):
+        parDirName = os.path.basename(os.path.dirname(path))
+        if parDirName in ["centimeter", "meter"]:
+            prefFile = os.path.join(
+                os.path.dirname(os.path.dirname(path)),
+                self.preferredUnit,
+                os.path.basename(path),
+            )
+            if parDirName == self.unpreferredUnit and os.path.exists(prefFile):
+                path = prefFile
+
+        return path
+
+    @err_catcher(name=__name__)
+    def importHDA(self, path):
+        try:
+            self.node.destroy()
+        except:
+            pass
+
+        if os.path.exists(path):
+            hou.hda.installFile(path, force_use_assets=True)
+
+    @err_catcher(name=__name__)
+    def importShotCam(self, importPath):
+        self.fileNode = None
+        self.node = hou.node("/obj").createNode(
+            "alembicarchive", "IMPORT_ShotCam"
+        )
+        self.node.parm("fileName").set(importPath)
+        self.node.parm("buildHierarchy").pressButton()
+        self.node.moveToGoodPosition()
+
+    @err_catcher(name=__name__)
+    def importAlembic(self, importPath):
+        self.fileNode = self.node.createNode("alembic")
+        self.fileNode.moveToGoodPosition()
+        self.fileNode.parm("fileName").set(importPath)
+        self.fileNode.parm("loadmode").set(1)
+        self.fileNode.parm("polysoup").set(0)
+        self.fileNode.parm("groupnames").set(3)
+
+    @err_catcher(name=__name__)
+    def importFBX(self, importPath, taskName):
+        self.node.destroy()
+
+        tlSettings = [hou.frame()]
+        tlSettings += hou.playbar.playbackRange()
+
+        self.node = hou.hipFile.importFBX(importPath)[0]
+
+        if not self.node:
+            self.core.popup("Import failed.")
+            self.updateUi()
+            self.stateManager.saveStatesToScene()
+            return
+
+        self.core.appPlugin.setFrameRange(tlSettings[1], tlSettings[2], tlSettings[0])
+
+        self.node.setName("IMPORT_" + taskName, unique_name=True)
+        fbxObjs = [
+            x for x in self.node.children() if x.type().name() == "geo"
+        ]
+        mergeGeo = self.node.createNode("geo", "FBX_Objects")
+        mergeGeo.moveToGoodPosition()
+        if len(mergeGeo.children()) > 0:
+            mergeGeo.children()[0].destroy()
+        self.fileNode = mergeGeo.createNode("merge", "Merged_Objects")
+        self.fileNode.moveToGoodPosition()
+        for i in fbxObjs:
+            i.setDisplayFlag(False)
+            objmerge = mergeGeo.createNode("object_merge", i.name())
+            objmerge.moveToGoodPosition()
+            objmerge.parm("objpath1").set(i.path())
+            objmerge.parm("xformtype").set(1)
+            self.fileNode.setNextInput(objmerge)
+
+        mergeGeo.layoutChildren()
+        self.node.layoutChildren()
+
+    @err_catcher(name=__name__)
+    def importUSD(self, importPath):
+        self.fileNode = self.node.createNode("pixar::usdimport")
+        self.fileNode.moveToGoodPosition()
+        self.fileNode.parm("import_file").set(importPath)
+        self.fileNode.parm("import_primpath").set("/")
+        self.fileNode.parm("import_time").setExpression("$F")
+
+    @err_catcher(name=__name__)
+    def importRedshiftProxy(self, importPath):
+        if not hou.nodeType(hou.sopNodeTypeCategory(), "Redshift_Proxy_Output"):
+            msg = "Format is not supported, because Redshift is not available in Houdini."
+            self.core.popup(msg)
+            self.removeImportNetworkBox()
+            try:
+                self.node.destroy()
+            except:
+                pass
+
+            self.fileNode = None
+            return
+
+        self.fileNode = self.node.createNode("redshift_proxySOP")
+        self.fileNode.moveToGoodPosition()
+        self.node.setCurrent(True, clear_all_selected=True)
+        hou.hscript("Redshift_objectSpareParameters")
+        self.node.parm("RS_objprop_proxy_enable").set(True)
+        self.node.parm("RS_objprop_proxy_file").set(importPath)
+
+    @err_catcher(name=__name__)
+    def importFile(self, importPath):
+        self.fileNode = self.node.createNode("file")
+        self.fileNode.moveToGoodPosition()
+        self.fileNode.parm("file").set(importPath)
+
+    @err_catcher(name=__name__)
+    def getImportNetworkBox(self, create=True):
+        nwBox = hou.node("/obj").findNetworkBox("Import")
+        if not nwBox and create:
+            nwBox = hou.node("/obj").createNetworkBox("Import")
+            nwBox.setComment("Imports")
+
+        return nwBox
+
+    @err_catcher(name=__name__)
+    def removeImportNetworkBox(self, force):
+        nwBox = self.getImportNetworkBox(create=False)
+        if nwBox:
+            if not nwBox.nodes() or force:
+                nwBox.destroy()
+
+    @err_catcher(name=__name__)
+    def createImportNodes(self, importPath, cacheData=None, objMerge=True):
+        if self.node is not None:
+            try:
+                self.node.destroy()
+            except:
+                pass
+
+        nwBox = self.getImportNetworkBox()
+
+        extension = os.path.splitext(importPath)[1]
+        taskName = cacheData.get("task")
+
+        if self.isShotCam(importPath):
+            self.importShotCam(importPath)
+        else:
+            self.node = hou.node("/obj").createNode("geo", "IMPORT_" + taskName)
+            self.node.moveToGoodPosition()
+
+            if len(self.node.children()) > 0:
+                self.node.children()[0].destroy()
+            if extension == ".abc":
+                self.importAlembic(importPath)
+            elif extension == ".fbx":
+                self.importFBX(importPath, taskName)
+            elif extension == ".usd":
+                self.importUSD(importPath)
+            elif extension == ".rs":
+                self.importRedshiftProxy(importPath)
+            else:
+                self.importFile(importPath)
+
+            outNode = self.fileNode.createOutputNode("null", "OUT_" + taskName)
+            outNode.setDisplayFlag(True)
+            outNode.setRenderFlag(True)
+
+        nwBox.addNode(self.node)
+        self.node.moveToGoodPosition()
+        nwBox.fitAroundContents()
+
+        self.node.setDisplayFlag(False)
+        self.node.setColor(hou.Color(0.451, 0.369, 0.796))
+
+        if self.chb_autoNameSpaces.isChecked():
+            self.removeNameSpaces()
+
+        if objMerge and "outNode" in locals():
+            self.objMerge()
+
+    @err_catcher(name=__name__)
+    def updateImportNodes(self, importPath, cacheData=None):
+        prevTaskName = self.node.name().split("IMPORT_")[-1]
+
+        cacheData = cacheData or {}
+        taskName = cacheData.get("task")
+        if taskName:
+            self.node.setName("IMPORT_" + taskName, unique_name=True)
+            for child in self.node.children():
+                if prevTaskName in child.name():
+                    newName = child.name().replace(prevTaskName, taskName)
+                    child.setName(newName, unique_name=True)
+
+        extension = os.path.splitext(importPath)[1]
+        if extension == ".abc" and "_ShotCam_" in importPath:
+            if self.core.appPlugin.setNodeParm(
+                self.node, "fileName", val=importPath
+            ):
+                self.node.parm("buildHierarchy").pressButton()
+        elif extension == ".abc":
+            self.core.appPlugin.setNodeParm(
+                self.fileNode, "fileName", val=importPath
+            )
+        elif extension == ".usd":
+            self.core.appPlugin.setNodeParm(
+                self.fileNode, "import_file", val=importPath
+            )
+        else:
+            self.core.appPlugin.setNodeParm(
+                self.fileNode, "file", val=importPath
+            )
+
+    @err_catcher(name=__name__)
     def importObject(self, taskName=None, objMerge=True):
         if self.stateManager.standalone:
             return False
@@ -268,282 +519,61 @@ class ImportFileClass(object):
         fileName = self.core.getCurrentFileName()
         impFileName = self.getImportPath()
 
-        if impFileName != "":
-            versionInfoPath = os.path.join(
-                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.yml"
+        if not impFileName:
+            self.core.popup("Invalid importpath")
+            return
+
+        result = self.runSanityChecks(impFileName)
+        if not result:
+            return
+
+        cacheData = self.core.paths.getCachePathData(impFileName)
+        impFileName = self.convertToPreferredUnit(impFileName)
+        self.e_file.setText(impFileName)
+
+        args = {
+            "prismCore": self.core,
+            "scenefile": fileName,
+            "importfile": impFileName,
+        }
+        result = self.core.callHook("preImport", args=args)
+
+        for res in result:
+            if res and "importfile" in res:
+                impFileName = res["importfile"]
+
+        try:
+            self.node.path()
+        except:
+            self.node = None
+            self.fileNode = None
+
+        extension = os.path.splitext(impFileName)[1]
+
+        doImport = (
+            self.node is None
+            or (
+                self.fileNode is None
+                and not (
+                    extension == ".abc"
+                    and "_ShotCam_" in impFileName
+                )
             )
-            impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
-            curFPS = self.core.getFPS()
-            if impFPS and impFPS != curFPS:
-                fString = (
-                    "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:\t%s\nImport FPS:\t\t%s"
-                    % (curFPS, impFPS)
-                )
-                msg = QMessageBox(
-                    QMessageBox.Warning,
-                    "FPS mismatch",
-                    fString,
-                    QMessageBox.Cancel,
-                )
-                msg.addButton("Continue", QMessageBox.YesRole)
-                self.core.parentWindow(msg)
-                action = msg.exec_()
+            or not self.chb_updateOnly.isChecked()
+            or (
+                self.fileNode is not None
+                and (self.fileNode.type().name() == "alembic")
+                == (extension != ".abc")
+            )
+            or self.node.type().name() == "subnet"
+        )
 
-                if action != 0:
-                    return False
-
-            if taskName is None:
-                vPath = os.path.dirname(impFileName)
-                if os.path.basename(vPath) in ["centimeter", "meter"]:
-                    vName = os.path.basename(os.path.dirname(vPath))
-                    vPath = os.path.dirname(vPath)
-                else:
-                    vName = os.path.basename(vPath)
-
-                if len(vName.split(self.core.filenameSeparator)) == 3 and (
-                    self.core.getScenePath() in impFileName
-                    or (
-                        self.core.useLocalFiles
-                        and self.core.getScenePath(location="local")
-                        in impFileName
-                    )
-                ):
-                    taskName = os.path.basename(os.path.dirname(vPath))
-                    if taskName == "_ShotCam":
-                        taskName = "ShotCam"
-                else:
-                    taskName = vName
-
-            taskName = taskName.replace("$", "_")
-            self.taskName = taskName
-
-            parDirName = os.path.basename(os.path.dirname(impFileName))
-            if parDirName in ["centimeter", "meter"]:
-                prefFile = os.path.join(
-                    os.path.dirname(os.path.dirname(impFileName)),
-                    self.preferredUnit,
-                    os.path.basename(impFileName),
-                )
-                if parDirName == self.unpreferredUnit and os.path.exists(prefFile):
-                    impFileName = prefFile
-                    self.e_file.setText(impFileName)
-
-            args = {
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "importfile": impFileName,
-            }
-
-            result = self.core.callHook("preImport", args=args)
-            for res in result:
-                if res and "importfile" in res:
-                    impFileName = res["importfile"]
-
-            try:
-                self.node.path()
-            except:
-                self.node = None
-                self.fileNode = None
-
-            if os.path.splitext(impFileName)[1] == ".hda":
-                try:
-                    self.node.destroy()
-                except:
-                    pass
-
-                if os.path.exists(impFileName):
-                    hou.hda.installFile(impFileName, force_use_assets=True)
-            elif (
-                self.node is None
-                or (
-                    self.fileNode is None
-                    and not (
-                        os.path.splitext(impFileName)[1] == ".abc"
-                        and "_ShotCam_" in impFileName
-                    )
-                )
-                or not self.chb_updateOnly.isChecked()
-                or (
-                    self.fileNode is not None
-                    and (self.fileNode.type().name() == "alembic")
-                    == (os.path.splitext(impFileName)[1] != ".abc")
-                )
-                or self.node.type().name() == "subnet"
-            ):
-                if self.node is not None:
-                    try:
-                        self.node.destroy()
-                    except:
-                        pass
-
-                nwBox = hou.node("/obj").findNetworkBox("Import")
-                if nwBox is None:
-                    nwBox = hou.node("/obj").createNetworkBox("Import")
-                    nwBox.setComment("Imports")
-                    # nwBox.setMinimized(True)
-
-                if (
-                    os.path.splitext(impFileName)[1] == ".abc"
-                    and "_ShotCam_" in impFileName
-                ):
-                    self.fileNode = None
-                    self.node = hou.node("/obj").createNode(
-                        "alembicarchive", "IMPORT_ShotCam"
-                    )
-                    self.node.parm("fileName").set(impFileName)
-                    self.node.parm("buildHierarchy").pressButton()
-                    self.node.moveToGoodPosition()
-                else:
-                    self.node = hou.node("/obj").createNode("geo", "IMPORT_" + taskName)
-                    self.node.moveToGoodPosition()
-
-                    if len(self.node.children()) > 0:
-                        self.node.children()[0].destroy()
-                    if os.path.splitext(impFileName)[1] == ".abc":
-                        self.fileNode = self.node.createNode("alembic")
-                        self.fileNode.moveToGoodPosition()
-                        self.fileNode.parm("fileName").set(impFileName)
-                        self.fileNode.parm("loadmode").set(1)
-                        self.fileNode.parm("polysoup").set(0)
-                        self.fileNode.parm("groupnames").set(3)
-                    elif os.path.splitext(impFileName)[1] == ".fbx":
-                        self.node.destroy()
-
-                        tlSettings = [hou.frame()]
-                        tlSettings += hou.playbar.playbackRange()
-
-                        self.node = hou.hipFile.importFBX(impFileName)[0]
-
-                        if not self.node:
-                            if self.core.uiAvailable:
-                                QMessageBox.warning(
-                                    self.core.messageParent,
-                                    "ImportFile",
-                                    "Import failed",
-                                )
-                            self.updateUi()
-                            self.stateManager.saveStatesToScene()
-                            return
-
-                        setGobalFrangeExpr = "tset `(%d-1)/$FPS` `%d/$FPS`" % (
-                            tlSettings[1],
-                            tlSettings[2],
-                        )
-                        hou.hscript(setGobalFrangeExpr)
-                        hou.playbar.setPlaybackRange(tlSettings[1], tlSettings[2])
-                        hou.setFrame(tlSettings[0])
-
-                        self.node.setName("IMPORT_" + taskName, unique_name=True)
-                        fbxObjs = [
-                            x for x in self.node.children() if x.type().name() == "geo"
-                        ]
-                        mergeGeo = self.node.createNode("geo", "FBX_Objects")
-                        mergeGeo.moveToGoodPosition()
-                        if len(mergeGeo.children()) > 0:
-                            mergeGeo.children()[0].destroy()
-                        self.fileNode = mergeGeo.createNode("merge", "Merged_Objects")
-                        self.fileNode.moveToGoodPosition()
-                        for i in fbxObjs:
-                            i.setDisplayFlag(False)
-                            objmerge = mergeGeo.createNode("object_merge", i.name())
-                            objmerge.moveToGoodPosition()
-                            objmerge.parm("objpath1").set(i.path())
-                            objmerge.parm("xformtype").set(1)
-                            self.fileNode.setNextInput(objmerge)
-
-                        mergeGeo.layoutChildren()
-                        self.node.layoutChildren()
-                    elif os.path.splitext(impFileName)[1] == ".usd":
-                        self.fileNode = self.node.createNode("pixar::usdimport")
-                        self.fileNode.moveToGoodPosition()
-                        self.fileNode.parm("import_file").set(impFileName)
-                        self.fileNode.parm("import_primpath").set("/")
-                        self.fileNode.parm("import_time").setExpression("$F")
-                    elif os.path.splitext(impFileName)[1] == ".rs":
-                        if (
-                            hou.nodeType(
-                                hou.sopNodeTypeCategory(), "Redshift_Proxy_Output"
-                            )
-                            is None
-                        ):
-                            QMessageBox.warning(
-                                self.core.messageParent,
-                                "ImportFile",
-                                "Format is not supported, because Redshift is not available in Houdini.",
-                            )
-                            if nwBox is not None:
-                                if len(nwBox.nodes()) == 0:
-                                    nwBox.destroy()
-                            try:
-                                self.node.destroy()
-                            except:
-                                pass
-                            self.fileNode = None
-                            return
-
-                        self.fileNode = self.node.createNode("redshift_proxySOP")
-                        self.fileNode.moveToGoodPosition()
-                        self.node.setCurrent(True, clear_all_selected=True)
-                        hou.hscript("Redshift_objectSpareParameters")
-                        self.node.parm("RS_objprop_proxy_enable").set(True)
-                        self.node.parm("RS_objprop_proxy_file").set(impFileName)
-                    else:
-                        self.fileNode = self.node.createNode("file")
-                        self.fileNode.moveToGoodPosition()
-                        self.fileNode.parm("file").set(impFileName)
-
-                    outNode = self.fileNode.createOutputNode("null", "OUT_" + taskName)
-                    outNode.setDisplayFlag(True)
-                    outNode.setRenderFlag(True)
-
-                nwBox.addNode(self.node)
-                self.node.moveToGoodPosition()
-                nwBox.fitAroundContents()
-
-                self.node.setDisplayFlag(False)
-                self.node.setColor(hou.Color(0.451, 0.369, 0.796))
-
-                if self.chb_autoNameSpaces.isChecked():
-                    self.removeNameSpaces()
-
-                if objMerge and "outNode" in locals():
-                    self.objMerge()
-
-            else:
-                prevData = self.node.name().split("IMPORT_")
-                if len(prevData) > 1:
-                    prevTaskName = prevData[1]
-                else:
-                    prevTaskName = self.node.name()
-
-                self.node.setName("IMPORT_" + taskName, unique_name=True)
-                for i in self.node.children():
-                    if prevTaskName in i.name():
-                        i.setName(
-                            i.name().replace(prevTaskName, taskName), unique_name=True
-                        )
-
-                if (
-                    os.path.splitext(impFileName)[1] == ".abc"
-                    and "_ShotCam_" in impFileName
-                ):
-                    if self.core.appPlugin.setNodeParm(
-                        self.node, "fileName", val=impFileName
-                    ):
-                        self.node.parm("buildHierarchy").pressButton()
-                else:
-                    if os.path.splitext(impFileName)[1] == ".abc":
-                        self.core.appPlugin.setNodeParm(
-                            self.fileNode, "fileName", val=impFileName
-                        )
-                    elif os.path.splitext(impFileName)[1] == ".usd":
-                        self.core.appPlugin.setNodeParm(
-                            self.fileNode, "import_file", val=impFileName
-                        )
-                    else:
-                        self.core.appPlugin.setNodeParm(
-                            self.fileNode, "file", val=impFileName
-                        )
+        if extension == ".hda":
+            self.importHDA(impFileName)
+        elif doImport:
+            self.createImportNodes(impFileName, cacheData, objMerge=objMerge)
+        else:
+            self.updateImportNodes(impFileName, cacheData)
 
         impNodes = []
         try:
@@ -558,15 +588,13 @@ class ImportFileClass(object):
         except:
             pass
 
-        self.core.callHook(
-            "postImport",
-            args={
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "importfile": impFileName,
-                "importedObjects": impNodes,
-            },
-        )
+        args = {
+            "prismCore": self.core,
+            "scenefile": fileName,
+            "importfile": impFileName,
+            "importedObjects": impNodes,
+        }
+        self.core.callHook("postImport", args)
 
         self.stateManager.saveImports()
         self.updateUi()
@@ -606,7 +634,7 @@ class ImportFileClass(object):
                                 try:
                                     num = int(splitFile[0][-4:])
                                     filename = splitFile[0][:-4] + "$F4" + splitFile[1]
-                                except:
+                                except Exception:
                                     filename = os.path.join(i[0], m)
                             else:
                                 filename = os.path.join(i[0], m)
@@ -617,7 +645,7 @@ class ImportFileClass(object):
                                 filename = filename[:-3] + "obj"
 
                             self.e_file.setText(filename)
-                            self.importObject(objMerge=False)
+                            self.importObject()
                             break
                 break
 
@@ -729,21 +757,36 @@ class ImportFileClass(object):
         return curVersion, latestVersion
 
     @err_catcher(name=__name__)
+    def setStateColor(self, status):
+        if status == "ok":
+            brush = QBrush(QColor(0, 130, 0))
+        elif status == "warning":
+            brush = QBrush(QColor(150, 80, 0))
+        elif status == "error":
+            brush = QBrush(QColor(130, 0, 0))
+        else:
+            brush = QBrush(QColor(0, 0, 0, 0))
+
+        self.state.setBackground(0, brush)
+
+    @err_catcher(name=__name__)
     def updateUi(self):
         if os.path.splitext(self.e_file.text())[1] == ".hda":
             self.gb_options.setVisible(False)
             self.b_goTo.setVisible(False)
             self.b_objMerge.setText("Create Node")
             self.l_status.setText("not installed")
-            self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
+            self.l_status.setStyleSheet("QLabel { background-color : rgb(130,0,0); }")
+            status = "error"
             if os.path.exists(self.e_file.text()):
                 defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
                 if len(defs) > 0:
                     if defs[0].isInstalled():
                         self.l_status.setText("installed")
                         self.l_status.setStyleSheet(
-                            "QLabel { background-color : rgb(0,150,0); }"
+                            "QLabel { background-color : rgb(0,130,0); }"
                         )
+                        status = "ok"
         else:
             self.gb_options.setVisible(True)
             self.b_goTo.setVisible(True)
@@ -752,15 +795,17 @@ class ImportFileClass(object):
                 self.node.name()
                 self.l_status.setText(self.node.name())
                 self.l_status.setStyleSheet(
-                    "QLabel { background-color : rgb(0,150,0); }"
+                    "QLabel { background-color : rgb(0,130,0); }"
                 )
+                status = "ok"
                 self.b_objMerge.setEnabled(True)
             except:
-                self.nameChanged(self.e_name.text())
+                self.nameChanged()
                 self.l_status.setText("Not found in scene")
                 self.l_status.setStyleSheet(
-                    "QLabel { background-color : rgb(150,0,0); }"
+                    "QLabel { background-color : rgb(130,0,0); }"
                 )
+                status = "error"
                 self.b_objMerge.setEnabled(False)
 
         curVersion, latestVersion = self.checkLatestVersion()
@@ -774,12 +819,18 @@ class ImportFileClass(object):
         else:
             if curVersion and latestVersion and curVersion != latestVersion:
                 self.b_importLatest.setStyleSheet(
-                    "QPushButton { background-color : rgb(180,90,0); }"
+                    "QPushButton { background-color : rgb(150,80,0); border: none;}"
                 )
+                status = "warning"
             else:
                 self.b_importLatest.setStyleSheet("")
 
-        self.nameChanged(self.e_name.text())
+        self.nameChanged()
+        self.setStateColor(status)
+
+        isShotCam = self.isShotCam()
+        self.f_nameSpaces.setVisible(not isShotCam)
+        self.b_objMerge.setVisible(not isShotCam)
 
     @err_catcher(name=__name__)
     def getCurrentVersion(self):
@@ -880,7 +931,7 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def unitConvert(self):
-        if self.taskName == "ShotCam":
+        if self.isShotCam():
             xforms = [
                 x for x in self.node.children() if x.type().name() == "alembicxform"
             ]
@@ -965,7 +1016,6 @@ class ImportFileClass(object):
             "filepath": self.e_file.text(),
             "connectednode": curNode,
             "filenode": fNode,
-            "taskname": self.taskName,
             "autoUpdate": str(self.chb_autoUpdate.isChecked()),
             "updatepath": str(self.chb_updateOnly.isChecked()),
             "autonamespaces": str(self.chb_autoNameSpaces.isChecked()),

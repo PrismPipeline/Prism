@@ -262,7 +262,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                     self.updateTasks()
                 path = self.core.getAssetPath()
             else:
-                path = item.data(0, Qt.UserRole)[0]
+                path = item.data(0, Qt.UserRole)[0]["path"]
 
         elif listType == "shots":
             viewUi = self.tw_shots
@@ -275,7 +275,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                     self.updateTasks()
                 path = self.core.getShotPath()
             else:
-                path = item.data(0, Qt.UserRole)[0]
+                path = item.data(0, Qt.UserRole)[0]["path"]
 
         elif listType == "tasks":
             viewUi = self.lw_tasks
@@ -462,12 +462,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                             if curItem.text(0) == val:
                                 lastItem = curItem
                                 newData = lastItem.data(0, Qt.UserRole)
-                                newData.append(curPath)
+                                newData.append({"path": curPath})
                                 lastItem.setData(0, Qt.UserRole, newData)
 
                         if lastItem is None:
                             lastItem = QTreeWidgetItem([val, curPath])
-                            lastItem.setData(0, Qt.UserRole, [curPath])
+                            lastItem.setData(0, Qt.UserRole, [{"path": curPath}])
                             self.tw_assets.addTopLevelItem(lastItem)
                     else:
                         newItem = None
@@ -476,12 +476,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                             if curItem.text(0) == val:
                                 newItem = curItem
                                 newData = newItem.data(0, Qt.UserRole)
-                                newData.append(curPath)
+                                newData.append({"path": curPath})
                                 newItem.setData(0, Qt.UserRole, newData)
 
                         if newItem is None:
                             newItem = QTreeWidgetItem([val, curPath])
-                            newItem.setData(0, Qt.UserRole, [curPath])
+                            newItem.setData(0, Qt.UserRole, [{"path": curPath}])
                             lastItem.addChild(newItem)
 
                         lastItem = newItem
@@ -547,32 +547,26 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     def updateShots(self):
         self.tw_shots.clear()
 
-        basePath = self.cb_paths.currentText()
-        if basePath == "all":
-            basePaths = list(self.export_paths.keys())[1:]
+        location = self.cb_paths.currentText()
+        if location == "all":
+            locations = list(self.export_paths.keys())[1:]
         else:
-            basePaths = [basePath]
+            locations = [location]
 
-        fBasePaths = []
-        for path in basePaths:
-            fpath = self.export_paths[path]
-            ppath = os.path.normpath(self.core.projectPath)
-            fpath = self.core.shotPath.replace(ppath, fpath)
-            fBasePaths.append(fpath)
-
-        sequences, shotData = self.core.entities.getShots(basepaths=fBasePaths)
+        sequences, shotData = self.core.entities.getShots(locations=locations)
 
         shots = {}
         for shot in shotData:
             seqName = shot[0]
             shotName = shot[1]
-            shotPath = shot[3]
+            shotPaths = shot[3]
 
-            taskPath = os.path.join(shot[3], "Export")
             tasks = []
-            for k in os.walk(taskPath):
-                tasks = k[1]
-                break
+            for shotPath in shotPaths:
+                taskPath = os.path.join(shotPath["path"], "Export")
+                for foldercont in os.walk(taskPath):
+                    tasks += foldercont[1]
+                    break
 
             if len(tasks) == 0:
                 continue
@@ -583,8 +577,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             if shotName not in shots[seqName]:
                 shots[seqName][shotName] = []
 
-            if shotPath not in shots[seqName][shotName]:
-                shots[seqName][shotName].append(shotPath)
+            for shotPath in shotPaths:
+                if shotPath not in shots[seqName][shotName]:
+                    shots[seqName][shotName].append(shotPath)
 
         sequences = self.core.sortNatural(shots.keys())
         if "no sequence" in sequences:
@@ -617,7 +612,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         if entityItem and entityItem.data(0, Qt.UserRole):
             taskPaths = [
-                os.path.join(x, "Export") for x in entityItem.data(0, Qt.UserRole) if x
+                os.path.join(x["path"], "Export") for x in entityItem.data(0, Qt.UserRole) if x
             ]
             tasks = {}
             for ePath in taskPaths:
@@ -853,6 +848,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             if not os.path.exists(fileName):
                 return False
 
+        fileName = os.path.normpath(fileName)
+
         relFileName = None
         for ePath in self.export_paths.values():
             sceneBase = self.core.scenePath.replace(os.path.normpath(self.core.projectPath), ePath)
@@ -860,92 +857,98 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 relFileName = fileName.replace(sceneBase, "")
                 fileExportPath = ePath
 
-        if relFileName:
-            fileNameData = relFileName.split(os.sep)
-            aBase = self.core.getAssetPath().replace(self.core.projectPath, fileExportPath)
-            if aBase in fileName:
-                entityType = "asset"
-            else:
-                entityType = "shot"
+        if not relFileName:
+            return False
 
-            taskName = task or self.importState.taskName
-            versionName = version or self.importState.l_curVersion.text()
+        fileNameData = relFileName.split(os.sep)
+        prjPath = os.path.normpath(self.core.projectPath)
+        aBase = self.core.assetPath.replace(prjPath, fileExportPath)
+        if aBase in fileName:
+            entityType = "asset"
+        else:
+            entityType = "shot"
 
-            if versionName != "-":
-                versionName = versionName[:5]
+        if not task:
+            task = self.core.paths.getCachePathData(fileName).get("task", "")
 
-            foundEntity = False
+        versionName = version or self.importState.l_curVersion.text()
 
-            if entityType == "asset":
-                uielement = self.tw_assets
-                entityName = fileNameData[-4]
-                self.tbw_entity.setCurrentIndex(0)
+        if versionName != "-":
+            versionName = versionName[:5]
 
-                itemPath = fileName.replace(aBase + os.sep, "")
-                hierarchy = itemPath.split(os.sep)
-                hItem = self.tw_assets.findItems(hierarchy[0], Qt.MatchExactly, 0)
-                if len(hItem) == 0:
-                    return False
+        foundEntity = False
 
-                hItem = hItem[-1]
-                hItem.setExpanded(True)
+        if entityType == "asset":
+            uielement = self.tw_assets
+            entityName = fileNameData[-4]
+            self.tbw_entity.setCurrentIndex(0)
 
-                endIdx = None
-                if len(hierarchy) > 1:
-                    for idx, i in enumerate((hierarchy[1:])):
-                        for k in range(hItem.childCount() - 1, -1, -1):
-                            if hItem.child(k).text(0) == i:
-                                hItem = hItem.child(k)
-                                if len(hierarchy) > (idx + 2):
-                                    hItem.setExpanded(True)
-                                break
-                        else:
-                            endIdx = idx + 1
+            itemPath = fileName.replace(aBase + os.sep, "")
+            hierarchy = itemPath.split(os.sep)
+            hItem = self.tw_assets.findItems(hierarchy[0], Qt.MatchExactly, 0)
+            if len(hItem) == 0:
+                return False
+
+            hItem = hItem[-1]
+            hItem.setExpanded(True)
+
+            endIdx = None
+            if len(hierarchy) > 1:
+                for idx, i in enumerate((hierarchy[1:])):
+                    for k in range(hItem.childCount() - 1, -1, -1):
+                        if hItem.child(k).text(0) == i:
+                            hItem = hItem.child(k)
+                            if len(hierarchy) > (idx + 2):
+                                hItem.setExpanded(True)
+                            break
+                    else:
+                        endIdx = idx + 1
+                        break
+
+            self.tw_assets.setCurrentItem(hItem)
+            foundEntity = True
+
+        else:
+            uielement = self.tw_shots
+            entityName = fileNameData[2]
+            self.tbw_entity.setCurrentIndex(1)
+
+            shotName, seqName = self.core.entities.splitShotname(entityName)
+
+            for i in range(self.tw_shots.topLevelItemCount()):
+                sItem = self.tw_shots.topLevelItem(i)
+                if sItem.text(0) == seqName:
+                    sItem.setExpanded(True)
+                    for k in range(sItem.childCount()):
+                        shotItem = sItem.child(k)
+                        if shotItem.text(0) == shotName:
+                            self.tw_shots.setCurrentItem(shotItem)
+                            foundEntity = True
                             break
 
-                self.tw_assets.setCurrentItem(hItem)
-                foundEntity = True
-
+                    if foundEntity:
+                        break
             else:
-                uielement = self.tw_shots
-                entityName = fileNameData[2]
-                self.tbw_entity.setCurrentIndex(1)
+                if entityType == "shot" and self.tw_shots.topLevelItemCount() > 0:
+                    seqItem = self.tw_shots.topLevelItem(0)
+                    seqItem.setExpanded(True)
+                    self.tw_shots.setCurrentItem(seqItem.child(0))
+                    foundEntity = True
 
-                shotName, seqName = self.core.entities.splitShotname(entityName)
+        if foundEntity:
+            self.updateTasks()
 
-                for i in range(self.tw_shots.topLevelItemCount()):
-                    sItem = self.tw_shots.topLevelItem(i)
-                    if sItem.text(0) == seqName:
-                        sItem.setExpanded(True)
-                        for k in range(sItem.childCount()):
-                            shotItem = sItem.child(k)
-                            if shotItem.text(0) == shotName:
-                                self.tw_shots.setCurrentItem(shotItem)
-                                foundEntity = True
-                                break
+            if self.lw_tasks.findItems(task, Qt.MatchExactly) != []:
+                self.lw_tasks.setCurrentItem(
+                    self.lw_tasks.findItems(task, Qt.MatchExactly)[0]
+                )
 
-                        if foundEntity:
-                            break
-                else:
-                    if entityType == "shot" and self.tw_shots.topLevelItemCount() > 0:
-                        seqItem = self.tw_shots.topLevelItem(0)
-                        seqItem.setExpanded(True)
-                        self.tw_shots.setCurrentItem(seqItem.child(0))
-                        foundEntity = True
-            if foundEntity:
-                self.updateTasks()
+                self.updateVersions()
 
-                if self.lw_tasks.findItems(taskName, Qt.MatchExactly) != []:
-                    self.lw_tasks.setCurrentItem(
-                        self.lw_tasks.findItems(taskName, Qt.MatchExactly)[0]
-                    )
-
-                    self.updateVersions()
-
-                    for i in range(self.tw_versions.model().rowCount()):
-                        if self.tw_versions.model().index(i, 0).data() == versionName:
-                            self.tw_versions.selectRow(i)
-                            return True
-                return True
+                for i in range(self.tw_versions.model().rowCount()):
+                    if self.tw_versions.model().index(i, 0).data() == versionName:
+                        self.tw_versions.selectRow(i)
+                        return True
+            return True
 
         return False
