@@ -1,3 +1,6 @@
+v1.3.0.29:
+- fixed a bug when requesting the list of shots in python3
+
 v1.3.0.28:
 - added the option to set the default import state name in the project config
 - added colors for the import states in Houdini to indicate their status

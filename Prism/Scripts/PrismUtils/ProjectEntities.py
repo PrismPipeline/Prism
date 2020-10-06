@@ -131,7 +131,7 @@ class ProjectEntities(object):
                     shotDirs.append(data)
                 break
 
-        for shotDir in sorted(shotDirs):
+        for shotDir in sorted(shotDirs, key=lambda x: x["path"]):
             path = shotDir["path"]
             val = os.path.basename(path)
 
