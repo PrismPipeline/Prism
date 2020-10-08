@@ -183,6 +183,22 @@
                    </property>
                   </spacer>
                  </item>
+                 <item>
+                  <widget class="QPushButton" name="b_showImportStates">
+                   <property name="maximumSize">
+                    <size>
+                     <width>25</width>
+                     <height>16777215</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>show available import state types</string>
+                   </property>
+                   <property name="text">
+                    <string>▼</string>
+                   </property>
+                  </widget>
+                 </item>
                 </layout>
                </widget>
               </item>
@@ -364,53 +380,6 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="b_createDependency">
-                   <property name="minimumSize">
-                    <size>
-                     <width>35</width>
-                     <height>25</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>35</width>
-                     <height>25</height>
-                    </size>
-                   </property>
-                   <property name="focusPolicy">
-                    <enum>Qt::NoFocus</enum>
-                   </property>
-                   <property name="toolTip">
-                    <string>Create an Dependency state</string>
-                   </property>
-                   <property name="text">
-                    <string>Dep</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="b_stateFromNode">
-                   <property name="minimumSize">
-                    <size>
-                     <width>110</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="focusPolicy">
-                    <enum>Qt::NoFocus</enum>
-                   </property>
-                   <property name="toolTip">
-                    <string>Create states from nodes in the scene</string>
-                   </property>
-                   <property name="text">
-                    <string>From Node</string>
-                   </property>
-                   <property name="autoDefault">
-                    <bool>false</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
                   <spacer name="horizontalSpacer_3">
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
@@ -422,6 +391,22 @@
                     </size>
                    </property>
                   </spacer>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="b_showExportStates">
+                   <property name="maximumSize">
+                    <size>
+                     <width>25</width>
+                     <height>16777215</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>show available export state types</string>
+                   </property>
+                   <property name="text">
+                    <string>▼</string>
+                   </property>
+                  </widget>
                  </item>
                 </layout>
                </widget>

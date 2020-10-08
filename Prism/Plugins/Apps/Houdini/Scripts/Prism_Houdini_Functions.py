@@ -35,6 +35,7 @@ import os
 import sys
 import platform
 import glob
+import logging
 
 try:
     from PySide2.QtCore import *
@@ -49,6 +50,9 @@ import hou
 from PrismUtils.Decorators import err_catcher as err_catcher
 
 
+logger = logging.getLogger(__name__)
+
+
 class Prism_Houdini_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
@@ -56,6 +60,14 @@ class Prism_Houdini_Functions(object):
         self.eventLoopIterations = 0
         self.eventLoopCallbackAdded = False
         self.guiReady = False
+        self.assetFormats = [
+            ".hda",
+            ".hdanc",
+            ".hdalc",
+            ".otl",
+            ".otlnc",
+            ".otllc",
+        ]
         self.callbacks = []
         self.registerCallbacks()
 
@@ -204,11 +216,7 @@ class Prism_Houdini_Functions(object):
 
         hdaFolders = [os.path.join(origin.projectPath, "00_Pipeline", "HDAs")]
 
-        prjHDAs = os.path.join(
-            origin.projectPath,
-            origin.getConfig("paths", "assets", configPath=origin.prismIni),
-            "HDAs",
-        )
+        prjHDAs = self.getProjectHDAFolder()
         if hasattr(self.core, "user"):
             hdaUFolder = os.path.join(prjHDAs, origin.user)
             hdaFolders += [prjHDAs, hdaUFolder]
@@ -250,18 +258,252 @@ class Prism_Houdini_Functions(object):
                     continue
 
                 for file in files:
-                    if os.path.splitext(file)[1] in [
-                        ".hda",
-                        ".hdanc",
-                        ".hdalc",
-                        ".otl",
-                        ".otlnc",
-                        ".otllc",
-                    ]:
+                    if os.path.splitext(file)[1] in self.assetFormats:
                         hdaPath = os.path.join(root, file).replace("\\", "/")
                         hdas.append(hdaPath)
 
         return hdas
+
+    @err_catcher(name=__name__)
+    def getProjectHDAFolder(self, filename=None):
+        resourceDir = self.core.getConfig("paths", "assets", configPath=self.core.prismIni)
+        folder = os.path.join(self.core.projectPath, resourceDir, "HDAs")
+
+        if filename:
+            if not os.path.splitext(filename)[1]:
+                filename += ".hda"
+
+            folder = os.path.join(folder, filename)
+
+        return folder
+
+    @err_catcher(name=__name__)
+    def createHDA(
+        self,
+        node,
+        outputPath="",
+        typeName="prism_hda",
+        label=None,
+        saveToExistingHDA=False,
+        incrementVersion=True,
+        blackBox=False,
+        allowExternalReferences=False,
+        projectHDA=False,
+        setDefinitionCurrent=True,
+        convertNode=False
+    ):
+        if node.canCreateDigitalAsset():
+            if incrementVersion and "::" not in typeName:
+                typeName += "::1"
+
+            hda = node.createDigitalAsset(
+                typeName,
+                hda_file_name=outputPath,
+                description=label,
+                ignore_external_references=allowExternalReferences,
+                change_node_type=convertNode,
+            )
+
+            if blackBox:
+                hou.hda.installFile(outputPath, force_use_assets=True)
+                defs = hou.hda.definitionsInFile(outputPath)
+                definition = [df for df in defs if df.nodeTypeName() == typeName][0]
+                self.convertDefinitionToBlackBox(definition)
+            else:
+                return hda
+        else:
+            if saveToExistingHDA:
+                libFile = node.type().definition().libraryFilePath()
+                if incrementVersion:
+                    highestVersion = self.getHighestHDAVersion(libFile, typeName)
+                    typeName = typeName + "::" + str(highestVersion + 1)
+
+                self.saveNodeDefinitionToFile(node, libFile, typeName=typeName, label=label, blackBox=blackBox)
+                if convertNode:
+                    node = node.changeNodeType(typeName)
+
+                return node
+            else:
+                if projectHDA and not outputPath:
+                    outputPath = self.getProjectHDAFolder(typeName)
+
+                self.saveNodeDefinitionToFile(node, outputPath, typeName=typeName, label=label, blackBox=blackBox)
+
+                if projectHDA:
+                    oplib = os.path.join(os.path.dirname(outputPath), "ProjectHDAs.oplib").replace("\\", "/")
+                    hou.hda.installFile(outputPath, oplib, force_use_assets=setDefinitionCurrent)
+                else:
+                    hou.hda.installFile(outputPath, force_use_assets=setDefinitionCurrent)
+
+                if convertNode:
+                    node.changeNodeType(typeName)
+
+        return True
+
+    @err_catcher(name=__name__)
+    def getHighestHDAVersion(self, libraryFilePath, typeName):
+        definitions = hou.hda.definitionsInFile(libraryFilePath)
+        highestVersion = 0
+        print typeName
+        for definition in definitions:
+            name = definition.nodeTypeName()
+            print name
+            basename = name.rsplit("::", 1)[0]
+            basename
+            if basename != typeName:
+                continue
+
+            v = name.split("::")[-1]
+            if sys.version[0] == "2":
+                v = unicode(v)
+
+            if not v.isnumeric():
+                continue
+
+            if int(v) > highestVersion:
+                highestVersion = int(v)
+
+        print highestVersion
+        return highestVersion
+
+    @err_catcher(name=__name__)
+    def saveNodeDefinitionToFile(self, node, filepath, typeName=None, label=None, blackBox=False):
+        tmpPath = filepath + "tmp"
+        kwargs = {
+            "file_name": tmpPath,
+            "template_node": node,
+            "create_backup": False,
+            "compile_contents": blackBox,
+            "black_box": blackBox,
+        }
+
+        major, minor, patch = hou.applicationVersion()
+        noBackup = major <= 16 and minor <= 5 and patch <= 185
+
+        if noBackup:
+            kwargs.pop("create_backup")
+
+        node.type().definition().save(**kwargs)
+
+        defs = hou.hda.definitionsInFile(tmpPath)
+        print typeName
+        print label
+        defs[0].copyToHDAFile(filepath, new_name=typeName, new_menu_name=label)
+        os.remove(tmpPath)
+
+    @err_catcher(name=__name__)
+    def convertDefinitionToBlackBox(self, definition):
+        filepath = definition.libraryFilePath()
+        kwargs = {
+            "file_name": filepath,
+            "create_backup": False,
+            "compile_contents": True,
+            "black_box": True,
+        }
+
+        major, minor, patch = hou.applicationVersion()
+        noBackup = major <= 16 and minor <= 5 and patch <= 185
+
+        if noBackup:
+            kwargs.pop("create_backup")
+
+        definition.save(**kwargs)
+
+    @err_catcher(name=__name__)
+    def getHDAOutputpath(
+        self,
+        node=None,
+        task="",
+        comment="",
+        user=None,
+        version="next",
+        location="global",
+        saveToExistingHDA=True,
+        projectHDA=False
+    ):
+        fileName = self.core.getCurrentFileName()
+        fnameData = self.core.getScenefileData(fileName)
+        prefUnit = "meter"
+
+        if node and node.type().definition() and saveToExistingHDA:
+            outputPath = node.type().definition().libraryFilePath()
+            outputFolder = os.path.dirname(outputPath)
+        elif node and projectHDA:
+            fname = self.l_taskName.text()
+            outputPath = self.core.appPlugin.getProjectHDAFolder(fname)
+            outputFolder = os.path.dirname(outputPath)
+        else:
+            if not task:
+                return
+
+            fileName = self.core.convertPath(path=fileName, target="global")
+            versionUser = user or self.core.user
+
+            entityBase = self.core.getEntityBasePath(fileName)
+            outputFolder = os.path.join(entityBase, "Export", task)
+            if fnameData["entity"] == "shot":
+                if version == "next":
+                    version = self.core.getHighestTaskVersion(outputFolder)
+
+                outputFolder = os.path.join(
+                    outputFolder,
+                    version
+                    + self.core.filenameSeparator
+                    + comment
+                    + self.core.filenameSeparator
+                    + versionUser,
+                    prefUnit,
+                )
+                outputPath = os.path.join(
+                    outputFolder,
+                    "shot"
+                    + self.core.filenameSeparator
+                    + fnameData["entityName"]
+                    + self.core.filenameSeparator
+                    + task
+                    + self.core.filenameSeparator
+                    + version
+                    + ".hda",
+                )
+            elif fnameData["entity"] == "asset":
+                if version == "next":
+                    version = self.core.getHighestTaskVersion(outputFolder)
+
+                outputFolder = os.path.join(
+                    outputFolder,
+                    version
+                    + self.core.filenameSeparator
+                    + comment
+                    + self.core.filenameSeparator
+                    + versionUser,
+                    prefUnit,
+                )
+                outputPath = os.path.join(
+                    outputFolder,
+                    fnameData["entityName"]
+                    + self.core.filenameSeparator
+                    + task
+                    + self.core.filenameSeparator
+                    + version
+                    + ".hda",
+                )
+            else:
+                logger.warning("Invalid entity.")
+                return
+
+        basePath = self.core.getExportPaths()[location]
+        prjPath = os.path.normpath(self.core.projectPath)
+        basePath = os.path.normpath(basePath)
+        outputPath = outputPath.replace(prjPath, basePath)
+        outputFolder = outputFolder.replace(prjPath, basePath)
+
+        result = {
+            "outputPath": outputPath.replace("\\", "/"),
+            "outputFolder": outputFolder.replace("\\", "/"),
+            "version": version,
+        }
+
+        return result
 
     @err_catcher(name=__name__)
     def executeScript(self, origin, code, execute=False):
@@ -707,14 +949,13 @@ class Prism_Houdini_Functions(object):
 
         origin.tw_export.setStyleSheet(ssheet)
 
-        origin.b_stateFromNode.setVisible(True)
-        # 	origin.b_createDependency.setVisible(True)
         origin.layout().setContentsMargins(0, 0, 0, 0)
 
         origin.b_createExport.setStyleSheet("padding-left: 1px;padding-right: 1px;")
         origin.b_createRender.setStyleSheet("padding-left: 1px;padding-right: 1px;")
         origin.b_createPlayblast.setStyleSheet("padding-left: 1px;padding-right: 1px;")
-        origin.b_stateFromNode.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+        origin.b_showImportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+        origin.b_showExportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
 
         origin.b_createImport.setMinimumWidth(70 * self.core.uiScaleFactor)
         origin.b_createImport.setMaximumWidth(70 * self.core.uiScaleFactor)
@@ -724,10 +965,10 @@ class Prism_Houdini_Functions(object):
         origin.b_createRender.setMaximumWidth(70 * self.core.uiScaleFactor)
         origin.b_createPlayblast.setMinimumWidth(70 * self.core.uiScaleFactor)
         origin.b_createPlayblast.setMaximumWidth(70 * self.core.uiScaleFactor)
-        origin.b_createDependency.setMinimumWidth(50 * self.core.uiScaleFactor)
-        origin.b_createDependency.setMaximumWidth(50 * self.core.uiScaleFactor)
-        origin.b_stateFromNode.setMinimumWidth(90 * self.core.uiScaleFactor)
-        origin.b_stateFromNode.setMaximumWidth(90 * self.core.uiScaleFactor)
+        origin.b_showImportStates.setMinimumWidth(30 * self.core.uiScaleFactor)
+        origin.b_showImportStates.setMaximumWidth(30 * self.core.uiScaleFactor)
+        origin.b_showExportStates.setMinimumWidth(30 * self.core.uiScaleFactor)
+        origin.b_showExportStates.setMaximumWidth(30 * self.core.uiScaleFactor)
         origin.b_getRange.setMaximumWidth(200 * self.core.uiScaleFactor)
         origin.b_setRange.setMaximumWidth(200 * self.core.uiScaleFactor)
 
@@ -766,6 +1007,13 @@ class Prism_Houdini_Functions(object):
     def sm_deleteStates(self, origin):
         if hou.node("/obj").userData("PrismStates") is not None:
             hou.node("/obj").destroyUserData("PrismStates")
+
+    @err_catcher(name=__name__)
+    def sm_getImportHandlerType(self, extension):
+        if extension in self.assetFormats:
+            return "Install HDA"
+        else:
+            return "ImportFile"
 
     @err_catcher(name=__name__)
     def sm_getExternalFiles(self, origin):

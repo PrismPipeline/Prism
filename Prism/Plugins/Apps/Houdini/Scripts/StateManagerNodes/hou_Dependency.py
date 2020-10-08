@@ -49,15 +49,15 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class DependencyClass(object):
+    className = "Dependency"
+    listType = "Export"
+
     @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, stateData=None):
         self.state = state
         self.core = core
         self.stateManager = stateManager
         self.e_name.setText(state.text(0))
-
-        self.className = "Dependency"
-        self.listType = "Export"
 
         self.dependencies = {}
 

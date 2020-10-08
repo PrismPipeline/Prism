@@ -55,18 +55,19 @@ from PrismUtils.Decorators import err_catcher
 
 
 class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
-    def __init__(self, core, importState):
+    def __init__(self, core, importState=None):
         QDialog.__init__(self)
         self.setupUi(self)
-
         self.core = core
+
         self.importState = importState
+        self.productPath = None
         self.curEntity = None
         self.curTask = None
 
         self.adclick = False
 
-        self.preferredUnit = self.importState.preferredUnit
+        self.preferredUnit = getattr(self.importState, "preferredUnit", "meter")
 
         if not getattr(self.core, "pb", None):
             self.core.projectBrowser(openUi=False)
@@ -86,8 +87,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.updateAssets()
         self.updateShots()
 
-        if not self.navigateToFile(os.path.split(importState.e_file.text())[0]):
-            self.navigateToFile(self.core.getCurrentFileName())
+        if self.importState:
+            if not self.navigateToFile(os.path.split(self.importState.e_file.text())[0]):
+                self.navigateToFile(self.core.getCurrentFileName())
 
         self.core.callback(
             name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
@@ -215,11 +217,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         fileName = impPath + splitName[1]
 
         if fileName != "":
-            self.importState.importPath = [
-                os.path.basename(os.path.splitext(fileName)[0]).replace(" ", "_"),
-                fileName,
-            ]
-            self.close()
+            result = self.setProductPath(path=fileName)
+            if result:
+                self.close()
 
     @err_catcher(name=__name__)
     def loadVersion(self, index, currentVersion=False):
@@ -236,17 +236,22 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         for i in self.core.unloadedAppPlugins.values():
             incompatible += getattr(i, "appSpecificFormats", [])
         if os.path.splitext(versionPath)[1] in incompatible:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "This filetype is incompatible. Can't import the selected file.",
-            )
+            self.core.popup("This filetype is incompatible. Can't import the selected file.")
         else:
-            self.importState.importPath = [
-                self.lw_tasks.currentItem().text(),
-                versionPath,
-            ]
-            self.close()
+            result = self.setProductPath(path=versionPath)
+            if result:
+                self.close()
+
+    @err_catcher(name=__name__)
+    def setProductPath(self, path):
+        if self.importState:
+            result = getattr(self.importState, "validateFilepath", lambda x: True)(path)
+            if result is not True:
+                self.core.popup(result)
+                return
+
+        self.productPath = path
+        return True
 
     @err_catcher(name=__name__)
     def rclicked(self, pos, listType):
@@ -871,7 +876,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if not task:
             task = self.core.paths.getCachePathData(fileName).get("task", "")
 
-        versionName = version or self.importState.l_curVersion.text()
+        versionName = version
+        if not version and self.importState:
+            versionName = self.importState.l_curVersion.text()
 
         if versionName != "-":
             versionName = versionName[:5]

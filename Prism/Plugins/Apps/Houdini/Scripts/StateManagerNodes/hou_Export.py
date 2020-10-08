@@ -51,6 +51,9 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class ExportClass(object):
+    className = "Export"
+    listType = "Export"
+
     @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
@@ -58,9 +61,6 @@ class ExportClass(object):
         self.stateManager = stateManager
 
         self.e_name.setText(state.text(0))
-
-        self.className = "Export"
-        self.listType = "Export"
 
         self.node = None
         self.curCam = None
@@ -341,6 +341,9 @@ class ExportClass(object):
                     self.node.destroy()
                 except:
                     pass
+            elif self.node.outputConnectors():
+                parentNode = self.node
+                nodePath = None
 
             self.node = None
 
@@ -1060,15 +1063,46 @@ class ExportClass(object):
         return [self.state.text(0), warnings]
 
     @err_catcher(name=__name__)
-    def getOutputName(self, useVersion="next"):
+    def getHDAOutputName(self, useVersion="next"):
+        version = useVersion
+        comment = None
+        user = None
+        if version != "next":
+            versionData = version.split(self.core.filenameSeparator)
+            if len(versionData) == 3:
+                version, comment, user = versionData
+
         fileName = self.core.getCurrentFileName()
+        fnameData = self.core.getScenefileData(fileName)
+        if comment is None and fnameData.get("entity") != "invalid":
+            comment = fnameData["comment"]
+
+        result = self.core.appPlugin.getHDAOutputpath(
+            node=self.node,
+            task=self.l_taskName.text(),
+            comment=comment,
+            user=user,
+            version=version,
+            location=self.cb_outPath.currentText(),
+            saveToExistingHDA=self.chb_saveToExistingHDA.isChecked(),
+            projectHDA=self.chb_projectHDA.isChecked(),
+        )
+
+        return result["outputPath"], result["outputFolder"], result["version"]
+
+    @err_catcher(name=__name__)
+    def getOutputName(self, useVersion="next"):
+        if self.cb_outType.currentText() == ".hda":
+            return self.getHDAOutputName(useVersion)
+
+        fileName = self.core.getCurrentFileName()
+        fnameData = self.core.getScenefileData(fileName)
         prefUnit = "meter"
 
         if self.cb_outType.currentText() == "ShotCam":
             outputBase = os.path.join(
                 self.core.getShotPath(), self.cb_sCamShot.currentText()
             )
-            fnameData = self.core.getScenefileData(fileName)
             comment = fnameData["comment"]
             versionUser = self.core.user
             outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
@@ -1102,31 +1136,6 @@ class ExportClass(object):
                 + self.core.filenameSeparator
                 + hVersion,
             )
-
-        elif (
-            self.cb_outType.currentText() == ".hda"
-            and self.node is not None
-            and self.node.type().definition() is not None
-            and self.chb_saveToExistingHDA.isChecked()
-        ):
-            outputName = self.node.type().definition().libraryFilePath()
-            outputPath = os.path.dirname(outputName)
-            hVersion = ""
-
-        elif (
-            self.cb_outType.currentText() == ".hda"
-            and self.node is not None
-            and self.chb_projectHDA.isChecked()
-        ):
-            outputName = os.path.join(
-                self.core.projectPath,
-                self.core.getConfig("paths", "assets", configPath=self.core.prismIni),
-                "HDAs",
-                self.l_taskName.text() + ".hda",
-            )
-            outputPath = os.path.dirname(outputName)
-            hVersion = ""
-
         else:
             if self.l_taskName.text() == "":
                 return
@@ -1145,7 +1154,6 @@ class ExportClass(object):
                 if len(versionData) == 3:
                     hVersion, pComment, versionUser = versionData
 
-            fnameData = self.core.getScenefileData(fileName)
             framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
             if fnameData["entity"] == "shot":
                 outputPath = os.path.join(
@@ -1589,131 +1597,12 @@ class ExportClass(object):
                     ].sm_render_submitJob(self, outputName, parent)
                 else:
                     try:
-                        result = ""
                         if self.cb_outType.currentText() == ".hda":
-                            HDAoutputName = outputName
-                            bb = self.chb_blackboxHDA.isChecked()
-                            noBackup = (
-                                hou.applicationVersion()[0] <= 16
-                                and hou.applicationVersion()[1] <= 5
-                                and hou.applicationVersion()[2] <= 185
-                            )
-                            if ropNode.canCreateDigitalAsset():
-                                typeName = "prism_" + self.l_taskName.text()
-                                allowExtRef = self.chb_externalReferences.isChecked()
-                                hda = ropNode.createDigitalAsset(
-                                    typeName,
-                                    hda_file_name=HDAoutputName,
-                                    description=self.l_taskName.text(),
-                                    ignore_external_references=allowExtRef,
-                                    change_node_type=(not bb),
-                                )
-                                if bb:
-                                    hou.hda.installFile(
-                                        HDAoutputName, force_use_assets=True
-                                    )
-                                    aInst = ropNode.parent().createNode(typeName)
-                                    if noBackup:
-                                        aInst.type().definition().save(
-                                            file_name=HDAoutputName,
-                                            template_node=aInst,
-                                            compile_contents=bb,
-                                            black_box=bb,
-                                        )
-                                    else:
-                                        aInst.type().definition().save(
-                                            file_name=HDAoutputName,
-                                            template_node=aInst,
-                                            create_backup=False,
-                                            compile_contents=bb,
-                                            black_box=bb,
-                                        )
-                                    aInst.destroy()
-                                else:
-                                    self.connectNode(hda)
-                            else:
-                                if self.chb_saveToExistingHDA.isChecked():
-                                    defs = hou.hda.definitionsInFile(HDAoutputName)
-                                    highestVersion = 0
-                                    basename = ropNode.type().name()
-                                    basedescr = ropNode.type().description()
-                                    for i in defs:
-                                        name = i.nodeTypeName()
-                                        v = name.split("_")[-1]
-                                        if sys.version[0] == "2":
-                                            v = unicode(v)
-
-                                        if v.isnumeric():
-                                            if int(v) > highestVersion:
-                                                highestVersion = int(v)
-                                                basename = name.rsplit("_", 1)[0]
-                                                basedescr = i.description().rsplit(
-                                                    "_", 1
-                                                )[0]
-
-                                    aname = basename + "_" + str(highestVersion + 1)
-                                    adescr = basedescr + "_" + str(highestVersion + 1)
-
-                                    tmpPath = HDAoutputName + "tmp"
-                                    if noBackup:
-                                        ropNode.type().definition().save(
-                                            file_name=tmpPath,
-                                            template_node=ropNode,
-                                            compile_contents=bb,
-                                            black_box=bb,
-                                        )
-                                    else:
-                                        ropNode.type().definition().save(
-                                            file_name=tmpPath,
-                                            template_node=ropNode,
-                                            create_backup=False,
-                                            compile_contents=bb,
-                                            black_box=bb,
-                                        )
-                                    defs = hou.hda.definitionsInFile(tmpPath)
-                                    defs[0].copyToHDAFile(
-                                        HDAoutputName,
-                                        new_name=aname,
-                                        new_menu_name=adescr,
-                                    )
-                                    os.remove(tmpPath)
-                                    node = ropNode.changeNodeType(aname)
-                                    self.connectNode(node)
-                                else:
-                                    if noBackup:
-                                        ropNode.type().definition().save(
-                                            file_name=HDAoutputName,
-                                            template_node=ropNode,
-                                            compile_contents=bb,
-                                            black_box=bb,
-                                        )
-                                    else:
-                                        ropNode.type().definition().save(
-                                            file_name=HDAoutputName,
-                                            template_node=ropNode,
-                                            create_backup=False,
-                                            compile_contents=bb,
-                                            black_box=bb,
-                                        )
-
-                                    if self.chb_projectHDA.isChecked():
-                                        oplib = os.path.join(
-                                            os.path.dirname(HDAoutputName),
-                                            "ProjectHDAs.oplib",
-                                        ).replace("\\", "/")
-                                        hou.hda.installFile(
-                                            HDAoutputName, oplib, force_use_assets=True
-                                        )
-                                    else:
-                                        hou.hda.installFile(
-                                            HDAoutputName, force_use_assets=True
-                                        )
-
-                            self.updateUi()
+                            result = self.exportHDA(ropNode, outputName)
                         else:
                             result = self.executeNode()
 
-                        if result == "":
+                        if result:
                             if len(os.listdir(os.path.dirname(expandedOutputName))) > 0:
                                 result = "Result=Success"
                             else:
@@ -1770,7 +1659,7 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def executeNode(self):
-        result = ""
+        result = True
         self.node.parm("execute").pressButton()
         errs = self.node.errors()
         if len(errs) > 0:
@@ -1783,6 +1672,51 @@ class ExportClass(object):
             result = "Execute failed: " + errs
 
         return result
+
+    @err_catcher(name=__name__)
+    def exportHDA(self, node, outputPath):
+        fileName = self.core.getCurrentFileName()
+        data = self.core.getScenefileData(fileName)
+        entityName = data.get("entityName", "")
+        taskName = self.l_taskName.text()
+        typeName = "%s_%s" % (entityName, taskName)
+
+        label = typeName
+        saveToExistingHDA = self.chb_saveToExistingHDA.isChecked()
+        createBlackBox = self.chb_blackboxHDA.isChecked()
+        allowExtRef = self.chb_externalReferences.isChecked()
+        projectHDA = self.chb_projectHDA.isChecked()
+
+        if node.canCreateDigitalAsset():
+            convertNode = not createBlackBox
+        else:
+            convertNode = saveToExistingHDA
+
+        if projectHDA:
+            typeName = taskName
+            outputPath = None
+            label = self.l_taskName.text()
+
+        # hou.HDADefinition.copyToHDAFile converts "-" to "_"
+        typeName = typeName.replace("-", "_")
+        label = label.replace("-", "_")
+
+        result = self.core.appPlugin.createHDA(
+            node,
+            outputPath=outputPath,
+            typeName=typeName,
+            label=label,
+            saveToExistingHDA=saveToExistingHDA,
+            blackBox=createBlackBox,
+            allowExternalReferences=allowExtRef,
+            projectHDA=projectHDA,
+            convertNode=convertNode,
+        )
+        if result and not isinstance(result, bool):
+            self.connectNode(result)
+
+        self.updateUi()
+        return True
 
     @err_catcher(name=__name__)
     def getStateProps(self):

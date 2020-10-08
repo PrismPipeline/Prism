@@ -113,7 +113,7 @@ class PluginManager(object):
         self.core.appPlugin.location = "prismRoot"
         self.core.appPlugin.pluginPath = pluginPath
 
-        if QApplication.instance() is not None:
+        if not getattr(self.core, "messageParent", None) and QApplication.instance() is not None:
             self.core.messageParent = QWidget()
 
         if not self.core.appPlugin.hasQtParent:

@@ -1,3 +1,14 @@
+v1.3.0.32:
+- added a "Install HDA" state in Houdini
+- added a "Save HDA" state in Houdini
+- changed the HDA versioning workflow to the officially recommended Houdini workflow
+- added the option to delete the selected state by pressing the "delete" key
+- added buttons in the State Manager to show and create new states from a list of available statetypes
+- fixed a bug that the changelog couldn't be shown
+- fixed an error when a connection to github could not be established in some cases
+- fixed a bug that the Prism windows were not parented to the main DCC window anymore after reloading the current app plugin
+- fixed a problem on Windows that Prism didn't work when Microsoft Visual C++ Redistributable was not installed (requires updated dependencies. Use the installer from the website.)
+
 v1.3.0.30:
 - moved the "defaultImportStateName" setting from the userconfig to the project config
 

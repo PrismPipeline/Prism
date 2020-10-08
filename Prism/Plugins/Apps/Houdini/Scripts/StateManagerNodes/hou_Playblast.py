@@ -51,6 +51,9 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class PlayblastClass(object):
+    className = "Playblast"
+    listType = "Export"
+
     @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, stateData=None):
         self.state = state
@@ -58,9 +61,6 @@ class PlayblastClass(object):
         self.stateManager = stateManager
 
         self.curCam = None
-        self.className = "Playblast"
-        self.listType = "Export"
-
         self.e_name.setText(state.text(0))
 
         self.camlist = []

@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'default_RenderSettings.ui',
 # licensing of 'default_RenderSettings.ui' applies.
 #
-# Created: Tue Jul 28 08:56:40 2020
+# Created: Thu Oct  8 20:05:57 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -140,7 +140,7 @@ class Ui_wg_RenderSettings(object):
     def retranslateUi(self, wg_RenderSettings):
         wg_RenderSettings.setWindowTitle(QtWidgets.QApplication.translate("wg_RenderSettings", "Render Settings", None, -1))
         self.l_name.setText(QtWidgets.QApplication.translate("wg_RenderSettings", "Name:", None, -1))
-        self.l_class.setText(QtWidgets.QApplication.translate("wg_RenderSettings", "RenderSettings", None, -1))
+        self.l_class.setText(QtWidgets.QApplication.translate("wg_RenderSettings", "Render Settings", None, -1))
         self.gb_general.setTitle(QtWidgets.QApplication.translate("wg_RenderSettings", "General", None, -1))
         self.chb_editSettings.setText(QtWidgets.QApplication.translate("wg_RenderSettings", "Edit settings", None, -1))
         self.l_presetOption.setText(QtWidgets.QApplication.translate("wg_RenderSettings", "Preset:", None, -1))

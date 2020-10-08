@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ProjectBrowser.ui'
 #
-# Created: Tue Sep 22 00:38:34 2020
+# Created: Thu Oct  8 15:39:23 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!

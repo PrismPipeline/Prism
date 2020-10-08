@@ -111,8 +111,6 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
         self.enabledCol = QBrush(
             self.tw_import.palette().color(self.tw_import.foregroundRole())
         )
-        self.b_stateFromNode.setVisible(False)
-        self.b_createDependency.setVisible(False)
 
         self.layout().setContentsMargins(6, 6, 6, 0)
 
@@ -289,7 +287,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
                 if validState:
                     logger.debug("loaded state %s" % filepath)
-                    self.stateTypes[stateNameBase] = classDef
+                    self.stateTypes[classDef.className] = classDef
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -302,7 +300,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_catcher(name=__name__)
     def loadLayout(self):
-        helpMenu = QMenu("Help")
+        helpMenu = QMenu("Help", self)
 
         self.actionWebsite = QAction("Visit website", self)
         self.actionWebsite.triggered.connect(lambda: self.core.openWebsite("home"))
@@ -331,8 +329,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.actionSendFeedback = QAction("Send feedback...", self)
         self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
         self.menubar.addAction(self.actionSendFeedback)
-
-        self.core.appPlugin.setRCStyle(self, helpMenu)
 
         rPrjPaths = self.core.getConfig(cat="recent_projects", dft=[])
         for prjPath in rPrjPaths:
@@ -572,19 +568,15 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.tw_export.itemCollapsed.connect(self.saveStatesToScene)
         self.tw_export.itemExpanded.connect(self.saveStatesToScene)
 
-        self.b_createImport.clicked.connect(lambda: self.createPressed("ImportFile"))
+        self.b_createImport.clicked.connect(lambda: self.createPressed("Import"))
         self.b_createExport.clicked.connect(lambda: self.createPressed("Export"))
         self.b_createRender.clicked.connect(
             lambda: self.core.appPlugin.sm_createRenderPressed(self)
         )
         self.b_createPlayblast.clicked.connect(lambda: self.createPressed("Playblast"))
-        self.b_createDependency.clicked.connect(
-            lambda: self.createPressed("Dependency")
-        )
         self.b_shotCam.clicked.connect(self.shotCam)
-        self.b_stateFromNode.clicked.connect(
-            lambda: self.core.appPlugin.sm_openStateFromNode(self)
-        )
+        self.b_showImportStates.clicked.connect(lambda: self.showStateMenu("Import", useSelection=True))
+        self.b_showExportStates.clicked.connect(lambda: self.showStateMenu("Export", useSelection=True))
 
         self.e_comment.textChanged.connect(self.commentChanged)
         self.e_comment.editingFinished.connect(self.saveStatesToScene)
@@ -625,7 +617,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
     @err_catcher(name=__name__)
     def checkKeyPressed(self, event):
         if event.key() == Qt.Key_Tab:
-            self.showStateList()
+            self.showStateMenu()
+        elif event.key() == Qt.Key_Delete:
+            self.deleteState()
 
         event.accept()
 
@@ -634,7 +628,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if event.reason() == Qt.FocusReason.TabFocusReason:
             event.ignore()
             self.activeList.setFocus()
-            self.showStateList()
+            self.showStateMenu()
         else:
             event.accept()
 
@@ -652,54 +646,64 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.saveStatesToScene()
 
     @err_catcher(name=__name__)
-    def showStateList(self):
-        pos = self.activeList.mapFromGlobal(QCursor.pos())
-        idx = self.activeList.indexAt(pos)
+    def getStateTypes(self, listType=None):
+        stateTypes = []
+        stateNames = sorted(self.stateTypes.keys())
 
-        state = self.activeList.itemFromIndex(idx)
+        for stateName in stateNames:
+            if (
+                stateName == "Folder"
+                or listType is None
+                or self.stateTypes[stateName].listType == listType
+            ):
+                stateTypes.append(stateName)
 
-        if state is not None and state.ui.className != "Folder":
-            return True
+        return stateTypes
 
-        createMenu = QMenu()
+    @err_catcher(name=__name__)
+    def getStateMenu(self, listType=None, parentState=None):
+        if listType is None:
+            listType = "Import" if self.activeList == self.tw_import else "Export"
 
-        stateNames = self.stateTypes.keys()
-        stateNames.sort()
+        createMenu = QMenu("Create", self)
+        typeNames = self.getStateTypes(listType)
 
-        for val in stateNames:
-            showImportTypes = self.activeList == self.tw_import
-            if val == "Folder" or ("Import" in val) == showImportTypes:
-                actStates1 = QAction(val, self)
-                actStates1.triggered.connect(
-                    lambda x=None, i=val: self.createState(i, state)
-                )
-                createMenu.addAction(actStates1)
+        listWidget = self.tw_import if listType == "Import" else self.tw_export
+        for typeName in typeNames:
+            act = createMenu.addAction(typeName)
+            act.triggered.connect(lambda: self.setListActive(listWidget))
+            act.triggered.connect(
+                lambda x=None, typeName=typeName: self.createState(typeName, parentState, setActive=True)
+            )
 
-        self.core.appPlugin.setRCStyle(self, createMenu)
+        return createMenu
 
-        createMenu.exec_(self.activeList.mapToGlobal(pos))
+    @err_catcher(name=__name__)
+    def showStateMenu(self, listType=None, useSelection=False):
+        globalPos = QCursor.pos()
+        parentState = None
+        if useSelection:
+            listWidget = self.tw_import if listType == "Import" else self.tw_export
+            if listWidget == self.activeList:
+                parentState = self.activeList.currentItem()
+        else:
+            pos = self.activeList.mapFromGlobal(globalPos)
+            idx = self.activeList.indexAt(pos)
+            parentState = self.activeList.itemFromIndex(idx)
+
+        if parentState and parentState.ui.className != "Folder":
+            parentState = None
+
+        menu = self.getStateMenu(listType, parentState)
+        menu.exec_(globalPos)
 
     @err_catcher(name=__name__)
     def rclTree(self, pos, activeList):
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
         idx = self.activeList.indexAt(pos)
-        state = self.activeList.itemFromIndex(idx)
-        self.rClickedItem = state
-
-        createMenu = QMenu("Create")
-
-        stateNames = list(self.stateTypes.keys())
-        stateNames.sort()
-        for val in stateNames:
-            showImportTypes = self.activeList == self.tw_import
-            if val == "Folder" or ("Import" in val) == showImportTypes:
-                actStates1 = QAction(val, self)
-                actStates1.triggered.connect(
-                    lambda x=None, i=val: self.createState(i, state)
-                )
-                createMenu.addAction(actStates1)
-
-        self.core.appPlugin.setRCStyle(self, createMenu)
+        parentState = self.activeList.itemFromIndex(idx)
+        self.rClickedItem = parentState
+        createMenu = self.getStateMenu(parentState=parentState)
 
         actExecute = QAction("Execute", self)
         actExecute.triggered.connect(lambda: self.publish(executeState=True))
@@ -715,20 +719,20 @@ class %s(QWidget, %s.%s, %s.%sClass):
         actDel = QAction("Delete", self)
         actDel.triggered.connect(self.deleteState)
 
-        if state is None:
+        if parentState is None:
             actCopy.setEnabled(False)
             actDel.setEnabled(False)
             actExecute.setEnabled(False)
             menuExecuteV.setEnabled(False)
-        elif hasattr(state.ui, "l_pathLast"):
-            outPath = state.ui.getOutputName()
+        elif hasattr(parentState.ui, "l_pathLast"):
+            outPath = parentState.ui.getOutputName()
             if outPath is None:
                 menuExecuteV.setEnabled(False)
             else:
                 outPath = outPath[0]
                 existingVersions = []
                 versionDir = os.path.dirname(os.path.dirname(outPath))
-                if state.ui.className != "Playblast":
+                if parentState.ui.className != "Playblast":
                     versionDir = os.path.dirname(versionDir)
 
                 if os.path.exists(versionDir):
@@ -757,7 +761,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             if menuExecuteV.isEmpty():
                 menuExecuteV.setEnabled(False)
 
-        if state is None or state.ui.className == "Folder":
+        if parentState is None or parentState.ui.className == "Folder":
             rcmenu.addMenu(createMenu)
 
         if self.activeList == self.tw_export:
@@ -766,8 +770,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
         rcmenu.addAction(actCopy)
         rcmenu.addAction(actPaste)
         rcmenu.addAction(actDel)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
 
         rcmenu.exec_(self.activeList.mapToGlobal(pos))
 
@@ -782,6 +784,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         setActive=False,
         renderer=None,
     ):
+        logger.debug("create state: %s" % statetype)
         if statetype not in self.stateTypes:
             return False
 
@@ -805,7 +808,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         else:
             stateSetup = item.ui.setup(item, self.core, self, node)
 
-        if stateSetup == False:
+        if stateSetup is False:
             return
 
         self.core.scaleUI(item)
@@ -846,7 +849,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         pList.setCurrentItem(item)
         self.updateForeground()
 
-        if statetype == "ImportFile":
+        if statetype != "Folder" and self.stateTypes[statetype].listType == "Import":
             self.saveImports()
 
         self.saveStatesToScene()
@@ -955,7 +958,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.core.callback(name="onStateDeleted", types=["custom"], args=[self, item.ui])
 
-        if item.ui.className == "ImportFile":
+        if item.ui.listType == "Import":
             self.saveImports()
 
         self.activeList.setCurrentItem(None)
@@ -964,7 +967,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
     @err_catcher(name=__name__)
     def createPressed(self, stateType, renderer=None):
         curSel = self.activeList.currentItem()
-        if stateType == "ImportFile":
+        if stateType == "Import":
             if (
                 self.activeList == self.tw_import
                 and curSel is not None
@@ -974,7 +977,19 @@ class %s(QWidget, %s.%s, %s.%sClass):
             else:
                 parent = None
 
-            self.createState("ImportFile", parent=parent)
+            import TaskSelection
+            ts = TaskSelection.TaskSelection(core=self.core)
+            self.core.parentWindow(ts)
+            ts.exec_()
+
+            productPath = ts.productPath
+            if not productPath:
+                return
+
+            extension = os.path.splitext(productPath)[1]
+            stateType = getattr(self.core.appPlugin, "sm_getImportHandlerType", lambda x: None)(extension) or "ImportFile"
+
+            self.createState(stateType, parent=parent, importPath=productPath)
             self.setListActive(self.tw_import)
             self.activateWindow()
 
@@ -1113,8 +1128,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                     camPath = os.path.join(camPath, camFile)
                     break
 
-            importData = ["ShotCam", camPath]
-            self.createState("ImportFile", importPath=importData)
+            self.createState("ImportFile", importPath=camPath)
 
         self.setListActive(self.tw_import)
         self.activateWindow()
@@ -1254,7 +1268,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_catcher(name=__name__)
     def getFilePaths(self, item, paths=[]):
-        if hasattr(item, "ui") and item.ui.className == "ImportFile":
+        if hasattr(item, "ui") and item.ui.className != "Folder" and item.ui.listType == "Import":
             paths.append([item.ui.e_file.text(), item.ui.taskName])
         for i in range(item.childCount()):
             paths = self.getFilePaths(item.child(i), paths)
@@ -1290,7 +1304,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if fnameData["entity"] != "shot":
             return
 
-        cMenu = QMenu()
+        cMenu = QMenu(self)
         actSet = QAction("Set range for current shot", self)
         start = self.sp_rangeStart.value()
         end = self.sp_rangeEnd.value()
@@ -1299,7 +1313,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
         )
         cMenu.addAction(actSet)
 
-        self.core.appPlugin.setRCStyle(self, cMenu)
         cMenu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)

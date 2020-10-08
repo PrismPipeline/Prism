@@ -45,12 +45,12 @@ except:
 
 
 class FolderClass(object):
+    className = "Folder"
+
     def setup(self, state, core, stateManager, stateData=None, listType=None):
         self.state = state
         self.stateManager = stateManager
         self.e_name.setText(state.text(0))
-
-        self.className = "Folder"
 
         if listType is None:
             if stateManager.activeList == stateManager.tw_import:

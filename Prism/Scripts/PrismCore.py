@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.30"
+            self.version = "v1.3.0.32"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1852,12 +1852,13 @@ License: GNU GPL-3.0-or-later<br>
         if not self.sceneOpenChecksEnabled:
             return
 
-        # trigger auto imports
         openSm = getattr(self, "sm", None) and self.sm.isVisible()
-        if os.path.exists(self.prismIni):
-            self.stateManager(openUi=openSm, reload_module=True)
 
         self.appPlugin.sceneOpen(self)
+
+        # trigger auto imports
+        if os.path.exists(self.prismIni):
+            self.stateManager(openUi=openSm, reload_module=True)
 
         self.sanities.checkImportVersions()
         self.sanities.checkFramerange()
@@ -2105,7 +2106,7 @@ License: GNU GPL-3.0-or-later<br>
             warnDlg.exec_()
 
     @err_catcher(name=__name__)
-    def popup(self, text, title=None, severity="warning"):
+    def popup(self, text, title=None, severity="warning", notShowAgain=False):
         if title is None:
             if severity == "warning":
                 title = "Prism - Warning"
@@ -2127,12 +2128,24 @@ License: GNU GPL-3.0-or-later<br>
 
         if "silent" not in self.prismArgs and self.uiAvailable:
             parent = getattr(self, "messageParent", None)
+            msg = QMessageBox(parent)
+            msg.setText(text)
+            msg.setWindowTitle(title)
             if severity == "warning":
-                QMessageBox.warning(parent, title, text)
+                msg.setIcon(QMessageBox.Icon.Warning)
             elif severity == "info":
-                QMessageBox.information(parent, title, text)
+                msg.setIcon(QMessageBox.Icon.Information)
             else:
-                QMessageBox.critical(parent, title, text)
+                msg.setIcon(QMessageBox.Icon.Critical)
+            msg.addButton(QMessageBox.Ok)
+            if notShowAgain:
+                msg.chb = QCheckBox("Don't show again")
+                msg.setCheckBox(msg.chb)
+                msg.setText(text + "\n")
+
+            msg.exec_()
+            if notShowAgain:
+                return {"notShowAgain": msg.chb.isChecked()}
         else:
             msg = "%s - %s" % (title, text)
             if severity == "warning":

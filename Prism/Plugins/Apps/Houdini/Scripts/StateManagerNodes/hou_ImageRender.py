@@ -55,6 +55,9 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class ImageRenderClass(object):
+    className = "ImageRender"
+    listType = "Export"
+
     @err_catcher(name=__name__)
     def setup(
         self, state, core, stateManager, node=None, stateData=None, renderer="Mantra"
@@ -64,9 +67,6 @@ class ImageRenderClass(object):
         self.stateManager = stateManager
 
         self.curCam = None
-        self.className = "ImageRender"
-        self.listType = "Export"
-
         self.e_name.setText(state.text(0))
 
         self.renderPresets = (

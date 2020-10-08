@@ -78,7 +78,7 @@
          </font>
         </property>
         <property name="text">
-         <string>RenderSettings</string>
+         <string>Render Settings</string>
         </property>
        </widget>
       </item>

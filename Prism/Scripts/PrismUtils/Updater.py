@@ -119,7 +119,7 @@ class Updater(object):
 
         if not result:
             if not silent:
-                msg = "Unable to read https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py. Could not check for updates.\n\n(%s)" % stdOutData
+                msg = "Unable to read https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/Prism/Scripts/PrismCore.py. Could not check for updates."
                 self.core.popup(msg)
             self.core.setConfig(
                 cat="globals",
@@ -321,7 +321,10 @@ try:
         sys.path.insert(0, pyLibs)
 
     import ssl
-    from urllib.request import Request, urlopen
+    if sys.version[0] == "3":
+        from urllib.request import Request, urlopen
+    else:
+        from urllib2 import Request, urlopen
 
     url = "%s"
     token = "%s"
@@ -362,7 +365,6 @@ except Exception as e:
             url,
             token,
         )
-
         pythonPath = self.core.getPythonPath()
 
         result = subprocess.Popen(
@@ -374,6 +376,7 @@ except Exception as e:
         stdOutData, stderrdata = result.communicate()
 
         if "failed" in str(stdOutData) or len(str(stdOutData).split("__")) < 2:
+            logger.warning("failed to get Prism version: %s" % stdOutData)
             return
 
         if pVersion == 3:
@@ -614,13 +617,13 @@ except Exception as e:
         )
         stdOutData, stderrdata = result.communicate()
 
-        if "failed" in str(stdOutData) or len(str(stdOutData).split(".")) < 4:
+        if pVersion == 3:
+            stdOutData = stdOutData.decode("utf-8")
+
+        if str(stdOutData).startswith("failed"):
             if not silent and self.showChangelogWarnOnError:
                 msg = "Unable to read https://raw.githubusercontent.com/RichardFrangenberg/Prism/development/changelog.txt. Could not get changelog.\n\n(%s)" % stdOutData
                 self.core.popup(msg)
             return
-
-        if pVersion == 3:
-            stdOutData = stdOutData.decode("utf-8")
 
         return stdOutData

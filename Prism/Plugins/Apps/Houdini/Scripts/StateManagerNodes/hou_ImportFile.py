@@ -47,6 +47,9 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 
 
 class ImportFileClass(object):
+    className = "ImportFile"
+    listType = "Import"
+
     @err_catcher(name=__name__)
     def setup(
         self, state, core, stateManager, node=None, importPath=None, stateData=None
@@ -54,9 +57,6 @@ class ImportFileClass(object):
         self.state = state
         self.core = core
         self.stateManager = stateManager
-
-        self.className = "ImportFile"
-        self.listType = "Import"
         self.taskName = None
 
         stateNameTemplate = "{entity}_{task}_{version}"
@@ -68,7 +68,6 @@ class ImportFileClass(object):
 
         self.node = node
         self.fileNode = None
-        self.importPath = importPath
         self.updatePrefUnits()
 
         createEmptyState = (
@@ -85,16 +84,16 @@ class ImportFileClass(object):
             import TaskSelection
 
             ts = TaskSelection.TaskSelection(core=core, importState=self)
-
-            core.parentWindow(ts)
+            self.core.parentWindow(ts)
             if self.core.uiScaleFactor != 1:
                 self.core.scaleUI(self.state, sFactor=0.5)
             ts.exec_()
 
-        if self.importPath is not None:
-            self.e_file.setText(self.importPath[1])
+            importPath = ts.productPath
+
+        if importPath:
+            self.e_file.setText(importPath)
             result = self.importObject()
-            self.importPath = None
 
             if not result:
                 return False
@@ -178,6 +177,7 @@ class ImportFileClass(object):
     def nameChanged(self, text=None):
         text = self.e_name.text()
         cacheData = self.core.paths.getCachePathData(self.getImportPath())
+
         try:
             name = text.format(**cacheData)
         except Exception:
@@ -215,17 +215,15 @@ class ImportFileClass(object):
         import TaskSelection
 
         ts = TaskSelection.TaskSelection(core=self.core, importState=self)
-
         self.core.parentWindow(ts)
         if self.core.uiScaleFactor != 1:
             self.core.scaleUI(self.state, sFactor=0.5)
         ts.exec_()
 
-        if self.importPath is not None:
-            self.e_file.setText(self.importPath[1])
-            self.importObject(taskName=self.importPath[0])
+        if ts.productPath:
+            self.e_file.setText(ts.productPath)
+            self.importObject()
             self.updateUi()
-            self.importPath = None
 
     @err_catcher(name=__name__)
     def openFolder(self, pos):
@@ -442,6 +440,7 @@ class ImportFileClass(object):
 
         extension = os.path.splitext(importPath)[1]
         taskName = cacheData.get("task")
+        self.taskName = taskName
 
         if self.isShotCam(importPath):
             self.importShotCam(importPath)
@@ -512,7 +511,7 @@ class ImportFileClass(object):
             )
 
     @err_catcher(name=__name__)
-    def importObject(self, taskName=None, objMerge=True):
+    def importObject(self, objMerge=True):
         if self.stateManager.standalone:
             return False
 

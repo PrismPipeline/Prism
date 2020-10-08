@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'StateManager.ui'
 #
-# Created: Thu Jul 23 16:27:07 2020
+# Created: Thu Oct  8 15:42:51 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -65,6 +65,10 @@ class Ui_mw_StateManager(object):
         self.horizontalLayout_3.addWidget(self.b_shotCam)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout_3.addItem(spacerItem)
+        self.b_showImportStates = QtGui.QPushButton(self.w_CreateImports)
+        self.b_showImportStates.setMaximumSize(QtCore.QSize(25, 16777215))
+        self.b_showImportStates.setObjectName("b_showImportStates")
+        self.horizontalLayout_3.addWidget(self.b_showImportStates)
         self.verticalLayout_3.addWidget(self.w_CreateImports)
         self.f_import = QtGui.QFrame(self.groupBox)
         self.f_import.setFrameShape(QtGui.QFrame.StyledPanel)
@@ -122,20 +126,12 @@ class Ui_mw_StateManager(object):
         self.b_createPlayblast.setFocusPolicy(QtCore.Qt.NoFocus)
         self.b_createPlayblast.setObjectName("b_createPlayblast")
         self.horizontalLayout_4.addWidget(self.b_createPlayblast)
-        self.b_createDependency = QtGui.QPushButton(self.w_CreateExports)
-        self.b_createDependency.setMinimumSize(QtCore.QSize(35, 25))
-        self.b_createDependency.setMaximumSize(QtCore.QSize(35, 25))
-        self.b_createDependency.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.b_createDependency.setObjectName("b_createDependency")
-        self.horizontalLayout_4.addWidget(self.b_createDependency)
-        self.b_stateFromNode = QtGui.QPushButton(self.w_CreateExports)
-        self.b_stateFromNode.setMinimumSize(QtCore.QSize(110, 0))
-        self.b_stateFromNode.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.b_stateFromNode.setAutoDefault(False)
-        self.b_stateFromNode.setObjectName("b_stateFromNode")
-        self.horizontalLayout_4.addWidget(self.b_stateFromNode)
         spacerItem1 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout_4.addItem(spacerItem1)
+        self.b_showExportStates = QtGui.QPushButton(self.w_CreateExports)
+        self.b_showExportStates.setMaximumSize(QtCore.QSize(25, 16777215))
+        self.b_showExportStates.setObjectName("b_showExportStates")
+        self.horizontalLayout_4.addWidget(self.b_showExportStates)
         self.verticalLayout_4.addWidget(self.w_CreateExports)
         self.f_export = QtGui.QFrame(self.groupBox_2)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
@@ -308,6 +304,8 @@ class Ui_mw_StateManager(object):
         self.b_createImport.setText(QtGui.QApplication.translate("mw_StateManager", "Import", None, QtGui.QApplication.UnicodeUTF8))
         self.b_shotCam.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Import the latest Shot Camera", None, QtGui.QApplication.UnicodeUTF8))
         self.b_shotCam.setText(QtGui.QApplication.translate("mw_StateManager", "Import Camera", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_showImportStates.setToolTip(QtGui.QApplication.translate("mw_StateManager", "show available import state types", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_showImportStates.setText(QtGui.QApplication.translate("mw_StateManager", "▼", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_2.setTitle(QtGui.QApplication.translate("mw_StateManager", "Export", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createExport.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create an Export state", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createExport.setText(QtGui.QApplication.translate("mw_StateManager", "Export", None, QtGui.QApplication.UnicodeUTF8))
@@ -315,10 +313,8 @@ class Ui_mw_StateManager(object):
         self.b_createRender.setText(QtGui.QApplication.translate("mw_StateManager", "Render", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createPlayblast.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create a Playblast state", None, QtGui.QApplication.UnicodeUTF8))
         self.b_createPlayblast.setText(QtGui.QApplication.translate("mw_StateManager", "Playblast", None, QtGui.QApplication.UnicodeUTF8))
-        self.b_createDependency.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create an Dependency state", None, QtGui.QApplication.UnicodeUTF8))
-        self.b_createDependency.setText(QtGui.QApplication.translate("mw_StateManager", "Dep", None, QtGui.QApplication.UnicodeUTF8))
-        self.b_stateFromNode.setToolTip(QtGui.QApplication.translate("mw_StateManager", "Create states from nodes in the scene", None, QtGui.QApplication.UnicodeUTF8))
-        self.b_stateFromNode.setText(QtGui.QApplication.translate("mw_StateManager", "From Node", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_showExportStates.setToolTip(QtGui.QApplication.translate("mw_StateManager", "show available export state types", None, QtGui.QApplication.UnicodeUTF8))
+        self.b_showExportStates.setText(QtGui.QApplication.translate("mw_StateManager", "▼", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_publish.setTitle(QtGui.QApplication.translate("mw_StateManager", "Publish", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_3.setTitle(QtGui.QApplication.translate("mw_StateManager", "Global Framerange:", None, QtGui.QApplication.UnicodeUTF8))
         self.label_6.setText(QtGui.QApplication.translate("mw_StateManager", "to:", None, QtGui.QApplication.UnicodeUTF8))

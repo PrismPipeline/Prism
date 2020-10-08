@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'hou_Export.ui',
 # licensing of 'hou_Export.ui' applies.
 #
-# Created: Tue Sep  1 00:14:07 2020
+# Created: Thu Oct  8 15:30:16 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -234,6 +234,7 @@ class Ui_wg_Export(object):
         self.horizontalLayout_16.addItem(spacerItem6)
         self.chb_saveToExistingHDA = QtWidgets.QCheckBox(self.w_saveToExistingHDA)
         self.chb_saveToExistingHDA.setText("")
+        self.chb_saveToExistingHDA.setChecked(True)
         self.chb_saveToExistingHDA.setObjectName("chb_saveToExistingHDA")
         self.horizontalLayout_16.addWidget(self.chb_saveToExistingHDA)
         self.verticalLayout_3.addWidget(self.w_saveToExistingHDA)

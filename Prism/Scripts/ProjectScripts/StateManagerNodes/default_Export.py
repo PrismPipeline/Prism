@@ -48,6 +48,9 @@ from PrismUtils.Decorators import err_catcher
 
 
 class ExportClass(object):
+    className = "Export"
+    listType = "Export"
+
     @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
@@ -55,9 +58,6 @@ class ExportClass(object):
         self.stateManager = stateManager
 
         self.e_name.setText(state.text(0))
-
-        self.className = "Export"
-        self.listType = "Export"
 
         self.l_name.setVisible(False)
         self.e_name.setVisible(False)

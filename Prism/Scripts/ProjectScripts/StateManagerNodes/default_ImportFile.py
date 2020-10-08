@@ -45,6 +45,9 @@ from PrismUtils.Decorators import err_catcher
 
 
 class ImportFileClass(object):
+    className = "ImportFile"
+    listType = "Import"
+
     @err_catcher(name=__name__)
     def setup(
         self, state, core, stateManager, node=None, importPath=None, stateData=None
@@ -52,8 +55,6 @@ class ImportFileClass(object):
         self.state = state
         self.e_name.setText(state.text(0))
 
-        self.className = "ImportFile"
-        self.listType = "Import"
         self.stateMode = "ImportFile"
 
         # self.l_name.setVisible(False)
@@ -61,10 +62,8 @@ class ImportFileClass(object):
 
         self.core = core
         self.stateManager = stateManager
-        self.importPath = None
         self.taskName = ""
         self.setName = ""
-        self.importPath = importPath
 
         self.nodes = []
         self.nodeNames = []
@@ -90,16 +89,14 @@ class ImportFileClass(object):
             and not self.stateManager.standalone
         ):
             import TaskSelection
-
             ts = TaskSelection.TaskSelection(core=core, importState=self)
-
             core.parentWindow(ts)
             ts.exec_()
+            importPath = ts.productPath
 
-        if self.importPath is not None:
-            self.e_file.setText(self.importPath[1])
-            result = self.importObject(taskName=self.importPath[0])
-            self.importPath = None
+        if importPath:
+            self.e_file.setText(importPath)
+            result = self.importObject()
 
             if not result:
                 return False
@@ -203,17 +200,15 @@ class ImportFileClass(object):
     @err_catcher(name=__name__)
     def browse(self):
         import TaskSelection
-
         ts = TaskSelection.TaskSelection(core=self.core, importState=self)
-
         self.core.parentWindow(ts)
         ts.exec_()
+        importPath = ts.productPath
 
-        if self.importPath is not None:
-            self.e_file.setText(self.importPath[1])
-            self.importObject(taskName=self.importPath[0], update=True)
+        if importPath:
+            self.e_file.setText(importPath)
+            self.importObject(update=True)
             self.updateUi()
-            self.importPath = None
 
     @err_catcher(name=__name__)
     def openFolder(self, pos):
@@ -254,7 +249,7 @@ class ImportFileClass(object):
         return self.e_file.text().replace("\\", "/")
 
     @err_catcher(name=__name__)
-    def importObject(self, taskName=None, update=False):
+    def importObject(self, update=False):
         result = True
         if self.stateManager.standalone:
             return result
@@ -286,30 +281,27 @@ class ImportFileClass(object):
                 if action != 0:
                     return False
 
-            if taskName is None:
-                vPath = os.path.dirname(impFileName)
-                if os.path.basename(vPath) in ["centimeter", "meter"]:
-                    vName = os.path.basename(os.path.dirname(vPath))
-                    vPath = os.path.dirname(vPath)
-                else:
-                    vName = os.path.basename(vPath)
-
-                self.taskName = ""
-                if len(vName.split(self.core.filenameSeparator)) == 3 and (
-                    self.core.getScenePath() in impFileName
-                    or (
-                        self.core.useLocalFiles
-                        and self.core.getScenePath(location="local")
-                        in impFileName
-                    )
-                ):
-                    self.taskName = os.path.basename(os.path.dirname(vPath))
-                    if self.taskName == "_ShotCam":
-                        self.taskName = "ShotCam"
-                else:
-                    self.taskName = vName
+            vPath = os.path.dirname(impFileName)
+            if os.path.basename(vPath) in ["centimeter", "meter"]:
+                vName = os.path.basename(os.path.dirname(vPath))
+                vPath = os.path.dirname(vPath)
             else:
-                self.taskName = taskName
+                vName = os.path.basename(vPath)
+
+            self.taskName = ""
+            if len(vName.split(self.core.filenameSeparator)) == 3 and (
+                self.core.getScenePath() in impFileName
+                or (
+                    self.core.useLocalFiles
+                    and self.core.getScenePath(location="local")
+                    in impFileName
+                )
+            ):
+                self.taskName = os.path.basename(os.path.dirname(vPath))
+                if self.taskName == "_ShotCam":
+                    self.taskName = "ShotCam"
+            else:
+                self.taskName = vName
 
             doImport = True
 

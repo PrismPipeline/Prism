@@ -55,6 +55,9 @@ from PrismUtils.Decorators import err_catcher
 
 
 class RenderSettingsClass(object):
+    className = "Render Settings"
+    listType = "Export"
+
     @classmethod
     def isActive(cls, core):
         return core.appPlugin.pluginName in ["Houdini", "Maya"]
@@ -96,15 +99,12 @@ class RenderSettingsClass(object):
         self.core = core
         self.stateManager = stateManager
 
-        self.className = "RenderSettings"
-        self.listType = "Export"
-
         self.cb_addSetting.lineEdit().setPlaceholderText("Select setting to add")
 
         getattr(self.core.appPlugin, "sm_renderSettings_startup", lambda x: None)(self)
         if state:
-            self.e_name.setText(state.text(0))
-            self.nameChanged(state.text(0))
+            self.e_name.setText("Render Settings")
+            self.nameChanged("Render Settings")
         self.editChanged(self.chb_editSettings.isChecked())
         self.connectEvents()
 
@@ -116,6 +116,7 @@ class RenderSettingsClass(object):
         if "statename" in data:
             self.e_name.setText(data["statename"])
         if "presetoption" in data:
+            self.updateUi()
             idx = self.cb_presetOption.findText(data["presetoption"])
             if idx != -1:
                 self.cb_presetOption.setCurrentIndex(idx)

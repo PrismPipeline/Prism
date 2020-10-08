@@ -57,6 +57,9 @@ from PrismUtils.Decorators import err_catcher
 
 
 class ImageRenderClass(object):
+    className = "ImageRender"
+    listType = "Export"
+
     @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
@@ -64,9 +67,6 @@ class ImageRenderClass(object):
         self.stateManager = stateManager
 
         self.curCam = None
-        self.className = "ImageRender"
-        self.listType = "Export"
-
         self.renderingStarted = False
         self.cleanOutputdir = True
 
