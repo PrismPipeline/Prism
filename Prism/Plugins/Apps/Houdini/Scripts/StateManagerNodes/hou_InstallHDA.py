@@ -50,6 +50,8 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 class InstallHDAClass(hou_ImportFile.ImportFileClass):
     className = "Install HDA"
     listType = "Import"
+    preferredUnit = "meter"
+    unpreferredUnit = "centimeter"
 
     @err_catcher(name=__name__)
     def setup(

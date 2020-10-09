@@ -74,11 +74,8 @@ try:
 
     psVersion = 2
 except:
-    try:
-        from PySide.QtCore import *
-        from PySide.QtGui import *
-    except:
-        pass
+    from PySide.QtCore import *
+    from PySide.QtGui import *
 
     psVersion = 1
 

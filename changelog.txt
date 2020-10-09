@@ -1,3 +1,8 @@
+v1.3.0.33:
+- fixed an error when updating to the latest version on the InstallHDA state
+- fixed an error when rightclicking on a sequence item in Project Browser
+- fixed a bug that preset scenes couldn't be created for some assets
+
 v1.3.0.32:
 - added a "Install HDA" state in Houdini
 - added a "Save HDA" state in Houdini

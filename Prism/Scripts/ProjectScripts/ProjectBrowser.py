@@ -1463,8 +1463,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             elif tab == "ss":
                 iname = self.cursShots or iname
                 shotName, seqName = self.core.entities.splitShotname(iname)
-                dirPath = lw.itemAt(pos).data(0, Qt.UserRole)[0]["path"]
                 if lw.itemAt(pos).childCount() == 0:
+                    dirPath = lw.itemAt(pos).data(0, Qt.UserRole)[0]["path"]
                     editAct = QAction("Edit shot settings", self)
                     editAct.triggered.connect(lambda: self.editShot(iname))
                     rcmenu.addAction(editAct)
@@ -1919,26 +1919,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         ext = os.path.splitext(fileName)[1]
         if entity == "asset":
             refresh = self.refreshAFile
-            if entityName:
-                entityPath = ""
-                if assetPath:
-                    entityPath = os.path.join(self.core.getAssetPath(), assetPath)
-                for i in self.core.entities.getAssetPaths():
-                    if assetPath:
-                        if os.path.normpath(i) == os.path.normpath(entityPath):
-                            assetPath = i
-                            break
-                    else:
-                        if os.path.basename(i) == entityName:
-                            assetPath = i
-                            break
-                else:
-                    self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
-                    return
-            else:
-                assetPath = self.curAsset
-
-            entityName = entityName or self.core.entities.getAssetNameFromPath(self.curAsset)
+            assetPath = self.curAsset
+            entityName = self.core.entities.getAssetNameFromPath(self.curAsset)
             step = step or self.curaStep
             category = category or self.curaCat
         elif entity == "shot":

@@ -1100,24 +1100,12 @@ class ProjectEntities(object):
         comment = comment or ""
 
         if entity == "asset":
-            if entityName:
-                entityPath = ""
-                if assetPath:
-                    entityPath = os.path.join(self.core.getAssetPath(), assetPath)
-                for i in self.core.entities.getAssetPaths():
-                    if assetPath:
-                        if os.path.normpath(i) == os.path.normpath(entityPath):
-                            assetPath = i
-                            break
-                    else:
-                        if os.path.basename(i) == entityName:
-                            assetPath = i
-                            break
-                else:
-                    self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
-                    return
+            entityPath = ""
+            if assetPath:
+                entityPath = os.path.join(self.core.getAssetPath(), assetPath)
             else:
-                assetPath = self.curAsset
+                self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
+                return
 
             filePath = self.core.generateScenePath(
                 "asset",
