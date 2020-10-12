@@ -86,6 +86,7 @@ class ExportClass(object):
         self.nodeTypes = {
             "rop_geometry": {"outputparm": "sopoutput"},
             "rop_alembic": {"outputparm": "filename"},
+            "rop_fbx": {"outputparm": "sopoutput"},
             "rop_dop": {"outputparm": "dopoutput"},
             "rop_comp": {"outputparm": "copoutput"},
             "filecache": {"outputparm": "file"},
@@ -122,6 +123,8 @@ class ExportClass(object):
             idx = -1
             if self.node.type().name() in ["rop_alembic", "alembic"]:
                 idx = self.cb_outType.findText(".abc")
+            elif self.node.type().name() in ["rop_fbx"]:
+                idx = self.cb_outType.findText(".fbx")
             elif self.node.type().name() in ["pixar::usdrop", "usd"]:
                 idx = self.cb_outType.findText(".usd")
             elif self.node.type().name() in ["Redshift_Proxy_Output"]:
@@ -135,7 +138,6 @@ class ExportClass(object):
             self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
 
         self.nameChanged(state.text(0))
-
         self.managerChanged(True)
 
         self.connectEvents()
@@ -148,6 +150,7 @@ class ExportClass(object):
 
         self.e_osSlaves.setText("All")
 
+        self.updateUi()
         if stateData is not None:
             self.loadData(stateData)
         else:
@@ -168,8 +171,6 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def loadData(self, data):
-        self.updateUi()
-
         if "statename" in data:
             self.e_name.setText(data["statename"])
         if "taskname" in data:
@@ -325,18 +326,7 @@ class ExportClass(object):
             else:
                 nodePath = self.node.parent()
 
-            if self.node.type().name() in [
-                "rop_geometry",
-                "rop_alembic",
-                "rop_dop",
-                "rop_comp",
-                "filecache",
-                "geometry",
-                "alembic",
-                "pixar::usdrop",
-                "usd",
-                "Redshift_Proxy_Output",
-            ]:
+            if self.node.type().name() in self.nodeTypes.keys():
                 try:
                     self.node.destroy()
                 except:
@@ -362,6 +352,8 @@ class ExportClass(object):
                 ropType = "rop_alembic"
             else:
                 ropType = "alembic"
+        elif self.cb_outType.currentText() == ".fbx":
+            ropType = "rop_fbx"
         elif self.cb_outType.currentText() == ".hda":
             ropType = ""
         elif self.cb_outType.currentText() == ".usd":
@@ -669,6 +661,26 @@ class ExportClass(object):
                 or self.node.type().name() not in ["rop_alembic", "alembic", "wedge"]
             ) and createMissing:
                 self.createNode()
+        elif idx == ".fbx":
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.w_saveToExistingHDA.setVisible(False)
+            self.w_blackboxHDA.setVisible(False)
+            self.w_projectHDA.setVisible(False)
+            self.w_externalReferences.setVisible(False)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(True)
+            self.f_connect.setVisible(True)
+            self.f_frameRange.setVisible(True)
+            self.w_frameRangeValues.setVisible(True)
+            self.f_convertExport.setVisible(True)
+            if self.cb_manager.count() > 0:
+                self.gb_submit.setVisible(True)
+            if (
+                self.node is None
+                or self.node.type().name() not in ["rop_fbx", "wedge"]
+            ) and createMissing:
+                self.createNode()
         elif idx == ".hda":
             self.f_cam.setVisible(False)
             self.w_sCamShot.setVisible(False)
@@ -792,6 +804,7 @@ class ExportClass(object):
                 or self.node.type().name()
                 in [
                     "rop_alembic",
+                    "rop_fbx",
                     "alembic",
                     "pixar::usdrop",
                     "usd",
@@ -822,6 +835,7 @@ class ExportClass(object):
                 or self.node.type().name()
                 in [
                     "rop_alembic",
+                    "rop_fbx",
                     "alembic",
                     "pixar::usdrop",
                     "usd",
@@ -874,6 +888,7 @@ class ExportClass(object):
                 "rop_dop",
                 "rop_comp",
                 "rop_alembic",
+                "rop_fbx",
                 "filecache",
                 "pixar::usdrop",
                 "usd",
@@ -896,6 +911,7 @@ class ExportClass(object):
                 "rop_dop",
                 "rop_comp",
                 "rop_alembic",
+                "rop_fbx",
                 "pixar::usdrop",
                 "usd",
                 "Redshift_Proxy_Output",
@@ -1447,7 +1463,7 @@ class ExportClass(object):
                     % outLength
                 ]
 
-            if self.cb_outType.currentText() in [".abc", ".usd", ".hda"]:
+            if self.cb_outType.currentText() in [".abc", ".fbx", ".usd", ".hda"]:
                 outputName = outputName.replace(".$F4", "")
 
             if self.cb_outType.currentText() == ".hda":

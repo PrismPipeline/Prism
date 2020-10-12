@@ -506,12 +506,12 @@ class Prism_Houdini_Functions(object):
         return result
 
     @err_catcher(name=__name__)
-    def executeScript(self, origin, code, execute=False):
+    def executeScript(self, origin, code, execute=False, globalVars=None, localVars=None):
         try:
             if not execute:
                 return eval(code)
             else:
-                exec(code)
+                exec(code, globalVars, localVars)
         except Exception as e:
             msg = "\npython code:\n%s" % code
             exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")

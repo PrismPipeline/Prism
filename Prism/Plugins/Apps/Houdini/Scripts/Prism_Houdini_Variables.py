@@ -45,6 +45,7 @@ class Prism_Houdini_Variables(object):
             ".bgeo.sc",
             ".vdb",
             ".abc",
+            ".fbx",
             ".obj",
             ".hda",
             "ShotCam",
@@ -52,7 +53,7 @@ class Prism_Houdini_Variables(object):
         ]
         self.appSpecificFormats = self.sceneFormats + [".bgeo", ".bgeo.sc", ".hda"]
         self.appColor = [242, 103, 34]
-        self.appVersionPresets = ["16, 5, 323", "16, 0, 559"]
+        self.appVersionPresets = ["18, 0, 566", "17, 5, 425"]
         self.renderPasses = {
             "houdini_arnold":
                 [

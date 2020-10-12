@@ -43,7 +43,7 @@ class Prism_Blender_Variables(object):
         self.appSpecificFormats = self.sceneFormats
         self.outputFormats = [".abc", ".obj", ".fbx", ".blend", "ShotCam"]
         self.appColor = [200, 180, 0]
-        self.appVersionPresets = ["2.79"]
+        self.appVersionPresets = ["2.90"]
         self.preferredUnit = "meter"
         self.canDeleteRenderPasses = False
         self.colorButtonWithStyleSheet = True

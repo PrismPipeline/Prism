@@ -90,15 +90,31 @@ class GoogleDocs(QDialog):
         if toRow != -1:
             rows = rows[:(toRow)]
         if fromRow != -1:
-            rows = rows[(fromRow - 1) :]
+            rows = rows[(fromRow - 1):]
         for i in rows:
             entity = [x[i] if len(x) > i else "" for x in colVals]
             entities.append(entity)
 
         return entities
 
+    @err_catcher(name=__name__)
+    def getAllData(self, docName, sheetName, fromRow=-1, toRow=-1):
+        sheet = self.client.open(docName).worksheet(sheetName)
+        data = sheet.get_all_values()
 
-def readGDocs(core, authorizationfile, docName, sheetName, columns, fromRow, toRow):
+        if toRow != -1:
+            data = data[:toRow]
+        if fromRow != -1:
+            data = data[(fromRow-1):]
+
+        return data
+
+
+def readGDocs(core, authorizationfile, docName, sheetName, fromRow, toRow, columns=None):
     gd = GoogleDocs(core, authorizationfile)
-    data = gd.getRows(docName, sheetName, columns, fromRow, toRow)
+    if columns:
+        data = gd.getRows(docName, sheetName, columns, fromRow, toRow)
+    else:
+        data = gd.getAllData(docName, sheetName, fromRow, toRow)
+
     return data

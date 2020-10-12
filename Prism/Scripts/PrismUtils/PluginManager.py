@@ -83,6 +83,7 @@ class PluginManager(object):
         else:
             self.core.startup()
 
+    @err_catcher(name=__name__)
     def getPluginDirs(self):
         pluginDirs = self.core.pluginDirs
         envPluginDirs = os.getenv("PRISM_PLUGIN_PATHS", "").split(os.pathsep)
@@ -92,6 +93,37 @@ class PluginManager(object):
         if userPluginDirs:
             pluginDirs += userPluginDirs
         return pluginDirs
+
+    @err_catcher(name=__name__)
+    def getPluginPath(self, location="root", pluginType="custom", path="", pluginName=""):
+        if location == "root":
+            pluginPath = os.path.abspath(
+                os.path.join(__file__, os.pardir, os.pardir, os.pardir, "Plugins")
+            )
+        elif location == "project":
+            if not getattr(self.core, "projectPath", None):
+                pluginPath = ""
+            else:
+                pluginPath = os.path.join(self.core.projectPath, "00_Pipeline", "Plugins")
+        elif location == "custom":
+            pluginPath = path
+
+        if location != "custom":
+            if pluginType == "App":
+                dirName = "Apps"
+            elif pluginType == "Custom":
+                dirName = "Custom"
+            elif pluginType == "Projectmanager":
+                dirName = "ProjectManagers"
+            elif pluginType == "Renderfarm":
+                dirName = "RenderfarmManagers"
+
+            pluginPath = os.path.join(pluginPath, dirName)
+
+        if pluginName:
+            pluginPath = os.path.join(pluginPath, pluginName)
+
+        return pluginPath.replace("\\", "/")
 
     @err_catcher(name=__name__)
     def loadAppPlugin(self, pluginName, startup=False):
@@ -497,61 +529,24 @@ class PluginManager(object):
         return plugs
 
     @err_catcher(name=__name__)
-    def createPlugin(self, pluginName, pluginType):
-        if pluginType == "App":
-            presetPath = os.path.join(self.core.prismRoot, "Plugins", "Apps", "PluginEmpty")
-        elif pluginType == "Custom":
-            presetPath = os.path.join(
-                self.core.prismRoot, "Plugins", "Custom", "PluginEmpty"
-            )
-        elif pluginType == "Projectmanager":
-            presetPath = os.path.join(
-                self.core.prismRoot, "Plugins", "ProjectManagers", "PluginEmpty"
-            )
-        elif pluginType == "Renderfarm":
-            presetPath = os.path.join(
-                self.core.prismRoot, "Plugins", "RenderfarmManagers", "PluginEmpty"
-            )
+    def createPlugin(self, pluginName, pluginType, location="root", path=""):
+        presetPath = self.getPluginPath("root", pluginType)
+        presetPath = os.path.join(presetPath, "PluginEmpty")
 
         if not os.path.exists(presetPath):
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Prism",
-                "Canceled plugin creation: Empty preset doesn't exist:\n\n%s"
-                % self.core.fixPath(presetPath),
-            )
+            msg = "Canceled plugin creation: Empty preset doesn't exist:\n\n%s" % self.core.fixPath(presetPath)
+            self.core.popup(msg)
             return
 
-        targetPath = os.path.join(os.path.dirname(presetPath), pluginName)
+        targetPath = self.getPluginPath(location, pluginType, path, pluginName)
 
         if os.path.exists(targetPath):
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Prism",
-                "Canceled plugin creation: Plugin already exists:\n\n%s" % targetPath,
-            )
+            msg = "Canceled plugin creation: Plugin already exists:\n\n%s" % targetPath
+            self.core.popup(msg)
             return
 
         shutil.copytree(presetPath, targetPath)
-
-        for i in os.walk(targetPath):
-            for folder in i[1]:
-                if "PluginEmpty" in folder:
-                    folderPath = os.path.join(i[0], folder)
-                    newFolderPath = folderPath.replace("PluginEmpty", pluginName)
-                    os.rename(folderPath, newFolderPath)
-
-            for file in i[2]:
-                filePath = os.path.join(i[0], file)
-                with open(filePath, "r") as f:
-                    content = f.read()
-
-                with open(filePath, "w") as f:
-                    f.write(content.replace("PluginEmpty", pluginName))
-
-                if "PluginEmpty" in filePath:
-                    newFilePath = filePath.replace("PluginEmpty", pluginName)
-                    os.rename(filePath, newFilePath)
+        self.core.replaceFolderContent(targetPath, "PluginEmpty", pluginName)
 
         scriptPath = os.path.join(targetPath, "Scripts")
         if not os.path.exists(scriptPath):

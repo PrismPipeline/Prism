@@ -185,7 +185,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         )
         self.tw_plugins.customContextMenuRequested.connect(self.rclPluginList)
         self.b_reloadPlugins.clicked.connect(self.reloadPlugins)
-        self.b_createPlugin.clicked.connect(self.createPlugin)
+        self.b_createPlugin.clicked.connect(self.createPluginWindow)
         self.buttonBox.accepted.connect(self.saveSettings)
         self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(lambda: self.saveSettings(changeProject=False))
 
@@ -974,34 +974,32 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
-    def createPlugin(self):
-        import CreateItem
+    def createPluginWindow(self):
+        dlg_plugin = CreatePluginDialog(self.core)
+        action = dlg_plugin.exec_()
 
-        newPDlg = CreateItem.CreateItem(
-            core=self.core, allowChars=["_"], denyChars=["-"]
-        )
+        if action == 0:
+            return
 
-        self.core.parentWindow(newPDlg)
-        newPDlg.setWindowTitle("Create Plugin")
-        newPDlg.l_item.setText("Plugin Name:")
-        newPDlg.cb_type = QComboBox()
-        newPDlg.cb_type.addItems(["App", "Renderfarm", "Projectmanager", "Custom"])
-        newPDlg.cb_type.setCurrentIndex(3)
-        newPDlg.w_item.layout().addWidget(newPDlg.cb_type)
-        newPDlg.resize(400, newPDlg.height())
-        action = newPDlg.exec_()
+        pluginName = dlg_plugin.e_name.text()
+        pluginType = dlg_plugin.cb_type.currentText()
+        pluginLocation = dlg_plugin.cb_location.currentText().lower()
+        if pluginLocation == "custom":
+            path = dlg_plugin.e_path.text()
+        else:
+            path = ""
 
-        if action != 0:
-            pluginName = newPDlg.e_item.text()
-            pluginType = newPDlg.cb_type.currentText()
+        self.createPlugin(pluginName, pluginType, pluginLocation, path=path)
 
-            pluginPath = self.core.createPlugin(pluginName, pluginType)
-            self.core.plugins.loadPlugin(pluginPath)
+    @err_catcher(name=__name__)
+    def createPlugin(self, pluginName, pluginType, location, path=""):
+        pluginPath = self.core.createPlugin(pluginName, pluginType, location=location, path=path)
+        self.core.plugins.loadPlugin(pluginPath)
 
-            if os.path.exists(self.core.prismIni):
-                self.core.changeProject(self.core.prismIni)
+        if os.path.exists(self.core.prismIni):
+            self.core.changeProject(self.core.prismIni)
 
-            self.core.ps.tw_settings.setCurrentIndex(5)
+        self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
     def openPluginFolder(self):
@@ -1109,6 +1107,128 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             QApplication.restoreOverrideCursor()
         except:
             pass
+
+
+class CreatePluginDialog(QDialog):
+    def __init__(self, core):
+        QDialog.__init__(self)
+        self.core = core
+
+        self.setupUi()
+        self.connectEvents()
+        self.pluginName = ""
+        self.refreshPath()
+
+    @err_catcher(name=__name__)
+    def setupUi(self):
+        self.core.parentWindow(self)
+        self.setWindowTitle("Create Plugin")
+        self.lo_main = QVBoxLayout()
+        self.setLayout(self.lo_main)
+
+        self.lo_name = QHBoxLayout()
+        self.l_name = QLabel("Plugin Name:")
+        self.e_name = QLineEdit()
+        self.lo_name.addWidget(self.l_name)
+        self.lo_name.addWidget(self.e_name)
+        self.lo_main.addLayout(self.lo_name)
+
+        self.lo_type = QHBoxLayout()
+        self.l_type = QLabel("Type:")
+        self.cb_type = QComboBox()
+        self.cb_type.addItems(["App", "Renderfarm", "Projectmanager", "Custom"])
+        self.cb_type.setCurrentIndex(3)
+        self.lo_type.addWidget(self.l_type)
+        self.lo_type.addWidget(self.cb_type)
+        self.lo_main.addLayout(self.lo_type)
+
+        self.lo_location = QHBoxLayout()
+        self.l_location = QLabel("Location:")
+        self.cb_location = QComboBox()
+        self.cb_location.addItems(["Root", "Project", "Custom"])
+        self.lo_location.addWidget(self.l_location)
+        self.lo_location.addWidget(self.cb_location)
+        self.lo_main.addLayout(self.lo_location)
+
+        self.lo_path = QHBoxLayout()
+        self.l_pathInfo = QLabel("Path:")
+        self.l_path = QLabel("")
+        self.l_path.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        rootPath = self.core.plugins.getPluginPath(location="root", pluginType=self.cb_type.currentText())
+        self.e_path = QLineEdit(rootPath)
+        self.b_browse = QPushButton("...")
+        self.lo_path.addWidget(self.l_pathInfo)
+        self.lo_path.addWidget(self.l_path)
+        self.lo_path.addWidget(self.e_path)
+        self.lo_path.addWidget(self.b_browse)
+        self.lo_main.addLayout(self.lo_path)
+        self.e_path.setVisible(False)
+        self.b_browse.setVisible(False)
+        self.b_browse.setContextMenuPolicy(Qt.CustomContextMenu)
+
+        self.lo_main.addStretch()
+
+        self.bb_main = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.bb_main.accepted.connect(self.accept)
+        self.bb_main.rejected.connect(self.reject)
+
+        self.lo_main.addWidget(self.bb_main)
+
+        self.resize(500*self.core.uiScaleFactor, 200*self.core.uiScaleFactor)
+
+    @err_catcher(name=__name__)
+    def connectEvents(self):
+        self.e_name.textChanged.connect(lambda x: self.validate(self.e_name, x))
+        self.e_path.textChanged.connect(lambda x: self.validate(self.e_path, x))
+        self.cb_type.activated.connect(lambda x: self.refreshPath())
+        self.cb_location.activated.connect(lambda x: self.refreshPath())
+        self.cb_location.activated[str].connect(lambda x: self.l_path.setVisible(x != "Custom"))
+        self.cb_location.activated[str].connect(lambda x: self.e_path.setVisible(x == "Custom"))
+        self.cb_location.activated[str].connect(lambda x: self.b_browse.setVisible(x == "Custom"))
+        self.b_browse.clicked.connect(self.browse)
+        self.b_browse.customContextMenuRequested.connect(
+            lambda: self.core.openFolder(self.e_path.text())
+        )
+
+    @err_catcher(name=__name__)
+    def browse(self):
+        windowTitle = "Select plugin location"
+        selectedPath = QFileDialog.getExistingDirectory(
+            self, windowTitle, self.e_path.text()
+        )
+
+        if selectedPath:
+            self.e_path.setText(self.core.fixPath(selectedPath))
+
+    @err_catcher(name=__name__)
+    def validate(self, uiWidget, origText=None):
+        if uiWidget == self.e_name:
+            allowChars = ["_"]
+        else:
+            allowChars = ["/", "\\", "_", " ", ":"]
+
+        self.core.validateLineEdit(uiWidget, allowChars=allowChars)
+
+        if uiWidget == self.e_name:
+            self.refreshPath()
+            self.pluginName = self.e_name.text()
+
+    @err_catcher(name=__name__)
+    def refreshPath(self):
+        pluginType = self.cb_type.currentText()
+        if self.cb_location.currentText() == "Root":
+            path = self.core.plugins.getPluginPath(location="root", pluginType=pluginType)
+        elif self.cb_location.currentText() == "Project":
+            path = self.core.plugins.getPluginPath(location="project", pluginType=pluginType)
+        elif self.cb_location.currentText() == "Custom":
+            path = self.e_path.text()
+            if os.path.basename(path) == self.pluginName:
+                path = os.path.dirname(path)
+
+        name = self.e_name.text()
+        fullPath = os.path.join(path, name)
+        fullPath = os.path.normpath(fullPath).replace("\\", "/")
+        self.l_path.setText(fullPath)
 
 
 if __name__ == "__main__":

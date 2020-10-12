@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.33"
+            self.version = "v1.3.0.34"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -357,8 +357,8 @@ class PrismCore:
         return self.plugins.getLoadedPlugins()
 
     @err_catcher(name=__name__)
-    def createPlugin(self, pluginName, pluginType):
-        return self.plugins.createPlugin(pluginName=pluginName, pluginType=pluginType)
+    def createPlugin(self, *args, **kwargs):
+        return self.plugins.createPlugin(*args, **kwargs)
 
     @err_catcher(name=__name__)
     def callback(self, *args, **kwargs):
@@ -1763,6 +1763,27 @@ License: GNU GPL-3.0-or-later<br>
         if os.path.exists(path) and showMessage:
             msg = "Directory created successfully:\n\n%s" % path
             self.popup(msg, severity="info")
+
+    @err_catcher(name=__name__)
+    def replaceFolderContent(self, path, fromStr, toStr):
+        for i in os.walk(path):
+            for folder in i[1]:
+                if fromStr in folder:
+                    folderPath = os.path.join(i[0], folder)
+                    newFolderPath = folderPath.replace(fromStr, toStr)
+                    os.rename(folderPath, newFolderPath)
+
+            for file in i[2]:
+                filePath = os.path.join(i[0], file)
+                with open(filePath, "r") as f:
+                    content = f.read()
+
+                with open(filePath, "w") as f:
+                    f.write(content.replace(fromStr, toStr))
+
+                if fromStr in filePath:
+                    newFilePath = filePath.replace(fromStr, toStr)
+                    os.rename(filePath, newFilePath)
 
     @err_catcher(name=__name__)
     def copyToClipboard(self, text, fixSlashes=True):

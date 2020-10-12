@@ -1,3 +1,7 @@
+v1.3.0.34:
+- added support for fbx ROP in Houdini
+- added option to create new plugins in project or custom locations
+
 v1.3.0.33:
 - fixed an error when updating to the latest version on the InstallHDA state
 - fixed an error when rightclicking on a sequence item in Project Browser

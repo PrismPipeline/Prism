@@ -151,6 +151,8 @@ class ImageRenderClass(object):
             if fnameData.get("category"):
                 self.l_taskName.setText(fnameData.get("category"))
 
+            self.updateUi()
+
     @err_catcher(name=__name__)
     def loadData(self, data):
         if "taskname" in data:

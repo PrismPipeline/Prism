@@ -274,7 +274,7 @@ class PathManager(object):
             if (not asset or not odlPrj) and category:
                 path = os.path.join(path, category)
 
-        return path
+        return path.replace("\\", "/")
 
     @err_catcher(name=__name__)
     def generateScenePath(
@@ -325,7 +325,7 @@ class PathManager(object):
             )
         elif entity == "shot":
             # example filename: shot_a-0010_mod_main_v0002_details-added_rfr_.max
-            basePath = basePath or self.core.pb.sBasePath
+            basePath = basePath or self.core.shotPath
             if (
                 os.path.basename(os.path.dirname(os.path.dirname(basePath)))
                 == "Scenefiles"
