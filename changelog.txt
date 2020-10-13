@@ -1,3 +1,10 @@
+v1.3.0.35:
+- added namespace for HDAs, which can be changed using the "houdini - assetNamespace" setting in the project config
+- removed the "Save new definition in existing HDA" settings from the Save HDA state
+- HDA operator type versions are linked to the HDA filepath version now
+- fixed a problem on the SaveHDA state that the connected node got disconnected when the operator type version was changed
+- fixed a bug that the Task Selection dialog didn't select the context based on the current scenefile on startup
+
 v1.3.0.34:
 - added support for fbx ROP in Houdini
 - added option to create new plugins in project or custom locations

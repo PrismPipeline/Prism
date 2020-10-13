@@ -270,6 +270,7 @@ class Prism_Houdini_Functions(object):
         folder = os.path.join(self.core.projectPath, resourceDir, "HDAs")
 
         if filename:
+            filename = filename.replace(":", "_")
             if not os.path.splitext(filename)[1]:
                 filename += ".hda"
 
@@ -285,16 +286,22 @@ class Prism_Houdini_Functions(object):
         typeName="prism_hda",
         label=None,
         saveToExistingHDA=False,
-        incrementVersion=True,
+        version=1,
         blackBox=False,
         allowExternalReferences=False,
         projectHDA=False,
         setDefinitionCurrent=True,
         convertNode=False
     ):
+        namespace = self.core.getConfig("houdini", "assetNamespace", dft="prism", configPath=self.core.prismIni)
+        if namespace:
+            typeName = namespace + "::" + typeName
+
         if node.canCreateDigitalAsset():
-            if incrementVersion and "::" not in typeName:
-                typeName += "::1"
+            if version is not None:
+                if version == "increment":
+                    version = 1
+                typeName += "::" + str(version)
 
             hda = node.createDigitalAsset(
                 typeName,
@@ -314,9 +321,11 @@ class Prism_Houdini_Functions(object):
         else:
             if saveToExistingHDA:
                 libFile = node.type().definition().libraryFilePath()
-                if incrementVersion:
-                    highestVersion = self.getHighestHDAVersion(libFile, typeName)
-                    typeName = typeName + "::" + str(highestVersion + 1)
+                if version is not None:
+                    if version == "increment":
+                        highestVersion = self.getHighestHDAVersion(libFile, typeName)
+                        version = highestVersion + 1
+                    typeName += "::" + str(version)
 
                 self.saveNodeDefinitionToFile(node, libFile, typeName=typeName, label=label, blackBox=blackBox)
                 if convertNode:
@@ -325,7 +334,18 @@ class Prism_Houdini_Functions(object):
                 return node
             else:
                 if projectHDA and not outputPath:
-                    outputPath = self.getProjectHDAFolder(typeName)
+                    filename = typeName.split("::", 1)[1]
+                    outputPath = self.getProjectHDAFolder(filename)
+                    libFile = node.type().definition().libraryFilePath()
+                    if version == "increment":
+                        highestVersion = self.getHighestHDAVersion(libFile, typeName)
+                        version = highestVersion + 1
+                else:
+                    if version == "increment":
+                        version = 1
+
+                if version is not None:
+                    typeName += "::" + str(version)
 
                 self.saveNodeDefinitionToFile(node, outputPath, typeName=typeName, label=label, blackBox=blackBox)
 
@@ -344,10 +364,8 @@ class Prism_Houdini_Functions(object):
     def getHighestHDAVersion(self, libraryFilePath, typeName):
         definitions = hou.hda.definitionsInFile(libraryFilePath)
         highestVersion = 0
-        print typeName
         for definition in definitions:
             name = definition.nodeTypeName()
-            print name
             basename = name.rsplit("::", 1)[0]
             basename
             if basename != typeName:
@@ -363,7 +381,6 @@ class Prism_Houdini_Functions(object):
             if int(v) > highestVersion:
                 highestVersion = int(v)
 
-        print highestVersion
         return highestVersion
 
     @err_catcher(name=__name__)
@@ -386,8 +403,6 @@ class Prism_Houdini_Functions(object):
         node.type().definition().save(**kwargs)
 
         defs = hou.hda.definitionsInFile(tmpPath)
-        print typeName
-        print label
         defs[0].copyToHDAFile(filepath, new_name=typeName, new_menu_name=label)
         os.remove(tmpPath)
 
@@ -418,7 +433,7 @@ class Prism_Houdini_Functions(object):
         user=None,
         version="next",
         location="global",
-        saveToExistingHDA=True,
+        saveToExistingHDA=False,
         projectHDA=False
     ):
         fileName = self.core.getCurrentFileName()
@@ -429,9 +444,9 @@ class Prism_Houdini_Functions(object):
             outputPath = node.type().definition().libraryFilePath()
             outputFolder = os.path.dirname(outputPath)
         elif node and projectHDA:
-            fname = self.l_taskName.text()
-            outputPath = self.core.appPlugin.getProjectHDAFolder(fname)
+            outputPath = self.core.appPlugin.getProjectHDAFolder(task)
             outputFolder = os.path.dirname(outputPath)
+            version = None
         else:
             if not task:
                 return

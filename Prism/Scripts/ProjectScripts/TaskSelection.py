@@ -87,9 +87,13 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.updateAssets()
         self.updateShots()
 
+        navPath = self.core.getCurrentFileName()
         if self.importState:
-            if not self.navigateToFile(os.path.split(self.importState.e_file.text())[0]):
-                self.navigateToFile(self.core.getCurrentFileName())
+            result = self.navigateToFile(os.path.split(self.importState.e_file.text())[0])
+            if result:
+                navPath = None
+
+        self.navigateToFile(navPath)
 
         self.core.callback(
             name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
@@ -880,7 +884,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if not version and self.importState:
             versionName = self.importState.l_curVersion.text()
 
-        if versionName != "-":
+        if versionName and versionName != "-":
             versionName = versionName[:5]
 
         foundEntity = False

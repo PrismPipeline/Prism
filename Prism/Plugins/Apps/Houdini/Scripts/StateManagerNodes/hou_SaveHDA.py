@@ -60,7 +60,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.stateManager = stateManager
 
         self.node = None
-        self.initsim = True
+        self.nodePath = ""
 
         self.e_name.setText(self.className)
         self.l_name.setVisible(False)
@@ -75,7 +75,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             if stateData is None:
                 self.connectNode()
         else:
-            self.node = node
+            self.connectNode(node)
 
         self.nameChanged(self.e_name.text())
         self.connectEvents()
@@ -113,8 +113,6 @@ class SaveHDAClass(hou_Export.ExportClass):
             idx = self.cb_outPath.findText(data["curoutputpath"])
             if idx != -1:
                 self.cb_outPath.setCurrentIndex(idx)
-        if "savetoexistinghda" in data:
-            self.chb_saveToExistingHDA.setChecked(data["savetoexistinghda"])
         if "projecthda" in data:
             self.chb_projectHDA.setChecked(data["projecthda"])
         if "externalReferences" in data:
@@ -140,17 +138,6 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_changeTask.clicked.connect(self.changeTask)
         self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
-        self.chb_saveToExistingHDA.stateChanged.connect(
-            self.stateManager.saveStatesToScene
-        )
-        self.chb_saveToExistingHDA.stateChanged.connect(
-            lambda x: self.w_outPath.setEnabled(not x)
-        )
-        self.chb_saveToExistingHDA.stateChanged.connect(
-            lambda x: self.w_projectHDA.setEnabled(
-                not x or not self.w_saveToExistingHDA.isEnabled()
-            )
-        )
         self.chb_projectHDA.stateChanged.connect(
             lambda x: self.w_outPath.setEnabled(not x)
         )
@@ -182,32 +169,30 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.state.setText(0, sText)
 
     @err_catcher(name=__name__)
-    def updateUi(self):
+    def isNodeValid(self):
         try:
-            self.node.name()
+            validTST = self.node.name()
+        except:
+            node = self.findNode(self.nodePath)
+            if node:
+                self.connectNode(node)
+            else:
+                self.node = None
+                self.nodePath = ""
+
+        return self.node is not None
+
+    @err_catcher(name=__name__)
+    def updateUi(self):
+        if self.isNodeValid():
             self.l_status.setText(self.node.name())
             self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
-        except:
+        else:
             self.l_status.setText("Not connected")
             self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
 
-        if self.isNodeValid() and (
-            self.node.canCreateDigitalAsset()
-            or self.node.type().definition() is not None
-        ):
-            self.w_saveToExistingHDA.setEnabled(
-                self.node.type().definition() is not None
-            )
-        else:
-            self.w_saveToExistingHDA.setEnabled(True)
-
         self.w_blackboxHDA.setEnabled(
             not self.isNodeValid() or self.node.type().areContentsViewable()
-        )
-
-        self.w_projectHDA.setEnabled(
-            not self.w_saveToExistingHDA.isEnabled()
-            or not self.chb_saveToExistingHDA.isChecked()
         )
 
         self.w_externalReferences.setEnabled(bool(
@@ -227,6 +212,8 @@ class SaveHDAClass(hou_Export.ExportClass):
 
         if node.canCreateDigitalAsset() or node.type().definition():
             self.node = node
+            self.nodePath = self.node.path()
+            self.node.setUserData("PrismPath", self.nodePath)
             self.nameChanged(self.e_name.text())
             self.updateUi()
             self.stateManager.saveStatesToScene()
@@ -245,9 +232,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         if self.l_taskName.text() == "":
             warnings.append(["No taskname is given.", "", 3])
 
-        try:
-            self.node.name()
-        except:
+        if not self.isNodeValid():
             warnings.append(["Node is invalid.", "", 3])
         else:
             result = self.getOutputName()
@@ -303,7 +288,6 @@ class SaveHDAClass(hou_Export.ExportClass):
             user=user,
             version=version,
             location=self.cb_outPath.currentText(),
-            saveToExistingHDA=self.chb_saveToExistingHDA.isChecked(),
             projectHDA=self.chb_projectHDA.isChecked(),
         )
 
@@ -340,7 +324,8 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.stateManager.saveStatesToScene()
         hou.hipFile.save()
 
-        result = self.exportHDA(ropNode, outputName)
+        version = int(hVersion[1:]) if hVersion else None
+        result = self.exportHDA(ropNode, outputName, version)
         if result:
             if len(os.listdir(os.path.dirname(outputName))) > 0:
                 result = True
@@ -363,7 +348,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             return [self.state.text(0) + " - error - " + result]
 
     @err_catcher(name=__name__)
-    def exportHDA(self, node, outputPath):
+    def exportHDA(self, node, outputPath, version):
         fileName = self.core.getCurrentFileName()
         data = self.core.getScenefileData(fileName)
         entityName = data.get("entityName", "")
@@ -371,7 +356,6 @@ class SaveHDAClass(hou_Export.ExportClass):
         typeName = "%s_%s" % (entityName, taskName)
 
         label = typeName
-        saveToExistingHDA = self.chb_saveToExistingHDA.isChecked()
         createBlackBox = self.chb_blackboxHDA.isChecked()
         allowExtRef = self.chb_externalReferences.isChecked()
         projectHDA = self.chb_projectHDA.isChecked()
@@ -379,12 +363,13 @@ class SaveHDAClass(hou_Export.ExportClass):
         if node.canCreateDigitalAsset():
             convertNode = not createBlackBox
         else:
-            convertNode = saveToExistingHDA
+            convertNode = True
 
         if projectHDA:
             typeName = taskName
             outputPath = None
             label = self.l_taskName.text()
+            version = "increment"
 
         # hou.HDADefinition.copyToHDAFile converts "-" to "_"
         typeName = typeName.replace("-", "_")
@@ -395,7 +380,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             outputPath=outputPath,
             typeName=typeName,
             label=label,
-            saveToExistingHDA=saveToExistingHDA,
+            version=version,
             blackBox=createBlackBox,
             allowExternalReferences=allowExtRef,
             projectHDA=projectHDA,
@@ -420,7 +405,6 @@ class SaveHDAClass(hou_Export.ExportClass):
             "taskname": self.l_taskName.text(),
             "curoutputpath": self.cb_outPath.currentText(),
             "connectednode": curNode,
-            "savetoexistinghda": self.chb_saveToExistingHDA.isChecked(),
             "projecthda": self.chb_projectHDA.isChecked(),
             "externalReferences": self.chb_externalReferences.isChecked(),
             "blackboxhda": self.chb_blackboxHDA.isChecked(),

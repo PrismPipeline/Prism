@@ -379,11 +379,14 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             cData["globals"]["forceResolution"] = self.chb_prjResolution.isChecked()
             cData["globals"]["resolution"] = [self.sp_prjResolutionWidth.value(), self.sp_prjResolutionHeight.value()]
             cData["globals"]["forceversions"] = self.gb_curPversions.isChecked()
+            cData["changeProject"] = changeProject
 
             for i in self.forceVersionPlugins:
                 cData["globals"]["%s_version" % i] = self.forceVersionPlugins[i]["le"].text()
 
             self.core.callback(name="prismSettings_savePrjSettings", types=["curApp", "unloadedApps", "custom", "prjManagers"], args=[self, cData])
+            changeProject = cData["changeProject"]
+            cData.pop("changeProject")
 
             self.core.setConfig(data=cData, configPath=self.core.prismIni)
             self.core.useLocalFiles = self.chb_curPuseLocal.isChecked()

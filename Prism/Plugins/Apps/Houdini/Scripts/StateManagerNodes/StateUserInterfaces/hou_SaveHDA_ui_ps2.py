@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'hou_SaveHDA.ui',
 # licensing of 'hou_SaveHDA.ui' applies.
 #
-# Created: Thu Oct  8 15:29:37 2020
+# Created: Tue Oct 13 14:54:37 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -13,7 +13,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 class Ui_wg_SaveHDA(object):
     def setupUi(self, wg_SaveHDA):
         wg_SaveHDA.setObjectName("wg_SaveHDA")
-        wg_SaveHDA.resize(340, 351)
+        wg_SaveHDA.resize(340, 325)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -89,22 +89,6 @@ class Ui_wg_SaveHDA(object):
         self.cb_outPath.setObjectName("cb_outPath")
         self.horizontalLayout_12.addWidget(self.cb_outPath)
         self.verticalLayout_3.addWidget(self.w_outPath)
-        self.w_saveToExistingHDA = QtWidgets.QWidget(self.groupBox_2)
-        self.w_saveToExistingHDA.setObjectName("w_saveToExistingHDA")
-        self.horizontalLayout_16 = QtWidgets.QHBoxLayout(self.w_saveToExistingHDA)
-        self.horizontalLayout_16.setContentsMargins(-1, 0, -1, 0)
-        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
-        self.l_saveToExistingHDA = QtWidgets.QLabel(self.w_saveToExistingHDA)
-        self.l_saveToExistingHDA.setObjectName("l_saveToExistingHDA")
-        self.horizontalLayout_16.addWidget(self.l_saveToExistingHDA)
-        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_16.addItem(spacerItem1)
-        self.chb_saveToExistingHDA = QtWidgets.QCheckBox(self.w_saveToExistingHDA)
-        self.chb_saveToExistingHDA.setText("")
-        self.chb_saveToExistingHDA.setChecked(True)
-        self.chb_saveToExistingHDA.setObjectName("chb_saveToExistingHDA")
-        self.horizontalLayout_16.addWidget(self.chb_saveToExistingHDA)
-        self.verticalLayout_3.addWidget(self.w_saveToExistingHDA)
         self.w_projectHDA = QtWidgets.QWidget(self.groupBox_2)
         self.w_projectHDA.setObjectName("w_projectHDA")
         self.horizontalLayout_19 = QtWidgets.QHBoxLayout(self.w_projectHDA)
@@ -113,8 +97,8 @@ class Ui_wg_SaveHDA(object):
         self.l_projectHDA = QtWidgets.QLabel(self.w_projectHDA)
         self.l_projectHDA.setObjectName("l_projectHDA")
         self.horizontalLayout_19.addWidget(self.l_projectHDA)
-        spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_19.addItem(spacerItem2)
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_19.addItem(spacerItem1)
         self.chb_projectHDA = QtWidgets.QCheckBox(self.w_projectHDA)
         self.chb_projectHDA.setText("")
         self.chb_projectHDA.setObjectName("chb_projectHDA")
@@ -128,8 +112,8 @@ class Ui_wg_SaveHDA(object):
         self.l_externalReferences = QtWidgets.QLabel(self.w_externalReferences)
         self.l_externalReferences.setObjectName("l_externalReferences")
         self.horizontalLayout_20.addWidget(self.l_externalReferences)
-        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_20.addItem(spacerItem3)
+        spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_20.addItem(spacerItem2)
         self.chb_externalReferences = QtWidgets.QCheckBox(self.w_externalReferences)
         self.chb_externalReferences.setText("")
         self.chb_externalReferences.setObjectName("chb_externalReferences")
@@ -143,8 +127,8 @@ class Ui_wg_SaveHDA(object):
         self.l_blackboxHDA = QtWidgets.QLabel(self.w_blackboxHDA)
         self.l_blackboxHDA.setObjectName("l_blackboxHDA")
         self.horizontalLayout_18.addWidget(self.l_blackboxHDA)
-        spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_18.addItem(spacerItem4)
+        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_18.addItem(spacerItem3)
         self.chb_blackboxHDA = QtWidgets.QCheckBox(self.w_blackboxHDA)
         self.chb_blackboxHDA.setText("")
         self.chb_blackboxHDA.setObjectName("chb_blackboxHDA")
@@ -219,7 +203,6 @@ class Ui_wg_SaveHDA(object):
         self.l_tasklabel.setText(QtWidgets.QApplication.translate("wg_SaveHDA", "Taskname:", None, -1))
         self.b_changeTask.setText(QtWidgets.QApplication.translate("wg_SaveHDA", "change", None, -1))
         self.l_outPath.setText(QtWidgets.QApplication.translate("wg_SaveHDA", "Outputpath:", None, -1))
-        self.l_saveToExistingHDA.setText(QtWidgets.QApplication.translate("wg_SaveHDA", "Save new definition in existing HDA:", None, -1))
         self.l_projectHDA.setText(QtWidgets.QApplication.translate("wg_SaveHDA", "Save as project HDA:", None, -1))
         self.l_externalReferences.setText(QtWidgets.QApplication.translate("wg_SaveHDA", "Allow external references", None, -1))
         self.l_blackboxHDA.setText(QtWidgets.QApplication.translate("wg_SaveHDA", "Create Blackbox:", None, -1))
