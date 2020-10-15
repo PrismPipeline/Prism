@@ -217,12 +217,6 @@ class Prism_Fusion_Integration(object):
 
     def removeIntegration(self, installPath):
         try:
-            gizmo = os.path.join(installPath, "WritePrism.gizmo")
-
-            for i in [gizmo]:
-                if os.path.exists(i):
-                    os.remove(i)
-
             pFiles = []
             pFiles.append(
                 os.path.join(installPath, "Config", "PrismRenderStartEvent.fu")
