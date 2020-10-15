@@ -69,7 +69,7 @@ class PluginManager(object):
             return
 
         pluginDirs = self.getPluginDirs()
-        self.loadPlugins(directories=pluginDirs)
+        self.loadPlugins(pluginPaths=pluginDirs["pluginPaths"], directories=pluginDirs["searchPaths"])
 
         if self.core.appPlugin.pluginName != "Standalone":
             self.core.maxwait = 20
@@ -85,17 +85,22 @@ class PluginManager(object):
 
     @err_catcher(name=__name__)
     def getPluginDirs(self):
-        pluginDirs = self.core.pluginDirs
+        result = {"pluginPaths": [], "searchPaths": []}
+        result["searchPaths"] = self.core.pluginDirs
         envPluginDirs = os.getenv("PRISM_PLUGIN_PATHS", "").split(os.pathsep)
         if envPluginDirs[0]:
-            pluginDirs += envPluginDirs
-        userPluginDirs = self.core.getConfig(config="PluginPaths", location="user")
-        if userPluginDirs:
-            pluginDirs += userPluginDirs
-        return pluginDirs
+            result["searchPaths"] += envPluginDirs
+        userPluginDirs = self.core.getConfig(config="PluginPaths") or {}
+        if userPluginDirs.get("plugins"):
+            result["pluginPaths"] += [p["path"] for p in userPluginDirs["plugins"]]
+
+        if userPluginDirs.get("searchPaths"):
+            result["searchPaths"] += [p["path"] for p in userPluginDirs["searchPaths"]]
+
+        return result
 
     @err_catcher(name=__name__)
-    def getPluginPath(self, location="root", pluginType="custom", path="", pluginName=""):
+    def getPluginPath(self, location="root", pluginType="", path="", pluginName=""):
         if location == "root":
             pluginPath = os.path.abspath(
                 os.path.join(__file__, os.pardir, os.pardir, os.pardir, "Plugins")
@@ -108,7 +113,7 @@ class PluginManager(object):
         elif location == "custom":
             pluginPath = path
 
-        if location != "custom":
+        if location != "custom" and pluginType:
             if pluginType == "App":
                 dirName = "Apps"
             elif pluginType == "Custom":
@@ -220,7 +225,7 @@ class PluginManager(object):
         return self.loadPlugin(path)
 
     @err_catcher(name=__name__)
-    def loadPlugin(self, path, force=True):
+    def loadPlugin(self, path, force=True, activate=None):
         if not path:
             logger.debug("invalid pluginpath: \"%s\"" % path)
             return
@@ -262,6 +267,9 @@ class PluginManager(object):
                 logger.debug("pluginpath doesn't exist: %s" % path)
                 return
 
+            if activate:
+                return self.activatePlugin(path)
+
             self.core.inactivePlugins[pluginName] = pluginPath
             logger.debug("skipped loading plugin %s - plugin is set as inactive in the preferences" % pluginName)
             return
@@ -273,7 +281,7 @@ class PluginManager(object):
             os.path.exists(initPath)
             or os.path.exists(initPath.replace("_init", "_init_unloaded"))
         ):
-            logger.debug("skipped loading plugin %s - plugin has no init script" % pluginName)
+            logger.warning("skipped loading plugin %s - plugin has no init script" % pluginName)
             return
 
         sys.path.append(os.path.dirname(initPath))
@@ -311,14 +319,16 @@ class PluginManager(object):
 
         if pPlug.pluginType in ["App"]:
             self.core.unloadedAppPlugins[pPlug.pluginName] = pPlug
-        elif pPlug.pluginType in ["Custom"]:
-            if pPlug.isActive():
+        else:
+            if not pPlug.isActive():
+                logger.warning("plugin \"%s\" is inactive" % pPlug.pluginName)
+                return
+
+            if pPlug.pluginType in ["Custom"]:
                 self.core.customPlugins[pPlug.pluginName] = pPlug
-        elif pPlug.pluginType in ["RenderfarmManager"]:
-            if pPlug.isActive():
+            elif pPlug.pluginType in ["RenderfarmManager"]:
                 self.core.rfManagers[pPlug.pluginName] = pPlug
-        elif pPlug.pluginType in ["ProjectManager"]:
-            if pPlug.isActive():
+            elif pPlug.pluginType in ["ProjectManager"]:
                 self.core.prjManagers[pPlug.pluginName] = pPlug
 
         logger.debug("loaded plugin %s" % pPlug.pluginName)
@@ -554,3 +564,22 @@ class PluginManager(object):
 
         self.core.openFolder(scriptPath)
         return targetPath
+
+    @err_catcher(name=__name__)
+    def addToPluginConfig(self, pluginPath=None, searchPath=None):
+        userPluginConfig = self.core.getConfig(config="PluginPaths") or {}
+        if "plugins" not in userPluginConfig:
+            userPluginConfig["plugins"] = []
+
+        if "searchPaths" not in userPluginConfig:
+            userPluginConfig["searchPaths"] = []
+
+        if pluginPath:
+            pluginData = {"path": pluginPath}
+            userPluginConfig["plugins"].append(pluginData)
+
+        if searchPath:
+            pathData = {"path": searchPath}
+            userPluginConfig["searchPaths"].append(pathData)
+
+        self.core.setConfig(data=userPluginConfig, config="PluginPaths")

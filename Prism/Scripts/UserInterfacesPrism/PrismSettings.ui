@@ -897,6 +897,16 @@
              </property>
              <layout class="QHBoxLayout" name="horizontalLayout_8">
               <item>
+               <widget class="QPushButton" name="b_loadPlugin">
+                <property name="contextMenuPolicy">
+                 <enum>Qt::CustomContextMenu</enum>
+                </property>
+                <property name="text">
+                 <string>Load Plugin...</string>
+                </property>
+               </widget>
+              </item>
+              <item>
                <widget class="QPushButton" name="b_reloadPlugins">
                 <property name="text">
                  <string>Reload all plugins</string>
@@ -906,7 +916,7 @@
               <item>
                <widget class="QPushButton" name="b_createPlugin">
                 <property name="text">
-                 <string>Create new plugin</string>
+                 <string>Create new plugin...</string>
                 </property>
                </widget>
               </item>

@@ -57,7 +57,11 @@ class Lockfile(object):
                 self.isLocked = True
                 break
             except OSError as e:
-                if e.errno != errno.EEXIST:
+                if e.errno == errno.EACCES:
+                    msg = "Permission denied to create file:\n\n%s" % self.lockPath
+                    self.core.popup(msg)
+                    raise LockfileException(msg)
+                elif e.errno != errno.EEXIST:
                     raise
                 elif time.time() - startTime >= self.timeout:
                     msg = "This config seems to be in use by another process:\n\n%s\n\nForcing to write to this file while another process is writing to it could result in data loss.\n\nDo you want to force writing to this file?" % self.fileName

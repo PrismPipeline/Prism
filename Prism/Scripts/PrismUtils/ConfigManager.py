@@ -82,6 +82,12 @@ class ConfigManager(object):
             return self.generateConfigPath(name=config, location=location)
 
     @err_catcher(name=__name__)
+    def getProjectConfigPath(self, projectPath=None):
+        projectPath = projectPath or self.core.prismIni
+        configPath = os.path.join(projectPath, "00_Pipeline", "pipeline.yml")
+        return configPath
+
+    @err_catcher(name=__name__)
     def clearCache(self):
         self.cachedConfigs = {}
 
@@ -511,7 +517,8 @@ You will need to set your last project again, but no project files (like scenefi
         return folder
 
     @err_catcher(name=__name__)
-    def generateConfigPath(self, name, location="user"):
+    def generateConfigPath(self, name, location=None):
+        location = location or "user"
         if location == "user":
             base = self.getUserConfigDir()
         elif location == "project":

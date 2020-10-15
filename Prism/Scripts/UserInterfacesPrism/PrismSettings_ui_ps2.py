@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'PrismSettings.ui',
 # licensing of 'PrismSettings.ui' applies.
 #
-# Created: Sat Jul 25 01:28:42 2020
+# Created: Thu Oct 15 13:19:53 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -341,6 +341,10 @@ class Ui_dlg_PrismSettings(object):
         self.horizontalLayout_8 = QtWidgets.QHBoxLayout(self.widget_4)
         self.horizontalLayout_8.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_8.setObjectName("horizontalLayout_8")
+        self.b_loadPlugin = QtWidgets.QPushButton(self.widget_4)
+        self.b_loadPlugin.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.b_loadPlugin.setObjectName("b_loadPlugin")
+        self.horizontalLayout_8.addWidget(self.b_loadPlugin)
         self.b_reloadPlugins = QtWidgets.QPushButton(self.widget_4)
         self.b_reloadPlugins.setObjectName("b_reloadPlugins")
         self.horizontalLayout_8.addWidget(self.b_reloadPlugins)
@@ -518,8 +522,9 @@ class Ui_dlg_PrismSettings(object):
         self.tw_settings.setTabText(self.tw_settings.indexOf(self.tab), QtWidgets.QApplication.translate("dlg_PrismSettings", "Project Settings", None, -1))
         self.tw_settings.setTabText(self.tw_settings.indexOf(self.tab_dccApps), QtWidgets.QApplication.translate("dlg_PrismSettings", "DCC apps", None, -1))
         self.label_3.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Loaded Plugins:", None, -1))
+        self.b_loadPlugin.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Load Plugin...", None, -1))
         self.b_reloadPlugins.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Reload all plugins", None, -1))
-        self.b_createPlugin.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Create new plugin", None, -1))
+        self.b_createPlugin.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Create new plugin...", None, -1))
         self.tw_settings.setTabText(self.tw_settings.indexOf(self.tab_Plugins), QtWidgets.QApplication.translate("dlg_PrismSettings", "Plugins", None, -1))
         self.groupBox_4.setTitle(QtWidgets.QApplication.translate("dlg_PrismSettings", "Miscellaneous", None, -1))
         self.chb_autosave.setText(QtWidgets.QApplication.translate("dlg_PrismSettings", "Autosave popup", None, -1))

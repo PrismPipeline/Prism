@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'SetProject.ui',
 # licensing of 'SetProject.ui' applies.
 #
-# Created: Thu Oct  1 15:52:32 2020
+# Created: Wed Oct 14 11:26:38 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!

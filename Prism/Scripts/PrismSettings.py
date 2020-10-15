@@ -184,6 +184,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             lambda: self.core.openFolder(self.e_djvPath.text())
         )
         self.tw_plugins.customContextMenuRequested.connect(self.rclPluginList)
+        self.b_loadPlugin.clicked.connect(self.loadExternalPlugin)
+        self.b_loadPlugin.customContextMenuRequested.connect(self.rclLoadPlugin)
         self.b_reloadPlugins.clicked.connect(self.reloadPlugins)
         self.b_createPlugin.clicked.connect(self.createPluginWindow)
         self.buttonBox.accepted.connect(self.saveSettings)
@@ -280,6 +282,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         getattr(self.core.appPlugin, "setRCStyle", lambda x, y: None)(self, rcmenu)
 
         rcmenu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def rclLoadPlugin(self, pos=None):
+        menu = QMenu(self)
+        act_addPath = menu.addAction("Add plugin searchpath...", self.addPluginSearchpath)
+        menu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
     def integrationAdd(self, prog):
@@ -391,7 +399,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.core.setConfig(data=cData, configPath=self.core.prismIni)
             self.core.useLocalFiles = self.chb_curPuseLocal.isChecked()
             if changeProject:
-                self.core.changeProject(self.core.prismIni)
+                self.core.changeProject(self.core.prismIni, settingsTab=self.tw_settings.currentIndex())
 
         if platform.system() == "Windows":
             trayStartup = os.path.join(
@@ -955,6 +963,34 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
+    def loadExternalPlugin(self):
+        startPath = (
+            getattr(self, "externalPluginStartPath", None)
+            or self.core.plugins.getPluginPath(location="root")
+        )
+        selectedPath = QFileDialog.getExistingDirectory(
+            self, "Select plugin folder", startPath
+        )
+
+        if not selectedPath:
+            return
+
+        result = self.core.plugins.loadPlugin(selectedPath, activate=True)
+        selectedParent = os.path.dirname(selectedPath)
+        if not result:
+            self.externalPluginStartPath = selectedParent
+            self.core.popup("Couldn't load plugin")
+            return
+
+        self.core.plugins.addToPluginConfig(selectedPath)
+
+        if os.path.exists(self.core.prismIni):
+            self.core.changeProject(self.core.prismIni)
+
+        self.core.ps.externalPluginStartPath = selectedParent
+        self.core.ps.tw_settings.setCurrentIndex(5)
+
+    @err_catcher(name=__name__)
     def reloadPlugins(self, plugins=None, selected=False):
         if plugins is None and selected:
             plugins = []
@@ -998,10 +1034,39 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     def createPlugin(self, pluginName, pluginType, location, path=""):
         pluginPath = self.core.createPlugin(pluginName, pluginType, location=location, path=path)
         self.core.plugins.loadPlugin(pluginPath)
+        if pluginType == "Custom":
+            self.core.plugins.addToPluginConfig(pluginPath)
 
         if os.path.exists(self.core.prismIni):
             self.core.changeProject(self.core.prismIni)
 
+        self.core.ps.tw_settings.setCurrentIndex(5)
+
+    @err_catcher(name=__name__)
+    def addPluginSearchpath(self):
+        startPath = (
+            getattr(self, "externalPluginStartPath", None)
+            or self.core.plugins.getPluginPath(location="root")
+        )
+        selectedPath = QFileDialog.getExistingDirectory(
+            self, "Select plugin searchpath", startPath
+        )
+
+        if not selectedPath:
+            return
+
+        self.core.plugins.addToPluginConfig(searchPath=selectedPath)
+        result = self.core.plugins.loadPlugins(directory=selectedPath)
+        selectedParent = os.path.dirname(selectedPath)
+        if not result:
+            self.externalPluginStartPath = selectedParent
+            self.core.popup("No plugins found in searchpath.")
+            return
+
+        if os.path.exists(self.core.prismIni):
+            self.core.changeProject(self.core.prismIni)
+
+        self.core.ps.externalPluginStartPath = selectedParent
         self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
@@ -1011,9 +1076,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 continue
 
             pluginPath = i.data(Qt.UserRole)
-            pluginName = self.core.plugins.getPluginNameFromPath(pluginPath)
-            plugin = self.core.plugins.getPlugin(pluginName)
-            self.core.openFolder(plugin.pluginPath)
+            self.core.openFolder(pluginPath)
 
     @err_catcher(name=__name__)
     def cmenu_update(self, event):
@@ -1089,11 +1152,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             pythonPath = os.path.join(self.core.prismLibs, "Python37", "Prism Tray.exe")
             for i in [slavePath, pythonPath]:
                 if not os.path.exists(i):
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Script missing",
-                        "%s does not exist." % os.path.basename(i),
-                    )
+                    msg = "%s does not exist." % os.path.basename(i)
+                    self.core.popup(msg, title="Script missing")
                     return None
 
             command = ["%s" % pythonPath, "%s" % slavePath]

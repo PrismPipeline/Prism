@@ -142,12 +142,26 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
             return
 
         hou.hda.installFile(impFileName, force_use_assets=True)
+        defs = hou.hda.definitionsInFile(impFileName)
+        for definition in defs:
+            self.changeAssetDefinitionVersions(definition)
 
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
         return True
+
+    @err_catcher(name=__name__)
+    def changeAssetDefinitionVersions(self, definition):
+        namespaceOrder = definition.nodeType().namespaceOrder()
+        for namespace in namespaceOrder:
+            if namespace == definition.nodeTypeName():
+                continue
+
+            nodeType = hou.nodeType(definition.nodeTypeCategory(), namespace)
+            for instance in nodeType.instances():
+                instance.changeNodeType(definition.nodeType().name())
 
     @err_catcher(name=__name__)
     def validateFilepath(self, path):
