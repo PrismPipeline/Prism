@@ -1,3 +1,10 @@
+v1.3.0.36:
+- installing a new version of an HDA with the InstallHDA state will change all instances in the scene to this version
+- added the option load Prism plugins from external locations to the Prism Settings window
+- added the option to add external Prism plugin search paths by right clicking on the "Load Plugin" button in the Prism Settings
+- fixed an error when trying to open an unloaded plugin from the Prism Settings window in the file explorer
+- fixed an error when Prism tries to write to a config without write permissions
+
 v1.3.0.35:
 - added namespace for HDAs, which can be changed using the "houdini - assetNamespace" setting in the project config
 - removed the "Save new definition in existing HDA" settings from the Save HDA state
