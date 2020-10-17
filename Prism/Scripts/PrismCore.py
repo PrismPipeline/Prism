@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.36"
+            self.version = "v1.3.0.37"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -962,6 +962,8 @@ License: GNU GPL-3.0-or-later<br>
                     return False
 
             self.pb = ProjectBrowser.ProjectBrowser(core=self)
+        else:
+            self.pb.refreshUI()
 
         if openUi:
             self.pb.show()
@@ -1328,16 +1330,11 @@ License: GNU GPL-3.0-or-later<br>
         return resolver.resolvePath(uri, uriType)
 
     @err_catcher(name=__name__)
-    def getScenePath(self, location="global", cached=True):
+    def getScenePath(self, location="global"):
         if not getattr(self, "projectPath", None):
             return ""
 
         sceneName = None
-        self._sceneName = None
-        self._scenePath = None
-
-        if cached:
-            sceneName = getattr(self, "_sceneName", "")
 
         if not sceneName:
             sceneName = self.getConfig("paths", "scenes", configPath=self.prismIni)
@@ -1345,21 +1342,19 @@ License: GNU GPL-3.0-or-later<br>
                 self.core.popup("Required setting \"paths - scenes\" is missing in the project config.\n\nSet this setting to the scenefoldername in this config to solve this issue:\n\n%s" % self.prismIni)
                 return ""
 
-        self._sceneName = sceneName
-
         if location == "global":
             prjPath = self.projectPath
         elif location == "local":
             prjPath = self.localProjectPath
         else:
             prjPath = self.getExportPaths().get(location, "")
-        scenePath = os.path.normpath(os.path.join(prjPath, self._sceneName))
-        self._scenePath = scenePath
+        scenePath = os.path.normpath(os.path.join(prjPath, sceneName))
+
         return scenePath
 
     @property
     def scenePath(self):
-        if not hasattr(self, "_scenePath"):
+        if not getattr(self, "_scenePath", None):
             self._scenePath = self.getScenePath()
 
         return self._scenePath
@@ -1372,12 +1367,11 @@ License: GNU GPL-3.0-or-later<br>
             path = os.path.join(sceneFolder, "Assets")
             path = os.path.normpath(path)
 
-        self._assetPath = path
         return path
 
     @property
     def assetPath(self):
-        if not hasattr(self, "_assetPath"):
+        if not getattr(self, "_assetPath", None):
             self._assetPath = self.getAssetPath()
 
         return self._assetPath
@@ -1390,12 +1384,11 @@ License: GNU GPL-3.0-or-later<br>
             path = os.path.join(sceneFolder, "Shots")
             path = os.path.normpath(path)
 
-        self._shotPath = path
         return path
 
     @property
     def shotPath(self):
-        if not hasattr(self, "_shotPath"):
+        if not getattr(self, "_shotPath", None):
             self._shotPath = self.getShotPath()
 
         return self._shotPath
@@ -1427,12 +1420,11 @@ License: GNU GPL-3.0-or-later<br>
             path = os.path.join(assetFolder, "Textures")
             path = os.path.normpath(path)
 
-        self._texturePath = path
         return path
 
     @property
     def texturePath(self):
-        if not hasattr(self, "_texturePath"):
+        if not getattr(self, "_texturePath", None):
             self._texturePath = self.getTexturePath()
 
         return self._texturePath

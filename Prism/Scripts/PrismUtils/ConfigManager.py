@@ -58,6 +58,7 @@ class ConfigManager(object):
     def __init__(self, core):
         self.core = core
         self.cachedConfigs = {}
+        self.preferredExtension = ".yml"
 
         dprConfig = os.path.splitext(self.core.userini)[0] + ".ini"
         if not os.path.exists(self.core.userini) and os.path.exists(dprConfig):
@@ -88,8 +89,12 @@ class ConfigManager(object):
         return configPath
 
     @err_catcher(name=__name__)
-    def clearCache(self):
-        self.cachedConfigs = {}
+    def clearCache(self, path=None):
+        if path:
+            path = os.path.normpath(path)
+            self.cachedConfigs.pop(path, None)
+        else:
+            self.cachedConfigs = {}
 
     @err_catcher(name=__name__)
     def createUserPrefs(self):

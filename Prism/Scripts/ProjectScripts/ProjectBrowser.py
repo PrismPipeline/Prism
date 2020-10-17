@@ -431,6 +431,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             pass
 
     @err_catcher(name=__name__)
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_F5:
+            self.refreshUI()
+
+    @err_catcher(name=__name__)
     def loadLayout(self):
         self.helpMenu = QMenu("Help")
 
@@ -905,16 +910,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.refreshShots()
         elif curTab == "Recent":
             self.setRecent()
-            self.setEnabled(True)
-            return
-        else:
-            self.setEnabled(True)
-            return
 
+        self.core.callback(name="onProjectBrowserRefreshUI", args=[self])
         self.setEnabled(True)
 
-        self.navigate(data=navData)
-        self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
+        if curTab in ["Assets", "Shots"]:
+            self.navigate(data=navData)
+            self.showRender(curData[0], curData[1], curData[2], curData[3], curData[4])
 
     @err_catcher(name=__name__)
     def mousedb(self, event, tab, uielement):
@@ -2143,7 +2145,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.refreshAssets()
         self.tw_aHierarchy.resizeColumnToContents(0)
 
-        if self.tw_aHierarchy.topLevelItemCount() > 0:
+        if self.tw_aHierarchy.topLevelItemCount() > 0 and not self.e_assetSearch.isVisible():
             self.tw_aHierarchy.setCurrentItem(self.tw_aHierarchy.topLevelItem(0))
         else:
             self.curAsset = None
@@ -3636,18 +3638,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.lw_version.clear()
 
         if len(self.lw_task.selectedItems()) == 1:
-            foldercont = self.core.products.getMediaVersions(basepath=self.renderBasePath, product=self.curRTask)
-            foldercont.sort()
-            for i in reversed(foldercont):
-                item = QListWidgetItem(i)
+            versions = self.core.products.getMediaVersions(basepath=self.renderBasePath, product=self.curRTask)
+            for version in sorted(versions, key=lambda x: x["label"], reverse=True):
+                item = QListWidgetItem(version["label"])
+                item.setData(Qt.UserRole, version["path"])
                 versionInfoPath = self.getVersionInfoPath()
                 vData = self.core.getConfig("information", configPath=versionInfoPath)
                 if vData:
                     prjMngNames = [
                         [x, x.lower() + "-url"] for x in self.core.prjManagers
                     ]
-                    for i in prjMngNames:
-                        if i[1] in vData:
+                    for prjMngName in prjMngNames:
+                        if prjMngName[1] in vData:
                             f = item.font()
                             f.setBold(True)
                             item.setFont(f)
@@ -4528,11 +4530,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 product=itemName,
             )[0]
         elif lw == self.lw_version:
-            path = mediaPlayback["getMediaBaseFolder"](
-                basepath=self.renderBasePath,
-                product=self.curRTask,
-                version=itemName,
-            )[0]
+            path = item.data(Qt.UserRole)
 
         rcmenu = QMenu()
 
@@ -4870,11 +4868,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 versions = self.core.products.getMediaVersions(basepath=self.renderBasePath, product=i.text())
 
                 if len(versions) > 0:
-                    versions.sort()
-                    versions = versions[::-1]
+                    versions = sorted(versions, key=lambda x: x["label"], reverse=True)
 
-                    render["version"] = versions[0]
-                    layers = self.core.products.getRenderLayers(self.renderBasePath, i.text(), versions[0])
+                    render["version"] = versions[0]["label"]
+                    layers = self.core.products.getRenderLayers(self.renderBasePath, i.text(), versions[0]["label"])
 
                     if len(layers) > 0:
                         if "beauty" in layers:

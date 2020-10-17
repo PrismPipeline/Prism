@@ -268,10 +268,10 @@ class Projects(object):
         self.core.versionFormatVan = self.core.getConfig("globals", "versionFormat", dft=self.core.versionFormatVan, configPath=configPath)
         self.core.versionFormat = self.core.versionFormatVan.replace("#", "%0{}d".format(self.core.versionPadding))
 
-        self.core.getScenePath(cached=False)
-        self.core.getShotPath()
-        self.core.getAssetPath()
-        self.core.getTexturePath()
+        self.core._scenePath = None
+        self.core._shotPath = None
+        self.core._assetPath = None
+        self.core._texturePath = None
 
         logger.debug("Loaded project " + self.core.projectPath)
 

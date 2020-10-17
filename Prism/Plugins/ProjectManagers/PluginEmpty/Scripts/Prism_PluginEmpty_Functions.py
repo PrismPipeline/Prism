@@ -57,10 +57,7 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def isActive(self):
-        if pVersion == 2:
-            return True
-
-        return False
+        return True
 
     @err_catcher(name=__name__)
     def onProjectChanged(self, origin):

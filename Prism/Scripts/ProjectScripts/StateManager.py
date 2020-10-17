@@ -1828,6 +1828,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
             if "error" in i["result"][0]:
                 success = False
 
+        try:
+            self.core.pb.refreshUI()
+        except:
+            pass
+
         if success:
             msgStr = "The %s was successful." % actionString2
             self.core.popup(msgStr, title=actionString, severity="info")
