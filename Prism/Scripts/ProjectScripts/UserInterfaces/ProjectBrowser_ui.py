@@ -694,7 +694,7 @@ class Ui_mw_ProjectBrowser(object):
     def retranslateUi(self, mw_ProjectBrowser):
         mw_ProjectBrowser.setWindowTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "ProjectBrowser", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aHierarchy.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Assets:", None, QtGui.QApplication.UnicodeUTF8))
-        self.e_assetSearch.setPlaceholderText(QtGui.QApplication.translate("mw_ProjectBrowser", "Seach...", None, QtGui.QApplication.UnicodeUTF8))
+        self.e_assetSearch.setPlaceholderText(QtGui.QApplication.translate("mw_ProjectBrowser", "Search...", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aStep.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Steps:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aCategory.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Categories:", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_assetInfo.setTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "Assetinfo", None, QtGui.QApplication.UnicodeUTF8))
