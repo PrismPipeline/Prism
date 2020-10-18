@@ -1,3 +1,7 @@
+v1.3.0.38:
+- changed the import state coloring in Houdini
+- fixed a bug in the Create Project dialog that setting the type for one row was changing the type in another row in some cases
+
 v1.3.0.37:
 - added the shortcut "F5" to refresh the Project Browser
 - the Project Browser gets refreshed now when opening it more than once in a session

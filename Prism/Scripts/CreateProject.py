@@ -181,18 +181,15 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
                 existingTypes.append(rType)
 
             typeMenu = QMenu()
-            pos = self.tw_dirStruct.mapFromGlobal(QCursor.pos())
-            pos.setY(pos.y() - 23)
-            idx = self.tw_dirStruct.indexAt(pos)
 
             for i in ["Scenes*", "Assets*", "Dailies"]:
                 if i not in existingTypes:
                     cAct = QAction(i, self)
-                    cAct.triggered.connect(lambda y=None, x=i: model.setData(idx, x))
+                    cAct.triggered.connect(lambda y=None, x=i: model.setData(index, x))
                     typeMenu.addAction(cAct)
 
             cAct = QAction("Default", self)
-            cAct.triggered.connect(lambda: model.setData(idx, "Default"))
+            cAct.triggered.connect(lambda: model.setData(index, "Default"))
             typeMenu.addAction(cAct)
             self.core.appPlugin.setRCStyle(self, typeMenu)
 

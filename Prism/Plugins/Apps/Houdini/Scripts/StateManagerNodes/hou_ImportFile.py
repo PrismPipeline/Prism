@@ -758,15 +758,15 @@ class ImportFileClass(object):
     @err_catcher(name=__name__)
     def setStateColor(self, status):
         if status == "ok":
-            brush = QBrush(QColor(0, 130, 0))
+            statusColor = QColor(0, 130, 0)
         elif status == "warning":
-            brush = QBrush(QColor(150, 80, 0))
+            statusColor = QColor(150, 80, 0)
         elif status == "error":
-            brush = QBrush(QColor(130, 0, 0))
+            statusColor = QColor(130, 0, 0)
         else:
-            brush = QBrush(QColor(0, 0, 0, 0))
+            statusColor = QColor(0, 0, 0, 0)
 
-        self.state.setBackground(0, brush)
+        self.statusColor = statusColor
 
     @err_catcher(name=__name__)
     def updateUi(self):
