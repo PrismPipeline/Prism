@@ -122,7 +122,7 @@
                <item>
                 <widget class="QLineEdit" name="e_assetSearch">
                  <property name="placeholderText">
-                  <string>Seach...</string>
+                  <string>Search...</string>
                  </property>
                 </widget>
                </item>
