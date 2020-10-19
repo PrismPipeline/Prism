@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.38"
+            self.version = "v1.3.0.39"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -2230,9 +2230,15 @@ License: GNU GPL-3.0-or-later<br>
             self.icon = icon
 
         def __enter__(self):
-            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon)
+            self.show()
 
         def __exit__(self, type, value, traceback):
+            self.close()
+
+        def show(self):
+            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon)
+
+        def close(self):
             if self.msg and self.msg.isVisible():
                 self.msg.close()
 

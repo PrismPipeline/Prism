@@ -1,3 +1,8 @@
+v1.3.0.39:
+- added "Expand all" and "Collapse all" options to the context menu of the assetlist and shotlist in the Project Browser
+- clicking the expand indicator in the assethierarchy list in the Project Browser expands/collapses all childitems now
+- changed the outputformat of the prismTmpCache node in Houdini from .bgeo to .bgeo.sc
+
 v1.3.0.38:
 - changed the import state coloring in Houdini
 - fixed a bug in the Create Project dialog that setting the type for one row was changing the type in another row in some cases

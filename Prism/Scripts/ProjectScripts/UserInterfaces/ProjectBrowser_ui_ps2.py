@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'ProjectBrowser.ui',
 # licensing of 'ProjectBrowser.ui' applies.
 #
-# Created: Thu Oct  8 15:39:23 2020
+# Created: Mon Oct 19 15:28:36 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -695,7 +695,7 @@ class Ui_mw_ProjectBrowser(object):
     def retranslateUi(self, mw_ProjectBrowser):
         mw_ProjectBrowser.setWindowTitle(QtWidgets.QApplication.translate("mw_ProjectBrowser", "ProjectBrowser", None, -1))
         self.l_aHierarchy.setText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Assets:", None, -1))
-        self.e_assetSearch.setPlaceholderText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Seach...", None, -1))
+        self.e_assetSearch.setPlaceholderText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Search...", None, -1))
         self.l_aStep.setText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Steps:", None, -1))
         self.l_aCategory.setText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Categories:", None, -1))
         self.gb_assetInfo.setTitle(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Assetinfo", None, -1))

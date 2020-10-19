@@ -58,7 +58,7 @@ class Callbacks(object):
         self.callbackNum = 0
 
     @err_catcher(name=__name__)
-    def registerCallback(self, callbackName, function, priority=50):
+    def registerCallback(self, callbackName, function, priority=50, plugin=None):
         if callbackName not in self.registeredCallbacks:
             self.registeredCallbacks[callbackName] = []
 
@@ -68,6 +68,7 @@ class Callbacks(object):
             "callbackName": callbackName,
             "priority": priority,
             "id": self.callbackNum,
+            "plugin": plugin,
         }
         self.registeredCallbacks[callbackName].append(cbDict)
         self.registeredCallbacks[callbackName] = sorted(self.registeredCallbacks[callbackName], key=lambda x: int(x["priority"]), reverse=True)
@@ -131,6 +132,7 @@ class Callbacks(object):
 
         if name in self.registeredCallbacks:
             for cb in self.registeredCallbacks[name]:
+                self.currentCallback["plugin"] = getattr(cb["plugin"], "pluginName", "")
                 res = cb["function"](*args, **kwargs)
                 result.append(res)
 

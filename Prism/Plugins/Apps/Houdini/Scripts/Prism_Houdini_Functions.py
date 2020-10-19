@@ -640,7 +640,7 @@ class Prism_Houdini_Functions(object):
         if not os.path.exists(outputPath):
             os.makedirs(outputPath)
 
-        outputFile = "%s_%s.$F4.bgeo" % (sceneBase, ropNode.name())
+        outputFile = "%s_%s.$F4.bgeo.sc" % (sceneBase, ropNode.name())
 
         outputStr = os.path.join(outputPath, outputFile)
         if not self.setNodeParm(ropNode, "outputpath", outputStr):

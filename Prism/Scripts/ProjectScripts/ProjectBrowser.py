@@ -1471,12 +1471,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     editAct.triggered.connect(lambda: self.editShot(iname))
                     rcmenu.addAction(editAct)
 
-                    for i in self.core.prjManagers.values():
-                        prjMngMenu = i.pbBrowser_getShotMenu(self, iname)
-                        if prjMngMenu is not None:
-                            prjMngMenus.append(prjMngMenu)
+                    args = [self, iname]
+                    cmenu = self.core.callback(name="projectBrowser_getShotMenu", args=args)
+                    if cmenu:
+                        prjMngMenus += cmenu
 
-                    oAct = QAction("Omit Shot", self)
+                    oAct = QAction("Omit shot", self)
                     oAct.triggered.connect(lambda: self.omitEntity("shot", self.cursShots))
                     addOmit = True
             dirPath = dirPath or os.path.join(path, iname)
@@ -1490,7 +1490,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 dirPath = dirPath.replace(
                     self.core.projectPath, self.core.localProjectPath
                 )
-            openex = QAction("Open in Explorer", self)
+            openex = QAction("Open in explorer", self)
             openex.triggered.connect(lambda: self.core.openFolder(dirPath))
             rcmenu.addAction(openex)
             copAct = QAction("Copy path", self)
@@ -1508,12 +1508,24 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 cat = QAction("Create " + typename, self)
                 cat.triggered.connect(lambda: self.createCatWin(tab, typename))
                 rcmenu.addAction(cat)
-            openex = QAction("Open in Explorer", self)
+            openex = QAction("Open in explorer", self)
             openex.triggered.connect(lambda: self.core.openFolder(path))
             rcmenu.addAction(openex)
             copAct = QAction("Copy path", self)
             copAct.triggered.connect(lambda: self.core.copyToClipboard(path))
             rcmenu.addAction(copAct)
+
+        if tab in ["ah", "ss"]:
+            if tab == "ah":
+                widget = self.tw_aHierarchy
+            elif tab == "ss":
+                widget = self.tw_sShot
+            expAct = QAction("Expand all", self)
+            expAct.triggered.connect(lambda x=None, tw=widget: self.setWidgetItemsExpanded(tw))
+            clpAct = QAction("Collapse all", self)
+            clpAct.triggered.connect(lambda x=None, tw=widget: self.setWidgetItemsExpanded(tw, expanded=False))
+            rcmenu.insertAction(openex, expAct)
+            rcmenu.insertAction(openex, clpAct)
 
         self.core.appPlugin.setRCStyle(self, rcmenu)
 
@@ -2228,6 +2240,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         ):
             self.aExpanded.append(item.text(1))
 
+        mods = QApplication.keyboardModifiers()
+        if mods == Qt.ControlModifier:
+            self.setItemChildrenExpanded(item)
+
         for childnum in range(item.childCount()):
             self.refreshAItem(item.child(childnum))
 
@@ -2236,6 +2252,22 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.adclick = False
         if item.text(1) in self.aExpanded:
             self.aExpanded.remove(item.text(1))
+
+        mods = QApplication.keyboardModifiers()
+        if mods == Qt.ControlModifier:
+            self.setItemChildrenExpanded(item, expanded=False)
+
+    @err_catcher(name=__name__)
+    def setWidgetItemsExpanded(self, widget, expanded=True):
+        for idx in range(widget.topLevelItemCount()):
+            item = widget.topLevelItem(idx)
+            item.setExpanded(expanded)
+            self.setItemChildrenExpanded(item, expanded=expanded, recursive=True)
+
+    @err_catcher(name=__name__)
+    def setItemChildrenExpanded(self, item, expanded=True, recursive=False):
+        for childIdx in range(item.childCount()):
+            item.child(childIdx).setExpanded(expanded)
 
     @err_catcher(name=__name__)
     def refreshAStep(self, cur=None, prev=None):
@@ -4377,7 +4409,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     def setPreview(self):
         if self.tbw_browser.currentWidget().property("tabType") == "Assets":
             folderName = "Assetinfo"
-            entityName = self.curAsset
+            entityName = self.core.entities.getAssetNameFromPath(self.curAsset)
             refresh = self.refreshAssetinfo
         else:
             folderName = "Shotinfo"

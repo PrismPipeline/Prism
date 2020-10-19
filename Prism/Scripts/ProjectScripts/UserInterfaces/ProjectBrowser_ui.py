@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ProjectBrowser.ui'
 #
-# Created: Thu Oct  8 15:39:23 2020
+# Created: Mon Oct 19 15:28:35 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -694,7 +694,7 @@ class Ui_mw_ProjectBrowser(object):
     def retranslateUi(self, mw_ProjectBrowser):
         mw_ProjectBrowser.setWindowTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "ProjectBrowser", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aHierarchy.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Assets:", None, QtGui.QApplication.UnicodeUTF8))
-        self.e_assetSearch.setPlaceholderText(QtGui.QApplication.translate("mw_ProjectBrowser", "Seach...", None, QtGui.QApplication.UnicodeUTF8))
+        self.e_assetSearch.setPlaceholderText(QtGui.QApplication.translate("mw_ProjectBrowser", "Search...", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aStep.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Steps:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_aCategory.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Categories:", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_assetInfo.setTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "Assetinfo", None, QtGui.QApplication.UnicodeUTF8))
