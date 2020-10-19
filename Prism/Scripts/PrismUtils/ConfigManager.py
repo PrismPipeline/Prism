@@ -79,6 +79,10 @@ class ConfigManager(object):
             return os.path.join(
                 os.path.dirname(self.core.prismIni), "Shotinfo", "shotInfo.yml"
             )
+        elif config == "assetinfo":
+            return os.path.join(
+                os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml"
+            )
         else:
             return self.generateConfigPath(name=config, location=location)
 
