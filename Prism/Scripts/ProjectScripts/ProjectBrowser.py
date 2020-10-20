@@ -2945,10 +2945,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if sName != "no sequence":
                 sequs.append(sName)
 
-        if not shotName:
-            shotName, seqName = self.core.entities.splitShotname(self.cursShots)
-            shotName = seqName + self.core.sequenceSeparator
-
         try:
             del sys.modules["EditShot"]
         except:
