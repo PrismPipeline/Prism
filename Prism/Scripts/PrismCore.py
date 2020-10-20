@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.39"
+            self.version = "v1.3.0.40"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1638,6 +1638,29 @@ License: GNU GPL-3.0-or-later<br>
         )
 
     @err_catcher(name=__name__)
+    def getScenefilePaths(self, scenePath):
+        paths = [scenePath]
+        infoPath = os.path.splitext(scenePath)[0] + "versioninfo.yml"
+        prvPath = os.path.splitext(scenePath)[0] + "preview.jpg"
+
+        if os.path.exists(infoPath):
+            paths.append(infoPath)
+        if os.path.exists(prvPath):
+            paths.append(prvPath)
+
+        self.callback("getScenefilePaths")
+
+        ext = os.path.splitext(scenePath)[1]
+        if ext in self.appPlugin.sceneFormats:
+            paths += getattr(self.appPlugin, "getScenefilePaths", lambda x: [])(scenePath)
+        else:
+            for i in self.unloadedAppPlugins.values():
+                if ext in i.sceneFormats:
+                    paths += getattr(i, "getScenefilePaths", lambda x: [])(scenePath)
+
+        return paths
+
+    @err_catcher(name=__name__)
     def copySceneFile(self, origFile, targetFile, mode="copy"):
         origFile = self.fixPath(origFile)
         targetFile = self.fixPath(targetFile)
@@ -2197,7 +2220,7 @@ License: GNU GPL-3.0-or-later<br>
         return result
 
     @err_catcher(name=__name__)
-    def popupNoButton(self, text, title=None, buttons=None, default=None, icon=None):
+    def popupNoButton(self, text, title=None, buttons=None, default=None, icon=None, parent=None):
         text = str(text)
         title = str(title or "Prism")
 
@@ -2211,7 +2234,12 @@ License: GNU GPL-3.0-or-later<br>
             text,
             QMessageBox.Cancel,
         )
-        self.parentWindow(msg)
+
+        if parent:
+            msg.setParent(parent, Qt.Window)
+        else:
+            self.core.parentWindow(msg)
+
         for i in msg.buttons():
             i.setVisible(False)
         msg.setModal(False)
@@ -2221,22 +2249,26 @@ License: GNU GPL-3.0-or-later<br>
         return msg
 
     class waitPopup(object):
-        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None):
+        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None, hidden=False, parent=None):
             self.core = core
+            self.parent = parent
             self.text = text
             self.title = title
             self.buttons = buttons
             self.default = default
             self.icon = icon
+            self.hidden = hidden
+            self.msg = None
 
         def __enter__(self):
-            self.show()
+            if not self.hidden:
+                self.show()
 
         def __exit__(self, type, value, traceback):
             self.close()
 
         def show(self):
-            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon)
+            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon, parent=self.parent)
 
         def close(self):
             if self.msg and self.msg.isVisible():

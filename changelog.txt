@@ -1,3 +1,7 @@
+v1.3.0.40:
+- fixed an error when rightclicking in the empty space of the renderversion list in the Project Browser
+- fixed an error when exporting FBX files in Blender 2.79.7
+
 v1.3.0.39:
 - added "Expand all" and "Collapse all" options to the context menu of the assetlist and shotlist in the Project Browser
 - clicking the expand indicator in the assethierarchy list in the Project Browser expands/collapses all childitems now

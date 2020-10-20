@@ -321,7 +321,7 @@ class PluginManager(object):
             self.core.unloadedAppPlugins[pPlug.pluginName] = pPlug
         else:
             if not pPlug.isActive():
-                logger.warning("plugin \"%s\" is inactive" % pPlug.pluginName)
+                logger.debug("plugin \"%s\" is inactive" % pPlug.pluginName)
                 return
 
             if pPlug.pluginType in ["Custom"]:

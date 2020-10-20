@@ -4562,7 +4562,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 product=itemName,
             )[0]
         elif lw == self.lw_version:
-            path = item.data(Qt.UserRole)
+            if itemName:
+                path = item.data(Qt.UserRole)
+            else:
+                path = mediaPlayback["getMediaBaseFolder"](
+                    basepath=self.renderBasePath,
+                    product=itemName,
+                )[0]
 
         rcmenu = QMenu()
 

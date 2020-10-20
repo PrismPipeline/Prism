@@ -302,3 +302,14 @@ class MediaProducts(object):
 
         self.core.configs.findDeprecatedConfig(path)
         return path
+
+    @err_catcher(name=__name__)
+    def getMediaPathType(self, path):
+        if "Playblasts" in path:
+            return "playblast"
+        elif "2dRender" in path:
+            return "2d"
+        elif "3dRender" in path:
+            return "3d"
+        else:
+            return "unknown"

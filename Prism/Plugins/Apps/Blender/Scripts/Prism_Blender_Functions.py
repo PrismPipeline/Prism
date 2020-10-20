@@ -542,7 +542,7 @@ class Prism_Blender_Functions(object):
 
         elif origin.cb_outType.currentText() == ".fbx":
             useAnim = startFrame != endFrame
-            if bpy.app.version >= (2, 80, 0):
+            if bpy.app.version >= (2, 79, 7):
                 bpy.ops.export_scene.fbx(
                     self.getOverrideContext(origin),
                     filepath=outputName,
