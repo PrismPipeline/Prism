@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.40"
+            self.version = "v1.3.0.41"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -2461,12 +2461,13 @@ If this plugin is an official Prism plugin, please submit this error to the deve
 
 
 def create(prismArgs=None):
-    if prismArgs is None:
-        prismArgs = ["loadProject"]
+    prismArgs = prismArgs or []
 
-    qapp = QApplication(sys.argv)
+    qapp = QApplication.instance()
+    if not qapp:
+        qapp = QApplication(sys.argv)
+
     from UserInterfacesPrism import qdarkstyle
-
     qapp.setStyleSheet(qdarkstyle.load_stylesheet(pyside=True))
     iconPath = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -2479,11 +2480,11 @@ def create(prismArgs=None):
     return pc
 
 
-def show():
-    create()
+def show(prismArgs=None):
+    create(prismArgs)
     qapp = QApplication.instance()
     qapp.exec_()
 
 
 if __name__ == "__main__":
-    show()
+    show(prismArgs=["loadProject"])

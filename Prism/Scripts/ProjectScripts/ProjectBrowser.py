@@ -302,6 +302,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_aHierarchy.customContextMenuRequested.connect(
             lambda x: self.rclCat("ah", x)
         )
+        self.b_assetSearch.toggled.connect(lambda x: self.searchClicked(x, "assets"))
         self.e_assetSearch.textChanged.connect(lambda x: self.refreshAHierarchy())
         self.lw_aPipeline.currentItemChanged.connect(self.aPipelineclicked)
         self.lw_aPipeline.customContextMenuRequested.connect(
@@ -334,6 +335,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_sShot.itemExpanded.connect(self.sItemCollapsed)
         self.tw_sShot.itemCollapsed.connect(self.sItemCollapsed)
         self.tw_sShot.customContextMenuRequested.connect(lambda x: self.rclCat("ss", x))
+        self.b_shotSearch.toggled.connect(lambda x: self.searchClicked(x, "shots"))
         self.e_shotSearch.textChanged.connect(lambda x: self.refreshShots())
         self.lw_sPipeline.customContextMenuRequested.connect(
             lambda x: self.rclCat("sp", x)
@@ -478,6 +480,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_refreshTabs.setIconSize(QSize(20, 20))
         self.b_refreshTabs.setToolTip("Refresh")
         self.b_refreshTabs.setStyleSheet("QWidget{padding: 0; border-width: 0px;} QWidget:hover{border-width: 1px; }")
+
+        searchIcon = QIcon(os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "search.png"))
+        self.b_assetSearch.setIcon(searchIcon)
+        self.b_shotSearch.setIcon(searchIcon)
+        self.b_assetSearch.setStyleSheet("QWidget{padding: 0; border-width: 0px;} QWidget:hover{border-width: 1px; }")
+        self.b_shotSearch.setStyleSheet("QWidget{padding: 0; border-width: 0px;} QWidget:hover{border-width: 1px; }")
 
         if platform.system() == "Darwin":
             parentWidget = self.tbw_browser
@@ -686,8 +694,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if "expandedSequences_" + self.core.projectName in brsData:
             self.sExpanded = brsData["expandedSequences_" + self.core.projectName]
 
-        self.e_assetSearch.setVisible(False)
-        self.e_shotSearch.setVisible(False)
+        if "showAssetSearch" in brsData:
+            self.b_assetSearch.setChecked(brsData["showAssetSearch"])
+
+        if "showShotSearch" in brsData:
+            self.b_shotSearch.setChecked(brsData["showShotSearch"])
+
+        self.e_assetSearch.setVisible(self.b_assetSearch.isChecked())
+        self.e_shotSearch.setVisible(self.b_shotSearch.isChecked())
+
+        if "showSearchAlways" in brsData:
+            self.b_assetSearch.setHidden(brsData["showSearchAlways"])
+            self.b_shotSearch.setHidden(brsData["showSearchAlways"])
 
         if psVersion == 2:
             self.e_assetSearch.setClearButtonEnabled(True)
@@ -764,6 +782,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 "windowSize": [self.width(), self.height()],
                 "expandedAssets_" + self.core.projectName: self.getExpandedAssets(),
                 "expandedSequences_" + self.core.projectName: self.getExpandedSequences(),
+                "showAssetSearch": self.b_assetSearch.isChecked(),
+                "showShotSearch": self.b_shotSearch.isChecked(),
                 "autoUpdateRenders": self.chb_autoUpdate.isChecked(),
             }
         }
@@ -1075,30 +1095,46 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if entity in ["assets", "assetSearch"]:
             etext = self.e_assetSearch
             elist = self.tw_aHierarchy
+            searchButton = self.b_assetSearch
         elif entity in ["shots", "shotSearch"]:
             etext = self.e_shotSearch
             elist = self.tw_sShot
+            searchButton = self.b_shotSearch
 
         if entity in ["assets", "shots"]:
             if event.key() == Qt.Key_Escape:
-                etext.setVisible(False)
-                etext.setText("")
-                etext.textChanged.emit("")
+                searchButton.setChecked(False)
             elif event.text():
-                etext.setVisible(True)
-                etext.setFocus()
+                searchButton.setChecked(True)
                 etext.keyPressEvent(event)
             else:
                 elist.origKeyPressEvent(event)
         elif entity in ["assetSearch", "shotSearch"]:
             if event.key() == Qt.Key_Escape:
-                etext.setVisible(False)
-                etext.setText("")
-                etext.textChanged.emit("")
+                searchButton.setChecked(False)
             else:
+                searchButton.setChecked(True)
                 etext.origKeyPressEvent(event)
 
         event.accept()
+
+    @err_catcher(name=__name__)
+    def searchClicked(self, state, entity):
+        if entity in ["assets"]:
+            etext = self.e_assetSearch
+            searchButton = self.b_assetSearch
+        elif entity in ["shots"]:
+            etext = self.e_shotSearch
+            searchButton = self.b_shotSearch
+
+        if not searchButton.isHidden():
+            etext.setVisible(state)
+
+        if state:
+            etext.setFocus()
+        else:
+            etext.setText("")
+            etext.textChanged.emit("")
 
     @err_catcher(name=__name__)
     def tableMoveEvent(self, event, table):
@@ -2228,7 +2264,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             iFont.setBold(True)
             item.setFont(0, iFont)
 
-        if path in self.aExpanded or self.e_assetSearch.isVisible():
+        if path in self.aExpanded or (self.e_assetSearch.isVisible() and self.e_assetSearch.text()):
             item.setExpanded(True)
 
     @err_catcher(name=__name__)
@@ -2236,7 +2272,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.adclick = False
         if (
             item.text(1) not in self.aExpanded
-            and not self.e_assetSearch.isVisible()
+            and not (self.e_assetSearch.isVisible() and self.e_assetSearch.text())
         ):
             self.aExpanded.append(item.text(1))
 
@@ -2267,6 +2303,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     @err_catcher(name=__name__)
     def setItemChildrenExpanded(self, item, expanded=True, recursive=False):
         for childIdx in range(item.childCount()):
+            if recursive:
+                self.setItemChildrenExpanded(item.child(childIdx), expanded=expanded, recursive=True)
             item.child(childIdx).setExpanded(expanded)
 
     @err_catcher(name=__name__)
@@ -2501,11 +2539,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if assetName in assetInfos and "description" in assetInfos[assetName]:
                 description = assetInfos[assetName]["description"]
 
-            imgPath = os.path.join(
-                os.path.dirname(self.core.prismIni),
-                "Assetinfo",
-                "%s_preview.jpg" % assetName,
-            )
+            imgPath = self.core.entities.getEntityPreviewPath("asset", assetName)
 
             if os.path.exists(imgPath):
                 pm = self.core.media.getPixmapFromPath(imgPath)
@@ -2549,7 +2583,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             seqItem = QTreeWidgetItem([seqName, seqName + self.core.sequenceSeparator])
             self.tw_sShot.addTopLevelItem(seqItem)
-            if seqName in self.sExpanded or self.e_shotSearch.isVisible():
+            if seqName in self.sExpanded or (self.e_shotSearch.isVisible() and self.e_shotSearch.text()):
                 seqItem.setExpanded(True)
 
         for i in shots:
@@ -2580,7 +2614,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def sItemCollapsed(self, item):
-        if self.e_shotSearch.isVisible():
+        if self.e_shotSearch.isVisible() and self.e_shotSearch.text():
             return
 
         self.sdclick = False
@@ -2796,14 +2830,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             shotName, seqName = self.core.entities.splitShotname(self.cursShots)
             if not shotName and seqName:
                 rangeText = "Sequence selected"
+                entityType = "sequence"
+                entityName = seqName
             else:
                 rangeText = "Framerange:    %s - %s" % (startFrame, endFrame)
+                entityType = "shot"
+                entityName = self.cursShots
 
-            imgPath = os.path.join(
-                os.path.dirname(self.core.prismIni),
-                "Shotinfo",
-                "%s_preview.jpg" % self.cursShots,
-            )
+            imgPath = self.core.entities.getEntityPreviewPath(entityType, entityName)
 
             if os.path.exists(imgPath):
                 pm = self.core.media.getPixmapFromPath(imgPath)
@@ -2846,23 +2880,32 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             rcmenu.addAction(clipAct)
         else:
             shotName, seqName = self.core.entities.splitShotname(self.cursShots)
-            if not shotName:
-                return
+            if shotName:
+                exp = QAction("Edit shot settings", self)
+                exp.triggered.connect(lambda: self.editShot(self.cursShots))
+                rcmenu.addAction(exp)
 
-            exp = QAction("Edit shot settings", self)
-            exp.triggered.connect(lambda: self.editShot(self.cursShots))
-            rcmenu.addAction(exp)
-
-            copAct = QAction("Capture shotpreview", self)
-            copAct.triggered.connect(
-                lambda: self.captureEntityPreview("shot", self.cursShots)
-            )
-            rcmenu.addAction(copAct)
-            clipAct = QAction("Paste shotpreview from clipboard", self)
-            clipAct.triggered.connect(
-                lambda: self.PasteEntityPreviewFromClipboard("shot", self.cursShots)
-            )
-            rcmenu.addAction(clipAct)
+                copAct = QAction("Capture shotpreview", self)
+                copAct.triggered.connect(
+                    lambda: self.captureEntityPreview("shot", self.cursShots)
+                )
+                rcmenu.addAction(copAct)
+                clipAct = QAction("Paste shotpreview from clipboard", self)
+                clipAct.triggered.connect(
+                    lambda: self.PasteEntityPreviewFromClipboard("shot", self.cursShots)
+                )
+                rcmenu.addAction(clipAct)
+            else:
+                copAct = QAction("Capture sequencepreview", self)
+                copAct.triggered.connect(
+                    lambda: self.captureEntityPreview("sequence", seqName)
+                )
+                rcmenu.addAction(copAct)
+                clipAct = QAction("Paste sequencepreview from clipboard", self)
+                clipAct.triggered.connect(
+                    lambda: self.PasteEntityPreviewFromClipboard("sequence", seqName)
+                )
+                rcmenu.addAction(clipAct)
 
         self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_(QCursor.pos())
@@ -2872,7 +2915,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if entity == "asset":
             entityname = os.path.basename(entityname)
             refresh = self.refreshAssetinfo
-        else:
+        elif entity in ["shot", "sequence"]:
             refresh = self.refreshShotinfo
 
         from PrismUtils import ScreenShot
@@ -2893,7 +2936,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if entity == "asset":
             entityname = os.path.basename(entityname)
             refresh = self.refreshAssetinfo
-        else:
+        elif entity in ["shot", "sequence"]:
             refresh = self.refreshShotinfo
 
         self.core.entities.setEntityPreview(entity, entityname, pmap, width=self.shotPrvXres, height=self.shotPrvYres)
@@ -3011,10 +3054,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                             self.tw_sShot.setCurrentItem(shotItem)
 
         return result
-
-    @err_catcher(name=__name__)
-    def showShotSearch(self):
-        self.l_shotSearch.setVisible(True)
 
     @err_catcher(name=__name__)
     def setRecent(self):
@@ -3305,7 +3344,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 result = self.core.entities.createEntity("asset", assetPath, dialog=self.newItem)
             else:
                 result = self.core.entities.createEntity("assetFolder", assetPath, dialog=self.newItem)
-            dirName = result["entityPath"] if result else ""
+            dirName = result.get("entityPath", "")
         else:
             catPath = os.path.join(path, self.itemName)
             self.core.entities.createCategory(self.itemName, catPath)

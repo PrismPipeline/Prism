@@ -309,7 +309,7 @@ class ProjectEntities(object):
         else:
             return {}
 
-        if result["existed"]:
+        if result.get("existed"):
             eName = self.getAssetRelPathFromPath(entityName)
             if eName in self.omittedEntities[entityType] and self.core.uiAvailable:
                 msgText = (
@@ -322,6 +322,9 @@ class ProjectEntities(object):
                     self.omitEntity(entityType, eName, omit=False)
             else:
                 self.core.popup("The %s already exists:\n\n%s" % (entityType, eName))
+
+        if result.get("error"):
+            self.core.popup(result["error"])
 
         return result
 
@@ -356,14 +359,16 @@ class ProjectEntities(object):
         if not os.path.isabs(assetPath):
             assetPath = os.path.join(self.core.assetPath, assetPath)
 
+        assetName = self.getAssetNameFromPath(assetPath)
+        if not self.isValidAssetName(assetName):
+            return {"error": "Invalid assetname"}
+
         existed = os.path.exists(assetPath)
 
         for f in self.entityFolders["asset"]:
             aFolder = os.path.join(assetPath, f)
             if not os.path.exists(aFolder):
                 os.makedirs(aFolder)
-
-        assetName = self.getAssetNameFromPath(assetPath)
 
         if not existed:
             self.core.callback(
@@ -658,12 +663,20 @@ class ProjectEntities(object):
 
         dirContent = os.listdir(path)
 
-        isAsset = (
-            "Export" in dirContent
-            and "Playblasts" in dirContent
-            and "Rendering" in dirContent
-            and "Scenefiles" in dirContent
-        )
+        if self.core.getConfig("globals", "useStrictAssetDetection", dft=False, config="project"):
+            isAsset = (
+                "Export" in dirContent
+                and "Playblasts" in dirContent
+                and "Rendering" in dirContent
+                and "Scenefiles" in dirContent
+            )
+        else:
+            isAsset = (
+                "Export" in dirContent
+                or "Playblasts" in dirContent
+                or "Rendering" in dirContent
+                or "Scenefiles" in dirContent
+            )
 
         if isAsset:
             return "asset"
@@ -771,6 +784,13 @@ class ProjectEntities(object):
         return filteredPaths
 
     @err_catcher(name=__name__)
+    def isValidAssetName(self, assetName):
+        if self.core.getConfig("globals", "useStrictAssetDetection"):
+            return True
+        else:
+            return assetName not in ["Export", "Playblasts", "Rendering", "Scenefiles"]
+
+    @err_catcher(name=__name__)
     def getAssetNameFromPath(self, path):
         return os.path.basename(path)
 
@@ -847,7 +867,7 @@ class ProjectEntities(object):
             shotPath = self.core.getShotPath()
 
             if self.core.useLocalFiles:
-                glbDstname = dstname.replace(self.core.localProjectPath, self.core.projectPath)
+                glbDstname = self.core.convertPath(dstname, "global")
 
             if glbDstname.startswith(assetPath):
                 scenetype = "asset"
@@ -858,14 +878,14 @@ class ProjectEntities(object):
 
         files = []
         if self.core.useLocalFiles and localVersions:
-            dstname = dstname.replace(self.core.localProjectPath, self.core.projectPath)
+            dstname = self.core.convertPath(dstname, "global")
 
         for i in os.walk(dstname):
             files += [os.path.join(i[0], x) for x in i[2]]
             break
 
         if self.core.useLocalFiles and localVersions:
-            for i in os.walk(dstname.replace(self.core.projectPath, self.core.localProjectPath)):
+            for i in os.walk(self.core.convertPath(dstname, "local")):
                 files += [os.path.join(i[0], x) for x in i[2]]
                 break
 
@@ -1064,24 +1084,33 @@ class ProjectEntities(object):
         return taskList
 
     @err_catcher(name=__name__)
+    def getEntityPreviewPath(self, entityType, entityName):
+        if entityType == "asset":
+            folderName = "Assetinfo"
+        elif entityType in ["shot", "sequence"]:
+            folderName = "Shotinfo"
+
+        if entityType == "sequence":
+            imgName = "seq_%s_preview.jpg" % entityName
+        else:
+            imgName = "%s_preview.jpg" % entityName
+
+        imgPath = os.path.join(os.path.dirname(self.core.prismIni), folderName, imgName)
+        return imgPath
+
+    @err_catcher(name=__name__)
     def setEntityPreview(self, entityType, entityName, pixmap, width=250, height=141):
-        if pixmap:
-            if entityType == "asset":
-                folderName = "Assetinfo"
-            else:
-                folderName = "Shotinfo"
+        if not pixmap:
+            logger.debug("invalid pixmap")
+            return
 
-            if (pixmap.width() / float(pixmap.height())) > 1.7778:
-                pmsmall = pixmap.scaledToWidth(width)
-            else:
-                pmsmall = pixmap.scaledToHeight(height)
+        if (pixmap.width() / float(pixmap.height())) > 1.7778:
+            pmsmall = pixmap.scaledToWidth(width)
+        else:
+            pmsmall = pixmap.scaledToHeight(height)
 
-            prvPath = os.path.join(
-                os.path.dirname(self.core.prismIni),
-                folderName,
-                "%s_preview.jpg" % entityName,
-            )
-            self.core.media.savePixmap(pmsmall, prvPath)
+        prvPath = self.getEntityPreviewPath(entityType, entityName)
+        self.core.media.savePixmap(pmsmall, prvPath)
 
     @err_catcher(name=__name__)
     def createEmptyScene(

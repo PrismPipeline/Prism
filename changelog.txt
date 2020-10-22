@@ -1,3 +1,16 @@
+v1.3.0.41:
+- added support for Houdini 18.5 Python 3.7
+- added the option to set a sequence preview from clipboard or from screen capture
+- added a searchbutton for assets and shots to the project browser
+- added support for the setting "browser" - "showSearchAlways" in the userconfig to always show the searchbars
+- changed the way how Prism interpretates a folder as an asset. The names "Scenefiles", "Export", "Playblasts", "Rendering" are invalid assetnames now
+- fixed a bug in Blender Import and Export states didn't update their objectlist correctly when an object got deleted in the scene
+- fixed an error when righclicking in the task list in the Import Task window
+- fixed a bug that the outputpath of the PrismWrite node in Nuke was not correct when rendering from an asset, which was inside an assetfolder
+- fixed a bug when creating a new scenefile version from the current scene, the version of the new file was not correct in some cases
+- fixed a bug that the Arnold renderoutputpath in Maya was incorrect when disabled AOVs were in the scene
+- fixed a bug that the Maya renderoutputfilename was incorrent in some cases
+
 v1.3.0.40:
 - fixed an error when rightclicking in the empty space of the renderversion list in the Project Browser
 - fixed an error when exporting FBX files in Blender 2.79.7
