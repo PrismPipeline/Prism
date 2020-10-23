@@ -4511,6 +4511,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         sourcePath = os.path.join(mediaPlayback["basePath"], mediaPlayback["seq"][0])
 
+        result = True
         if platform.system() == "Windows":
             folderLinkName = refName + self.core.filenameSeparator + "Folder.lnk"
             refName += ".lnk"
@@ -4518,16 +4519,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             seqLnk = os.path.join(dailiesFolder, refName)
             folderLnk = os.path.join(dailiesFolder, folderLinkName)
 
-            self.core.createShortcut(
-                seqLnk, vTarget=sourcePath, args="", vWorkingDir="", vIcon=""
-            )
-            self.core.createShortcut(
-                folderLnk,
-                vTarget=mediaPlayback["basePath"],
-                args="",
-                vWorkingDir="",
-                vIcon="",
-            )
+            result = self.core.createShortcut(seqLnk, sourcePath)
+            result = result and self.core.createShortcut(folderLnk, mediaPlayback["basePath"])
         else:
             slinkPath = os.path.join(dailiesFolder, refName + "_Folder")
             if os.path.exists(slinkPath):
@@ -4540,10 +4533,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             os.symlink(mediaPlayback["basePath"], slinkPath)
 
-        self.core.copyToClipboard(dailiesFolder)
+        if result:
+            self.core.copyToClipboard(dailiesFolder)
 
-        msg = "The version was sent to the current dailies folder. (path in clipboard)"
-        self.core.popup(msg, severity="info")
+            msg = "The version was sent to the current dailies folder. (path in clipboard)"
+            self.core.popup(msg, severity="info")
+        else:
+            self.core.popup("Errors occurred while sending version to dailies.")
 
     @err_catcher(name=__name__)
     def sliderDrag(self, event, mediaPlayback=None):

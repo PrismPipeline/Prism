@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.41"
+            self.version = "v1.3.0.42"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1809,7 +1809,7 @@ License: GNU GPL-3.0-or-later<br>
         cb.setText(text)
 
     @err_catcher(name=__name__)
-    def createShortcut(self, vPath, vTarget="", args="", vWorkingDir="", vIcon=""):
+    def createShortcutDeprecated(self, vPath, vTarget="", args="", vWorkingDir="", vIcon=""):
         try:
             import win32com.client
         except:
@@ -1832,6 +1832,44 @@ License: GNU GPL-3.0-or-later<br>
         except:
             msg = "Could not create shortcut:\n\n%s\n\nProbably you don't have permissions to write to this folder. To fix this install Prism to a different location or change the permissions of this folder." % self.fixPath(vPath)
             self.popup(msg)
+
+    @err_catcher(name=__name__)
+    def createShortcut(self, link, target, args=""):
+        link = link.replace("/", "\\")
+        target = target.replace("/", "\\")
+
+        logger.debug("creating shortcut: %s - target: %s - args: %s" % (link, target, args))
+        result = ""
+
+        if platform.system() == "Windows":
+            c = (
+                "Set oWS = WScript.CreateObject(\"WScript.Shell\")\n"
+                "sLinkFile = \"%s\"\n"
+                "Set oLink = oWS.CreateShortcut(sLinkFile)\n"
+                "oLink.TargetPath = \"%s\"\n"
+                "oLink.Arguments = \"%s\"\n"
+                "oLink.Save"
+            ) % (link, target, args)
+
+            tmp = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".vbs")
+            try:
+                tmp.write(c)
+                tmp.close()
+                cmd = "cscript /nologo %s" % tmp.name
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                result = proc.communicate()[0]
+            finally:
+                tmp.close()
+                os.remove(tmp.name)
+
+        else:
+            logger.warning("not implemented")
+
+        if os.path.exists(link):
+            return True
+        else:
+            logger.warning("failed to create shortcut: %s %s" % (link, result))
+            return False
 
     @property
     @err_catcher(name=__name__)

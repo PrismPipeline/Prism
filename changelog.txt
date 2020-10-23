@@ -1,3 +1,7 @@
+v1.3.0.42:
+- removed a limitation that "Send to dailies" didn't work in Python 2, which includes most DCCs
+- fixed a wrong behavior when pressing the "next" button in the "Create Shot" dialog when the shot already existed
+
 v1.3.0.41:
 - added support for Houdini 18.5 Python 3.7
 - added the option to set a sequence preview from clipboard or from screen capture

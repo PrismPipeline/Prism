@@ -253,7 +253,7 @@ class PrismTray:
 
     def openDailies(self):
         try:
-            dailiesName = self.core.getConfig("paths", "dailies", configPath=curProject)
+            dailiesName = self.core.getConfig("paths", "dailies", config="project")
 
             if not dailiesName:
                 self.trayIcon.showMessage(
