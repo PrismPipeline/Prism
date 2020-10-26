@@ -1,238 +1,124 @@
 {
-    Language = "Python2",
- 
-    Action {
-        ID = "PrismSave",
+    Action
+    {
+        ID = "1_Save_Version",
         Category = "Prism",
-        Name = "Save Version",
-       
-        Targets = {
-            Composition = {
-                Execute = _Python [=[
-import os
-import sys
+        Name = "1 Save Version",
 
-prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
-    prismRoot = PRISMROOT
-
-sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
-
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-qapp = QApplication.instance()
-if qapp == None:
-  qapp = QApplication(sys.argv)
-
-import PrismCore
-pcore = PrismCore.PrismCore(app="Fusion")
-pcore.appPlugin.fusion = fusion
-
-curPrj = pcore.getConfig("globals", "current project")
-pcore.changeProject(curPrj)
-pcore.saveScene()
+        Targets =
+        {
+            Composition =
+            {
+                Execute = _Lua [=[
+                    local scriptPath = app:MapPath("Scripts:Prism/1 Save Version.py")
+                    if bmd.fileexists(scriptPath) == false then
+                        print("[Prism Error] Can't run file: " .. scriptPath)
+                    else
+                        target:RunScript(scriptPath)
+                    end
                 ]=],
             },
         },
     },
- 
-    Action {
-        ID = "PrismCommentsave",
+    Action
+    {
+        ID = "2_Save_Comment",
         Category = "Prism",
-        Name = "Save Comment",
-       
-        Targets = {
-            Composition = {
-                Execute = _Python [=[
-import os
-import sys
+        Name = "2 Save Comment",
 
-prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
-    prismRoot = PRISMROOT
-
-sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
-
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-qapp = QApplication.instance()
-if qapp == None:
-  qapp = QApplication(sys.argv)
-
-import PrismCore
-pcore = PrismCore.PrismCore(app="Fusion")
-pcore.appPlugin.fusion = fusion
-
-curPrj = pcore.getConfig("globals", "current project")
-pcore.changeProject(curPrj)
-pcore.saveWithComment()
+        Targets =
+        {
+            Composition =
+            {
+                Execute = _Lua [=[
+                    local scriptPath = app:MapPath("Scripts:Prism/2 Save Comment.py")
+                    if bmd.fileexists(scriptPath) == false then
+                        print("[Prism Error] Can't run file: " .. scriptPath)
+                    else
+                        target:RunScript(scriptPath)
+                    end
                 ]=],
             },
         },
     },
-
-    Action {
-        ID = "PrismProjectBrowser",
+    Action
+    {
+        ID = "3_Project_Browser",
         Category = "Prism",
-        Name = "Project Browser",
-       
-        Targets = {
-            Composition = {
-                Execute = _Python [=[
-import os
-import sys
+        Name = "3 Project Browser",
 
-prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
-    prismRoot = PRISMROOT
-
-sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
-
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-qapp = QApplication.instance()
-if qapp == None:
-  qapp = QApplication(sys.argv)
-
-
-import PrismCore
-pcore = PrismCore.PrismCore(app="Fusion")
-pcore.appPlugin.fusion = fusion
-
-curPrj = pcore.getConfig("globals", "current project")
-pcore.changeProject(curPrj)
-result = pcore.projectBrowser()
-
-if result == True:
-    qapp.exec_()
+        Targets =
+        {
+            Composition =
+            {
+                Execute = _Lua [=[
+                    local scriptPath = app:MapPath("Scripts:Prism/3 Project Browser.py")
+                    if bmd.fileexists(scriptPath) == false then
+                        print("[Prism Error] Can't run file: " .. scriptPath)
+                    else
+                        target:RunScript(scriptPath)
+                    end
                 ]=],
             },
         },
     },
-
-    Action {
-        ID = "PrismUpdateLoader",
+    Action
+    {
+        ID = "4_Update_selected_load_nodes",
         Category = "Prism",
-        Name = "Update selected read nodes",
-       
-        Targets = {
-            Composition = {
-                Execute = _Python [=[
-import os
-import sys
+        Name = "4 Update selected load nodes",
 
-prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
-    prismRoot = PRISMROOT
-
-sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
-
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-qapp = QApplication.instance()
-if qapp == None:
-  qapp = QApplication(sys.argv)
-
-
-import PrismCore
-pcore = PrismCore.PrismCore(app="Fusion")
-pcore.appPlugin.fusion = fusion
-
-curPrj = pcore.getConfig("globals", "current project")
-pcore.changeProject(curPrj)
-pcore.appPlugin.updateReadNodes()
+        Targets =
+        {
+            Composition =
+            {
+                Execute = _Lua [=[
+                    local scriptPath = app:MapPath("Scripts:Prism/4 Update selected load nodes.py")
+                    if bmd.fileexists(scriptPath) == false then
+                        print("[Prism Error] Can't run file: " .. scriptPath)
+                    else
+                        target:RunScript(scriptPath)
+                    end
                 ]=],
             },
         },
     },
-
-    Action {
-        ID = "PrismSettings",
+    Action
+    {
+        ID = "5_Settings",
         Category = "Prism",
-        Name = "Settings",
-       
-        Targets = {
-            Composition = {
-                Execute = _Python [=[
-import os
-import sys
+        Name = "5 Settings",
 
-prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
-    prismRoot = PRISMROOT
-
-sys.path.append(os.path.join(prismRoot, "Scripts"))
-sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
-
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-qapp = QApplication.instance()
-if qapp == None:
-  qapp = QApplication(sys.argv)
-
-
-import PrismCore
-pcore = PrismCore.PrismCore(app="Fusion")
-pcore.appPlugin.fusion = fusion
-
-curPrj = pcore.getConfig("globals", "current project")
-pcore.changeProject(curPrj)
-result = pcore.prismSettings()
-
-if result == True:
-    qapp.exec_()
+        Targets =
+        {
+            Composition =
+            {
+                Execute = _Lua [=[
+                    local scriptPath = app:MapPath("Scripts:Prism/5 Settings.py")
+                    if bmd.fileexists(scriptPath) == false then
+                        print("[Prism Error] Can't run file: " .. scriptPath)
+                    else
+                        target:RunScript(scriptPath)
+                    end
                 ]=],
             },
         },
     },
- 
-    Menus {
+    Menus
+    {
         Target = "ChildFrame",
- 
-        Before "Help" {
-            Sub "Prism" {
-                "PrismSave{}",
-                "PrismCommentsave{}",
-                "PrismProjectBrowser{}",
-                "PrismUpdateLoader{}",
-                "PrismSettings{}",
+
+        Before "Help"
+        {
+            Sub "Prism"
+            {
+                "1_Save_Version{}",
+                "2_Save_Comment{}",
+                "_",
+                "3_Project_Browser{}",
+                "4_Update_selected_load_nodes{}",
+                "5_Settings{}",
             },
         },
     },
 }
- 
- 
