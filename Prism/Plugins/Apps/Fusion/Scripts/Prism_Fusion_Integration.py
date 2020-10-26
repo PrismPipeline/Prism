@@ -151,6 +151,8 @@ class Prism_Fusion_Integration(object):
                 "3 Project Browser.py",
                 "4 Update selected load nodes.py",
                 "5 Settings.py",
+                "open in explorer.py",
+                "refresh writer.py",
             ]:
                 origFile = os.path.join(integrationBase, i)
                 targetFile = os.path.join(installPath, "Scripts", "Prism", i)
@@ -256,6 +258,12 @@ class Prism_Fusion_Integration(object):
             )
             pFiles.append(
                 os.path.join(installPath, "Scripts", "Prism", "5 Settings.py")
+            )
+            pFiles.append(
+                os.path.join(installPath, "Scripts", "Prism", "open in explorer.py")
+            )
+            pFiles.append(
+                os.path.join(installPath, "Scripts", "Prism", "refresh writer.py")
             )
             pFiles.append(
                 os.path.join(installPath, "Scripts", "Macros", "WritePrism.setting")
