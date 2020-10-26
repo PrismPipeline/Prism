@@ -27,7 +27,7 @@ pcore.appPlugin.fusion = fusion
 curPrj = pcore.getConfig('globals', 'current project')
 if curPrj is not None and curPrj != "":
 	pcore.changeProject(curPrj)
-	tool = comp.FindTool('%s')
+	tool = comp.ActiveTool
 	try:
 		versionPath = os.path.dirname(tool.GetAttrs()["TOOLST_Clip_Name"][1])
 		if not os.path.exists(versionPath):
