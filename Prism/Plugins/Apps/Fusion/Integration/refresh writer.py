@@ -27,7 +27,7 @@ pcore.appPlugin.fusion = fusion
 curPrj = pcore.getConfig('globals', 'current project')
 if curPrj is not None and curPrj != "":
 	pcore.changeProject(curPrj)
-	tool = comp.FindTool('%s')
+	tool = comp.ActiveTool
 	pcore.appPlugin.getOutputPath(tool)
 else:
 	QMessageBox.warning(pcore.messageParent, "Prism warning", "No project is active.\nPlease set a project in the Prism Settings or by opening the Project Browser.")
