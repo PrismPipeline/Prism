@@ -357,6 +357,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.menuAbout.addSeparator()
             self.menuAbout.addAction(self.actionRenderSettings)
 
+        self.ImportDelegate = ImportDelegate(self)
+        self.tw_import.setItemDelegate(self.ImportDelegate)
+
     @err_catcher(name=__name__)
     def showRenderPresets(self):
         rsUi = self.stateTypes["RenderSettings"]()
@@ -1828,6 +1831,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
             if "error" in i["result"][0]:
                 success = False
 
+        try:
+            self.core.pb.refreshUI()
+        except:
+            pass
+
         if success:
             msgStr = "The %s was successful." % actionString2
             self.core.popup(msgStr, title=actionString, severity="info")
@@ -1902,6 +1910,26 @@ No frame will be rendered twice. This makes it easier to spot problems in the se
             "comment": self.e_comment.text(),
             "description": self.description,
         }
+
+
+class ImportDelegate(QStyledItemDelegate):
+    def __init__(self, stateManager):
+        super(ImportDelegate, self).__init__()
+        self.stateManager = stateManager
+
+    def paint(self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex):
+        QStyledItemDelegate.paint(self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex)
+
+        item = self.stateManager.tw_import.itemFromIndex(indexQModelIndex)
+        color = getattr(item.ui, "statusColor", None)
+        if not color:
+            return
+
+        rect = QRect(optionQStyleOptionViewItem.rect)
+        curRight = optionQStyleOptionViewItem.rect.right()
+        rect.setLeft(curRight-10)
+
+        painterQPainter.fillRect(rect, QBrush(item.ui.statusColor))
 
 
 def openStateSettings(core, stateType, settings=None):

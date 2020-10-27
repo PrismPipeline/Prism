@@ -181,7 +181,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.36"
+            self.version = "v1.3.0.42"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -962,6 +962,8 @@ License: GNU GPL-3.0-or-later<br>
                     return False
 
             self.pb = ProjectBrowser.ProjectBrowser(core=self)
+        else:
+            self.pb.refreshUI()
 
         if openUi:
             self.pb.show()
@@ -1328,16 +1330,11 @@ License: GNU GPL-3.0-or-later<br>
         return resolver.resolvePath(uri, uriType)
 
     @err_catcher(name=__name__)
-    def getScenePath(self, location="global", cached=True):
+    def getScenePath(self, location="global"):
         if not getattr(self, "projectPath", None):
             return ""
 
         sceneName = None
-        self._sceneName = None
-        self._scenePath = None
-
-        if cached:
-            sceneName = getattr(self, "_sceneName", "")
 
         if not sceneName:
             sceneName = self.getConfig("paths", "scenes", configPath=self.prismIni)
@@ -1345,21 +1342,19 @@ License: GNU GPL-3.0-or-later<br>
                 self.core.popup("Required setting \"paths - scenes\" is missing in the project config.\n\nSet this setting to the scenefoldername in this config to solve this issue:\n\n%s" % self.prismIni)
                 return ""
 
-        self._sceneName = sceneName
-
         if location == "global":
             prjPath = self.projectPath
         elif location == "local":
             prjPath = self.localProjectPath
         else:
             prjPath = self.getExportPaths().get(location, "")
-        scenePath = os.path.normpath(os.path.join(prjPath, self._sceneName))
-        self._scenePath = scenePath
+        scenePath = os.path.normpath(os.path.join(prjPath, sceneName))
+
         return scenePath
 
     @property
     def scenePath(self):
-        if not hasattr(self, "_scenePath"):
+        if not getattr(self, "_scenePath", None):
             self._scenePath = self.getScenePath()
 
         return self._scenePath
@@ -1372,12 +1367,11 @@ License: GNU GPL-3.0-or-later<br>
             path = os.path.join(sceneFolder, "Assets")
             path = os.path.normpath(path)
 
-        self._assetPath = path
         return path
 
     @property
     def assetPath(self):
-        if not hasattr(self, "_assetPath"):
+        if not getattr(self, "_assetPath", None):
             self._assetPath = self.getAssetPath()
 
         return self._assetPath
@@ -1390,12 +1384,11 @@ License: GNU GPL-3.0-or-later<br>
             path = os.path.join(sceneFolder, "Shots")
             path = os.path.normpath(path)
 
-        self._shotPath = path
         return path
 
     @property
     def shotPath(self):
-        if not hasattr(self, "_shotPath"):
+        if not getattr(self, "_shotPath", None):
             self._shotPath = self.getShotPath()
 
         return self._shotPath
@@ -1427,12 +1420,11 @@ License: GNU GPL-3.0-or-later<br>
             path = os.path.join(assetFolder, "Textures")
             path = os.path.normpath(path)
 
-        self._texturePath = path
         return path
 
     @property
     def texturePath(self):
-        if not hasattr(self, "_texturePath"):
+        if not getattr(self, "_texturePath", None):
             self._texturePath = self.getTexturePath()
 
         return self._texturePath
@@ -1646,6 +1638,29 @@ License: GNU GPL-3.0-or-later<br>
         )
 
     @err_catcher(name=__name__)
+    def getScenefilePaths(self, scenePath):
+        paths = [scenePath]
+        infoPath = os.path.splitext(scenePath)[0] + "versioninfo.yml"
+        prvPath = os.path.splitext(scenePath)[0] + "preview.jpg"
+
+        if os.path.exists(infoPath):
+            paths.append(infoPath)
+        if os.path.exists(prvPath):
+            paths.append(prvPath)
+
+        self.callback("getScenefilePaths")
+
+        ext = os.path.splitext(scenePath)[1]
+        if ext in self.appPlugin.sceneFormats:
+            paths += getattr(self.appPlugin, "getScenefilePaths", lambda x: [])(scenePath)
+        else:
+            for i in self.unloadedAppPlugins.values():
+                if ext in i.sceneFormats:
+                    paths += getattr(i, "getScenefilePaths", lambda x: [])(scenePath)
+
+        return paths
+
+    @err_catcher(name=__name__)
     def copySceneFile(self, origFile, targetFile, mode="copy"):
         origFile = self.fixPath(origFile)
         targetFile = self.fixPath(targetFile)
@@ -1794,7 +1809,7 @@ License: GNU GPL-3.0-or-later<br>
         cb.setText(text)
 
     @err_catcher(name=__name__)
-    def createShortcut(self, vPath, vTarget="", args="", vWorkingDir="", vIcon=""):
+    def createShortcutDeprecated(self, vPath, vTarget="", args="", vWorkingDir="", vIcon=""):
         try:
             import win32com.client
         except:
@@ -1817,6 +1832,44 @@ License: GNU GPL-3.0-or-later<br>
         except:
             msg = "Could not create shortcut:\n\n%s\n\nProbably you don't have permissions to write to this folder. To fix this install Prism to a different location or change the permissions of this folder." % self.fixPath(vPath)
             self.popup(msg)
+
+    @err_catcher(name=__name__)
+    def createShortcut(self, link, target, args=""):
+        link = link.replace("/", "\\")
+        target = target.replace("/", "\\")
+
+        logger.debug("creating shortcut: %s - target: %s - args: %s" % (link, target, args))
+        result = ""
+
+        if platform.system() == "Windows":
+            c = (
+                "Set oWS = WScript.CreateObject(\"WScript.Shell\")\n"
+                "sLinkFile = \"%s\"\n"
+                "Set oLink = oWS.CreateShortcut(sLinkFile)\n"
+                "oLink.TargetPath = \"%s\"\n"
+                "oLink.Arguments = \"%s\"\n"
+                "oLink.Save"
+            ) % (link, target, args)
+
+            tmp = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".vbs")
+            try:
+                tmp.write(c)
+                tmp.close()
+                cmd = "cscript /nologo %s" % tmp.name
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                result = proc.communicate()[0]
+            finally:
+                tmp.close()
+                os.remove(tmp.name)
+
+        else:
+            logger.warning("not implemented")
+
+        if os.path.exists(link):
+            return True
+        else:
+            logger.warning("failed to create shortcut: %s %s" % (link, result))
+            return False
 
     @property
     @err_catcher(name=__name__)
@@ -2205,7 +2258,7 @@ License: GNU GPL-3.0-or-later<br>
         return result
 
     @err_catcher(name=__name__)
-    def popupNoButton(self, text, title=None, buttons=None, default=None, icon=None):
+    def popupNoButton(self, text, title=None, buttons=None, default=None, icon=None, parent=None):
         text = str(text)
         title = str(title or "Prism")
 
@@ -2219,7 +2272,12 @@ License: GNU GPL-3.0-or-later<br>
             text,
             QMessageBox.Cancel,
         )
-        self.parentWindow(msg)
+
+        if parent:
+            msg.setParent(parent, Qt.Window)
+        else:
+            self.core.parentWindow(msg)
+
         for i in msg.buttons():
             i.setVisible(False)
         msg.setModal(False)
@@ -2229,18 +2287,28 @@ License: GNU GPL-3.0-or-later<br>
         return msg
 
     class waitPopup(object):
-        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None):
+        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None, hidden=False, parent=None):
             self.core = core
+            self.parent = parent
             self.text = text
             self.title = title
             self.buttons = buttons
             self.default = default
             self.icon = icon
+            self.hidden = hidden
+            self.msg = None
 
         def __enter__(self):
-            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon)
+            if not self.hidden:
+                self.show()
 
         def __exit__(self, type, value, traceback):
+            self.close()
+
+        def show(self):
+            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon, parent=self.parent)
+
+        def close(self):
             if self.msg and self.msg.isVisible():
                 self.msg.close()
 
@@ -2431,12 +2499,13 @@ If this plugin is an official Prism plugin, please submit this error to the deve
 
 
 def create(prismArgs=None):
-    if prismArgs is None:
-        prismArgs = ["loadProject"]
+    prismArgs = prismArgs or []
 
-    qapp = QApplication(sys.argv)
+    qapp = QApplication.instance()
+    if not qapp:
+        qapp = QApplication(sys.argv)
+
     from UserInterfacesPrism import qdarkstyle
-
     qapp.setStyleSheet(qdarkstyle.load_stylesheet(pyside=True))
     iconPath = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -2449,11 +2518,11 @@ def create(prismArgs=None):
     return pc
 
 
-def show():
-    create()
+def show(prismArgs=None):
+    create(prismArgs)
     qapp = QApplication.instance()
     qapp.exec_()
 
 
 if __name__ == "__main__":
-    show()
+    show(prismArgs=["loadProject"])

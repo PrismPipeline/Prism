@@ -301,7 +301,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 self.lw_tasks.setCurrentRow(-1)
                 if not entityItem.data(0, Qt.UserRole):
                     return
-                path = os.path.join(entityItem.data(0, Qt.UserRole)[0], "Export")
+
+                path = os.path.join(entityItem.data(0, Qt.UserRole)[0]["path"], "Export")
                 if not os.path.exists(path):
                     return
             else:

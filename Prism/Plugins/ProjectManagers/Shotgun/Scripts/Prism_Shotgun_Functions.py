@@ -69,6 +69,7 @@ class Prism_Shotgun_Functions(object):
     @err_catcher(name=__name__)
     def registerCallbacks(self):
         self.callbacks.append(self.core.registerCallback("projectBrowser_getAssetMenu", self.projectBrowser_getAssetMenu))
+        self.callbacks.append(self.core.registerCallback("projectBrowser_getShotMenu", self.projectBrowser_getShotMenu))
 
     @err_catcher(name=__name__)
     def unregister(self):
@@ -244,7 +245,7 @@ class Prism_Shotgun_Functions(object):
             return sgAct
 
     @err_catcher(name=__name__)
-    def pbBrowser_getShotMenu(self, origin, shotname):
+    def projectBrowser_getShotMenu(self, origin, shotname):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
         if sg:
             sgAct = QAction("Open in Shotgun", origin)

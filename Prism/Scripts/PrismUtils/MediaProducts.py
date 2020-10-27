@@ -67,152 +67,99 @@ class MediaProducts(object):
         mediaTasks = {"3d": [], "2d": [], "playblast": [], "external": []}
         basepath = basepath or self.getMediaProductBase(entityType, entityName, step=step, category=category)
 
-        if basepath:
-            for i in os.walk(
-                os.path.join(basepath, "Rendering", "3dRender")
-            ):
-                for k in sorted(i[1]):
-                    mediaTasks["3d"].append([k, "3d", os.path.join(i[0], k)])
-                break
+        if not basepath:
+            return mediaTasks
 
-            for i in os.walk(
-                os.path.join(basepath, "Rendering", "2dRender")
-            ):
-                for k in sorted(i[1]):
-                    mediaTasks["2d"].append([k + " (2d)", "2d", os.path.join(i[0], k)])
-                break
+        path3d = os.path.join(basepath, "Rendering", "3dRender")
+        path2d = os.path.join(basepath, "Rendering", "2dRender")
+        pathExternal = os.path.join(basepath, "Rendering", "external")
+        pathPlayblast = os.path.join(basepath, "Playblasts")
 
-            for i in os.walk(
-                os.path.join(basepath, "Rendering", "external")
-            ):
-                for k in sorted(i[1]):
-                    mediaTasks["external"].append(
-                        [k + " (external)", "external", os.path.join(i[0], k)]
-                    )
-                break
+        mediaPaths = [
+            {"type": "3d", "path": path3d, "suffix": ""},
+            {"type": "2d", "path": path2d, "suffix": " (2d)"},
+            {"type": "external", "path": pathExternal, "suffix": " (external)"},
+            {"type": "playblast", "path": pathPlayblast, "suffix": " (playblast)"},
+        ]
 
-            for i in os.walk(os.path.join(basepath, "Playblasts")):
-                for k in sorted(i[1]):
-                    mediaTasks["playblast"].append(
-                        [k + " (playblast)", "playblast", os.path.join(i[0], k)]
-                    )
+        for mediaPath in mediaPaths:
+            for root, folders, fildes in os.walk(mediaPath["path"]):
+                for folder in sorted(folders):
+                    displayName = folder + mediaPath["suffix"]
+                    taskPath = os.path.join(root, folder)
+                    taskData = [displayName, mediaPath["type"], taskPath]
+                    mediaTasks[mediaPath["type"]].append(taskData)
                 break
 
             if self.core.useLocalFiles:
-                for i in os.walk(
-                    os.path.join(
-                        basepath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Rendering",
-                        "3dRender",
-                    )
-                ):
-                    for k in sorted(i[1]):
-                        tname = k + " (local)"
-                        taskNames = [x[0] for x in mediaTasks["3d"]]
-                        if tname not in taskNames and k not in taskNames:
-                            mediaTasks["3d"].append(
-                                [tname, "3d", os.path.join(i[0], k)]
-                            )
-                    break
+                localPath = self.core.convertPath(mediaPath["path"], "local")
+                if mediaPath["type"] == "3d":
+                    suffix = " (local)"
+                else:
+                    suffix = mediaPath["suffix"]
 
-                for i in os.walk(
-                    os.path.join(
-                        basepath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Rendering",
-                        "2dRender",
-                    )
-                ):
-                    for k in sorted(i[1]):
-                        tname = k + " (2d)"
-                        taskNames = [x[0] for x in mediaTasks["2d"]]
-                        if tname not in mediaTasks["2d"]:
-                            mediaTasks["2d"].append(
-                                [tname, "2d", os.path.join(i[0], k)]
-                            )
-                    break
+                for root, folders, fildes in os.walk(localPath):
+                    for folder in sorted(folders):
+                        tname = folder + suffix
+                        taskNames = [x[0] for x in mediaTasks[mediaPath["type"]]]
+                        if tname not in taskNames:
+                            if mediaPath["type"] == "3d" and folder in taskNames:
+                                continue
 
-                for i in os.walk(
-                    os.path.join(
-                        basepath.replace(
-                            self.core.projectPath, self.core.localProjectPath
-                        ),
-                        "Playblasts",
-                    )
-                ):
-                    for k in sorted(i[1]):
-                        tname = k + " (playblast)"
-                        taskNames = [x[0] for x in mediaTasks["playblast"]]
-                        if tname not in mediaTasks["playblast"]:
-                            mediaTasks["playblast"].append(
-                                [tname, "playblast", os.path.join(i[0], k)]
-                            )
+                            taskPath = os.path.join(root, folder)
+                            taskData = [tname, mediaPath["type"], taskPath]
+                            mediaTasks[mediaPath["type"]].append(taskData)
                     break
 
         return mediaTasks
 
     @err_catcher(name=__name__)
     def getMediaVersions(self, basepath=None, entityType=None, entityName=None, product="", step=None, category=None):
-        foldercont = []
+        versions = []
         basepath = basepath or self.getMediaProductBase(entityType, entityName, step=step, category=category)
 
         if basepath is None:
-            return foldercont
+            return versions
 
         if product.endswith(" (playblast)"):
-            taskPath = os.path.join(
-                basepath, "Playblasts", product.replace(" (playblast)", "")
-            )
+            productName = product.replace(" (playblast)", "")
+            taskPath = os.path.join(basepath, "Playblasts", productName)
         elif product.endswith(" (2d)"):
-            taskPath = os.path.join(
-                basepath,
-                "Rendering",
-                "2dRender",
-                product.replace(" (2d)", ""),
-            )
+            productName = product.replace(" (2d)", "")
+            taskPath = os.path.join(basepath, "Rendering", "2dRender", productName)
         elif product.endswith(" (external)"):
-            taskPath = os.path.join(
-                basepath,
-                "Rendering",
-                "external",
-                product.replace(" (external)", ""),
-            )
+            productName = product.replace(" (external)", "")
+            taskPath = os.path.join(basepath, "Rendering", "external", productName)
         else:
-            taskPath = os.path.join(
-                basepath,
-                "Rendering",
-                "3dRender",
-                product.replace(" (local)", ""),
-            )
+            productName = product.replace(" (local)", "")
+            taskPath = os.path.join(basepath, "Rendering", "3dRender", productName)
 
-        for i in os.walk(taskPath):
-            foldercont = i[1]
+        for root, folders, files in os.walk(taskPath):
+            for folder in folders:
+                versionPath = os.path.join(root, folder)
+                versionData = {"label": folder, "path": versionPath}
+                versions.append(versionData)
             break
 
         if self.core.useLocalFiles:
-            for i in os.walk(
-                taskPath.replace(self.core.projectPath, self.core.localProjectPath)
-            ):
-                for k in i[1]:
-                    foldercont.append(k + " (local)")
+            localTaskPath = self.core.convertPath(taskPath, "local")
+            for root, folders, files in os.walk(localTaskPath):
+                for folder in folders:
+                    versionPath = os.path.join(root, folder)
+                    versionData = {"label": folder + " (local)", "path": versionPath}
+                    versions.append(versionData)
                 break
 
-        return foldercont
+        return versions
 
     @err_catcher(name=__name__)
     def getRenderLayerPath(self, basepath, product, version):
         if version.endswith(" (local)"):
+            localBase = self.core.convertPath(basepath, "local")
+            productName = product.replace(" (local)", "")
+            versionName = version.replace(" (local)", "")
             rPath = os.path.join(
-                basepath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                ),
-                "Rendering",
-                "3dRender",
-                product.replace(" (local)", ""),
-                version.replace(" (local)", ""),
+                localBase, "Rendering", "3dRender", productName, versionName
             )
         else:
             rPath = os.path.join(
@@ -248,9 +195,7 @@ class MediaProducts(object):
 
         if product.endswith(" (2d)"):
             if version and version.endswith(" (local)"):
-                base = basepath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
+                base = self.core.convertPath(basepath, "local")
             else:
                 base = basepath
 
@@ -264,9 +209,7 @@ class MediaProducts(object):
 
         elif product.endswith(" (playblast)"):
             if version and version.endswith(" (local)"):
-                base = basepath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
+                base = self.core.convertPath(basepath, "local")
             else:
                 base = basepath
 
@@ -359,3 +302,14 @@ class MediaProducts(object):
 
         self.core.configs.findDeprecatedConfig(path)
         return path
+
+    @err_catcher(name=__name__)
+    def getMediaPathType(self, path):
+        if "Playblasts" in path:
+            return "playblast"
+        elif "2dRender" in path:
+            return "2d"
+        elif "3dRender" in path:
+            return "3d"
+        else:
+            return "unknown"

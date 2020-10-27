@@ -42,5 +42,5 @@ class Prism_Fusion_Variables(object):
         self.sceneFormats = [".comp"]
         self.appSpecificFormats = self.sceneFormats
         self.appColor = [134, 96, 166]
-        self.appVersionPresets = ["9.02"]
-        self.platforms = ["Windows"]
+        self.appVersionPresets = ["16"]
+        self.platforms = ["Windows", "Linux", "Darwin"]

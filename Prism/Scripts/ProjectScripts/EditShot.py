@@ -95,7 +95,6 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.b_showSeq.clicked.connect(self.showSequences)
         self.b_changePreview.clicked.connect(self.browse)
         self.buttonBox.clicked.connect(self.buttonboxClicked)
-        self.buttonBox.accepted.connect(self.saveInfo)
         self.e_shotName.textEdited.connect(lambda x: self.validate(self.e_shotName))
         self.e_sequence.textEdited.connect(lambda x: self.validate(self.e_sequence))
         self.b_deleteShot.clicked.connect(self.deleteShot)
@@ -257,9 +256,10 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         elif button.text() == self.btext:
             result = self.saveInfo()
             if result:
-                self.core.pb.createShot(self.shotName)
-                self.accept()
-                self.core.pb.createStepWindow("s")
+                result = self.core.pb.createShot(self.shotName)
+                if result and not result.get("existed", True):
+                    self.accept()
+                    self.core.pb.createStepWindow("s")
 
     @err_catcher(name=__name__)
     def getShotName(self):

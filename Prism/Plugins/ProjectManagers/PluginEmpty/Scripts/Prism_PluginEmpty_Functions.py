@@ -140,16 +140,6 @@ class Prism_PluginEmpty_Functions(object):
             return prjmanMenu
 
     @err_catcher(name=__name__)
-    def pbBrowser_getShotMenu(self, origin, shotname):
-        prjman = self.core.getConfig(
-            "PluginEmpty", "active", configPath=self.core.prismIni
-        )
-        if prjman:
-            prjmanAct = QAction("Open in PluginEmpty", origin)
-            prjmanAct.triggered.connect(lambda: self.openprjman(shotname))
-            return prjmanAct
-
-    @err_catcher(name=__name__)
     def createAsset_open(self, origin):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni

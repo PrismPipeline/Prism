@@ -1329,6 +1329,9 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             "../" + os.path.splitext(os.path.basename(rSettings["outputName"]))[0]
         )
 
+        if outputPrefix[-1] == ".":
+            outputPrefix = outputPrefix[:-1]
+
         if len(rlayers) > 1:
             outputPrefix = "../" + outputPrefix
 
@@ -1368,7 +1371,6 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 cmds.setAttr("defaultArnoldDriver.ai_translator", "jpeg", type="string")
 
             aAovs = maovs.AOVInterface().getAOVNodes(names=True)
-            aAovs = [x for x in aAovs if cmds.getAttr(x[1] + ".enabled")]
             multichannel = cmds.getAttr("defaultArnoldDriver.mergeAOVs") == 1
             if (
                 cmds.getAttr("defaultArnoldRenderOptions.aovMode") != 0
@@ -1396,6 +1398,9 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
                 drivers = ["defaultArnoldDriver"]
                 for i in aAovs:
+                    if not cmds.getAttr(i[1] + ".enabled"):
+                        continue
+
                     aDriver = cmds.connectionInfo(
                         "%s.outputs[0].driver" % i[1], sourceFromDestination=True
                     ).rsplit(".", 1)[0]
@@ -1822,10 +1827,6 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
     @err_catcher(name=__name__)
     def sm_render_fixOutputPath(self, origin, outputName):
-        outputName = (
-            os.path.splitext(outputName)[0][:-1] + os.path.splitext(outputName)[1]
-        )
-
         curRender = self.getCurrentRenderer(origin)
 
         if curRender == "vray":

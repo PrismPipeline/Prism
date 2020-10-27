@@ -156,13 +156,18 @@ class Prism_Maya_externalAccess_Functions(object):
         return autobackpath, fileStr
 
     @err_catcher(name=__name__)
-    def copySceneFile(self, origin, origFile, targetPath, mode="copy"):
+    def getScenefilePaths(self, scenePath):
         xgenfiles = [
             x
-            for x in os.listdir(os.path.dirname(origFile))
-            if x.startswith(os.path.splitext(os.path.basename(origFile))[0])
-            and os.path.splitext(x)[1] in [".xgen", "abc"]
+            for x in os.listdir(os.path.dirname(scenePath))
+            if x.startswith(os.path.splitext(os.path.basename(scenePath))[0])
+            and os.path.splitext(x)[1] in [".xgen", ".abc"]
         ]
+        return xgenfiles
+
+    @err_catcher(name=__name__)
+    def copySceneFile(self, origin, origFile, targetPath, mode="copy"):
+        xgenfiles = self.getScenefilePaths(origFile)
         for i in xgenfiles:
             curFilePath = os.path.join(os.path.dirname(origFile), i).replace("\\", "/")
             tFilePath = os.path.join(os.path.dirname(targetPath), i).replace("\\", "/")

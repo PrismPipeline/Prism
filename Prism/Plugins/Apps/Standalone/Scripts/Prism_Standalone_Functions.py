@@ -173,11 +173,9 @@ class Prism_Standalone_Functions(object):
                 if not os.path.exists(os.path.dirname(i[0])):
                     os.makedirs(os.path.dirname(i[0]))
 
-                self.core.createShortcut(
-                    i[0],
-                    vTarget=("%s\\Python37\\%s" % (self.core.prismLibs, i[1])),
-                    args=('"%s\\Scripts\\%s" standalone' % (self.core.prismRoot, i[2])),
-                )
+                target = "%s\\Python37\\%s" % (self.core.prismLibs, i[1])
+                args = '""%s\\Scripts\\%s"" standalone' % (self.core.prismRoot.replace("/", "\\"), i[2])
+                self.core.createShortcut(i[0], target, args=args)
 
         elif platform.system() == "Linux":
             if os.getuid() != 0:

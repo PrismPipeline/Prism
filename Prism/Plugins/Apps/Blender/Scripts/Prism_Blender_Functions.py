@@ -439,7 +439,16 @@ class Prism_Blender_Functions(object):
     def sm_export_updateObjects(self, origin):
         origin.nodes = []
         if origin.l_taskName.text() in self.getGroups():
-            origin.nodes = [self.getNode(x) for x in self.getGroups()[origin.l_taskName.text()].objects]
+            group = self.getGroups()[origin.l_taskName.text()]
+            nodes = []
+            for obj in group.objects:
+                if not obj.users_scene:
+                    group.objects.unlink(obj)
+                    continue
+
+                nodes.append(self.getNode(obj))
+
+            origin.nodes = nodes
 
     @err_catcher(name=__name__)
     def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
@@ -542,7 +551,7 @@ class Prism_Blender_Functions(object):
 
         elif origin.cb_outType.currentText() == ".fbx":
             useAnim = startFrame != endFrame
-            if bpy.app.version >= (2, 80, 0):
+            if bpy.app.version >= (2, 79, 7):
                 bpy.ops.export_scene.fbx(
                     self.getOverrideContext(origin),
                     filepath=outputName,
@@ -1342,7 +1351,16 @@ class Prism_Blender_Functions(object):
 
         origin.nodes = []
         if origin.setName in self.getGroups() and origin.chb_trackObjects.isChecked():
-            origin.nodes = [self.getNode(x) for x in self.getGroups()[origin.setName].objects]
+            group = self.getGroups()[origin.setName]
+            nodes = []
+            for obj in group.objects:
+                if not obj.users_scene:
+                    group.objects.unlink(obj)
+                    continue
+
+                nodes.append(self.getNode(obj))
+
+            origin.nodes = nodes
 
     @err_catcher(name=__name__)
     def sm_import_removeNameSpaces(self, origin):

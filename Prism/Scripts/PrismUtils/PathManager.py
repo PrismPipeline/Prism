@@ -63,10 +63,16 @@ class PathManager(object):
         else:
             version = None
 
+        if fnameData.get("entity") == "asset":
+            assetBase = fnameData.get("basePath").rsplit("Scenefiles", 1)[0]
+            fullEntityName = self.core.entities.getAssetRelPathFromPath(assetBase)
+        else:
+            fullEntityName = fnameData.get("entityName")
+
         outputName, version = self.getOutputPath(
             outputType="2dRender",
             entity=fnameData.get("entity"),
-            entityName=fnameData.get("entityName"),
+            entityName=fullEntityName,
             step=fnameData.get("step"),
             category=fnameData.get("category"),
             task=taskName,
@@ -88,7 +94,7 @@ class PathManager(object):
             data = {
                 "outputType": "2dRender",
                 "entity": fnameData.get("entity"),
-                "entityName": fnameData.get("entityName"),
+                "entityName": fullEntityName,
                 "step": fnameData.get("step"),
                 "category": fnameData.get("category"),
                 "task": taskName,
@@ -144,7 +150,7 @@ class PathManager(object):
                 )
 
             outputFile = (
-                entityName
+                os.path.basename(entityName)
                 + self.core.filenameSeparator
                 + task
                 + self.core.filenameSeparator
@@ -333,6 +339,7 @@ class PathManager(object):
                 dstname = basePath
             else:
                 dstname = self.getEntityPath(shot=entityName, step=step, category=category)
+
             version = version or self.core.entities.getHighestVersion(dstname, "shot")
             user = user or self.core.user
 
