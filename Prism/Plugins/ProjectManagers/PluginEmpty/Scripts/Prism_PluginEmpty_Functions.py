@@ -110,7 +110,7 @@ class Prism_PluginEmpty_Functions(object):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
         )
-        if prjman and pVersion == 2:
+        if prjman:
             prjmanMenu = QMenu("PluginEmpty")
 
             actprjman = QAction("Open PluginEmpty", origin)
@@ -144,7 +144,7 @@ class Prism_PluginEmpty_Functions(object):
         prjman = self.core.getConfig(
             "PluginEmpty", "active", configPath=self.core.prismIni
         )
-        if not prjman or pVersion != 2:
+        if not prjman:
             return
 
         origin.chb_createInPluginEmpty = QCheckBox("Create asset in PluginEmpty")
@@ -170,7 +170,7 @@ class Prism_PluginEmpty_Functions(object):
             prjman = self.core.getConfig(
                 "PluginEmpty", "active", configPath=self.core.prismIni
             )
-            if not prjman or pVersion != 2:
+            if not prjman:
                 return
 
             origin.chb_createInPluginEmpty = QCheckBox("Create shot in PluginEmpty")
@@ -193,7 +193,6 @@ class Prism_PluginEmpty_Functions(object):
         if (
             prjman
             and origin.seq
-            and pVersion == 2
         ):
             prjmanAct = QAction("Publish to PluginEmpty", origin)
             prjmanAct.triggered.connect(lambda: self.prjmanPublish(origin))
