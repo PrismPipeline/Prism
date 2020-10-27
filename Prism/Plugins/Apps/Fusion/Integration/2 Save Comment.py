@@ -63,6 +63,7 @@ curPrj = pcore.getConfig("globals", "current project")
 if curPrj is not None and curPrj != "":
     pcore.changeProject(curPrj)
     pcore.saveWithComment()
+    qapp.exec_()
 else:
     QMessageBox.warning(
         pcore.messageParent,

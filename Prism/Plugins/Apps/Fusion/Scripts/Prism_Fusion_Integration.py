@@ -98,7 +98,7 @@ class Prism_Fusion_Integration(object):
             addedFiles = []
 
             # "PrismMenu.fu" add a Prism menu, but leads to freezes
-            for i in ["PrismRenderStartEvent.fu"]:
+            for i in ["PrismRenderStartEvent.fu", "PrismMenu.fu"]:
                 origFile = os.path.join(integrationBase, i)
                 targetFile = os.path.join(installPath, "Config", i)
 
@@ -151,9 +151,11 @@ class Prism_Fusion_Integration(object):
                 "3 Project Browser.py",
                 "4 Update selected load nodes.py",
                 "5 Settings.py",
+                "open in explorer.py",
+                "refresh writer.py",
             ]:
                 origFile = os.path.join(integrationBase, i)
-                targetFile = os.path.join(installPath, "Scripts", "Comp", "Prism", i)
+                targetFile = os.path.join(installPath, "Scripts", "Prism", i)
 
                 if not os.path.exists(os.path.dirname(targetFile)):
                     os.makedirs(os.path.dirname(targetFile))
@@ -227,33 +229,41 @@ class Prism_Fusion_Integration(object):
             pFiles.append(
                 os.path.join(installPath, "Config", "PrismRenderStartEvent.fu")
             )
+            pFiles.append(
+                os.path.join(installPath, "Config", "PrismMenu.fu")
+            )
             pFiles.append(os.path.join(installPath, "Scripts", "PrismInit.scriptlib"))
             pFiles.append(
                 os.path.join(
-                    installPath, "Scripts", "Comp", "Prism", "1 Save Version.py"
+                    installPath, "Scripts", "Prism", "1 Save Version.py"
                 )
             )
             pFiles.append(
                 os.path.join(
-                    installPath, "Scripts", "Comp", "Prism", "2 Save Comment.py"
+                    installPath, "Scripts", "Prism", "2 Save Comment.py"
                 )
             )
             pFiles.append(
                 os.path.join(
-                    installPath, "Scripts", "Comp", "Prism", "3 Project Browser.py"
+                    installPath, "Scripts", "Prism", "3 Project Browser.py"
                 )
             )
             pFiles.append(
                 os.path.join(
                     installPath,
                     "Scripts",
-                    "Comp",
                     "Prism",
                     "4 Update selected load nodes.py",
                 )
             )
             pFiles.append(
-                os.path.join(installPath, "Scripts", "Comp", "Prism", "5 Settings.py")
+                os.path.join(installPath, "Scripts", "Prism", "5 Settings.py")
+            )
+            pFiles.append(
+                os.path.join(installPath, "Scripts", "Prism", "open in explorer.py")
+            )
+            pFiles.append(
+                os.path.join(installPath, "Scripts", "Prism", "refresh writer.py")
             )
             pFiles.append(
                 os.path.join(installPath, "Scripts", "Macros", "WritePrism.setting")
@@ -279,38 +289,18 @@ class Prism_Fusion_Integration(object):
 
     def updateInstallerUI(self, userFolders, pItem):
         try:
-            fusionItem = QTreeWidgetItem(["Fusion"])
-            pItem.addChild(fusionItem)
+            pluginItem = QTreeWidgetItem([self.plugin.pluginName])
+            pItem.addChild(pluginItem)
 
-            if platform.system() == "Windows":
-                fusionPath = os.path.join(
-                    userFolders["AppData"], "Blackmagic Design", "Fusion"
-                )
-            elif platform.system() == "Linux":
-                userName = (
-                    os.environ["SUDO_USER"]
-                    if "SUDO_USER" in os.environ
-                    else os.environ["USER"]
-                )
-                fusionPath = "/home/%s/.fusion/BlackmagicDesign/Fusion" % userName
-            elif platform.system() == "Darwin":
-                userName = (
-                    os.environ["SUDO_USER"]
-                    if "SUDO_USER" in os.environ
-                    else os.environ["USER"]
-                )
-                fusionPath = (
-                    "/Users/%s/Library/Application Support/Blackmagic Design/Fusion"
-                    % userName
-                )
+            pluginPath = self.examplePath
 
-            if os.path.exists(fusionPath):
-                fusionItem.setCheckState(0, Qt.Checked)
-                fusionItem.setText(1, fusionPath)
-                fusionItem.setToolTip(0, fusionPath)
+            if pluginPath != None and os.path.exists(pluginPath):
+                pluginItem.setCheckState(0, Qt.Checked)
+                pluginItem.setText(1, pluginPath)
+                pluginItem.setToolTip(0, pluginPath)
             else:
-                fusionItem.setCheckState(0, Qt.Unchecked)
-                fusionItem.setText(1, "< doubleclick to browse path >")
+                pluginItem.setCheckState(0, Qt.Unchecked)
+                pluginItem.setText(1, "< doubleclick to browse path >")
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(
