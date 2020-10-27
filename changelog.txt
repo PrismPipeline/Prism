@@ -1,3 +1,8 @@
+v1.3.0.43:
+- added support for Fusion 16 (thanks to EmberLightVFX)
+- fixed a bug that steps could be created when a sequence was selected in the Project Browser
+- fixed a bug in the Shotgun plugin that the "Create shot in Shotgun" checkbox was not visible in the "Create Shot dialog"
+
 v1.3.0.42:
 - removed a limitation that "Send to dailies" didn't work in Python 2, which includes most DCCs
 - fixed a wrong behavior when pressing the "next" button in the "Create Shot" dialog when the shot already existed

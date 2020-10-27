@@ -971,7 +971,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if (
                 shotName
                 and len(shotName) == 2
-                and shotName[1]
+                and shotName[0]
                 and self.lw_sPipeline.indexAt(event.pos()).data() == None
             ):
                 self.createStepWindow("s")
@@ -1445,10 +1445,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         elif tab == "sp":
             lw = self.lw_sPipeline
-            if self.cursShots is not None:
-                path = self.core.getEntityPath(entity="step", shot=self.cursShots)
-            else:
+            shotName = self.core.entities.splitShotname(self.cursShots)
+            if not (
+                shotName
+                and len(shotName) == 2
+                and shotName[0]
+            ):
                 return False
+
+            path = self.core.getEntityPath(entity="step", shot=self.cursShots)
             typename = "Step"
             callbackName = "openPBShotStepContextMenu"
 

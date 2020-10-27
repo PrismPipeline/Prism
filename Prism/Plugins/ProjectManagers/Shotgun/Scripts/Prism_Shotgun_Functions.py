@@ -277,7 +277,8 @@ class Prism_Shotgun_Functions(object):
 
     @err_catcher(name=__name__)
     def editShot_open(self, origin, shotName):
-        if shotName is None:
+        shotName, seqName = self.core.entities.splitShotname(shotName)
+        if not shotName:
             sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
             if not sg:
                 return

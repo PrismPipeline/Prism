@@ -70,9 +70,6 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
         self.editSequence = editSequence
         self.core.parentWindow(self)
 
-        if self.shotName == "no sequence":
-            self.shotName = None
-
         if len(self.sequences) == 0:
             self.b_showSeq.setVisible(False)
 
