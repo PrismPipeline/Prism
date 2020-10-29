@@ -1407,7 +1407,7 @@ class Prism_Blender_Functions(object):
         return filepath.replace("\\\\", "\\")
 
     @err_catcher(name=__name__)
-    def sm_import_nameChanged(self, origin):
+    def sm_import_updateUi(self, origin):
         origin.f_unitConversion.setVisible(origin.taskName == "ShotCam")
 
     @err_catcher(name=__name__)

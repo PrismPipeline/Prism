@@ -53,8 +53,6 @@ class ImportFileClass(object):
         self, state, core, stateManager, node=None, importPath=None, stateData=None
     ):
         self.state = state
-        self.e_name.setText(state.text(0))
-
         self.stateMode = "ImportFile"
 
         # self.l_name.setVisible(False)
@@ -64,6 +62,10 @@ class ImportFileClass(object):
         self.stateManager = stateManager
         self.taskName = ""
         self.setName = ""
+
+        stateNameTemplate = "{entity}_{task}_{version}"
+        self.stateNameTemplate = self.core.getConfig("globals", "defaultImportStateName", dft=stateNameTemplate, configPath=self.core.prismIni)
+        self.e_name.setText(self.stateNameTemplate)
 
         self.nodes = []
         self.nodeNames = []
@@ -113,13 +115,13 @@ class ImportFileClass(object):
         if stateData is not None:
             self.loadData(stateData)
 
-        self.nameChanged(state.text(0))
+        self.nameChanged()
+        self.updateUi()
 
     @err_catcher(name=__name__)
     def setStateMode(self, stateMode):
         self.stateMode = stateMode
         self.l_class.setText(stateMode)
-        self.e_name.setText(stateMode)
 
     @err_catcher(name=__name__)
     def loadData(self, data):
@@ -189,13 +191,36 @@ class ImportFileClass(object):
             )
 
     @err_catcher(name=__name__)
-    def nameChanged(self, text):
-        getattr(self.core.appPlugin, "sm_import_nameChanged", lambda x: None)(self)
+    def nameChanged(self, text=None):
+        text = self.e_name.text()
+        cacheData = self.core.paths.getCachePathData(self.getImportPath())
+        num = 0
 
-        if self.taskName != "":
-            self.state.setText(0, text + " (" + self.taskName + ")")
-        else:
-            self.state.setText(0, text)
+        try:
+            if "{#}" in text:
+                while True:
+                    cacheData["#"] = num or ""
+                    name = text.format(**cacheData)
+                    for state in self.stateManager.states:
+                        if state.ui.listType != "Import":
+                            continue
+
+                        if state is self.state:
+                            continue
+
+                        if state.text(0) == name:
+                            num += 1
+                            break
+                    else:
+                        break
+            else:
+                name = text.format(**cacheData)
+
+        except Exception as e:
+            print (e)
+            name = text
+
+        self.state.setText(0, name)
 
     @err_catcher(name=__name__)
     def browse(self):
@@ -225,6 +250,12 @@ class ImportFileClass(object):
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
+    def isShotCam(self, path=None):
+        if not path:
+            path = self.getImportPath()
+        return path.endswith(".abc") and "/_ShotCam/" in path
+
+    @err_catcher(name=__name__)
     def autoUpdateChanged(self, checked):
         self.w_latestVersion.setVisible(not checked)
         self.w_importLatest.setVisible(not checked)
@@ -249,134 +280,127 @@ class ImportFileClass(object):
         return self.e_file.text().replace("\\", "/")
 
     @err_catcher(name=__name__)
+    def runSanityChecks(self, cachePath):
+        result = self.checkFrameRange(cachePath)
+        if not result:
+            return False
+
+        return True
+
+    @err_catcher(name=__name__)
+    def checkFrameRange(self, cachePath):
+        versionInfoPath = os.path.join(
+            os.path.dirname(os.path.dirname(cachePath)), "versioninfo.yml"
+        )
+        impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
+        curFPS = self.core.getFPS()
+        if not impFPS or impFPS == curFPS:
+            return True
+
+        fString = (
+            "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:\t%s\nImport FPS:\t\t%s"
+            % (curFPS, impFPS)
+        )
+
+        result = self.core.popupQuestion(fString, title="FPS mismatch", buttons=["Continue", "Cancel"], icon=QMessageBox.Warning)
+
+        if result == "Cancel":
+            return False
+
+        return True
+
+    @err_catcher(name=__name__)
+    def convertToPreferredUnit(self, path):
+        parDirName = os.path.basename(os.path.dirname(path))
+        if parDirName in ["centimeter", "meter"]:
+            prefFile = os.path.join(
+                os.path.dirname(os.path.dirname(path)),
+                self.preferredUnit,
+                os.path.basename(path),
+            )
+            if parDirName == self.unpreferredUnit and os.path.exists(prefFile):
+                path = prefFile
+
+        return path
+
+    @err_catcher(name=__name__)
     def importObject(self, update=False):
         result = True
         if self.stateManager.standalone:
             return result
 
+        fileName = self.core.getCurrentFileName()
         impFileName = self.getImportPath()
 
-        if impFileName != "":
-            versionInfoPath = os.path.join(
-                os.path.dirname(os.path.dirname(impFileName)), "versioninfo.yml"
+        if not impFileName:
+            self.core.popup("Invalid importpath")
+            return
+
+        result = self.runSanityChecks(impFileName)
+        if not result:
+            return
+
+        cacheData = self.core.paths.getCachePathData(impFileName)
+        impFileName = self.convertToPreferredUnit(impFileName)
+        self.e_file.setText(impFileName)
+
+        self.taskName = cacheData.get("task")
+        doImport = True
+
+        if self.chb_trackObjects.isChecked():
+            getattr(self.core.appPlugin, "sm_import_updateObjects", lambda x: None)(
+                self
             )
 
-            impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
-            curFPS = self.core.getFPS()
-            if impFPS and impFPS != curFPS:
-                fString = (
-                    "The FPS of the import doesn't match the FPS of the current scene:\n\nCurrent scene FPS:    %s\nImport FPS:                %s"
-                    % (curFPS, impFPS)
-                )
-                msg = QMessageBox(
-                    QMessageBox.Warning,
-                    "FPS mismatch",
-                    fString,
-                    QMessageBox.Cancel,
-                )
-                msg.addButton("Continue", QMessageBox.YesRole)
-                self.core.parentWindow(msg)
-                action = msg.exec_()
+        self.core.callHook(
+            "preImport",
+            args={
+                "prismCore": self.core,
+                "scenefile": fileName,
+                "importfile": impFileName,
+            },
+        )
 
-                if action != 0:
-                    return False
+        importResult = self.core.appPlugin.sm_import_importToApp(
+            self, doImport=doImport, update=update, impFileName=impFileName
+        )
 
-            vPath = os.path.dirname(impFileName)
-            if os.path.basename(vPath) in ["centimeter", "meter"]:
-                vName = os.path.basename(os.path.dirname(vPath))
-                vPath = os.path.dirname(vPath)
-            else:
-                vName = os.path.basename(vPath)
+        if importResult is None:
+            result = None
+            doImport = False
+        else:
+            result = importResult["result"]
+            doImport = importResult["doImport"]
+            if result and "mode" in importResult:
+                self.setStateMode(importResult["mode"])
 
-            self.taskName = ""
-            if len(vName.split(self.core.filenameSeparator)) == 3 and (
-                self.core.getScenePath() in impFileName
-                or (
-                    self.core.useLocalFiles
-                    and self.core.getScenePath(location="local")
-                    in impFileName
-                )
-            ):
-                self.taskName = os.path.basename(os.path.dirname(vPath))
-                if self.taskName == "_ShotCam":
-                    self.taskName = "ShotCam"
-            else:
-                self.taskName = vName
+        if doImport:
+            self.nodeNames = [
+                self.core.appPlugin.getNodeName(self, x) for x in self.nodes
+            ]
+            illegalNodes = self.core.checkIllegalCharacters(self.nodeNames)
+            if len(illegalNodes) > 0:
+                msgStr = "Objects with non-ascii characters were imported. Prism supports only the first 128 characters in the ascii table. Please rename the following objects as they will cause errors with Prism:\n\n"
+                for i in illegalNodes:
+                    msgStr += i + "\n"
+                self.core.popup(msgStr)
 
-            doImport = True
+            if self.chb_autoNameSpaces.isChecked():
+                self.core.appPlugin.sm_import_removeNameSpaces(self)
 
-            parDirName = os.path.basename(os.path.dirname(impFileName))
-            if parDirName in ["centimeter", "meter"]:
-                prefFile = os.path.join(
-                    os.path.dirname(os.path.dirname(impFileName)),
-                    self.preferredUnit,
-                    os.path.basename(impFileName),
-                )
-                if parDirName == self.unpreferredUnit and os.path.exists(prefFile):
-                    impFileName = prefFile
-                    self.e_file.setText(impFileName)
+            if not result:
+                msgStr = "Import failed: %s" % impFileName
+                self.core.popup(msgStr, title="ImportFile")
 
-            if self.chb_trackObjects.isChecked():
-                getattr(self.core.appPlugin, "sm_import_updateObjects", lambda x: None)(
-                    self
-                )
-
-            fileName = self.core.getCurrentFileName()
-
-            self.core.callHook(
-                "preImport",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "importfile": impFileName,
-                },
-            )
-
-            importResult = self.core.appPlugin.sm_import_importToApp(
-                self, doImport=doImport, update=update, impFileName=impFileName
-            )
-
-            if importResult is None:
-                result = None
-                doImport = False
-            else:
-                result = importResult["result"]
-                doImport = importResult["doImport"]
-                if result and "mode" in importResult:
-                    self.setStateMode(importResult["mode"])
-
-            if doImport:
-                self.nodeNames = [
-                    self.core.appPlugin.getNodeName(self, x) for x in self.nodes
-                ]
-                illegalNodes = self.core.checkIllegalCharacters(self.nodeNames)
-                if len(illegalNodes) > 0:
-                    msgStr = "Objects with non-ascii characters were imported. Prism supports only the first 128 characters in the ascii table. Please rename the following objects as they will cause errors with Prism:\n\n"
-                    for i in illegalNodes:
-                        msgStr += i + "\n"
-                    QMessageBox.warning(self.core.messageParent, "Warning", msgStr)
-
-                if self.chb_autoNameSpaces.isChecked():
-                    self.core.appPlugin.sm_import_removeNameSpaces(self)
-
-                if not result:
-                    msgStr = "Import failed: %s" % impFileName
-                    if self.core.uiAvailable:
-                        QMessageBox.warning(
-                            self.core.messageParent, "ImportFile", msgStr
-                        )
-                    else:
-                        print(msgStr)
-
-            self.core.callHook(
-                "postImport",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "importfile": impFileName,
-                    "importedObjects": self.nodeNames,
-                },
-            )
+        self.core.callHook(
+            "postImport",
+            args={
+                "prismCore": self.core,
+                "scenefile": fileName,
+                "importfile": impFileName,
+                "importedObjects": self.nodeNames,
+            },
+        )
 
         self.stateManager.saveImports()
         self.updateUi()
@@ -505,18 +529,34 @@ class ImportFileClass(object):
         return curVersion, latestVersion
 
     @err_catcher(name=__name__)
+    def setStateColor(self, status):
+        if status == "ok":
+            statusColor = QColor(0, 130, 0)
+        elif status == "warning":
+            statusColor = QColor(200, 100, 0)
+        elif status == "error":
+            statusColor = QColor(130, 0, 0)
+        else:
+            statusColor = QColor(0, 0, 0, 0)
+
+        self.statusColor = statusColor
+
+    @err_catcher(name=__name__)
     def updateUi(self):
         curVersion, latestVersion = self.checkLatestVersion()
 
         self.l_curVersion.setText(curVersion or "-")
         self.l_latestVersion.setText(latestVersion or "-")
 
+        status = "error"
         if self.chb_autoUpdate.isChecked():
             if curVersion and latestVersion and curVersion != latestVersion:
                 self.importLatest(refreshUi=False)
+                status = "ok"
         else:
             useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
             if curVersion and latestVersion and curVersion != latestVersion:
+                status = "warning"
                 if useSS:
                     self.b_importLatest.setStyleSheet(
                         "QPushButton { background-color: rgb(200,100,0); }"
@@ -524,6 +564,9 @@ class ImportFileClass(object):
                 else:
                     self.b_importLatest.setPalette(self.updatePalette)
             else:
+                if curVersion:
+                    status = "ok"
+
                 if useSS:
                     self.b_importLatest.setStyleSheet("")
                 else:
@@ -554,7 +597,9 @@ class ImportFileClass(object):
         else:
             self.gb_objects.setVisible(False)
 
-        self.nameChanged(self.e_name.text())
+        self.nameChanged()
+        self.setStateColor(status)
+        getattr(self.core.appPlugin, "sm_import_updateUi", lambda x: None)(self)
 
     @err_catcher(name=__name__)
     def updatePrefUnits(self):

@@ -1006,9 +1006,7 @@ class ProjectEntities(object):
 
         if basePath == "":
             fname = self.core.getCurrentFileName()
-            assetPath = os.path.abspath(
-                os.path.join(fname, os.pardir, os.pardir, os.pardir)
-            )
+            assetPath = self.core.paths.getEntityBasePath(fname)
             shotPath = self.core.getShotPath()
 
             if self.core.useLocalFiles:

@@ -177,9 +177,27 @@ class ImportFileClass(object):
     def nameChanged(self, text=None):
         text = self.e_name.text()
         cacheData = self.core.paths.getCachePathData(self.getImportPath())
+        num = 0
 
         try:
-            name = text.format(**cacheData)
+            if "{#}" in text:
+                while True:
+                    cacheData["#"] = num or ""
+                    name = text.format(**cacheData)
+                    for state in self.stateManager.states:
+                        if state.ui.listType != "Import":
+                            continue
+
+                        if state is self.state:
+                            continue
+
+                        if state.text(0) == name:
+                            num += 1
+                            break
+                    else:
+                        break
+            else:
+                name = text.format(**cacheData)
         except Exception:
             name = text
 

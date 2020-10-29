@@ -4741,7 +4741,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
             targetPath = targetPath.replace("\\", "/")
 
-            shutil.copy2(file, targetPath)
+            self.core.copyWithProgress(file, targetPath)
             self.core.saveSceneInfo(targetPath)
 
         refresh()

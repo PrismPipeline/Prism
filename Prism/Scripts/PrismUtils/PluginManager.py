@@ -55,6 +55,7 @@ class PluginManager(object):
     def __init__(self, core):
         super(PluginManager, self).__init__()
         self.core = core
+        self.monkeyPatchedFunctions = {}
 
     @err_catcher(name=__name__)
     def initializePlugins(self, appPlugin):
@@ -64,11 +65,15 @@ class PluginManager(object):
         self.core.prjManagers = {}
         self.core.inactivePlugins = {}
 
-        appPlug = self.loadAppPlugin(appPlugin, startup=True)
+        pluginDirs = self.getPluginDirs()
+        appPlugs = self.searchPlugins(pluginPaths=pluginDirs["pluginPaths"], directories=pluginDirs["searchPaths"], pluginNames=[appPlugin])
+        if not appPlugs:
+            return
+
+        appPlug = self.loadAppPlugin(appPlugs[0]["name"], pluginPath=appPlugs[0]["path"], startup=True)
         if not appPlug:
             return
 
-        pluginDirs = self.getPluginDirs()
         self.loadPlugins(pluginPaths=pluginDirs["pluginPaths"], directories=pluginDirs["searchPaths"])
 
         if self.core.appPlugin.pluginName != "Standalone":
@@ -131,8 +136,12 @@ class PluginManager(object):
         return pluginPath.replace("\\", "/")
 
     @err_catcher(name=__name__)
-    def loadAppPlugin(self, pluginName, startup=False):
-        pluginPath = os.path.join(self.core.pluginPathApp, pluginName, "Scripts")
+    def loadAppPlugin(self, pluginName, pluginPath=None, startup=False):
+        if not pluginPath:
+            pluginPath = os.path.join(self.core.pluginPathApp, pluginName, "Scripts")
+        else:
+            pluginPath = os.path.join(pluginPath, "Scripts")
+
         sys.path.append(pluginPath)
         self.core.appPlugin = getattr(
             __import__("Prism_%s_init" % pluginName), "Prism_Plugin_%s" % pluginName
@@ -203,6 +212,46 @@ class PluginManager(object):
                             path = os.path.join(dr, pDir)
                             result.append(self.loadPlugin(path, force=force))
                         break
+
+        return result
+
+    @err_catcher(name=__name__)
+    def searchPlugins(self, pluginPaths=None, directory=None, directories=None, recursive=True, pluginNames=None):
+        result = []
+
+        if pluginPaths:
+            for pPath in pluginPaths:
+                pluginName = os.path.basename(pPath)
+                if pluginNames and pluginName not in pluginNames:
+                    continue
+
+                pData = {"name": pluginName, "path": pPath}
+                result.append(pData)
+
+        directories = directories or []
+        if directory:
+            directories.append(directory)
+
+        for dr in directories:
+            if not os.path.exists(dr):
+                continue
+
+            for root, dirs, files in os.walk(dr):
+                for f in files:
+                    if not f.endswith("_init.py"):
+                        continue
+
+                    path = os.path.dirname(root)
+                    pluginName = os.path.basename(path)
+                    if pluginNames and pluginName not in pluginNames:
+                        continue
+
+                    pData = {"name": pluginName, "path": path}
+                    result.append(pData)
+                    break
+
+                if not recursive:
+                    break
 
         return result
 
@@ -583,3 +632,18 @@ class PluginManager(object):
             userPluginConfig["searchPaths"].append(pathData)
 
         self.core.setConfig(data=userPluginConfig, config="PluginPaths")
+
+    @err_catcher(name=__name__)
+    def monkeyPatch(self, orig, new, plugin):
+        functionId = "%s.%s" % (orig.__module__, orig.__name__)
+        if functionId in self.monkeyPatchedFunctions:
+            self.core.popup("Function %s is already monkeypatched and cannot get monkeypatched again by plugin %s." % (functionId, plugin.pluginName))
+            return
+
+        self.monkeyPatchedFunctions[functionId] = {"orig": orig, "new": new, "plugin": plugin}
+        if sys.version[0] == "3":
+            origClass = orig.__self__
+        else:
+            origClass = orig.im_self
+
+        setattr(origClass, orig.__name__, new)

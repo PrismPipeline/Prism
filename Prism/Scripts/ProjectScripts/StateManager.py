@@ -1272,7 +1272,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
     @err_catcher(name=__name__)
     def getFilePaths(self, item, paths=[]):
         if hasattr(item, "ui") and item.ui.className != "Folder" and item.ui.listType == "Import":
-            paths.append([item.ui.e_file.text(), item.ui.taskName])
+            paths.append([item.ui.e_file.text(), item.text(0)])
         for i in range(item.childCount()):
             paths = self.getFilePaths(item.child(i), paths)
 

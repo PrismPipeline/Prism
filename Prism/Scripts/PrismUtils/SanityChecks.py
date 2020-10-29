@@ -53,7 +53,42 @@ logger = logging.getLogger(__name__)
 class SanityChecks(object):
     def __init__(self, core):
         self.core = core
+        self.checksToRun = {
+            "onOpenProjectBrowser": [
+                {"name": "restartRequired", "function": self.checkRestartRequired}
+            ],
+            "onOpenStateManager": [
+                {"name": "restartRequired", "function": self.checkRestartRequired}
+            ],
+        }
 
+    @err_catcher(name=__name__)
+    def runChecks(self, category, quiet=False):
+        result = {"passed": True, "checks": []}
+        if category not in self.checksToRun:
+            return result
+
+        for check in self.checksToRun[category]:
+            checkResult = check["function"](quiet=quiet)
+            if not checkResult:
+                result["passed"] = False
+
+            checkData = {"name": check["name"], "passed": checkResult}
+            result["checks"].append(checkData)
+
+        return result
+
+    @err_catcher(name=__name__)
+    def checkRestartRequired(self, quiet=False):
+        if self.core.restartRequired and not quiet:
+            appName = self.core.appPlugin.pluginName
+            if appName == "Standalone":
+                appName = "Prism"
+            self.core.popup("Please restart %s to use this feature." % appName)
+
+        return (not self.core.restartRequired)
+
+    @err_catcher(name=__name__)
     def checkImportVersions(self):
         checkImpVersions = self.core.getConfig("globals", "check_import_versions")
         if checkImpVersions is None:
@@ -135,6 +170,7 @@ class SanityChecks(object):
             if self.core.uiAvailable:
                 QMessageBox.information(self.core.messageParent, "State updates", msgString)
 
+    @err_catcher(name=__name__)
     def checkFramerange(self):
         if not getattr(self.core.appPlugin, "hasFrameRange", True):
             return
@@ -181,24 +217,11 @@ class SanityChecks(object):
         if self.core.forceFramerange:
             self.core.setFrameRange(shotRange[0], shotRange[1])
         else:
-            if self.core.uiAvailable:
-                msg = QMessageBox(
-                    QMessageBox.Information,
-                    "Framerange mismatch",
-                    msgString,
-                    QMessageBox.Ok,
-                )
-                msg.addButton("Set shotrange in scene", QMessageBox.YesRole)
-                msg.setEscapeButton(QMessageBox.Ok)
+            result = self.core.popupQuestion(msgString, title="Framerange mismatch", buttons=["Set shotrange in scene", "Skip"])
+            if result == "Set shotrange in scene":
+                self.core.setFrameRange(shotRange[0], shotRange[1])
 
-                self.core.parentWindow(msg)
-                action = msg.exec_()
-
-                if action == 0:
-                    self.core.setFrameRange(shotRange[0], shotRange[1])
-            else:
-                print(msgString)
-
+    @err_catcher(name=__name__)
     def checkFPS(self):
         forceFPS = self.core.getConfig("globals", "forcefps", configPath=self.core.prismIni)
         if not forceFPS:
@@ -223,57 +246,35 @@ class SanityChecks(object):
             return
 
         vInfo = [["FPS of current scene:", str(curFps)], ["FPS of project", str(pFps)]]
+        lay_info = QGridLayout()
 
-        if self.core.uiAvailable:
-            infoDlg = QDialog()
-            lay_info = QGridLayout()
+        msgString = (
+            "The FPS of the current scene doesn't match the FPS of the project:"
+        )
 
-            msgString = (
-                "The FPS of the current scene doesn't match the FPS of the project:"
-            )
-            l_title = QLabel(msgString)
+        for idx, val in enumerate(vInfo):
+            l_infoName = QLabel(val[0] + ":\t")
+            l_info = QLabel(val[1])
+            lay_info.addWidget(l_infoName)
+            lay_info.addWidget(l_info, idx, 1)
 
-            infoDlg.setWindowTitle("FPS mismatch")
-            for idx, val in enumerate(vInfo):
-                l_infoName = QLabel(val[0] + ":\t")
-                l_info = QLabel(val[1])
-                lay_info.addWidget(l_infoName)
-                lay_info.addWidget(l_info, idx, 1)
+        lay_info.addItem(
+            QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+        lay_info.addItem(
+            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
+        )
 
-            lay_info.addItem(
-                QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
-            )
-            lay_info.addItem(
-                QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
-            )
+        lay_info.setContentsMargins(10, 10, 10, 10)
+        w_info = QWidget()
+        w_info.setLayout(lay_info)
 
-            lay_info.setContentsMargins(10, 10, 10, 10)
-            w_info = QWidget()
-            w_info.setLayout(lay_info)
+        result = self.core.popupQuestion(msgString, title="FPS mismatch", buttons=["Set project FPS in current scene", "Skip"], widget=w_info)
 
-            bb_info = QDialogButtonBox()
+        if result == "Set project FPS in current scene":
+            self.core.appPlugin.setFPS(self.core, float(pFps))
 
-            bb_info.addButton("Continue", QDialogButtonBox.RejectRole)
-            bb_info.addButton(
-                "Set project FPS in current scene", QDialogButtonBox.AcceptRole
-            )
-
-            bb_info.accepted.connect(infoDlg.accept)
-            bb_info.rejected.connect(infoDlg.reject)
-
-            bLayout = QVBoxLayout()
-            bLayout.addWidget(l_title)
-            bLayout.addWidget(w_info)
-            bLayout.addWidget(bb_info)
-            infoDlg.setLayout(bLayout)
-            infoDlg.setParent(self.core.messageParent, Qt.Window)
-            infoDlg.resize(460 * self.core.uiScaleFactor, 160 * self.core.uiScaleFactor)
-
-            action = infoDlg.exec_()
-
-            if action == 1:
-                self.core.appPlugin.setFPS(self.core, float(pFps))
-
+    @err_catcher(name=__name__)
     def checkResolution(self):
         forceRes = self.core.getConfig("globals", "forceResolution", configPath=self.core.prismIni)
         if not forceRes:
@@ -295,56 +296,32 @@ class SanityChecks(object):
             return
 
         vInfo = [["Resolution of current scene:", "%s x %s" % (curRes[0], curRes[1])], ["Resolution of project", "%s x %s" % (pRes[0], pRes[1])]]
+        lay_info = QGridLayout()
+        msgString = (
+            "The resolution of the current scene doesn't match the resolution of the project:"
+        )
 
-        if self.core.uiAvailable:
-            infoDlg = QDialog()
-            lay_info = QGridLayout()
+        for idx, val in enumerate(vInfo):
+            l_infoName = QLabel(val[0] + ":\t")
+            l_info = QLabel(val[1])
+            lay_info.addWidget(l_infoName)
+            lay_info.addWidget(l_info, idx, 1)
 
-            msgString = (
-                "The resolution of the current scene doesn't match the resolution of the project:"
-            )
-            l_title = QLabel(msgString)
+        lay_info.addItem(
+            QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        )
+        lay_info.addItem(
+            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
+        )
 
-            infoDlg.setWindowTitle("Resolution mismatch")
-            for idx, val in enumerate(vInfo):
-                l_infoName = QLabel(val[0] + ":\t")
-                l_info = QLabel(val[1])
-                lay_info.addWidget(l_infoName)
-                lay_info.addWidget(l_info, idx, 1)
+        lay_info.setContentsMargins(10, 10, 10, 10)
+        w_info = QWidget()
+        w_info.setLayout(lay_info)
 
-            lay_info.addItem(
-                QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
-            )
-            lay_info.addItem(
-                QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
-            )
+        result = self.core.popupQuestion(msgString, title="Resolution mismatch", buttons=["Set project resolution in current scene", "Skip"], widget=w_info)
 
-            lay_info.setContentsMargins(10, 10, 10, 10)
-            w_info = QWidget()
-            w_info.setLayout(lay_info)
-
-            bb_info = QDialogButtonBox()
-
-            bb_info.addButton("Continue", QDialogButtonBox.RejectRole)
-            bb_info.addButton(
-                "Set project resolution in current scene", QDialogButtonBox.AcceptRole
-            )
-
-            bb_info.accepted.connect(infoDlg.accept)
-            bb_info.rejected.connect(infoDlg.reject)
-
-            bLayout = QVBoxLayout()
-            bLayout.addWidget(l_title)
-            bLayout.addWidget(w_info)
-            bLayout.addWidget(bb_info)
-            infoDlg.setLayout(bLayout)
-            infoDlg.setParent(self.core.messageParent, Qt.Window)
-            infoDlg.resize(460 * self.core.uiScaleFactor, 160 * self.core.uiScaleFactor)
-
-            action = infoDlg.exec_()
-
-            if action == 1:
-                self.core.appPlugin.setResolution(*pRes)
+        if result == "Set project resolution in current scene":
+            self.core.appPlugin.setResolution(*pRes)
 
     @err_catcher(name=__name__)
     def checkAppVersion(self):
@@ -366,15 +343,11 @@ class SanityChecks(object):
         curVersion = self.core.appPlugin.getAppVersion(self.core)
 
         if curVersion != rversion:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "You use a different %s version, than configured in your \
-current project.\n\nYour current version: %s\nVersion configured in project: %s\n\nPlease use the required %s version to avoid incompatibility problems."
-                % (
-                    self.core.appPlugin.pluginName,
-                    curVersion,
-                    rversion,
-                    self.core.appPlugin.pluginName,
-                ),
-            )
+            msgStr = "You use a different %s version, than configured in your \
+current project.\n\nYour current version: %s\nVersion configured in project: %s\n\nPlease use the required %s version to avoid incompatibility problems." % (
+                self.core.appPlugin.pluginName,
+                curVersion,
+                rversion,
+                self.core.appPlugin.pluginName,
+            ),
+            self.core.popup(msgStr)

@@ -1,3 +1,14 @@
+v1.3.0.44:
+- added color indicators to the import states in Maya, Blender and 3dsMax
+- added the option to use "{#}" in the import state names to ensure unique state names
+- improved dropping of scenefiles in the Project Browser by adding a progress popup with cancel button and hash validation
+- changed the default naming of import states in Maya, Blender and 3dsMax to match the Houdini naming, which also fixes some bugs, which could reset the import state names unintentionally 
+- fixed a bug in VRay for Maya that changed multichannel exrs to exrs with separate AOVs before rendering
+- fixed a bug that Maya renderings could be written to the wrong folder in rare cases
+- fixed a bug in the Photoshop integration that the list of existing tasknames in the export dialog was not showing the correct names in some cases
+- fixed a bug in the Photoshop integration that caused the creation of a metadata file even when the save of the current document failed
+- after updating Prism the Project Browser and State Manager won't be available until the next DCC restart to prevent errors
+
 v1.3.0.43:
 - added support for Fusion 16 (thanks to EmberLightVFX)
 - fixed a bug that steps could be created when a sequence was selected in the Project Browser

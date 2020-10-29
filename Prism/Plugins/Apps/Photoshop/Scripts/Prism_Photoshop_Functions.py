@@ -251,12 +251,8 @@ class Prism_Photoshop_Functions(object):
                 if name is None:
                     raise
         except:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "There is no active document in Photoshop.",
-            )
-            return
+            self.core.popup("There is no active document in Photoshop.")
+            return False
 
         if "fileFormat" in details:
             filepath = os.path.splitext(filepath)[0] + details["fileFormat"]

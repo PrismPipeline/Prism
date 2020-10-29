@@ -496,6 +496,7 @@ or move Prism to a location where no admin privileges are required." % target)
         )
         stdOutData, stderrdata = result.communicate()
 
+        self.core.restartRequired = True
         msgStr = "Successfully updated Prism"
         if self.core.appPlugin.pluginName == "Standalone":
             msgStr += "\n\nPrism will now close. Please restart all your currently open DCC apps."

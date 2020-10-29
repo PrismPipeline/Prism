@@ -1370,6 +1370,8 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             elif imgFormat == ".jpg":
                 cmds.setAttr("defaultArnoldDriver.ai_translator", "jpeg", type="string")
 
+            cmds.setAttr("defaultArnoldDriver.prefix", "", type="string")
+
             aAovs = maovs.AOVInterface().getAOVNodes(names=True)
             multichannel = cmds.getAttr("defaultArnoldDriver.mergeAOVs") == 1
             if (
@@ -1378,9 +1380,6 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 and len(aAovs) > 0
             ):
                 outputPrefix = "../" + outputPrefix
-                # 	if len(rlayers) > 1:
-                # 		outputPrefix = "../" + outputPrefix
-
                 cmds.setAttr(
                     "defaultRenderGlobals.imageFilePrefix", outputPrefix, type="string"
                 )
@@ -1432,7 +1431,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             rSettings["vr_animation"] = cmds.getAttr("vraySettings.animType")
             rSettings["vr_dontSave"] = cmds.getAttr("vraySettings.dontSaveImage")
 
-            multichannel = cmds.getAttr("vraySettings.imageFormatStr") not in [
+            multichannel = cmds.getAttr("vraySettings.imageFormatStr") in [
                 "exr (multichannel)",
                 "exr (deep)",
             ]
@@ -2562,8 +2561,13 @@ Show only polygon objects in viewport.
         prjPath = os.path.join(prjPath, "untitled")
         extFiles = []
         for path in cmds.file(query=True, list=True):
-            if self.core.fixPath(path) != self.core.fixPath(prjPath):
-                extFiles.append(self.core.fixPath(path))
+            if not path:
+                continue
+
+            if self.core.fixPath(path) == self.core.fixPath(prjPath):
+                continue
+
+            extFiles.append(self.core.fixPath(path))
 
         return [extFiles, []]
 

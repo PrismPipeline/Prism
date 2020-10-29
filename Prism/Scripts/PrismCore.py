@@ -46,6 +46,7 @@ import re
 import subprocess
 import logging
 import tempfile
+import hashlib
 from collections import OrderedDict
 from datetime import datetime
 
@@ -181,7 +182,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.43"
+            self.version = "v1.3.0.44"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -259,6 +260,7 @@ class PrismCore:
             self.ps = None
             self.status = "starting"
             self.missingModules = []
+            self.restartRequired = False
 
             # delete old paths from the path variable
             for val in sys.path:
@@ -280,7 +282,7 @@ class PrismCore:
             if self.useOnTop is None:
                 self.useOnTop = True
 
-            if sys.argv[-1] in ["setupStartMenu", "refreshIntegrations"]:
+            if sys.argv and sys.argv[-1] in ["setupStartMenu", "refreshIntegrations"]:
                 self.prismArgs.pop(self.prismArgs.index("loadProject"))
 
             self.callbacks = Callbacks.Callbacks(self)
@@ -296,10 +298,10 @@ class PrismCore:
             self.getUIscale()
             self.initializePlugins(app)
 
-            if sys.argv[-1] == "setupStartMenu":
+            if sys.argv and sys.argv[-1] == "setupStartMenu":
                 self.setupStartMenu()
                 sys.exit()
-            elif sys.argv[-1] == "refreshIntegrations":
+            elif sys.argv and sys.argv[-1] == "refreshIntegrations":
                 self.integration.refreshAllIntegrations()
                 sys.exit()
 
@@ -883,6 +885,9 @@ License: GNU GPL-3.0-or-later<br>
         if not self.users.ensureUser():
             return False
 
+        if not self.sanities.runChecks("onOpenStateManager")["passed"]:
+            return False
+
         if not getattr(self, "sm", None) or self.debugMode or reload_module:
             self.closeSM()
 
@@ -938,6 +943,9 @@ License: GNU GPL-3.0-or-later<br>
             self.pb.close()
 
         if not self.users.ensureUser():
+            return False
+
+        if not self.sanities.runChecks("onOpenProjectBrowser")["passed"]:
             return False
 
         if not getattr(self, "pb", None) or self.debugMode:
@@ -1526,6 +1534,9 @@ License: GNU GPL-3.0-or-later<br>
         )
 
         result = self.appPlugin.saveScene(self, filepath, details)
+        if result is False:
+            return False
+
         if prismReq:
             self.saveSceneInfo(filepath, details, preview=preview)
 
@@ -1534,9 +1545,6 @@ License: GNU GPL-3.0-or-later<br>
             types=["curApp", "custom"],
             args=[self, filepath, versionUp, comment, publish],
         )
-
-        if result is False:
-            return False
 
         if not prismReq:
             return filepath
@@ -1807,6 +1815,100 @@ License: GNU GPL-3.0-or-later<br>
 
         cb = QApplication.clipboard()
         cb.setText(text)
+
+    @err_catcher(name=__name__)
+    def copyfile(self, src, dst, thread=None, follow_symlinks=True):
+        """Copy data from src to dst.
+
+        If follow_symlinks is not set and src is a symbolic link, a new
+        symlink will be created instead of copying the file it points to.
+
+        """
+        if shutil._samefile(src, dst):
+            raise shutil.SameFileError("{!r} and {!r} are the same file".format(src, dst))
+
+        for fn in [src, dst]:
+            try:
+                st = os.stat(fn)
+            except OSError:
+                # File most likely does not exist
+                pass
+            else:
+                # XXX What about other special files? (sockets, devices...)
+                if shutil.stat.S_ISFIFO(st.st_mode):
+                    raise shutil.SpecialFileError("`%s` is a named pipe" % fn)
+
+        if not follow_symlinks and os.path.islink(src):
+            os.symlink(os.readlink(src), dst)
+        else:
+            size = os.stat(src).st_size
+            thread.updated.emit("Getting source hash")
+            vSourceHash = hashlib.md5(open(src, 'rb').read()).hexdigest()
+            vDestinationHash = ""
+            while vSourceHash != vDestinationHash:
+                with open(src, 'rb') as fsrc:
+                    with open(dst, 'wb') as fdst:
+                        self.copyfileobj(fsrc, fdst, total=size, thread=thread)
+
+                if thread and thread.canceled:
+                    try:
+                        os.remove(dst)
+                    except:
+                        pass
+                    return
+
+                thread.updated.emit("Validating copied file")
+                vDestinationHash = hashlib.md5(open(dst, 'rb').read()).hexdigest()
+
+        shutil.copymode(src, dst)
+        return dst
+
+    @err_catcher(name=__name__)
+    def copyfileobj(self, fsrc, fdst, total, thread=None, length=16*1024):
+        copied = 0
+        prevPrc = -1
+        while True:
+            if thread and thread.canceled:
+                break
+
+            buf = fsrc.read(length)
+            if not buf:
+                break
+            fdst.write(buf)
+            copied += len(buf)
+            if thread:
+                prc = int((copied / total) * 100)
+                if prc != prevPrc:
+                    prevPrc = prc
+                    thread.updated.emit("Progress: %s%%" % prc)
+
+    @err_catcher(name=__name__)
+    def copyWithProgress(self, src, dst, follow_symlinks=True):
+        if os.path.isdir(dst):
+            dst = os.path.join(dst, os.path.basename(src))
+
+        self.copyThread = Worker(self.core)
+        self.copyThread.function = lambda: self.copyfile(src, dst, self.copyThread, follow_symlinks=follow_symlinks)
+
+        self.copyMsg = self.core.waitPopup(self.core, "Copying file - please wait..\n\n\n")
+
+        self.copyThread.errored.connect(self.writeErrorLog)
+        self.copyThread.updated.connect(self.updateProgressPopup)
+        self.copyThread.finished.connect(self.copyMsg.close)
+
+        self.copyMsg.show()
+        b_cnl = self.copyMsg.msg.buttons()[0]
+        b_cnl.setVisible(True)
+        b_cnl.clicked.connect(self.copyThread.cancel)
+        self.copyThread.start()
+
+        return dst
+
+    @err_catcher(name=__name__)
+    def updateProgressPopup(self, progress):
+        text = self.copyMsg.msg.text()
+        updatedText = text.rsplit("\n", 2)[0] + "\n" + progress + "\n"
+        self.copyMsg.msg.setText(updatedText)
 
     @err_catcher(name=__name__)
     def createShortcutDeprecated(self, vPath, vTarget="", args="", vWorkingDir="", vIcon=""):
@@ -2230,7 +2332,7 @@ License: GNU GPL-3.0-or-later<br>
                 logger.error(msg)
 
     @err_catcher(name=__name__)
-    def popupQuestion(self, text, title=None, buttons=None, default=None, icon=None):
+    def popupQuestion(self, text, title=None, buttons=None, default=None, icon=None, widget=None):
         text = str(text)
         title = str(title or "Prism")
         buttons = buttons or ["Yes", "No"]
@@ -2251,6 +2353,9 @@ License: GNU GPL-3.0-or-later<br>
             else:
                 role = QMessageBox.YesRole
             msg.addButton(button, role)
+
+        if widget:
+            msg.layout().addWidget(widget, 1, 2)
 
         msg.exec_()
         result = msg.clickedButton().text()
@@ -2496,6 +2601,26 @@ If this plugin is an official Prism plugin, please submit this error to the deve
             os.remove(attachment)
         except Exception:
             pass
+
+
+class Worker(QThread):
+    errored = Signal(object)
+    updated = Signal(object)
+
+    def __init__(self, core, function=None):
+        super(Worker, self).__init__()
+        self.core = core
+        self.function = function
+        self.canceled = False
+
+    def run(self):
+        try:
+            self.function()
+        except Exception as e:
+            self.errored.emit(str(e))
+
+    def cancel(self):
+        self.canceled = True
 
 
 def create(prismArgs=None):

@@ -72,7 +72,12 @@ def err_handler(func, name="", plugin=False):
                 "".join(traceback.format_stack()),
                 traceback.format_exc(),
             )
-            args[0].core.writeErrorLog(erStr)
+
+            isGuiThread = QApplication.instance().thread() == QThread.currentThread()
+            if isGuiThread:
+                args[0].core.writeErrorLog(erStr)
+            else:
+                raise Exception(erStr)
 
     return func_wrapper
 
