@@ -385,6 +385,8 @@ class Projects(object):
             self.cp = CreateProject.CreateProject(core=self.core)
             self.cp.show()
 
+        return self.cp
+
     @err_catcher(name=__name__)
     def createProject(self, name, path, settings=None):
         prjName = name
