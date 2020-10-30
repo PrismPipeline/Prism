@@ -281,14 +281,6 @@ class Prism_Nuke_Functions(object):
         origin.actionStateManager.setEnabled(False)
 
     @err_catcher(name=__name__)
-    def projectBrowserLoadLayout(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def setRCStyle(self, origin, rcmenu):
-        pass
-
-    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False

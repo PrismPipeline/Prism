@@ -225,14 +225,6 @@ class Prism_Blender_Functions(object):
             origin.publicColor = QColor(50, 100, 170)
 
     @err_catcher(name=__name__)
-    def projectBrowserLoadLayout(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def setRCStyle(self, origin, rcmenu):
-        pass
-
-    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if not filepath.endswith(".blend"):
             return False

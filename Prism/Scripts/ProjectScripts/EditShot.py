@@ -102,14 +102,12 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
 
     @err_catcher(name=__name__)
     def showSequences(self):
-        smenu = QMenu()
+        smenu = QMenu(self)
 
         for i in self.sequences:
             sAct = QAction(i, self)
             sAct.triggered.connect(lambda x=None, t=i: self.seqClicked(t))
             smenu.addAction(sAct)
-
-        self.core.appPlugin.setRCStyle(self, smenu)
 
         smenu.exec_(QCursor.pos())
 

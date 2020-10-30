@@ -176,14 +176,12 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
 
     @err_catcher(name=__name__)
     def showTasks(self):
-        tmenu = QMenu()
+        tmenu = QMenu(self)
 
         for i in self.taskList:
             tAct = QAction(i, self)
             tAct.triggered.connect(lambda x=None, t=i: self.taskClicked(t))
             tmenu.addAction(tAct)
-
-        self.core.appPlugin.setRCStyle(self, tmenu)
 
         tmenu.exec_(QCursor.pos())
 

@@ -326,7 +326,7 @@ class SaveHDAClass(hou_Export.ExportClass):
 
         version = int(hVersion[1:]) if hVersion else None
         result = self.exportHDA(ropNode, outputName, version)
-        if result:
+        if result is True:
             if len(os.listdir(os.path.dirname(outputName))) > 0:
                 result = True
             else:
@@ -343,9 +343,10 @@ class SaveHDAClass(hou_Export.ExportClass):
             if result == "unknown error (files do not exist)":
                 msg = "No files were created during the rendering. If you think this is a Prism bug please report it in the forum:\nwww.prism-pipeline.com/forum/\nor write a mail to contact@prism-pipeline.com"
                 self.core.popup(msg)
-            else:
+            elif not result.startswith("Execute Canceled"):
                 self.core.writeErrorLog(erStr)
-            return [self.state.text(0) + " - error - " + result]
+
+            return [self.state.text(0) + " - error - " + str(result)]
 
     @err_catcher(name=__name__)
     def exportHDA(self, node, outputPath, version):
@@ -390,7 +391,11 @@ class SaveHDAClass(hou_Export.ExportClass):
             self.connectNode(result)
 
         self.updateUi()
-        return True
+
+        if result:
+            return True
+        else:
+            return "Execute Canceled"
 
     @err_catcher(name=__name__)
     def getStateProps(self):

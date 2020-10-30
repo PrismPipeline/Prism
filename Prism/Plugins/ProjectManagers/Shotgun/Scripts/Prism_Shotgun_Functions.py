@@ -203,7 +203,7 @@ class Prism_Shotgun_Functions(object):
     def pbBrowser_getMenu(self, origin):
         sg = self.core.getConfig("shotgun", "active", configPath=self.core.prismIni)
         if sg:
-            sgMenu = QMenu("Shotgun")
+            sgMenu = QMenu("Shotgun", origin)
 
             actSg = QAction("Open Shotgun", origin)
             actSg.triggered.connect(self.openSg)

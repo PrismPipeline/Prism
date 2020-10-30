@@ -105,7 +105,7 @@ class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
         self.refreshUi()
         self.connectEvents()
 
-        self.core.appPlugin.setProject_loading(self)
+        getattr(self.core.appPlugin, "setProject_loading", lambda x: None)(self)
         self.core.callback(
             name="onSetProjectStartup", types=["prjManagers", "custom"], args=[self]
         )
@@ -218,13 +218,11 @@ class SetProjectClass(QDialog, SetProject_ui.Ui_dlg_setProject):
 
     @err_catcher(name=__name__)
     def rclRecent(self, rProject):
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         delAct = QAction("Delete from recent", self)
         delAct.triggered.connect(lambda: self.deleteRecent(rProject))
         rcmenu.addAction(delAct)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
 
         rcmenu.exec_(QCursor.pos())
 

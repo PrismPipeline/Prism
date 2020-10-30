@@ -74,7 +74,7 @@ class PluginManager(object):
         if not appPlug:
             return
 
-        self.loadPlugins(pluginPaths=pluginDirs["pluginPaths"], directories=pluginDirs["searchPaths"])
+        self.loadPlugins(pluginPaths=pluginDirs["pluginPaths"], directories=pluginDirs["searchPaths"], force=False)
 
         if self.core.appPlugin.pluginName != "Standalone":
             self.core.maxwait = 20
@@ -140,7 +140,8 @@ class PluginManager(object):
         if not pluginPath:
             pluginPath = os.path.join(self.core.pluginPathApp, pluginName, "Scripts")
         else:
-            pluginPath = os.path.join(pluginPath, "Scripts")
+            if os.path.basename(pluginPath) != "Scripts":
+                pluginPath = os.path.join(pluginPath, "Scripts")
 
         sys.path.append(pluginPath)
         self.core.appPlugin = getattr(
@@ -182,7 +183,7 @@ class PluginManager(object):
         result = []
         if pluginPaths:
             for pPath in pluginPaths:
-                result.append(self.loadPlugin(pPath))
+                result.append(self.loadPlugin(pPath, force=force))
 
         directories = directories or []
         if directory:
@@ -424,7 +425,7 @@ class PluginManager(object):
 
         if appPlug:
             pluginName = self.getPluginNameFromPath(pluginPath)
-            plugin = self.loadAppPlugin(pluginName)
+            plugin = self.loadAppPlugin(pluginName, pluginPath=pluginPath)
         else:
             plugin = self.loadPlugin(pluginPath)
         return plugin

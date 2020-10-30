@@ -358,14 +358,6 @@ class Prism_Photoshop_Functions(object):
         origin.menuTools.addMenu(psMenu)
 
     @err_catcher(name=__name__)
-    def projectBrowserLoadLayout(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def setRCStyle(self, origin, rcmenu):
-        pass
-
-    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if not force and os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False
@@ -676,15 +668,13 @@ class Prism_Photoshop_Functions(object):
 
     @err_catcher(name=__name__)
     def exportShowTasks(self):
-        tmenu = QMenu()
+        tmenu = QMenu(self)
 
         for i in self.taskList:
             tAct = QAction(i, self.dlg_export)
             tAct.triggered.connect(lambda x=None, t=i: self.le_task.setText(t))
             tAct.triggered.connect(self.exportGetVersions)
             tmenu.addAction(tAct)
-
-        self.core.appPlugin.setRCStyle(self, tmenu)
 
         tmenu.exec_(QCursor.pos())
 

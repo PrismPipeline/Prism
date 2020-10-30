@@ -243,14 +243,13 @@ class RenderSettingsClass(object):
             self.core.popup("No presets found.")
             return
 
-        pmenu = QMenu()
+        pmenu = QMenu(self.stateManager)
 
         for preset in sorted(presets):
             add = QAction(preset, self)
             add.triggered.connect(lambda x=None, p=preset: self.loadPreset(presets[p]))
             pmenu.addAction(add)
 
-        self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor().pos())
 
     @err_catcher(name=__name__)

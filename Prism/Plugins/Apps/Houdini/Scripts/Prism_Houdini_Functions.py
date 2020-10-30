@@ -303,13 +303,21 @@ class Prism_Houdini_Functions(object):
                     version = 1
                 typeName += "::" + str(version)
 
-            hda = node.createDigitalAsset(
-                typeName,
-                hda_file_name=outputPath,
-                description=label,
-                ignore_external_references=allowExternalReferences,
-                change_node_type=convertNode,
-            )
+            try:
+                hda = node.createDigitalAsset(
+                    typeName,
+                    hda_file_name=outputPath,
+                    description=label,
+                    ignore_external_references=allowExternalReferences,
+                    change_node_type=convertNode,
+                )
+            except hou.OperationFailed as e:
+                msg = e.instanceMessage()
+                print(msg)
+                if msg.startswith("The selected subnet has references to nodes"):
+                    msg = "Canceled HDA creation.\n\n" + msg + "\n\nYou can enable \"Allow external references\" in the state settings to ignore this warning."
+                self.core.popup(msg)
+                return False
 
             if blackBox:
                 hou.hda.installFile(outputPath, force_use_assets=True)
@@ -659,13 +667,6 @@ class Prism_Houdini_Functions(object):
         origin.checkColor = "rgb(185, 134, 32)"
 
     @err_catcher(name=__name__)
-    def projectBrowserLoadLayout(self, origin):
-        if self.core.uiAvailable:
-            origin.scrollArea.setStyleSheet(
-                hou.qt.styleSheet().replace("QLabel", "QScrollArea")
-            )
-
-    @err_catcher(name=__name__)
     def preLoadEmptyScene(self, origin, filepath):
         self.curDesktop = hou.ui.curDesktop()
 
@@ -673,16 +674,6 @@ class Prism_Houdini_Functions(object):
     def postLoadEmptyScene(self, origin, filepath):
         if hasattr(self, "curDesktop"):
             self.curDesktop.setAsCurrent()
-
-    @err_catcher(name=__name__)
-    def setRCStyle(self, origin, rcmenu):
-        if not self.core.uiAvailable:
-            return
-
-        if platform.system() == "Darwin":
-            rcmenu.setStyleSheet(hou.ui.mainQtWindow().styleSheet())
-        else:
-            rcmenu.setStyleSheet(origin.parent().styleSheet())
 
     @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
@@ -1126,7 +1117,7 @@ class Prism_Houdini_Functions(object):
         if len(renderers) == 1:
             origin.createPressed("Render", renderer=renderers[0].label)
         else:
-            rndMenu = QMenu()
+            rndMenu = QMenu(origin)
             for i in renderers:
                 mAct = QAction(i.label, origin)
                 mAct.triggered.connect(
@@ -1137,8 +1128,6 @@ class Prism_Houdini_Functions(object):
             if rndMenu.isEmpty():
                 origin.createPressed("Render")
                 return False
-
-            self.setRCStyle(origin, rndMenu)
 
             rndMenu.exec_(QCursor.pos())
 
@@ -1191,9 +1180,9 @@ class Prism_Houdini_Functions(object):
                     origin.createPressed("Render")
                     return
 
-        nodeMenu = QMenu()
+        nodeMenu = QMenu(origin)
 
-        renderMenu = QMenu("ImageRender")
+        renderMenu = QMenu("ImageRender", origin)
 
         renderNodes = []
         for node in hou.node("/").allSubChildren():
@@ -1220,7 +1209,7 @@ class Prism_Houdini_Functions(object):
         if not renderMenu.isEmpty():
             nodeMenu.addMenu(renderMenu)
 
-        ropMenu = QMenu("Export")
+        ropMenu = QMenu("Export", origin)
 
         ropNodes = []
         for node in hou.node("/").allSubChildren():
@@ -1262,10 +1251,6 @@ class Prism_Houdini_Functions(object):
         if nodeMenu.isEmpty():
             self.core.popup("No unconnected ROPs exist in scene.")
         else:
-            self.setRCStyle(origin, nodeMenu)
-            self.setRCStyle(origin, renderMenu)
-            self.setRCStyle(origin, ropMenu)
-
             nodeMenu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
@@ -1422,10 +1407,9 @@ class Prism_Houdini_Functions(object):
 
     @err_catcher(name=__name__)
     def showNodeContext(self, origin):
-        rcMenu = QMenu()
+        rcMenu = QMenu(origin.stateManager)
         mAct = QAction("Add selected", origin)
         mAct.triggered.connect(lambda: self.sm_renderSettings_addSelected(origin))
         rcMenu.addAction(mAct)
 
-        self.setRCStyle(origin.stateManager, rcMenu)
         rcMenu.exec_(QCursor.pos())

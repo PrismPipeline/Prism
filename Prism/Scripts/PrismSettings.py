@@ -262,7 +262,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             if i.row() not in selPlugs:
                 selPlugs.append(i.row())
 
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         act_reload = rcmenu.addAction("Reload", lambda: self.reloadPlugins(selected=True))
         act_load = rcmenu.addAction("Load", lambda: self.loadPlugins(selected=True))
@@ -278,8 +278,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             else:
                 act_reload.setEnabled(False)
                 act_unload.setEnabled(False)
-
-        getattr(self.core.appPlugin, "setRCStyle", lambda x, y: None)(self, rcmenu)
 
         rcmenu.exec_(QCursor.pos())
 
@@ -843,7 +841,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         path = item.text()
 
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
         openex = QAction("Open in Explorer", self)
         openex.triggered.connect(lambda: self.core.openFolder(path))
         rcmenu.addAction(openex)
@@ -851,8 +849,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         copAct = QAction("Copy path", self)
         copAct.triggered.connect(lambda: self.core.copyToClipboard(path))
         rcmenu.addAction(copAct)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
 
         rcmenu.exec_(QCursor.pos())
 
@@ -1080,13 +1076,11 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
     @err_catcher(name=__name__)
     def cmenu_update(self, event):
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         act_zip = QAction("Update from .zip", self)
         act_zip.triggered.connect(self.core.updater.updateFromZip)
         rcmenu.addAction(act_zip)
-
-        getattr(self.core.appPlugin, "setRCStyle", lambda x, y: None)(self, rcmenu)
 
         rcmenu.exec_(QCursor.pos())
 
@@ -1098,7 +1092,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     def curPshowList(self, prog):
         versionList = self.forceVersionPlugins[prog]["presets"]
 
-        vmenu = QMenu()
+        vmenu = QMenu(self)
 
         for i in versionList:
             tAct = QAction(i, self)
@@ -1106,8 +1100,6 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 lambda x=None, t=i: self.forceVersionPlugins[prog]["le"].setText(t)
             )
             vmenu.addAction(tAct)
-
-        self.core.appPlugin.setRCStyle(self, vmenu)
 
         vmenu.exec_(QCursor.pos())
 

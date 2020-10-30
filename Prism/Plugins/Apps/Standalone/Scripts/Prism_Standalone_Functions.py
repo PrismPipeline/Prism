@@ -77,14 +77,6 @@ class Prism_Standalone_Functions(object):
         origin.actionStateManager.setEnabled(False)
 
     @err_catcher(name=__name__)
-    def projectBrowserLoadLayout(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def setRCStyle(self, origin, rcmenu):
-        pass
-
-    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         return False
 

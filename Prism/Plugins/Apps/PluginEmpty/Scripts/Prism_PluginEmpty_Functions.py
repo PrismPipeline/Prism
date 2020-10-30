@@ -150,14 +150,6 @@ class Prism_PluginEmpty_Functions(object):
         origin.sl_preview.mousePressEvent = origin.sl_preview.origMousePressEvent
 
     @err_catcher(name=__name__)
-    def projectBrowserLoadLayout(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def setRCStyle(self, origin, rcmenu):
-        pass
-
-    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         # load scenefile
         return True

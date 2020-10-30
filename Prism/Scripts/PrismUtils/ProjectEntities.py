@@ -262,41 +262,47 @@ class ProjectEntities(object):
                     if f in sfiles:
                         continue
 
-                    sData = self.core.getScenefileData(f)
-
-                    if sData["entity"] not in ["asset", "shot"]:
-                        continue
-
-                    try:
-                        int(sData["extension"][-5:]) #ignore maya temp files
-                        continue
-                    except:
-                        pass
-
-                    if "extension" not in sData:
-                        continue
-
-                    if f.endswith("autosave"):
-                        continue
-
-                    uScene = (
-                        sData["extension"] not in self.core.getPluginSceneFormats()
-                        and "info" not in sData["extension"]
-                        and "preview" not in sData["extension"]
-                    )
-
-                    if (
-                        sData["extension"] not in extensions
-                        and not ("*" in extensions and uScene)
-                    ):
-                        continue
-
-                    sfiles[f] = os.path.join(root, f)
+                    if self.isValidScenefilename(f, extensions=extensions):
+                        sfiles[f] = os.path.join(root, f)
                 break
 
         scenefiles = sfiles.values()
 
         return scenefiles
+
+    @err_catcher(name=__name__)
+    def isValidScenefilename(self, filename, extensions=None):
+        extensions = extensions or "*"
+        sData = self.core.getScenefileData(filename)
+
+        if sData["entity"] not in ["asset", "shot"]:
+            return False
+
+        try:
+            int(sData["extension"][-5:])  # ignore maya temp files
+            return False
+        except Exception:
+            pass
+
+        if "extension" not in sData:
+            return False
+
+        if filename.endswith("autosave"):
+            return False
+
+        uScene = (
+            sData["extension"] not in self.core.getPluginSceneFormats()
+            and "info" not in sData["extension"]
+            and "preview" not in sData["extension"]
+        )
+
+        if (
+            sData["extension"] not in extensions
+            and not ("*" in extensions and uScene)
+        ):
+            return False
+
+        return True
 
     @err_catcher(name=__name__)
     def createEntity(self, entityType, entityName, dialog=None, frameRange=None):

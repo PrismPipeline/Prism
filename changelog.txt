@@ -1,3 +1,8 @@
+v1.3.0.45:
+- fixed a bug that the DCC executable overrides were working on Windows only
+- fixed an error in Houdini when saving an HDA with external references when the setting "Allow external references" is disabled
+- changed the default Maya namespace to {entity}_{task}, which can be overwritten by the "globals - defaultMayaNamespace" setting in the project config
+
 v1.3.0.44:
 - added color indicators to the import states in Maya, Blender and 3dsMax
 - added the option to use "{#}" in the import state names to ensure unique state names

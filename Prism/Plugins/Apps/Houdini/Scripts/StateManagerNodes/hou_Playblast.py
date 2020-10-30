@@ -269,7 +269,7 @@ class PlayblastClass(object):
 
     @err_catcher(name=__name__)
     def showResPresets(self):
-        pmenu = QMenu()
+        pmenu = QMenu(self.stateManager)
 
         for i in self.resolutionPresets:
             pAct = QAction(i, self)
@@ -293,7 +293,6 @@ class PlayblastClass(object):
 
             pmenu.addAction(pAct)
 
-        self.core.appPlugin.setRCStyle(self.stateManager, pmenu)
         pmenu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)

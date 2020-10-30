@@ -313,14 +313,6 @@ class Prism_Maya_Functions(object):
         origin.sl_preview.mousePressEvent = origin.sl_preview.origMousePressEvent
 
     @err_catcher(name=__name__)
-    def projectBrowserLoadLayout(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def setRCStyle(self, origin, rcmenu):
-        pass
-
-    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         if not filepath.endswith(".ma") and not filepath.endswith(".mb"):
             return False
@@ -1991,7 +1983,16 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 # default settings
                 mode = "reference"
                 useNamespace = True
-                namespace = fileName[0]
+
+                namespaceTemplate = "{entity}_{task}"
+                namespaceTemplate = self.core.getConfig("globals", "defaultMayaNamespace", dft=namespaceTemplate, configPath=self.core.prismIni)
+                cacheData = self.core.paths.getCachePathData(impFileName)
+
+                try:
+                    namespace = namespaceTemplate.format(**cacheData)
+                except:
+                    namespace = ""
+                    useNamespace = False
 
                 if self.core.uiAvailable:
                     refDlg = QDialog()

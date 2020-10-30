@@ -111,7 +111,7 @@ class Prism_PluginEmpty_Functions(object):
             "PluginEmpty", "active", configPath=self.core.prismIni
         )
         if prjman:
-            prjmanMenu = QMenu("PluginEmpty")
+            prjmanMenu = QMenu("PluginEmpty", origin)
 
             actprjman = QAction("Open PluginEmpty", origin)
             actprjman.triggered.connect(self.openprjman)

@@ -182,7 +182,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.44"
+            self.version = "v1.3.0.45"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -2029,8 +2029,7 @@ License: GNU GPL-3.0-or-later<br>
             return
 
         openSm = getattr(self, "sm", None) and self.sm.isVisible()
-
-        self.appPlugin.sceneOpen(self)
+        getattr(self.appPlugin, "sceneOpen", lambda x: None)(self)
 
         # trigger auto imports
         if os.path.exists(self.prismIni):

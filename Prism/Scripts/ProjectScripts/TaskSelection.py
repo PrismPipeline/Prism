@@ -330,7 +330,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 path = self.tw_versions.model().index(row, pathC).data()
                 showInfo = True
 
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
         openex = QAction("Open in Explorer", self)
         openex.triggered.connect(lambda: self.core.openFolder(path))
         rcmenu.addAction(openex)
@@ -356,8 +356,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 lambda: self.core.dependencyViewer(infoPath, modal=True)
             )
             rcmenu.addAction(depAct)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
 
         rcmenu.exec_((viewUi.viewport()).mapToGlobal(pos))
 

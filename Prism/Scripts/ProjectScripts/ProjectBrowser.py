@@ -232,7 +232,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.updateTasks()
 
         self.l_preview.setAcceptDrops(True)
-
     #   self.tw_sFiles.setStyleSheet("QTableView,QListView,QHeaderView {color: rgb(199,199,199);background-color: rgb(71,71,71);selection-color: rgb(0,0,0);selection-background-color: rgb(242,138,0);}")
 
     @err_catcher(name=__name__)
@@ -439,7 +438,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def loadLayout(self):
-        self.helpMenu = QMenu("Help")
+        self.helpMenu = QMenu("Help", self)
 
         self.actionWebsite = QAction("Visit website", self)
         self.actionWebsite.triggered.connect(lambda: self.core.openWebsite("home"))
@@ -493,8 +492,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             parentWidget = self.menubar
 
         parentWidget.setCornerWidget(self.w_menuCorner)
-
-        self.core.appPlugin.setRCStyle(self, self.helpMenu)
 
         self.appFilters = {}
 
@@ -582,7 +579,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if prjMngMenu is not None:
                 self.menuTools.addSeparator()
                 self.menuTools.addMenu(prjMngMenu)
-                self.core.appPlugin.setRCStyle(self, prjMngMenu)
 
         self.tabOrder = {
             "Assets": {"order": 0, "showRenderings": True},
@@ -649,7 +645,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         shotSort = brsData.get("shotSorting", [1, 1])
         self.tw_sFiles.sortByColumn(shotSort[0], Qt.SortOrder(shotSort[1]))
 
-        self.core.appPlugin.projectBrowserLoadLayout(self)
         self.core.callback(
             name="projectBrowser_loadUI", types=["custom", "unloadedApps"], args=[self]
         )
@@ -876,7 +871,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if idx != tab:
                 self.tbw_browser.widget(idx).setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
 
-        self.tbw_browser.widget(tab).setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        curWidget = self.tbw_browser.widget(tab)
+        if not curWidget:
+            return
+
+        curWidget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
     @err_catcher(name=__name__)
     def checkVisibleTabs(self):
@@ -1270,7 +1269,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if not menu:
             return
 
-        self.core.appPlugin.setRCStyle(self, menu)
         menu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
@@ -1285,13 +1283,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if not path:
             return
 
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         if len(mediaPlayback["seq"]) > 0:
             if len(mediaPlayback["seq"]) == 1:
                 path = os.path.join(path, mediaPlayback["seq"][0])
 
-            playMenu = QMenu("Play in")
+            playMenu = QMenu("Play in", self)
 
             if self.rv is not None:
                 pAct = QAction("RV", self)
@@ -1330,9 +1328,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 )
             )
             playMenu.addAction(pAct)
-
-            self.core.appPlugin.setRCStyle(self, playMenu)
-
             rcmenu.addMenu(playMenu)
 
         for i in self.core.prjManagers.values():
@@ -1349,7 +1344,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         rcmenu.addAction(copAct)
 
         if len(mediaPlayback["seq"]) == 1 or mediaPlayback["prvIsSequence"]:
-            cvtMenu = QMenu("Convert")
+            cvtMenu = QMenu("Convert", self)
             qtAct = QAction("jpg", self)
             qtAct.triggered.connect(
                 lambda: self.convertImgs(".jpg", mediaPlayback=mediaPlayback)
@@ -1371,7 +1366,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             )
             cvtMenu.addAction(movAct)
             rcmenu.addMenu(cvtMenu)
-            self.core.appPlugin.setRCStyle(self, cvtMenu)
 
         if len(mediaPlayback["seq"]) > 0:
             if self.tbw_browser.currentWidget().property("tabType") == "Assets":
@@ -1405,7 +1399,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def rclCat(self, tab, pos):
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
         typename = "Category"
         callbackName = ""
 
@@ -1568,8 +1562,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             rcmenu.insertAction(openex, expAct)
             rcmenu.insertAction(openex, clpAct)
 
-        self.core.appPlugin.setRCStyle(self, rcmenu)
-
         if callbackName:
             self.core.callback(
                 name=callbackName,
@@ -1598,7 +1590,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         elif tab == "r":
             tw = self.tw_recent
 
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         if tw.selectedIndexes() != []:
             idx = tw.selectedIndexes()[0]
@@ -1639,7 +1631,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if self.core.appPlugin.pluginName == "Standalone":
                 current.setEnabled(False)
             rcmenu.addAction(current)
-            emp = QMenu("Create new version from preset")
+            emp = QMenu("Create new version from preset", self)
             emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
             if os.path.exists(emptyDir):
                 for i in sorted(os.listdir(emptyDir)):
@@ -1659,9 +1651,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if self.core.appPlugin.pluginName == "Standalone":
                 newPreset.setEnabled(False)
 
-            self.core.appPlugin.setRCStyle(self, emp)
             rcmenu.addMenu(emp)
-            autob = QMenu("Create new version from autoback")
+            autob = QMenu("Create new version from autoback", self)
             for i in self.core.getPluginNames():
                 if self.core.getPluginData(i, "appType") == "standalone":
                     continue
@@ -1670,7 +1661,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 autobAct.triggered.connect(lambda y=None, x=i: self.autoback(tab, x))
                 autob.addAction(autobAct)
 
-            self.core.appPlugin.setRCStyle(self, autob)
             rcmenu.addMenu(autob)
 
         if irow != -1:
@@ -1705,7 +1695,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         copAct.triggered.connect(lambda: self.core.copyToClipboard(filepath))
         rcmenu.addAction(copAct)
 
-        self.core.appPlugin.setRCStyle(self, rcmenu)
         self.core.callback(
             name="openPBFileContextMenu", types=["custom"], args=[self, rcmenu, idx]
         )
@@ -1762,15 +1751,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         "dccoverrides",
                         "%s_override" % i.pluginName,
                     )
-                    if orApp is not None and orApp:
+                    if orApp:
                         appOrPath = self.core.getConfig(
                             "dccoverrides", "%s_path" % i.pluginName
                         )
-                        if (
-                            appOrPath is not None
-                            and os.path.exists(appOrPath)
-                            and os.path.splitext(appOrPath)[1] == ".exe"
-                        ):
+                        if appOrPath and os.path.exists(appOrPath):
                             appPath = appOrPath
 
                     fileStarted = getattr(
@@ -2863,7 +2848,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def rclEntityPreview(self, pos, entity):
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         if entity == "asset":
             if not self.curAsset:
@@ -2912,7 +2897,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 )
                 rcmenu.addAction(clipAct)
 
-        self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
@@ -4610,7 +4594,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     product=itemName,
                 )[0]
 
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         add = QAction("Add current to compare", self)
         add.triggered.connect(self.addCompare)
@@ -4667,7 +4651,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if rcmenu.isEmpty():
             return False
 
-        self.core.appPlugin.setRCStyle(self, rcmenu)
         rcmenu.exec_((lw.viewport()).mapToGlobal(pos))
 
     @err_catcher(name=__name__)
@@ -4902,7 +4885,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if mediaPlayback is None:
             mediaPlayback = self.mediaPlaybacks["shots"]
 
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         add = QAction("Add current", self)
         add.triggered.connect(self.addCompare)
@@ -4928,8 +4911,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         clear.triggered.connect(self.clearCompare)
         if self.lw_compare.count() > 0:
             rcmenu.addAction(clear)
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
 
         if not rcmenu.isEmpty():
             rcmenu.exec_((self.lw_compare.viewport()).mapToGlobal(pos))
@@ -5220,7 +5201,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def compareOptions(self, event):
-        cmenu = QMenu()
+        cmenu = QMenu(self)
 
         sAct = QAction("Sequence", self)
         sAct.triggered.connect(lambda: self.compare(ctype="sequence"))
@@ -5238,13 +5219,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         lAct.triggered.connect(lambda: self.compare(ctype="stackDif"))
         cmenu.addAction(lAct)
 
-        self.core.appPlugin.setRCStyle(self, cmenu)
-
         cmenu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
     def combineOptions(self, event):
-        cmenu = QMenu()
+        cmenu = QMenu(self)
 
         sAct = QAction("Sequence", self)
         sAct.triggered.connect(lambda: self.combineVersions(ctype="sequence"))
@@ -5261,8 +5240,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         # lAct = QAction("Stack (difference)", self)
         # lAct.triggered.connect(lambda: self.combineVersions(ctype="stackDif"))
         # cmenu.addAction(lAct)
-
-        self.core.appPlugin.setRCStyle(self, cmenu)
 
         cmenu.exec_(QCursor.pos())
 

@@ -74,8 +74,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
         if self.core.uiAvailable:
             self.setupUi(self)
             self.core.parentWindow(self)
-
-            self.core.appPlugin.createProject_startup(self)
+            getattr(self.core.appPlugin, "createProject_startup", lambda x: None)(self)
 
             nameTT = "The name of the new project.\nThe project name will be visible at different locations in the Prism user interface."
             self.l_name.setToolTip(nameTT)
@@ -180,7 +179,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
                 rType = model.index(i, 2).data()
                 existingTypes.append(rType)
 
-            typeMenu = QMenu()
+            typeMenu = QMenu(self)
 
             for i in ["Scenes*", "Assets*", "Dailies"]:
                 if i not in existingTypes:
@@ -191,7 +190,6 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             cAct = QAction("Default", self)
             cAct.triggered.connect(lambda: model.setData(index, "Default"))
             typeMenu.addAction(cAct)
-            self.core.appPlugin.setRCStyle(self, typeMenu)
 
             typeMenu.exec_(QCursor.pos())
 

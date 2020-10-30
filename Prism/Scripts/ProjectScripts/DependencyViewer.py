@@ -134,7 +134,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
     @err_catcher(name=__name__)
     def rclList(self, listType, pos):
-        rcmenu = QMenu()
+        rcmenu = QMenu(self)
 
         if listType == "deps":
             lw = self.tw_dependencies
@@ -157,8 +157,6 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
         if rcmenu.isEmpty():
             return False
-
-        self.core.appPlugin.setRCStyle(self, rcmenu)
 
         rcmenu.exec_(QCursor.pos())
 
