@@ -1,3 +1,12 @@
+v1.3.0.46:
+- added a setting to the project settings to track dependencies. Possible values are "Always", "On Publish", "Never"
+- improved mp4 compression quality
+- imporved jpg compression quality
+- added the option to set compression quality for mp4 and jpg in the project config. mp4 range: 1-51, jpg range: 1-31 (lower is better quality)
+- added the option to clear the config cache to the context menu of the refresh button in the Project Browser
+- fixed a bug that the Render Settings preset window was not accessable from the "Options" menu in the State Manager
+- fixed a bug that the Render Settings preset window was not resizing correctly
+
 v1.3.0.45:
 - fixed a bug that the DCC executable overrides were working on Windows only
 - fixed an error in Houdini when saving an HDA with external references when the setting "Allow external references" is disabled

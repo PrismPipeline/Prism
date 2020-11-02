@@ -314,7 +314,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_aFiles.customContextMenuRequested.connect(
             lambda x: self.rclFile("a", x)
         )
-        self.tw_aFiles.doubleClicked.connect(self.exeFile)
+        self.tw_aFiles.doubleClicked.connect(self.sceneDoubleClicked)
         self.tw_aFiles.setMouseTracking(True)
         self.tw_aFiles.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "af")
         self.tw_aFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "af")
@@ -347,7 +347,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_sFiles.customContextMenuRequested.connect(
             lambda x: self.rclFile("sf", x)
         )
-        self.tw_sFiles.doubleClicked.connect(self.exeFile)
+        self.tw_sFiles.doubleClicked.connect(self.sceneDoubleClicked)
         self.tw_sFiles.setMouseTracking(True)
         self.tw_sFiles.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "sf")
         self.tw_sFiles.leaveEvent = lambda x: self.tableLeaveEvent(x, "sf")
@@ -378,7 +378,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_recent.customContextMenuRequested.connect(
             lambda x: self.rclFile("r", x)
         )
-        self.tw_recent.doubleClicked.connect(self.exeFile)
+        self.tw_recent.doubleClicked.connect(self.sceneDoubleClicked)
         self.tw_recent.setMouseTracking(True)
         self.tw_recent.mouseMoveEvent = lambda x: self.tableMoveEvent(x, "r")
         self.tw_recent.leaveEvent = lambda x: self.tableLeaveEvent(x, "r")
@@ -479,6 +479,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_refreshTabs.setIconSize(QSize(20, 20))
         self.b_refreshTabs.setToolTip("Refresh")
         self.b_refreshTabs.setStyleSheet("QWidget{padding: 0; border-width: 0px;} QWidget:hover{border-width: 1px; }")
+        self.b_refreshTabs.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.b_refreshTabs.customContextMenuRequested.connect(lambda x: self.showContextMenu("refresh"))
 
         searchIcon = QIcon(os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "search.png"))
         self.b_assetSearch.setIcon(searchIcon)
@@ -1255,6 +1257,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         menu = None
         if menuType == "mediaPreview":
             menu = self.getMediaPreviewMenu(**kwargs)
+        elif menuType == "refresh":
+            menu = self.getRefreshMenu(**kwargs)
 
         return menu
 
@@ -1396,6 +1400,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             rcmenu.addAction(impAct)
 
         return rcmenu
+
+    @err_catcher(name=__name__)
+    def getRefreshMenu(self):
+        menu = QMenu(self)
+        menu.addAction("Clear configcache", self.core.configs.clearCache)
+        return menu
 
     @err_catcher(name=__name__)
     def rclCat(self, tab, pos):
@@ -1702,7 +1712,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         rcmenu.exec_((tw.viewport()).mapToGlobal(pos))
 
     @err_catcher(name=__name__)
-    def exeFile(self, index=None, filepath=""):
+    def sceneDoubleClicked(self, index):
+        filepath = index.model().index(index.row(), 0).data(Qt.UserRole)
+        self.exeFile(filepath)
+
+    @err_catcher(name=__name__)
+    def exeFile(self, filepath):
         sm = getattr(self.core, "sm", None)
         if sm:
             openSm = not self.core.sm.isHidden()
@@ -1714,9 +1729,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             refresh = self.refreshSFile
         elif self.tbw_browser.currentWidget().property("tabType") == "Recent":
             refresh = self.setRecent
-
-        if filepath == "":
-            filepath = index.model().index(index.row(), 0).data(Qt.UserRole)
 
         if self.core.useLocalFiles and self.sceneBasePath in filepath:
             lfilepath = filepath.replace(
@@ -2428,9 +2440,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(QStandardItem(item))
                 filepath = i
-                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
-                cdate = cdate.replace(microsecond=0)
-                cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+                cdate = self.core.entities.getScenefileModificationDate(i)
                 item = QStandardItem(str(cdate))
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 item.setData(
@@ -2729,9 +2739,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 #   self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
-                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(i))
-                cdate = cdate.replace(microsecond=0)
-                cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+                cdate = self.core.entities.getScenefileModificationDate(i)
                 item = QStandardItem(str(cdate))
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 item.setData(
@@ -5560,7 +5568,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         result = self.core.media.convertMedia(inputpath, startNum, outputpath, settings=conversionSettings)
 
-        if extension not in self.core.products.videoFormats and mediaPlayback["prvIsSequence"]:
+        if extension not in self.core.products.videoFormats:
             outputpath = outputpath % int(startNum)
 
         curTab = self.tbw_browser.currentWidget().property("tabType")

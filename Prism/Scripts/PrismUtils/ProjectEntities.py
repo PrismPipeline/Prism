@@ -35,6 +35,7 @@ import os
 import sys
 import logging
 import shutil
+import datetime
 
 try:
     from PySide2.QtCore import *
@@ -303,6 +304,43 @@ class ProjectEntities(object):
             return False
 
         return True
+
+    @err_catcher(name=__name__)
+    def getScenefileModificationDate(self, path):
+        cdate = datetime.datetime.fromtimestamp(os.path.getmtime(path))
+        cdate = cdate.replace(microsecond=0)
+        cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+        return cdate
+
+    @err_catcher(name=__name__)
+    def getDependencies(self, path):
+        info = self.core.getVersioninfoPath(path)
+        deps = []
+        source = self.core.getConfig("information", "source scene", configPath=info)
+        if source:
+            deps.append(source)
+
+        depPaths = self.core.getConfig("information", "Dependencies", configPath=info) or []
+        deps += depPaths
+        extFiles = self.core.getConfig("information", "External files", configPath=info) or []
+        deps += extFiles
+
+        return deps
+
+    @err_catcher(name=__name__)
+    def getCurrentDependencies(self):
+        deps = self.core.appPlugin.getImportPaths(self.core) or []
+
+        if type(deps) == str:
+            deps = eval(deps.replace("\\", "/").replace("//", "/"))
+        deps = [str(x[0]) for x in deps]
+
+        extFiles = getattr(
+            self.core.appPlugin, "sm_getExternalFiles", lambda x: [[], []]
+        )(self.core)[0]
+        extFiles = list(set(extFiles))
+
+        return {"dependencies": deps, "externalFiles": extFiles}
 
     @err_catcher(name=__name__)
     def createEntity(self, entityType, entityName, dialog=None, frameRange=None):

@@ -182,7 +182,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.45"
+            self.version = "v1.3.0.46"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1588,19 +1588,35 @@ License: GNU GPL-3.0-or-later<br>
         return filepath
 
     @err_catcher(name=__name__)
+    def getVersioninfoPath(self, scenepath):
+        ext = self.configs.preferredExtension
+        return os.path.splitext(scenepath)[0] + "versioninfo" + ext
+
+    @err_catcher(name=__name__)
+    def getScenePreviewPath(self, scenepath):
+        return os.path.splitext(scenepath)[0] + "preview.jpg"
+
+    @err_catcher(name=__name__)
     def saveSceneInfo(self, filepath, details=None, preview=None):
         details = details or {}
         if "username" not in details:
             details["username"] = self.username
 
+        doDeps = self.getConfig("globals", "track_dependencies", config="project")
+        if doDeps == "always":
+            deps = self.entities.getCurrentDependencies()
+            details["information"] = {}
+            details["information"]["Dependencies"] = deps["dependencies"]
+            details["information"]["External files"] = deps["externalFiles"]
+
         sData = self.getScenefileData(filepath)
         sData.update(details)
 
-        infoPath = os.path.splitext(filepath)[0] + "versioninfo.yml"
+        infoPath = self.getVersioninfoPath(filepath)
         self.setConfig(configPath=infoPath, data=sData)
 
         if preview:
-            prvPath = os.path.splitext(filepath)[0] + "preview.jpg"
+            prvPath = self.getScenePreviewPath(filepath)
             self.media.savePixmap(preview, prvPath)
 
     @err_catcher(name=__name__)
@@ -2081,31 +2097,11 @@ License: GNU GPL-3.0-or-later<br>
         if fps:
             cData["information"]["FPS"] = self.getFPS()
 
-        depsEnabled = self.getConfig(
-            "globals", "track_dependencies", configPath=self.prismIni
-        )
-        if depsEnabled is not False:
-            if depsEnabled is None:
-                self.setConfig(
-                    "globals",
-                    "track_dependencies",
-                    val=True,
-                    configPath=self.prismIni,
-                )
-
-            deps = self.appPlugin.getImportPaths(self) or []
-
-            if type(deps) == str:
-                deps = eval(deps.replace("\\", "/").replace("//", "/"))
-            deps = [str(x[0]) for x in deps]
-
-            extFiles = getattr(
-                self.appPlugin, "sm_getExternalFiles", lambda x: [[], []]
-            )(self)[0]
-            extFiles = list(set(extFiles))
-
-            data["Dependencies"] = deps
-            data["External files"] = extFiles
+        depsEnabled = self.getConfig("globals", "track_dependencies", config="project")
+        if depsEnabled == "publish":
+            deps = self.entities.getCurrentDependencies()
+            data["Dependencies"] = deps["dependencies"]
+            data["External files"] = deps["externalFiles"]
 
         for i in data:
             cData["information"][i] = data[i]

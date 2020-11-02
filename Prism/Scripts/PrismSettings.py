@@ -110,6 +110,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             ("Never", -1),
         ])
 
+        self.dependencyStates = {
+            "always": "Always",
+            "publish": "On Publish",
+            "never": "Never",
+        }
+
         self.l_about.setText(self.core.getAboutString())
         self.cb_checkForUpdates.addItems(list(self.updateIntervals.keys()))
         self.cb_checkForUpdates.setCurrentIndex(2)
@@ -380,6 +386,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             cData["globals"]["debug_mode"] = self.chb_debug.isChecked()
             cData["globals"]["project_name"] = self.e_curPname.text()
             cData["globals"]["uselocalfiles"] = self.chb_curPuseLocal.isChecked()
+            cData["globals"]["track_dependencies"] = [x for x in self.dependencyStates if self.dependencyStates[x] == self.cb_dependencies.currentText()][0]
             cData["globals"]["forcefps"] = self.chb_curPuseFps.isChecked()
             cData["globals"]["fps"] = self.sp_curPfps.value()
             cData["globals"]["forceResolution"] = self.chb_prjResolution.isChecked()
@@ -510,7 +517,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
     @err_catcher(name=__name__)
     def loadSettings(self):
         if not os.path.exists(self.core.userini):
-            QMessageBox.warning(self, "Load Settings", "Prism config does not exist.")
+            self.core.popup("Prism config does not exist.", title="Load Settings")
             return
 
         if hasattr(self.core, "projectName"):
@@ -663,6 +670,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 self.e_curPname.setText(gblData["project_name"])
             if "uselocalfiles" in gblData:
                 self.chb_curPuseLocal.setChecked(gblData["uselocalfiles"])
+            if "track_dependencies" in gblData:
+                if not self.core.isStr(gblData["track_dependencies"]):
+                    gblData["track_dependencies"] = "publish"
+                self.cb_dependencies.setCurrentText(self.dependencyStates[gblData["track_dependencies"]])
             if "forcefps" in gblData:
                 self.chb_curPuseFps.setChecked(gblData["forcefps"])
             if "fps" in gblData:

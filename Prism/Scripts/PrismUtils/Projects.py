@@ -410,6 +410,7 @@ class Projects(object):
         pipeline_steps = settings.get("pipeline_steps", dftSteps)
 
         uselocalfiles = settings.get("uselocalfiles", False)
+        trackDependencies = settings.get("track_dependencies", "publish")
         checkframerange = settings.get("checkframerange", True)
         forcefps = settings.get("forcefps", False)
         fps = settings.get("fps", 24)
@@ -537,6 +538,7 @@ class Projects(object):
                 ("prism_version", self.core.version),
                 ("pipeline_steps", pipeline_steps),
                 ("uselocalfiles", uselocalfiles),
+                ("track_dependencies", trackDependencies)
                 ("checkframerange", checkframerange),
                 ("forcefps", forcefps),
                 ("fps", fps),

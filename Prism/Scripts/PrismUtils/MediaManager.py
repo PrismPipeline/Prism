@@ -125,6 +125,7 @@ class MediaManager(object):
     def convertMedia(self, inputpath, startNum, outputpath, settings=None):
         inputpath = inputpath.replace("\\", "/")
         inputExt = os.path.splitext(inputpath)[1]
+        outputExt = os.path.splitext(outputpath)[1]
         videoInput = inputExt in [".mp4", ".mov"]
         startNum = str(startNum) if startNum is not None else None
 
@@ -185,6 +186,14 @@ class MediaManager(object):
             if startNum is None:
                 args.popitem(last=False)
                 args.popitem(last=True)
+
+        if outputExt == ".jpg":
+            quality = self.core.getConfig("media", "jpgCompression", dft=4, config="project")
+            args["-qscale:v"] = str(quality)
+
+        if outputExt == ".mp4":
+            quality = self.core.getConfig("media", "mp4Compression", dft=18, config="project")
+            args["-crf"] = str(quality)
 
         if settings:
             args.update(settings)

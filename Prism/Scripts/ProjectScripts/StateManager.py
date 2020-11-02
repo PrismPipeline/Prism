@@ -351,7 +351,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.b_description.setStyleSheet(self.styleExists)
         self.b_preview.setStyleSheet(self.styleMissing)
 
-        if "RenderSettings" in self.stateTypes:
+        if "Render Settings" in self.stateTypes:
             self.actionRenderSettings = QAction("Rendersettings presets...", self)
             self.actionRenderSettings.triggered.connect(self.showRenderPresets)
             self.menuAbout.addSeparator()
@@ -362,20 +362,30 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_catcher(name=__name__)
     def showRenderPresets(self):
-        rsUi = self.stateTypes["RenderSettings"]()
+        rsUi = self.stateTypes["Render Settings"]()
         rsUi.setup(None, self.core, self)
         rsUi.f_name.setVisible(False)
+        rsUi.setMinimumHeight(0)
+        rsUi.setMaximumWidth(16777215)
+        rsUi.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         rsUi.chb_editSettings.stateChanged.connect(self.editPresetChanged)
         rsUi.updateUi()
         self.dlg_settings = QDialog()
         self.dlg_settings.setWindowTitle("Rendersettings - Presets")
-        w_settings = QWidget()
         bb_settings = QDialogButtonBox()
         bb_settings.addButton("Close", QDialogButtonBox.RejectRole)
         bb_settings.rejected.connect(self.dlg_settings.reject)
 
         lo_settings = QVBoxLayout()
         lo_settings.addWidget(rsUi)
+
+        self.dlg_settings.spacer = QWidget()
+        policy = QSizePolicy()
+        policy.setVerticalPolicy(QSizePolicy.Expanding)
+        policy.setVerticalStretch(5)
+        self.dlg_settings.spacer.setSizePolicy(policy)
+        lo_settings.addWidget(self.dlg_settings.spacer)
+
         lo_settings.addWidget(bb_settings)
         self.dlg_settings.setLayout(lo_settings)
         self.core.parentWindow(self.dlg_settings)
@@ -386,6 +396,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
     def editPresetChanged(self, state):
         QCoreApplication.processEvents()
         self.dlg_settings.resize(0, 0)
+        self.dlg_settings.spacer.setVisible(not state)
 
     @err_catcher(name=__name__)
     def setTreePalette(self, listWidget, inactive, inactivef, activef):
