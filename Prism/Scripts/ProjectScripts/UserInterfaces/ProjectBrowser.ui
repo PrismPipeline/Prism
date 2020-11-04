@@ -1269,7 +1269,7 @@
            </sizepolicy>
           </property>
           <property name="title">
-           <string>Renderings</string>
+           <string>Renders</string>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_5">
            <item>

@@ -329,7 +329,7 @@ class ProjectEntities(object):
 
     @err_catcher(name=__name__)
     def getCurrentDependencies(self):
-        deps = self.core.appPlugin.getImportPaths(self.core) or []
+        deps = getattr(self.core.appPlugin, "getImportPaths", lambda x: None)(self.core) or []
 
         if type(deps) == str:
             deps = eval(deps.replace("\\", "/").replace("//", "/"))
@@ -1210,9 +1210,7 @@ class ProjectEntities(object):
             )
 
         if location == "local" and self.core.useLocalFiles:
-            filePath = filePath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
+            filePath = self.core.convertPath(filePath, "local")
 
         if not os.path.exists(os.path.dirname(filePath)):
             try:

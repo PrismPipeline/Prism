@@ -1417,11 +1417,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             if detailType is "p":
                 l_prv = QLabel()
                 l_prv.setPixmap(detail)
-                l_prv.setStyleSheet(
-                    """
-					border: 1px solid rgb(100,100,100);
-				"""
-                )
+                l_prv.setStyleSheet("border: 1px solid rgb(100,100,100);")
                 VBox.addWidget(l_prv)
                 VBox.setContentsMargins(0, 0, 0, 0)
             elif detailType is "d":

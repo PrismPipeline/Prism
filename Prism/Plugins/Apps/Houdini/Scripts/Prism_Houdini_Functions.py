@@ -746,18 +746,20 @@ class Prism_Houdini_Functions(object):
             )
 
     @err_catcher(name=__name__)
-    def fixImportPath(self, origin, depPath):
-        if len(depPath) > 4 and depPath[-5] != "v":
+    def fixImportPath(self, path):
+        base, ext = self.splitExtension(path)
+        pad = self.core.framePadding
+        if len(base) > pad and base[-(pad+1)] != "v":
             try:
-                num = int(depPath[-4:])
-                return depPath[:-4] + "$F4"
+                int(base[-pad:])
+                return base[:-pad] + "$F" + str(pad) + ext
             except:
-                return depPath
+                return path
 
-        return depPath
+        return path
 
     @err_catcher(name=__name__)
-    def splitExtension(self, origin, path):
+    def splitExtension(self, path):
         if path.endswith(".bgeo.sc"):
             return [path[: -len(".bgeo.sc")], ".bgeo.sc"]
         else:

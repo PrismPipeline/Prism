@@ -538,7 +538,7 @@ class Projects(object):
                 ("prism_version", self.core.version),
                 ("pipeline_steps", pipeline_steps),
                 ("uselocalfiles", uselocalfiles),
-                ("track_dependencies", trackDependencies)
+                ("track_dependencies", trackDependencies),
                 ("checkframerange", checkframerange),
                 ("forcefps", forcefps),
                 ("fps", fps),

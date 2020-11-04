@@ -210,15 +210,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         )[0]
         customFile = self.core.fixPath(customFile)
 
-        splitName = getattr(
-            self.core.appPlugin, "splitExtension", lambda x, y: os.path.splitext(y)
-        )(self, customFile)
-
-        fileName = customFile
-        impPath = getattr(self.core.appPlugin, "fixImportPath", lambda x, y: y)(
-            self, splitName[0]
+        fileName = getattr(self.core.appPlugin, "fixImportPath", lambda x: x)(
+            customFile
         )
-        fileName = impPath + splitName[1]
 
         if fileName != "":
             result = self.setProductPath(path=fileName)
@@ -306,7 +300,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 if not os.path.exists(path):
                     return
             else:
-                path = item.data(Qt.UserRole)[0]
+                path = item.data(Qt.UserRole)["locations"][0]
 
         elif listType == "versions":
             viewUi = self.tw_versions
@@ -622,16 +616,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             taskPaths = [
                 os.path.join(x["path"], "Export") for x in entityItem.data(0, Qt.UserRole) if x
             ]
-            tasks = {}
-            for ePath in taskPaths:
-                for root, folders, files in os.walk(ePath):
-                    for folder in folders:
-                        if folder not in tasks:
-                            tasks[folder] = []
 
-                        tasks[folder].append(os.path.join(root, folder))
-                    break
-
+            tasks = self.core.products.getProductsFromPaths(taskPaths)
             taskNames = sorted(tasks.keys(), key=lambda s: s.lower())
 
             for tn in taskNames:
@@ -647,7 +633,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     @err_catcher(name=__name__)
     def updateVersions(self):
         model = QStandardItemModel()
-
         versionLabels = ["Version", "Comment", "Type", "Units", "User", "Date", "Path"]
 
         if len(self.export_paths) > 1:
@@ -665,73 +650,23 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         taskItem = self.lw_tasks.currentItem()
 
         if taskItem and taskItem.data(Qt.UserRole):
-            versionPaths = [x for x in taskItem.data(Qt.UserRole) if x]
-            versions = []
-            for vPath in versionPaths:
-                for i in os.walk(vPath):
-                    for k in i[1]:
-                        versions += [[k, vPath]]
-                    break
-
-            for k in versions:
-                nameData = k[0].split(self.core.filenameSeparator)
-
-                if not (len(nameData) == 3 and k[0][0] == "v"):
-                    continue
-
-                fileName = [None, None, None]
-                for n, unit in enumerate(["centimeter", "meter", ""]):
-                    for m in os.walk(os.path.join(k[1], k[0], unit)):
-                        if len(m[2]) > 0:
-                            for i in m[2]:
-                                if (
-                                    os.path.splitext(i)[1]
-                                    not in [".txt", ".ini", ".yml", ".xgen"]
-                                    and i[0] != "."
-                                ):
-                                    fileName[n] = os.path.join(k[1], k[0], unit, i)
-                                    if (
-                                        getattr(
-                                            self.core.appPlugin, "shotcamFormat", ".abc"
-                                        )
-                                        == ".fbx"
-                                        and self.curTask == "ShotCam"
-                                        and fileName[n].endswith(".abc")
-                                        and os.path.exists(fileName[n][:-3] + "fbx")
-                                    ):
-                                        fileName[n] = fileName[n][:-3] + "fbx"
-                                    if fileName[n].endswith(".mtl") and os.path.exists(
-                                        fileName[n][:-3] + "obj"
-                                    ):
-                                        fileName[n] = fileName[n][:-3] + "obj"
-                                    break
-                        break
-
-                if fileName[0] is None and fileName[1] is None and fileName[2] is None:
-                    continue
-
-                if fileName[2] is not None:
-                    uv = 2
-                else:
-                    if self.preferredUnit == "centimeter":
-                        if fileName[0] is not None:
-                            uv = 0
-                        else:
-                            uv = 1
-                    elif self.preferredUnit == "meter":
-                        if fileName[1] is not None:
-                            uv = 1
-                        else:
-                            uv = 0
+            taskData = taskItem.data(Qt.UserRole)
+            versionPaths = taskData["locations"]
+            versions = self.core.products.getVersionsFromPaths(versionPaths)
+            for versionName in versions:
+                version = versions[versionName]
+                nameData = versionName.split(self.core.filenameSeparator)
+                filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit)
+                units = self.core.products.getUnitsFromVersion(version, short=True)
+                uStr = ", ".join(units)
 
                 depPath, depExt = getattr(
                     self.core.appPlugin,
                     "splitExtension",
-                    lambda x, y: os.path.splitext(y),
-                )(self, fileName[uv])
+                    lambda x: os.path.splitext(x),
+                )(filepath)
 
                 row = []
-
                 item = QStandardItem(nameData[0])
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
@@ -748,15 +683,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 item = QStandardItem(depExt)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
-
-                if fileName[0] is not None and fileName[1] is not None:
-                    uStr = "cm, m"
-                elif fileName[0] is not None:
-                    uStr = "cm"
-                elif fileName[1] is not None:
-                    uStr = "m"
-                else:
-                    uStr = ""
 
                 item = QStandardItem(uStr)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -775,7 +701,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
 
-                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(fileName[uv]))
+                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
                 cdate = cdate.replace(microsecond=0)
                 cdate = cdate.strftime("%d.%m.%y,  %X")
                 item = QStandardItem()
@@ -786,10 +712,10 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 item.setToolTip(cdate)
                 row.append(item)
 
-                impPath = getattr(self.core.appPlugin, "fixImportPath", lambda x, y: y)(
-                    self, depPath
+                impPath = getattr(self.core.appPlugin, "fixImportPath", lambda x: x)(
+                    filepath
                 )
-                row.append(QStandardItem(impPath + depExt))
+                row.append(QStandardItem(impPath))
 
                 model.appendRow(row)
 

@@ -128,6 +128,7 @@ from PrismUtils import (
     MediaProducts,
     PathManager,
     PluginManager,
+    Products,
     ProjectEntities,
     Projects,
     SanityChecks,
@@ -291,7 +292,8 @@ class PrismCore:
             self.paths = PathManager.PathManager(self)
             self.integration = Integration.Ingegration(self)
             self.entities = ProjectEntities.ProjectEntities(self)
-            self.products = MediaProducts.MediaProducts(self)
+            self.mediaProducts = MediaProducts.MediaProducts(self)
+            self.products = Products.Products(self)
             self.media = MediaManager.MediaManager(self)
             self.sanities = SanityChecks.SanityChecks(self)
 

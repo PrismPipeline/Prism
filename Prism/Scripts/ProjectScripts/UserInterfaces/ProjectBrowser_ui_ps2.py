@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'ProjectBrowser.ui',
 # licensing of 'ProjectBrowser.ui' applies.
 #
-# Created: Thu Oct 22 16:54:22 2020
+# Created: Tue Nov  3 14:54:15 2020
 #      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
 #
 # WARNING! All changes made in this file will be lost!
@@ -752,7 +752,7 @@ class Ui_mw_ProjectBrowser(object):
         self.l_sShow.setText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Show file types:", None, -1))
         self.tbw_browser.setTabText(self.tbw_browser.indexOf(self.t_shots), QtWidgets.QApplication.translate("mw_ProjectBrowser", "Shots", None, -1))
         self.tbw_browser.setTabText(self.tbw_browser.indexOf(self.t_recent), QtWidgets.QApplication.translate("mw_ProjectBrowser", "Recent", None, -1))
-        self.gb_renderings.setTitle(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Renderings", None, -1))
+        self.gb_renderings.setTitle(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Renders", None, -1))
         self.l_task.setText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Tasks:", None, -1))
         self.chb_autoUpdate.setText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Auto update", None, -1))
         self.b_refresh.setText(QtWidgets.QApplication.translate("mw_ProjectBrowser", "Refresh Tasks", None, -1))

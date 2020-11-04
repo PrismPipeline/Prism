@@ -200,7 +200,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 "l_preview": self.l_preview,
                 "openRV": False,
                 "getMediaBase": self.getShotMediaPath,
-                "getMediaBaseFolder": self.core.products.getMediaProductPath,
+                "getMediaBaseFolder": self.core.mediaProducts.getMediaProductPath,
             }
         }
 
@@ -1529,12 +1529,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 not os.path.exists(dirPath)
                 and self.core.useLocalFiles
                 and os.path.exists(
-                    dirPath.replace(self.core.projectPath, self.core.localProjectPath)
+                    self.core.convertPath(dirPath, "local")
                 )
             ):
-                dirPath = dirPath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
+                dirPath = self.core.convertPath(dirPath, "local")
             openex = QAction("Open in explorer", self)
             openex.triggered.connect(lambda: self.core.openFolder(dirPath))
             rcmenu.addAction(openex)
@@ -1616,13 +1614,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if (
                 not os.path.exists(filepath)
                 and self.core.useLocalFiles
-                and os.path.exists(
-                    filepath.replace(self.core.projectPath, self.core.localProjectPath)
-                )
+                and os.path.exists(self.core.convertPath(filepath, "local"))
             ):
-                filepath = filepath.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
+                filepath = self.core.convertPath(filepath, "local")
         else:
             filepath = self.core.fixPath(tw.model().index(irow, 0).data(Qt.UserRole))
             cop.triggered.connect(lambda: self.copyfile(filepath))
@@ -1731,9 +1725,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             refresh = self.setRecent
 
         if self.core.useLocalFiles and self.sceneBasePath in filepath:
-            lfilepath = filepath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
+            lfilepath = self.core.convertPath(filepath, "local")
 
             if not os.path.exists(lfilepath):
                 if not os.path.exists(os.path.dirname(lfilepath)):
@@ -1842,9 +1834,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             return
 
         if self.core.useLocalFiles:
-            filepath = filepath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
+            filepath = self.core.convertPath(filepath, "local")
 
         if not os.path.exists(os.path.dirname(filepath)):
             try:
@@ -1931,9 +1921,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             return
 
         if self.core.useLocalFiles:
-            filepath = filepath.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
+            filepath = self.core.convertPath(filepath, "local")
 
         if not os.path.exists(os.path.dirname(filepath)):
             try:
@@ -2039,9 +2027,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             )
 
             if self.core.useLocalFiles:
-                dstname = dstname.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
+                dstname = self.core.convertPath(dstname, "local")
 
             if not os.path.exists(os.path.dirname(dstname)):
                 try:
@@ -2073,9 +2059,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             )
 
             if self.core.useLocalFiles:
-                dstname = dstname.replace(
-                    self.core.projectPath, self.core.localProjectPath
-                )
+                dstname = self.core.convertPath(dstname, "local")
 
             if not os.path.exists(os.path.dirname(dstname)):
                 try:
@@ -3660,8 +3644,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.renderBasePath = ""
             return
 
-        self.renderBasePath = self.core.products.getMediaProductBase(entityType, entityName, step=step, category=cat)
-        mediaTasks = self.core.products.getMediaProductNames(
+        self.renderBasePath = self.core.mediaProducts.getMediaProductBase(entityType, entityName, step=step, category=cat)
+        mediaTasks = self.core.mediaProducts.getMediaProductNames(
             basepath=self.renderBasePath,
             entityType=entityType,
             entityName=entityName,
@@ -3706,7 +3690,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.lw_version.clear()
 
         if len(self.lw_task.selectedItems()) == 1:
-            versions = self.core.products.getMediaVersions(basepath=self.renderBasePath, product=self.curRTask)
+            versions = self.core.mediaProducts.getMediaVersions(basepath=self.renderBasePath, product=self.curRTask)
             for version in sorted(versions, key=lambda x: x["label"], reverse=True):
                 item = QListWidgetItem(version["label"])
                 item.setData(Qt.UserRole, version["path"])
@@ -3743,7 +3727,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.cb_layer.clear()
 
         if len(self.lw_version.selectedItems()) == 1:
-            foldercont = self.core.products.getRenderLayers(self.renderBasePath, self.curRTask, self.curRVersion)
+            foldercont = self.core.mediaProducts.getRenderLayers(self.renderBasePath, self.curRTask, self.curRVersion)
             for i in foldercont:
                 self.cb_layer.addItem(i)
 
@@ -3786,7 +3770,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.b_compareRV.setEnabled(False)
                 self.b_combineVersions.setEnabled(False)
 
-            foldercont = self.core.products.getMediaProductPath(
+            foldercont = self.core.mediaProducts.getMediaProductPath(
                 basepath=self.renderBasePath,
                 product=self.curRTask,
                 version=self.curRVersion,
@@ -4288,7 +4272,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def getVersionInfoPath(self):
-        path = self.core.products.getMediaVersionInfoPath(self.renderBasePath, self.curRTask, self.curRVersion)
+        path = self.core.mediaProducts.getMediaVersionInfoPath(self.renderBasePath, self.curRTask, self.curRVersion)
         return path
 
     @err_catcher(name=__name__)
@@ -4932,13 +4916,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if len(sTasks) > 1:
             for i in sTasks:
                 render = {"task": i.text(), "version": "", "layer": ""}
-                versions = self.core.products.getMediaVersions(basepath=self.renderBasePath, product=i.text())
+                versions = self.core.mediaProducts.getMediaVersions(basepath=self.renderBasePath, product=i.text())
 
                 if len(versions) > 0:
                     versions = sorted(versions, key=lambda x: x["label"], reverse=True)
 
                     render["version"] = versions[0]["label"]
-                    layers = self.core.products.getRenderLayers(self.renderBasePath, i.text(), versions[0]["label"])
+                    layers = self.core.mediaProducts.getRenderLayers(self.renderBasePath, i.text(), versions[0]["label"])
 
                     if len(layers) > 0:
                         if "beauty" in layers:
@@ -4953,7 +4937,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         elif len(sVersions) > 1:
             for i in sVersions:
                 render = {"task": self.curRTask, "version": i.text(), "layer": ""}
-                layers = self.core.products.getRenderLayers(self.renderBasePath, self.curRTask, i.text())
+                layers = self.core.mediaProducts.getRenderLayers(self.renderBasePath, self.curRTask, i.text())
 
                 if len(layers) > 0:
                     if "beauty" in layers:
@@ -4977,7 +4961,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         paths = []
 
         for i in renders:
-            foldercont = self.core.products.getMediaProductPath(basepath=self.renderBasePath, product=i["task"], version=i["version"], layer=i["layer"])
+            foldercont = self.core.mediaProducts.getMediaProductPath(basepath=self.renderBasePath, product=i["task"], version=i["version"], layer=i["layer"])
             if foldercont[0]:
                 paths.append(foldercont[0])
 
@@ -5568,7 +5552,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         result = self.core.media.convertMedia(inputpath, startNum, outputpath, settings=conversionSettings)
 
-        if extension not in self.core.products.videoFormats:
+        if extension not in self.core.mediaProducts.videoFormats:
             outputpath = outputpath % int(startNum)
 
         curTab = self.tbw_browser.currentWidget().property("tabType")

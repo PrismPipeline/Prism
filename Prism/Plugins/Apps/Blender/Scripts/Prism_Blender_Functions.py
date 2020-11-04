@@ -1395,7 +1395,7 @@ class Prism_Blender_Functions(object):
             bpy.ops.object.delete(self.getOverrideContext(origin))
 
     @err_catcher(name=__name__)
-    def sm_import_fixImportPath(self, origin, filepath):
+    def sm_import_fixImportPath(self, filepath):
         return filepath.replace("\\\\", "\\")
 
     @err_catcher(name=__name__)

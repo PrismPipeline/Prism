@@ -94,7 +94,7 @@ class FolderClass(object):
         return True
 
     def preExecuteState(self):
-        warnings = []
+        warnings = [self.state.text(0), []]
 
         for i in range(self.state.childCount()):
             if self.state.child(i).checkState(0) == Qt.Checked:

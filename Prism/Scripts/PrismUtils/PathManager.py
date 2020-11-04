@@ -218,7 +218,7 @@ class PathManager(object):
                 os.path.basename(inputpath),
             )
 
-        vf = self.core.products.videoFormats
+        vf = self.core.mediaProducts.videoFormats
         inputExt = os.path.splitext(inputpath)[1]
         videoInput = inputExt in vf
 

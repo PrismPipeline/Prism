@@ -1206,6 +1206,7 @@ class Prism_Maya_Functions(object):
         elif curRender == "vray":
             if cmds.getAttr("vraySettings.relements_enableall") != 0:
                 aovs = cmds.ls(type="VRayRenderElement")
+                aovs += cmds.ls(type="VRayRenderElementSet")
                 aovs = [x for x in aovs if cmds.getAttr(x + ".enabled")]
         elif curRender == "redshift":
             if cmds.getAttr("redshiftOptions.aovGlobalEnableMode") != 0:
@@ -1433,6 +1434,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             cmds.setAttr("vraySettings.dontSaveImage", 0)
 
             aovs = cmds.ls(type="VRayRenderElement")
+            aovs += cmds.ls(type="VRayRenderElementSet")
             aovs = [x for x in aovs if cmds.getAttr(x + ".enabled")]
 
             if (
@@ -1822,6 +1824,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
         if curRender == "vray":
             aovs = cmds.ls(type="VRayRenderElement")
+            aovs += cmds.ls(type="VRayRenderElementSet")
             aovs = [x for x in aovs if cmds.getAttr(x + ".enabled")]
             if cmds.getAttr("vraySettings.relements_enableall") != 0 and len(aovs) > 0:
                 outputName = outputName.replace("_beauty", "").replace("beauty", "rgba")

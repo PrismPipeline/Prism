@@ -1,3 +1,10 @@
+v1.3.0.47:
+- changed the default group names in Houdini alembic import from shapenames to transformnames
+- fixed a bug that VrayLightSelects were not recognized as AOVs in Maya
+- fixed an error when "track dependencies" was set to "Always" and a new scene in Standalone was created (from preset or from autoback)
+- fixed an error when creating a new project
+- fixed an error when publishing when a folder with no children was in the export list
+
 v1.3.0.46:
 - added a setting to the project settings to track dependencies. Possible values are "Always", "On Publish", "Never"
 - improved mp4 compression quality

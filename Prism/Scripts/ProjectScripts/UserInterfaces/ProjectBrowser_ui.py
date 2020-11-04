@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ProjectBrowser.ui'
 #
-# Created: Thu Oct 22 16:54:22 2020
+# Created: Tue Nov  3 14:54:15 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -751,7 +751,7 @@ class Ui_mw_ProjectBrowser(object):
         self.l_sShow.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Show file types:", None, QtGui.QApplication.UnicodeUTF8))
         self.tbw_browser.setTabText(self.tbw_browser.indexOf(self.t_shots), QtGui.QApplication.translate("mw_ProjectBrowser", "Shots", None, QtGui.QApplication.UnicodeUTF8))
         self.tbw_browser.setTabText(self.tbw_browser.indexOf(self.t_recent), QtGui.QApplication.translate("mw_ProjectBrowser", "Recent", None, QtGui.QApplication.UnicodeUTF8))
-        self.gb_renderings.setTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "Renderings", None, QtGui.QApplication.UnicodeUTF8))
+        self.gb_renderings.setTitle(QtGui.QApplication.translate("mw_ProjectBrowser", "Renders", None, QtGui.QApplication.UnicodeUTF8))
         self.l_task.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Tasks:", None, QtGui.QApplication.UnicodeUTF8))
         self.chb_autoUpdate.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Auto update", None, QtGui.QApplication.UnicodeUTF8))
         self.b_refresh.setText(QtGui.QApplication.translate("mw_ProjectBrowser", "Refresh Tasks", None, QtGui.QApplication.UnicodeUTF8))

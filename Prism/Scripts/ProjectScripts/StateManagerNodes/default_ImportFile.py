@@ -131,8 +131,8 @@ class ImportFileClass(object):
             self.setStateMode(data["statemode"])
         if "filepath" in data:
             data["filepath"] = getattr(
-                self.core.appPlugin, "sm_import_fixImportPath", lambda x, y: y
-            )(self, data["filepath"])
+                self.core.appPlugin, "sm_import_fixImportPath", lambda x: x
+            )(data["filepath"])
             self.e_file.setText(data["filepath"])
         if "keepedits" in data:
             self.chb_keepRefEdits.setChecked(eval(data["keepedits"]))
@@ -217,7 +217,6 @@ class ImportFileClass(object):
                 name = text.format(**cacheData)
 
         except Exception as e:
-            print (e)
             name = text
 
         self.state.setText(0, name)
@@ -412,121 +411,24 @@ class ImportFileClass(object):
     def importLatest(self, refreshUi=True):
         if refreshUi:
             self.updateUi()
-        vPath = os.path.dirname(self.getImportPath())
-        if os.path.basename(vPath) in ["centimeter", "meter"]:
-            vPath = os.path.dirname(vPath)
 
-        versionPath = os.path.join(os.path.dirname(vPath), self.l_latestVersion.text())
-        if os.path.exists(versionPath):
-            pPath = os.path.join(versionPath, self.preferredUnit)
-            upPath = os.path.join(versionPath, self.unpreferredUnit)
-            if os.path.exists(pPath) and len(os.listdir(pPath)) > 0:
-                versionPath = pPath
-            elif os.path.exists(upPath) and len(os.listdir(upPath)) > 0:
-                versionPath = upPath
+        latestVersion = self.core.products.getLatestVersionFromPath(self.getImportPath())
+        filepath = self.core.products.getPreferredFileFromVersion(latestVersion, preferredUnit=self.preferredUnit)
+        if not filepath:
+            self.core.popup("Couldn't get latest version.")
+            return
 
-            for i in os.walk(versionPath):
-                if len(i[2]) > 0:
-                    for m in i[2]:
-                        if (
-                            os.path.splitext(m)[1] not in [".txt", ".ini", ".yml", ".xgen"]
-                            and m[0] != "."
-                        ):
-                            fileName = os.path.join(i[0], m)
-
-                            if (
-                                getattr(self.core.appPlugin, "shotcamFormat", ".abc")
-                                == ".fbx"
-                                and self.taskName == "ShotCam"
-                                and fileName.endswith(".abc")
-                                and os.path.exists(fileName[:-3] + "fbx")
-                            ):
-                                fileName = fileName[:-3] + "fbx"
-                            if fileName.endswith(".mtl") and os.path.exists(
-                                fileName[:-3] + "obj"
-                            ):
-                                fileName = fileName[:-3] + "obj"
-
-                            self.e_file.setText(fileName)
-                            self.importObject(update=True)
-                            break
-                break
+        self.e_file.setText(filepath)
+        self.importObject(update=True)
 
     @err_catcher(name=__name__)
     def checkLatestVersion(self):
-        curVersion = latestVersion = ""
+        path = self.getImportPath()
+        curVersionName = self.core.products.getVersionNameFromFilepath(path) or ""
+        latestVersion = self.core.products.getLatestVersionFromPath(path)
+        latestVersionName = latestVersion["name"] if latestVersion else ""
 
-        if os.path.exists(self.e_file.text()):
-            parDir = os.path.dirname(self.e_file.text())
-            if os.path.basename(parDir) in ["centimeter", "meter"]:
-                versionData = os.path.basename(os.path.dirname(parDir)).split(
-                    self.core.filenameSeparator
-                )
-            else:
-                versionData = os.path.basename(parDir).split(
-                    self.core.filenameSeparator
-                )
-
-            fversionData = os.path.basename(self.e_file.text()).split(
-                self.core.filenameSeparator
-            )
-            fversion = None
-            for i in fversionData:
-                try:
-                    num = int(i[1:])
-                except:
-                    num = None
-                if len(i) == 5 and i[0] == "v" and num is not None:
-                    try:
-                        x = int(i[1:])
-                        fversion = i
-                        break
-                    except:
-                        pass
-
-            if (
-                len(versionData) == 3
-                and self.core.getScenePath().replace(self.core.projectPath, "")
-                in self.e_file.text()
-            ):
-                curVersion = (
-                    versionData[0]
-                    + self.core.filenameSeparator
-                    + versionData[1]
-                    + self.core.filenameSeparator
-                    + versionData[2]
-                )
-                vPath = os.path.dirname(self.e_file.text())
-                if os.path.basename(vPath) in ["centimeter", "meter"]:
-                    vPath = os.path.dirname(vPath)
-
-                taskPath = os.path.dirname(vPath)
-                for i in os.walk(taskPath):
-                    folders = i[1]
-                    folders.sort()
-                    for k in reversed(folders):
-                        meterDir = os.path.join(i[0], k, "meter")
-                        cmeterDir = os.path.join(i[0], k, "centimeter")
-                        if (
-                            len(k.split(self.core.filenameSeparator)) == 3
-                            and k[0] == "v"
-                            and len(k.split(self.core.filenameSeparator)[0]) == 5
-                            and (
-                                (
-                                    os.path.exists(meterDir)
-                                    and len(os.listdir(meterDir)) > 0
-                                )
-                                or (
-                                    os.path.exists(cmeterDir)
-                                    and len(os.listdir(cmeterDir)) > 0
-                                )
-                            )
-                        ):
-                            latestVersion = k
-                            break
-                    break
-
-        return curVersion, latestVersion
+        return curVersionName, latestVersionName
 
     @err_catcher(name=__name__)
     def setStateColor(self, status):
@@ -543,7 +445,11 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def updateUi(self):
-        curVersion, latestVersion = self.checkLatestVersion()
+        versions = self.checkLatestVersion()
+        if versions:
+            curVersion, latestVersion = versions
+        else:
+            curVersion = latestVersion = ""
 
         self.l_curVersion.setText(curVersion or "-")
         self.l_latestVersion.setText(latestVersion or "-")
@@ -552,6 +458,7 @@ class ImportFileClass(object):
         if self.chb_autoUpdate.isChecked():
             if curVersion and latestVersion and curVersion != latestVersion:
                 self.importLatest(refreshUi=False)
+            if latestVersion:
                 status = "ok"
         else:
             useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
@@ -564,7 +471,7 @@ class ImportFileClass(object):
                 else:
                     self.b_importLatest.setPalette(self.updatePalette)
             else:
-                if curVersion:
+                if latestVersion:
                     status = "ok"
 
                 if useSS:
