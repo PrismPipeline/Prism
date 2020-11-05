@@ -196,7 +196,7 @@ class Prism_Houdini_Functions(object):
 
     @err_catcher(name=__name__)
     def updateProjectEnvironment(self):
-        job = self.core.projectPath.replace("\\", "/")
+        job = getattr(self.core, "projectPath", "").replace("\\", "/")
         if job.endswith("/"):
             job = job[:-1]
         hou.hscript("setenv PRISMJOB=" + job)

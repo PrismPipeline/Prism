@@ -330,6 +330,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
         self.menubar.addAction(self.actionSendFeedback)
 
+        try:
+            self.menuRecentProjects.setToolTipsVisible(True)
+        except:
+            pass
+
         rPrjPaths = self.core.getConfig(cat="recent_projects", dft=[])
         for prjPath in rPrjPaths:
             if not prjPath or not self.core.isStr(prjPath) or prjPath == self.core.prismIni:

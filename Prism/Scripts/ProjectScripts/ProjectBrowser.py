@@ -560,8 +560,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             state = brsData["autoplaypreview"]
             self.actionAutoplay.setChecked(state)
 
-        rPrjPaths = cData.get("recent_projects", [])
+        try:
+            self.menuRecentProjects.setToolTipsVisible(True)
+        except:
+            pass
 
+        rPrjPaths = cData.get("recent_projects", [])
         for prjPath in rPrjPaths:
             if not prjPath or not self.core.isStr(prjPath) or prjPath == self.core.prismIni:
                 continue
