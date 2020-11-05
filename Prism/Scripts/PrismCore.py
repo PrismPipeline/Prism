@@ -183,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.46"
+            self.version = "v1.3.0.48"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1530,7 +1530,7 @@ License: GNU GPL-3.0-or-later<br>
             return False
 
         self.callback(
-            name="onAboutToSaveFile",
+            name="preSaveScene",
             types=["custom"],
             args=[self, filepath, versionUp, comment, publish, details],
         )
@@ -1543,9 +1543,9 @@ License: GNU GPL-3.0-or-later<br>
             self.saveSceneInfo(filepath, details, preview=preview)
 
         self.callback(
-            name="onSaveFile",
+            name="postSaveScene",
             types=["curApp", "custom"],
-            args=[self, filepath, versionUp, comment, publish],
+            args=[self, filepath, versionUp, comment, publish, details],
         )
 
         if not prismReq:
@@ -1756,6 +1756,13 @@ License: GNU GPL-3.0-or-later<br>
             path = path.replace("\\", "/")
 
         return path
+
+    @err_catcher(name=__name__)
+    def getFileModificationDate(self, path):
+        cdate = datetime.fromtimestamp(os.path.getmtime(path))
+        cdate = cdate.replace(microsecond=0)
+        cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
+        return cdate
 
     @err_catcher(name=__name__)
     def openFolder(self, path):
@@ -2299,7 +2306,9 @@ License: GNU GPL-3.0-or-later<br>
             if not isinstance(title, basestring):
                 title = unicode(title)
 
-        if "silent" not in self.prismArgs and self.uiAvailable:
+        isGuiThread = QApplication.instance().thread() == QThread.currentThread()
+
+        if "silent" not in self.prismArgs and self.uiAvailable and isGuiThread:
             parent = getattr(self, "messageParent", None)
             msg = QMessageBox(parent)
             msg.setText(text)

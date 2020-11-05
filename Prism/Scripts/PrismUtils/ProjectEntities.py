@@ -35,7 +35,6 @@ import os
 import sys
 import logging
 import shutil
-import datetime
 
 try:
     from PySide2.QtCore import *
@@ -304,13 +303,6 @@ class ProjectEntities(object):
             return False
 
         return True
-
-    @err_catcher(name=__name__)
-    def getScenefileModificationDate(self, path):
-        cdate = datetime.datetime.fromtimestamp(os.path.getmtime(path))
-        cdate = cdate.replace(microsecond=0)
-        cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
-        return cdate
 
     @err_catcher(name=__name__)
     def getDependencies(self, path):

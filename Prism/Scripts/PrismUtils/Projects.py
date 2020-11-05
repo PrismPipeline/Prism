@@ -273,6 +273,8 @@ class Projects(object):
         self.core._assetPath = None
         self.core._texturePath = None
 
+        self.core.callbacks.registerProjectHooks()
+
         logger.debug("Loaded project " + self.core.projectPath)
 
         modulePath = os.path.join(

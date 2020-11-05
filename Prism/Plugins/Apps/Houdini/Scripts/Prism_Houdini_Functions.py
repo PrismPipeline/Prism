@@ -134,21 +134,7 @@ class Prism_Houdini_Functions(object):
     @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
         self.loadPrjHDAs(origin)
-        job = self.core.projectPath.replace("\\", "/")
-        if job.endswith("/"):
-            job = job[:-1]
-        hou.hscript("setenv PRISMJOB=" + job)
-        hou.hscript("varchange PRISMJOB")
-
-        if self.core.useLocalFiles:
-            ljob = self.core.localProjectPath.replace("\\", "/")
-            if ljob.endswith("/"):
-                ljob = ljob[:-1]
-        else:
-            ljob = ""
-
-        hou.hscript("setenv PRISMJOBLOCAL=" + ljob)
-        hou.hscript("varchange PRISMJOBLOCAL")
+        self.updateProjectEnvironment()
 
     @err_catcher(name=__name__)
     def sceneOpen(self, origin):
@@ -205,6 +191,26 @@ class Prism_Houdini_Functions(object):
             if newenv[var] != envvars[var]:
                 hou.hscript("setenv %s=%s" % (var, newenv[var]))
                 hou.hscript("varchange %s" % var)
+
+        self.updateProjectEnvironment()
+
+    @err_catcher(name=__name__)
+    def updateProjectEnvironment(self):
+        job = self.core.projectPath.replace("\\", "/")
+        if job.endswith("/"):
+            job = job[:-1]
+        hou.hscript("setenv PRISMJOB=" + job)
+        hou.hscript("varchange PRISMJOB")
+
+        if self.core.useLocalFiles:
+            ljob = self.core.localProjectPath.replace("\\", "/")
+            if ljob.endswith("/"):
+                ljob = ljob[:-1]
+        else:
+            ljob = ""
+
+        hou.hscript("setenv PRISMJOBLOCAL=" + ljob)
+        hou.hscript("varchange PRISMJOBLOCAL")
 
     @err_catcher(name=__name__)
     def loadPrjHDAs(self, origin):
@@ -298,16 +304,29 @@ class Prism_Houdini_Functions(object):
             typeName = namespace + "::" + typeName
 
         if node.canCreateDigitalAsset():
+            if projectHDA and not outputPath:
+                filename = typeName.split("::", 1)[1]
+                outputPath = self.getProjectHDAFolder(filename)
+                if os.path.exists(outputPath):
+                    msg = "The HDA file already exists:\n\n%s\n\nDo you want to save a new definition into this file and possibly overwrite an existing definition?" % outputPath
+                    result = self.core.popupQuestion(msg, buttons=["Save", "Cancel"])
+                    if result == "Cancel":
+                        return False
+
             if version is not None:
                 if version == "increment":
                     version = 1
                 typeName += "::" + str(version)
+
+            inputNum = len(node.inputs())
 
             try:
                 hda = node.createDigitalAsset(
                     typeName,
                     hda_file_name=outputPath,
                     description=label,
+                    min_num_inputs=inputNum,
+                    max_num_inputs=inputNum,
                     ignore_external_references=allowExternalReferences,
                     change_node_type=convertNode,
                 )

@@ -122,24 +122,38 @@ class Prism_Maya_Functions(object):
         if self.core.getConfig("maya", "setMayaProject", dft=True):
             self.setMayaProject(self.core.projectPath)
 
-        pluginPath = os.path.join(
-            self.core.projectPath, "00_Pipeline", "CustomModules", "Maya", "plug-ins"
-        )
-        scriptPath = os.path.join(
-            self.core.projectPath, "00_Pipeline", "CustomModules", "Maya", "scripts"
+        mayaModPath = os.path.join(
+            self.core.projectPath, "00_Pipeline", "CustomModules", "Maya"
         )
 
-        if not os.path.exists(pluginPath):
-            os.makedirs(pluginPath)
+        pluginPath = os.path.join(mayaModPath, "plug-ins")
+        scriptPath = os.path.join(mayaModPath, "scripts")
+        presetPath = os.path.join(mayaModPath, "presets")
+        shelfPath = os.path.join(mayaModPath, "shelves")
+        iconPath = os.path.join(mayaModPath, "icons")
 
-        if not os.path.exists(scriptPath):
-            os.makedirs(scriptPath)
+        paths = [pluginPath, scriptPath, presetPath, shelfPath, iconPath]
+        for path in paths:
+            if not os.path.exists(path):
+                os.makedirs(path)
 
         if pluginPath not in os.environ["MAYA_PLUG_IN_PATH"]:
             os.environ["MAYA_PLUG_IN_PATH"] += ";" + pluginPath
 
         if scriptPath not in os.environ["MAYA_SCRIPT_PATH"]:
             os.environ["MAYA_SCRIPT_PATH"] += ";" + scriptPath
+
+        if presetPath not in os.environ["MAYA_PRESET_PATH"]:
+            os.environ["MAYA_PRESET_PATH"] += ";" + presetPath
+
+        if "MAYA_SHELF_PATH" not in os.environ:
+            os.environ["MAYA_SHELF_PATH"] = ""
+
+        if shelfPath not in os.environ["MAYA_SHELF_PATH"]:
+            os.environ["MAYA_SHELF_PATH"] += ";" + shelfPath
+
+        if iconPath not in os.environ["XBMLANGPATH"]:
+            os.environ["XBMLANGPATH"] += ";" + iconPath
 
         if scriptPath not in sys.path:
             sys.path.append(scriptPath)

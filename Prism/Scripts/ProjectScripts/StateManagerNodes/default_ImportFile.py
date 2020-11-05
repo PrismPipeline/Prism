@@ -330,9 +330,23 @@ class ImportFileClass(object):
 
         fileName = self.core.getCurrentFileName()
         impFileName = self.getImportPath()
+        impFileName = self.convertToPreferredUnit(impFileName)
+
+        kwargs = {
+            "state": self,
+            "scenefile": fileName,
+            "importfile": impFileName,
+        }
+        result = self.core.callback("preImport", **kwargs)
+
+        for res in result:
+            if res and "importfile" in res:
+                impFileName = res["importfile"]
+                if not impFileName:
+                    return
 
         if not impFileName:
-            self.core.popup("Invalid importpath")
+            self.core.popup("Invalid importpath:\n\n%s" % impFileName)
             return
 
         result = self.runSanityChecks(impFileName)
@@ -340,7 +354,6 @@ class ImportFileClass(object):
             return
 
         cacheData = self.core.paths.getCachePathData(impFileName)
-        impFileName = self.convertToPreferredUnit(impFileName)
         self.e_file.setText(impFileName)
 
         self.taskName = cacheData.get("task")
@@ -350,15 +363,6 @@ class ImportFileClass(object):
             getattr(self.core.appPlugin, "sm_import_updateObjects", lambda x: None)(
                 self
             )
-
-        self.core.callHook(
-            "preImport",
-            args={
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "importfile": impFileName,
-            },
-        )
 
         importResult = self.core.appPlugin.sm_import_importToApp(
             self, doImport=doImport, update=update, impFileName=impFileName
@@ -391,15 +395,13 @@ class ImportFileClass(object):
                 msgStr = "Import failed: %s" % impFileName
                 self.core.popup(msgStr, title="ImportFile")
 
-        self.core.callHook(
-            "postImport",
-            args={
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "importfile": impFileName,
-                "importedObjects": self.nodeNames,
-            },
-        )
+        kwargs = {
+            "state": self,
+            "scenefile": fileName,
+            "importfile": impFileName,
+            "importedObjects": self.nodeNames,
+        }
+        result = self.core.callback("postImport", **kwargs)
 
         self.stateManager.saveImports()
         self.updateUi()

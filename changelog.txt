@@ -1,3 +1,12 @@
+v1.3.0.48:
+- improved the hook system. Hooks are now extended to all callbacknames which were previously only available for plugin. This adds dotzends of new possible hooks in the project folder inlcuding "preSaveScene" and "postSaveScene"
+- added folders for Maya presets, shelves and icons to 00_Pipeline\CustomModules\Maya in Prism projects and added them to the environment variables: MAYA_PRESET_PATH, MAYA_SHELF_PATH, XBMLANGPATH
+- added support for .PNG for the preview in the PRoject Browser
+- fixed a bug that editing the framerange of a shot was not saved
+- fixed a bug in Houdini that project HDAs were not saved in the correct folder in some cases
+- fixed a problem in Houdini that HDAs were created without inputs. Now the number of connected inputs of the orininal node will be used as HDA inputnumber
+- fixed a problem in Houdnini that $PRISMJOB and $PRISMJOBLOCAL were overwritten by the values saved in a scene when opening it
+
 v1.3.0.47:
 - changed the default group names in Houdini alembic import from shapenames to transformnames
 - fixed a bug that VrayLightSelects were not recognized as AOVs in Maya

@@ -632,16 +632,14 @@ class PlayblastClass(object):
         jobFrames = (startFrame, endFrame)
         psettings.frameRange(jobFrames)
 
-        self.core.callHook(
-            "prePlayblast",
-            args={
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "startFrame": jobFrames[0],
-                "endFrame": jobFrames[1],
-                "outputName": outputName,
-            },
-        )
+        kwargs = {
+            "state": self,
+            "scenefile": fileName,
+            "startframe": jobFrames[0],
+            "endframe": jobFrames[1],
+            "outputpath": outputName,
+        }
+        self.core.callback("prePlayblast", **kwargs)
 
         try:
             sceneViewer.flipbook()
@@ -680,16 +678,14 @@ class PlayblastClass(object):
                     except:
                         pass
 
-            self.core.callHook(
-                "postPlayblast",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "startFrame": jobFrames[0],
-                    "endFrame": jobFrames[1],
-                    "outputName": outputName,
-                },
-            )
+            kwargs = {
+                "state": self,
+                "scenefile": fileName,
+                "startframe": jobFrames[0],
+                "endframe": jobFrames[1],
+                "outputpath": outputName,
+            }
+            self.core.callback("postPlayblast", **kwargs)
 
             if len(os.listdir(outputPath)) > 0:
                 return [self.state.text(0) + " - success"]

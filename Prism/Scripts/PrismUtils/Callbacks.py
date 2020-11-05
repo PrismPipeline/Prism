@@ -35,6 +35,7 @@ import os
 import sys
 import logging
 import traceback
+import glob
 
 try:
     from PySide2.QtCore import *
@@ -55,7 +56,9 @@ class Callbacks(object):
         self.core = core
         self.currentCallback = {"plugin": "", "function": ""}
         self.registeredCallbacks = {}
+        self.registeredHooks = {}
         self.callbackNum = 0
+        self.hookNum = 0
 
     @err_catcher(name=__name__)
     def registerCallback(self, callbackName, function, priority=50, plugin=None):
@@ -86,6 +89,46 @@ class Callbacks(object):
 
         logger.debug("couldn't unregister callback with id %s" % callbackId)
         return False
+
+    @err_catcher(name=__name__)
+    def registerHook(self, hookName, filepath):
+        if hookName not in self.registeredHooks:
+            self.registeredHooks[hookName] = []
+
+        self.hookNum += 1
+        hkDict = {
+            "hookName": hookName,
+            "filepath": filepath,
+            "id": self.hookNum,
+        }
+        self.registeredHooks[hookName].append(hkDict)
+        logger.debug("registered hook: %s" % str(hkDict))
+        return hkDict
+
+    @err_catcher(name=__name__)
+    def registerProjectHooks(self):
+        self.registeredHooks = {}
+        hooks = self.getProjectHooks()
+        for hook in hooks:
+            self.registerHook(hook["name"], hook["path"])
+
+    @err_catcher(name=__name__)
+    def getProjectHooks(self):
+        if not getattr(self.core, "projectPath", None):
+            return
+
+        hookPath = os.path.join(
+            self.core.projectPath, "00_Pipeline", "Hooks", "*.py"
+        )
+
+        hookPaths = glob.glob(hookPath)
+        hooks = []
+        for path in hookPaths:
+            name = os.path.splitext(os.path.basename(path))[0]
+            hookData = {"name": name, "path": path}
+            hooks.append(hookData)
+
+        return hooks
 
     @err_catcher(name=__name__)
     def callback(self, name="", types=["custom"], *args, **kwargs):
@@ -136,17 +179,18 @@ class Callbacks(object):
                 res = cb["function"](*args, **kwargs)
                 result.append(res)
 
+        if name in self.registeredHooks:
+            for cb in self.registeredHooks[name]:
+                self.callHook(name, *args, **kwargs)
+
         self.core.catchTypeErrors = False
 
         return result
 
     @err_catcher(name=__name__)
-    def callHook(self, hookName, args=None):
-        args = args or {}
-        result = self.callback(name=hookName, types=["curApp", "custom"], **args)
-
+    def callHook(self, hookName, *args, **kwargs):
         if not getattr(self.core, "projectPath", None):
-            return result
+            return
 
         hookPath = os.path.join(
             self.core.projectPath, "00_Pipeline", "Hooks", hookName + ".py"
@@ -158,9 +202,12 @@ class Callbacks(object):
             if hookDir not in sys.path:
                 sys.path.append(os.path.dirname(hookPath))
 
+            if kwargs:
+                kwargs["core"] = self.core
+
             try:
                 hook = __import__(hookName)
-                getattr(hook, "main", lambda x: None)(args)
+                getattr(hook, "main", lambda *args, **kwargs: None)(*args, **kwargs)
             except:
                 msg = "An Error occuredwhile calling the %s hook:\n\n%s" % (hookName, traceback.format_exc())
                 self.core.popup(msg)
@@ -173,5 +220,3 @@ class Callbacks(object):
                     os.remove(hookPath + "c")
                 except:
                     pass
-
-        return result

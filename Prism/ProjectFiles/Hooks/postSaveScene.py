@@ -8,12 +8,10 @@
 # The "kwargs" argument is a dictionary with usefull information about Prism and the current export.
 
 
-# def main(*args, **kwargs):
-#     print(args)
-#     print(kwargs)
-#     print(kwargs["core"].projectName)
-#     print(kwargs["state"].l_taskName.text())
-#     print(kwargs["scenefile"])
-#     print(kwargs["startframe"])
-#     print(kwargs["endframe"])
-#     print(kwargs["outputpath"])
+# def main(core, filepath, versionUp, comment, publish, details):
+#     print(core.projectName)
+#     print(filepath)
+#     print(versionUp)
+#     print(comment)
+#     print(publish)
+#     print(details)

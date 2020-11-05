@@ -1009,16 +1009,17 @@ class ImageRenderClass(object):
                 )
 
             self.core.appPlugin.sm_render_preSubmit(self, rSettings)
+
+            kwargs = {
+                "state": self,
+                "scenefile": fileName,
+                "settings": rSettings,
+            }
+
+            self.core.callback("preRender", **kwargs)
+
             if not os.path.exists(os.path.dirname(rSettings["outputName"])):
                 os.makedirs(os.path.dirname(rSettings["outputName"]))
-            self.core.callHook(
-                "preRender",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "settings": rSettings,
-                },
-            )
 
             self.core.saveScene(versionUp=False, prismReq=False)
 
@@ -1043,14 +1044,13 @@ class ImageRenderClass(object):
         if result == "publish paused":
             return [self.state.text(0) + " - publish paused"]
         else:
-            self.core.callHook(
-                "postRender",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "settings": rSettings,
-                },
-            )
+            kwargs = {
+                "state": self,
+                "scenefile": fileName,
+                "settings": rSettings,
+            }
+
+            self.core.callback("postRender", **kwargs)
 
             if "Result=Success" in result:
                 return [self.state.text(0) + " - success"]

@@ -248,6 +248,11 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
             if result:
                 self.core.pb.createShot(self.shotName)
                 self.accept()
+        elif button.text() == "Save":
+            result = self.saveInfo()
+            if result:
+                self.core.pb.refreshShotinfo()
+                self.accept()
         elif button.text() == self.btext:
             result = self.saveInfo()
             if result:

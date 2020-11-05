@@ -1290,15 +1290,15 @@ class ExportClass(object):
             if not os.path.exists(outputPath):
                 os.makedirs(outputPath)
 
-            args = {
-                "prismCore": self.core,
+            kwargs = {
+                "state": self,
                 "scenefile": fileName,
-                "startFrame": startFrame,
-                "endFrame": endFrame,
-                "outputName": outputName,
+                "startframe": startFrame,
+                "endframe": endFrame,
+                "outputpath": outputName,
             }
 
-            result = self.core.callHook("preExport", args=args)
+            result = self.core.callback("preExport", **kwargs)
             for res in result:
                 if res and "outputName" in res:
                     outputName = res["outputName"]
@@ -1391,16 +1391,15 @@ class ExportClass(object):
             self.b_openLast.setEnabled(True)
             self.b_copyLast.setEnabled(True)
 
-            self.core.callHook(
-                "postExport",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "startFrame": startFrame,
-                    "endFrame": endFrame,
-                    "outputName": outputName,
-                },
-            )
+            kwargs = {
+                "state": self,
+                "scenefile": fileName,
+                "startframe": startFrame,
+                "endframe": endFrame,
+                "outputpath": outputName,
+            }
+
+            self.core.callback("postExport", **kwargs)
 
             self.stateManager.saveStatesToScene()
 
@@ -1529,17 +1528,15 @@ class ExportClass(object):
             if not os.path.exists(expandedOutputPath):
                 os.makedirs(expandedOutputPath)
 
-            self.core.callHook(
-                "preExport",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "startFrame": startFrame,
-                    "endFrame": endFrame,
-                    "outputName": expandedOutputName,
-                },
-            )
+            kwargs = {
+                "state": self,
+                "scenefile": fileName,
+                "startframe": startFrame,
+                "endframe": endFrame,
+                "outputpath": expandedOutputName,
+            }
 
+            self.core.callback("preExport", **kwargs)
             self.core.saveVersionInfo(
                 location=os.path.dirname(expandedOutputPath),
                 version=hVersion,
@@ -1642,16 +1639,15 @@ class ExportClass(object):
                     if not self.core.appPlugin.setNodeParm(transformNode, "scale", val=1):
                         return [self.state.text(0) + ": error - Publish canceled"]
 
-            self.core.callHook(
-                "postExport",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "startFrame": startFrame,
-                    "endFrame": endFrame,
-                    "outputName": expandedOutputName,
-                },
-            )
+            kwargs = {
+                "state": self,
+                "scenefile": fileName,
+                "startframe": startFrame,
+                "endframe": endFrame,
+                "outputpath": expandedOutputName,
+            }
+
+            self.core.callback("postExport", **kwargs)
 
             if "Result=Success" in result:
                 return [self.state.text(0) + " - success"]

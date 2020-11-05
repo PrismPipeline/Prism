@@ -1200,14 +1200,12 @@ class ImageRenderClass(object):
         rSettings["endFrame"] = endFrame
         rSettings["frames"] = frames
 
-        self.core.callHook(
-            "preRender",
-            args={
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "settings": rSettings,
-            },
-        )
+        kwargs = {
+            "state": self,
+            "scenefile": fileName,
+            "settings": rSettings,
+        }
+        self.core.callback("preRender", **kwargs)
 
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
             result = self.core.rfManagers[
@@ -1258,14 +1256,12 @@ class ImageRenderClass(object):
 
         self.undoRenderSettings(rSettings)
 
-        self.core.callHook(
-            "postRender",
-            args={
-                "prismCore": self.core,
-                "scenefile": fileName,
-                "settings": rSettings,
-            },
-        )
+        kwargs = {
+            "state": self,
+            "scenefile": fileName,
+            "settings": rSettings,
+        }
+        self.core.callback("postRender", **kwargs)
 
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
             if result and "Result=Success" in result:

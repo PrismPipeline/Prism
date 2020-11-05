@@ -535,6 +535,20 @@ class ImportFileClass(object):
 
         fileName = self.core.getCurrentFileName()
         impFileName = self.getImportPath()
+        impFileName = self.convertToPreferredUnit(impFileName)
+
+        kwargs = {
+            "state": self,
+            "scenefile": fileName,
+            "importfile": impFileName,
+        }
+        result = self.core.callback("preImport", **kwargs)
+
+        for res in result:
+            if res and "importfile" in res:
+                impFileName = res["importfile"]
+                if not impFileName:
+                    return
 
         if not impFileName:
             self.core.popup("Invalid importpath")
@@ -545,19 +559,7 @@ class ImportFileClass(object):
             return
 
         cacheData = self.core.paths.getCachePathData(impFileName)
-        impFileName = self.convertToPreferredUnit(impFileName)
         self.e_file.setText(impFileName)
-
-        args = {
-            "prismCore": self.core,
-            "scenefile": fileName,
-            "importfile": impFileName,
-        }
-        result = self.core.callHook("preImport", args=args)
-
-        for res in result:
-            if res and "importfile" in res:
-                impFileName = res["importfile"]
 
         try:
             self.node.path()
@@ -605,13 +607,13 @@ class ImportFileClass(object):
         except:
             pass
 
-        args = {
-            "prismCore": self.core,
+        kwargs = {
+            "state": self,
             "scenefile": fileName,
             "importfile": impFileName,
             "importedObjects": impNodes,
         }
-        self.core.callHook("postImport", args)
+        self.core.callback("postImport", **kwargs)
 
         self.stateManager.saveImports()
         self.updateUi()

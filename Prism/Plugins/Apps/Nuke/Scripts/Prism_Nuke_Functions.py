@@ -896,7 +896,7 @@ class Prism_Nuke_Functions(object):
         pass
 
     @err_catcher(name=__name__)
-    def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
+    def postSaveScene(self, origin, filepath, versionUp, comment, isPublish, details):
         """
         origin:     PrismCore instance
         filepath:   The filepath of the scenefile, which was saved

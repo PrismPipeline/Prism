@@ -5,11 +5,13 @@
 # print "Prism is going to render now."
 
 # If the main function exists in this script, it will be called.
-# The "args" argument is a dictionary with usefull information about Prism and the current export.
+# The "kwargs" argument is a dictionary with usefull information about Prism and the current export.
 
-# def main(args):
-#   print args["prismCore"].projectName
-#   print args["scenefile"]
-#   print args["settings"]["startFrame"]
-#   print args["settings"]["endFrame"]
-#   print args["settings"]["outputName"]
+
+# def main(*args, **kwargs):
+#     print(args)
+#     print(kwargs)
+#     print(kwargs["core"].projectName)
+#     print(kwargs["state"].l_taskName.text())
+#     print(kwargs["scenefile"])
+#     print(kwargs["settings"])

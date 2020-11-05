@@ -534,15 +534,15 @@ class PlayblastClass(object):
                 self.state.text(0) + ": error - Camera is invalid (%s)." % self.curCam
             ]
 
-        args = {
-            "prismCore": self.core,
+        kwargs = {
+            "state": self,
             "scenefile": fileName,
-            "startFrame": jobFrames[0],
-            "endFrame": jobFrames[1],
-            "outputName": outputName,
+            "startframe": jobFrames[0],
+            "endframe": jobFrames[1],
+            "outputpath": outputName,
         }
+        result = self.core.callback("prePlayblast", **kwargs)
 
-        result = self.core.callHook("prePlayblast", args=args)
         for res in result:
             if res and "outputName" in res:
                 outputName = res["outputName"]
@@ -602,16 +602,14 @@ class PlayblastClass(object):
                     except:
                         pass
 
-            self.core.callHook(
-                "postPlayblast",
-                args={
-                    "prismCore": self.core,
-                    "scenefile": fileName,
-                    "startFrame": jobFrames[0],
-                    "endFrame": jobFrames[1],
-                    "outputName": outputName,
-                },
-            )
+            kwargs = {
+                "state": self,
+                "scenefile": fileName,
+                "startframe": jobFrames[0],
+                "endframe": jobFrames[1],
+                "outputpath": outputName,
+            }
+            self.core.callback("postPlayblast", **kwargs)
 
             if len(os.listdir(outputPath)) > 1:
                 return [self.state.text(0) + " - success"]

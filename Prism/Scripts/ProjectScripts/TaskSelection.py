@@ -701,9 +701,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
 
-                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
-                cdate = cdate.replace(microsecond=0)
-                cdate = cdate.strftime("%d.%m.%y,  %X")
+                cdate = self.core.getFileModificationDate(filepath)
                 item = QStandardItem()
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 item.setData(

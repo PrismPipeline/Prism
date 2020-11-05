@@ -119,26 +119,6 @@ class Prism_PluginEmpty_Functions(object):
         """
 
     @err_catcher(name=__name__)
-    def onAboutToSaveFile(self, origin, filepath, versionUp, comment, isPublish, details):
-        """
-        origin:     PrismCore instance
-        filepath:   The filepath of the scenefile, which will be saved
-        versionUp:  (bool) True if this save increments the version of that scenefile
-        comment:    The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-        isPublish:  (bool) True if this save was triggered by a publish
-        """
-
-    @err_catcher(name=__name__)
-    def onSaveFile(self, origin, filepath, versionUp, comment, isPublish):
-        """
-        origin:     PrismCore instance
-        filepath:   The filepath of the scenefile, which was saved
-        versionUp:  (bool) True if this save increments the version of that scenefile
-        comment:    The string, which is used as the comment for the scenefile. Empty string if no comment was given.
-        isPublish:  (bool) True if this save was triggered by a publish
-        """
-
-    @err_catcher(name=__name__)
     def onSceneOpen(self, origin, filepath):
         # called when a scenefile gets opened from the Project Browser. Gets NOT called when a scenefile is loaded manually from the file menu in a DCC app.
         pass

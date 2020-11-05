@@ -5,10 +5,14 @@
 # print "Prism has imported objects."
 
 # If the main function exists in this script, it will be called.
-# The "args" argument is a dictionary with usefull information about Prism and the current export.
+# The "kwargs" argument is a dictionary with usefull information about Prism and the current export.
 
-# def main(args):
-# 	print args["prismCore"].projectName
-# 	print args["scenefile"]
-# 	print args["importfile"]
-# 	print args["importedObjects"]
+
+# def main(*args, **kwargs):
+#     print(args)
+#     print(kwargs)
+#     print(kwargs["core"].projectName)
+#     print(kwargs["state"])
+#     print(kwargs["scenefile"])
+#     print(kwargs["importfile"])
+#     print(kwargs["importedObjects"])

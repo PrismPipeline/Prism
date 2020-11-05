@@ -76,6 +76,7 @@ class MediaManager(object):
             ".jpeg",
             ".JPG",
             ".png",
+            ".PNG",
             ".tif",
             ".tiff",
             ".exr",
@@ -331,6 +332,7 @@ class MediaManager(object):
             ".jpeg",
             ".JPG",
             ".png",
+            ".PNG",
             ".tif",
             ".tiff",
         ]:

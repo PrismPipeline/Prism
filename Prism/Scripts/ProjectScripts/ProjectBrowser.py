@@ -2423,8 +2423,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     item = QStandardItem(fname["comment"])
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(QStandardItem(item))
-                filepath = i
-                cdate = self.core.entities.getScenefileModificationDate(i)
+                cdate = self.core.getFileModificationDate(i)
                 item = QStandardItem(str(cdate))
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 item.setData(
@@ -2723,7 +2722,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 #   self.tw_sFiles.setItemDelegate(ColorDelegate(self.tw_sFiles))
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
-                cdate = self.core.entities.getScenefileModificationDate(i)
+                cdate = self.core.getFileModificationDate(i)
                 item = QStandardItem(str(cdate))
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 item.setData(
@@ -3814,6 +3813,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         ".jpeg",
                         ".JPG",
                         ".png",
+                        ".PNG",
                         ".tif",
                         ".tiff",
                         ".exr",
@@ -3860,6 +3860,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                                 ".jpeg",
                                 ".JPG",
                                 ".png",
+                                ".PNG",
                                 ".tif",
                                 ".tiff",
                                 ".exr",
@@ -4025,6 +4026,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             ".jpeg",
             ".JPG",
             ".png",
+            ".PNG",
             ".tif",
             ".tiff",
         ]:
@@ -4097,6 +4099,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 ".jpeg",
                 ".JPG",
                 ".png",
+                ".PNG",
                 ".tif",
                 ".tiff",
             ]:
@@ -5101,6 +5104,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                         ".jpeg",
                         ".JPG",
                         ".png",
+                        ".PNG",
                         ".tif",
                         ".tiff",
                         ".exr",
@@ -5303,6 +5307,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     ".jpeg",
                     ".JPG",
                     ".png",
+                    ".PNG",
                     ".tif",
                     ".tiff",
                     ".exr",
@@ -5328,6 +5333,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                     ".jpeg",
                     ".JPG",
                     ".png",
+                    ".PNG",
                     ".tif",
                     ".tiff",
                     ".exr",
