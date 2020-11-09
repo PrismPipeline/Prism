@@ -1409,6 +1409,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     def getRefreshMenu(self):
         menu = QMenu(self)
         menu.addAction("Clear configcache", self.core.configs.clearCache)
+        menu.addActions(self.b_refreshTabs.actions())
         return menu
 
     @err_catcher(name=__name__)

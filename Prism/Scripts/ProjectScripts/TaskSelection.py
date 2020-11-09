@@ -32,7 +32,6 @@
 
 
 import os
-import datetime
 
 from collections import OrderedDict
 
@@ -83,6 +82,10 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.cb_paths.addItems(list(self.export_paths.keys()))
 
+        self.core.callback(
+            name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
+        )
+
         self.connectEvents()
         self.updateAssets()
         self.updateShots()
@@ -94,10 +97,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 navPath = None
 
         self.navigateToFile(navPath)
-
-        self.core.callback(
-            name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
-        )
 
     @err_catcher(name=__name__)
     def connectEvents(self):
@@ -318,7 +317,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 if self.lw_tasks.currentItem() is None:
                     return
 
-                path = self.lw_tasks.currentItem().data(Qt.UserRole)[0]
+                path = self.lw_tasks.currentItem().data(Qt.UserRole)["locations"][0]
             else:
                 pathC = self.tw_versions.model().columnCount() - 1
                 path = self.tw_versions.model().index(row, pathC).data()
@@ -385,7 +384,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         else:
             item = self.lw_tasks.currentItem()
             if item and item.data(Qt.UserRole):
-                path = item.data(Qt.UserRole)[0]
+                path = item.data(Qt.UserRole)["locations"][0]
                 task = item.text()
             else:
                 if self.tbw_entity.tabText(self.tbw_entity.currentIndex()) == "Assets":

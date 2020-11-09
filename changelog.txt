@@ -1,3 +1,9 @@
+v1.3.0.49:
+- fixed an error when opening the existing task list in the Photoshop export dialog
+- fixed an error when opening the Prism Settings window using PySide
+- fixed an error in the "Select Task" dialog when changing the location dropdown
+- fixed an error in the "Select Task" dialog when rightclicking in the empty area of the versions list
+
 v1.3.0.48:
 - improved the hook system. Hooks are now extended to all callbacknames which were previously only available for plugin. This adds dotzends of new possible hooks in the project folder inlcuding "preSaveScene" and "postSaveScene"
 - added folders for Maya presets, shelves and icons to 00_Pipeline\CustomModules\Maya in Prism projects and added them to the environment variables: MAYA_PRESET_PATH, MAYA_SHELF_PATH, XBMLANGPATH

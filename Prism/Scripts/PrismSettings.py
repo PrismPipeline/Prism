@@ -673,7 +673,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             if "track_dependencies" in gblData:
                 if not self.core.isStr(gblData["track_dependencies"]):
                     gblData["track_dependencies"] = "publish"
-                self.cb_dependencies.setCurrentText(self.dependencyStates[gblData["track_dependencies"]])
+                idx = self.cb_dependencies.findText(self.dependencyStates[gblData["track_dependencies"]])
+                if idx != -1:
+                    self.cb_dependencies.setCurrentIndex(idx)
             if "forcefps" in gblData:
                 self.chb_curPuseFps.setChecked(gblData["forcefps"])
             if "fps" in gblData:

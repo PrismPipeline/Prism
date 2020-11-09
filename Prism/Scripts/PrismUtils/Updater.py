@@ -251,7 +251,7 @@ class Updater(object):
         updateRoot = os.path.join(targetdir, dirs[0], "Prism")
 
         msgText = "Are you sure you want to continue?\n\nThis will overwrite existing files in your Prism installation folder."
-        result = self.core.popupQuestion(msgText)
+        result = self.core.popupQuestion(msgText, default="Yes")
 
         if result != "Yes":
             return

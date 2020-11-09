@@ -52,17 +52,6 @@ class Products(object):
         self.videoFormats = [".mp4", ".mov"]
 
     @err_catcher(name=__name__)
-    def getMediaProductBase(self, entityType, entityName, step=None, category=None):
-        if entityType == "asset":
-            basepath = self.core.getEntityPath(asset=entityName)
-        elif entityType == "shot":
-            basepath = self.core.getEntityPath(shot=entityName)
-        else:
-            basepath = ""
-
-        return basepath
-
-    @err_catcher(name=__name__)
     def getProductsFromPaths(self, paths):
         products = {}
         for path in paths:
@@ -88,6 +77,16 @@ class Products(object):
             break
 
         return products
+
+    @err_catcher(name=__name__)
+    def getProductsFromEntityPath(self, path):
+        productPath = self.getProductPathFromEntityPath(path)
+        products = self.getProductsFromPath(productPath)
+        return products
+
+    @err_catcher(name=__name__)
+    def getProductPathFromEntityPath(self, path):
+        return os.path.join(path, "Export")
 
     @err_catcher(name=__name__)
     def getVersionsFromPaths(self, paths):

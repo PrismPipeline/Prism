@@ -350,7 +350,7 @@ class Prism_Photoshop_Functions(object):
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
         origin.actionStateManager.setEnabled(False)
-        psMenu = QMenu("Photoshop")
+        psMenu = QMenu("Photoshop", origin)
         psAction = QAction("Open tools", origin)
         psAction.triggered.connect(self.openPhotoshopTools)
         psMenu.addAction(psAction)
@@ -668,7 +668,7 @@ class Prism_Photoshop_Functions(object):
 
     @err_catcher(name=__name__)
     def exportShowTasks(self):
-        tmenu = QMenu(self)
+        tmenu = QMenu(self.dlg_export)
 
         for i in self.taskList:
             tAct = QAction(i, self.dlg_export)
