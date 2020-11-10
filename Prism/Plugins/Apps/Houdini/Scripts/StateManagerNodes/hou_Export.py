@@ -989,6 +989,10 @@ class ExportClass(object):
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
+    def getOutputType(self):
+        return self.cb_outType.currentText()
+
+    @err_catcher(name=__name__)
     def rjToggled(self, checked=None):
         if checked is None:
             checked = self.gb_submit.isChecked()

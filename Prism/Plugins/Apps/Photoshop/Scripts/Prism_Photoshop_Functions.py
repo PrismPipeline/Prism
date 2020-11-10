@@ -822,11 +822,9 @@ class Prism_Photoshop_Functions(object):
 
             outLength = len(outputPath)
             if platform.system() == "Windows" and outLength > 255:
-                return [
-                    self.state.text(0)
-                    + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
-                    % outLength
-                ]
+                msg = "The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath." % outLength
+                self.core.popup(msg)
+                return
 
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)

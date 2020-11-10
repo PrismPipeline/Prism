@@ -329,7 +329,7 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_addObjects(self, origin, objects=None):
-        taskName = origin.l_taskName.text()
+        taskName = origin.getTaskname()
         if not taskName:
             taskName = self.sm_export_setTaskText(origin, None, "Export")
 
@@ -390,8 +390,9 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_startup(self, origin):
-        origin.l_convertExport.setText("Additional export in centimeters:")
-        origin.w_additionalOptions.setVisible(False)
+        if origin.className == "Export":
+            origin.l_convertExport.setText("Additional export in centimeters:")
+            origin.w_additionalOptions.setVisible(False)
 
     @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
@@ -412,26 +413,27 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
-        if origin.l_taskName.text() not in self.getGroups():
+        if origin.getTaskname() not in self.getGroups():
             return
 
-        self.getGroups()[origin.l_taskName.text()].objects.unlink(
+        self.getGroups()[origin.getTaskname()].objects.unlink(
             self.getObject(node)
         )
 
     @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
-        if origin.l_taskName.text() not in self.getGroups():
+        if origin.getTaskname() not in self.getGroups():
             return
 
-        for node in self.getGroups()[origin.l_taskName.text()].objects:
-            self.getGroups()[origin.l_taskName.text()].objects.unlink(node)
+        for node in self.getGroups()[origin.getTaskname()].objects:
+            self.getGroups()[origin.getTaskname()].objects.unlink(node)
 
     @err_catcher(name=__name__)
     def sm_export_updateObjects(self, origin):
         origin.nodes = []
-        if origin.l_taskName.text() in self.getGroups():
-            group = self.getGroups()[origin.l_taskName.text()]
+        taskName = origin.getTaskname()
+        if taskName in self.getGroups():
+            group = self.getGroups()[taskName]
             nodes = []
             for obj in group.objects:
                 if not obj.users_scene:
@@ -530,7 +532,9 @@ class Prism_Blender_Functions(object):
             if self.getObject(i):
                 self.selectObject(self.getObject(i))
 
-        if origin.cb_outType.currentText() == ".obj":
+        outType = origin.getOutputType()
+
+        if outType == ".obj":
             for i in range(startFrame, endFrame + 1):
                 bpy.context.scene.frame_current = i
                 foutputName = outputName.replace("####", format(i, "04"))
@@ -541,7 +545,7 @@ class Prism_Blender_Functions(object):
                 )
             outputName = foutputName
 
-        elif origin.cb_outType.currentText() == ".fbx":
+        elif outType == ".fbx":
             useAnim = startFrame != endFrame
             if bpy.app.version >= (2, 79, 7):
                 bpy.ops.export_scene.fbx(
@@ -560,7 +564,7 @@ class Prism_Blender_Functions(object):
                     global_scale=0.01,
                 )
 
-        elif origin.cb_outType.currentText() == ".abc":
+        elif outType == ".abc":
             bpy.ops.wm.alembic_export(
                 self.getOverrideContext(origin),
                 filepath=outputName,
@@ -570,7 +574,15 @@ class Prism_Blender_Functions(object):
                 as_background_job=False,
             )
 
-        elif origin.cb_outType.currentText() == ".blend":
+        elif outType == ".usd":
+            bpy.ops.wm.usd_export(
+                self.getOverrideContext(origin),
+                filepath=outputName,
+                export_animation=startFrame!=endFrame,
+                selected_objects_only=(not origin.chb_wholeScene.isChecked()),
+            )
+
+        elif outType == ".blend":
             if origin.chb_wholeScene.isChecked():
                 shutil.copyfile(self.core.getCurrentFileName(), outputName)
             else:
@@ -584,7 +596,7 @@ class Prism_Blender_Functions(object):
         fileName = os.path.splitext(os.path.basename(outputName))
         if scaledExport:
             bpy.ops.wm.revert_mainfile()
-        elif origin.chb_convertExport.isChecked():
+        elif origin.className == "Export" and origin.chb_convertExport.isChecked():
             #   for i in expNodes:
             #       bpy.data.objects.remove(bpy.data.objects[i], True)
             #   existingNodes = list(bpy.data.objects)
@@ -659,7 +671,7 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
         try:
-            self.getGroups().remove(self.getGroups()[origin.l_taskName.text()], True)
+            self.getGroups().remove(self.getGroups()[origin.getTaskname()], True)
         except:
             pass
 
@@ -674,8 +686,8 @@ class Prism_Blender_Functions(object):
                         override = {"window": window, "screen": screen, "area": area}
                         for region in area.regions:
                             if region.type == 'WINDOW':
-                                override = {"window": window, "screen": screen, "area": area, "region":region}
-                                return override                        
+                                override = {"window": window, "screen": screen, "area": area, "region": region}
+                                return override
 
             for area in screen.areas:
                 if area.type == "VIEW_3D":
@@ -691,9 +703,11 @@ class Prism_Blender_Functions(object):
     def sm_export_preExecute(self, origin, startFrame, endFrame):
         warnings = []
 
-        if origin.cb_outType.currentText() != "ShotCam":
+        outType = origin.getOutputType()
+
+        if outType != "ShotCam":
             if (
-                origin.cb_outType.currentText() == ".fbx"
+                outType == ".fbx"
                 and startFrame != endFrame
                 and bpy.app.version < (2, 80, 0)
             ):

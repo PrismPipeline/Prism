@@ -147,6 +147,7 @@ class Prism_Houdini_Functions(object):
             "PRISM_SEQUENCE": "",
             "PRISM_SHOT": "",
             "PRISM_ASSET": "",
+            "PRISM_ASSETPATH": "",
             "PRISM_STEP": "",
             "PRISM_CATEGORY": "",
             "PRISM_USER": "",
@@ -164,9 +165,12 @@ class Prism_Houdini_Functions(object):
             newenv["PRISM_SEQUENCE"] = ""
             newenv["PRISM_SHOT"] = ""
             newenv["PRISM_ASSET"] = data["entityName"]
+            entityPath = self.core.paths.getEntityBasePath(data["filename"])
+            assetPath = self.core.entities.getAssetRelPathFromPath(entityPath)
+            newenv["PRISM_ASSETPATH"] = assetPath.replace("\\", "/")
         elif data["entity"] == "shot":
-            hou.hscript("setenv PRISM_ASSET=")
             newenv["PRISM_ASSET"] = ""
+            newenv["PRISM_ASSETPATH"] = ""
 
             sData = self.core.entities.splitShotname(data["entityName"])
             newenv["PRISM_SEQUENCE"] = sData[1]
@@ -175,6 +179,7 @@ class Prism_Houdini_Functions(object):
             newenv["PRISM_SEQUENCE"] = ""
             newenv["PRISM_SHOT"] = ""
             newenv["PRISM_ASSET"] = ""
+            newenv["PRISM_ASSETPATH"] = ""
 
         if data["entity"] != "invalid":
             newenv["PRISM_STEP"] = data["step"]

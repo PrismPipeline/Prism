@@ -259,6 +259,11 @@ class ExportClass(object):
         self.state.setText(0, sText)
 
     @err_catcher(name=__name__)
+    def getTaskname(self):
+        taskName = self.l_taskName.text()
+        return taskName
+
+    @err_catcher(name=__name__)
     def setTaskname(self, taskname):
         prevTaskName = self.l_taskName.text()
         self.core.appPlugin.sm_export_setTaskText(self, prevTaskName, taskname)
@@ -701,9 +706,6 @@ class ExportClass(object):
                     % outLength
                 ]
 
-            if not os.path.exists(outputPath):
-                os.makedirs(outputPath)
-
             kwargs = {
                 "state": self,
                 "scenefile": fileName,
@@ -712,7 +714,15 @@ class ExportClass(object):
                 "outputpath": outputName,
             }
 
-            self.core.callback("preExport", **kwargs)
+            result = self.core.callback("preExport", **kwargs)
+
+            for res in result:
+                if res and "outputName" in res:
+                    outputName = res["outputName"]
+
+            outputPath = os.path.dirname(outputName)
+            if not os.path.exists(outputPath):
+                os.makedirs(outputPath)
 
             self.core.saveVersionInfo(
                 location=os.path.dirname(outputPath),
@@ -738,7 +748,11 @@ class ExportClass(object):
                 "outputpath": outputName,
             }
 
-            self.core.callback("postExport", **kwargs)
+            result = self.core.callback("postExport", **kwargs)
+
+            for res in result:
+                if res and "outputName" in res:
+                    outputName = res["outputName"]
 
             self.stateManager.saveStatesToScene()
 
@@ -780,9 +794,6 @@ class ExportClass(object):
                     % outLength
                 ]
 
-            if not os.path.exists(outputPath):
-                os.makedirs(outputPath)
-
             kwargs = {
                 "state": self,
                 "scenefile": fileName,
@@ -791,7 +802,15 @@ class ExportClass(object):
                 "outputpath": outputName,
             }
 
-            self.core.callback("preExport", **kwargs)
+            result = self.core.callback("preExport", **kwargs)
+
+            for res in result:
+                if res and "outputName" in res:
+                    outputName = res["outputName"]
+
+            outputPath = os.path.dirname(outputName)
+            if not os.path.exists(outputPath):
+                os.makedirs(outputPath)
 
             self.core.saveVersionInfo(
                 location=os.path.dirname(outputPath),
@@ -842,7 +861,11 @@ class ExportClass(object):
                 "outputpath": outputName,
             }
 
-            self.core.callback("postExport", **kwargs)
+            result = self.core.callback("postExport", **kwargs)
+
+            for res in result:
+                if res and "outputName" in res:
+                    outputName = res["outputName"]
 
             if os.path.exists(outputName):
                 return [self.state.text(0) + " - success"]

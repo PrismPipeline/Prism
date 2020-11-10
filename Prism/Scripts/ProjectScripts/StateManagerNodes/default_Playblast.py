@@ -609,7 +609,11 @@ class PlayblastClass(object):
                 "endframe": jobFrames[1],
                 "outputpath": outputName,
             }
-            self.core.callback("postPlayblast", **kwargs)
+            result = self.core.callback("postPlayblast", **kwargs)
+
+            for res in result:
+                if res and "outputName" in res:
+                    outputPath = os.path.dirname(res["outputName"])
 
             if len(os.listdir(outputPath)) > 1:
                 return [self.state.text(0) + " - success"]

@@ -211,6 +211,8 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
     @err_catcher(name=__name__)
     def loadStateTypeFromFile(self, filepath):
         try:
+            filepath = os.path.basename(filepath)
+
             if os.path.splitext(filepath)[0] == "__init__":
                 return
 

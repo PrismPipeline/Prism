@@ -1,3 +1,8 @@
+v1.3.0.50:
+- added a new environment variable to Houdini: "PRISM_ASSETPATH". Other than "PRISM_ASSET" it also includes the assetfolders
+- fixed an error in Photoshop when the exportpath is longer than 255 characters on windows
+- fixed a bug that Redshift proxies were not updated correctly in Houdini
+
 v1.3.0.49:
 - fixed an error when opening the existing task list in the Photoshop export dialog
 - fixed an error when opening the Prism Settings window using PySide

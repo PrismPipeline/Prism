@@ -523,6 +523,10 @@ class ImportFileClass(object):
             self.core.appPlugin.setNodeParm(
                 self.fileNode, "import_file", val=importPath
             )
+        elif extension == ".rs":
+            self.core.appPlugin.setNodeParm(
+                self.node, "RS_objprop_proxy_file", val=importPath
+            )
         else:
             self.core.appPlugin.setNodeParm(
                 self.fileNode, "file", val=importPath
