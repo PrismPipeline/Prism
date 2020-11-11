@@ -1,3 +1,7 @@
+v1.3.0.51:
+- fixed an error in Houdini which could happen when saving when no Prism project was set and some other rare cases
+- fixed a problem that .mp4 files didn't show a preview in the Project Browser in most DCCs on Windows (requires updated dependencies. Use the installer from the website.)
+
 v1.3.0.50:
 - added a new environment variable to Houdini: "PRISM_ASSETPATH". Other than "PRISM_ASSET" it also includes the assetfolders
 - fixed an error in Photoshop when the exportpath is longer than 255 characters on windows

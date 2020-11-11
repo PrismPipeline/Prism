@@ -241,7 +241,8 @@ class PathManager(object):
             location = "global"
 
         if filepath.startswith(self.core.getAssetPath(location=location)):
-            if self.core.compareVersions(self.core.projectVersion, "v1.2.1.6") == "lower":
+            prjVersion = getattr(self.core, "projectVersion", None)
+            if prjVersion and self.core.compareVersions(prjVersion, "v1.2.1.6") == "lower":
                 basePath = os.path.join(filepath, os.pardir, os.pardir, os.pardir)
             else:
                 basePath = os.path.join(
