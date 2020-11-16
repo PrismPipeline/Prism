@@ -183,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.51"
+            self.version = "v1.3.0.52"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -2286,7 +2286,7 @@ License: GNU GPL-3.0-or-later<br>
             warnDlg.exec_()
 
     @err_catcher(name=__name__)
-    def popup(self, text, title=None, severity="warning", notShowAgain=False):
+    def popup(self, text, title=None, severity="warning", notShowAgain=False, parent=None):
         if title is None:
             if severity == "warning":
                 title = "Prism - Warning"
@@ -2309,7 +2309,7 @@ License: GNU GPL-3.0-or-later<br>
         isGuiThread = QApplication.instance().thread() == QThread.currentThread()
 
         if "silent" not in self.prismArgs and self.uiAvailable and isGuiThread:
-            parent = getattr(self, "messageParent", None)
+            parent = parent or getattr(self, "messageParent", None)
             msg = QMessageBox(parent)
             msg.setText(text)
             msg.setWindowTitle(title)

@@ -116,6 +116,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             "never": "Never",
         }
 
+        self.useLocalStates = {
+            "inherit": "Inherit from project",
+            "on": "On",
+            "off": "Off",
+        }
+
         self.l_about.setText(self.core.getAboutString())
         self.cb_checkForUpdates.addItems(list(self.updateIntervals.keys()))
         self.cb_checkForUpdates.setCurrentIndex(2)
@@ -322,6 +328,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         cData = {
             "globals": {},
             "localfiles": {},
+            "useLocalFiles": {},
             "dccoverrides": {},
         }
 
@@ -339,6 +346,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         if self.e_localPath.text() != "disabled":
             self.core.localProjectPath = lpath
+
+        if hasattr(self.core, "projectName"):
+            useLocal = [x for x in self.useLocalStates if self.useLocalStates[x] == self.cb_userUseLocal.currentText()][0]
+            cData["useLocalFiles"][self.core.projectName] = useLocal
 
         rvPath = self.core.fixPath(self.e_rvPath.text())
         if rvPath != "" and not rvPath.endswith(os.sep):
@@ -610,6 +621,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
                 self.cb_checkForUpdates.setCurrentIndex(idx)
 
+            if "useLocalFiles" in configData:
+                if hasattr(self.core, "projectName") and self.core.projectName in configData["useLocalFiles"]:
+                    idx = self.cb_userUseLocal.findText(self.useLocalStates[configData["useLocalFiles"][self.core.projectName]])
+                    if idx != -1:
+                        self.cb_userUseLocal.setCurrentIndex(idx)
+
             if "autosave" in gblData:
                 self.chb_autosave.setChecked(gblData["autosave"])
 
@@ -696,6 +713,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.l_localPath.setEnabled(False)
             self.w_prjSettings.setEnabled(False)
             self.w_resetPrjScripts.setEnabled(False)
+
+        self.w_userUseLocal.setToolTip(
+            "This setting overrides the \"Use additional local project folder\" option in the project settings for the current user. It doesn't affect any other users."
+        )
 
         self.pfpsToggled(self.chb_curPuseFps.isChecked())
         self.w_curPfps.setToolTip(

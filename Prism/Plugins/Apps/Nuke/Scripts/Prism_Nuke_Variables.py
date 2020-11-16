@@ -39,7 +39,7 @@ class Prism_Nuke_Variables(object):
         self.appShortName = "Nuke"
         self.appType = "2d"
         self.hasQtParent = True
-        self.sceneFormats = [".nk", ".nknc", ".nkple", ".nuke"]
+        self.sceneFormats = [".nk", ".nknc", ".nkple", ".nuke", ".nkind"]
         self.appSpecificFormats = self.sceneFormats
         self.appColor = [160, 52, 66]
         self.appVersionPresets = ["11.0v1", "10.5v2"]

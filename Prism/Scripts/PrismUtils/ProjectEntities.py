@@ -287,6 +287,9 @@ class ProjectEntities(object):
         if "extension" not in sData:
             return False
 
+        if sData["extension"].endswith("~"):  # ignore nuke autosave files
+            return False
+
         if filename.endswith("autosave"):
             return False
 

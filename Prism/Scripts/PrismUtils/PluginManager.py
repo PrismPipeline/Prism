@@ -518,6 +518,7 @@ class PluginManager(object):
 
         if plugin:
             logger.debug("unloaded plugin %s" % plugin.pluginName)
+            self.unmonkeyPatch(plugins=[plugin])
 
         return pluginPath
 
@@ -648,3 +649,23 @@ class PluginManager(object):
             origClass = orig.im_self
 
         setattr(origClass, orig.__name__, new)
+
+    @err_catcher(name=__name__)
+    def unmonkeyPatch(self, plugins=None):
+        unpatched = []
+        for mid in self.monkeyPatchedFunctions:
+            patch = self.monkeyPatchedFunctions[mid]
+            patchPlugin = patch["plugin"]
+            if plugins is not None and patchPlugin not in plugins:
+                continue
+
+            if sys.version[0] == "3":
+                origClass = patch["orig"].__self__
+            else:
+                origClass = patch["orig"].im_self
+
+            setattr(origClass, patch["new"].__name__, patch["orig"])
+            unpatched.append(mid)
+
+        for mid in unpatched:
+            self.monkeyPatchedFunctions.pop(mid)

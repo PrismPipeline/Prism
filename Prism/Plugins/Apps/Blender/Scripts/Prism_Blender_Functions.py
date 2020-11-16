@@ -1231,7 +1231,8 @@ class Prism_Blender_Functions(object):
         origin.setName = ""
         result = False
 
-        if fileName[1] in [".blend"]:
+        ext = fileName[1].lower()
+        if ext in [".blend"]:
             dlg_sceneData = widget_import_scenedata.Import_SceneData(self.core, self.plugin)
             dlgResult = dlg_sceneData.importScene(impFileName, update, origin)
             if not dlgResult:
@@ -1241,22 +1242,20 @@ class Prism_Blender_Functions(object):
                 result = True
             existingNodes = dlg_sceneData.existingNodes
         else:
-            if fileName[1] not in [".fbx", ".obj", ".abc"]:
-                QMessageBox.warning(
-                    self.core.messageParent, "ImportFile", "Format is not supported."
-                )
-                return False, doImport
+            if ext not in [".fbx", ".obj", ".abc"]:
+                self.core.popup("Format is not supported.")
+                return {"result": False, "doImport": doImport}
 
-            if not (fileName[1] == ".abc" and origin.chb_abcPath.isChecked()):
+            if not (ext == ".abc" and origin.chb_abcPath.isChecked()):
                 origin.preDelete(
                     baseText="Do you want to delete the currently connected objects?\n\n"
                 )
             existingNodes = list(bpy.data.objects)
-            if fileName[1] == ".fbx":
+            if ext == ".fbx":
                 bpy.ops.import_scene.fbx(filepath=impFileName, global_scale=100)
-            elif fileName[1] == ".obj":
+            elif ext == ".obj":
                 bpy.ops.import_scene.obj(filepath=impFileName)
-            elif fileName[1] == ".abc":
+            elif ext == ".abc":
                 if origin.chb_abcPath.isChecked() and len(origin.nodes) > 0:
                     cache = None
                     for i in origin.nodes:
@@ -1281,9 +1280,7 @@ class Prism_Blender_Functions(object):
                     #       bpy.context.scene.frame_current += 1        #updates the cache, but leads to crashes
                     #       bpy.context.scene.frame_current -= 1
                     else:
-                        QMessageBox.warning(
-                            self.core.messageParent, "ImportFile", "No caches updated."
-                        )
+                        self.core.popup("No caches updated.")
                     result = True
                 else:
                     bpy.ops.wm.alembic_import(

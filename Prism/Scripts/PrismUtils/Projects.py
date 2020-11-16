@@ -225,10 +225,9 @@ class Projects(object):
                 del self.core.projectName
             if hasattr(self.core, "projectPath"):
                 del self.core.projectPath
-            if hasattr(self.core, "useLocalFiles"):
-                del self.core.useLocalFiles
             if hasattr(self.core, "projectVersion"):
                 del self.core.projectVersion
+            self.core.useLocalFiles = False
             return
 
         self.core.prismIni = configPath
@@ -238,27 +237,21 @@ class Projects(object):
 
         self.core.configs.clearCache()
 
-        if (
-            self.core.getConfig("globals", "uselocalfiles", configPath=self.core.prismIni)
-            is not None
-        ):
-            self.core.useLocalFiles = self.core.getConfig("globals", "uselocalfiles", configPath=self.core.prismIni)
-            if self.core.useLocalFiles:
-                if self.core.getConfig("localfiles", self.core.projectName) is not None:
-                    self.core.localProjectPath = self.core.getConfig(
-                        "localfiles", self.core.projectName
-                    )
-                else:
-                    result = self.core.getLocalPath()
-                    if not result:
-                        self.core.changeProject(unset=True)
-                        return
+        self.core.useLocalFiles = self.getUseLocalFiles()
+        if self.core.useLocalFiles:
+            if self.core.getConfig("localfiles", self.core.projectName) is not None:
+                self.core.localProjectPath = self.core.getConfig(
+                    "localfiles", self.core.projectName
+                )
+            else:
+                result = self.core.getLocalPath()
+                if not result:
+                    self.core.changeProject(unset=True)
+                    return
 
-                self.core.localProjectPath = self.core.fixPath(self.core.localProjectPath)
-                if not self.core.localProjectPath.endswith(os.sep):
-                    self.core.localProjectPath += os.sep
-        else:
-            self.core.useLocalFiles = False
+            self.core.localProjectPath = self.core.fixPath(self.core.localProjectPath)
+            if not self.core.localProjectPath.endswith(os.sep):
+                self.core.localProjectPath += os.sep
 
         if configPath != self.core.getConfig("globals", "current project"):
             self.core.setConfig("globals", "current project", configPath)
@@ -331,6 +324,22 @@ class Projects(object):
                 self.core.ps.tw_settings.setCurrentIndex(settingsTab)
 
         return self.core.projectPath
+
+    @err_catcher(name=__name__)
+    def getUseLocalFiles(self, projectConfig=None):
+        if not projectConfig:
+            projectConfig = self.core.prismIni
+
+        prjUseLocal = self.core.getConfig("globals", "uselocalfiles", dft=False, configPath=projectConfig)
+        userUseLocal = self.core.getConfig("useLocalFiles", self.core.projectName)
+        if userUseLocal == "inherit":
+            useLocal = prjUseLocal
+        elif userUseLocal == "on":
+            useLocal = True
+        else:
+            useLocal = False
+
+        return useLocal
 
     @err_catcher(name=__name__)
     def setRecentPrj(self, path, action="add"):
