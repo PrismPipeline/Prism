@@ -247,10 +247,10 @@ You will need to set your last project again, but no project files (like scenefi
 
     @err_catcher(name=__name__)
     def setConfig(
-        self, cat=None, param=None, val=None, data=None, configPath=None, delete=False, config=None
+        self, cat=None, param=None, val=None, data=None, configPath=None, delete=False, config=None, location=None
     ):
         if not configPath and config:
-            configPath = self.getConfigPath(config)
+            configPath = self.getConfigPath(config, location=location)
         elif configPath is None:
             configPath = self.core.userini
 

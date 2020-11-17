@@ -183,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.52"
+            self.version = "v1.3.0.53"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1100,9 +1100,9 @@ License: GNU GPL-3.0-or-later<br>
 
     @err_catcher(name=__name__)
     def setConfig(
-        self, cat=None, param=None, val=None, data=None, configPath=None, delete=False, config=None
+        self, cat=None, param=None, val=None, data=None, configPath=None, delete=False, config=None, location=None
     ):
-        return self.configs.setConfig(cat=cat, param=param, val=val, data=data, configPath=configPath, delete=delete, config=config)
+        return self.configs.setConfig(cat=cat, param=param, val=val, data=data, configPath=configPath, delete=delete, config=config, location=location)
 
     @err_catcher(name=__name__)
     def readYaml(self, path=None, data=None, stream=None):

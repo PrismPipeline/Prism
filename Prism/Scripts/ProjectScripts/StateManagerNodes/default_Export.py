@@ -259,6 +259,10 @@ class ExportClass(object):
         self.state.setText(0, sText)
 
     @err_catcher(name=__name__)
+    def getOutputType(self):
+        return self.cb_outType.currentText()
+
+    @err_catcher(name=__name__)
     def getTaskname(self):
         taskName = self.l_taskName.text()
         return taskName

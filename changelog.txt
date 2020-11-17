@@ -1,3 +1,6 @@
+v1.3.0.53:
+- fixed an error when exporting objects in Blender
+
 v1.3.0.52:
 - added the option to enable/disable the additional local project folder for the current user in the Prism Settings. This can override the setting in the project settings with the same name
 - added support for the Nuke Indie fileextension (.nkind)
