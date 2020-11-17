@@ -1,4 +1,5 @@
 v1.3.0.53:
+- added support for the latest 3Delight version in Houdini (2.3.2)
 - fixed an error when exporting objects in Blender
 
 v1.3.0.52:

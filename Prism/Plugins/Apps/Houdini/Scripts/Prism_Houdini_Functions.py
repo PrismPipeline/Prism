@@ -1118,6 +1118,14 @@ class Prism_Houdini_Functions(object):
             ):
                 continue
 
+            if (
+                x[0] is not None
+                and x[0].name() in ["default_image_filename", "default_export_nsi_filename"]
+                and x[0].node().type().name()
+                in ["3Delight"]
+            ):
+                continue
+
             extFiles.append(hou.expandString(x[1]).replace("\\", "/"))
             extFilesSource.append(x[0])
 

@@ -92,7 +92,7 @@ def refreshAOVs(origin):
         return
 
     for i in range(origin.node.parm("aov").eval()):
-        if origin.node.parm("file_output_" + str(i + 1)).eval() == 0:
+        if origin.node.parm("active_layer_" + str(i + 1)).eval() == 0:
             continue
 
         labelParm = origin.node.parm("aov_name_" + str(i + 1))
@@ -138,7 +138,7 @@ def setCam(origin, node, val):
 
 def executeAOVs(origin, outputName):
     if not origin.gb_submit.isHidden() and origin.gb_submit.isChecked() and origin.cb_manager.currentText() == "Deadline" and origin.chb_rjNSIs.isChecked():
-        mode = "export_file"
+        nsi = True
 
         nsiOutput = os.path.join(os.path.dirname(outputName), "_nsi", os.path.basename(outputName))
         nsiOutput = os.path.splitext(nsiOutput)[0] + ".nsi"
@@ -146,16 +146,22 @@ def executeAOVs(origin, outputName):
             return [origin.state.text(0) + ": error - could not set filename. Publish canceled"]
 
     else:
-        mode = "render"
+        nsi = False
 
-    if not origin.core.appPlugin.setNodeParm(origin.node, "render_mode", val=mode):
-        return [origin.state.text(0) + ": error - could not set render mode. Publish canceled"]
+    if not origin.core.appPlugin.setNodeParm(origin.node, "display_rendered_images", val=False):
+        return [origin.state.text(0) + ": error - could not set display images. Publish canceled"]
+
+    if not origin.core.appPlugin.setNodeParm(origin.node, "save_rendered_images", val=False):
+        return [origin.state.text(0) + ": error - could not set save images. Publish canceled"]
+
+    if not origin.core.appPlugin.setNodeParm(origin.node, "display_and_save_rendered_images", val=not nsi):
+        return [origin.state.text(0) + ": error - could not set display and save images. Publish canceled"]
+
+    if not origin.core.appPlugin.setNodeParm(origin.node, "output_nsi_files", val=nsi):
+        return [origin.state.text(0) + ": error - could not set nsi export. Publish canceled"]
 
     if not origin.core.appPlugin.setNodeParm(origin.node, "default_image_filename", val=outputName):
         return [origin.state.text(0) + ": error - could not set filename. Publish canceled"]
-
-    if not origin.core.appPlugin.setNodeParm(origin.node, "interactive_output_mode", val="as selected"):
-        return [origin.state.text(0) + ": error - could not set output mode. Publish canceled"]
 
     return True
 
