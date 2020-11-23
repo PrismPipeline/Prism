@@ -63,14 +63,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.productPath = None
         self.curEntity = None
         self.curTask = None
-
         self.adclick = False
-
         self.preferredUnit = getattr(self.importState, "preferredUnit", "meter")
-
-        if not getattr(self.core, "pb", None):
-            self.core.projectBrowser(openUi=False)
-
         self.export_paths = self.core.getExportPaths()
 
         if len(self.export_paths) > 1:
@@ -81,6 +75,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             self.w_paths.setVisible(False)
 
         self.cb_paths.addItems(list(self.export_paths.keys()))
+        if self.core.appPlugin.pluginName == "Standalone":
+            self.b_custom.setVisible(False)
 
         self.core.callback(
             name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
@@ -202,6 +198,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     # 			uielement.mouseDClick(event)
 
     @err_catcher(name=__name__)
+    def keyPressEvent(self, event):
+        if not self.parent() or (event.key() != Qt.Key_Escape):
+            super(TaskSelection, self).keyPressEvent(event)
+
+    @err_catcher(name=__name__)
     def openCustom(self):
         startPath = self.getCurSelection()
         customFile = QFileDialog.getOpenFileName(
@@ -216,10 +217,16 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if fileName != "":
             result = self.setProductPath(path=fileName)
             if result:
-                self.close()
+                if self.parent():
+                    self.importFile()
+                else:
+                    self.close()
 
     @err_catcher(name=__name__)
     def loadVersion(self, index, currentVersion=False):
+        if self.core.appPlugin.pluginName == "Standalone":
+            return
+
         if currentVersion:
             self.tw_versions.sortByColumn(0, Qt.DescendingOrder)
             pathC = self.tw_versions.model().columnCount() - 1
@@ -229,15 +236,20 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         else:
             pathC = index.model().columnCount() - 1
             versionPath = index.model().index(index.row(), pathC).data()
+
         incompatible = []
         for i in self.core.unloadedAppPlugins.values():
             incompatible += getattr(i, "appSpecificFormats", [])
+
         if os.path.splitext(versionPath)[1] in incompatible:
             self.core.popup("This filetype is incompatible. Can't import the selected file.")
         else:
             result = self.setProductPath(path=versionPath)
             if result:
-                self.close()
+                if self.parent():
+                    self.importFile()
+                else:
+                    self.close()
 
     @err_catcher(name=__name__)
     def setProductPath(self, path):
@@ -249,6 +261,19 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         self.productPath = path
         return True
+
+    @err_catcher(name=__name__)
+    def importFile(self):
+        if not self.productPath:
+            return
+
+        extension = os.path.splitext(self.productPath)[1]
+        stateType = getattr(self.core.appPlugin, "sm_getImportHandlerType", lambda x: None)(extension) or "ImportFile"
+
+        sm = self.core.getStateManager()
+        sm.createState(stateType, importPath=self.productPath)
+        sm.setListActive(sm.tw_import)
+        sm.activateWindow()
 
     @err_catcher(name=__name__)
     def rclicked(self, pos, listType):
@@ -350,6 +375,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             )
             rcmenu.addAction(depAct)
 
+        self.core.callback("productSelectorContextMenuRequested", args=[self, viewUi, pos, rcmenu])
         rcmenu.exec_((viewUi.viewport()).mapToGlobal(pos))
 
     @err_catcher(name=__name__)
@@ -654,7 +680,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             versions = self.core.products.getVersionsFromPaths(versionPaths)
             for versionName in versions:
                 version = versions[versionName]
-                nameData = versionName.split(self.core.filenameSeparator)
+                if versionName == "master":
+                    comment = ""
+                    user = ""
+                else:
+                    versionName, comment, user = versionName.split(self.core.filenameSeparator)
+
                 filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit)
                 units = self.core.products.getUnitsFromVersion(version, short=True)
                 uStr = ", ".join(units)
@@ -666,14 +697,15 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 )(filepath)
 
                 row = []
-                item = QStandardItem(nameData[0])
+                if versionName == "master":
+                    item = QStandardItem(versionName)
+                else:
+                    item = QStandardItem(versionName)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
 
-                if nameData[1] == "nocomment":
+                if comment == "nocomment":
                     comment = ""
-                else:
-                    comment = nameData[1]
 
                 item = QStandardItem(comment)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
@@ -696,7 +728,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                     row.append(item)
 
-                item = QStandardItem(nameData[2])
+                item = QStandardItem(user)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
                 row.append(item)
 
@@ -885,3 +917,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             return True
 
         return False
+
+
+class MasterItem(QTableWidgetItem):
+    def __lt__(self, other):
+        return True

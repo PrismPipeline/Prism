@@ -40,4 +40,5 @@ class Prism_Standalone_Variables(object):
         self.appType = "standalone"
         self.hasQtParent = False
         self.sceneFormats = []
+        self.preferredUnit = "centimeter"
         self.platforms = ["Windows", "Linux", "Darwin"]

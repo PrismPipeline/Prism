@@ -736,6 +736,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tw_sFiles.dropEvent = lambda x: self.sceneDropEvent(x, "shot", self.tw_sFiles)
 
     @err_catcher(name=__name__)
+    def addTab(self, name, widget, showRenderings=False):
+        widget.setProperty("tabType", name)
+        self.tabLabels[name] = name
+        self.tbw_browser.insertTab(-1, widget, self.tabLabels[name])
+        self.tabOrder[name] = {"order": self.tbw_browser.count(), "showRenderings": showRenderings}
+
+    @err_catcher(name=__name__)
     def closeEvent(self, event):
         tabOrder = []
         for i in range(self.tbw_browser.count()):
@@ -5253,7 +5260,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             return
         elif (event.buttons() != Qt.LeftButton and element != self.cb_layer) or (
             event.buttons() == Qt.LeftButton and (event.modifiers() & Qt.ShiftModifier)
-        ):
+        ) and element != mediaPlayback["l_preview"]:
             element.mmEvent(event)
             return
         elif element == self.cb_layer and event.buttons() != Qt.MiddleButton:

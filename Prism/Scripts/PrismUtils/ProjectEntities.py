@@ -290,6 +290,9 @@ class ProjectEntities(object):
         if sData["extension"].endswith("~"):  # ignore nuke autosave files
             return False
 
+        if filename.endswith(".painter_lock"):  # ignore substance painter lock files
+            return False
+
         if filename.endswith("autosave"):
             return False
 

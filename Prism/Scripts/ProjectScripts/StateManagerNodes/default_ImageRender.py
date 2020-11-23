@@ -836,9 +836,16 @@ class ImageRenderClass(object):
         if self.l_taskName.text() == "":
             return
 
+        task = self.l_taskName.text()
+        extension = self.cb_format.currentText()
         fileName = self.core.getCurrentFileName()
-        if self.core.useLocalFiles:
-            if self.chb_localOutput.isChecked() and (
+        fnameData = self.core.getScenefileData(fileName)
+        framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
+
+        location = "global"
+        if (
+            self.core.useLocalFiles
+            and self.chb_localOutput.isChecked() and (
                 self.gb_submit.isHidden()
                 or not self.gb_submit.isChecked()
                 or (
@@ -847,84 +854,31 @@ class ImageRenderClass(object):
                         self.cb_manager.currentText()
                     ].canOutputLocal
                 )
-            ):
-                fileName = self.core.convertPath(fileName, target="local")
-            else:
-                fileName = self.core.convertPath(fileName, target="global")
-
-        outputPath = ""
-        outputFile = ""
-        hVersion = ""
-        if useVersion != "next":
-            hVersion = useVersion.split(self.core.filenameSeparator)[0]
-            pComment = useVersion.split(self.core.filenameSeparator)[1]
-
-        fnameData = self.core.getScenefileData(fileName)
-        framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
-        if fnameData["entity"] == "shot":
-            outputPath = os.path.join(
-                self.core.getEntityBasePath(fileName),
-                "Rendering",
-                "3dRender",
-                self.l_taskName.text(),
             )
-            if hVersion == "":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
-                pComment = fnameData["comment"]
+        ):
+            location = "local"
 
-            outputPath = os.path.join(
-                outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty"
-            )
-            outputFile = (
-                "shot"
-                + self.core.filenameSeparator
-                + fnameData["entityName"]
-                + self.core.filenameSeparator
-                + self.l_taskName.text()
-                + self.core.filenameSeparator
-                + hVersion
-                + self.core.filenameSeparator
-                + "beauty"
-                + framePadding
-                + self.cb_format.currentText()
-            )
-        elif fnameData["entity"] == "asset":
-            outputPath = os.path.join(
-                self.core.getEntityBasePath(fileName),
-                "Rendering",
-                "3dRender",
-                self.l_taskName.text(),
-            )
+        if fnameData["entity"] == "asset":
+            assetPath = self.core.getEntityBasePath(fileName)
+            entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
+        else:
+            entityName = fnameData["entityName"]
 
-            if hVersion == "":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
-                pComment = fnameData["comment"]
+        outputPath = self.core.mediaProducts.generateMediaProductPath(
+            entity=fnameData["entity"],
+            entityName=entityName,
+            task=task,
+            extension=extension,
+            framePadding=framePadding,
+            comment=fnameData["comment"],
+            version=useVersion if useVersion != "next" else None,
+            location=location
+        )
 
-            outputPath = os.path.join(
-                outputPath, hVersion + self.core.filenameSeparator + pComment, "beauty"
-            )
-            outputFile = (
-                fnameData["entityName"]
-                + self.core.filenameSeparator
-                + self.l_taskName.text()
-                + self.core.filenameSeparator
-                + hVersion
-                + self.core.filenameSeparator
-                + "beauty"
-                + framePadding
-                + self.cb_format.currentText()
-            )
+        outputFolder = os.path.dirname(outputPath)
+        hVersion = self.core.mediaProducts.getVersionFromFilepath(outputPath)
 
-        outputName = os.path.join(outputPath, outputFile)
-        outputName = self.core.appPlugin.sm_render_fixOutputPath(self, outputName)
-        result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
-        for res in result:
-            if res:
-                outputName = res
-
-        outputPath = os.path.dirname(outputName)
-
-        return outputName, outputPath, hVersion
+        return outputPath, outputFolder, hVersion
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):

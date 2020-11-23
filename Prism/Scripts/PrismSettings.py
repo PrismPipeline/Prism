@@ -402,6 +402,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             cData["globals"]["fps"] = self.sp_curPfps.value()
             cData["globals"]["forceResolution"] = self.chb_prjResolution.isChecked()
             cData["globals"]["resolution"] = [self.sp_prjResolutionWidth.value(), self.sp_prjResolutionHeight.value()]
+            cData["globals"]["useMasterVersion"] = self.chb_curPuseMaster.isChecked()
             cData["globals"]["forceversions"] = self.gb_curPversions.isChecked()
             cData["changeProject"] = changeProject
 
@@ -702,6 +703,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             if "resolution" in gblData:
                 self.sp_prjResolutionWidth.setValue(gblData["resolution"][0])
                 self.sp_prjResolutionHeight.setValue(gblData["resolution"][1])
+            if "useMasterVersion" in gblData:
+                self.chb_curPuseMaster.setChecked(gblData["useMasterVersion"])
             if "forceversions" in gblData:
                 self.gb_curPversions.setChecked(gblData["forceversions"])
 

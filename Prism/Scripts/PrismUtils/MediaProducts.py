@@ -313,3 +313,107 @@ class MediaProducts(object):
             return "3d"
         else:
             return "unknown"
+
+    @err_catcher(name=__name__)
+    def getMediaProductPathFromEntity(self, entity, entityName, task, productType="3d"):
+        if entity == "asset":
+            entityPath = os.path.join(self.core.assetPath, entityName)
+        elif entity == "shot":
+            entityPath = os.path.join(self.core.shotPath, entityName)
+
+        if productType == "3d":
+            typeFolder = "3dRender"
+        if productType == "2d":
+            typeFolder = "2dRender"
+
+        productPath = os.path.join(
+            entityPath,
+            "Rendering",
+            typeFolder,
+            task,
+        )
+
+        return productPath
+
+    @err_catcher(name=__name__)
+    def generateMediaProductPath(self, entity, entityName, task, extension, framePadding=True, comment=None, version=None, location="global"):
+        hVersion = ""
+        if version is not None:
+            hVersion, pComment = version.split(self.core.filenameSeparator)
+
+        framePadding = "." if framePadding else ""
+        outputPath = self.getMediaProductPathFromEntity(entity, entityName, task)
+
+        if hVersion == "":
+            hVersion = self.core.getHighestTaskVersion(outputPath)
+            pComment = comment or ""
+
+        filename = self.generateMediaProductFilename(entity, entityName, task, hVersion, framePadding, extension)
+
+        versionFoldername = (
+            hVersion
+            + self.core.filenameSeparator
+            + pComment
+            + self.core.filenameSeparator
+        )
+
+        outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)
+        outputName = self.core.appPlugin.sm_render_fixOutputPath(self, outputName)
+        result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
+        for res in result:
+            if res:
+                outputName = res
+
+        return outputName
+
+    @err_catcher(name=__name__)
+    def generateMediaProductFilename(self, entity, entityName, task, version, framePadding, extension):
+        if entity == "asset":
+            outputName = (
+                os.path.basename(entityName)
+                + self.core.filenameSeparator
+                + task
+                + self.core.filenameSeparator
+                + version
+                + self.core.filenameSeparator
+                + "beauty"
+                + framePadding
+                + extension
+            )
+        elif entity == "shot":
+            outputName = (
+                "shot"
+                + self.core.filenameSeparator
+                + entityName
+                + self.core.filenameSeparator
+                + task
+                + self.core.filenameSeparator
+                + version
+                + self.core.filenameSeparator
+                + "beauty"
+                + framePadding
+                + extension
+            )
+
+        return outputName
+
+    @err_catcher(name=__name__)
+    def getVersionFromFilepath(self, path):
+        versionFoldername = os.path.basename(os.path.dirname(os.path.dirname(path)))
+        fileData = versionFoldername.split(self.core.filenameSeparator)
+
+        fileversion = None
+        for data in fileData:
+            try:
+                num = int(data[1:])
+            except:
+                num = None
+
+            if len(data) == (self.core.versionPadding+1) and data[0] == "v" and num:
+                try:
+                    fileversion = data
+                    break
+                except:
+                    pass
+
+        return fileversion

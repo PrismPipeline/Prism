@@ -257,6 +257,14 @@ class PathManager(object):
         return os.path.abspath(basePath)
 
     @err_catcher(name=__name__)
+    def getEntityBasePathFromProductPath(self, filepath):
+        basePath = os.path.join(
+            filepath, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir
+        )
+
+        return os.path.abspath(basePath)
+
+    @err_catcher(name=__name__)
     def getEntityPath(self, entity=None, asset=None, sequence=None, shot=None, step=None, category=None):
         if asset:
             if os.path.isabs(asset):

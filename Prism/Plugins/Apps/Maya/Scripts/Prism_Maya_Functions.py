@@ -1469,6 +1469,11 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     "vraySettings.fileNameRenderElementSeparator"
                 )
 
+                imgPath = os.path.dirname(os.path.dirname(rSettings["outputName"]))
+                cmds.workspace(fileRule=["images", imgPath])
+                if outputPrefix.startswith("../"):
+                    outputPrefix = outputPrefix[3:]
+
                 cmds.setAttr("vraySettings.fileNamePrefix", outputPrefix, type="string")
                 cmds.setAttr("vraySettings.relements_separateFolders", 1)
                 cmds.setAttr("vraySettings.relements_separateRGBA", 1)
@@ -1830,6 +1835,48 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
     def sm_render_preExecute(self, origin):
         warnings = []
 
+        if platform.system() == "Windows":
+            curRenderer = cmds.getAttr("defaultRenderGlobals.currentRenderer")
+            if curRenderer == "vray":
+                driver = cmds.ls("vraySettings")
+                if not driver:
+                    mel.eval("RenderGlobalsWindow;")
+
+                multichannel = cmds.getAttr("vraySettings.imageFormatStr") in [
+                    "exr (multichannel)",
+                    "exr (deep)",
+                ]
+
+                aovs = cmds.ls(type="VRayRenderElement")
+                aovs += cmds.ls(type="VRayRenderElementSet")
+                aovs = [x for x in aovs if cmds.getAttr(x + ".enabled")]
+                tooLong = 0
+                longestAovPath = ""
+                if (
+                    cmds.getAttr("vraySettings.relements_enableall") != 0
+                    and not multichannel
+                    and len(aovs) > 0
+                ):
+                    for aov in aovs:
+                        attrNames = cmds.listAttr(aov)
+                        for attrName in attrNames:
+                            if attrName.startswith("vray_name_"):
+                                aovName = cmds.getAttr(aov + "." + attrName)
+                                outputName = origin.getOutputName()[0]
+                                aovPath = outputName.replace("rgba", aovName)
+                                aovPath = os.path.splitext(aovPath)[0] + "_" + aovName + "." + "#"*self.core.framePadding + os.path.splitext(aovPath)[1]
+                                if len(aovPath) > 259 and len(aovPath) > tooLong:
+                                    tooLong = len(aovPath)
+                                    longestAovPath = aovPath
+
+                if tooLong:
+                    warning = [
+                            "AOV path is too long",
+                            "The outputpath of one AOV is longer than 259 characters. This might cause that it cannot be saved to disk.\n%s (%s)" % (longestAovPath, tooLong),
+                            2,
+                        ]
+                    warnings.append(warning)
+
         return warnings
 
     @err_catcher(name=__name__)
@@ -1841,7 +1888,9 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
             aovs += cmds.ls(type="VRayRenderElementSet")
             aovs = [x for x in aovs if cmds.getAttr(x + ".enabled")]
             if cmds.getAttr("vraySettings.relements_enableall") != 0 and len(aovs) > 0:
-                outputName = outputName.replace("_beauty", "").replace("beauty", "rgba")
+                outputName = outputName.replace("_beauty", "")
+
+            outputName = outputName.replace("beauty", "rgba")
 
         return outputName
 

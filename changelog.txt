@@ -1,3 +1,8 @@
+v1.3.0.54:
+- added a new feature to use master export versions to the project settings (beta)
+- fixed a problem that caused that VRay renders/aovs in Maya were not written to disk when the pathlength was close but not above 259 characters
+- fixed an error when shift+dragging the render preview in the Project Browser
+
 v1.3.0.53:
 - added support for the latest 3Delight version in Houdini (2.3.2)
 - fixed an error when exporting objects in Blender
