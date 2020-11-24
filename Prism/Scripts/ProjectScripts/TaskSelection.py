@@ -64,6 +64,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.curEntity = None
         self.curTask = None
         self.adclick = False
+        self.autoClose = True
         self.preferredUnit = getattr(self.importState, "preferredUnit", "meter")
         self.export_paths = self.core.getExportPaths()
 
@@ -77,6 +78,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.cb_paths.addItems(list(self.export_paths.keys()))
         if self.core.appPlugin.pluginName == "Standalone":
             self.b_custom.setVisible(False)
+
+        self.tw_versions.setDragEnabled(True)
 
         self.core.callback(
             name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
@@ -141,6 +144,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.tw_versions.customContextMenuRequested.connect(
             lambda pos: self.rclicked(pos, "versions")
         )
+        self.tw_versions.mouseMoveEvent = self.mouseDrag
 
     @err_catcher(name=__name__)
     def mouseClickEvent(self, event, uielement):
@@ -199,12 +203,36 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
     @err_catcher(name=__name__)
     def keyPressEvent(self, event):
-        if not self.parent() or (event.key() != Qt.Key_Escape):
+        if self.autoClose or (event.key() != Qt.Key_Escape):
             super(TaskSelection, self).keyPressEvent(event)
 
     @err_catcher(name=__name__)
+    def mouseDrag(self, event):
+        if event.buttons() != Qt.LeftButton:
+            return
+
+        versions = [self.getCurSelection()]
+        urlList = []
+        for version in versions:
+            url = "file:///%s" % version
+            url = url.replace("\\", "/")
+            urlList.append(QUrl(url))
+
+        if len(urlList) == 0:
+            return
+
+        drag = QDrag(self)
+        mData = QMimeData()
+
+        mData.setUrls(urlList)
+        mData.setData("text/plain", str(urlList[0].toLocalFile()).encode())
+        drag.setMimeData(mData)
+
+        drag.exec_()
+
+    @err_catcher(name=__name__)
     def openCustom(self):
-        startPath = self.getCurSelection()
+        startPath = os.path.dirname(self.getCurSelection())
         customFile = QFileDialog.getOpenFileName(
             self, "Select File to import", startPath, "All files (*.*)"
         )[0]
@@ -217,10 +245,10 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if fileName != "":
             result = self.setProductPath(path=fileName)
             if result:
-                if self.parent():
-                    self.importFile()
-                else:
+                if self.autoClose:
                     self.close()
+                else:
+                    self.importFile()
 
     @err_catcher(name=__name__)
     def loadVersion(self, index, currentVersion=False):
@@ -246,10 +274,10 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         else:
             result = self.setProductPath(path=versionPath)
             if result:
-                if self.parent():
-                    self.importFile()
-                else:
+                if self.autoClose:
                     self.close()
+                else:
+                    self.importFile()
 
     @err_catcher(name=__name__)
     def setProductPath(self, path):
@@ -799,7 +827,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         pathC = self.tw_versions.model().columnCount() - 1
         row = self.tw_versions.selectionModel().currentIndex().row()
-        return os.path.dirname(self.tw_versions.model().index(row, pathC).data())
+        return self.tw_versions.model().index(row, pathC).data()
 
     @err_catcher(name=__name__)
     def navigateToFile(self, fileName, task=None, version=None):

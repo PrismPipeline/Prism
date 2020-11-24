@@ -70,6 +70,13 @@ class ImportFileClass(object):
         self.fileNode = None
         self.updatePrefUnits()
 
+        self.importHandlers = {
+            ".abc": self.importAlembic,
+            ".fbx": self.importFBX,
+            ".rs": self.importRedshiftProxy,
+        }
+        self.core.callback("getImportHandlers", args=[self, self.importHandlers])
+
         createEmptyState = (
             QApplication.keyboardModifiers() == Qt.ControlModifier
             or not self.core.uiAvailable
@@ -349,7 +356,7 @@ class ImportFileClass(object):
         self.node.moveToGoodPosition()
 
     @err_catcher(name=__name__)
-    def importAlembic(self, importPath):
+    def importAlembic(self, importPath, taskName):
         self.fileNode = self.node.createNode("alembic")
         self.fileNode.moveToGoodPosition()
         self.fileNode.parm("fileName").set(importPath)
@@ -396,15 +403,7 @@ class ImportFileClass(object):
         self.node.layoutChildren()
 
     @err_catcher(name=__name__)
-    def importUSD(self, importPath):
-        self.fileNode = self.node.createNode("pixar::usdimport")
-        self.fileNode.moveToGoodPosition()
-        self.fileNode.parm("import_file").set(importPath)
-        self.fileNode.parm("import_primpath").set("/")
-        self.fileNode.parm("import_time").setExpression("$F")
-
-    @err_catcher(name=__name__)
-    def importRedshiftProxy(self, importPath):
+    def importRedshiftProxy(self, importPath, taskName):
         if not hou.nodeType(hou.sopNodeTypeCategory(), "Redshift_Proxy_Output"):
             msg = "Format is not supported, because Redshift is not available in Houdini."
             self.core.popup(msg)
@@ -425,7 +424,7 @@ class ImportFileClass(object):
         self.node.parm("RS_objprop_proxy_file").set(importPath)
 
     @err_catcher(name=__name__)
-    def importFile(self, importPath):
+    def importFile(self, importPath, taskName):
         self.fileNode = self.node.createNode("file")
         self.fileNode.moveToGoodPosition()
         self.fileNode.parm("file").set(importPath)
@@ -468,16 +467,11 @@ class ImportFileClass(object):
 
             if len(self.node.children()) > 0:
                 self.node.children()[0].destroy()
-            if extension == ".abc":
-                self.importAlembic(importPath)
-            elif extension == ".fbx":
-                self.importFBX(importPath, taskName)
-            elif extension == ".usd":
-                self.importUSD(importPath)
-            elif extension == ".rs":
-                self.importRedshiftProxy(importPath)
+
+            if extension in self.importHandlers:
+                self.importHandlers[extension](importPath, taskName)
             else:
-                self.importFile(importPath)
+                self.importFile(importPath, taskName)
 
             outNode = self.fileNode.createOutputNode("null", "OUT_" + taskName)
             outNode.setDisplayFlag(True)

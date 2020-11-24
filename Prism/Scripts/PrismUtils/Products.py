@@ -106,6 +106,20 @@ class Products(object):
         return versions
 
     @err_catcher(name=__name__)
+    def getVersionFolderFromProductPath(self, path):
+        versionFolder = ""
+        versionDir = os.path.dirname(path)
+        if os.path.basename(versionDir) in ["centimeter", "meter"]:
+            versionDir = os.path.dirname(versionDir)
+
+        versionName = self.getVersionNameFromFilepath(path)
+
+        if versionName:
+            versionFolder = os.path.dirname(versionDir)
+
+        return versionFolder
+
+    @err_catcher(name=__name__)
     def getVersionsFromPath(self, path):
         versions = {}
         versionPaths = []

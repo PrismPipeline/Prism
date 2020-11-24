@@ -172,6 +172,7 @@ class Ingegration(object):
         result = plugin.addIntegration(path)
 
         if result:
+            self.core.callback("postIntegrationAdded", args=(app, path))
             path = self.core.fixPath(path)
             data = self.core.readYaml(path=self.installLocPath)
             if app not in data:
