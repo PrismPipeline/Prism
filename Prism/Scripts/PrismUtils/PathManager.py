@@ -391,6 +391,7 @@ class PathManager(object):
         if not os.path.exists(cacheConfig):
             cacheConfig = os.path.join(os.path.dirname(cacheDir), "versioninfo.yml")
         cacheData = self.core.getConfig(configPath=cacheConfig) or {}
+        cacheData["unit"] = os.path.basename(cacheDir)
 
         taskPath = os.path.dirname(os.path.dirname(cacheDir))
         cacheData["task"] = os.path.basename(taskPath)

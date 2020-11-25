@@ -1,3 +1,11 @@
+v1.3.0.56:
+- added support for master export versions for versions which are not in the global project location
+- added support for master export versions on Linux and Mac
+- added the option to the context menu to set any previous export version as the master version
+- severeal gui improvements for master versions
+- added the option to move local caches to the global project folder
+- fixed a bug for Maya exports that the "keep namespaces" didn't work as expected
+
 v1.3.0.55:
 - fixed a bug that the "Select Task" dialog stayed open after importing a cache in some cases
 

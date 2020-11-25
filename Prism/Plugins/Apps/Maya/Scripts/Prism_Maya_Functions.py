@@ -763,7 +763,7 @@ class Prism_Maya_Functions(object):
                     )
                 )
 
-                if not origin.chb_exportNamespaces.isChecked():
+                if origin.chb_exportNamespaces.isChecked():
                     expStr = expStr.replace("-stripNamespaces", "")
 
                 cmd = {"export_cmd": expStr}

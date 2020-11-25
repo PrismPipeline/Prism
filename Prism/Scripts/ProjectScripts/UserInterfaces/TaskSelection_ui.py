@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'TaskSelection.ui'
 #
-# Created: Wed Oct  2 23:24:30 2019
+# Created: Wed Nov 25 17:14:38 2020
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -131,17 +131,19 @@ class Ui_dlg_TaskSelection(object):
         self.l_versionRight.setObjectName("l_versionRight")
         self.horizontalLayout.addWidget(self.l_versionRight)
         self.verticalLayout_2.addWidget(self.widget_5)
-        self.tw_versions = QtGui.QTableView(self.widget_3)
+        self.tw_versions = QtGui.QTableWidget(self.widget_3)
         self.tw_versions.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.tw_versions.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.tw_versions.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.tw_versions.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.tw_versions.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.tw_versions.setHorizontalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
-        self.tw_versions.setSortingEnabled(True)
         self.tw_versions.setObjectName("tw_versions")
+        self.tw_versions.setColumnCount(0)
+        self.tw_versions.setRowCount(0)
+        self.tw_versions.horizontalHeader().setCascadingSectionResizes(False)
         self.tw_versions.horizontalHeader().setHighlightSections(False)
-        self.tw_versions.horizontalHeader().setStretchLastSection(False)
+        self.tw_versions.horizontalHeader().setMinimumSectionSize(0)
         self.tw_versions.verticalHeader().setVisible(False)
         self.verticalLayout_2.addWidget(self.tw_versions)
         self.horizontalLayout_2.addWidget(self.widget_3)
@@ -159,4 +161,5 @@ class Ui_dlg_TaskSelection(object):
         self.b_custom.setText(QtGui.QApplication.translate("dlg_TaskSelection", "Import custom files", None, QtGui.QApplication.UnicodeUTF8))
         self.label_2.setText(QtGui.QApplication.translate("dlg_TaskSelection", "Tasks:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_version.setText(QtGui.QApplication.translate("dlg_TaskSelection", "Version:", None, QtGui.QApplication.UnicodeUTF8))
+        self.tw_versions.setSortingEnabled(True)
 

@@ -183,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.55"
+            self.version = "v1.3.0.56"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1275,6 +1275,32 @@ License: GNU GPL-3.0-or-later<br>
             return True
         else:
             return False
+
+    @err_catcher(name=__name__)
+    def detectFileSequence(self, path):
+        pathDir = os.path.dirname(path)
+        regName = ""
+        seqFiles = []
+
+        for root, folders, files in os.walk(pathDir):
+            siblings = [os.path.join(root, f) for f in files]
+
+        for ch in re.escape(os.path.basename(path)):
+            if sys.version[0] == "2":
+                ch = unicode(ch)
+
+            if ch.isnumeric():
+                regName += "."
+            else:
+                regName += ch
+
+        r = re.compile(regName)
+
+        for sibling in siblings:
+            if r.match(os.path.basename(sibling)):
+                seqFiles.append(sibling)
+
+        return seqFiles
 
     @err_catcher(name=__name__)
     def getEntityBasePath(self, *args, **kwargs):

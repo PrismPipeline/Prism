@@ -33,6 +33,8 @@
 
 import os
 import logging
+import shutil
+import platform
 
 try:
     from PySide2.QtCore import *
@@ -367,17 +369,38 @@ class Products(object):
             entityName=entityName,
             task=data["task"],
             extension=data["extension"],
-            version="master"
+            version="master",
+            unit=data["unit"],
         )
         logger.debug("updating master version: %s" % masterPath)
+
+        masterFolder = os.path.dirname(os.path.dirname(masterPath))
+        if os.path.exists(masterFolder):
+            shutil.rmtree(masterFolder)
 
         if not os.path.exists(os.path.dirname(masterPath)):
             os.makedirs(os.path.dirname(masterPath))
 
-        self.core.createSymlink(masterPath, path)
+        masterDrive = os.path.splitdrive(masterPath)
+        drive = os.path.splitdrive(path)
+
+        seqFiles = self.core.detectFileSequence(path)
+        for seqFile in seqFiles:
+            if len(seqFiles) > 1:
+                frameStr = "." + os.path.splitext(seqFile)[0][-self.core.framePadding:]
+                base, ext = os.path.splitext(masterPath)
+                masterPathPadded = base + frameStr + ext
+            else:
+                masterPathPadded = masterPath
+
+            if platform.system() == "Windows" and drive == masterDrive:
+                self.core.createSymlink(masterPathPadded, seqFile)
+            else:
+                shutil.copy2(seqFile, masterPathPadded)
 
         ext = self.core.configs.preferredExtension
         infoPath = os.path.join(os.path.dirname(os.path.dirname(path)), "versioninfo" + ext)
         masterInfoPath = os.path.join(os.path.dirname(os.path.dirname(masterPath)), "versioninfo" + ext)
         self.core.createSymlink(masterInfoPath, infoPath)
+        self.core.setConfig("filename", val=path, configPath=masterInfoPath)
         return masterPath

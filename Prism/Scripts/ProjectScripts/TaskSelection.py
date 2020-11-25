@@ -32,6 +32,7 @@
 
 
 import os
+import shutil
 
 from collections import OrderedDict
 
@@ -80,6 +81,23 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             self.b_custom.setVisible(False)
 
         self.tw_versions.setDragEnabled(True)
+
+        self.versionLabels = ["Version", "Comment", "Type", "Units", "User", "Date", "Path"]
+
+        if len(self.export_paths) > 1:
+            self.versionLabels.insert(4, "Location")
+
+        self.tw_versions.setColumnCount(len(self.versionLabels))
+        self.tw_versions.setHorizontalHeaderLabels(self.versionLabels)
+        self.tw_versions.setColumnHidden(len(self.versionLabels) - 1, True)
+        self.tw_versions.sortByColumn(0, Qt.DescendingOrder)
+
+        if psVersion == 1:
+            self.tw_versions.horizontalHeader().setResizeMode(1, QHeaderView.Stretch)
+        else:
+            self.tw_versions.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.Stretch
+            )
 
         self.core.callback(
             name="onSelectTaskOpen", types=["curApp", "custom"], args=[self]
@@ -211,6 +229,9 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if event.buttons() != Qt.LeftButton:
             return
 
+        if getattr(self, "closing", False):
+            return
+
         versions = [self.getCurSelection()]
         urlList = []
         for version in versions:
@@ -275,6 +296,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             result = self.setProductPath(path=versionPath)
             if result:
                 if self.autoClose:
+                    self.closing = True
                     self.close()
                 else:
                     self.importFile()
@@ -386,6 +408,24 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         rcmenu.addAction(copAct)
 
         if showInfo:
+            useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
+            if useMaster:
+                masterAct = QAction("Set as master", self)
+                masterAct.triggered.connect(
+                    lambda: self.core.products.updateMasterVersion(path)
+                )
+                masterAct.triggered.connect(self.updateVersions)
+                rcmenu.addAction(masterAct)
+
+            if "Location" in self.versionLabels:
+                column = self.versionLabels.index("Location")
+                location = self.tw_versions.item(row, column).text()
+                if "local" in location and "global" not in location:
+                    glbAct = QAction("Move to global", self)
+                    versionDir = os.path.dirname(os.path.dirname(path))
+                    glbAct.triggered.connect(lambda: self.moveToGlobal(versionDir))
+                    rcmenu.addAction(glbAct)
+
             infoAct = QAction("Show version info", self)
             infoAct.triggered.connect(
                 lambda: self.showVersionInfo(os.path.dirname(path))
@@ -407,6 +447,29 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         rcmenu.exec_((viewUi.viewport()).mapToGlobal(pos))
 
     @err_catcher(name=__name__)
+    def moveToGlobal(self, localPath):
+        dstPath = self.core.convertPath(localPath, "global")
+
+        if os.path.exists(dstPath):
+            for root, folders, files in os.walk(dstPath):
+                if files:
+                    msg = "Found existing files in the global directory. Copy to global was canceled."
+                    self.core.popup(msg)
+                    return
+
+            shutil.rmtree(dstPath)
+
+        shutil.copytree(localPath, dstPath)
+
+        try:
+            shutil.rmtree(localPath)
+        except:
+            msg = "Could not delete the local file. Probably it is used by another process."
+            self.core.popup(msg)
+
+        self.updateVersions()
+
+    @err_catcher(name=__name__)
     def showVersionInfo(self, path):
         vInfo = "No information is saved with this version."
 
@@ -423,7 +486,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 else:
                     vInfo += "%s:\t\t%s\n" % (i, iData[i])
 
-        QMessageBox.information(self.core.messageParent, "Versioninfo", vInfo)
+        self.core.popup(vInfo, title="Versioninfo", severity="info")
 
     @err_catcher(name=__name__)
     def locationChanged(self, location):
@@ -685,13 +748,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
     @err_catcher(name=__name__)
     def updateVersions(self):
-        model = QStandardItemModel()
-        versionLabels = ["Version", "Comment", "Type", "Units", "User", "Date", "Path"]
-
-        if len(self.export_paths) > 1:
-            versionLabels.insert(4, "Location")
-
-        model.setHorizontalHeaderLabels(versionLabels)
+        self.tw_versions.clearContents()
+        self.tw_versions.setRowCount(0)
 
         twSorting = [
             self.tw_versions.horizontalHeader().sortIndicatorSection(),
@@ -708,13 +766,19 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             versions = self.core.products.getVersionsFromPaths(versionPaths)
             for versionName in versions:
                 version = versions[versionName]
+                filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit)
+
                 if versionName == "master":
                     comment = ""
                     user = ""
+                    versionData = self.core.paths.getCachePathData(filepath)
+                    if "filename" in versionData:
+                        versionFolder = os.path.basename(os.path.dirname(os.path.dirname(versionData["filename"])))
+                        versionName, comment, user = versionFolder.split(self.core.filenameSeparator)
+                        versionName = "master (%s)" % versionName
                 else:
                     versionName, comment, user = versionName.split(self.core.filenameSeparator)
 
-                filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit)
                 units = self.core.products.getUnitsFromVersion(version, short=True)
                 uStr = ", ".join(units)
 
@@ -724,77 +788,78 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                     lambda x: os.path.splitext(x),
                 )(filepath)
 
-                row = []
-                if versionName == "master":
-                    item = QStandardItem(versionName)
+                row = self.tw_versions.rowCount()
+                self.tw_versions.insertRow(row)
+
+                if versionName.startswith("master"):
+                    item = MasterItem(versionName)
                 else:
-                    item = QStandardItem(versionName)
+                    item = QTableWidgetItem(versionName)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(item)
+                rowItems = 0
+                self.tw_versions.setItem(row, rowItems, item)
+                rowItems += 1
 
                 if comment == "nocomment":
                     comment = ""
 
-                item = QStandardItem(comment)
+                item = QTableWidgetItem(comment)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(item)
+                self.tw_versions.setItem(row, rowItems, item)
+                rowItems += 1
 
-                item = QStandardItem(depExt)
+                item = QTableWidgetItem(depExt)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(item)
+                self.tw_versions.setItem(row, rowItems, item)
+                rowItems += 1
 
-                item = QStandardItem(uStr)
+                item = QTableWidgetItem(uStr)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(item)
+                self.tw_versions.setItem(row, rowItems, item)
+                rowItems += 1
 
                 if len(self.export_paths) > 1:
                     for ePath in self.export_paths:
                         if self.export_paths[ePath] in depPath:
                             location = ePath
 
-                    item = QStandardItem(location)
+                    item = QTableWidgetItem(location)
                     item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    row.append(item)
+                    self.tw_versions.setItem(row, rowItems, item)
+                    rowItems += 1
 
-                item = QStandardItem(user)
+                item = QTableWidgetItem(user)
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                row.append(item)
+                self.tw_versions.setItem(row, rowItems, item)
+                rowItems += 1
 
                 cdate = self.core.getFileModificationDate(filepath)
-                item = QStandardItem()
+                item = QTableWidgetItem()
                 item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                item.setData(
-                    QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100), 0
-                )
+                dateStr = QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100)
+                item.setData(Qt.DisplayRole, dateStr)
                 item.setToolTip(cdate)
-                row.append(item)
+                self.tw_versions.setItem(row, rowItems, item)
+                rowItems += 1
 
                 impPath = getattr(self.core.appPlugin, "fixImportPath", lambda x: x)(
                     filepath
                 )
-                row.append(QStandardItem(impPath))
-
-                model.appendRow(row)
-
-        self.tw_versions.setModel(model)
-        self.tw_versions.setColumnHidden(len(versionLabels) - 1, True)
-        if psVersion == 1:
-            self.tw_versions.horizontalHeader().setResizeMode(1, QHeaderView.Stretch)
-        else:
-            self.tw_versions.horizontalHeader().setSectionResizeMode(
-                1, QHeaderView.Stretch
-            )
+                item = QTableWidgetItem(impPath)
+                self.tw_versions.setItem(row, rowItems, item)
+                rowItems += 1
 
         self.tw_versions.resizeColumnsToContents()
         self.tw_versions.setColumnWidth(0, 90 * self.core.uiScaleFactor)
         self.tw_versions.setColumnWidth(2, 70 * self.core.uiScaleFactor)
         self.tw_versions.setColumnWidth(3, 50 * self.core.uiScaleFactor)
         self.tw_versions.setColumnWidth(
-            len(versionLabels) - 3, 70 * self.core.uiScaleFactor
+            self.tw_versions.columnCount() - 3, 70 * self.core.uiScaleFactor
         )
         self.tw_versions.setColumnWidth(
-            len(versionLabels) - 2, 150 * self.core.uiScaleFactor
+            self.tw_versions.columnCount() - 2, 150 * self.core.uiScaleFactor
         )
+
         self.tw_versions.sortByColumn(twSorting[0], twSorting[1])
         self.tw_versions.setSortingEnabled(True)
 
@@ -949,4 +1014,4 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
 class MasterItem(QTableWidgetItem):
     def __lt__(self, other):
-        return True
+        return False
