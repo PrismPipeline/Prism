@@ -95,6 +95,19 @@ class Products(object):
         return os.path.join(path, "Export")
 
     @err_catcher(name=__name__)
+    def getLocationPathFromLocation(self, location):
+        locDict = self.core.getExportPaths()
+        if location in locDict:
+            return locDict[location]
+
+    @err_catcher(name=__name__)
+    def getLocationFromFilepath(self, path):
+        locDict = self.core.getExportPaths()
+        for location in locDict:
+            if path.startswith(locDict[location]):
+                return location
+
+    @err_catcher(name=__name__)
     def getVersionsFromPaths(self, paths):
         versions = {}
         for path in paths:
@@ -240,26 +253,40 @@ class Products(object):
         return latestVersion
 
     @err_catcher(name=__name__)
-    def getPreferredFileFromVersion(self, version, preferredUnit=None):
+    def getPreferredFileFromVersion(self, version, preferredUnit=None, location=None):
         preferredUnit = preferredUnit or getattr(self.core.appPlugin, "preferredUnit", "centimeter")
 
-        filepath = None
-        backupFilepath = None
-        for location in version["locations"]:
-            for unit in version["locations"][location]:
-                if unit == preferredUnit:
-                    filepath = version["locations"][location][unit]
-                    return filepath
-                elif not backupFilepath:
-                    backupFilepath = version["locations"][location][unit]
+        if location:
+            locationPath = self.getLocationPathFromLocation(location)
 
-        return backupFilepath
+        filepath = None
+        filepathUnit = None
+        for vlocation in version["locations"]:
+            for unit in version["locations"][vlocation]:
+                if location:
+                    if vlocation.startswith(locationPath) or not filepath:
+                        if unit == preferredUnit or filepathUnit != preferredUnit:
+                            filepath = version["locations"][vlocation][unit]
+                            filepathUnit = unit
+                else:
+                    if unit == preferredUnit or filepathUnit != preferredUnit:
+                        filepath = version["locations"][vlocation][unit]
+                        filepathUnit = unit
+
+        return filepath
 
     @err_catcher(name=__name__)
-    def getUnitsFromVersion(self, version, short=False):
+    def getUnitsFromVersion(self, version, short=False, location=None):
         units = []
-        for location in version["locations"]:
-            for unit in version["locations"][location]:
+
+        if location:
+            locationPath = self.getLocationPathFromLocation(location)
+
+        for vlocation in version["locations"]:
+            if location and not vlocation.startswith(locationPath):
+                continue
+
+            for unit in version["locations"][vlocation]:
                 if short:
                     if unit == "centimeter":
                         unit = "cm"
@@ -364,6 +391,8 @@ class Products(object):
         else:
             entityName = data["entity"]
 
+        location = self.getLocationFromFilepath(path)
+
         masterPath = self.generateProductPath(
             entity=data["entityType"],
             entityName=entityName,
@@ -371,13 +400,11 @@ class Products(object):
             extension=data["extension"],
             version="master",
             unit=data["unit"],
+            location=location,
         )
         logger.debug("updating master version: %s" % masterPath)
 
-        masterFolder = os.path.dirname(os.path.dirname(masterPath))
-        if os.path.exists(masterFolder):
-            shutil.rmtree(masterFolder)
-
+        self.deleteMasterVersion(masterPath)
         if not os.path.exists(os.path.dirname(masterPath)):
             os.makedirs(os.path.dirname(masterPath))
 
@@ -404,3 +431,10 @@ class Products(object):
         self.core.createSymlink(masterInfoPath, infoPath)
         self.core.setConfig("filename", val=path, configPath=masterInfoPath)
         return masterPath
+
+    @err_catcher(name=__name__)
+    def deleteMasterVersion(self, path):
+        masterFolder = os.path.dirname(os.path.dirname(path))
+        if os.path.exists(masterFolder):
+            shutil.rmtree(masterFolder)
+            return True

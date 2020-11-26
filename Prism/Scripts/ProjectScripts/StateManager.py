@@ -804,6 +804,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         stateData=None,
         setActive=False,
         renderer=None,
+        openProductsBrowser=None,
     ):
         logger.debug("create state: %s" % statetype)
         if statetype not in self.stateTypes:
@@ -812,22 +813,26 @@ class %s(QWidget, %s.%s, %s.%sClass):
         item = QTreeWidgetItem([statetype])
         item.ui = self.stateTypes[statetype]()
 
-        if node is None:
-            if importPath is None:
-                if renderer is None:
-                    stateSetup = item.ui.setup(
-                        item, self.core, self, stateData=stateData
-                    )
-                else:
-                    stateSetup = item.ui.setup(
-                        item, self.core, self, stateData=stateData, renderer=renderer
-                    )
-            else:
-                stateSetup = item.ui.setup(
-                    item, self.core, self, importPath=importPath, stateData=stateData
-                )
+        kwargs = {
+            "state": item,
+            "core": self.core,
+            "stateManager": self,
+        }
+
+        if node:
+            kwargs["node"] = node
         else:
-            stateSetup = item.ui.setup(item, self.core, self, node)
+            kwargs["stateData"] = stateData
+            if importPath:
+                kwargs["importPath"] = importPath
+            else:
+                if renderer:
+                    kwargs["renderer"] = renderer
+
+        if openProductsBrowser:
+            kwargs["openProductsBrowser"] = openProductsBrowser
+
+        stateSetup = item.ui.setup(**kwargs)
 
         if stateSetup is False:
             return

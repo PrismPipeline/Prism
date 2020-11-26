@@ -410,12 +410,22 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if showInfo:
             useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
             if useMaster:
-                masterAct = QAction("Set as master", self)
-                masterAct.triggered.connect(
-                    lambda: self.core.products.updateMasterVersion(path)
-                )
-                masterAct.triggered.connect(self.updateVersions)
-                rcmenu.addAction(masterAct)
+                column = self.versionLabels.index("Version")
+                version = self.tw_versions.item(row, column).text()
+                if version.startswith("master"):
+                    masterAct = QAction("Delete master", self)
+                    masterAct.triggered.connect(
+                        lambda: self.core.products.deleteMasterVersion(path)
+                    )
+                    masterAct.triggered.connect(self.updateVersions)
+                    rcmenu.addAction(masterAct)
+                else:
+                    masterAct = QAction("Set as master", self)
+                    masterAct.triggered.connect(
+                        lambda: self.core.products.updateMasterVersion(path)
+                    )
+                    masterAct.triggered.connect(self.updateVersions)
+                    rcmenu.addAction(masterAct)
 
             if "Location" in self.versionLabels:
                 column = self.versionLabels.index("Location")
@@ -766,88 +776,35 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             versions = self.core.products.getVersionsFromPaths(versionPaths)
             for versionName in versions:
                 version = versions[versionName]
-                filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit)
 
                 if versionName == "master":
-                    comment = ""
-                    user = ""
-                    versionData = self.core.paths.getCachePathData(filepath)
-                    if "filename" in versionData:
-                        versionFolder = os.path.basename(os.path.dirname(os.path.dirname(versionData["filename"])))
-                        versionName, comment, user = versionFolder.split(self.core.filenameSeparator)
-                        versionName = "master (%s)" % versionName
+                    for locationPath in version["locations"]:
+                        location = self.core.products.getLocationFromFilepath(locationPath)
+                        filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit, location=location)
+                        comment = ""
+                        user = ""
+                        versionData = self.core.paths.getCachePathData(filepath)
+                        if "filename" in versionData:
+                            versionFolder = os.path.basename(os.path.dirname(os.path.dirname(versionData["filename"])))
+                            versionName, comment, user = versionFolder.split(self.core.filenameSeparator)
+                            versionName = "master (%s)" % versionName
+
+                        units = self.core.products.getUnitsFromVersion(version, short=True, location=location)
+                        uStr = ", ".join(units)
+
+                        self.addVersionToTable(filepath, versionName, comment, uStr, user, location=location)
                 else:
+                    filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit)
                     versionName, comment, user = versionName.split(self.core.filenameSeparator)
+                    units = self.core.products.getUnitsFromVersion(version, short=True)
+                    uStr = ", ".join(units)
 
-                units = self.core.products.getUnitsFromVersion(version, short=True)
-                uStr = ", ".join(units)
+                    if len(self.export_paths) > 1:
+                        location = self.core.products.getLocationFromFilepath(filepath)
+                    else:
+                        location = None
 
-                depPath, depExt = getattr(
-                    self.core.appPlugin,
-                    "splitExtension",
-                    lambda x: os.path.splitext(x),
-                )(filepath)
-
-                row = self.tw_versions.rowCount()
-                self.tw_versions.insertRow(row)
-
-                if versionName.startswith("master"):
-                    item = MasterItem(versionName)
-                else:
-                    item = QTableWidgetItem(versionName)
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                rowItems = 0
-                self.tw_versions.setItem(row, rowItems, item)
-                rowItems += 1
-
-                if comment == "nocomment":
-                    comment = ""
-
-                item = QTableWidgetItem(comment)
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                self.tw_versions.setItem(row, rowItems, item)
-                rowItems += 1
-
-                item = QTableWidgetItem(depExt)
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                self.tw_versions.setItem(row, rowItems, item)
-                rowItems += 1
-
-                item = QTableWidgetItem(uStr)
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                self.tw_versions.setItem(row, rowItems, item)
-                rowItems += 1
-
-                if len(self.export_paths) > 1:
-                    for ePath in self.export_paths:
-                        if self.export_paths[ePath] in depPath:
-                            location = ePath
-
-                    item = QTableWidgetItem(location)
-                    item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                    self.tw_versions.setItem(row, rowItems, item)
-                    rowItems += 1
-
-                item = QTableWidgetItem(user)
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                self.tw_versions.setItem(row, rowItems, item)
-                rowItems += 1
-
-                cdate = self.core.getFileModificationDate(filepath)
-                item = QTableWidgetItem()
-                item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
-                dateStr = QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100)
-                item.setData(Qt.DisplayRole, dateStr)
-                item.setToolTip(cdate)
-                self.tw_versions.setItem(row, rowItems, item)
-                rowItems += 1
-
-                impPath = getattr(self.core.appPlugin, "fixImportPath", lambda x: x)(
-                    filepath
-                )
-                item = QTableWidgetItem(impPath)
-                self.tw_versions.setItem(row, rowItems, item)
-                rowItems += 1
+                    self.addVersionToTable(filepath, versionName, comment, uStr, user, location=location)
 
         self.tw_versions.resizeColumnsToContents()
         self.tw_versions.setColumnWidth(0, 90 * self.core.uiScaleFactor)
@@ -865,6 +822,71 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         if self.tw_versions.model().rowCount() > 0:
             self.tw_versions.selectRow(0)
+
+    @err_catcher(name=__name__)
+    def addVersionToTable(self, filepath, versionName, comment, units, user, location=None):
+        depPath, depExt = getattr(
+            self.core.appPlugin,
+            "splitExtension",
+            lambda x: os.path.splitext(x),
+        )(filepath)
+
+        row = self.tw_versions.rowCount()
+        self.tw_versions.insertRow(row)
+
+        if versionName.startswith("master"):
+            item = MasterItem(versionName)
+        else:
+            item = QTableWidgetItem(versionName)
+        item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+        rowItems = 0
+        self.tw_versions.setItem(row, rowItems, item)
+        rowItems += 1
+
+        if comment == "nocomment":
+            comment = ""
+
+        item = QTableWidgetItem(comment)
+        item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+        self.tw_versions.setItem(row, rowItems, item)
+        rowItems += 1
+
+        item = QTableWidgetItem(depExt)
+        item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+        self.tw_versions.setItem(row, rowItems, item)
+        rowItems += 1
+
+        item = QTableWidgetItem(units)
+        item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+        self.tw_versions.setItem(row, rowItems, item)
+        rowItems += 1
+
+        if location:
+            item = QTableWidgetItem(location)
+            item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+            self.tw_versions.setItem(row, rowItems, item)
+            rowItems += 1
+
+        item = QTableWidgetItem(user)
+        item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+        self.tw_versions.setItem(row, rowItems, item)
+        rowItems += 1
+
+        cdate = self.core.getFileModificationDate(filepath)
+        item = QTableWidgetItem()
+        item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
+        dateStr = QDateTime.fromString(cdate, "dd.MM.yy,  hh:mm:ss").addYears(100)
+        item.setData(Qt.DisplayRole, dateStr)
+        item.setToolTip(cdate)
+        self.tw_versions.setItem(row, rowItems, item)
+        rowItems += 1
+
+        impPath = getattr(self.core.appPlugin, "fixImportPath", lambda x: x)(
+            filepath
+        )
+        item = QTableWidgetItem(impPath)
+        self.tw_versions.setItem(row, rowItems, item)
+        rowItems += 1
 
     @err_catcher(name=__name__)
     def getCurSelection(self):

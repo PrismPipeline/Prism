@@ -52,7 +52,7 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def setup(
-        self, state, core, stateManager, node=None, importPath=None, stateData=None
+        self, state, core, stateManager, node=None, importPath=None, stateData=None, openProductsBrowser=True
     ):
         self.state = state
         self.core = core
@@ -80,7 +80,7 @@ class ImportFileClass(object):
         createEmptyState = (
             QApplication.keyboardModifiers() == Qt.ControlModifier
             or not self.core.uiAvailable
-        )
+        ) or not openProductsBrowser
 
         if (
             importPath is None
