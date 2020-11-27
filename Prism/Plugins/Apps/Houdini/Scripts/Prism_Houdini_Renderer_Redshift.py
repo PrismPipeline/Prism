@@ -55,8 +55,8 @@ def getCam(node):
 
 
 def createROP(origin):
-    origin.node = hou.node("/out").createNode("Redshift_ROP")
-    origin.node2 = hou.node("/out").createNode("Redshift_IPR")
+    origin.node = origin.core.appPlugin.createRop("Redshift_ROP")
+    origin.node2 = origin.core.appPlugin.createRop("Redshift_IPR")
     origin.node2.moveToGoodPosition()
 
 

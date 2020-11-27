@@ -565,16 +565,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         except:
             pass
 
-        rPrjPaths = cData.get("recent_projects", [])
-        for prjPath in rPrjPaths:
-            if not prjPath or not self.core.isStr(prjPath) or prjPath == self.core.prismIni:
-                continue
+        recentProjects = self.core.projects.getRecentProjects()
+        for project in recentProjects:
+            rpAct = QAction(project["name"], self)
+            rpAct.setToolTip(project["configPath"])
 
-            rpName = self.core.getConfig("globals", "project_name", configPath=prjPath)
-            rpAct = QAction(rpName, self)
-            rpAct.setToolTip(prjPath)
-
-            rpAct.triggered.connect(lambda y=None, x=prjPath: self.core.changeProject(x))
+            rpAct.triggered.connect(lambda y=None, x=project["configPath"]: self.core.changeProject(x))
             self.menuRecentProjects.addAction(rpAct)
 
         if self.menuRecentProjects.isEmpty():

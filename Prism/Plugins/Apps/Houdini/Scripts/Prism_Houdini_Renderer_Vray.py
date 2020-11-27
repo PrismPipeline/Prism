@@ -57,7 +57,7 @@ def getCam(node):
 
 
 def createROP(origin):
-    origin.node = hou.node("/out").createNode("vray_renderer")
+    origin.node = origin.core.appPlugin.createRop("vray_renderer")
 
 
 def setAOVData(origin, node, aovNum, item):
@@ -111,7 +111,7 @@ def addAOV(origin, aovData):
         origin.node.parm("render_network_render_channels").eval()
     )
     if aovNode is None:
-        aovNode = hou.node("/out").createNode("vray_render_channels")
+        aovNode = origin.core.appPlugin.createRop("vray_render_channels")
         aovNode.moveToGoodPosition()
         origin.node.parm("render_network_render_channels").set(aovNode.path())
 

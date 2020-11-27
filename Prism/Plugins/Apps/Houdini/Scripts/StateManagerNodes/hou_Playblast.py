@@ -534,6 +534,52 @@ class PlayblastClass(object):
                     + ": error - Camera is invalid (%s)." % self.cb_cams.currentText()
                 ]
 
+        rangeType = self.cb_rangeType.currentText()
+        startFrame, endFrame = self.getFrameRange(rangeType)
+
+        if rangeType == "Single Frame":
+            endFrame = startFrame
+
+        if startFrame is None or endFrame is None:
+            return [self.state.text(0) + ": error - Framerange is invalid"]
+
+        fileName = self.core.getCurrentFileName()
+
+        outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
+
+        outLength = len(outputName)
+        if platform.system() == "Windows" and outLength > 255:
+            return [
+                self.state.text(0)
+                + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
+                % outLength
+            ]
+
+        if not os.path.exists(outputPath):
+            os.makedirs(outputPath)
+
+        self.core.saveVersionInfo(
+            location=outputPath, version=hVersion, origin=fileName
+        )
+
+        self.l_pathLast.setText(outputName)
+        self.l_pathLast.setToolTip(outputName)
+        self.b_openLast.setEnabled(True)
+        self.b_copyLast.setEnabled(True)
+
+        self.stateManager.saveStatesToScene()
+
+        hou.hipFile.save()
+
+        kwargs = {
+            "state": self,
+            "scenefile": fileName,
+            "startframe": startFrame,
+            "endframe": endFrame,
+            "outputpath": outputName,
+        }
+        self.core.callback("prePlayblast", **kwargs)
+
         psettings = sceneViewer.flipbookSettings()
         if self.chb_resOverride.isChecked():
             if (
@@ -590,56 +636,9 @@ class PlayblastClass(object):
         if self.curCam is not None:
             sceneViewer.curViewport().setCamera(self.curCam)
 
-        fileName = self.core.getCurrentFileName()
-
-        outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
-
-        outLength = len(outputName)
-        if platform.system() == "Windows" and outLength > 255:
-            return [
-                self.state.text(0)
-                + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
-                % outLength
-            ]
-
-        if not os.path.exists(outputPath):
-            os.makedirs(outputPath)
-
-        self.core.saveVersionInfo(
-            location=outputPath, version=hVersion, origin=fileName
-        )
-
         psettings.output(outputName)
-
-        self.l_pathLast.setText(outputName)
-        self.l_pathLast.setToolTip(outputName)
-        self.b_openLast.setEnabled(True)
-        self.b_copyLast.setEnabled(True)
-
-        self.stateManager.saveStatesToScene()
-
-        hou.hipFile.save()
-
-        rangeType = self.cb_rangeType.currentText()
-        startFrame, endFrame = self.getFrameRange(rangeType)
-
-        if startFrame is None or endFrame is None:
-            return [self.state.text(0) + ": error - Framerange is invalid"]
-
-        if rangeType == "Single Frame":
-            endFrame = startFrame
-
         jobFrames = (startFrame, endFrame)
         psettings.frameRange(jobFrames)
-
-        kwargs = {
-            "state": self,
-            "scenefile": fileName,
-            "startframe": jobFrames[0],
-            "endframe": jobFrames[1],
-            "outputpath": outputName,
-        }
-        self.core.callback("prePlayblast", **kwargs)
 
         try:
             sceneViewer.flipbook()
@@ -681,8 +680,8 @@ class PlayblastClass(object):
             kwargs = {
                 "state": self,
                 "scenefile": fileName,
-                "startframe": jobFrames[0],
-                "endframe": jobFrames[1],
+                "startframe": startFrame,
+                "endframe": endFrame,
                 "outputpath": outputName,
             }
             self.core.callback("postPlayblast", **kwargs)

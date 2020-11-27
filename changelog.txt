@@ -1,3 +1,9 @@
+v1.3.0.59:
+- added master versions for Houdini exports
+- added a "From node" menu in Houdini to the list of available states in the State Manager
+- fixed a bug that master versions from shotscenefiles were written to the wrong location
+- fixed a bug that Houdini playblasts couldn't be 1 frame only
+
 v1.3.0.58:
 - fixed an error when executing a render in Blender in some cases
 

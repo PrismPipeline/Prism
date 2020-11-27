@@ -57,7 +57,7 @@ def getCam(node):
 
 
 def createROP(origin):
-    origin.node = hou.node("/out").createNode(ropNames[0])
+    origin.node = origin.core.appPlugin.createRop(ropNames[0])
 
 
 def setAOVData(origin, node, aovNum, item):

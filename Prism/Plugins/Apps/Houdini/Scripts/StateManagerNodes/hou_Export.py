@@ -1331,7 +1331,7 @@ class ExportClass(object):
                     for i in inputCons:
                         transformNode.setInput(0, i.inputNode(), i.inputIndex())
 
-            abc_rop = hou.node("/out").createNode("alembic")
+            abc_rop = self.core.appPlugin.createRop("alembic")
 
             abc_rop.parm("trange").set(1)
             abc_rop.parm("f1").set(startFrame)
@@ -1340,7 +1340,7 @@ class ExportClass(object):
             abc_rop.parm("root").set(self.curCam.parent().path())
             abc_rop.parm("objects").set(self.curCam.name())
 
-            fbx_rop = hou.node("/out").createNode("filmboxfbx")
+            fbx_rop = self.core.appPlugin.createRop("filmboxfbx")
             fbx_rop.parm("sopoutput").set(outputName + ".fbx")
             fbx_rop.parm("startnode").set(self.curCam.path())
 
@@ -1394,6 +1394,10 @@ class ExportClass(object):
             self.l_pathLast.setToolTip(outputName)
             self.b_openLast.setEnabled(True)
             self.b_copyLast.setEnabled(True)
+
+            useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
+            if useMaster:
+                self.core.products.updateMasterVersion(outputName)
 
             kwargs = {
                 "state": self,
@@ -1642,6 +1646,10 @@ class ExportClass(object):
                 if idx == 1:
                     if not self.core.appPlugin.setNodeParm(transformNode, "scale", val=1):
                         return [self.state.text(0) + ": error - Publish canceled"]
+
+            useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
+            if useMaster:
+                self.core.products.updateMasterVersion(expandedOutputName)
 
             kwargs = {
                 "state": self,

@@ -103,8 +103,9 @@ class Products(object):
     @err_catcher(name=__name__)
     def getLocationFromFilepath(self, path):
         locDict = self.core.getExportPaths()
+        nPath = os.path.normpath(path)
         for location in locDict:
-            if path.startswith(locDict[location]):
+            if nPath.startswith(locDict[location]):
                 return location
 
     @err_catcher(name=__name__)
@@ -389,7 +390,7 @@ class Products(object):
             assetPath = self.core.paths.getEntityBasePathFromProductPath(path)
             entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
         else:
-            entityName = data["entity"]
+            entityName = self.core.entities.getShotname(data["sequence"], data["shot"])
 
         location = self.getLocationFromFilepath(path)
 

@@ -337,16 +337,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
         except:
             pass
 
-        rPrjPaths = self.core.getConfig(cat="recent_projects", dft=[])
-        for prjPath in rPrjPaths:
-            if not prjPath or not self.core.isStr(prjPath) or prjPath == self.core.prismIni:
-                continue
+        recentProjects = self.core.projects.getRecentProjects()
+        for project in recentProjects:
+            rpAct = QAction(project["name"], self)
+            rpAct.setToolTip(project["configPath"])
 
-            rpName = self.core.getConfig("globals", "project_name", configPath=prjPath)
-            rpAct = QAction(rpName, self)
-            rpAct.setToolTip(prjPath)
-
-            rpAct.triggered.connect(lambda y=None, x=prjPath: self.core.changeProject(x))
+            rpAct.triggered.connect(lambda y=None, x=project["configPath"]: self.core.changeProject(x))
             self.menuRecentProjects.addAction(rpAct)
 
         if self.menuRecentProjects.isEmpty():
@@ -697,6 +693,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 lambda x=None, typeName=typeName: self.createState(typeName, parentState, setActive=True)
             )
 
+        getattr(self.core.appPlugin, "sm_openStateFromNode", lambda x, y: None)(self, createMenu)
         return createMenu
 
     @err_catcher(name=__name__)

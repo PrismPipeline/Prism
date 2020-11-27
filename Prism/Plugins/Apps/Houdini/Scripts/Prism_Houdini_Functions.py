@@ -68,6 +68,7 @@ class Prism_Houdini_Functions(object):
             ".otlnc",
             ".otllc",
         ]
+        self.ropLocation = "/out"
         self.callbacks = []
         self.registerCallbacks()
 
@@ -1206,7 +1207,7 @@ class Prism_Houdini_Functions(object):
         return parmStr
 
     @err_catcher(name=__name__)
-    def sm_openStateFromNode(self, origin):
+    def sm_openStateFromNode(self, origin, menu):
         renderers = self.getRendererPlugins()
         if len(hou.selectedNodes()) > 0:
             for i in renderers:
@@ -1214,7 +1215,7 @@ class Prism_Houdini_Functions(object):
                     origin.createPressed("Render")
                     return
 
-        nodeMenu = QMenu(origin)
+        nodeMenu = QMenu("From node", origin)
 
         renderMenu = QMenu("ImageRender", origin)
 
@@ -1282,10 +1283,8 @@ class Prism_Houdini_Functions(object):
         if not ropMenu.isEmpty():
             nodeMenu.addMenu(ropMenu)
 
-        if nodeMenu.isEmpty():
-            self.core.popup("No unconnected ROPs exist in scene.")
-        else:
-            nodeMenu.exec_(QCursor.pos())
+        if not nodeMenu.isEmpty():
+            menu.addMenu(nodeMenu)
 
     @err_catcher(name=__name__)
     def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
@@ -1447,3 +1446,8 @@ class Prism_Houdini_Functions(object):
         rcMenu.addAction(mAct)
 
         rcMenu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def createRop(self, nodeType):
+        node = hou.node(self.ropLocation).createNode(nodeType)
+        return node
