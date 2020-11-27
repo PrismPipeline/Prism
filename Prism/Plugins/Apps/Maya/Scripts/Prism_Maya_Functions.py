@@ -1880,7 +1880,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         return warnings
 
     @err_catcher(name=__name__)
-    def sm_render_fixOutputPath(self, origin, outputName):
+    def sm_render_fixOutputPath(self, origin, outputName, singleFrame=False):
         curRender = self.getCurrentRenderer(origin)
 
         if curRender == "vray":

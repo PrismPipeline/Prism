@@ -911,10 +911,6 @@ sHelper.scale = [sVal, sVal, sVal]"""
         return warnings
 
     @err_catcher(name=__name__)
-    def sm_render_fixOutputPath(self, origin, outputName):
-        return outputName
-
-    @err_catcher(name=__name__)
     def deleteNodes(self, origin, handles):
         nodes = MaxPlus.INodeTab()
         for i in handles:

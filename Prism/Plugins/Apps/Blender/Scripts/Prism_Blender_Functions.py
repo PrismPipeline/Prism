@@ -1191,8 +1191,7 @@ class Prism_Blender_Functions(object):
         return warnings
 
     @err_catcher(name=__name__)
-    def sm_render_fixOutputPath(self, origin, outputName):
-        singleFrame = origin.cb_rangeType.currentText() == "Single Frame"
+    def sm_render_fixOutputPath(self, origin, outputName, singleFrame=False):
         if not singleFrame:
             outputName = (
                 os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]

@@ -1,3 +1,6 @@
+v1.3.0.58:
+- fixed an error when executing a render in Blender in some cases
+
 v1.3.0.57:
 - added the option to delete master versions
 - each export location can have it's own master version now

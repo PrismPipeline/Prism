@@ -358,7 +358,7 @@ class MediaProducts(object):
         )
 
         outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)
-        outputName = self.core.appPlugin.sm_render_fixOutputPath(self, outputName)
+        outputName = getattr(self.core.appPlugin, "sm_render_fixOutputPath", lambda x, y, z: y)(self, outputName, singleFrame=not framePadding)
         result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
         for res in result:
             if res:
