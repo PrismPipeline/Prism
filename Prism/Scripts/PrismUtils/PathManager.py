@@ -405,12 +405,14 @@ class PathManager(object):
             cacheData["assetHierarchy"] = self.core.entities.getAssetRelPathFromPath(entityPath)
             cacheData["assetName"] = os.path.basename(cacheData["assetHierarchy"])
             cacheData["entity"] = cacheData["assetName"]
+            cacheData["fullEntity"] = cacheData["assetHierarchy"]
         elif relShotPath in entityPath:
             cacheData["entityType"] = "shot"
             shot, seq = self.core.entities.splitShotname(os.path.basename(entityPath))
             cacheData["sequence"] = seq
             cacheData["shot"] = shot
             cacheData["entity"] = cacheData["shot"]
+            cacheData["fullEntity"] = self.core.entities.getShotname(cacheData["sequence"], cacheData["shot"])
         else:
             cacheData["entityType"] = ""
 

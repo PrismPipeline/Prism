@@ -471,6 +471,16 @@ class ExportClass(object):
         self.state.setText(0, sText)
 
     @err_catcher(name=__name__)
+    def isPrismFilecacheNode(self, node):
+        if not self.core.appPlugin.isNodeValid(self, node):
+            return False
+
+        if node.type().name().startswith("prism::Filecache"):
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
     def changeTask(self):
         import CreateItem
 
@@ -496,6 +506,51 @@ class ExportClass(object):
             self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
+    def setTaskname(self, taskname):
+        self.l_taskName.setText(taskname)
+        self.nameChanged(self.e_name.text())
+        if taskname:
+            self.b_changeTask.setStyleSheet("")
+        else:
+            self.b_changeTask.setStyleSheet(
+                "QPushButton { background-color: rgb(150,0,0); border: none;}"
+            )
+        self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def getTaskname(self):
+        taskName = self.l_taskName.text()
+        return taskName
+
+    @err_catcher(name=__name__)
+    def getOutputType(self):
+        return self.cb_outType.currentText()
+
+    @err_catcher(name=__name__)
+    def setOutputType(self, outputtype):
+        idx = self.cb_outType.findText(outputtype)
+        if idx != -1:
+            self.cb_outType.setCurrentIndex(idx)
+            self.typeChanged(self.cb_outType.currentText(), createMissing=False)
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def getRangeType(self):
+        return self.cb_outType.currentText()
+
+    @err_catcher(name=__name__)
+    def setRangeType(self, rangeType):
+        idx = self.cb_rangeType.findText(rangeType)
+        if idx != -1:
+            self.cb_rangeType.setCurrentIndex(idx)
+            self.updateRange()
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
     def setCam(self, index):
         self.curCam = self.camlist[index]
         self.nameChanged(self.e_name.text())
@@ -507,9 +562,11 @@ class ExportClass(object):
         try:
             self.node.name()
             self.l_status.setText(self.node.name())
+            self.l_status.setToolTip(self.node.path())
             self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
         except:
             self.l_status.setText("Not connected")
+            self.l_status.setToolTip("")
             self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
 
         curTake = self.cb_take.currentText()
@@ -542,8 +599,14 @@ class ExportClass(object):
                 self.curCam = None
             self.stateManager.saveStatesToScene()
 
-        if self.cb_outType.currentText() != ".hda":
-            self.updateRange()
+        if self.isPrismFilecacheNode(self.node):
+            self.setRangeType("Node")
+            self.cb_rangeType.setEnabled(False)
+            self.core.appPlugin.filecache.refreshNodeUi(self.node, self)
+        else:
+            self.cb_rangeType.setEnabled(True)
+            if self.cb_outType.currentText() != ".hda":
+                self.updateRange()
 
         curShot = self.cb_sCamShot.currentText()
         self.cb_sCamShot.clear()
@@ -658,7 +721,7 @@ class ExportClass(object):
                 self.gb_submit.setVisible(True)
             if (
                 self.node is None
-                or self.node.type().name() not in ["rop_alembic", "alembic", "wedge"]
+                or self.node.type().name() not in ["rop_alembic", "alembic", "wedge", "prism::Filecache::1.0"]
             ) and createMissing:
                 self.createNode()
         elif idx == ".fbx":
@@ -678,7 +741,7 @@ class ExportClass(object):
                 self.gb_submit.setVisible(True)
             if (
                 self.node is None
-                or self.node.type().name() not in ["rop_fbx", "wedge"]
+                or self.node.type().name() not in ["rop_fbx", "wedge", "prism::Filecache::1.0"]
             ) and createMissing:
                 self.createNode()
         elif idx == ".hda":
@@ -721,7 +784,7 @@ class ExportClass(object):
                 self.gb_submit.setVisible(True)
             if (
                 self.node is None
-                or self.node.type().name() not in ["pixar::usdrop", "usd", "wedge"]
+                or self.node.type().name() not in ["pixar::usdrop", "usd", "wedge", "prism::Filecache::1.0"]
             ) and createMissing:
                 self.createNode()
         elif idx == ".rs":
@@ -893,6 +956,7 @@ class ExportClass(object):
                 "pixar::usdrop",
                 "usd",
                 "Redshift_Proxy_Output",
+                "prism::Filecache::1.0",
             ]
             or (
                 node.type().category().name() == "Driver"
@@ -922,6 +986,8 @@ class ExportClass(object):
                     extension = ".bgeo.sc"
                 else:
                     extension = os.path.splitext(outVal)[1]
+            elif typeName in ["prism::Filecache::1.0"]:
+                extension = node.parm("format").evalAsString()
 
             elif (
                 typeName == "geometry"
@@ -1437,7 +1503,7 @@ class ExportClass(object):
                 not (
                     self.node.isEditable()
                     or (
-                        self.node.type().name() in ["filecache", "wedge"]
+                        self.node.type().name() in ["filecache", "wedge", "prism::Filecache::1.0"]
                         and self.node.isEditableInsideLockedHDA()
                     )
                 )

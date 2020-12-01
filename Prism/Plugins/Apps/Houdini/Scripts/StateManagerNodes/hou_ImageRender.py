@@ -636,10 +636,12 @@ class ImageRenderClass(object):
         try:
             self.node.name()
             self.l_status.setText(self.node.name())
+            self.l_status.setToolTip(self.node.path())
             self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
         except:
             self.node = None
             self.l_status.setText("Not connected")
+            self.l_status.setToolTip("")
             self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
 
         curTake = self.cb_take.currentText()

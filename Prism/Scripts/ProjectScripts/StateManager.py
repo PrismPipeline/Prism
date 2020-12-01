@@ -423,6 +423,20 @@ class %s(QWidget, %s.%s, %s.%sClass):
             i.setExpanded(False)
 
     @err_catcher(name=__name__)
+    def selectState(self, state):
+        if not state:
+            return
+
+        if state.ui.listType == "Import":
+            listwidget = self.tw_import
+        else:
+            listwidget = self.tw_export
+
+        self.setListActive(listwidget)
+        listwidget.setCurrentItem(state)
+        self.showState()
+
+    @err_catcher(name=__name__)
     def showState(self):
         try:
             grid = QGridLayout()
@@ -826,7 +840,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 if renderer:
                     kwargs["renderer"] = renderer
 
-        if openProductsBrowser:
+        if openProductsBrowser is not None:
             kwargs["openProductsBrowser"] = openProductsBrowser
 
         stateSetup = item.ui.setup(**kwargs)
@@ -943,6 +957,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
             item = self.activeList.currentItem()
         else:
             item = state
+
+        if not item:
+            return
 
         for i in range(item.childCount()):
             self.deleteState(item.child(i))

@@ -186,9 +186,11 @@ class SaveHDAClass(hou_Export.ExportClass):
     def updateUi(self):
         if self.isNodeValid():
             self.l_status.setText(self.node.name())
+            self.l_status.setToolTip(self.node.path())
             self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
         else:
             self.l_status.setText("Not connected")
+            self.l_status.setToolTip("")
             self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
 
         self.w_blackboxHDA.setEnabled(

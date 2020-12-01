@@ -1,3 +1,7 @@
+v1.3.0.60:
+- added tooltips with the whole Houdini nodepath to the status label of various state types
+- fixed an error when pressing "del" in the State Manager when no state is selected
+
 v1.3.0.59:
 - added master versions for Houdini exports
 - added a "From node" menu in Houdini to the list of available states in the State Manager
