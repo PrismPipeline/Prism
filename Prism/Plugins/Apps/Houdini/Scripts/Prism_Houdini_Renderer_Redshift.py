@@ -163,6 +163,9 @@ def executeAOVs(origin, outputName):
     if not origin.core.appPlugin.setNodeParm(origin.node, "RS_outputFileFormat", val=0):
         return [origin.state.text(0) + ": error - Publish canceled"]
 
+    if not origin.core.appPlugin.setNodeParm(origin.node, "RS_outputDisableSuffixes", val=1):
+        return [origin.state.text(0) + ": error - Publish canceled"]
+
     for parm in origin.node.parms():
         if "RS_aovCustomPrefix" in parm.name():
             currentAOVID = parm.name().split("_")[-1]
