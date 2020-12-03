@@ -805,7 +805,7 @@ class Prism_Houdini_Functions(object):
             return os.path.splitext(path)
 
     @err_catcher(name=__name__)
-    def setNodeParm(self, node, parm, val=None, clear=False):
+    def setNodeParm(self, node, parm, val=None, clear=False, severity="warning"):
         try:
             if clear:
                 node.parm(parm).deleteAllKeyframes()
@@ -813,6 +813,12 @@ class Prism_Houdini_Functions(object):
                 node.parm(parm).set(val)
         except:
             if not node.parm(parm):
+                msg = "parm doesn't exist: \"%s\" on node \"%s\"" % (parm, node.path())
+                if severity == "warning":
+                    logger.warning(msg)
+                else:
+                    logger.debug(msg)
+
                 return False
 
             curTake = hou.takes.currentTake()

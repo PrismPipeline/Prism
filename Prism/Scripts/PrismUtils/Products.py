@@ -312,13 +312,14 @@ class Products(object):
         return productPath
 
     @err_catcher(name=__name__)
-    def generateProductPath(self, entity, entityName, task, extension, startframe=None, endframe=None, comment=None, user=None, version=None, unit=None, location="global"):
+    def generateProductPath(self, entity, entityName, task, extension, startframe=None, endframe=None, comment=None, user=None, version=None, framePadding=None, unit=None, location="global"):
         prefUnit = unit or self.core.appPlugin.preferredUnit
 
-        if startframe == endframe or extension != ".obj":
-            framePadding = ""
-        else:
-            framePadding = ".####"
+        if framePadding is None:
+            if startframe == endframe or extension != ".obj":
+                framePadding = ""
+            else:
+                framePadding = "." + "#"*self.core.framePadding
 
         versionUser = user or self.core.user
         hVersion = ""
@@ -368,6 +369,9 @@ class Products(object):
                 + extension
             )
         elif entity == "shot":
+            if task == "_ShotCam":
+                task = "ShotCam"
+
             outputName = (
                 "shot"
                 + self.core.filenameSeparator

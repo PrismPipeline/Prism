@@ -95,6 +95,7 @@ class ExportClass(object):
             "pixar::usdrop": {"outputparm": "usdfile"},
             "usd": {"outputparm": "lopoutput"},
             "Redshift_Proxy_Output": {"outputparm": "RS_archive_file"},
+            "prism::Filecache::1.0": {"outputparm": "outputPath"},
         }
 
         self.rangeTypes = ["State Manager", "Scene", "Shot", "Node", "Single Frame", "Custom"]
@@ -1183,140 +1184,59 @@ class ExportClass(object):
 
         fileName = self.core.getCurrentFileName()
         fnameData = self.core.getScenefileData(fileName)
-        prefUnit = "meter"
+        location = self.cb_outPath.currentText()
+        version = useVersion if useVersion != "next" else None
 
         if self.cb_outType.currentText() == "ShotCam":
-            outputBase = os.path.join(
-                self.core.getShotPath(), self.cb_sCamShot.currentText()
-            )
+            shot = self.cb_sCamShot.currentText()
+            task = "_ShotCam"
             comment = fnameData["comment"]
-            versionUser = self.core.user
-            outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
 
-            if useVersion != "next":
-                versionData = useVersion.split(self.core.filenameSeparator)
-                if len(versionData) == 3:
-                    hVersion, comment, versionUser = versionData
-                else:
-                    useVersion == "next"
-
-            if useVersion == "next":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
-
-            outputPath = os.path.join(
-                outputPath,
-                hVersion
-                + self.core.filenameSeparator
-                + comment
-                + self.core.filenameSeparator
-                + versionUser,
-                prefUnit,
-            )
-            outputName = os.path.join(
-                outputPath,
-                "shot"
-                + self.core.filenameSeparator
-                + self.cb_sCamShot.currentText()
-                + self.core.filenameSeparator
-                + "ShotCam"
-                + self.core.filenameSeparator
-                + hVersion,
+            outputPath = self.core.products.generateProductPath(
+                entity="shot",
+                entityName=shot,
+                task=task,
+                extension="",
+                comment=comment,
+                version=version,
+                location=location
             )
         else:
-            if self.l_taskName.text() == "":
+            task = self.l_taskName.text()
+            if not task:
                 return
 
-            if self.core.useLocalFiles and fileName.startswith(
-                self.core.localProjectPath
-            ):
-                fileName = fileName.replace(
-                    self.core.localProjectPath, self.core.projectPath
-                )
+            # version = (
+            #     (hVersion + "-wedge`$WEDGENUM`")
+            #     if self.node and self.node.type().name() == "wedge"
+            #     else hVersion
+            # )
 
-            versionUser = self.core.user
-            hVersion = ""
-            if useVersion != "next":
-                versionData = useVersion.split(self.core.filenameSeparator)
-                if len(versionData) == 3:
-                    hVersion, pComment, versionUser = versionData
+            rangeType = self.cb_rangeType.currentText()
+            framePadding = ".$F4" if rangeType != "Single Frame" else ""
+            extension = self.cb_outType.currentText()
 
-            framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
-            if fnameData["entity"] == "shot":
-                outputPath = os.path.join(
-                    self.core.getEntityBasePath(fileName),
-                    "Export",
-                    self.l_taskName.text(),
-                )
-                if hVersion == "":
-                    hVersion = self.core.getHighestTaskVersion(outputPath)
-                    pComment = fnameData["comment"]
-
-                hVersion = (
-                    (hVersion + "-wedge`$WEDGENUM`")
-                    if self.node and self.node.type().name() == "wedge"
-                    else hVersion
-                )
-
-                outputPath = os.path.join(
-                    outputPath,
-                    hVersion
-                    + self.core.filenameSeparator
-                    + pComment
-                    + self.core.filenameSeparator
-                    + versionUser,
-                    prefUnit,
-                )
-                outputName = os.path.join(
-                    outputPath,
-                    "shot"
-                    + self.core.filenameSeparator
-                    + fnameData["entityName"]
-                    + self.core.filenameSeparator
-                    + self.l_taskName.text()
-                    + self.core.filenameSeparator
-                    + hVersion
-                    + framePadding
-                    + self.cb_outType.currentText(),
-                )
-            elif fnameData["entity"] == "asset":
-                outputPath = os.path.join(
-                    self.core.getEntityBasePath(fileName),
-                    "Export",
-                    self.l_taskName.text(),
-                )
-                if hVersion == "":
-                    hVersion = self.core.getHighestTaskVersion(outputPath)
-                    pComment = fnameData["comment"]
-
-                outputPath = os.path.join(
-                    outputPath,
-                    hVersion
-                    + self.core.filenameSeparator
-                    + pComment
-                    + self.core.filenameSeparator
-                    + versionUser,
-                    prefUnit,
-                )
-                outputName = os.path.join(
-                    outputPath,
-                    fnameData["entityName"]
-                    + self.core.filenameSeparator
-                    + self.l_taskName.text()
-                    + self.core.filenameSeparator
-                    + hVersion
-                    + framePadding
-                    + self.cb_outType.currentText(),
-                )
+            if fnameData["entity"] == "asset":
+                assetPath = self.core.getEntityBasePath(fileName)
+                entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
             else:
-                return
+                entityName = fnameData["entityName"]
 
-        basePath = self.export_paths[self.cb_outPath.currentText()]
-        prjPath = os.path.normpath(self.core.projectPath)
-        basePath = os.path.normpath(basePath)
-        outputName = outputName.replace(prjPath, basePath)
-        outputPath = outputPath.replace(prjPath, basePath)
+            outputPath = self.core.products.generateProductPath(
+                entity=fnameData["entity"],
+                entityName=entityName,
+                task=task,
+                extension=extension,
+                framePadding=framePadding,
+                comment=fnameData["comment"],
+                version=version,
+                location=location
+            )
 
-        return outputName.replace("\\", "/"), outputPath.replace("\\", "/"), hVersion
+        outputFolder = os.path.dirname(outputPath)
+        hVersion = self.core.products.getVersionFromFilepath(outputPath)
+
+        return outputPath, outputFolder, hVersion
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
@@ -1550,8 +1470,9 @@ class ExportClass(object):
                         % ropNode.path()
                     ]
             else:
-                if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
-                    return [self.state.text(0) + ": error - Publish canceled"]
+                if not self.isPrismFilecacheNode(self.node):
+                    if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
+                        return [self.state.text(0) + ": error - Publish canceled"]
 
                 if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
                     return [self.state.text(0) + ": error - Publish canceled"]
@@ -1750,7 +1671,11 @@ class ExportClass(object):
     @err_catcher(name=__name__)
     def executeNode(self):
         result = True
-        self.node.parm("execute").pressButton()
+        if self.isPrismFilecacheNode(self.node):
+            self.core.appPlugin.filecache.executeNode(self.node)
+        else:
+            self.node.parm("execute").pressButton()
+
         errs = self.node.errors()
         if len(errs) > 0:
             errs = "\n" + "\n\n".join(errs)

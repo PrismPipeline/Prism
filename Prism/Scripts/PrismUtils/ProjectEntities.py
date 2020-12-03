@@ -473,13 +473,13 @@ class ProjectEntities(object):
     ):
         if not stepPath:
             if entity == "asset":
-                assetPath = self.getAssetPathFromAssetName(entityName)
-                if not assetPath:
+                entityName = self.getAssetPathFromAssetName(entityName)
+                if not entityName:
                     msg = "Asset '%s' doesn't exist. Could not create step." % entityName
                     self.core.popup(msg)
                     return
 
-                stepPath = self.core.getEntityPath(asset=assetPath, step=stepName)
+                stepPath = self.core.getEntityPath(asset=entityName, step=stepName)
 
             elif entity == "shot":
                 stepPath = self.core.getEntityPath(shot=entityName, step=stepName)
@@ -514,13 +514,13 @@ class ProjectEntities(object):
             logger.debug("step created %s" % stepPath)
 
         if settings["createDefaultCategory"]:
-            paths = self.createDefaultCat(stepName, stepPath)
+            paths = self.createDefaultCat(entity, entityName, stepName)
             return paths
 
         return stepPath
 
     @err_catcher(name=__name__)
-    def createDefaultCat(self, step, path):
+    def createDefaultCat(self, entity, entityName, step):
         existingSteps = self.core.getConfig(
                             "globals", "pipeline_steps", configPath=self.core.prismIni
                         )
@@ -535,34 +535,35 @@ class ProjectEntities(object):
 
         paths = []
         for category in categories:
-            dstname = os.path.join(path, category)
-            paths.append(self.createCategory(category, dstname))
+            paths.append(self.createCategory(entity, entityName, step, category))
 
         return paths
 
     @err_catcher(name=__name__)
-    def createCategory(self, catName, path):
-        if os.path.basename(path) != catName:
-            path = os.path.join(path, catName)
+    def createCategory(self, entity, entityName, step, category):
+        if entity == "asset":
+            catPath = self.core.getEntityPath(asset=entityName, step=step, category=category)
+        elif entity == "shot":
+            catPath = self.core.getEntityPath(shot=entityName, step=step, category=category)
 
-        if not os.path.exists(path):
+        if not os.path.exists(catPath):
             try:
-                os.makedirs(path)
+                os.makedirs(catPath)
             except:
-                self.core.popup("The directory %s could not be created" % path)
+                self.core.popup("The directory %s could not be created" % catPath)
                 return
             else:
                 self.core.callback(
                     name="onCategoryCreated",
                     types=["custom"],
-                    args=[self, catName, path],
+                    args=[self, category, catPath],
                 )
 
-            logger.debug("category created %s" % path)
+            logger.debug("category created %s" % catPath)
         else:
-            logger.debug("category already exists: %s" % path)
+            logger.debug("category already exists: %s" % catPath)
 
-        return path
+        return catPath
 
     @err_catcher(name=__name__)
     def omitEntity(self, entityType, entityName, omit=True):

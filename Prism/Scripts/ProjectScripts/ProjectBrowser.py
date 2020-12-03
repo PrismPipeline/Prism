@@ -2138,13 +2138,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     def createSteps(self, entity, steps, createCat=True):
         if len(steps) > 0:
             if entity == "asset":
-                basePath = self.core.getEntityPath(entity="step", asset=self.curAsset)
+                entityName = self.curAsset
                 navData = {
                     "entity": "asset",
                     "basePath": self.curAsset,
                 }
             elif entity == "shot":
-                basePath = self.core.getEntityPath(entity="step", shot=self.cursShots)
+                entityName = self.cursShots
                 navData = {
                     "entity": "shot",
                     "entityName": self.cursShots,
@@ -2155,8 +2155,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             createdDirs = []
 
             for i in steps:
-                dstname = os.path.join(basePath, i)
-                result = self.core.entities.createStep(i, entity, stepPath=dstname, createCat=createCat)
+                result = self.core.entities.createStep(i, entity, entityName=entityName, createCat=createCat)
                 if result:
                     createdDirs.append(i)
                     navData["step"] = i
@@ -3334,8 +3333,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 result = self.core.entities.createEntity("assetFolder", assetPath, dialog=self.newItem)
             dirName = result.get("entityPath", "")
         else:
-            catPath = os.path.join(path, self.itemName)
-            self.core.entities.createCategory(self.itemName, catPath)
+            if tab == "ac":
+                self.core.entities.createCategory("asset", self.curAsset, self.curaStep, self.curaCat)
+            elif tab == "sc":
+                self.core.entities.createCategory("shot", self.cursShots, self.cursStep, self.cursCat)
 
         refresh()
         if tab == "ah":
@@ -3588,9 +3589,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
                     if os.path.isabs(data.get("filename", "")):
                         for i in range(self.tw_sFiles.model().rowCount()):
-                            if data["filename"] == self.tw_sFiles.model().index(i, 0).data(
-                                Qt.UserRole
-                            ):
+                            curFname = data["filename"]
+                            globalCurFname = self.core.convertPath(curFname, "global")
+                            cmpFname = self.tw_sFiles.model().index(i, 0).data(Qt.UserRole)
+
+                            if cmpFname in [curFname, globalCurFname]:
                                 idx = self.tw_sFiles.model().index(i, 0)
                                 self.tw_sFiles.selectRow(idx.row())
                                 break

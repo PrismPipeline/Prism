@@ -69,6 +69,30 @@ class Prism_Houdini_Filecache(object):
         return tokens
 
     @err_catcher(name=__name__)
+    def getReadVersions(self, kwargs):
+        versions = []
+        versions.insert(0, "latest")
+
+        tokens = []
+        for v in versions:
+            tokens.append(v)
+            tokens.append(v)
+
+        return tokens
+
+    @err_catcher(name=__name__)
+    def getSaveVersions(self, kwargs):
+        versions = []
+        versions.insert(0, "next")
+
+        tokens = []
+        for v in versions:
+            tokens.append(v)
+            tokens.append(v)
+
+        return tokens
+
+    @err_catcher(name=__name__)
     def onNodeCreated(self, kwargs):
         self.plugin.onNodeCreated(kwargs)
         state = self.getStateFromNode(kwargs)
@@ -111,3 +135,20 @@ class Prism_Houdini_Filecache(object):
 
         outType = state.getOutputType()
         self.plugin.setNodeParm(node, "format", outType, clear=True)
+
+    @err_catcher(name=__name__)
+    def executeNode(self, node):
+        if node.parm("format").evalAsString() == ".abc":
+            ropName = "write_alembic"
+        else:
+            ropName = "write_geo"
+
+        rop = node.node(ropName)
+        rop.parm("execute").pressButton()
+
+    @err_catcher(name=__name__)
+    def executePressed(self, kwargs):
+        sm = self.core.getStateManager()
+        state = self.getStateFromNode(kwargs)
+        version = kwargs["node"].parm("version").evalAsString()
+        sm.publish(executeState=True, useVersion=version, states=[state])

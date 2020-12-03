@@ -1017,6 +1017,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         if foundEntity:
             self.updateTasks()
+            if task == "_ShotCam":
+                task = "ShotCam"
 
             if self.lw_tasks.findItems(task, Qt.MatchExactly) != []:
                 self.lw_tasks.setCurrentItem(

@@ -336,6 +336,21 @@ class MediaProducts(object):
         return productPath
 
     @err_catcher(name=__name__)
+    def getPlayblastPathFromEntity(self, entity, entityName, task):
+        if entity == "asset":
+            entityPath = os.path.join(self.core.assetPath, entityName)
+        elif entity == "shot":
+            entityPath = os.path.join(self.core.shotPath, entityName)
+
+        productPath = os.path.join(
+            entityPath,
+            "Playblasts",
+            task,
+        )
+
+        return productPath
+
+    @err_catcher(name=__name__)
     def generateMediaProductPath(self, entity, entityName, task, extension, framePadding=True, comment=None, version=None, location="global"):
         hVersion = ""
         if version is not None:
@@ -354,7 +369,36 @@ class MediaProducts(object):
             hVersion
             + self.core.filenameSeparator
             + pComment
+        )
+
+        outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)
+        outputName = getattr(self.core.appPlugin, "sm_render_fixOutputPath", lambda x, y, z: y)(self, outputName, singleFrame=not framePadding)
+        result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
+        for res in result:
+            if res:
+                outputName = res
+
+        return outputName
+
+    @err_catcher(name=__name__)
+    def generatePlayblastPath(self, entity, entityName, task, extension, framePadding=True, comment=None, version=None, location="global"):
+        hVersion = ""
+        if version is not None:
+            hVersion, pComment = version.split(self.core.filenameSeparator)
+
+        framePadding = "." if framePadding else ""
+        outputPath = self.getPlayblastPathFromEntity(entity, entityName, task)
+
+        if hVersion == "":
+            hVersion = self.core.getHighestTaskVersion(outputPath)
+            pComment = comment or ""
+
+        filename = self.generatePlayblastFilename(entity, entityName, task, hVersion, framePadding, extension)
+
+        versionFoldername = (
+            hVersion
             + self.core.filenameSeparator
+            + pComment
         )
 
         outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)

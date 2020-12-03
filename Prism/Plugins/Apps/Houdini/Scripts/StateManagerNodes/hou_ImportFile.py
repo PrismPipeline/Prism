@@ -377,6 +377,7 @@ class ImportFileClass(object):
         self.node.parm("fileName").set(importPath)
         self.node.parm("buildHierarchy").pressButton()
         self.node.moveToGoodPosition()
+        self.addNodeToImportNetworkBox(self.node)
 
     @err_catcher(name=__name__)
     def importAlembic(self, importPath, taskName):
@@ -463,6 +464,15 @@ class ImportFileClass(object):
         return nwBox
 
     @err_catcher(name=__name__)
+    def addNodeToImportNetworkBox(self, node):
+        nwBox = self.getImportNetworkBox()
+        nwBox.addNode(node)
+        nwBox.fitAroundContents()
+
+        node.setDisplayFlag(False)
+        node.setColor(hou.Color(0.451, 0.369, 0.796))
+
+    @err_catcher(name=__name__)
     def removeImportNetworkBox(self, force=False):
         nwBox = self.getImportNetworkBox(create=False)
         if nwBox:
@@ -477,20 +487,15 @@ class ImportFileClass(object):
             except:
                 pass
 
+        if self.isShotCam(importPath):
+            return
+
         self.taskName = cacheData.get("task") or ""
 
-        if not self.isShotCam(importPath):
-            node = hou.node("/obj").createNode("geo", "IMPORT_" + self.taskName)
-            self.setNode(node)
-            self.node.moveToGoodPosition()
-
-        nwBox = self.getImportNetworkBox()
-        nwBox.addNode(self.node)
+        node = hou.node("/obj").createNode("geo", "IMPORT_" + self.taskName)
+        self.setNode(node)
         self.node.moveToGoodPosition()
-        nwBox.fitAroundContents()
-
-        self.node.setDisplayFlag(False)
-        self.node.setColor(hou.Color(0.451, 0.369, 0.796))
+        self.addNodeToImportNetworkBox(self.node)
 
     @err_catcher(name=__name__)
     def handleImport(self, importPath, cacheData=None, objMerge=True):
