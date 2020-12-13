@@ -331,7 +331,7 @@ class Projects(object):
             projectConfig = self.core.prismIni
 
         prjUseLocal = self.core.getConfig("globals", "uselocalfiles", dft=False, configPath=projectConfig)
-        userUseLocal = self.core.getConfig("useLocalFiles", self.core.projectName)
+        userUseLocal = self.core.getConfig("useLocalFiles", self.core.projectName, dft="inherit")
         if userUseLocal == "inherit":
             useLocal = prjUseLocal
         elif userUseLocal == "on":
@@ -345,7 +345,7 @@ class Projects(object):
     def setRecentPrj(self, path, action="add"):
         path = self.core.fixPath(path)
 
-        recentProjects = self.getRecentProjects()
+        recentProjects = self.getRecentProjects(includeCurrent=True)
         if recentProjects and path == recentProjects[0]["configPath"] and action == "add":
             return
 
@@ -363,14 +363,17 @@ class Projects(object):
         self.core.setConfig(param="recent_projects", val=newRecenetProjects)
 
     @err_catcher(name=__name__)
-    def getRecentProjects(self):
+    def getRecentProjects(self, includeCurrent=False):
         validProjects = []
         deprecated = False
-        projects = self.core.getConfig("recent_projects", config="user")
+        projects = self.core.getConfig("recent_projects", config="user", dft=[])
 
         for project in projects:
             if self.core.isStr(project):
-                if not project or not self.core.isStr(project) or project == self.core.prismIni:
+                if not project or not self.core.isStr(project):
+                    continue
+
+                if not includeCurrent and project == self.core.prismIni:
                     continue
 
                 configPath = os.path.splitext(self.core.fixPath(project))[0] + self.core.configs.preferredExtension
@@ -382,7 +385,10 @@ class Projects(object):
                 if not project or not project["configPath"]:
                     continue
 
-                if not self.core.isStr(project["configPath"]) or project["configPath"] == self.core.prismIni:
+                if not self.core.isStr(project["configPath"]):
+                    continue
+
+                if not includeCurrent and project["configPath"] == self.core.prismIni:
                     continue
 
                 validProjects.append(project)

@@ -1,3 +1,11 @@
+v1.3.0.62:
+- fixed a bug that the "use additional local project folder" setting was not using "inherit from project" by default
+
+v1.3.0.61:
+- fixed a bug that stopped Houdini Redshift renderings with older Redshift versions
+- fixed an error when importing Shotcam into Houdini
+- fixed some minor bugs that the Project Browser and Task Selection dialog didn't select the right version on opening
+
 v1.3.0.60:
 - added tooltips with the whole Houdini nodepath to the status label of various state types
 - fixed an error when pressing "del" in the State Manager when no state is selected
