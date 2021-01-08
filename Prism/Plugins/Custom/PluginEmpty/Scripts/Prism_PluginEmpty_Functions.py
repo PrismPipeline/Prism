@@ -169,7 +169,7 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_catcher(name=__name__)
-    def openPBAssetContextMenu(self, origin, rcmenu, index):
+    def openPBAssetContextMenu(self, origin, rcmenu, index, path):
         """
         origin: Project Browser instance
         rcmenu: QMenu object, which can be modified before it gets displayed
@@ -178,23 +178,23 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_catcher(name=__name__)
-    def openPBAssetStepContextMenu(self, origin, rcmenu, index):
+    def openPBAssetStepContextMenu(self, origin, rcmenu, index, path):
         pass
 
     @err_catcher(name=__name__)
-    def openPBAssetCategoryContextMenu(self, origin, rcmenu, index):
+    def openPBAssetCategoryContextMenu(self, origin, rcmenu, index, path):
         pass
 
     @err_catcher(name=__name__)
-    def openPBShotContextMenu(self, origin, rcmenu, index):
+    def openPBShotContextMenu(self, origin, rcmenu, index, path):
         pass
 
     @err_catcher(name=__name__)
-    def openPBShotStepContextMenu(self, origin, rcmenu, index):
+    def openPBShotStepContextMenu(self, origin, rcmenu, index, path):
         pass
 
     @err_catcher(name=__name__)
-    def openPBShotCategoryContextMenu(self, origin, rcmenu, index):
+    def openPBShotCategoryContextMenu(self, origin, rcmenu, index, path):
         pass
 
     @err_catcher(name=__name__)
