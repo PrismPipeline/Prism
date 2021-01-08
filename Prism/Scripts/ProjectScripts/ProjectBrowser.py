@@ -1582,7 +1582,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             self.core.callback(
                 name=callbackName,
                 types=["custom"],
-                args=[self, rcmenu, lw.indexAt(pos)],
+                args=[self, rcmenu, lw.indexAt(pos), path],
             )
 
         rcmenu.exec_(QCursor.pos())
