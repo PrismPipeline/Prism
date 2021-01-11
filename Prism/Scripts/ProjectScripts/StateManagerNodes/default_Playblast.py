@@ -97,7 +97,7 @@ class PlayblastClass(object):
         if "Get from rendersettings" not in self.resolutionPresets:
             self.resolutionPresets.append("Get from rendersettings")
 
-        self.outputformats = ["jpg", "mp4"]
+        self.outputformats = [".jpg", ".mp4"]
         self.cb_formats.addItems(self.outputformats)
         getattr(self.core.appPlugin, "sm_playblast_startup", lambda x: None)(self)
         self.connectEvents()
@@ -413,74 +413,41 @@ class PlayblastClass(object):
         if self.l_taskName.text() == "":
             return
 
+        task = self.l_taskName.text()
+        extension = self.cb_formats.currentText()
         fileName = self.core.getCurrentFileName()
-        if self.core.useLocalFiles:
-            if self.chb_localOutput.isChecked():
-                fileName = self.core.convertPath(fileName, target="local")
-            else:
-                fileName = self.core.convertPath(fileName, target="global")
-
-        hVersion = ""
-        if useVersion != "next":
-            hVersion = useVersion.split(self.core.filenameSeparator)[0]
-            pComment = useVersion.split(self.core.filenameSeparator)[1]
-
         fnameData = self.core.getScenefileData(fileName)
         framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
-        if fnameData["entity"] == "shot":
-            outputPath = os.path.join(
-                self.core.getEntityBasePath(fileName),
-                "Playblasts",
-                self.l_taskName.text(),
-            )
-            if hVersion == "":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
-                pComment = fnameData["comment"]
 
-            outputPath = os.path.join(
-                outputPath, hVersion + self.core.filenameSeparator + pComment
-            )
-            outputFile = os.path.join(
-                "shot"
-                + self.core.filenameSeparator
-                + fnameData["entityName"]
-                + self.core.filenameSeparator
-                + self.l_taskName.text()
-                + self.core.filenameSeparator
-                + hVersion
-                + framePadding
-                + ".jpg"
-            )
-        elif fnameData["entity"] == "asset":
-            outputPath = os.path.join(
-                self.core.getEntityBasePath(fileName),
-                "Playblasts",
-                self.l_taskName.text(),
-            )
+        location = "global"
+        if (
+            self.core.useLocalFiles
+            and self.chb_localOutput.isChecked()
+        ):
+            location = "local"
 
-            if hVersion == "":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
-                pComment = fnameData["comment"]
-
-            outputPath = os.path.join(
-                outputPath, hVersion + self.core.filenameSeparator + pComment
-            )
-            outputFile = os.path.join(
-                fnameData["entityName"]
-                + self.core.filenameSeparator
-                + self.l_taskName.text()
-                + self.core.filenameSeparator
-                + hVersion
-                + framePadding
-                + ".jpg"
-            )
+        if fnameData["entity"] == "asset":
+            assetPath = self.core.getEntityBasePath(fileName)
+            entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
         else:
-            logger.debug("could't generate outputpath")
-            return
+            entityName = fnameData["entityName"]
 
-        outputName = os.path.join(outputPath, outputFile)
+        outputPath = self.core.mediaProducts.generatePlayblastPath(
+            entity=fnameData["entity"],
+            entityName=entityName,
+            task=task,
+            extension=extension,
+            framePadding=framePadding,
+            comment=fnameData["comment"],
+            version=useVersion if useVersion != "next" else None,
+            location=location
+        )
 
-        return outputName, outputPath, hVersion
+        outputPath = outputPath.replace("\\", "/")
+        outputFolder = os.path.dirname(outputPath)
+        hVersion = self.core.mediaProducts.getVersionFromFilepath(outputPath)
+
+        return outputPath, outputFolder, hVersion
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
@@ -573,7 +540,7 @@ class PlayblastClass(object):
                 self
             )
 
-            if self.cb_formats.currentText() == "mp4":
+            if self.cb_formats.currentText() == ".mp4":
                 mediaBaseName = os.path.splitext(outputName)[0]
                 videoOutput = mediaBaseName + "mp4"
                 inputpath = (

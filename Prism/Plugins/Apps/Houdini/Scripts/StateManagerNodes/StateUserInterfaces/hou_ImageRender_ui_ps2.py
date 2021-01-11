@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'hou_ImageRender.ui',
-# licensing of 'hou_ImageRender.ui' applies.
+# Form implementation generated from reading ui file 'hou_ImageRender.ui'
 #
-# Created: Sat Jul 25 22:32:09 2020
-#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
+# Created: Fri Jan  8 13:35:24 2021
+#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -13,7 +12,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 class Ui_wg_ImageRender(object):
     def setupUi(self, wg_ImageRender):
         wg_ImageRender.setObjectName("wg_ImageRender")
-        wg_ImageRender.resize(340, 1206)
+        wg_ImageRender.resize(340, 1232)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -416,6 +415,22 @@ class Ui_wg_ImageRender(object):
         self.chb_rjNSIs.setObjectName("chb_rjNSIs")
         self.horizontalLayout_32.addWidget(self.chb_rjNSIs)
         self.verticalLayout_7.addWidget(self.w_renderNSIs)
+        self.w_renderRS = QtWidgets.QWidget(self.gb_submit)
+        self.w_renderRS.setObjectName("w_renderRS")
+        self.horizontalLayout_33 = QtWidgets.QHBoxLayout(self.w_renderRS)
+        self.horizontalLayout_33.setContentsMargins(-1, 0, -1, 0)
+        self.horizontalLayout_33.setObjectName("horizontalLayout_33")
+        self.label_21 = QtWidgets.QLabel(self.w_renderRS)
+        self.label_21.setObjectName("label_21")
+        self.horizontalLayout_33.addWidget(self.label_21)
+        spacerItem16 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_33.addItem(spacerItem16)
+        self.chb_rjRS = QtWidgets.QCheckBox(self.w_renderRS)
+        self.chb_rjRS.setText("")
+        self.chb_rjRS.setChecked(True)
+        self.chb_rjRS.setObjectName("chb_rjRS")
+        self.horizontalLayout_33.addWidget(self.chb_rjRS)
+        self.verticalLayout_7.addWidget(self.w_renderRS)
         self.f_osDependencies = QtWidgets.QWidget(self.gb_submit)
         self.f_osDependencies.setObjectName("f_osDependencies")
         self.horizontalLayout_27 = QtWidgets.QHBoxLayout(self.f_osDependencies)
@@ -424,8 +439,8 @@ class Ui_wg_ImageRender(object):
         self.label_19 = QtWidgets.QLabel(self.f_osDependencies)
         self.label_19.setObjectName("label_19")
         self.horizontalLayout_27.addWidget(self.label_19)
-        spacerItem16 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_27.addItem(spacerItem16)
+        spacerItem17 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_27.addItem(spacerItem17)
         self.chb_osDependencies = QtWidgets.QCheckBox(self.f_osDependencies)
         self.chb_osDependencies.setText("")
         self.chb_osDependencies.setChecked(True)
@@ -440,8 +455,8 @@ class Ui_wg_ImageRender(object):
         self.label_16 = QtWidgets.QLabel(self.f_osUpload)
         self.label_16.setObjectName("label_16")
         self.horizontalLayout_23.addWidget(self.label_16)
-        spacerItem17 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_23.addItem(spacerItem17)
+        spacerItem18 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_23.addItem(spacerItem18)
         self.chb_osUpload = QtWidgets.QCheckBox(self.f_osUpload)
         self.chb_osUpload.setText("")
         self.chb_osUpload.setChecked(True)
@@ -456,8 +471,8 @@ class Ui_wg_ImageRender(object):
         self.label_17 = QtWidgets.QLabel(self.f_osPAssets)
         self.label_17.setObjectName("label_17")
         self.horizontalLayout_24.addWidget(self.label_17)
-        spacerItem18 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_24.addItem(spacerItem18)
+        spacerItem19 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_24.addItem(spacerItem19)
         self.chb_osPAssets = QtWidgets.QCheckBox(self.f_osPAssets)
         self.chb_osPAssets.setText("")
         self.chb_osPAssets.setChecked(True)
@@ -486,8 +501,8 @@ class Ui_wg_ImageRender(object):
         self.label_9 = QtWidgets.QLabel(self.f_dlGroup)
         self.label_9.setObjectName("label_9")
         self.horizontalLayout_7.addWidget(self.label_9)
-        spacerItem19 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_7.addItem(spacerItem19)
+        spacerItem20 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_7.addItem(spacerItem20)
         self.cb_dlGroup = QtWidgets.QComboBox(self.f_dlGroup)
         self.cb_dlGroup.setMinimumSize(QtCore.QSize(150, 0))
         self.cb_dlGroup.setObjectName("cb_dlGroup")
@@ -501,8 +516,8 @@ class Ui_wg_ImageRender(object):
         self.l_dlConcurrentTasks = QtWidgets.QLabel(self.w_dlConcurrentTasks)
         self.l_dlConcurrentTasks.setObjectName("l_dlConcurrentTasks")
         self.horizontalLayout_29.addWidget(self.l_dlConcurrentTasks)
-        spacerItem20 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_29.addItem(spacerItem20)
+        spacerItem21 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_29.addItem(spacerItem21)
         self.sp_dlConcurrentTasks = QtWidgets.QSpinBox(self.w_dlConcurrentTasks)
         self.sp_dlConcurrentTasks.setMinimum(1)
         self.sp_dlConcurrentTasks.setMaximum(99)
@@ -518,8 +533,8 @@ class Ui_wg_ImageRender(object):
         self.l_dlGPUpt = QtWidgets.QLabel(self.w_dlGPUpt)
         self.l_dlGPUpt.setObjectName("l_dlGPUpt")
         self.horizontalLayout_30.addWidget(self.l_dlGPUpt)
-        spacerItem21 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_30.addItem(spacerItem21)
+        spacerItem22 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_30.addItem(spacerItem22)
         self.sp_dlGPUpt = QtWidgets.QSpinBox(self.w_dlGPUpt)
         self.sp_dlGPUpt.setMinimum(0)
         self.sp_dlGPUpt.setMaximum(99)
@@ -535,8 +550,8 @@ class Ui_wg_ImageRender(object):
         self.l_dlGPUdevices = QtWidgets.QLabel(self.w_dlGPUdevices)
         self.l_dlGPUdevices.setObjectName("l_dlGPUdevices")
         self.horizontalLayout_31.addWidget(self.l_dlGPUdevices)
-        spacerItem22 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_31.addItem(spacerItem22)
+        spacerItem23 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_31.addItem(spacerItem23)
         self.le_dlGPUdevices = QtWidgets.QLineEdit(self.w_dlGPUdevices)
         self.le_dlGPUdevices.setMinimumSize(QtCore.QSize(170, 0))
         self.le_dlGPUdevices.setObjectName("le_dlGPUdevices")
@@ -593,6 +608,7 @@ class Ui_wg_ImageRender(object):
         self.widget_21.setObjectName("widget_21")
         self.horizontalLayout_19 = QtWidgets.QHBoxLayout(self.widget_21)
         self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_19.setObjectName("horizontalLayout_19")
         self.b_openLast = QtWidgets.QPushButton(self.widget_21)
         self.b_openLast.setEnabled(False)
@@ -642,6 +658,7 @@ class Ui_wg_ImageRender(object):
         self.l_rjTimeout.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Task Timeout (min)", None, -1))
         self.label_18.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Submit suspended:", None, -1))
         self.label_20.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Render NSIs:", None, -1))
+        self.label_21.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Render .rs files:", None, -1))
         self.label_19.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Submit dependent files:", None, -1))
         self.label_16.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Upload output:", None, -1))
         self.label_17.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Use Project Assets", None, -1))

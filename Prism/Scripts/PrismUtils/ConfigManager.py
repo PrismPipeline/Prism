@@ -335,12 +335,20 @@ You will need to set your last project again, but no project files (like scenefi
             if not os.path.exists(path):
                 return yamlData
 
+            lf = Lockfile.Lockfile(self.core, path)
+            lf.waitUntilReady()
+
             with open(path, "r") as config:
                 try:
                     yamlData = yaml.load(config)
-                except Exception:
-                    self.core.popup("Failed to open file: %s" % path)
-                    return yamlData
+                except Exception as e:
+                    self.core.popup("Failed to open file: %s\n\n%s" % (path, e))
+
+            if lf.isLocked():
+                yamlData = self.readYaml(path=path, data=data, stream=stream)
+
+            if not yamlData:
+                logger.warning("empty config: %s" % path)
         else:
             if not stream:
                 if not data:

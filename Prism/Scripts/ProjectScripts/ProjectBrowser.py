@@ -2623,7 +2623,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.lw_sPipeline.clear()
         self.lw_sPipeline.blockSignals(False)
 
-        if not self.cursShots:
+        shotName = self.core.entities.splitShotname(self.cursShots)
+        if (
+            not shotName
+            or len(shotName) != 2
+            or not shotName[0]
+        ):
             self.cursStep = None
             self.refreshsCat()
             return
@@ -5300,7 +5305,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         mData = QMimeData()
 
         mData.setUrls(urlList)
-        mData.setData("text/plain", str(urlList[0].toLocalFile()).encode())
+        urls = " ".join([url.toLocalFile() for url in urlList]).encode()
+        mData.setData("text/plain", urls)
         drag.setMimeData(mData)
 
         drag.exec_()

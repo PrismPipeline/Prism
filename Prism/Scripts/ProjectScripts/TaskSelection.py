@@ -370,7 +370,8 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 if not entityItem.data(0, Qt.UserRole):
                     return
 
-                path = os.path.join(entityItem.data(0, Qt.UserRole)[0]["path"], "Export")
+                entityPath = entityItem.data(0, Qt.UserRole)[0]["path"]
+                path = self.core.products.getProductPathFromEntityPath(entityPath)
                 if not os.path.exists(path):
                     return
             else:
@@ -647,7 +648,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 ):
                     continue
 
-                taskPath = os.path.join(assetPath, "Export")
+                taskPath = self.core.products.getProductPathFromEntityPath(assetPath)
                 tasks = []
                 for k in os.walk(taskPath):
                     tasks += k[1]
@@ -682,7 +683,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             locations = [location]
 
         sequences, shotData = self.core.entities.getShots(locations=locations)
-
         shots = {}
         for shot in shotData:
             seqName = shot[0]
@@ -691,7 +691,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
             tasks = []
             for shotPath in shotPaths:
-                taskPath = os.path.join(shotPath["path"], "Export")
+                taskPath = self.core.products.getProductPathFromEntityPath(shotPath["path"])
                 for foldercont in os.walk(taskPath):
                     tasks += foldercont[1]
                     break
@@ -740,7 +740,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         if entityItem and entityItem.data(0, Qt.UserRole):
             taskPaths = [
-                os.path.join(x["path"], "Export") for x in entityItem.data(0, Qt.UserRole) if x
+                self.core.products.getProductPathFromEntityPath(x["path"]) for x in entityItem.data(0, Qt.UserRole) if x
             ]
 
             tasks = self.core.products.getProductsFromPaths(taskPaths)
@@ -795,7 +795,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                         self.addVersionToTable(filepath, versionName, comment, uStr, user, location=location)
                 else:
                     filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit)
-                    versionName, comment, user = versionName.split(self.core.filenameSeparator)
+                    versionNameData = self.core.products.getDataFromVersionName(versionName)
+                    versionName = versionNameData.get("version")
+                    comment = versionNameData.get("comment")
+                    user = versionNameData.get("user")
+
                     units = self.core.products.getUnitsFromVersion(version, short=True)
                     uStr = ", ".join(units)
 
@@ -900,7 +904,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         if entityItem is None:
             return curPath
 
-        curPath = os.path.join(entityItem.text(1), "Export")
+        curPath = self.core.products.getProductPathFromEntityPath(entityItem.text(1))
 
         if self.lw_tasks.currentItem() is None:
             return curPath

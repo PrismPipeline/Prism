@@ -809,7 +809,8 @@ class Prism_Houdini_Functions(object):
         try:
             if clear:
                 node.parm(parm).deleteAllKeyframes()
-            else:
+
+            if val is not None:
                 node.parm(parm).set(val)
         except:
             if not node.parm(parm):
@@ -882,20 +883,10 @@ class Prism_Houdini_Functions(object):
             nodeExists = False
 
         if nodeExists:
-            msg = QMessageBox(
-                QMessageBox.Question,
-                "Delete state",
-                (
-                    "Do you also want to delete the connected node?\n\n%s"
-                    % (item.ui.node.path())
-                ),
-                QMessageBox.No,
-            )
-            msg.addButton("Yes", QMessageBox.YesRole)
-            msg.setParent(self.core.messageParent, Qt.Window)
-            action = msg.exec_()
+            msg = "Do you also want to delete the connected node2?\n\n%s" % (item.ui.node.path())
+            result = self.core.popupQuestion(msg, title="Delete State", default="No")
 
-            if action == 0:
+            if result == "Yes":
                 try:
                     if item.ui.className == "ImportFile":
                         nwBox = hou.node("/obj").findNetworkBox("Import")
@@ -1151,6 +1142,19 @@ class Prism_Houdini_Functions(object):
             extFilesSource.append(x[0])
 
         return [extFiles, extFilesSource]
+
+    @err_catcher(name=__name__)
+    def getPreferredStateType(self, category):
+        if category == "Export":
+            if self.core.sm.stateTypes["Save HDA"].canConnectNode():
+                msg = "The selected node can be connected to a \"Save HDA\" state.\nDo you want to create a \"Save HDA\" state?"
+                result = self.core.popupQuestion(msg, parent=self.core.sm)
+                if result == "Yes":
+                    return "Save HDA"
+
+            return "Export"
+        else:
+            return category
 
     @err_catcher(name=__name__)
     def isNodeValid(self, origin, node):
@@ -1506,16 +1510,35 @@ class Prism_Houdini_Functions(object):
     def onNodeCreated(self, kwargs):
         self.createStateForNode(kwargs)
 
-        if kwargs["node"].type().name().startswith("prism::ImportFile"):
-            kwargs["node"].setColor(hou.Color(0.451, 0.369, 0.796))
+    @err_catcher(name=__name__)
+    def onNodeDeleted(self, kwargs):
+        state = self.getStateFromNode(kwargs)
+        if kwargs["node"].type().name().startswith(self.importFile.getTypeName()):
+            parent = self.importFile.getParentFolder(create=False)
+        elif kwargs["node"].type().name().startswith(self.filecache.getTypeName()):
+            parent = self.filecache.getParentFolder(create=False)
+
+        sm = self.core.getStateManager()
+        sm.deleteState(state, silent=True)
+        if parent and parent.childCount() == 0:
+            sm.deleteState(parent)
 
     @err_catcher(name=__name__)
     def createStateForNode(self, kwargs):
         sm = self.core.getStateManager()
 
-        if kwargs["node"].type().name().startswith("prism::ImportFile"):
-            state = sm.createState("ImportFile", node=kwargs["node"], setActive=True, openProductsBrowser=False)
-        elif kwargs["node"].type().name().startswith("prism::Filecache"):
-            state = sm.createState("Export", node=kwargs["node"], setActive=True)
+        if kwargs["node"].type().name().startswith(self.importFile.getTypeName()):
+            parent = self.importFile.getParentFolder()
+            if parent:
+                parentExpanded = parent.isExpanded()
+            state = sm.createState("ImportFile", node=kwargs["node"], setActive=True, openProductsBrowser=False, parent=parent)
+        elif kwargs["node"].type().name().startswith(self.filecache.getTypeName()):
+            parent = self.filecache.getParentFolder()
+            if parent:
+                parentExpanded = parent.isExpanded()
+            state = sm.createState("Export", node=kwargs["node"], setActive=True, parent=parent)
+
+        if parent:
+            parent.setExpanded(parentExpanded)
 
         return state

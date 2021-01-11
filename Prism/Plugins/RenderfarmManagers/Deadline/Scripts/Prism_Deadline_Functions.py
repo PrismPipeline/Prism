@@ -429,7 +429,7 @@ class Prism_Deadline_Functions(object):
     @err_catcher(name=__name__)
     def sm_render_submitJob(self, origin, jobOutputFile, parent):
         if self.core.appPlugin.pluginName == "Houdini":
-            jobOutputFile = jobOutputFile.replace("$F4", "####")
+            jobOutputFile = jobOutputFile.replace("$F4", "#"*self.core.framePadding)
 
         homeDir = (
             self.deadlineCommand(["-GetCurrentUserHomeDirectory"], background=False)
@@ -442,13 +442,21 @@ class Prism_Deadline_Functions(object):
 
         dependencies = parent.dependencies
 
-        if hasattr(origin, "w_renderNSIs") and not origin.w_renderNSIs.isHidden():
+        if hasattr(origin, "w_renderNSIs") and not origin.w_renderNSIs.isHidden() and origin.chb_rjNSIs.isChecked():
             renderNSIs = True
             jobOutputFileOrig = jobOutputFile
             jobOutputFile = os.path.join(os.path.dirname(jobOutputFile), "_nsi", os.path.basename(jobOutputFile))
             jobOutputFile = os.path.splitext(jobOutputFile)[0] + ".nsi"
         else:
             renderNSIs = False
+
+        if hasattr(origin, "w_renderRS") and not origin.w_renderRS.isHidden() and origin.chb_rjRS.isChecked() and self.core.debugMode:
+            renderRS = True
+            jobOutputFileOrig = jobOutputFile
+            jobOutputFile = os.path.join(os.path.dirname(jobOutputFile), "_rs", os.path.basename(jobOutputFile))
+            jobOutputFile = os.path.splitext(jobOutputFile)[0] + ".rs"
+        else:
+            renderRS = False
 
         jobName = (
             os.path.splitext(self.core.getCurrentFileName(path=False))[0]
@@ -486,8 +494,11 @@ class Prism_Deadline_Functions(object):
 
         if renderNSIs:
             jobInfos["Name"] = jobName + "_nsi"
+        elif renderRS:
+            jobInfos["Name"] = jobName + "_rs"
         else:
             jobInfos["Name"] = jobName
+
         jobInfos["Group"] = jobGroup
         jobInfos["Priority"] = jobPrio
         jobInfos["TaskTimeoutMinutes"] = jobTimeOut
@@ -505,7 +516,7 @@ class Prism_Deadline_Functions(object):
         if jobConcurrentTasks:
             jobInfos["ConcurrentTasks"] = jobConcurrentTasks
 
-        if renderNSIs:
+        if renderNSIs or renderRS:
             jobInfos["BatchName"] = jobBatchName
 
         if len(dependencies) > 0:
@@ -575,6 +586,31 @@ class Prism_Deadline_Functions(object):
                 environment=environment,
                 args=args,
             )
+        elif renderRS:
+            rsDep = [[0, jobOutputFile]]
+            args = [jobOutputFile, jobOutputFileOrig]
+            gpusPerTask = origin.sp_dlGPUpt.value()
+            gpuDevices = origin.le_dlGPUdevices.text()
+
+            self.submitRedshiftJob(
+                jobName=jobName + "_render",
+                jobOutput=jobOutputFileOrig,
+                jobPrio=jobPrio,
+                jobGroup=jobGroup,
+                jobTimeOut=jobTimeOut,
+                jobMachineLimit=jobMachineLimit,
+                jobFramesPerTask=jobFramesPerTask,
+                jobConcurrentTasks=jobConcurrentTasks,
+                jobBatchName=jobBatchName,
+                frames=frameStr,
+                suspended=suspended,
+                dependencies=rsDep,
+                archivefile=jobOutputFile,
+                gpusPerTask=gpusPerTask,
+                gpuDevices=gpuDevices,
+                args=args,
+            )
+
         return result
 
     @err_catcher(name=__name__)
@@ -680,6 +716,116 @@ class Prism_Deadline_Functions(object):
         arguments.append(dlParams["jobInfoFile"])
         arguments.append(dlParams["pluginInfoFile"])
         arguments.append(scriptFile)
+        for i in self.core.appPlugin.getCurrentSceneFiles(self):
+            arguments.append(i)
+
+        if "dependencyFile" in locals():
+            arguments.append(dependencyFile)
+
+        result = self.deadlineSubmitJob(jobInfos, pluginInfos, arguments)
+        return result
+
+    @err_catcher(name=__name__)
+    def submitRedshiftJob(
+            self,
+            jobName=None,
+            jobOutput=None,
+            jobGroup="None",
+            jobPrio=50,
+            jobTimeOut=180,
+            jobMachineLimit=0,
+            jobFramesPerTask=1,
+            jobConcurrentTasks=None,
+            jobComment=None,
+            jobBatchName=None,
+            frames="1",
+            suspended=False,
+            dependencies=None,
+            archivefile=None,
+            gpusPerTask=None,
+            gpuDevices=None,
+            environment=None,
+            args=None,
+    ):
+        homeDir = (
+            self.deadlineCommand(["-GetCurrentUserHomeDirectory"], background=False)
+        ).decode("utf-8")
+
+        if homeDir is False:
+            return "Execute Canceled: Deadline is not installed"
+
+        homeDir = homeDir.replace("\r", "").replace("\n", "")
+
+        if not jobName:
+            jobName = os.path.splitext(self.core.getCurrentFileName(path=False))[0].strip("_")
+
+        environment = environment or []
+        environment.insert(0, ["prism_project", self.core.prismIni.replace("\\", "/")])
+
+        # Create submission info file
+
+        jobInfos = {}
+
+        jobInfos["Name"] = jobName
+        jobInfos["Group"] = jobGroup
+        jobInfos["Priority"] = jobPrio
+        jobInfos["TaskTimeoutMinutes"] = jobTimeOut
+        jobInfos["MachineLimit"] = jobMachineLimit
+        jobInfos["Frames"] = frames
+        jobInfos["ChunkSize"] = jobFramesPerTask
+        for idx, env in enumerate(environment):
+            jobInfos["EnvironmentKeyValue%s" % idx] = "%s=%s" % (env[0], env[1])
+        jobInfos["Plugin"] = "Redshift"
+        jobInfos["Comment"] = jobComment or "Prism-Submission-Redshift"
+
+        if jobOutput:
+            jobInfos["OutputFilename0"] = jobOutput
+
+        if suspended:
+            jobInfos["InitialStatus"] = "Suspended"
+
+        if jobConcurrentTasks:
+            jobInfos["ConcurrentTasks"] = jobConcurrentTasks
+
+        if jobBatchName:
+            jobInfos["BatchName"] = jobBatchName
+
+        if dependencies:
+            jobInfos["IsFrameDependent"] = "true"
+            jobInfos["ScriptDependencies"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "DeadlineDependency.py"))
+
+        # Create plugin info file
+
+        pluginInfos = {}
+
+        startFrame = frames.split("-")[0].split(",")[0]
+        paddedStartFrame = str(startFrame).zfill(self.core.framePadding)
+        pluginInfos["SceneFile"] = archivefile.replace("#"*self.core.framePadding, paddedStartFrame)
+
+        pluginInfos["GPUsPerTask"] = gpusPerTask
+        pluginInfos["GPUsSelectDevices"] = gpuDevices
+
+        dlParams = {
+            "jobInfos": jobInfos,
+            "pluginInfos": pluginInfos,
+            "jobInfoFile": os.path.join(homeDir, "temp", "redshift_plugin_info.job"),
+            "pluginInfoFile": os.path.join(homeDir, "temp", "redshift_job_info.job"),
+        }
+
+        if dependencies:
+            dependencyFile = os.path.join(homeDir, "temp", "dependencies.txt")
+            fileHandle = open(dependencyFile, "w")
+
+            for i in dependencies:
+                fileHandle.write(str(i[0]) + "\n")
+                fileHandle.write(str(i[1]) + "\n")
+
+            fileHandle.close()
+
+        arguments = []
+        arguments.append(dlParams["jobInfoFile"])
+        arguments.append(dlParams["pluginInfoFile"])
+
         for i in self.core.appPlugin.getCurrentSceneFiles(self):
             arguments.append(i)
 

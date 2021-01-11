@@ -1,3 +1,10 @@
+v1.3.0.63:
+- added a popup when pressing the export button in the State Manager in Houdini when a node is selected, which can be connected to a "Save HDA" state, to select which state type to create
+- updated support for 3Delight renderer v2.3.2 in Houdini
+- fixed a warning if the sequenceSeparator and the filenameSeparator are equal
+- fixed a bug that the "Render NSIs" checkbox was always considered as enabled when rendering with 3Delight in Houdini
+- removed the deprecated option in the Houdini export state to export HDAs (replaced by the Save HDA state)
+
 v1.3.0.62:
 - fixed a bug that the "use additional local project folder" setting was not using "inherit from project" by default
 

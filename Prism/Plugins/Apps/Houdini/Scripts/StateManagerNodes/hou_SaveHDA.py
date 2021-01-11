@@ -204,15 +204,34 @@ class SaveHDAClass(hou_Export.ExportClass):
 
         self.nameChanged(self.e_name.text())
 
+    @classmethod
+    @err_catcher(name=__name__)
+    def getSelectedNode(self):
+        if len(hou.selectedNodes()) == 0:
+            return
+
+        node = hou.selectedNodes()[0]
+        return node
+
+    @classmethod
+    @err_catcher(name=__name__)
+    def canConnectNode(self, node=None):
+        if node is None:
+            node = self.getSelectedNode()
+            if not node:
+                return False
+
+        if node.canCreateDigitalAsset() or node.type().definition():
+            return True
+
+        return False
+
     @err_catcher(name=__name__)
     def connectNode(self, node=None):
         if node is None:
-            if len(hou.selectedNodes()) == 0:
-                return False
+            node = self.getSelectedNode()
 
-            node = hou.selectedNodes()[0]
-
-        if node.canCreateDigitalAsset() or node.type().definition():
+        if self.canConnectNode(node=node):
             self.node = node
             self.nodePath = self.node.path()
             self.node.setUserData("PrismPath", self.nodePath)

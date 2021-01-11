@@ -184,7 +184,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.62"
+            self.version = "v1.3.0.63"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -2380,11 +2380,12 @@ License: GNU GPL-3.0-or-later<br>
                 logger.error(msg)
 
     @err_catcher(name=__name__)
-    def popupQuestion(self, text, title=None, buttons=None, default=None, icon=None, widget=None):
+    def popupQuestion(self, text, title=None, buttons=None, default=None, icon=None, widget=None, parent=None):
         text = str(text)
         title = str(title or "Prism")
         buttons = buttons or ["Yes", "No"]
         icon = QMessageBox.Question if icon is None else icon
+        parent or getattr(self, "messageParent", None)
 
         if "silent" in self.prismArgs or not self.uiAvailable:
             logger.info("%s - %s - %s" % (title, text, default))
@@ -2393,7 +2394,7 @@ License: GNU GPL-3.0-or-later<br>
         msg = QMessageBox(
             icon,
             title, text,
-            parent=self.messageParent,
+            parent=parent,
         )
         for button in buttons:
             if button in ["Close", "Cancel", "Ignore"]:

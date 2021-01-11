@@ -31,6 +31,8 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+
 import hou
 
 try:
@@ -154,8 +156,30 @@ def setCam(origin, node, val):
 
 
 def executeAOVs(origin, outputName):
+    if (
+        not origin.gb_submit.isHidden()
+        and origin.gb_submit.isChecked()
+        and origin.cb_manager.currentText() == "Deadline"
+        and origin.chb_rjRS.isChecked()
+    ):
+        renderRS = True
+
+        rsOutput = os.path.join(os.path.dirname(outputName), "_rs", os.path.basename(outputName))
+        rsOutput = os.path.splitext(rsOutput)[0] + ".rs"
+        if not origin.core.appPlugin.setNodeParm(origin.node, "RS_archive_file", val=rsOutput):
+            return [origin.state.text(0) + ": error - could not set archive filename. Publish canceled"]
+
+        os.makedirs(rsOutput)
+
+    else:
+        renderRS = False
+
+    if not origin.core.appPlugin.setNodeParm(origin.node, "RS_archive_enable", val=renderRS):
+        return [origin.state.text(0) + ": error - could not set archive enabled. Publish canceled"]
+
     if not origin.core.appPlugin.setNodeParm(origin.node, "RS_outputEnable", val=True):
         return [origin.state.text(0) + ": error - Publish canceled"]
+
     if not origin.core.appPlugin.setNodeParm(
         origin.node, "RS_outputFileNamePrefix", val=outputName
     ):

@@ -317,9 +317,9 @@ class MediaProducts(object):
     @err_catcher(name=__name__)
     def getMediaProductPathFromEntity(self, entity, entityName, task, productType="3d"):
         if entity == "asset":
-            entityPath = os.path.join(self.core.assetPath, entityName)
+            entityPath = self.core.getEntityPath(asset=entityName)
         elif entity == "shot":
-            entityPath = os.path.join(self.core.shotPath, entityName)
+            entityPath = self.core.getEntityPath(shot=entityName)
 
         if productType == "3d":
             typeFolder = "3dRender"
@@ -336,27 +336,11 @@ class MediaProducts(object):
         return productPath
 
     @err_catcher(name=__name__)
-    def getPlayblastPathFromEntity(self, entity, entityName, task):
-        if entity == "asset":
-            entityPath = os.path.join(self.core.assetPath, entityName)
-        elif entity == "shot":
-            entityPath = os.path.join(self.core.shotPath, entityName)
-
-        productPath = os.path.join(
-            entityPath,
-            "Playblasts",
-            task,
-        )
-
-        return productPath
-
-    @err_catcher(name=__name__)
-    def generateMediaProductPath(self, entity, entityName, task, extension, framePadding=True, comment=None, version=None, location="global"):
+    def generateMediaProductPath(self, entity, entityName, task, extension, framePadding=".", comment=None, version=None, location="global"):
         hVersion = ""
         if version is not None:
             hVersion, pComment = version.split(self.core.filenameSeparator)
 
-        framePadding = "." if framePadding else ""
         outputPath = self.getMediaProductPathFromEntity(entity, entityName, task)
 
         if hVersion == "":
@@ -372,37 +356,7 @@ class MediaProducts(object):
         )
 
         outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)
-        outputName = getattr(self.core.appPlugin, "sm_render_fixOutputPath", lambda x, y, z: y)(self, outputName, singleFrame=not framePadding)
-        result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
-        for res in result:
-            if res:
-                outputName = res
-
-        return outputName
-
-    @err_catcher(name=__name__)
-    def generatePlayblastPath(self, entity, entityName, task, extension, framePadding=True, comment=None, version=None, location="global"):
-        hVersion = ""
-        if version is not None:
-            hVersion, pComment = version.split(self.core.filenameSeparator)
-
-        framePadding = "." if framePadding else ""
-        outputPath = self.getPlayblastPathFromEntity(entity, entityName, task)
-
-        if hVersion == "":
-            hVersion = self.core.getHighestTaskVersion(outputPath)
-            pComment = comment or ""
-
-        filename = self.generatePlayblastFilename(entity, entityName, task, hVersion, framePadding, extension)
-
-        versionFoldername = (
-            hVersion
-            + self.core.filenameSeparator
-            + pComment
-        )
-
-        outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)
-        outputName = getattr(self.core.appPlugin, "sm_render_fixOutputPath", lambda x, y, z: y)(self, outputName, singleFrame=not framePadding)
+        outputName = getattr(self.core.appPlugin, "sm_render_fixOutputPath", lambda x, y, singleFrame: y)(self, outputName, singleFrame=not framePadding)
         result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
         for res in result:
             if res:
@@ -435,6 +389,71 @@ class MediaProducts(object):
                 + version
                 + self.core.filenameSeparator
                 + "beauty"
+                + framePadding
+                + extension
+            )
+
+        return outputName
+
+    @err_catcher(name=__name__)
+    def getPlayblastPathFromEntity(self, entity, entityName, task):
+        if entity == "asset":
+            entityPath = self.core.getEntityPath(asset=entityName)
+        elif entity == "shot":
+            entityPath = self.core.getEntityPath(shot=entityName)
+
+        productPath = os.path.join(
+            entityPath,
+            "Playblasts",
+            task,
+        )
+
+        return productPath
+
+    @err_catcher(name=__name__)
+    def generatePlayblastPath(self, entity, entityName, task, extension, framePadding=".", comment=None, version=None, location="global"):
+        hVersion = ""
+        if version is not None:
+            hVersion, pComment = version.split(self.core.filenameSeparator)
+
+        outputPath = self.getPlayblastPathFromEntity(entity, entityName, task)
+
+        if hVersion == "":
+            hVersion = self.core.getHighestTaskVersion(outputPath)
+            pComment = comment or ""
+
+        filename = self.generatePlayblastFilename(entity, entityName, task, hVersion, framePadding, extension)
+
+        versionFoldername = (
+            hVersion
+            + self.core.filenameSeparator
+            + pComment
+        )
+
+        outputName = os.path.join(outputPath, versionFoldername, filename)
+        return outputName
+
+    @err_catcher(name=__name__)
+    def generatePlayblastFilename(self, entity, entityName, task, version, framePadding, extension):
+        if entity == "asset":
+            outputName = (
+                os.path.basename(entityName)
+                + self.core.filenameSeparator
+                + task
+                + self.core.filenameSeparator
+                + version
+                + framePadding
+                + extension
+            )
+        elif entity == "shot":
+            outputName = (
+                "shot"
+                + self.core.filenameSeparator
+                + entityName
+                + self.core.filenameSeparator
+                + task
+                + self.core.filenameSeparator
+                + version
                 + framePadding
                 + extension
             )

@@ -34,6 +34,10 @@
 import os
 import time
 import errno
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class LockfileException(Exception):
@@ -43,7 +47,7 @@ class LockfileException(Exception):
 class Lockfile(object):
     def __init__(self, core, fileName, timeout=10, delay=0.05):
         self.core = core
-        self.isLocked = False
+        self._fileLocked = False
         self.lockPath = fileName + ".lock"
         self.fileName = fileName
         self.timeout = timeout
@@ -54,7 +58,7 @@ class Lockfile(object):
         while True:
             try:
                 self.lockFile = os.open(self.lockPath, os.O_CREAT|os.O_EXCL|os.O_RDWR)
-                self.isLocked = True
+                self._fileLocked = True
                 break
             except OSError as e:
                 if e.errno == errno.EACCES:
@@ -75,7 +79,7 @@ class Lockfile(object):
                 time.sleep(self.delay)
 
     def release(self):
-        if self.isLocked:
+        if self._fileLocked:
             os.close(self.lockFile)
             startTime = time.time()
             while True:
@@ -90,15 +94,38 @@ class Lockfile(object):
 
                 time.sleep(self.delay)
 
-            self.isLocked = False
+            self._fileLocked = False
+
+    def waitUntilReady(self, timeout=None):
+        startTime = time.time()
+        timeout = timeout or self.timeout
+        while True:
+            if not os.path.exists(self.lockPath):
+                break
+
+            logger.debug("waiting for config to unlock before reading")
+
+            if time.time() - startTime >= timeout:
+                msg = "This config seems to be in use by another process:\n\n%s\n\nReading from this file while another process is writing to it could result in data loss.\n\nDo you want to read from this file?" % self.fileName
+                result = self.core.popupQuestion(msg)
+                if result == "Yes":
+                    if os.path.exists(self.lockPath):
+                        os.remove(self.lockPath)
+                else:
+                    raise LockfileException("Timeout occurred while reading from file: %s" % self.fileName)
+
+            time.sleep(self.delay)
+
+    def isLocked(self):
+        return os.path.exists(self.lockPath)
 
     def __enter__(self):
-        if not self.isLocked:
+        if not self._fileLocked:
             self.acquire()
         return self
 
     def __exit__(self, type, value, traceback):
-        if self.isLocked:
+        if self._fileLocked:
             self.release()
 
     def __del__(self):

@@ -50,7 +50,8 @@ def __main__(jobId, taskIds=None):
     import os
 
     depfile = os.path.join(RepositoryUtils.GetJobAuxiliaryPath(job), "dependencies.txt")
-    ClientUtils.LogText("\n start dep -----------%s" % depfile)
+    ClientUtils.LogText("\nPrism - starting dependency scan for job %s" % jobId)
+    ClientUtils.LogText("\nDependency filepath: %s" % depfile)
 
     if not taskIds:
 
@@ -114,9 +115,7 @@ def __main__(jobId, taskIds=None):
                 if release:
                     tasksToRelease.append(taskID)
 
-            ClientUtils.LogText(
-                "\n" + str(jobId) + "\n" + str(taskIds) + "-" + str(tasksToRelease)
-            )
+            ClientUtils.LogText("\n" + str(taskIds) + "-" + str(tasksToRelease))
             # log("\n" + str(jobId) + "\n" + str(taskIds) + "-" + str(tasksToRelease))
         else:
             ClientUtils.LogText("\n" + str(jobId) + "- No Dependency File")

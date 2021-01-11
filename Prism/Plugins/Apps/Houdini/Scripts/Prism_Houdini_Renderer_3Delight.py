@@ -137,7 +137,12 @@ def setCam(origin, node, val):
 
 
 def executeAOVs(origin, outputName):
-    if not origin.gb_submit.isHidden() and origin.gb_submit.isChecked() and origin.cb_manager.currentText() == "Deadline" and origin.chb_rjNSIs.isChecked():
+    if (
+        not origin.gb_submit.isHidden()
+        and origin.gb_submit.isChecked()
+        and origin.cb_manager.currentText() == "Deadline"
+        and origin.chb_rjNSIs.isChecked()
+    ):
         nsi = True
 
         nsiOutput = os.path.join(os.path.dirname(outputName), "_nsi", os.path.basename(outputName))
@@ -180,8 +185,14 @@ def setResolution(origin):
 
 
 def executeRender(origin):
-    origin.node.parm("execute").pressButton()
-    while origin.node.parm("rendering").eval():
+    if origin.node.parm("sequence_render"):
+        origin.node.parm("sequence_render").pressButton()
+    else:
+        origin.node.parm("execute").pressButton()
+
+    while origin.node.parm("rendering").eval() or (
+        origin.node.parm("sequence_rendering") and origin.node.parm("sequence_rendering").eval()
+    ):
         time.sleep(1)
 
     return True

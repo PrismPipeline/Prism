@@ -54,6 +54,10 @@ class Prism_Houdini_Filecache(object):
         self.core = self.plugin.core
 
     @err_catcher(name=__name__)
+    def getTypeName(self):
+        return "prism::Filecache"
+
+    @err_catcher(name=__name__)
     def getFormats(self):
         blacklisted = [".hda", "ShotCam", "other", ".rs"]
         appFormats = self.core.appPlugin.outputFormats
@@ -98,8 +102,14 @@ class Prism_Houdini_Filecache(object):
         state = self.getStateFromNode(kwargs)
         task = state.ui.getTaskname()
         kwargs["node"].parm("task").set(task)
+        state.ui.setRangeType("Node")
         state.ui.setOutputType(kwargs["node"].parm("format").evalAsString())
         kwargs["node"].setColor(hou.Color(0.95, 0.5, 0.05))
+        kwargs["node"].parm("_init").set(1)
+
+    @err_catcher(name=__name__)
+    def onNodeDeleted(self, kwargs):
+        self.plugin.onNodeDeleted(kwargs)
 
     @err_catcher(name=__name__)
     def getStateFromNode(self, kwargs):
@@ -111,6 +121,11 @@ class Prism_Houdini_Filecache(object):
         state.ui.setTaskname(kwargs["script_value"])
 
     @err_catcher(name=__name__)
+    def setFormatFromNode(self, kwargs):
+        state = self.getStateFromNode(kwargs)
+        state.ui.setOutputType(kwargs["script_value"])
+
+    @err_catcher(name=__name__)
     def showInStateManagerFromNode(self, kwargs):
         self.plugin.showInStateManagerFromNode(kwargs)
 
@@ -120,6 +135,9 @@ class Prism_Houdini_Filecache(object):
 
     @err_catcher(name=__name__)
     def refreshNodeUi(self, node, state):
+        if not node.parm("_init").eval():
+            return
+
         taskname = state.getTaskname()
         self.plugin.setNodeParm(node, "task", taskname, clear=True)
         rangeType = state.getRangeType()
@@ -152,3 +170,25 @@ class Prism_Houdini_Filecache(object):
         state = self.getStateFromNode(kwargs)
         version = kwargs["node"].parm("version").evalAsString()
         sm.publish(executeState=True, useVersion=version, states=[state])
+
+    @err_catcher(name=__name__)
+    def getParentFolder(self, create=True):
+        sm = self.core.getStateManager()
+        for state in sm.states:
+            if state.ui.listType != "Export" or state.ui.className != "Folder":
+                continue
+
+            if state.ui.e_name.text() != "Filecaches":
+                continue
+
+            return state
+
+        if create:
+            stateData = {
+                "statename": "Filecaches",
+                "listtype": "Export",
+                "stateenabled": "PySide2.QtCore.Qt.CheckState.Checked",
+                "stateexpanded": False,
+            }
+            state = sm.createState("Folder", stateData=stateData)
+            return state

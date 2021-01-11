@@ -55,9 +55,17 @@ class Prism_Houdini_ImportFile(object):
         self.core = self.plugin.core
 
     @err_catcher(name=__name__)
+    def getTypeName(self):
+        return "prism::ImportFile"
+
+    @err_catcher(name=__name__)
     def onNodeCreated(self, kwargs):
         self.plugin.onNodeCreated(kwargs)
         kwargs["node"].setColor(hou.Color(0.451, 0.369, 0.796))
+
+    @err_catcher(name=__name__)
+    def onNodeDeleted(self, kwargs):
+        self.plugin.onNodeDeleted(kwargs)
 
     @err_catcher(name=__name__)
     def getStateFromNode(self, kwargs):
@@ -118,3 +126,24 @@ class Prism_Houdini_ImportFile(object):
         state.ui.importObject()
         state.ui.updateUi()
         self.refreshUiFromNode(kwargs)
+
+    @err_catcher(name=__name__)
+    def getParentFolder(self, create=True):
+        sm = self.core.getStateManager()
+        for state in sm.states:
+            if state.ui.listType != "Import" or state.ui.className != "Folder":
+                continue
+
+            if state.ui.e_name.text() != "ImportNodes":
+                continue
+
+            return state
+
+        if create:
+            stateData = {
+                "statename": "ImportNodes",
+                "listtype": "Import",
+                "stateexpanded": False,
+            }
+            state = sm.createState("Folder", stateData=stateData)
+            return state

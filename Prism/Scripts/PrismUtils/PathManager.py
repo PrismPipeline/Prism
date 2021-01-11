@@ -265,14 +265,14 @@ class PathManager(object):
         return os.path.abspath(basePath)
 
     @err_catcher(name=__name__)
-    def getEntityPath(self, entity=None, asset=None, sequence=None, shot=None, step=None, category=None):
+    def getEntityPath(self, entity=None, asset=None, sequence=None, shot=None, step=None, category=None, location="global"):
         if asset:
             if os.path.isabs(asset):
                 asset = self.core.entities.getAssetRelPathFromPath(asset)
-            base = self.core.getAssetPath()
+            base = self.core.getAssetPath(location=location)
             path = os.path.join(base, asset)
         elif shot:
-            base = self.core.getShotPath()
+            base = self.core.getShotPath(location=location)
             if sequence:
                 shot = self.core.entities.getShotname(sequence, shot)
             path = os.path.join(base, shot)
@@ -391,13 +391,11 @@ class PathManager(object):
         if not os.path.exists(cacheConfig):
             cacheConfig = os.path.join(os.path.dirname(cacheDir), "versioninfo.yml")
         cacheData = self.core.getConfig(configPath=cacheConfig) or {}
-        cacheData["unit"] = os.path.basename(cacheDir)
 
-        taskPath = os.path.dirname(os.path.dirname(cacheDir))
-        cacheData["task"] = os.path.basename(taskPath)
+        pathData = self.core.products.getProductDataFromFilepath(cachePath)
+        cacheData.update(pathData)
 
-        entityPath = os.path.dirname(os.path.dirname(taskPath))
-
+        entityPath = self.getEntityBasePathFromProductPath(cachePath)
         relAssetPath = self.core.assetPath.replace(self.core.projectPath, "")
         relShotPath = self.core.shotPath.replace(self.core.projectPath, "")
         if relAssetPath in entityPath:
@@ -416,7 +414,6 @@ class PathManager(object):
         else:
             cacheData["entityType"] = ""
 
-        cacheData["extension"] = os.path.splitext(cachePath)[1]
         cacheData["version"] = cacheData.get("information", {}).get("Version", "")
         if not cacheData["version"]:
             cacheData["version"] = cacheData.get("information", {}).get("version", "")

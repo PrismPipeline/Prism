@@ -47,7 +47,6 @@ class Prism_Houdini_Variables(object):
             ".abc",
             ".fbx",
             ".obj",
-            ".hda",
             "ShotCam",
             "other",
         ]

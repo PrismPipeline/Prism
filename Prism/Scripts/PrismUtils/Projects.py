@@ -298,10 +298,10 @@ class Projects(object):
                 ssep, allowChars=[self.core.sequenceSeparator]
             )
 
-        if self.core.filenameSeparator == self.core.sequenceSeparator:
-            self.core.popup(
-                "The filenameSeparator and the sequenceSeparator are equal. This will cause problems when working with sequences. Change the project settings to fix this."
-            )
+            if ssep != self.core.sequenceSeparator and ssep == self.core.filenameSeparator:
+                self.core.popup(
+                    "The filenameSeparator and the sequenceSeparator are equal. Because this would cause problems the sequenceSeparator will be set to \"%s\"" % self.core.sequenceSeparator
+                )
 
         self.setRecentPrj(configPath)
         self.core.sanities.checkAppVersion()

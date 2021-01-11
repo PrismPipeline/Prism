@@ -537,138 +537,65 @@ class ExportClass(object):
         return [self.state.text(0), warnings]
 
     @err_catcher(name=__name__)
-    def getOutputName(self, useVersion="next", startFrame=0, endFrame=0):
-        prefUnit = self.core.appPlugin.preferredUnit
+    def getOutputName(self, useVersion="next"):
+        if self.cb_outType.currentText() == ".hda":
+            return self.getHDAOutputName(useVersion)
+
         fileName = self.core.getCurrentFileName()
+        fnameData = self.core.getScenefileData(fileName)
+        location = self.cb_outPath.currentText()
+        version = useVersion if useVersion != "next" else None
 
         if self.cb_outType.currentText() == "ShotCam":
-            outputBase = os.path.join(self.core.getShotPath(), self.cb_sCamShot.currentText())
-            fnameData = self.core.getScenefileData(fileName)
-            comment = fnameData.get("comment", "")
-            versionUser = self.core.user
+            shot = self.cb_sCamShot.currentText()
+            task = "_ShotCam"
+            comment = fnameData["comment"]
 
-            outputPath = os.path.abspath(os.path.join(outputBase, "Export", "_ShotCam"))
-
-            if useVersion != "next":
-                versionData = useVersion.split(self.core.filenameSeparator)
-                if len(versionData) == 3:
-                    hVersion, comment, versionUser = versionData
-                else:
-                    useVersion == "next"
-
-            if useVersion == "next":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
-
-            outputPath = os.path.join(
-                outputPath,
-                hVersion
-                + self.core.filenameSeparator
-                + comment
-                + self.core.filenameSeparator
-                + versionUser,
-                prefUnit,
+            outputPath = self.core.products.generateProductPath(
+                entity="shot",
+                entityName=shot,
+                task=task,
+                extension="",
+                comment=comment,
+                version=version,
+                location=location
             )
-            outputName = os.path.join(
-                outputPath,
-                "shot"
-                + self.core.filenameSeparator
-                + self.cb_sCamShot.currentText()
-                + self.core.filenameSeparator
-                + "ShotCam"
-                + self.core.filenameSeparator
-                + hVersion,
-            )
-
         else:
-            if self.l_taskName.text() == "":
+            task = self.l_taskName.text()
+            if not task:
                 return
 
-            if startFrame == endFrame or self.cb_outType.currentText() != ".obj":
-                fileNum = ""
+            # version = (
+            #     (hVersion + "-wedge`$WEDGENUM`")
+            #     if self.node and self.node.type().name() == "wedge"
+            #     else hVersion
+            # )
+
+            rangeType = self.cb_rangeType.currentText()
+            framePadding = ".$F4" if rangeType != "Single Frame" else ""
+            extension = self.cb_outType.currentText()
+
+            if fnameData["entity"] == "asset":
+                assetPath = self.core.getEntityBasePath(fileName)
+                entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
             else:
-                fileNum = ".####"
+                entityName = fnameData["entityName"]
 
-            fileName = self.core.convertPath(fileName, "global")
+            outputPath = self.core.products.generateProductPath(
+                entity=fnameData["entity"],
+                entityName=entityName,
+                task=task,
+                extension=extension,
+                framePadding=framePadding,
+                comment=fnameData["comment"],
+                version=version,
+                location=location
+            )
 
-            versionUser = self.core.user
-            hVersion = ""
-            if useVersion != "next":
-                versionData = useVersion.split(self.core.filenameSeparator)
-                if len(versionData) == 3:
-                    hVersion, pComment, versionUser = versionData
+        outputFolder = os.path.dirname(outputPath)
+        hVersion = self.core.products.getVersionFromFilepath(outputPath)
 
-            fnameData = self.core.getScenefileData(fileName)
-
-            if fnameData["entity"] == "shot":
-                outputPath = os.path.join(
-                    self.core.getEntityBasePath(fileName),
-                    "Export",
-                    self.l_taskName.text(),
-                )
-                if hVersion == "":
-                    hVersion = self.core.getHighestTaskVersion(outputPath)
-                    pComment = fnameData["comment"]
-
-                outputPath = os.path.join(
-                    outputPath,
-                    hVersion
-                    + self.core.filenameSeparator
-                    + pComment
-                    + self.core.filenameSeparator
-                    + versionUser,
-                    prefUnit,
-                )
-                outputName = os.path.join(
-                    outputPath,
-                    "shot"
-                    + self.core.filenameSeparator
-                    + fnameData["entityName"]
-                    + self.core.filenameSeparator
-                    + self.l_taskName.text()
-                    + self.core.filenameSeparator
-                    + hVersion
-                    + fileNum
-                    + self.cb_outType.currentText(),
-                )
-            elif fnameData["entity"] == "asset":
-                outputPath = os.path.join(
-                    self.core.getEntityBasePath(fileName),
-                    "Export",
-                    self.l_taskName.text(),
-                )
-                if hVersion == "":
-                    hVersion = self.core.getHighestTaskVersion(outputPath)
-                    pComment = fnameData["comment"]
-
-                outputPath = os.path.join(
-                    outputPath,
-                    hVersion
-                    + self.core.filenameSeparator
-                    + pComment
-                    + self.core.filenameSeparator
-                    + versionUser,
-                    prefUnit,
-                )
-                outputName = os.path.join(
-                    outputPath,
-                    fnameData["entityName"]
-                    + self.core.filenameSeparator
-                    + self.l_taskName.text()
-                    + self.core.filenameSeparator
-                    + hVersion
-                    + fileNum
-                    + self.cb_outType.currentText(),
-                )
-            else:
-                return
-
-        basePath = self.export_paths[self.cb_outPath.currentText()]
-        prjPath = os.path.normpath(self.core.projectPath)
-        basePath = os.path.normpath(basePath)
-        outputName = outputName.replace(prjPath, basePath)
-        outputPath = outputPath.replace(prjPath, basePath)
-
-        return outputName, outputPath, hVersion
+        return outputPath, outputFolder, hVersion
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
