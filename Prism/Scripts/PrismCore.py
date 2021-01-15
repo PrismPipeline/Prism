@@ -2405,10 +2405,10 @@ License: GNU GPL-3.0-or-later<br>
             if escapeButton == button:
                 msg.setEscapeButton(b)
 
+        self.parentWindow(msg)
         if widget:
             msg.layout().addWidget(widget, 1, 2)
 
-        self.parentWindow(msg)
         msg.exec_()
         result = msg.clickedButton().text()
 
