@@ -100,6 +100,11 @@ class ImageRenderClass(object):
         if "Cam resolution" not in self.resolutionPresets:
             self.resolutionPresets.insert(0, "Cam resolution")
 
+        self.product_paths = self.core.paths.getRenderProductBasePaths()
+        self.cb_outPath.addItems(list(self.product_paths.keys()))
+        if len(self.product_paths) < 2:
+            self.w_outPath.setVisible(False)
+
         self.outputFormats = [
             ".exr",
             ".png",
@@ -157,7 +162,6 @@ class ImageRenderClass(object):
         self.b_changeTask.setStyleSheet(
             "QPushButton { background-color: rgb(150,0,0); border: none;}"
         )
-        self.f_localOutput.setVisible(self.core.useLocalFiles)
         self.e_osSlaves.setText("All")
 
         if stateData is not None:
@@ -242,8 +246,10 @@ class ImageRenderClass(object):
             idx = self.cb_take.findText(data["take"])
             if idx != -1:
                 self.cb_take.setCurrentIndex(idx)
-        if "localoutput" in data:
-            self.chb_localOutput.setChecked(eval(data["localoutput"]))
+        if "curoutputpath" in data:
+            idx = self.cb_outPath.findText(data["curoutputpath"])
+            if idx != -1:
+                self.cb_outPath.setCurrentIndex(idx)
         if "outputFormat" in data:
             idx = self.cb_format.findText(data["outputFormat"])
             if idx != -1:
@@ -347,7 +353,7 @@ class ImageRenderClass(object):
         self.b_resPresets.clicked.connect(self.showResPresets)
         self.chb_useTake.stateChanged.connect(self.useTakeChanged)
         self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
-        self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
         self.cb_format.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_renderer.currentIndexChanged[str].connect(self.rendererChanged)
         self.gb_submit.toggled.connect(self.rjToggled)
@@ -655,6 +661,7 @@ class ImageRenderClass(object):
             self.cb_take.setCurrentIndex(idx)
 
         self.updateRange()
+        self.managerChanged()
         self.refreshPasses()
 
         if self.cb_manager.currentText() in self.core.rfManagers:
@@ -780,28 +787,11 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def rjToggled(self, checked):
-        self.f_localOutput.setEnabled(
-            self.gb_submit.isHidden()
-            or not checked
-            or (
-                checked
-                and self.core.rfManagers[self.cb_manager.currentText()].canOutputLocal
-            )
-        )
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def managerChanged(self, text=None):
         rfm = self.cb_manager.currentText()
-        self.f_localOutput.setEnabled(
-            self.gb_submit.isHidden()
-            or not self.gb_submit.isChecked()
-            or (
-                self.gb_submit.isChecked()
-                and self.core.rfManagers[rfm].canOutputLocal
-            )
-        )
-
         if rfm in self.core.rfManagers:
             self.core.rfManagers[rfm].sm_houRender_managerChanged(self)
 
@@ -1011,22 +1001,7 @@ class ImageRenderClass(object):
         fileName = self.core.getCurrentFileName()
         fnameData = self.core.getScenefileData(fileName)
         framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
-
-        location = "global"
-        if (
-            self.core.useLocalFiles
-            and self.chb_localOutput.isChecked() and (
-                self.gb_submit.isHidden()
-                or not self.gb_submit.isChecked()
-                or (
-                    self.gb_submit.isChecked()
-                    and self.core.rfManagers[
-                        self.cb_manager.currentText()
-                    ].canOutputLocal
-                )
-            )
-        ):
-            location = "local"
+        location = self.cb_outPath.currentText()
 
         if fnameData["entity"] == "asset":
             assetPath = self.core.getEntityBasePath(fileName)
@@ -1174,7 +1149,6 @@ class ImageRenderClass(object):
             "settings": rSettings,
         }
         self.core.callback("preRender", **kwargs)
-
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
             result = self.core.rfManagers[
                 self.cb_manager.currentText()
@@ -1297,7 +1271,7 @@ class ImageRenderClass(object):
             ),
             "usetake": str(self.chb_useTake.isChecked()),
             "take": self.cb_take.currentText(),
-            "localoutput": str(self.chb_localOutput.isChecked()),
+            "curoutputpath": self.cb_outPath.currentText(),
             "outputFormat": self.cb_format.currentText(),
             "connectednode": curNode,
             "connectednode2": curNode2,

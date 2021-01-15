@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'default_ImageRender.ui',
-# licensing of 'default_ImageRender.ui' applies.
+# Form implementation generated from reading ui file 'default_ImageRender.ui'
 #
-# Created: Mon Jul 27 23:00:56 2020
-#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
+# Created: Wed Jan 13 11:55:20 2021
+#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -213,21 +212,22 @@ class Ui_wg_ImageRender(object):
         self.cb_renderPreset.setObjectName("cb_renderPreset")
         self.horizontalLayout_14.addWidget(self.cb_renderPreset)
         self.verticalLayout_2.addWidget(self.w_renderPreset)
-        self.f_localOutput = QtWidgets.QWidget(self.gb_imageRender)
-        self.f_localOutput.setObjectName("f_localOutput")
-        self.horizontalLayout_18 = QtWidgets.QHBoxLayout(self.f_localOutput)
-        self.horizontalLayout_18.setContentsMargins(9, 0, 9, 0)
-        self.horizontalLayout_18.setObjectName("horizontalLayout_18")
-        self.l_localOutput = QtWidgets.QLabel(self.f_localOutput)
-        self.l_localOutput.setObjectName("l_localOutput")
-        self.horizontalLayout_18.addWidget(self.l_localOutput)
-        spacerItem6 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_18.addItem(spacerItem6)
-        self.chb_localOutput = QtWidgets.QCheckBox(self.f_localOutput)
-        self.chb_localOutput.setText("")
-        self.chb_localOutput.setObjectName("chb_localOutput")
-        self.horizontalLayout_18.addWidget(self.chb_localOutput)
-        self.verticalLayout_2.addWidget(self.f_localOutput)
+        self.w_outPath = QtWidgets.QWidget(self.gb_imageRender)
+        self.w_outPath.setObjectName("w_outPath")
+        self.horizontalLayout_16 = QtWidgets.QHBoxLayout(self.w_outPath)
+        self.horizontalLayout_16.setSpacing(0)
+        self.horizontalLayout_16.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
+        self.l_outPath = QtWidgets.QLabel(self.w_outPath)
+        self.l_outPath.setObjectName("l_outPath")
+        self.horizontalLayout_16.addWidget(self.l_outPath)
+        spacerItem6 = QtWidgets.QSpacerItem(113, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_16.addItem(spacerItem6)
+        self.cb_outPath = QtWidgets.QComboBox(self.w_outPath)
+        self.cb_outPath.setMinimumSize(QtCore.QSize(150, 0))
+        self.cb_outPath.setObjectName("cb_outPath")
+        self.horizontalLayout_16.addWidget(self.cb_outPath)
+        self.verticalLayout_2.addWidget(self.w_outPath)
         self.f_renderLayer = QtWidgets.QWidget(self.gb_imageRender)
         self.f_renderLayer.setObjectName("f_renderLayer")
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout(self.f_renderLayer)
@@ -590,6 +590,7 @@ class Ui_wg_ImageRender(object):
         self.widget_2.setObjectName("widget_2")
         self.horizontalLayout_19 = QtWidgets.QHBoxLayout(self.widget_2)
         self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_19.setObjectName("horizontalLayout_19")
         self.b_openLast = QtWidgets.QPushButton(self.widget_2)
         self.b_openLast.setEnabled(False)
@@ -624,7 +625,7 @@ class Ui_wg_ImageRender(object):
         self.label_4.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Resolution override:", None, -1))
         self.b_resPresets.setText(QtWidgets.QApplication.translate("wg_ImageRender", "▼", None, -1))
         self.l_renderPreset.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Rendersettings preset:", None, -1))
-        self.l_localOutput.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Local output:", None, -1))
+        self.l_outPath.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Location:", None, -1))
         self.label_5.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Render layer:", None, -1))
         self.label_6.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Format:", None, -1))
         self.gb_Vray.setTitle(QtWidgets.QApplication.translate("wg_ImageRender", "Vray", None, -1))

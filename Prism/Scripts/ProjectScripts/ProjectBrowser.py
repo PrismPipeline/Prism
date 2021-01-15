@@ -1284,11 +1284,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def getMediaPreviewMenu(self, mediaPlayback=None):
+        if self.lw_version.selectedItems():
+            versionPath = self.lw_version.selectedItems()[0].data(Qt.UserRole)
+            location = self.core.mediaProducts.getLocationFromPath(versionPath)
+        else:
+            location = None
+
         path = mediaPlayback["getMediaBaseFolder"](
                 basepath=self.renderBasePath,
                 product=self.curRTask,
                 version=self.curRVersion,
-                layer=self.curRLayer
+                layer=self.curRLayer,
+                location=location,
             )[0]
 
         if not path:
@@ -1720,9 +1727,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
     @err_catcher(name=__name__)
     def exeFile(self, filepath):
-        sm = getattr(self.core, "sm", None)
-        if sm:
-            openSm = not self.core.sm.isHidden()
+        wasSmOpen = self.core.isStateManagerOpen()
+        if wasSmOpen:
             self.core.sm.close()
 
         if self.tbw_browser.currentWidget().property("tabType") == "Assets":
@@ -1803,7 +1809,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.core.callback(name="onSceneOpen", types=["custom"], args=[self, filepath])
 
-        if sm and openSm:
+        if wasSmOpen:
             self.core.stateManager()
 
         refresh()
@@ -3677,13 +3683,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.curRTask = ""
         self.lw_task.clear()
 
-        taskNames = []
         mediaTasks = self.getMediaTasks()
         if mediaTasks:
-            for i in ["3d", "2d", "playblast", "external"]:
-                taskNames += sorted(list({x[0] for x in mediaTasks[i]}))
-
-        self.lw_task.addItems(taskNames)
+            for pType in ["3d", "2d", "playblast", "external"]:
+                for task in sorted(mediaTasks[pType], key=lambda x: x[0]):
+                    item = QListWidgetItem(task[0])
+                    item.setData(Qt.UserRole, task)
+                    self.lw_task.addItem(item)
 
         mIdx = self.lw_task.findItems("main", (Qt.MatchExactly & Qt.MatchCaseSensitive))
         if len(mIdx) > 0:
@@ -3742,7 +3748,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.cb_layer.clear()
 
         if len(self.lw_version.selectedItems()) == 1:
-            foldercont = self.core.mediaProducts.getRenderLayers(self.renderBasePath, self.curRTask, self.curRVersion)
+            path = self.lw_version.selectedItems()[0].data(Qt.UserRole)
+            foldercont = self.core.mediaProducts.getRenderLayersFromPath(path)
             for i in foldercont:
                 self.cb_layer.addItem(i)
 
@@ -3785,11 +3792,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 self.b_compareRV.setEnabled(False)
                 self.b_combineVersions.setEnabled(False)
 
+            if self.lw_version.selectedItems():
+                versionPath = self.lw_version.selectedItems()[0].data(Qt.UserRole)
+                location = self.core.mediaProducts.getLocationFromPath(versionPath)
+            else:
+                location = None
+
             foldercont = self.core.mediaProducts.getMediaProductPath(
                 basepath=self.renderBasePath,
                 product=self.curRTask,
                 version=self.curRVersion,
-                layer=self.curRLayer
+                layer=self.curRLayer,
+                location=location,
             )
 
         return foldercont
@@ -4592,10 +4606,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             return False
 
         if lw == self.lw_task:
-            path = mediaPlayback["getMediaBaseFolder"](
-                basepath=self.renderBasePath,
-                product=itemName,
-            )[0]
+            if itemName:
+                path = item.data(Qt.UserRole)[2]
+            else:
+                path = mediaPlayback["getMediaBaseFolder"](
+                    basepath=self.renderBasePath,
+                    product=itemName,
+                )[0]
         elif lw == self.lw_version:
             if itemName:
                 path = item.data(Qt.UserRole)
@@ -4934,14 +4951,15 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if len(sTasks) > 1:
             for i in sTasks:
-                render = {"task": i.text(), "version": "", "layer": ""}
+                render = {"task": i.text(), "version": "", "layer": "", "location": None}
                 versions = self.core.mediaProducts.getMediaVersions(basepath=self.renderBasePath, product=i.text())
 
                 if len(versions) > 0:
                     versions = sorted(versions, key=lambda x: x["label"], reverse=True)
 
                     render["version"] = versions[0]["label"]
-                    layers = self.core.mediaProducts.getRenderLayers(self.renderBasePath, i.text(), versions[0]["label"])
+                    render["location"] = versions[0]["location"]
+                    layers = self.core.mediaProducts.getRenderLayersFromPath(versions[0]["path"])
 
                     if len(layers) > 0:
                         if "beauty" in layers:
@@ -4955,8 +4973,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         elif len(sVersions) > 1:
             for i in sVersions:
-                render = {"task": self.curRTask, "version": i.text(), "layer": ""}
-                layers = self.core.mediaProducts.getRenderLayers(self.renderBasePath, self.curRTask, i.text())
+                versionPath = i.data(Qt.UserRole)
+                location = self.core.mediaProducts.getLocationFromPath(versionPath)
+                render = {"task": self.curRTask, "version": i.text(), "layer": "", "location": location}
+                path = i.data(Qt.UserRole)
+                layers = self.core.mediaProducts.getRenderLayersFromPath(path)
 
                 if len(layers) > 0:
                     if "beauty" in layers:
@@ -4969,18 +4990,32 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 renders.append(render)
 
         else:
+            if self.lw_version.selectedItems():
+                versionPath = self.lw_version.selectedItems()[0].data(Qt.UserRole)
+                location = self.core.mediaProducts.getLocationFromPath(versionPath)
+            else:
+                location = None
+
             renders.append(
                 {
                     "task": self.curRTask,
                     "version": self.curRVersion,
                     "layer": self.curRLayer,
+                    "location": location,
                 }
             )
 
         paths = []
 
         for i in renders:
-            foldercont = self.core.mediaProducts.getMediaProductPath(basepath=self.renderBasePath, product=i["task"], version=i["version"], layer=i["layer"])
+            foldercont = self.core.mediaProducts.getMediaProductPath(
+                basepath=self.renderBasePath,
+                product=i["task"],
+                version=i["version"],
+                layer=i["layer"],
+                location=i["location"]
+            )
+
             if foldercont[0]:
                 paths.append(foldercont[0])
 
@@ -5095,11 +5130,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             if mediaPlayback["name"] == "shots":
                 curRenders = self.getCurRenders()[0]
             else:
+                if self.lw_version.selectedItems():
+                    versionPath = self.lw_version.selectedItems()[0].data(Qt.UserRole)
+                    location = self.core.mediaProducts.getLocationFromPath(versionPath)
+                else:
+                    location = None
+
                 curRenders = [mediaPlayback["getMediaBaseFolder"](
                     basepath=self.renderBasePath,
                     product=self.curRTask,
                     version=self.curRVersion,
-                    layer=self.curRLayer
+                    layer=self.curRLayer,
+                    location=location,
                 )[0]]
 
             if len(curRenders) > 0:

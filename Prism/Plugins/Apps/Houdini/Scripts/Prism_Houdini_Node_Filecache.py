@@ -131,7 +131,9 @@ class Prism_Houdini_Filecache(object):
 
     @err_catcher(name=__name__)
     def openInExplorerFromNode(self, kwargs):
-        self.plugin.openInExplorerFromNode(kwargs)
+        state = self.getStateFromNode(kwargs)
+        folderpath = state.ui.l_pathLast.text()
+        self.core.openFolder(folderpath)
 
     @err_catcher(name=__name__)
     def refreshNodeUi(self, node, state):
@@ -163,13 +165,24 @@ class Prism_Houdini_Filecache(object):
 
         rop = node.node(ropName)
         rop.parm("execute").pressButton()
+        QCoreApplication.processEvents()
+        self.core.popup("Finished caching successfully.", severity="info", modal=False)
 
     @err_catcher(name=__name__)
     def executePressed(self, kwargs):
         sm = self.core.getStateManager()
         state = self.getStateFromNode(kwargs)
-        version = kwargs["node"].parm("version").evalAsString()
-        sm.publish(executeState=True, useVersion=version, states=[state])
+        version = self.getWriteVersionFromNode(kwargs["node"])
+        sm.publish(executeState=True, useVersion=version, states=[state], successPopup=False)
+
+    @err_catcher(name=__name__)
+    def getWriteVersionFromNode(self, node):
+        if node.parm("nextVersionWrite").eval():
+            version = "next"
+        else:
+            version = node.parm("writeVersion").evalAsString()
+
+        return version
 
     @err_catcher(name=__name__)
     def getParentFolder(self, create=True):
@@ -192,3 +205,28 @@ class Prism_Houdini_Filecache(object):
             }
             state = sm.createState("Folder", stateData=stateData)
             return state
+
+    @err_catcher(name=__name__)
+    def findExistingVersion(self, kwargs, mode):
+        version = 3
+
+        import TaskSelection
+
+        ts = TaskSelection.TaskSelection(core=self.core)
+        widget = ts.tw_versions
+        self.core.parentWindow(widget)
+        widget.setWindowTitle("Select Version")
+        widget.resize(1000, 600)
+        widget.show()
+
+        if not ts.productPath:
+            return
+
+        if mode == "write":
+            kwargs["node"].parm("nextVersionWrite").set(0)
+            kwargs["node"].parm("writeVersion").set(version)
+        elif mode == "read":
+            kwargs["node"].parm("latestVersionRead").set(0)
+            kwargs["node"].parm("readVersion").set(version)
+
+        return version

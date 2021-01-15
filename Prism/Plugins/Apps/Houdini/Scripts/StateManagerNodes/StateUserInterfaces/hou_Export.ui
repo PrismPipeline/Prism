@@ -302,7 +302,7 @@
          <item>
           <widget class="QLabel" name="l_outPath">
            <property name="text">
-            <string>Outputpath:</string>
+            <string>Location:</string>
            </property>
           </widget>
          </item>

@@ -66,7 +66,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.l_name.setVisible(False)
         self.e_name.setVisible(False)
 
-        self.export_paths = self.core.getExportPaths()
+        self.export_paths = self.core.paths.getExportProductBasePaths()
         self.cb_outPath.addItems(list(self.export_paths.keys()))
         if len(self.export_paths) < 2:
             self.w_outPath.setVisible(False)

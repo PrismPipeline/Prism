@@ -217,7 +217,7 @@ class SanityChecks(object):
         if self.core.forceFramerange:
             self.core.setFrameRange(shotRange[0], shotRange[1])
         else:
-            result = self.core.popupQuestion(msgString, title="Framerange mismatch", buttons=["Set shotrange in scene", "Skip"])
+            result = self.core.popupQuestion(msgString, title="Framerange mismatch", buttons=["Set shotrange in scene", "Skip"], escapeButton="Skip")
             if result == "Set shotrange in scene":
                 self.core.setFrameRange(shotRange[0], shotRange[1])
 

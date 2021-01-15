@@ -1,3 +1,9 @@
+v1.3.0.64:
+- added export locations and render locations to the project settings
+- fixed a bug that the "Remder NSIs" option on the ImageRender state was not becoming visible when connecting a 3Delight ROP to an existing state
+- fixed a wrong outputpath for cryptomatte from Redshift in Houdini
+- improved the behavior of popup messages, which could open behind other windows in some cases
+
 v1.3.0.63:
 - added a popup when pressing the export button in the State Manager in Houdini when a node is selected, which can be connected to a "Save HDA" state, to select which state type to create
 - updated support for 3Delight renderer v2.3.2 in Houdini

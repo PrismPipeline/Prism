@@ -107,7 +107,7 @@ class ProjectEntities(object):
 
     @err_catcher(name=__name__)
     def getShots(self, searchFilter="", locations=None):
-        export_paths = self.core.getExportPaths()
+        export_paths = self.core.paths.getExportProductBasePaths()
         relShotPath = self.core.shotPath.replace(os.path.normpath(self.core.projectPath), "")
         seqDirs = []
         for location in export_paths:
@@ -960,7 +960,7 @@ class ProjectEntities(object):
     @err_catcher(name=__name__)
     def getHighestTaskVersion(self, dstname, getExisting=False, ignoreEmpty=False):
         taskDirs = []
-        outPaths = self.core.getExportPaths().values()
+        outPaths = self.core.paths.getExportProductBasePaths().values()
 
         for path in outPaths:
             dstname = dstname.replace(path, self.core.projectPath)

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_Export.ui'
 #
-# Created: Mon Jul 20 16:54:37 2020
+# Created: Wed Jan 13 11:55:24 2021
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -283,6 +283,7 @@ class Ui_wg_Export(object):
         self.widget.setObjectName("widget")
         self.horizontalLayout_10 = QtGui.QHBoxLayout(self.widget)
         self.horizontalLayout_10.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_10.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_10.setObjectName("horizontalLayout_10")
         self.b_openLast = QtGui.QPushButton(self.widget)
         self.b_openLast.setEnabled(False)
@@ -313,7 +314,7 @@ class Ui_wg_Export(object):
         self.l_rangeStart.setText(QtGui.QApplication.translate("wg_Export", "1001", None, QtGui.QApplication.UnicodeUTF8))
         self.l_rangeStartInfo.setText(QtGui.QApplication.translate("wg_Export", "Start:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_rangeEndInfo.setText(QtGui.QApplication.translate("wg_Export", "End:", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_outPath.setText(QtGui.QApplication.translate("wg_Export", "Outputpath:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_outPath.setText(QtGui.QApplication.translate("wg_Export", "Location:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_outType.setText(QtGui.QApplication.translate("wg_Export", "Outputtype:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_cam.setText(QtGui.QApplication.translate("wg_Export", "Camera:", None, QtGui.QApplication.UnicodeUTF8))
         self.l_sCamShot.setText(QtGui.QApplication.translate("wg_Export", "Shot:", None, QtGui.QApplication.UnicodeUTF8))

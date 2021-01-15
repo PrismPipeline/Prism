@@ -135,7 +135,8 @@ class Prism_Shotgun_Functions(object):
         lo_sg.addWidget(origin.e_sgScriptName, 2, 1)
         lo_sg.addWidget(origin.e_sgApiKey, 3, 1)
 
-        origin.w_prjSettings.layout().insertWidget(6, origin.gb_sgPrjIntegration)
+        num = origin.w_prjSettings.layout().count() - 1
+        origin.w_prjSettings.layout().insertWidget(num, origin.gb_sgPrjIntegration)
         origin.groupboxes.append(origin.gb_sgPrjIntegration)
 
         origin.gb_sgPrjIntegration.toggled.connect(

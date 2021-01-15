@@ -489,6 +489,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         )(self, listWidget, inactive, inactivef, activef)
 
         self.activeList = listWidget
+        self.activeList.setFocus()
 
     @err_catcher(name=__name__)
     def focusImport(self, event):
@@ -1514,7 +1515,12 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_catcher(name=__name__)
     def publish(
-        self, executeState=False, continuePublish=False, useVersion="next", states=None
+        self,
+        executeState=False,
+        continuePublish=False,
+        useVersion="next",
+        states=None,
+        successPopup=True,
     ):
         if self.publishPaused and not continuePublish:
             return
@@ -1874,8 +1880,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
             pass
 
         if success:
-            msgStr = "The %s was successful." % actionString2
-            self.core.popup(msgStr, title=actionString, severity="info")
+            if successPopup:
+                msgStr = "The %s was successful." % actionString2
+                self.core.popup(msgStr, title=actionString, severity="info")
         else:
             infoString = ""
             for i in self.publishResult:

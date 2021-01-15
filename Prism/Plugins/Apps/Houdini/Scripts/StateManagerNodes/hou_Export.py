@@ -67,7 +67,7 @@ class ExportClass(object):
         self.initsim = True
 
         self.cb_outType.addItems(self.core.appPlugin.outputFormats)
-        self.export_paths = self.core.getExportPaths()
+        self.export_paths = self.core.paths.getExportProductBasePaths()
 
         self.cb_outPath.addItems(list(self.export_paths.keys()))
         if len(self.export_paths) < 2:
@@ -1292,21 +1292,27 @@ class ExportClass(object):
             if self.cb_outType.currentText() in [".abc", ".fbx", ".usd"]:
                 outputName = outputName.replace(".$F4", "")
 
-            if not self.isPrismFilecacheNode(self.node):
+            fc = self.isPrismFilecacheNode(self.node)
+            isStart = ropNode.parm("f1").eval() == startFrame
+            isEnd = ropNode.parm("f2").eval() == endFrame
+
+            if not fc:
                 if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
-                return [self.state.text(0) + ": error - Publish canceled"]
+            if not (fc and isStart):
+                if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
+                    return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not self.core.appPlugin.setNodeParm(ropNode, "f2", clear=True):
-                return [self.state.text(0) + ": error - Publish canceled"]
+                if not self.core.appPlugin.setNodeParm(ropNode, "f1", val=startFrame):
+                    return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not self.core.appPlugin.setNodeParm(ropNode, "f1", val=startFrame):
-                return [self.state.text(0) + ": error - Publish canceled"]
+            if not (fc and isEnd):
+                if not self.core.appPlugin.setNodeParm(ropNode, "f2", clear=True):
+                    return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not self.core.appPlugin.setNodeParm(ropNode, "f2", val=endFrame):
-                return [self.state.text(0) + ": error - Publish canceled"]
+                if not self.core.appPlugin.setNodeParm(ropNode, "f2", val=endFrame):
+                    return [self.state.text(0) + ": error - Publish canceled"]
 
             if ropNode.type().name() in [
                 "rop_geometry",

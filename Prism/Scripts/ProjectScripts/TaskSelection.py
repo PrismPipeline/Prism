@@ -67,7 +67,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.adclick = False
         self.autoClose = True
         self.preferredUnit = getattr(self.importState, "preferredUnit", "meter")
-        self.export_paths = self.core.getExportPaths()
+        self.export_paths = self.core.paths.getExportProductBasePaths()
 
         if len(self.export_paths) > 1:
             newExportPaths = OrderedDict([("all", "all")])

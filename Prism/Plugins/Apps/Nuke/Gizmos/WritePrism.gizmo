@@ -6,7 +6,7 @@ Gizmo {
  addUserKnob {20 User l WritePrism}
  addUserKnob {1 task}
  addUserKnob {1 comment l "comment (optional)"}
- addUserKnob {6 localOutput l "local output" +STARTLINE}
+ addUserKnob {4 location l "location" M {"                              "}}
  addUserKnob {26 ""}
  addUserKnob {41 channels T WritePrismBase.channels}
  addUserKnob {41 file_type l "file type" T WritePrismBase.file_type}
@@ -20,6 +20,7 @@ Gizmo {
  addUserKnob {26 ""}
  addUserKnob {22 b_startRender l Render T "pcore.appPlugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
  addUserKnob {22 b_startRenderLastVersion l "Render as previous version" -STARTLINE T "pcore.appPlugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode(), useLastVersion=True)"}
+ knobChanged "pcore.getPlugin(\"Nuke\").updateNodeUI(\"writePrism\", nuke.thisNode())"
 }
  Input {
   inputs 0

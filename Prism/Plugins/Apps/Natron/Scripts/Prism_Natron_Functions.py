@@ -357,12 +357,17 @@ class Prism_Natron_Functions(object):
             fileType = group.getParam("outputFormat").getOption(
                 group.getParam("outputFormat").get()
             )
-            localOut = group.getParam("localOutput").get()
+            saveLocal = group.getParam("localOutput").get()
         except:
             return ""
 
+        if self.core.useLocalFiles and saveLocal:
+            location = "local"
+        else:
+            location = "global"
+
         outputName = self.core.getCompositingOut(
-            taskName, fileType, self.useLastVersion, render, localOut
+            taskName, fileType, self.useLastVersion, render, location
         )
 
         group.getParam("fileName").set(outputName)

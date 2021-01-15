@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'default_Export.ui',
-# licensing of 'default_Export.ui' applies.
+# Form implementation generated from reading ui file 'default_Export.ui'
 #
-# Created: Mon Jul 20 16:54:37 2020
-#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
+# Created: Wed Jan 13 11:55:24 2021
+#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -284,6 +283,7 @@ class Ui_wg_Export(object):
         self.widget.setObjectName("widget")
         self.horizontalLayout_10 = QtWidgets.QHBoxLayout(self.widget)
         self.horizontalLayout_10.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_10.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_10.setObjectName("horizontalLayout_10")
         self.b_openLast = QtWidgets.QPushButton(self.widget)
         self.b_openLast.setEnabled(False)
@@ -314,7 +314,7 @@ class Ui_wg_Export(object):
         self.l_rangeStart.setText(QtWidgets.QApplication.translate("wg_Export", "1001", None, -1))
         self.l_rangeStartInfo.setText(QtWidgets.QApplication.translate("wg_Export", "Start:", None, -1))
         self.l_rangeEndInfo.setText(QtWidgets.QApplication.translate("wg_Export", "End:", None, -1))
-        self.l_outPath.setText(QtWidgets.QApplication.translate("wg_Export", "Outputpath:", None, -1))
+        self.l_outPath.setText(QtWidgets.QApplication.translate("wg_Export", "Location:", None, -1))
         self.l_outType.setText(QtWidgets.QApplication.translate("wg_Export", "Outputtype:", None, -1))
         self.l_cam.setText(QtWidgets.QApplication.translate("wg_Export", "Camera:", None, -1))
         self.l_sCamShot.setText(QtWidgets.QApplication.translate("wg_Export", "Shot:", None, -1))

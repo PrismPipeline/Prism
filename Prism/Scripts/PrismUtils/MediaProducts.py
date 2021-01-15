@@ -63,90 +63,117 @@ class MediaProducts(object):
         return basepath
 
     @err_catcher(name=__name__)
+    def getMediaProductLocations(self, basepath, entityType, entityName, step=None, category=None):
+        basepath = basepath or self.getMediaProductBase(entityType, entityName, step=step, category=category)
+        if not basepath:
+            return
+
+        basePaths = []
+        renderPaths = self.core.paths.getRenderProductBasePaths()
+        for renderPath in renderPaths:
+            convertedBasepath = self.core.paths.convertGlobalRenderPath(basepath, renderPath)
+            basePaths.append({"path": convertedBasepath, "type": renderPath})
+
+        mediaPaths = []
+        for basepathDict in basePaths:
+            basepathType = basepathDict["type"]
+            basepath = basepathDict["path"]
+            path3d = os.path.join(basepath, "Rendering", "3dRender")
+            path2d = os.path.join(basepath, "Rendering", "2dRender")
+            pathExternal = os.path.join(basepath, "Rendering", "external")
+            pathPlayblast = os.path.join(basepath, "Playblasts")
+
+            suffix3d = ""
+            if basepathType == "local":
+                suffix3d = " (local)"
+
+            mediaPaths += [
+                {"type": "3d", "path": path3d, "suffix": suffix3d},
+                {"type": "2d", "path": path2d, "suffix": " (2d)"},
+                {"type": "external", "path": pathExternal, "suffix": " (external)"},
+                {"type": "playblast", "path": pathPlayblast, "suffix": " (playblast)"},
+            ]
+
+        return mediaPaths
+
+    @err_catcher(name=__name__)
     def getMediaProductNames(self, basepath=None, entityType=None, entityName=None, step=None, category=None):
         mediaTasks = {"3d": [], "2d": [], "playblast": [], "external": []}
-        basepath = basepath or self.getMediaProductBase(entityType, entityName, step=step, category=category)
+        mediaPaths = self.getMediaProductLocations(basepath, entityType, entityName, step=step, category=category)
 
-        if not basepath:
+        if not mediaPaths:
             return mediaTasks
-
-        path3d = os.path.join(basepath, "Rendering", "3dRender")
-        path2d = os.path.join(basepath, "Rendering", "2dRender")
-        pathExternal = os.path.join(basepath, "Rendering", "external")
-        pathPlayblast = os.path.join(basepath, "Playblasts")
-
-        mediaPaths = [
-            {"type": "3d", "path": path3d, "suffix": ""},
-            {"type": "2d", "path": path2d, "suffix": " (2d)"},
-            {"type": "external", "path": pathExternal, "suffix": " (external)"},
-            {"type": "playblast", "path": pathPlayblast, "suffix": " (playblast)"},
-        ]
 
         for mediaPath in mediaPaths:
             for root, folders, fildes in os.walk(mediaPath["path"]):
                 for folder in sorted(folders):
                     displayName = folder + mediaPath["suffix"]
+                    taskNames = [x[0] for x in mediaTasks[mediaPath["type"]]]
+                    if displayName in taskNames:
+                        continue
+
+                    if mediaPath["type"] == "3d" and folder in taskNames:
+                        continue
+
                     taskPath = os.path.join(root, folder)
                     taskData = [displayName, mediaPath["type"], taskPath]
                     mediaTasks[mediaPath["type"]].append(taskData)
                 break
 
-            if self.core.useLocalFiles:
-                localPath = self.core.convertPath(mediaPath["path"], "local")
-                if mediaPath["type"] == "3d":
-                    suffix = " (local)"
-                else:
-                    suffix = mediaPath["suffix"]
-
-                for root, folders, fildes in os.walk(localPath):
-                    for folder in sorted(folders):
-                        tname = folder + suffix
-                        taskNames = [x[0] for x in mediaTasks[mediaPath["type"]]]
-                        if tname not in taskNames:
-                            if mediaPath["type"] == "3d" and folder in taskNames:
-                                continue
-
-                            taskPath = os.path.join(root, folder)
-                            taskData = [tname, mediaPath["type"], taskPath]
-                            mediaTasks[mediaPath["type"]].append(taskData)
-                    break
-
         return mediaTasks
+
+    @err_catcher(name=__name__)
+    def getMediaVersionLocations(self, basepath=None, entityType=None, entityName=None, product="", step=None, category=None):
+        basepath = basepath or self.getMediaProductBase(entityType, entityName, step=step, category=category)
+
+        if basepath is None:
+            return
+
+        basePaths = []
+        renderPaths = self.core.paths.getRenderProductBasePaths()
+        for renderPath in renderPaths:
+            convertedBasepath = self.core.paths.convertGlobalRenderPath(basepath, renderPath)
+            basePaths.append({"path": convertedBasepath, "type": renderPath})
+
+        versionPaths = []
+        for basepathDict in basePaths:
+            basepathType = basepathDict["type"]
+            basepath = basepathDict["path"]
+            if product.endswith(" (playblast)"):
+                productName = product.replace(" (playblast)", "")
+                taskPath = os.path.join(basepath, "Playblasts", productName)
+            elif product.endswith(" (2d)"):
+                productName = product.replace(" (2d)", "")
+                taskPath = os.path.join(basepath, "Rendering", "2dRender", productName)
+            elif product.endswith(" (external)"):
+                productName = product.replace(" (external)", "")
+                taskPath = os.path.join(basepath, "Rendering", "external", productName)
+            else:
+                productName = product.replace(" (local)", "")
+                taskPath = os.path.join(basepath, "Rendering", "3dRender", productName)
+
+            suffix = ""
+            if basepathType == "local":
+                suffix = " (local)"
+
+            data = {"type": basepathType, "path": taskPath, "suffix": suffix}
+            versionPaths.append(data)
+
+        return versionPaths
 
     @err_catcher(name=__name__)
     def getMediaVersions(self, basepath=None, entityType=None, entityName=None, product="", step=None, category=None):
         versions = []
-        basepath = basepath or self.getMediaProductBase(entityType, entityName, step=step, category=category)
+        basepaths = self.getMediaVersionLocations(basepath, entityType, entityName, product, step, category)
 
-        if basepath is None:
+        if not basepaths:
             return versions
 
-        if product.endswith(" (playblast)"):
-            productName = product.replace(" (playblast)", "")
-            taskPath = os.path.join(basepath, "Playblasts", productName)
-        elif product.endswith(" (2d)"):
-            productName = product.replace(" (2d)", "")
-            taskPath = os.path.join(basepath, "Rendering", "2dRender", productName)
-        elif product.endswith(" (external)"):
-            productName = product.replace(" (external)", "")
-            taskPath = os.path.join(basepath, "Rendering", "external", productName)
-        else:
-            productName = product.replace(" (local)", "")
-            taskPath = os.path.join(basepath, "Rendering", "3dRender", productName)
-
-        for root, folders, files in os.walk(taskPath):
-            for folder in folders:
-                versionPath = os.path.join(root, folder)
-                versionData = {"label": folder, "path": versionPath}
-                versions.append(versionData)
-            break
-
-        if self.core.useLocalFiles:
-            localTaskPath = self.core.convertPath(taskPath, "local")
-            for root, folders, files in os.walk(localTaskPath):
+        for basepathData in basepaths:
+            for root, folders, files in os.walk(basepathData["path"]):
                 for folder in folders:
                     versionPath = os.path.join(root, folder)
-                    versionData = {"label": folder + " (local)", "path": versionPath}
+                    versionData = {"label": folder + basepathData["suffix"], "path": versionPath, "location": basepathData["type"]}
                     versions.append(versionData)
                 break
 
@@ -180,15 +207,20 @@ class MediaProducts(object):
             and " (external)" not in product
         ):
             rPath = self.getRenderLayerPath(basepath, product, version)
-
-            for i in os.walk(rPath):
-                foldercont = i[1]
-                break
+            foldercont = self.getRenderLayersFromPath(rPath)
 
         return foldercont
 
     @err_catcher(name=__name__)
-    def getMediaProductPath(self, basepath, product, version=None, layer=None):
+    def getRenderLayersFromPath(self, path):
+        for i in os.walk(path):
+            foldercont = i[1]
+            break
+
+        return foldercont
+
+    @err_catcher(name=__name__)
+    def getMediaProductPath(self, basepath, product, version=None, layer=None, location=None):
         foldercont = ["", [], []]
         path = None
         version = version or ""
@@ -258,8 +290,14 @@ class MediaProducts(object):
                     )
 
         if path:
-            if not os.path.exists(path) and self.core.useLocalFiles:
-                path = self.core.convertPath(path, target="local")
+            if location:
+                basePath = self.core.paths.getRenderProductBasePaths()[location]
+                prjPath = os.path.normpath(self.core.projectPath)
+                basePath = os.path.normpath(basePath)
+                path = os.path.normpath(path).replace(prjPath, basePath)
+            else:
+                if not os.path.exists(path) and self.core.useLocalFiles:
+                    path = self.core.convertPath(path, target="local")
 
             for foldercont in os.walk(path):
                 break
@@ -357,6 +395,12 @@ class MediaProducts(object):
 
         outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)
         outputName = getattr(self.core.appPlugin, "sm_render_fixOutputPath", lambda x, y, singleFrame: y)(self, outputName, singleFrame=not framePadding)
+
+        basePath = self.core.paths.getRenderProductBasePaths()[location]
+        prjPath = os.path.normpath(self.core.projectPath)
+        basePath = os.path.normpath(basePath)
+        outputName = os.path.normpath(outputName).replace(prjPath, basePath)
+
         result = self.core.callback(name="sm_render_fixOutputPath", types=["custom"], args=[self, outputName])
         for res in result:
             if res:
@@ -480,3 +524,11 @@ class MediaProducts(object):
                     pass
 
         return fileversion
+
+    @err_catcher(name=__name__)
+    def getLocationFromPath(self, path):
+        locDict = self.core.paths.getRenderProductBasePaths()
+        nPath = os.path.normpath(path)
+        for location in locDict:
+            if nPath.startswith(locDict[location]):
+                return location

@@ -95,7 +95,7 @@ class ExportClass(object):
             outputFormats = self.core.appPlugin.outputFormats
 
         self.cb_outType.addItems(outputFormats)
-        self.export_paths = self.core.getExportPaths()
+        self.export_paths = self.core.paths.getExportProductBasePaths()
         self.cb_outPath.addItems(list(self.export_paths.keys()))
         if len(self.export_paths) < 2:
             self.w_outPath.setVisible(False)

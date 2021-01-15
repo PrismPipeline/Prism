@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'hou_Export.ui'
 #
-# Created: Wed Jan  6 20:40:50 2021
+# Created: Wed Jan 13 11:55:38 2021
 #      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -460,7 +460,7 @@ class Ui_wg_Export(object):
         self.l_rangeStart.setText(QtWidgets.QApplication.translate("wg_Export", "1001", None, -1))
         self.l_rangeStartInfo.setText(QtWidgets.QApplication.translate("wg_Export", "Start:", None, -1))
         self.l_rangeEndInfo.setText(QtWidgets.QApplication.translate("wg_Export", "End:", None, -1))
-        self.l_outPath.setText(QtWidgets.QApplication.translate("wg_Export", "Outputpath:", None, -1))
+        self.l_outPath.setText(QtWidgets.QApplication.translate("wg_Export", "Location:", None, -1))
         self.label_5.setText(QtWidgets.QApplication.translate("wg_Export", "Outputtype:", None, -1))
         self.label_6.setText(QtWidgets.QApplication.translate("wg_Export", "Override take:", None, -1))
         self.l_cam.setText(QtWidgets.QApplication.translate("wg_Export", "Camera:", None, -1))

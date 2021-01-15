@@ -553,7 +553,7 @@ class Prism_Houdini_Functions(object):
                 logger.warning("Invalid entity.")
                 return
 
-        basePath = self.core.getExportPaths()[location]
+        basePath = self.core.paths.getExportProductBasePaths()[location]
         prjPath = os.path.normpath(self.core.projectPath)
         basePath = os.path.normpath(basePath)
         outputPath = outputPath.replace(prjPath, basePath)
@@ -1497,6 +1497,7 @@ class Prism_Houdini_Functions(object):
         sm = self.core.getStateManager()
         if not sm.isVisible():
             sm.show()
+            QCoreApplication.processEvents()
 
         state = self.getStateFromNode(kwargs)
         sm.selectState(state)
@@ -1512,6 +1513,9 @@ class Prism_Houdini_Functions(object):
 
     @err_catcher(name=__name__)
     def onNodeDeleted(self, kwargs):
+        if hou.hipFile.isLoadingHipFile() or hou.hipFile.isShuttingDown():
+            return
+
         state = self.getStateFromNode(kwargs)
         if kwargs["node"].type().name().startswith(self.importFile.getTypeName()):
             parent = self.importFile.getParentFolder(create=False)

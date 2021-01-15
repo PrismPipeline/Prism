@@ -96,13 +96,13 @@ class Products(object):
 
     @err_catcher(name=__name__)
     def getLocationPathFromLocation(self, location):
-        locDict = self.core.getExportPaths()
+        locDict = self.core.paths.getExportProductBasePaths()
         if location in locDict:
             return locDict[location]
 
     @err_catcher(name=__name__)
     def getLocationFromFilepath(self, path):
-        locDict = self.core.getExportPaths()
+        locDict = self.core.paths.getExportProductBasePaths()
         nPath = os.path.normpath(path)
         for location in locDict:
             if nPath.startswith(locDict[location]):
@@ -389,10 +389,10 @@ class Products(object):
         filename = self.generateProductFilename(entity, entityName, task, hVersion, framePadding, extension)
         outputName = os.path.join(outputPath, filename)
 
-        basePath = self.core.getExportPaths()[location]
+        basePath = self.core.paths.getExportProductBasePaths()[location]
         prjPath = os.path.normpath(self.core.projectPath)
         basePath = os.path.normpath(basePath)
-        outputName = outputName.replace(prjPath, basePath)
+        outputName = os.path.normpath(outputName).replace(prjPath, basePath)
         return outputName
 
     @err_catcher(name=__name__)

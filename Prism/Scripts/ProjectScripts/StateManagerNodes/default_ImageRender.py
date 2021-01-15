@@ -98,6 +98,11 @@ class ImageRenderClass(object):
         if not getattr(self.core.appPlugin, "sm_render_startup", lambda x: False)(self):
             self.gb_Vray.setVisible(False)
 
+        self.product_paths = self.core.paths.getRenderProductBasePaths()
+        self.cb_outPath.addItems(list(self.product_paths.keys()))
+        if len(self.product_paths) < 2:
+            self.w_outPath.setVisible(False)
+
         self.outputFormats = [
             ".exr",
             ".png",
@@ -120,7 +125,6 @@ class ImageRenderClass(object):
         if "Get from rendersettings" not in self.resolutionPresets:
             self.resolutionPresets.append("Get from rendersettings")
 
-        self.f_localOutput.setVisible(self.core.useLocalFiles)
         self.e_osSlaves.setText("All")
 
         self.connectEvents()
@@ -197,8 +201,10 @@ class ImageRenderClass(object):
             self.chb_resOverride.setChecked(res[0])
             self.sp_resWidth.setValue(res[1])
             self.sp_resHeight.setValue(res[2])
-        if "localoutput" in data:
-            self.chb_localOutput.setChecked(eval(data["localoutput"]))
+        if "curoutputpath" in data:
+            idx = self.cb_outPath.findText(data["curoutputpath"])
+            if idx != -1:
+                self.cb_outPath.setCurrentIndex(idx)
         if "renderlayer" in data:
             idx = self.cb_renderLayer.findText(data["renderlayer"])
             if idx != -1:
@@ -294,7 +300,7 @@ class ImageRenderClass(object):
         self.sp_resWidth.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.sp_resHeight.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_resPresets.clicked.connect(self.showResPresets)
-        self.chb_localOutput.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
         self.cb_renderLayer.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_format.activated.connect(self.stateManager.saveStatesToScene)
         self.chb_override.stateChanged.connect(self.overrideChanged)
@@ -768,28 +774,10 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def rjToggled(self, checked):
-        self.f_localOutput.setEnabled(
-            self.gb_submit.isHidden()
-            or not checked
-            or (
-                checked
-                and self.core.rfManagers[self.cb_manager.currentText()].canOutputLocal
-            )
-        )
-
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def managerChanged(self, text=None):
-        self.f_localOutput.setEnabled(
-            self.gb_submit.isHidden()
-            or not self.gb_submit.isChecked()
-            or (
-                self.gb_submit.isChecked()
-                and self.core.rfManagers[self.cb_manager.currentText()].canOutputLocal
-            )
-        )
-
         if self.cb_manager.currentText() in self.core.rfManagers:
             self.core.rfManagers[
                 self.cb_manager.currentText()
@@ -842,21 +830,7 @@ class ImageRenderClass(object):
         fnameData = self.core.getScenefileData(fileName)
         framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
 
-        location = "global"
-        if (
-            self.core.useLocalFiles
-            and self.chb_localOutput.isChecked() and (
-                self.gb_submit.isHidden()
-                or not self.gb_submit.isChecked()
-                or (
-                    self.gb_submit.isChecked()
-                    and self.core.rfManagers[
-                        self.cb_manager.currentText()
-                    ].canOutputLocal
-                )
-            )
-        ):
-            location = "local"
+        location = self.cb_outPath.currentText()
 
         if fnameData["entity"] == "asset":
             assetPath = self.core.getEntityBasePath(fileName)
@@ -1060,7 +1034,7 @@ class ImageRenderClass(object):
                     self.sp_resHeight.value(),
                 ]
             ),
-            "localoutput": str(self.chb_localOutput.isChecked()),
+            "curoutputpath": self.cb_outPath.currentText(),
             "renderlayer": str(self.cb_renderLayer.currentText()),
             "outputFormat": str(self.cb_format.currentText()),
             "vrayoverride": str(self.chb_override.isChecked()),

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'default_ImageRender.ui'
 #
-# Created: Mon Jul 27 23:00:56 2020
+# Created: Wed Jan 13 11:55:20 2021
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -212,21 +212,22 @@ class Ui_wg_ImageRender(object):
         self.cb_renderPreset.setObjectName("cb_renderPreset")
         self.horizontalLayout_14.addWidget(self.cb_renderPreset)
         self.verticalLayout_2.addWidget(self.w_renderPreset)
-        self.f_localOutput = QtGui.QWidget(self.gb_imageRender)
-        self.f_localOutput.setObjectName("f_localOutput")
-        self.horizontalLayout_18 = QtGui.QHBoxLayout(self.f_localOutput)
-        self.horizontalLayout_18.setContentsMargins(9, 0, 9, 0)
-        self.horizontalLayout_18.setObjectName("horizontalLayout_18")
-        self.l_localOutput = QtGui.QLabel(self.f_localOutput)
-        self.l_localOutput.setObjectName("l_localOutput")
-        self.horizontalLayout_18.addWidget(self.l_localOutput)
-        spacerItem6 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.horizontalLayout_18.addItem(spacerItem6)
-        self.chb_localOutput = QtGui.QCheckBox(self.f_localOutput)
-        self.chb_localOutput.setText("")
-        self.chb_localOutput.setObjectName("chb_localOutput")
-        self.horizontalLayout_18.addWidget(self.chb_localOutput)
-        self.verticalLayout_2.addWidget(self.f_localOutput)
+        self.w_outPath = QtGui.QWidget(self.gb_imageRender)
+        self.w_outPath.setObjectName("w_outPath")
+        self.horizontalLayout_16 = QtGui.QHBoxLayout(self.w_outPath)
+        self.horizontalLayout_16.setSpacing(0)
+        self.horizontalLayout_16.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
+        self.l_outPath = QtGui.QLabel(self.w_outPath)
+        self.l_outPath.setObjectName("l_outPath")
+        self.horizontalLayout_16.addWidget(self.l_outPath)
+        spacerItem6 = QtGui.QSpacerItem(113, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout_16.addItem(spacerItem6)
+        self.cb_outPath = QtGui.QComboBox(self.w_outPath)
+        self.cb_outPath.setMinimumSize(QtCore.QSize(150, 0))
+        self.cb_outPath.setObjectName("cb_outPath")
+        self.horizontalLayout_16.addWidget(self.cb_outPath)
+        self.verticalLayout_2.addWidget(self.w_outPath)
         self.f_renderLayer = QtGui.QWidget(self.gb_imageRender)
         self.f_renderLayer.setObjectName("f_renderLayer")
         self.horizontalLayout_5 = QtGui.QHBoxLayout(self.f_renderLayer)
@@ -589,6 +590,7 @@ class Ui_wg_ImageRender(object):
         self.widget_2.setObjectName("widget_2")
         self.horizontalLayout_19 = QtGui.QHBoxLayout(self.widget_2)
         self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_19.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_19.setObjectName("horizontalLayout_19")
         self.b_openLast = QtGui.QPushButton(self.widget_2)
         self.b_openLast.setEnabled(False)
@@ -623,7 +625,7 @@ class Ui_wg_ImageRender(object):
         self.label_4.setText(QtGui.QApplication.translate("wg_ImageRender", "Resolution override:", None, QtGui.QApplication.UnicodeUTF8))
         self.b_resPresets.setText(QtGui.QApplication.translate("wg_ImageRender", "▼", None, QtGui.QApplication.UnicodeUTF8))
         self.l_renderPreset.setText(QtGui.QApplication.translate("wg_ImageRender", "Rendersettings preset:", None, QtGui.QApplication.UnicodeUTF8))
-        self.l_localOutput.setText(QtGui.QApplication.translate("wg_ImageRender", "Local output:", None, QtGui.QApplication.UnicodeUTF8))
+        self.l_outPath.setText(QtGui.QApplication.translate("wg_ImageRender", "Location:", None, QtGui.QApplication.UnicodeUTF8))
         self.label_5.setText(QtGui.QApplication.translate("wg_ImageRender", "Render layer:", None, QtGui.QApplication.UnicodeUTF8))
         self.label_6.setText(QtGui.QApplication.translate("wg_ImageRender", "Format:", None, QtGui.QApplication.UnicodeUTF8))
         self.gb_Vray.setTitle(QtGui.QApplication.translate("wg_ImageRender", "Vray", None, QtGui.QApplication.UnicodeUTF8))

@@ -184,7 +184,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.63"
+            self.version = "v1.3.0.64"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -730,7 +730,7 @@ class PrismCore:
                 win.resize(curWidth * sFactor, curHeight * sFactor)
 
     @err_catcher(name=__name__)
-    def parentWindow(self, win):
+    def parentWindow(self, win, parent=None):
         self.scaleUI(win)
 
         if not self.appPlugin.hasQtParent:
@@ -740,7 +740,8 @@ class PrismCore:
         if not self.parentWindows or not self.uiAvailable:
             return
 
-        win.setParent(self.messageParent, Qt.Window)
+        parent = parent or self.messageParent
+        win.setParent(parent, Qt.Window)
 
         if platform.system() == "Darwin" and self.useOnTop:
             win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
@@ -932,11 +933,19 @@ License: GNU GPL-3.0-or-later<br>
     def closeSM(self, restart=False):
         if getattr(self, "sm", None):
             self.sm.saveEnabled = False
-            if self.sm.isVisible():
+            wasOpen = self.isStateManagerOpen()
+            if wasOpen:
                 self.sm.close()
 
             if restart:
-                self.stateManager(reload_module=True)
+                self.stateManager(openUi=wasOpen, reload_module=True)
+
+    @err_catcher(name=__name__)
+    def isStateManagerOpen(self):
+        if not getattr(self, "sm", None):
+            return False
+
+        return self.sm.isVisible()
 
     @err_catcher(name=__name__)
     def projectBrowser(self, openUi=True):
@@ -1337,23 +1346,6 @@ License: GNU GPL-3.0-or-later<br>
         return self.entities.getTaskNames(*args, **kwargs)
 
     @err_catcher(name=__name__)
-    def getExportPaths(self):
-        export_paths = OrderedDict([("global", self.projectPath)])
-        if self.useLocalFiles:
-            export_paths["local"] = self.localProjectPath
-
-        customPaths = self.getConfig(
-            "export_paths", configPath=self.prismIni, dft=[]
-        )
-        for cp in customPaths:
-            export_paths[cp] = customPaths[cp]
-
-        for path in export_paths:
-            export_paths[path] = os.path.normpath(export_paths[path])
-
-        return export_paths
-
-    @err_catcher(name=__name__)
     def resolve(self, uri, uriType="exportProduct"):
         from PrismUtils import Resolver
 
@@ -1385,7 +1377,7 @@ License: GNU GPL-3.0-or-later<br>
         elif location == "local":
             prjPath = self.localProjectPath
         else:
-            prjPath = self.getExportPaths().get(location, "")
+            prjPath = self.paths.getExportProductBasePaths().get(location, "")
         scenePath = os.path.normpath(os.path.join(prjPath, sceneName))
 
         return scenePath
@@ -2328,7 +2320,7 @@ License: GNU GPL-3.0-or-later<br>
             warnDlg.exec_()
 
     @err_catcher(name=__name__)
-    def popup(self, text, title=None, severity="warning", notShowAgain=False, parent=None):
+    def popup(self, text, title=None, severity="warning", notShowAgain=False, parent=None, modal=True):
         if title is None:
             if severity == "warning":
                 title = "Prism - Warning"
@@ -2355,6 +2347,8 @@ License: GNU GPL-3.0-or-later<br>
             msg = QMessageBox(parent)
             msg.setText(text)
             msg.setWindowTitle(title)
+            msg.setModal(modal)
+
             if severity == "warning":
                 msg.setIcon(QMessageBox.Icon.Warning)
             elif severity == "info":
@@ -2367,7 +2361,10 @@ License: GNU GPL-3.0-or-later<br>
                 msg.setCheckBox(msg.chb)
                 msg.setText(text + "\n")
 
-            msg.exec_()
+            if modal:
+                msg.exec_()
+            else:
+                msg.show()
             if notShowAgain:
                 return {"notShowAgain": msg.chb.isChecked()}
         else:
@@ -2380,7 +2377,7 @@ License: GNU GPL-3.0-or-later<br>
                 logger.error(msg)
 
     @err_catcher(name=__name__)
-    def popupQuestion(self, text, title=None, buttons=None, default=None, icon=None, widget=None, parent=None):
+    def popupQuestion(self, text, title=None, buttons=None, default=None, icon=None, widget=None, parent=None, escapeButton=None):
         text = str(text)
         title = str(title or "Prism")
         buttons = buttons or ["Yes", "No"]
@@ -2401,11 +2398,17 @@ License: GNU GPL-3.0-or-later<br>
                 role = QMessageBox.RejectRole
             else:
                 role = QMessageBox.YesRole
-            msg.addButton(button, role)
+            b = msg.addButton(button, role)
+            if default == button:
+                msg.setDefaultButton(b)
+
+            if escapeButton == button:
+                msg.setEscapeButton(b)
 
         if widget:
             msg.layout().addWidget(widget, 1, 2)
 
+        self.parentWindow(msg)
         msg.exec_()
         result = msg.clickedButton().text()
 

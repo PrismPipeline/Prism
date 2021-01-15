@@ -159,6 +159,10 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.e_curPname.textEdited.connect(self.curPnameEdited)
         self.chb_curPuseFps.toggled.connect(self.pfpsToggled)
         self.chb_prjResolution.toggled.connect(self.prjResolutionToggled)
+        self.b_addExportPath.clicked.connect(self.addExportPathClicked)
+        self.b_removeExportPath.clicked.connect(self.removeExportPathClicked)
+        self.b_addRenderPath.clicked.connect(self.addRenderPathClicked)
+        self.b_removeRenderPath.clicked.connect(self.removeRenderPathClicked)
         self.gb_curPversions.toggled.connect(self.forceVersionsToggled)
         for i in self.forceVersionPlugins:
             self.forceVersionPlugins[i]["b"].clicked.connect(
@@ -712,6 +716,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 if "%s_version" % i in gblData:
                     self.forceVersionPlugins[i]["le"].setText(gblData["%s_version" % i])
 
+            self.refreshExportPaths()
+            self.refreshRenderPaths()
         else:
             self.l_localPath.setEnabled(False)
             self.w_prjSettings.setEnabled(False)
@@ -869,6 +875,76 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             self.chb_trayStartup.setText(self.chb_trayStartup.text() + " (change requires root permissions)")
 
         self.core.callback(name="prismSettings_loadUI", types=["custom", "prjManagers"], args=[self])
+
+    @err_catcher(name=__name__)
+    def refreshExportPaths(self):
+        exportPaths = self.core.paths.getExportProductBasePaths()
+        self.tw_exportPaths.setRowCount(0)
+        for location in exportPaths:
+            if location in ["global", "local"]:
+                continue
+
+            locationItem = QTableWidgetItem(location)
+            pathItem = QTableWidgetItem(exportPaths[location])
+
+            rc = self.tw_exportPaths.rowCount()
+            self.tw_exportPaths.insertRow(rc)
+
+            self.tw_exportPaths.setItem(rc, 0, locationItem)
+            self.tw_exportPaths.setItem(rc, 1, pathItem)
+            self.tw_exportPaths.setRowHeight(rc, 15)
+
+    @err_catcher(name=__name__)
+    def refreshRenderPaths(self):
+        renderPaths = self.core.paths.getRenderProductBasePaths()
+        self.tw_renderPaths.setRowCount(0)
+        for location in renderPaths:
+            if location in ["global", "local"]:
+                continue
+
+            locationItem = QTableWidgetItem(location)
+            pathItem = QTableWidgetItem(renderPaths[location])
+
+            rc = self.tw_renderPaths.rowCount()
+            self.tw_renderPaths.insertRow(rc)
+
+            self.tw_renderPaths.setItem(rc, 0, locationItem)
+            self.tw_renderPaths.setItem(rc, 1, pathItem)
+            self.tw_renderPaths.setRowHeight(rc, 15)
+
+    @err_catcher(name=__name__)
+    def addExportPathClicked(self):
+        self.dlg_addExportPath = AddProductPathDialog(self.core, "export", self)
+        self.dlg_addExportPath.pathAdded.connect(self.refreshExportPaths)
+        self.dlg_addExportPath.show()
+
+    @err_catcher(name=__name__)
+    def removeExportPathClicked(self):
+        selection = self.tw_exportPaths.selectedItems()
+        if selection:
+            for item in selection:
+                if item.column() == 0:
+                    self.core.paths.removeExportProductBasePath(item.text())
+            self.refreshExportPaths()
+        else:
+            self.core.popup("No path selected")
+
+    @err_catcher(name=__name__)
+    def addRenderPathClicked(self):
+        self.dlg_addRenderPath = AddProductPathDialog(self.core, "render", self)
+        self.dlg_addRenderPath.pathAdded.connect(self.refreshRenderPaths)
+        self.dlg_addRenderPath.show()
+
+    @err_catcher(name=__name__)
+    def removeRenderPathClicked(self):
+        selection = self.tw_renderPaths.selectedItems()
+        if selection:
+            for item in selection:
+                if item.column() == 0:
+                    self.core.paths.removeRenderProductBasePath(item.text())
+            self.refreshRenderPaths()
+        else:
+            self.core.popup("No path selected")
 
     @err_catcher(name=__name__)
     def contextMenuIntegration(self, pos, listwidget):
@@ -1321,6 +1397,103 @@ class CreatePluginDialog(QDialog):
         fullPath = os.path.join(path, name)
         fullPath = os.path.normpath(fullPath).replace("\\", "/")
         self.l_path.setText(fullPath)
+
+
+class AddProductPathDialog(QDialog):
+
+    pathAdded = Signal()
+
+    def __init__(self, core, pathType, parent=None):
+        QDialog.__init__(self)
+        self.core = core
+        self.pathType = pathType
+
+        self.setupUi(parent=parent)
+        self.connectEvents()
+
+    @err_catcher(name=__name__)
+    def setupUi(self, parent=None):
+        self.core.parentWindow(self, parent)
+        self.setWindowTitle("Add additional %s location" % self.pathType)
+        self.lo_main = QVBoxLayout()
+        self.setLayout(self.lo_main)
+
+        self.lo_name = QGridLayout()
+        self.l_name = QLabel("Location Name:")
+        self.e_name = QLineEdit()
+        self.lo_name.addWidget(self.l_name, 0, 0)
+        self.lo_name.addWidget(self.e_name, 0, 1, 1, 2)
+        self.lo_main.addLayout(self.lo_name)
+
+        self.l_pathInfo = QLabel("Path:")
+        self.l_path = QLabel("")
+        self.l_path.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.e_path = QLineEdit()
+        self.b_browse = QPushButton("...")
+        self.lo_name.addWidget(self.l_pathInfo, 1, 0)
+        self.lo_name.addWidget(self.e_path, 1, 1)
+        self.lo_name.addWidget(self.b_browse, 1, 2)
+        self.b_browse.setContextMenuPolicy(Qt.CustomContextMenu)
+
+        self.lo_main.addStretch()
+
+        self.bb_main = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.bb_main.buttons()[0].setText("Add")
+        self.bb_main.accepted.connect(self.addPath)
+        self.bb_main.rejected.connect(self.reject)
+
+        self.lo_main.addWidget(self.bb_main)
+
+        self.resize(500*self.core.uiScaleFactor, 150*self.core.uiScaleFactor)
+
+    @err_catcher(name=__name__)
+    def connectEvents(self):
+        self.e_name.textChanged.connect(lambda x: self.validate(self.e_name, x))
+        self.e_path.textChanged.connect(lambda x: self.validate(self.e_path, x))
+        self.b_browse.clicked.connect(self.browse)
+        self.b_browse.customContextMenuRequested.connect(
+            lambda: self.core.openFolder(self.e_path.text())
+        )
+
+    @err_catcher(name=__name__)
+    def browse(self):
+        windowTitle = "Select %s location" % self.pathType
+        selectedPath = QFileDialog.getExistingDirectory(
+            self, windowTitle, self.e_path.text()
+        )
+
+        if selectedPath:
+            self.e_path.setText(self.core.fixPath(selectedPath))
+
+    @err_catcher(name=__name__)
+    def validate(self, uiWidget, origText=None):
+        if uiWidget == self.e_name:
+            allowChars = ["_", " "]
+        else:
+            allowChars = ["/", "\\", "_", " ", ":"]
+
+        self.core.validateLineEdit(uiWidget, allowChars=allowChars)
+
+    @err_catcher(name=__name__)
+    def addPath(self):
+        location = self.e_name.text()
+        path = self.e_path.text()
+
+        if not location:
+            self.core.popup("No location specified")
+            return
+
+        if not path:
+            self.core.popup("No path specified")
+            return
+
+        if self.pathType == "export":
+            self.core.paths.addExportProductBasePath(location, path)
+        else:
+            self.core.paths.addRenderProductBasePath(location, path)
+
+        self.pathAdded.emit()
+        self.close()
 
 
 if __name__ == "__main__":

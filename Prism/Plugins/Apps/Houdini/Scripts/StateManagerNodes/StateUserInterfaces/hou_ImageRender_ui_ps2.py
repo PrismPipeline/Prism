@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'hou_ImageRender.ui'
 #
-# Created: Fri Jan  8 13:35:24 2021
+# Created: Wed Jan 13 11:55:32 2021
 #      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -235,21 +235,22 @@ class Ui_wg_ImageRender(object):
         self.cb_renderPreset.setObjectName("cb_renderPreset")
         self.horizontalLayout_12.addWidget(self.cb_renderPreset)
         self.verticalLayout_2.addWidget(self.w_renderPreset)
-        self.f_localOutput = QtWidgets.QWidget(self.groupBox)
-        self.f_localOutput.setObjectName("f_localOutput")
-        self.horizontalLayout_16 = QtWidgets.QHBoxLayout(self.f_localOutput)
-        self.horizontalLayout_16.setContentsMargins(-1, 0, -1, 0)
-        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
-        self.l_localOutput = QtWidgets.QLabel(self.f_localOutput)
-        self.l_localOutput.setObjectName("l_localOutput")
-        self.horizontalLayout_16.addWidget(self.l_localOutput)
-        spacerItem7 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_16.addItem(spacerItem7)
-        self.chb_localOutput = QtWidgets.QCheckBox(self.f_localOutput)
-        self.chb_localOutput.setText("")
-        self.chb_localOutput.setObjectName("chb_localOutput")
-        self.horizontalLayout_16.addWidget(self.chb_localOutput)
-        self.verticalLayout_2.addWidget(self.f_localOutput)
+        self.w_outPath = QtWidgets.QWidget(self.groupBox)
+        self.w_outPath.setObjectName("w_outPath")
+        self.horizontalLayout_18 = QtWidgets.QHBoxLayout(self.w_outPath)
+        self.horizontalLayout_18.setSpacing(0)
+        self.horizontalLayout_18.setContentsMargins(9, 0, 9, 0)
+        self.horizontalLayout_18.setObjectName("horizontalLayout_18")
+        self.l_outPath = QtWidgets.QLabel(self.w_outPath)
+        self.l_outPath.setObjectName("l_outPath")
+        self.horizontalLayout_18.addWidget(self.l_outPath)
+        spacerItem7 = QtWidgets.QSpacerItem(113, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_18.addItem(spacerItem7)
+        self.cb_outPath = QtWidgets.QComboBox(self.w_outPath)
+        self.cb_outPath.setMinimumSize(QtCore.QSize(150, 0))
+        self.cb_outPath.setObjectName("cb_outPath")
+        self.horizontalLayout_18.addWidget(self.cb_outPath)
+        self.verticalLayout_2.addWidget(self.w_outPath)
         self.w_format = QtWidgets.QWidget(self.groupBox)
         self.w_format.setObjectName("w_format")
         self.horizontalLayout_13 = QtWidgets.QHBoxLayout(self.w_format)
@@ -644,7 +645,7 @@ class Ui_wg_ImageRender(object):
         self.b_resPresets.setText(QtWidgets.QApplication.translate("wg_ImageRender", "▼", None, -1))
         self.label_7.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Override take:", None, -1))
         self.l_renderPreset.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Rendersettings preset:", None, -1))
-        self.l_localOutput.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Local output:", None, -1))
+        self.l_outPath.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Location:", None, -1))
         self.label_8.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Format:", None, -1))
         self.label_4.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Renderer:", None, -1))
         self.label_5.setText(QtWidgets.QApplication.translate("wg_ImageRender", "Status:", None, -1))

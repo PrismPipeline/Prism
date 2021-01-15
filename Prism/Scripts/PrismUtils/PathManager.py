@@ -32,6 +32,17 @@
 
 
 import os
+from collections import OrderedDict
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+    psVersion = 2
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+    psVersion = 1
 
 from PrismUtils.Decorators import err_catcher
 
@@ -48,7 +59,7 @@ class PathManager(object):
         fileType,
         useLastVersion,
         render,
-        localOutput=False,
+        location=None,
         comment="",
         ignoreEmpty=True,
     ):
@@ -81,7 +92,7 @@ class PathManager(object):
             useLastVersion=useLastVersion,
             ignoreEmpty=ignoreEmpty,
             comment=comment,
-            localOutput=localOutput,
+            location=location,
         )
 
         if render and outputName != "FileNotInPipeline":
@@ -130,7 +141,7 @@ class PathManager(object):
         useLastVersion=False,
         ignoreEmpty=True,
         comment="",
-        localOutput=False,
+        location=None,
     ):
         fileType = fileType or "exr"
         singleFileFormats = ["avi", "mp4", "mov"]
@@ -191,10 +202,8 @@ class PathManager(object):
                 outputPath += self.core.filenameSeparator + comment
             outputName = os.path.join(outputPath, outputFile)
 
-        if localOutput:
-            outputName = self.core.convertPath(outputName, target="local")
-        else:
-            outputName = self.core.convertPath(outputName, target="global")
+        if location:
+            outputName = self.convertGlobalRenderPath(outputName, target=location)
 
         outputName = outputName.replace("\\", "/")
 
@@ -419,3 +428,96 @@ class PathManager(object):
             cacheData["version"] = cacheData.get("information", {}).get("version", "")
 
         return cacheData
+
+    @err_catcher(name=__name__)
+    def requestPath(self, title="Select folder", startPath="", parent=None):
+        path = ""
+        parent = parent or self.core.messageParent
+        if self.core.uiAvailable:
+            path = QFileDialog.getExistingDirectory(
+                parent,
+                title,
+                startPath,
+            )
+
+        return path
+
+    @err_catcher(name=__name__)
+    def addExportProductBasePath(self, location, path):
+        exportPaths = self.getExportProductBasePaths(default=False)
+        if location in exportPaths and path == exportPaths[location]:
+            return True
+
+        exportPaths[location] = path
+        self.core.setConfig("export_paths", val=exportPaths, config="project")
+
+    @err_catcher(name=__name__)
+    def addRenderProductBasePath(self, location, path):
+        renderPaths = self.getRenderProductBasePaths(default=False)
+        if location in renderPaths and path == renderPaths[location]:
+            return True
+
+        renderPaths[location] = path
+        self.core.setConfig("render_paths", val=renderPaths, config="project")
+
+    @err_catcher(name=__name__)
+    def removeExportProductBasePath(self, location):
+        exportPaths = self.getExportProductBasePaths(default=False)
+        if location in exportPaths:
+            del exportPaths[location]
+            self.core.setConfig("export_paths", val=exportPaths, config="project")
+
+    @err_catcher(name=__name__)
+    def removeRenderProductBasePath(self, location):
+        renderPaths = self.getRenderProductBasePaths(default=False)
+        if location in renderPaths:
+            del renderPaths[location]
+            self.core.setConfig("render_paths", val=renderPaths, config="project")
+
+    @err_catcher(name=__name__)
+    def getExportProductBasePaths(self, default=True):
+        export_paths = OrderedDict([])
+        if default:
+            export_paths["global"] = self.core.projectPath
+
+            if self.core.useLocalFiles:
+                export_paths["local"] = self.core.localProjectPath
+
+        customPaths = self.core.getConfig(
+            "export_paths", configPath=self.core.prismIni, dft=[]
+        )
+        for cp in customPaths:
+            export_paths[cp] = customPaths[cp]
+
+        for path in export_paths:
+            export_paths[path] = os.path.normpath(export_paths[path])
+
+        return export_paths
+
+    @err_catcher(name=__name__)
+    def getRenderProductBasePaths(self, default=True):
+        render_paths = OrderedDict([])
+        if default:
+            render_paths["global"] = self.core.projectPath
+
+            if self.core.useLocalFiles:
+                render_paths["local"] = self.core.localProjectPath
+
+        customPaths = self.core.getConfig(
+            "render_paths", configPath=self.core.prismIni, dft=[]
+        )
+        for cp in customPaths:
+            render_paths[cp] = customPaths[cp]
+
+        for path in render_paths:
+            render_paths[path] = os.path.normpath(render_paths[path])
+
+        return render_paths
+
+    @err_catcher(name=__name__)
+    def convertGlobalRenderPath(self, path, target="global"):
+        path = os.path.normpath(path)
+        basepaths = self.getRenderProductBasePaths()
+        prjPath = os.path.normpath(self.core.projectPath)
+        convertedPath = os.path.normpath(path).replace(prjPath, basepaths[target])
+        return convertedPath

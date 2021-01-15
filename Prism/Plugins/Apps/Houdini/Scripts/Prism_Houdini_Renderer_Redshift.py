@@ -169,7 +169,7 @@ def executeAOVs(origin, outputName):
         if not origin.core.appPlugin.setNodeParm(origin.node, "RS_archive_file", val=rsOutput):
             return [origin.state.text(0) + ": error - could not set archive filename. Publish canceled"]
 
-        os.makedirs(rsOutput)
+        os.makedirs(os.path.dirname(rsOutput))
 
     else:
         renderRS = False
@@ -194,11 +194,6 @@ def executeAOVs(origin, outputName):
             currentAOVID = parm.name().split("_")[-1]
             layerParmName = "RS_aovSuffix_" + currentAOVID
             layerName = origin.node.parm(layerParmName).eval()
-            typeParmName = "RS_aovID_" + currentAOVID
-            layerTypeID = origin.node.parm(typeParmName).eval()
-            layerType = origin.node.parm(typeParmName).menuLabels()[layerTypeID]
-            if layerType == "Cryptomatte":
-                layerName = "$AOV"
             commonOutPut = origin.node.parm(
                 "RS_outputFileNamePrefix"
             ).unexpandedString()

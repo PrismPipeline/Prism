@@ -35,6 +35,7 @@ import os
 import sys
 import platform
 import random
+import logging
 
 import nuke
 
@@ -47,6 +48,9 @@ except:
     from PySide.QtGui import *
 
 from PrismUtils.Decorators import err_catcher as err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class Prism_Nuke_Functions(object):
@@ -213,12 +217,13 @@ class Prism_Nuke_Functions(object):
             taskName = group.knob("task").evaluate()
             comment = group.knob("comment").value()
             fileType = group.knob("file_type").value()
-            localOut = group.knob("localOutput").value()
-        except:
+            location = group.knob("location").value()
+        except Exception as e:
+            logger.warning("failed to get node knob values: %s" % str(e))
             return ""
 
         outputName = self.core.getCompositingOut(
-            taskName, fileType, self.useLastVersion, render, localOut, comment
+            taskName, fileType, self.useLastVersion, render, location, comment
         )
 
         isNukeAssist = "--nukeassist" in nuke.rawArgs
@@ -913,3 +918,10 @@ class Prism_Nuke_Functions(object):
 
             if nodeClass == "WritePrism":
                 node.knob("refresh").execute()
+
+    @err_catcher(name=__name__)
+    def updateNodeUI(self, nodeType, node):
+        if nodeType == "writePrism":
+            locations = self.core.paths.getRenderProductBasePaths()
+            locNames = list(locations.keys())
+            node.knob("location").setValues(locNames)

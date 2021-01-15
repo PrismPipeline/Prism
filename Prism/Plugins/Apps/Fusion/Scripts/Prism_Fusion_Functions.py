@@ -440,7 +440,12 @@ class Prism_Fusion_Functions(object):
             # EXR fallback format
             fileType = "exr"
 
-        localOut = node.GetInput("SaveLocalControl")
+        saveLocal = node.GetInput("SaveLocalControl")
+        if self.core.useLocalFiles and saveLocal:
+            location = "local"
+        else:
+            location = "global"
+
         useLastVersion = node.GetInput("RenderLastVersionControl")
 
         if taskName is None or taskName == "":
@@ -467,7 +472,7 @@ class Prism_Fusion_Functions(object):
             fileType,
             useLastVersion,
             render,
-            localOut,
+            location,
             comment,
             ignoreEmpty=True,
         ).replace("####", "")
