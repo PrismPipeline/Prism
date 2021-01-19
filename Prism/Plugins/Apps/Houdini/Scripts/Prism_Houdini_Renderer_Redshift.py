@@ -244,3 +244,23 @@ def executeRender(origin):
 
 def postExecute(origin):
     return True
+
+
+def getCleanupScript():
+    script = """
+
+import os
+import sys
+import shutil
+
+rsOutput = sys.argv[-1]
+
+delDir = os.path.dirname(rsOutput)
+if os.path.basename(delDir) != "_rs":
+    raise RuntimeError("invalid rs directory: %s" % (delDir))
+
+shutil.rmtree(delDir)
+print("task completed successfully")
+
+"""
+    return script

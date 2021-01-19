@@ -798,7 +798,7 @@ class ImageRenderClass(object):
         is3dl = self.node and (self.node.type().name() == "3Delight")
         isRedshift = self.node and (self.node.type().name() == "Redshift_ROP")
         self.w_renderNSIs.setVisible(bool(is3dl and (rfm == "Deadline")))
-        self.w_renderRS.setVisible(bool(isRedshift and (rfm == "Deadline")) and self.core.debugMode)
+        self.w_renderRS.setVisible(bool(isRedshift and (rfm == "Deadline")))
 
         self.stateManager.saveStatesToScene()
 

@@ -235,3 +235,23 @@ print("task completed successfully")
 
 """
     return script
+
+
+def getCleanupScript():
+    script = """
+
+import os
+import sys
+import shutil
+
+rsOutput = sys.argv[-1]
+
+delDir = os.path.dirname(rsOutput)
+if os.path.basename(delDir) != "_nsi":
+    raise RuntimeError("invalid rs directory: %s" % (delDir))
+
+shutil.rmtree(delDir)
+print("task completed successfully")
+
+"""
+    return script

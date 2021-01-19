@@ -1651,18 +1651,16 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 current.setEnabled(False)
             rcmenu.addAction(current)
             emp = QMenu("Create new version from preset", self)
-            emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
-            if os.path.exists(emptyDir):
-                for i in sorted(os.listdir(emptyDir)):
-                    base, ext = os.path.splitext(i)
-                    if ext in self.core.getPluginSceneFormats():
-                        empAct = QAction(base, self)
-                        empAct.triggered.connect(
-                            lambda y=None, x=tabName, fname=i: self.createEmptyScene(
-                                x, fname
-                            )
-                        )
-                        emp.addAction(empAct)
+            scenes = self.core.entities.getPresetScenes()
+            for scene in scenes:
+                base, ext = os.path.splitext(scene)
+                empAct = QAction(base, self)
+                empAct.triggered.connect(
+                    lambda y=None, x=tabName, fname=scene: self.createEmptyScene(
+                        x, fname
+                    )
+                )
+                emp.addAction(empAct)
 
             newPreset = QAction("< Create new preset from current >", self)
             newPreset.triggered.connect(self.core.entities.createPresetScene)

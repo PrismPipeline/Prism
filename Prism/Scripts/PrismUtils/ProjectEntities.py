@@ -1154,6 +1154,19 @@ class ProjectEntities(object):
         self.core.media.savePixmap(pmsmall, prvPath)
 
     @err_catcher(name=__name__)
+    def getPresetScenes(self):
+        presetScenes = []
+        emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
+        if os.path.exists(emptyDir):
+            for filename in sorted(os.listdir(emptyDir)):
+                if filename == "readme.txt":
+                    continue
+
+                presetScenes.append(filename)
+
+        return presetScenes
+
+    @err_catcher(name=__name__)
     def createEmptyScene(
         self,
         entity,

@@ -1,3 +1,8 @@
+v1.3.0.65:
+- added option to render .rs files on Deadline for Redshift jobs submitted from Houdini
+- added cleanup job for Houdini 3Delight Deadline submissions when using .nsi files for rendering
+- preset scenes are not limited to supported application formats any more (e.g. you can create After Effects preset scenes now)
+
 v1.3.0.64:
 - added export locations and render locations to the project settings
 - fixed a bug that the "Remder NSIs" option on the ImageRender state was not becoming visible when connecting a 3Delight ROP to an existing state

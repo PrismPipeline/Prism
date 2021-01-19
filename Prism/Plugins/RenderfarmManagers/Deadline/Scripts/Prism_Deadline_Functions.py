@@ -450,7 +450,7 @@ class Prism_Deadline_Functions(object):
         else:
             renderNSIs = False
 
-        if hasattr(origin, "w_renderRS") and not origin.w_renderRS.isHidden() and origin.chb_rjRS.isChecked() and self.core.debugMode:
+        if hasattr(origin, "w_renderRS") and not origin.w_renderRS.isHidden() and origin.chb_rjRS.isChecked():
             renderRS = True
             jobOutputFileOrig = jobOutputFile
             jobOutputFile = os.path.join(os.path.dirname(jobOutputFile), "_rs", os.path.basename(jobOutputFile))
@@ -569,7 +569,7 @@ class Prism_Deadline_Functions(object):
             environment = [["DELIGHT", dlpath]]
             args = [jobOutputFile, jobOutputFileOrig]
 
-            self.submitPythonJob(
+            result = self.submitPythonJob(
                 code=code,
                 jobName=jobName + "_render",
                 jobOutput=jobOutputFileOrig,
@@ -586,11 +586,39 @@ class Prism_Deadline_Functions(object):
                 environment=environment,
                 args=args,
             )
+
+            if self.core.getConfig("render", "3DelightCleanupJob", dft=True, config="project"):
+                cleanupScript = origin.curRenderer.getCleanupScript()
+            else:
+                cleanupScript = None
+
+            if cleanupScript:
+                arguments = [args[0]]
+                depId = self.getJobIdFromSubmitResult(result)
+                cleanupDep = [depId]
+                self.submitCleanupScript(
+                    jobName=jobName,
+                    jobGroup=jobGroup,
+                    jobPrio=jobPrio,
+                    jobTimeOut=jobTimeOut,
+                    jobMachineLimit=jobMachineLimit,
+                    jobBatchName=jobBatchName,
+                    suspended=suspended,
+                    jobDependencies=cleanupDep,
+                    environment=environment,
+                    cleanupScript=cleanupScript,
+                    arguments=arguments,
+                )
+
         elif renderRS:
             rsDep = [[0, jobOutputFile]]
             args = [jobOutputFile, jobOutputFileOrig]
             gpusPerTask = origin.sp_dlGPUpt.value()
             gpuDevices = origin.le_dlGPUdevices.text()
+            if self.core.getConfig("render", "RedshiftCleanupJob", dft=True, config="project"):
+                cleanupScript = origin.curRenderer.getCleanupScript()
+            else:
+                cleanupScript = None
 
             self.submitRedshiftJob(
                 jobName=jobName + "_render",
@@ -609,6 +637,7 @@ class Prism_Deadline_Functions(object):
                 gpusPerTask=gpusPerTask,
                 gpuDevices=gpuDevices,
                 args=args,
+                cleanupScript=cleanupScript,
             )
 
         return result
@@ -631,6 +660,7 @@ class Prism_Deadline_Functions(object):
             frames="1",
             suspended=False,
             dependencies=None,
+            jobDependencies=None,
             environment=None,
             args=None,
     ):
@@ -684,6 +714,9 @@ class Prism_Deadline_Functions(object):
         if dependencies:
             jobInfos["IsFrameDependent"] = "true"
             jobInfos["ScriptDependencies"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "DeadlineDependency.py"))
+
+        if jobDependencies:
+            jobInfos["JobDependencies"] = ",".join(jobDependencies)
 
         # Create plugin info file
 
@@ -746,6 +779,7 @@ class Prism_Deadline_Functions(object):
             gpuDevices=None,
             environment=None,
             args=None,
+            cleanupScript=None
     ):
         homeDir = (
             self.deadlineCommand(["-GetCurrentUserHomeDirectory"], background=False)
@@ -833,7 +867,70 @@ class Prism_Deadline_Functions(object):
             arguments.append(dependencyFile)
 
         result = self.deadlineSubmitJob(jobInfos, pluginInfos, arguments)
+
+        if cleanupScript:
+            jobName = jobName.rsplit("_", 1)[0]
+            arguments = [args[0]]
+            depId = self.getJobIdFromSubmitResult(result)
+            cleanupDep = [depId]
+            self.submitCleanupScript(
+                jobName=jobName,
+                jobGroup=jobGroup,
+                jobPrio=jobPrio,
+                jobTimeOut=jobTimeOut,
+                jobMachineLimit=jobMachineLimit,
+                jobComment=jobComment,
+                jobBatchName=jobBatchName,
+                suspended=suspended,
+                jobDependencies=cleanupDep,
+                environment=environment,
+                cleanupScript=cleanupScript,
+                arguments=arguments,
+            )
+
         return result
+
+    @err_catcher(name=__name__)
+    def getJobIdFromSubmitResult(self, result):
+        result = str(result)
+        lines = result.split("\n")
+        for line in lines:
+            if line.startswith("JobID"):
+                jobId = line.split("=")[1]
+                return jobId
+
+    @err_catcher(name=__name__)
+    def submitCleanupScript(
+            self,
+            jobName=None,
+            jobOutput=None,
+            jobGroup="None",
+            jobPrio=50,
+            jobTimeOut=180,
+            jobMachineLimit=0,
+            jobComment=None,
+            jobBatchName=None,
+            suspended=False,
+            jobDependencies=None,
+            environment=None,
+            cleanupScript=None,
+            arguments=None,
+    ):
+        self.submitPythonJob(
+            code=cleanupScript,
+            jobName=jobName + "_cleanup",
+            jobPrio=jobPrio,
+            jobGroup=jobGroup,
+            jobTimeOut=jobTimeOut,
+            jobMachineLimit=jobMachineLimit,
+            jobComment=jobComment,
+            jobBatchName=jobBatchName,
+            frames="1",
+            suspended=suspended,
+            jobDependencies=jobDependencies,
+            environment=environment,
+            args=arguments,
+        )
 
     @err_catcher(name=__name__)
     def deadlineSubmitJob(self, jobInfos, pluginInfos, arguments):
