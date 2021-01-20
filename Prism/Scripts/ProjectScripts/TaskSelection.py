@@ -865,7 +865,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.tw_versions.setItem(row, rowItems, item)
         rowItems += 1
 
-        if location:
+        if location and len(self.export_paths) > 1:
             item = QTableWidgetItem(location)
             item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
             self.tw_versions.setItem(row, rowItems, item)
