@@ -347,7 +347,7 @@ class PluginManager(object):
                 )
         except:
             msg = "Failed to load plugin: %s" % pluginName
-            result = self.core.popupQuestion(msg, buttons=["Details", "Close"], icon=QMessageBox.Warning)
+            result = self.core.popupQuestion(msg, buttons=["Details", "Close"], icon=QMessageBox.Warning, default="Details")
             if result == "Details":
                 detailMsg = msg + "\n\n" + traceback.format_exc()
                 self.core.showErrorDetailPopup(detailMsg)

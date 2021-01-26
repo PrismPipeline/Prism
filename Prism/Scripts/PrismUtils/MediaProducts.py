@@ -32,6 +32,10 @@
 
 
 import os
+import sys
+import logging
+import platform
+import shutil
 
 try:
     from PySide2.QtCore import *
@@ -44,6 +48,9 @@ except:
     psVersion = 1
 
 from PrismUtils.Decorators import err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class MediaProducts(object):
@@ -169,9 +176,13 @@ class MediaProducts(object):
         if not basepaths:
             return versions
 
+        useMaster = self.getUseMaster()
         for basepathData in basepaths:
             for root, folders, files in os.walk(basepathData["path"]):
                 for folder in folders:
+                    if folder == "master" and not useMaster:
+                        continue
+
                     versionPath = os.path.join(root, folder)
                     versionData = {"label": folder + basepathData["suffix"], "path": versionPath, "location": basepathData["type"]}
                     versions.append(versionData)
@@ -224,6 +235,8 @@ class MediaProducts(object):
         foldercont = ["", [], []]
         path = None
         version = version or ""
+        if version.startswith("master "):
+            version = "master"
 
         if product.endswith(" (2d)"):
             if version and version.endswith(" (local)"):
@@ -305,6 +318,11 @@ class MediaProducts(object):
         return foldercont
 
     @err_catcher(name=__name__)
+    def getMediaVersionInfoPathFromFilepath(self, path):
+        infoPath = os.path.join(os.path.dirname(os.path.dirname(path)), "versioninfo.yml")
+        return infoPath
+
+    @err_catcher(name=__name__)
     def getMediaVersionInfoPath(self, basepath, product, version):
         if version.endswith(" (local)"):
             basepath = self.core.convertPath(basepath, target="local")
@@ -375,8 +393,9 @@ class MediaProducts(object):
 
     @err_catcher(name=__name__)
     def generateMediaProductPath(self, entity, entityName, task, extension, framePadding=".", comment=None, version=None, location="global"):
+        framePadding = framePadding or ""
         hVersion = ""
-        if version is not None:
+        if version is not None and version != "master":
             hVersion, pComment = version.split(self.core.filenameSeparator)
 
         outputPath = self.getMediaProductPathFromEntity(entity, entityName, task)
@@ -385,13 +404,17 @@ class MediaProducts(object):
             hVersion = self.core.getHighestTaskVersion(outputPath)
             pComment = comment or ""
 
-        filename = self.generateMediaProductFilename(entity, entityName, task, hVersion, framePadding, extension)
+        if version == "master":
+            versionFoldername = "master"
+            hVersion = "master"
+        else:
+            versionFoldername = (
+                hVersion
+                + self.core.filenameSeparator
+                + pComment
+            )
 
-        versionFoldername = (
-            hVersion
-            + self.core.filenameSeparator
-            + pComment
-        )
+        filename = self.generateMediaProductFilename(entity, entityName, task, hVersion, framePadding, extension)
 
         outputName = os.path.join(outputPath, versionFoldername, "beauty", filename)
         outputName = getattr(self.core.appPlugin, "sm_render_fixOutputPath", lambda x, y, singleFrame: y)(self, outputName, singleFrame=not framePadding)
@@ -507,8 +530,12 @@ class MediaProducts(object):
     @err_catcher(name=__name__)
     def getVersionFromFilepath(self, path):
         versionFoldername = os.path.basename(os.path.dirname(os.path.dirname(path)))
-        fileData = versionFoldername.split(self.core.filenameSeparator)
+        return self.getVersionFromVersionFolder(versionFoldername)
 
+    @err_catcher(name=__name__)
+    def getVersionFromVersionFolder(self, versionFolder):
+        versionFolder = os.path.basename(versionFolder)
+        fileData = versionFolder.split(self.core.filenameSeparator)
         fileversion = None
         for data in fileData:
             try:
@@ -526,9 +553,137 @@ class MediaProducts(object):
         return fileversion
 
     @err_catcher(name=__name__)
+    def getRenderProductDataFromFilepath(self, filepath):
+        filepath = os.path.normpath(filepath)
+        if os.path.splitext(filepath)[1]:
+            productDir = os.path.dirname(os.path.dirname(filepath))
+        else:
+            productDir = filepath
+
+        productData = {}
+        versionName = os.path.basename(productDir)
+        productData.update(self.getDataFromVersionName(versionName))
+        taskPath = os.path.dirname(productDir)
+        productData["task"] = os.path.basename(taskPath)
+        productData["extension"] = os.path.splitext(filepath)[1]
+        return productData
+
+    @err_catcher(name=__name__)
+    def getDataFromVersionName(self, versionName):
+        if not self.isVersionFolderName(versionName):
+            return {}
+
+        versionName, comment = versionName.split(self.core.filenameSeparator)
+        data = {
+            "version": versionName,
+            "comment": comment,
+        }
+        return data
+
+    @err_catcher(name=__name__)
+    def isVersionFolderName(self, name):
+        nameData = name.split(self.core.filenameSeparator)
+        isValid = len(nameData) == 2 and name[0] == "v"
+        return isValid
+
+    @err_catcher(name=__name__)
     def getLocationFromPath(self, path):
         locDict = self.core.paths.getRenderProductBasePaths()
         nPath = os.path.normpath(path)
         for location in locDict:
             if nPath.startswith(locDict[location]):
                 return location
+
+    @err_catcher(name=__name__)
+    def getVersionPathFromMediaFilePath(self, path):
+        return os.path.dirname(os.path.dirname(path))
+
+    @err_catcher(name=__name__)
+    def updateMasterVersion(self, path, isFilepath=True, add=False):
+        data = self.core.paths.getRenderProductData(path, isFilepath=isFilepath)
+        location = self.getLocationFromPath(path)
+        masterPath = self.generateMediaProductPath(
+            entity=data["entityType"],
+            entityName=data["fullEntity"],
+            task=data["task"],
+            extension=data["extension"],
+            version="master",
+            location=location,
+            framePadding=None,
+        )
+        logger.debug("updating master render version: %s" % masterPath)
+
+        if not add:
+            self.deleteMasterVersion(masterPath, isFilepath=True)
+            masterVersions = []
+        else:
+            masterVersions = self.getVersionPathsFromMaster(masterPath, isFilepath=True)
+
+        masterDrive = os.path.splitdrive(masterPath)[0]
+        drive = os.path.splitdrive(path)[0]
+
+        masterBase = self.getVersionPathFromMediaFilePath(masterPath)
+        if isFilepath:
+            originBase = self.getVersionPathFromMediaFilePath(path)
+        else:
+            originBase = path
+
+        files = self.core.getFilesFromFolder(originBase, recursive=True)
+        for file in files:
+            frameStr = os.path.splitext(file)[0][-self.core.framePadding:]
+            if sys.version[0] == "2":
+                frameStr = unicode(frameStr)
+
+            masterFilename = self.core.paths.replaceVersionInStr(os.path.basename(file), "master")
+            masterFile = file.replace(originBase, masterBase)
+            masterFile = os.path.join(os.path.dirname(masterFile), masterFilename)
+
+            if not os.path.exists(os.path.dirname(masterFile)):
+                os.makedirs(os.path.dirname(masterFile))
+
+            if platform.system() == "Windows" and drive == masterDrive:
+                self.core.createSymlink(masterFile, file)
+            else:
+                shutil.copy2(file, masterFile)
+
+        masterVersions.append(originBase)
+        ext = self.core.configs.preferredExtension
+        masterInfoPath = os.path.join(masterBase, "versioninfo" + ext)
+        self.core.setConfig("versionpaths", val=masterVersions, configPath=masterInfoPath)
+        return masterPath
+
+    @err_catcher(name=__name__)
+    def deleteMasterVersion(self, path, isFilepath=False):
+        if isFilepath:
+            path = self.getVersionPathFromMediaFilePath(path)
+
+        logger.debug("removing master render version: %s" % path)
+        if os.path.exists(path):
+            try:
+                shutil.rmtree(path)
+            except PermissionError as e:
+                msg = "Couldn't remove the existing master version:\n\n%s" % (str(e))
+                result = self.core.popupQuestion(msg, buttons=["Retry", "Don't update master version"], icon=QMessageBox.Warning)
+                if result == "Retry":
+                    return self.deleteMasterVersion(path)
+                else:
+                    return False
+
+            return True
+
+    @err_catcher(name=__name__)
+    def addToMasterVersion(self, path, isFilepath=True):
+        self.updateMasterVersion(path, isFilepath, add=True)
+
+    @err_catcher(name=__name__)
+    def getVersionPathsFromMaster(self, path, isFilepath=True):
+        infoPath = self.getMediaVersionInfoPathFromFilepath(path)
+        paths = self.core.getConfig("versionpaths", configPath=infoPath)
+        return paths
+
+    @err_catcher(name=__name__)
+    def getUseMaster(self):
+        if not self.core.debugMode:
+            return False
+
+        return self.core.getConfig("globals", "useMasterRenderVersion", dft=False, config="project")

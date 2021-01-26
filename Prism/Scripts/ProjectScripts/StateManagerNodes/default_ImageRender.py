@@ -98,6 +98,8 @@ class ImageRenderClass(object):
         if not getattr(self.core.appPlugin, "sm_render_startup", lambda x: False)(self):
             self.gb_Vray.setVisible(False)
 
+        masterItems = ["Set as master", "Add to master", "Don't update master"]
+        self.cb_master.addItems(masterItems)
         self.product_paths = self.core.paths.getRenderProductBasePaths()
         self.cb_outPath.addItems(list(self.product_paths.keys()))
         if len(self.product_paths) < 2:
@@ -201,6 +203,10 @@ class ImageRenderClass(object):
             self.chb_resOverride.setChecked(res[0])
             self.sp_resWidth.setValue(res[1])
             self.sp_resHeight.setValue(res[2])
+        if "masterVersion" in data:
+            idx = self.cb_master.findText(data["masterVersion"])
+            if idx != -1:
+                self.cb_master.setCurrentIndex(idx)
         if "curoutputpath" in data:
             idx = self.cb_outPath.findText(data["curoutputpath"])
             if idx != -1:
@@ -569,6 +575,9 @@ class ImageRenderClass(object):
 
         self.updateRange()
 
+        if not self.core.mediaProducts.getUseMaster():
+            self.w_master.setVisible(False)
+
         # update Render Layer
         curLayer = self.cb_renderLayer.currentText()
         self.cb_renderLayer.clear()
@@ -830,6 +839,9 @@ class ImageRenderClass(object):
         fnameData = self.core.getScenefileData(fileName)
         framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
 
+        if "entityName" not in fnameData:
+            return
+
         location = self.cb_outPath.currentText()
 
         if fnameData["entity"] == "asset":
@@ -972,6 +984,9 @@ class ImageRenderClass(object):
         if result == "publish paused":
             return [self.state.text(0) + " - publish paused"]
         else:
+
+            self.handleMasterVersion(outputName)
+
             kwargs = {
                 "state": self,
                 "scenefile": fileName,
@@ -998,6 +1013,21 @@ class ImageRenderClass(object):
                     else:
                         self.core.writeErrorLog(erStr)
                 return [self.state.text(0) + " - error - " + result]
+
+    @err_catcher(name=__name__)
+    def handleMasterVersion(self, outputName):
+        useMaster = self.core.mediaProducts.getUseMaster()
+        if not useMaster:
+            return
+
+        masterAction = self.cb_master.currentText()
+        if masterAction == "Don't update master":
+            return
+
+        elif masterAction == "Set as master":
+            self.core.mediaProducts.updateMasterVersion(outputName)
+        elif masterAction == "Add to master":
+            self.core.mediaProducts.addToMasterVersion(outputName)
 
     @err_catcher(name=__name__)
     def setTaskWarn(self, warn):
@@ -1034,6 +1064,7 @@ class ImageRenderClass(object):
                     self.sp_resHeight.value(),
                 ]
             ),
+            "masterVersion": self.cb_master.currentText(),
             "curoutputpath": self.cb_outPath.currentText(),
             "renderlayer": str(self.cb_renderLayer.currentText()),
             "outputFormat": str(self.cb_format.currentText()),

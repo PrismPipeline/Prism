@@ -32,6 +32,7 @@
 
 
 import os
+import re
 from collections import OrderedDict
 
 try:
@@ -202,10 +203,10 @@ class PathManager(object):
                 outputPath += self.core.filenameSeparator + comment
             outputName = os.path.join(outputPath, outputFile)
 
-        if location:
-            outputName = self.convertGlobalRenderPath(outputName, target=location)
+            if location:
+                outputName = self.convertGlobalRenderPath(outputName, target=location)
 
-        outputName = outputName.replace("\\", "/")
+            outputName = outputName.replace("\\", "/")
 
         return outputName, version
 
@@ -270,6 +271,19 @@ class PathManager(object):
         basePath = os.path.join(
             filepath, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir
         )
+
+        return os.path.abspath(basePath)
+
+    @err_catcher(name=__name__)
+    def getEntityBasePathFromRenderProductPath(self, filepath, isFilepath=False):
+        if isFilepath:
+            basePath = os.path.join(
+                filepath, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir, os.pardir
+            )
+        else:
+            basePath = os.path.join(
+                filepath, os.pardir, os.pardir, os.pardir, os.pardir
+            )
 
         return os.path.abspath(basePath)
 
@@ -430,6 +444,47 @@ class PathManager(object):
         return cacheData
 
     @err_catcher(name=__name__)
+    def getRenderProductData(self, productPath, isFilepath=True):
+        productPath = os.path.normpath(productPath)
+        if os.path.splitext(productPath)[1]:
+            productDir = os.path.dirname(productPath)
+        else:
+            productDir = productPath
+
+        productConfig = os.path.join(productDir, "versioninfo.yml")
+        if not os.path.exists(productConfig):
+            productConfig = os.path.join(os.path.dirname(productDir), "versioninfo.yml")
+        productData = self.core.getConfig(configPath=productConfig) or {}
+
+        pathData = self.core.mediaProducts.getRenderProductDataFromFilepath(productPath)
+        productData.update(pathData)
+
+        entityPath = self.getEntityBasePathFromRenderProductPath(productPath, isFilepath=isFilepath)
+        relAssetPath = self.core.assetPath.replace(self.core.projectPath, "")
+        relShotPath = self.core.shotPath.replace(self.core.projectPath, "")
+        if relAssetPath in entityPath:
+            productData["entityType"] = "asset"
+            productData["assetHierarchy"] = self.core.entities.getAssetRelPathFromPath(entityPath)
+            productData["assetName"] = os.path.basename(productData["assetHierarchy"])
+            productData["entity"] = productData["assetName"]
+            productData["fullEntity"] = productData["assetHierarchy"]
+        elif relShotPath in entityPath:
+            productData["entityType"] = "shot"
+            shot, seq = self.core.entities.splitShotname(os.path.basename(entityPath))
+            productData["sequence"] = seq
+            productData["shot"] = shot
+            productData["entity"] = productData["shot"]
+            productData["fullEntity"] = self.core.entities.getShotname(productData["sequence"], productData["shot"])
+        else:
+            productData["entityType"] = ""
+
+        productData["version"] = productData.get("information", {}).get("Version", "")
+        if not productData["version"]:
+            productData["version"] = productData.get("information", {}).get("version", "")
+
+        return productData
+
+    @err_catcher(name=__name__)
     def requestPath(self, title="Select folder", startPath="", parent=None):
         path = ""
         parent = parent or self.core.messageParent
@@ -497,6 +552,9 @@ class PathManager(object):
     @err_catcher(name=__name__)
     def getRenderProductBasePaths(self, default=True):
         render_paths = OrderedDict([])
+        if not self.core.projects.hasActiveProject():
+            return render_paths
+
         if default:
             render_paths["global"] = self.core.projectPath
 
@@ -521,3 +579,12 @@ class PathManager(object):
         prjPath = os.path.normpath(self.core.projectPath)
         convertedPath = os.path.normpath(path).replace(prjPath, basepaths[target])
         return convertedPath
+
+    @err_catcher(name=__name__)
+    def replaceVersionInStr(self, inputStr, replacement):
+        versions = re.findall("v[0-9]{%s}" % self.core.versionPadding, inputStr)
+        replacedStr = inputStr
+        for version in versions:
+            replacedStr = replacedStr.replace(version, replacement)
+
+        return replacedStr

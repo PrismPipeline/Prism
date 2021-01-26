@@ -14,5 +14,6 @@ def prismInit(prismArgs=[]):
 
     import PrismCore
 
+    global pcore
     pcore = PrismCore.PrismCore(app="Maya", prismArgs=prismArgs)
     return pcore

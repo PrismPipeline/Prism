@@ -236,7 +236,7 @@ class Products(object):
 
     @err_catcher(name=__name__)
     def getVersionFromFilepath(self, path):
-        fileData = os.path.basename(path).split(
+        fileData = os.path.splitext(os.path.basename(path))[0].split(
             self.core.filenameSeparator
         )
         fileversion = None
@@ -456,8 +456,8 @@ class Products(object):
         if not os.path.exists(os.path.dirname(masterPath)):
             os.makedirs(os.path.dirname(masterPath))
 
-        masterDrive = os.path.splitdrive(masterPath)
-        drive = os.path.splitdrive(path)
+        masterDrive = os.path.splitdrive(masterPath)[0]
+        drive = os.path.splitdrive(path)[0]
 
         seqFiles = self.core.detectFileSequence(path)
         for seqFile in seqFiles:

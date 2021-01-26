@@ -96,6 +96,10 @@ class Lockfile(object):
 
             self._fileLocked = False
 
+    def forceRelease(self):
+        if os.path.exists(self.lockPath):
+            os.remove(self.lockPath)
+
     def waitUntilReady(self, timeout=None):
         startTime = time.time()
         timeout = timeout or self.timeout
@@ -106,13 +110,7 @@ class Lockfile(object):
             logger.debug("waiting for config to unlock before reading")
 
             if time.time() - startTime >= timeout:
-                msg = "This config seems to be in use by another process:\n\n%s\n\nReading from this file while another process is writing to it could result in data loss.\n\nDo you want to read from this file?" % self.fileName
-                result = self.core.popupQuestion(msg)
-                if result == "Yes":
-                    if os.path.exists(self.lockPath):
-                        os.remove(self.lockPath)
-                else:
-                    raise LockfileException("Timeout occurred while reading from file: %s" % self.fileName)
+                raise LockfileException("Timeout occurred while reading from file: %s" % self.fileName)
 
             time.sleep(self.delay)
 

@@ -1,3 +1,16 @@
+v1.3.0.66:
+- added environment variables to use for other tools: PRISM_JOB, PRISM_JOB_LOCAL, PRISM_SEQUENCE, PRISM_SHOT, PRISM_ASSET, PRISM_ASSETPATH, PRISM_STEP, PRISM_CATEGORY, PRISM_USER, PRISM_FILE_VERSION
+- improved handling of unreadable configfiles
+- improved performance of the asset searchbar
+- the Prism API can be accessed now from other Maya scripts using (import PrismInit;PrismInit.pcore)
+- fixed a problem that the WritePrism node in Nuke was not available when rendering the Nuke script on Deadline
+- fixed an error when importing a master export version when the local project folder is disabled
+- fixed an error in Houdini when rightclicking in the export list of the State Manager in some cases
+- fixed an issue that "$F4" could be in exports filenames, which were exported from other DCCs than Houdini
+- fixed an issue that saving playblasts directly as .mp4 files didn't work
+- fixed an error when the omits.yml file had an incorrect syntax
+- fixed an error when creating a WritePrism node in Nuke when no Prism project is active
+
 v1.3.0.65:
 - added option to render .rs files on Deadline for Redshift jobs submitted from Houdini
 - added cleanup job for Houdini 3Delight Deadline submissions when using .nsi files for rendering

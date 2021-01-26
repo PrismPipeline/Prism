@@ -100,6 +100,9 @@ class ImageRenderClass(object):
         if "Cam resolution" not in self.resolutionPresets:
             self.resolutionPresets.insert(0, "Cam resolution")
 
+        masterItems = ["Set as master", "Add to master", "Don't update master"]
+        self.cb_master.addItems(masterItems)
+
         self.product_paths = self.core.paths.getRenderProductBasePaths()
         self.cb_outPath.addItems(list(self.product_paths.keys()))
         if len(self.product_paths) < 2:
@@ -246,6 +249,10 @@ class ImageRenderClass(object):
             idx = self.cb_take.findText(data["take"])
             if idx != -1:
                 self.cb_take.setCurrentIndex(idx)
+        if "masterVersion" in data:
+            idx = self.cb_master.findText(data["masterVersion"])
+            if idx != -1:
+                self.cb_master.setCurrentIndex(idx)
         if "curoutputpath" in data:
             idx = self.cb_outPath.findText(data["curoutputpath"])
             if idx != -1:
@@ -503,6 +510,12 @@ class ImageRenderClass(object):
 
         self.refreshPasses()
 
+        kwargs = {
+            "state": self,
+            "renderer": self.curRenderer,
+        }
+        self.core.callback("rendererChanged", **kwargs)
+
         self.nameChanged(self.e_name.text())
         self.updateUi()
         self.stateManager.saveStatesToScene()
@@ -659,6 +672,9 @@ class ImageRenderClass(object):
         idx = self.cb_take.findText(curTake)
         if idx != -1:
             self.cb_take.setCurrentIndex(idx)
+
+        if not self.core.mediaProducts.getUseMaster():
+            self.w_master.setVisible(False)
 
         self.updateRange()
         self.managerChanged()
@@ -1003,6 +1019,9 @@ class ImageRenderClass(object):
         framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
         location = self.cb_outPath.currentText()
 
+        if "entityName" not in fnameData:
+            return
+
         if fnameData["entity"] == "asset":
             assetPath = self.core.getEntityBasePath(fileName)
             entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
@@ -1197,6 +1216,7 @@ class ImageRenderClass(object):
             return postResult
 
         self.undoRenderSettings(rSettings)
+        self.handleMasterVersion(outputName)
 
         kwargs = {
             "state": self,
@@ -1227,6 +1247,21 @@ class ImageRenderClass(object):
                     result += "\n\n\nNode errors:\n" + "\n" + "\n\n".join(errs)
 
                 return [result]
+
+    @err_catcher(name=__name__)
+    def handleMasterVersion(self, outputName):
+        useMaster = self.core.mediaProducts.getUseMaster()
+        if not useMaster:
+            return
+
+        masterAction = self.cb_master.currentText()
+        if masterAction == "Don't update master":
+            return
+
+        elif masterAction == "Set as master":
+            self.core.mediaProducts.updateMasterVersion(outputName)
+        elif masterAction == "Add to master":
+            self.core.mediaProducts.addToMasterVersion(outputName)
 
     @err_catcher(name=__name__)
     def undoRenderSettings(self, rSettings):
@@ -1271,6 +1306,7 @@ class ImageRenderClass(object):
             ),
             "usetake": str(self.chb_useTake.isChecked()),
             "take": self.cb_take.currentText(),
+            "masterVersion": self.cb_master.currentText(),
             "curoutputpath": self.cb_outPath.currentText(),
             "outputFormat": self.cb_format.currentText(),
             "connectednode": curNode,

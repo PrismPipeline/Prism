@@ -736,7 +736,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
         idx = self.activeList.indexAt(pos)
         parentState = self.activeList.itemFromIndex(idx)
         self.rClickedItem = parentState
-        createMenu = self.getStateMenu(parentState=parentState)
 
         actExecute = QAction("Execute", self)
         actExecute.triggered.connect(lambda: self.publish(executeState=True))
@@ -795,6 +794,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 menuExecuteV.setEnabled(False)
 
         if parentState is None or parentState.ui.className == "Folder":
+            createMenu = self.getStateMenu(parentState=parentState)
             rcmenu.addMenu(createMenu)
 
         if self.activeList == self.tw_export:

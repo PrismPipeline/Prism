@@ -63,34 +63,39 @@ class Prism_Nuke_Functions(object):
 
     @err_catcher(name=__name__)
     def startup(self, origin):
-        origin.timer.stop()
+        if self.core.uiAvailable:
+            origin.timer.stop()
 
-        for obj in QApplication.topLevelWidgets():
-            if (
-                obj.inherits("QMainWindow")
-                and obj.metaObject().className() == "Foundry::UI::DockMainWindow"
-            ):
-                nukeQtParent = obj
-                break
-        else:
-            nukeQtParent = QWidget()
+            for obj in QApplication.topLevelWidgets():
+                if (
+                    obj.inherits("QMainWindow")
+                    and obj.metaObject().className() == "Foundry::UI::DockMainWindow"
+                ):
+                    nukeQtParent = obj
+                    break
+            else:
+                nukeQtParent = QWidget()
 
-        origin.messageParent = QWidget()
-        origin.messageParent.setParent(nukeQtParent, Qt.Window)
-        if platform.system() != "Windows" and self.core.useOnTop:
-            origin.messageParent.setWindowFlags(
-                origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint
-            )
+            origin.messageParent = QWidget()
+            origin.messageParent.setParent(nukeQtParent, Qt.Window)
+            if platform.system() != "Windows" and self.core.useOnTop:
+                origin.messageParent.setWindowFlags(
+                    origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint
+                )
 
-        self.addMenus()
+        self.addPluginPaths()
+        if self.core.uiAvailable:
+            self.addMenus()
 
-        nuke.addOnScriptLoad(origin.sceneOpen)
+        self.addCallbacks()
 
     @err_catcher(name=__name__)
-    def addMenus(self):
+    def addPluginPaths(self):
         gdir = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), "Gizmos")
         nuke.pluginAddPath(gdir)
 
+    @err_catcher(name=__name__)
+    def addMenus(self):
         nuke.menu("Nuke").addCommand("Prism/Save Version", self.core.saveScene)
         nuke.menu("Nuke").addCommand("Prism/Save Comment", self.core.saveWithComment)
         nuke.menu("Nuke").addCommand("Prism/Project Browser", self.core.projectBrowser)
@@ -105,6 +110,10 @@ class Prism_Nuke_Functions(object):
         )
         toolbar.addMenu("Prism", icon=iconPath)
         toolbar.addCommand("Prism/WritePrism", lambda: nuke.createNode("WritePrism"))
+
+    @err_catcher(name=__name__)
+    def addCallbacks(self):
+        nuke.addOnScriptLoad(self.core.sceneOpen)
 
     @err_catcher(name=__name__)
     def onProjectChanged(self, origin):
@@ -213,6 +222,9 @@ class Prism_Nuke_Functions(object):
 
     @err_catcher(name=__name__)
     def getOutputPath(self, node, group, render=False):
+        if not nuke.env.get("gui"):
+            return nuke.thisGroup().knob("fileName").toScript()
+
         try:
             taskName = group.knob("task").evaluate()
             comment = group.knob("comment").value()
@@ -921,6 +933,9 @@ class Prism_Nuke_Functions(object):
 
     @err_catcher(name=__name__)
     def updateNodeUI(self, nodeType, node):
+        if not nuke.env.get("gui"):
+            return
+
         if nodeType == "writePrism":
             locations = self.core.paths.getRenderProductBasePaths()
             locNames = list(locations.keys())

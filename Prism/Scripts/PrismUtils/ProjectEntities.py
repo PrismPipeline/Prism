@@ -73,8 +73,8 @@ class ProjectEntities(object):
         self.omittedEntities = {"asset": [], "shot": []}
         omits = self.core.getConfig(config="omit") or {}
 
-        oShots = omits.get("shot", [])
-        oAssets = omits.get("asset", [])
+        oShots = omits.get("shot") or []
+        oAssets = omits.get("asset") or []
 
         self.omittedEntities["shot"] = oShots
         self.omittedEntities["asset"] = oAssets
@@ -803,17 +803,14 @@ class ProjectEntities(object):
     def filterAssets(self, assets, filterStr):
         filteredPaths = []
         for absAssetPath in assets:
-            assetPath = absAssetPath.replace(self.core.getAssetPath(), "")
-
+            assetPath = absAssetPath.replace(self.core.assetPath, "")
             if self.core.useLocalFiles:
                 localAssetPath = self.core.getAssetPath(location="local")
                 assetPath = assetPath.replace(localAssetPath, "")
-
             assetPath = assetPath[1:]
 
             if filterStr.lower() in assetPath.lower():
                 filteredPaths.append(absAssetPath)
-
         return filteredPaths
 
     @err_catcher(name=__name__)

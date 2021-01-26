@@ -445,8 +445,9 @@ class Prism_Deadline_Functions(object):
         if hasattr(origin, "w_renderNSIs") and not origin.w_renderNSIs.isHidden() and origin.chb_rjNSIs.isChecked():
             renderNSIs = True
             jobOutputFileOrig = jobOutputFile
-            jobOutputFile = os.path.join(os.path.dirname(jobOutputFile), "_nsi", os.path.basename(jobOutputFile))
-            jobOutputFile = os.path.splitext(jobOutputFile)[0] + ".nsi"
+            jobOutputFile = origin.curRenderer.getNsiOutputPath(origin, jobOutputFileOrig)
+            if self.core.appPlugin.pluginName == "Houdini":
+                jobOutputFile = jobOutputFile.replace("$F4", "#"*self.core.framePadding)
         else:
             renderNSIs = False
 

@@ -146,6 +146,11 @@ class Projects(object):
             if not projectPath.endswith(os.sep):
                 projectPath += os.sep
 
+            configData = self.core.getConfig(configPath=configPath)
+            if configData is None:
+                logger.debug("unable to read project config: %s" % configPath)
+                return
+
             projectName = self.core.getConfig(
                 "globals", "project_name", configPath=configPath
             )
@@ -306,6 +311,7 @@ class Projects(object):
         self.setRecentPrj(configPath)
         self.core.sanities.checkAppVersion()
         self.core.checkCommands()
+        self.core.updateProjectEnvironment()
         self.core.callback(
             name="onProjectChanged",
             types=["curApp", "custom", "prjManagers"],
@@ -642,9 +648,10 @@ class Projects(object):
             if self.changeProject(curPrj):
                 return True
 
-            msg = "Could not find project:\n%s" % os.path.dirname(os.path.dirname(curPrj))
-            self.core.popup(msg)
-
         self.setProject(openUi=openUi)
         hasPrj = getattr(self.core, "projectPath", None) and os.path.exists(self.core.prismIni)
         return hasPrj
+
+    @err_catcher(name=__name__)
+    def hasActiveProject(self):
+        return hasattr(self.core, "projectPath")

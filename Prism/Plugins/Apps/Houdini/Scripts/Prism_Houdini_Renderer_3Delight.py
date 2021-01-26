@@ -145,8 +145,7 @@ def executeAOVs(origin, outputName):
     ):
         nsi = True
 
-        nsiOutput = os.path.join(os.path.dirname(outputName), "_nsi", os.path.basename(outputName))
-        nsiOutput = os.path.splitext(nsiOutput)[0] + ".nsi"
+        nsiOutput = getNsiOutputPath(origin, outputName)
         if not origin.core.appPlugin.setNodeParm(origin.node, "default_export_nsi_filename", val=nsiOutput):
             return [origin.state.text(0) + ": error - could not set filename. Publish canceled"]
 
@@ -244,14 +243,20 @@ import os
 import sys
 import shutil
 
-rsOutput = sys.argv[-1]
+nsiOutput = sys.argv[-1]
 
-delDir = os.path.dirname(rsOutput)
+delDir = os.path.dirname(nsiOutput)
 if os.path.basename(delDir) != "_nsi":
-    raise RuntimeError("invalid rs directory: %s" % (delDir))
+    raise RuntimeError("invalid nsi directory: %s" % (delDir))
 
 shutil.rmtree(delDir)
 print("task completed successfully")
 
 """
     return script
+
+
+def getNsiOutputPath(origin, renderOutputPath):
+    jobOutputFile = os.path.join(os.path.dirname(renderOutputPath), "_nsi", os.path.basename(renderOutputPath))
+    jobOutputFile = os.path.splitext(jobOutputFile)[0] + ".nsi"
+    return jobOutputFile

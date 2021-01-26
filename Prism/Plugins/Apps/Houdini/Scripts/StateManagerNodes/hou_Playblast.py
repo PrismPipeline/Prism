@@ -394,6 +394,13 @@ class PlayblastClass(object):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
     @err_catcher(name=__name__)
+    def updateLastPath(self, path):
+        self.l_pathLast.setText(path)
+        self.l_pathLast.setToolTip(path)
+        self.b_openLast.setEnabled(True)
+        self.b_copyLast.setEnabled(True)
+
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -433,15 +440,18 @@ class PlayblastClass(object):
         return [self.state.text(0), warnings]
 
     @err_catcher(name=__name__)
-    def getOutputName(self, useVersion="next"):
+    def getOutputName(self, useVersion="next", extension=None):
         if self.l_taskName.text() == "":
             return
 
         task = self.l_taskName.text()
-        extension = self.cb_formats.currentText()
+        extension = extension or self.cb_formats.currentText()
         fileName = self.core.getCurrentFileName()
         fnameData = self.core.getScenefileData(fileName)
         framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
+
+        if "entityName" not in fnameData:
+            return
 
         location = "global"
         if (
@@ -514,7 +524,7 @@ class PlayblastClass(object):
 
         fileName = self.core.getCurrentFileName()
 
-        outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
+        outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion, extension=".jpg")
         outLength = len(outputName)
         if platform.system() == "Windows" and outLength > 255:
             return [
@@ -530,11 +540,7 @@ class PlayblastClass(object):
             location=outputPath, version=hVersion, origin=fileName
         )
 
-        self.l_pathLast.setText(outputName)
-        self.l_pathLast.setToolTip(outputName)
-        self.b_openLast.setEnabled(True)
-        self.b_copyLast.setEnabled(True)
-
+        self.updateLastPath(outputName)
         self.stateManager.saveStatesToScene()
 
         hou.hipFile.save()
@@ -644,6 +650,8 @@ class PlayblastClass(object):
                         os.remove(i)
                     except:
                         pass
+
+                self.updateLastPath(videoOutput)
 
             kwargs = {
                 "state": self,

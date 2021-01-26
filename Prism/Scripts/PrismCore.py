@@ -184,7 +184,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.65"
+            self.version = "v1.3.0.66"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1314,6 +1314,19 @@ License: GNU GPL-3.0-or-later<br>
         return seqFiles
 
     @err_catcher(name=__name__)
+    def getFilesFromFolder(self, path, recursive=True):
+        foundFiles = []
+        for root, folders, files in os.walk(path):
+            for file in files:
+                path = os.path.join(root, file)
+                foundFiles.append(path)
+
+            if not recursive:
+                break
+
+        return foundFiles
+
+    @err_catcher(name=__name__)
     def getEntityBasePath(self, *args, **kwargs):
         return self.paths.getEntityBasePath(*args, **kwargs)
 
@@ -2071,6 +2084,7 @@ License: GNU GPL-3.0-or-later<br>
         if hasattr(self, "asThread") and self.asThread.isRunning():
             self.startasThread()
 
+        self.updateEnvironment()
         self.callback(name="sceneSaved")
 
     @err_catcher(name=__name__)
@@ -2098,6 +2112,80 @@ License: GNU GPL-3.0-or-later<br>
         self.sanities.checkFramerange()
         self.sanities.checkFPS()
         self.sanities.checkResolution()
+        self.updateEnvironment()
+
+    @err_catcher(name=__name__)
+    def updateEnvironment(self):
+        envvars = {
+            "PRISM_SEQUENCE": "",
+            "PRISM_SHOT": "",
+            "PRISM_ASSET": "",
+            "PRISM_ASSETPATH": "",
+            "PRISM_STEP": "",
+            "PRISM_CATEGORY": "",
+            "PRISM_USER": "",
+            "PRISM_FILE_VERSION": "",
+        }
+
+        for envvar in envvars:
+            envvars[envvar] = os.getenv(envvar)
+
+        newenv = {}
+
+        fn = self.getCurrentFileName()
+        data = self.getScenefileData(fn)
+        if data["entity"] == "asset":
+            newenv["PRISM_SEQUENCE"] = ""
+            newenv["PRISM_SHOT"] = ""
+            newenv["PRISM_ASSET"] = data["entityName"]
+            entityPath = self.paths.getEntityBasePath(data["filename"])
+            assetPath = self.entities.getAssetRelPathFromPath(entityPath)
+            newenv["PRISM_ASSETPATH"] = assetPath.replace("\\", "/")
+        elif data["entity"] == "shot":
+            newenv["PRISM_ASSET"] = ""
+            newenv["PRISM_ASSETPATH"] = ""
+
+            sData = self.entities.splitShotname(data["entityName"])
+            newenv["PRISM_SEQUENCE"] = sData[1]
+            newenv["PRISM_SHOT"] = sData[0]
+        else:
+            newenv["PRISM_SEQUENCE"] = ""
+            newenv["PRISM_SHOT"] = ""
+            newenv["PRISM_ASSET"] = ""
+            newenv["PRISM_ASSETPATH"] = ""
+
+        if data["entity"] != "invalid":
+            newenv["PRISM_STEP"] = data["step"]
+            newenv["PRISM_CATEGORY"] = data["category"]
+            newenv["PRISM_USER"] = getattr(self, "user", "")
+            newenv["PRISM_FILE_VERSION"] = data["version"]
+        else:
+            newenv["PRISM_STEP"] = ""
+            newenv["PRISM_CATEGORY"] = ""
+            newenv["PRISM_USER"] = ""
+            newenv["PRISM_FILE_VERSION"] = ""
+
+        for var in newenv:
+            if newenv[var] != envvars[var]:
+                os.environ[var] = newenv[var]
+
+        self.updateProjectEnvironment()
+
+    @err_catcher(name=__name__)
+    def updateProjectEnvironment(self):
+        job = getattr(self, "projectPath", "").replace("\\", "/")
+        if job.endswith("/"):
+            job = job[:-1]
+        os.environ["PRISM_JOB"] = job
+
+        if self.useLocalFiles:
+            ljob = self.localProjectPath.replace("\\", "/")
+            if ljob.endswith("/"):
+                ljob = ljob[:-1]
+        else:
+            ljob = ""
+
+        os.environ["PRISM_JOB_LOCAL"] = ljob
 
     @err_catcher(name=__name__)
     def getFrameRange(self):

@@ -407,6 +407,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             cData["globals"]["forceResolution"] = self.chb_prjResolution.isChecked()
             cData["globals"]["resolution"] = [self.sp_prjResolutionWidth.value(), self.sp_prjResolutionHeight.value()]
             cData["globals"]["useMasterVersion"] = self.chb_curPuseMaster.isChecked()
+            cData["globals"]["useMasterRenderVersion"] = self.chb_curPuseMasterRender.isChecked()
             cData["globals"]["forceversions"] = self.gb_curPversions.isChecked()
             cData["changeProject"] = changeProject
 
@@ -709,6 +710,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 self.sp_prjResolutionHeight.setValue(gblData["resolution"][1])
             if "useMasterVersion" in gblData:
                 self.chb_curPuseMaster.setChecked(gblData["useMasterVersion"])
+            if "useMasterRenderVersion" in gblData:
+                self.chb_curPuseMasterRender.setChecked(gblData["useMasterRenderVersion"])
             if "forceversions" in gblData:
                 self.gb_curPversions.setChecked(gblData["forceversions"])
 
@@ -873,6 +876,9 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
         if platform.system() in ["Linux", "Darwin"]:
             self.chb_trayStartup.setText(self.chb_trayStartup.text() + " (change requires root permissions)")
+
+        if not self.core.debugMode:
+            self.w_useMasterRender.setVisible(False)
 
         self.core.callback(name="prismSettings_loadUI", types=["custom", "prjManagers"], args=[self])
 

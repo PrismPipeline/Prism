@@ -546,6 +546,9 @@ class ExportClass(object):
         location = self.cb_outPath.currentText()
         version = useVersion if useVersion != "next" else None
 
+        if "entityName" not in fnameData:
+            return
+
         if self.cb_outType.currentText() == "ShotCam":
             shot = self.cb_sCamShot.currentText()
             task = "_ShotCam"
@@ -565,15 +568,13 @@ class ExportClass(object):
             if not task:
                 return
 
-            # version = (
-            #     (hVersion + "-wedge`$WEDGENUM`")
-            #     if self.node and self.node.type().name() == "wedge"
-            #     else hVersion
-            # )
-
             rangeType = self.cb_rangeType.currentText()
-            framePadding = ".$F4" if rangeType != "Single Frame" else ""
             extension = self.cb_outType.currentText()
+
+            if rangeType == "Single Frame" or extension != ".obj":
+                framePadding = ""
+            else:
+                framePadding = "." + "#"*self.core.framePadding
 
             if fnameData["entity"] == "asset":
                 assetPath = self.core.getEntityBasePath(fileName)

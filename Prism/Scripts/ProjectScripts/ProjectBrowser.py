@@ -3701,6 +3701,14 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.updateVersions()
 
     @err_catcher(name=__name__)
+    def sortVersions(self, key):
+        val = key["label"]
+        if val == "master":
+            val = "zz_master"
+
+        return val
+
+    @err_catcher(name=__name__)
     def updateVersions(self):
         if not self.renderRefreshEnabled:
             return
@@ -3710,8 +3718,24 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if len(self.lw_task.selectedItems()) == 1:
             versions = self.core.mediaProducts.getMediaVersions(basepath=self.renderBasePath, product=self.curRTask)
-            for version in sorted(versions, key=lambda x: x["label"], reverse=True):
-                item = QListWidgetItem(version["label"])
+            for version in sorted(versions, key=self.sortVersions, reverse=True):
+                if version["label"] == "master":
+                    versionName = "master"
+                    versionData = self.core.paths.getRenderProductData(version["path"])
+                    if "versionpaths" in versionData:
+                        versions = []
+                        for path in versionData["versionpaths"]:
+                            vName = self.core.mediaProducts.getVersionFromVersionFolder(path)
+                            versions.append(vName)
+
+                        versionStr = ", ".join(versions)
+                        versionName = "master (%s)" % versionStr
+
+                    item = QListWidgetItem(versionName)
+                    item.setToolTip(versionName)
+                else:
+                    item = QListWidgetItem(version["label"])
+
                 item.setData(Qt.UserRole, version["path"])
                 versionInfoPath = self.getVersionInfoPath()
                 vData = self.core.getConfig("information", configPath=versionInfoPath)
@@ -4654,6 +4678,24 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 nvAct.triggered.connect(self.newExVersion)
                 rcmenu.addAction(nvAct)
 
+            useMaster = self.core.mediaProducts.getUseMaster()
+            if useMaster:
+                if itemName.startswith("master"):
+                    masterAct = QAction("Delete master", self)
+                    masterAct.triggered.connect(
+                        lambda: self.core.mediaProducts.deleteMasterVersion(path)
+                    )
+                    masterAct.triggered.connect(self.updateVersions)
+                    rcmenu.addAction(masterAct)
+                else:
+                    masterAct = QAction("Set as master", self)
+                    masterAct.triggered.connect(lambda: self.setMaster(path))
+                    rcmenu.addAction(masterAct)
+
+                    masterAct = QAction("Add to master", self)
+                    masterAct.triggered.connect(lambda: self.addMaster(path))
+                    rcmenu.addAction(masterAct)
+
         if os.path.exists(path):
             opAct = QAction("Open in Explorer", self)
             opAct.triggered.connect(lambda: self.core.openFolder(path))
@@ -4678,6 +4720,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             return False
 
         rcmenu.exec_((lw.viewport()).mapToGlobal(pos))
+
+    @err_catcher(name=__name__)
+    def setMaster(self, path):
+        self.core.mediaProducts.updateMasterVersion(path, isFilepath=False)
+        self.updateVersions()
+        QPixmapCache.clear()
+
+    @err_catcher(name=__name__)
+    def addMaster(self, path):
+        self.core.mediaProducts.addToMasterVersion(path, isFilepath=False)
+        self.updateVersions()
+        QPixmapCache.clear()
 
     @err_catcher(name=__name__)
     def sceneDragEnterEvent(self, e):

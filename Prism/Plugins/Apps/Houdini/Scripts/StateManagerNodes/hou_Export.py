@@ -1025,6 +1025,9 @@ class ExportClass(object):
         location = self.cb_outPath.currentText()
         version = useVersion if useVersion != "next" else None
 
+        if "entityName" not in fnameData:
+            return
+
         if self.cb_outType.currentText() == "ShotCam":
             shot = self.cb_sCamShot.currentText()
             task = "_ShotCam"

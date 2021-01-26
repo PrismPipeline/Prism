@@ -392,6 +392,13 @@ class PlayblastClass(object):
         return startFrame, endFrame
 
     @err_catcher(name=__name__)
+    def updateLastPath(self, path):
+        self.l_pathLast.setText(path)
+        self.l_pathLast.setToolTip(path)
+        self.b_openLast.setEnabled(True)
+        self.b_copyLast.setEnabled(True)
+
+    @err_catcher(name=__name__)
     def preExecuteState(self):
         warnings = []
 
@@ -409,15 +416,18 @@ class PlayblastClass(object):
         return [self.state.text(0), warnings]
 
     @err_catcher(name=__name__)
-    def getOutputName(self, useVersion="next"):
+    def getOutputName(self, useVersion="next", extension=None):
         if self.l_taskName.text() == "":
             return
 
         task = self.l_taskName.text()
-        extension = self.cb_formats.currentText()
+        extension = extension or self.cb_formats.currentText()
         fileName = self.core.getCurrentFileName()
         fnameData = self.core.getScenefileData(fileName)
         framePadding = "." if self.cb_rangeType.currentText() != "Single Frame" else ""
+
+        if "entityName" not in fnameData:
+            return
 
         location = "global"
         if (
@@ -462,7 +472,7 @@ class PlayblastClass(object):
 
         fileName = self.core.getCurrentFileName()
 
-        result = self.getOutputName(useVersion=useVersion)
+        result = self.getOutputName(useVersion=useVersion, extension=".jpg")
         if not result:
             return [
                 self.state.text(0)
@@ -522,11 +532,7 @@ class PlayblastClass(object):
             location=outputPath, version=hVersion, origin=fileName
         )
 
-        self.l_pathLast.setText(outputName)
-        self.l_pathLast.setToolTip(outputName)
-        self.b_openLast.setEnabled(True)
-        self.b_copyLast.setEnabled(True)
-
+        self.updateLastPath(outputName)
         self.stateManager.saveStatesToScene()
 
         self.core.saveScene(versionUp=False, prismReq=False)
@@ -551,9 +557,10 @@ class PlayblastClass(object):
                 result = self.core.media.convertMedia(inputpath, jobFrames[0], videoOutput)
 
                 if not os.path.exists(videoOutput):
+                    logger.warning("fmmpeg output: %s" % str(result))
                     return [
                         self.state.text(0)
-                        + " - error occurred during conversion of jpg files to mp4"
+                        + " - error occurred during conversion of jpg files to mp4. Check the console for more information."
                     ]
 
                 delFiles = []
@@ -568,6 +575,8 @@ class PlayblastClass(object):
                         os.remove(i)
                     except:
                         pass
+
+                self.updateLastPath(videoOutput)
 
             kwargs = {
                 "state": self,

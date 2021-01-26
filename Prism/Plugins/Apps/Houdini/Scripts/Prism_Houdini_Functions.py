@@ -1251,7 +1251,7 @@ class Prism_Houdini_Functions(object):
         for i in origin.states:
             if (
                 i.ui.className == "ImageRender"
-                and i.ui.node is not None
+                and self.isNodeValid(None, i.ui.node)
                 and i.ui.node in renderNodes
             ):
                 renderNodes.remove(i.ui.node)

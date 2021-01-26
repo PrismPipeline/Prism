@@ -35,6 +35,7 @@ import os
 import sys
 import platform
 import logging
+import time
 
 from collections import OrderedDict
 
@@ -46,6 +47,18 @@ else:
     import collections
     from ConfigParser import ConfigParser
     from StringIO import StringIO
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+
+    psVersion = 2
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+
+    psVersion = 1
 
 from PrismUtils.Decorators import err_catcher
 from PrismUtils import Lockfile
@@ -190,28 +203,28 @@ class ConfigManager(object):
         elif configPath is None:
             configPath = self.core.userini
 
-        if not configPath:
-            if dft is not None:
-                self.setConfig(cat=cat, param=param, val=dft, configPath=configPath, config=config)
-            return dft
-
-        isUserConfig = configPath == self.core.userini
-        configPath = os.path.normpath(configPath)
-
-        if isUserConfig and not os.path.exists(configPath):
-            self.createUserPrefs()
-
-        if not os.path.exists(configPath) and not self.findDeprecatedConfig(configPath):
-            if dft is not None:
-                self.setConfig(cat=cat, param=param, val=dft, configPath=configPath, config=config)
-            return dft
-
-        if os.path.splitext(configPath)[1] == ".ini":
-            configPath = self.convertDeprecatedConfig(configPath)
-
         if configPath in self.cachedConfigs:
             configData = self.cachedConfigs[configPath]
         else:
+            if not configPath:
+                if dft is not None:
+                    self.setConfig(cat=cat, param=param, val=dft, configPath=configPath, config=config)
+                return dft
+
+            isUserConfig = configPath == self.core.userini
+            configPath = os.path.normpath(configPath)
+
+            if isUserConfig and not os.path.exists(configPath):
+                self.createUserPrefs()
+
+            if not os.path.exists(configPath) and not self.findDeprecatedConfig(configPath):
+                if dft is not None:
+                    self.setConfig(cat=cat, param=param, val=dft, configPath=configPath, config=config)
+                return dft
+
+            if os.path.splitext(configPath)[1] == ".ini":
+                configPath = self.convertDeprecatedConfig(configPath)
+
             configData = self.readYaml(configPath)
             if not configData and isUserConfig:
                 warnStr = """The Prism preferences file seems to be corrupt.
@@ -224,9 +237,6 @@ You will need to set your last project again, but no project files (like scenefi
                 configData = self.readYaml(configPath)
 
             self.cachedConfigs[configPath] = configData
-
-        if configData is None:
-            configData = OrderedDict([])
 
         if param and not cat:
             cat = param
@@ -320,7 +330,7 @@ You will need to set your last project again, but no project files (like scenefi
         return d
 
     @err_catcher(name=__name__)
-    def readYaml(self, path=None, data=None, stream=None):
+    def readYaml(self, path=None, data=None, stream=None, retry=True):
         logger.debug("read from config: %s" % path)
 
         try:
@@ -336,13 +346,44 @@ You will need to set your last project again, but no project files (like scenefi
                 return yamlData
 
             lf = Lockfile.Lockfile(self.core, path)
-            lf.waitUntilReady()
+            try:
+                lf.waitUntilReady()
+            except Lockfile.LockfileException:
+                msg = "The following file is locked. It might be used by another process:\n\n%s\n\nReading from this file in a locked state can result in data loss." % path
+                result = self.core.popupQuestion(msg, buttons=["Retry", "Continue", "Cancel"], default="Cancel", icon=QMessageBox.Warning)
+                if result == "Retry":
+                    return self.readYaml(path=path, data=data, stream=stream)
+                elif result == "Continue":
+                    try:
+                        lf.forceRelease()
+                    except:
+                        msg = "Prism can't unlock the file. Make sure no other processes are using this file. You can manually unlock it by deleting the lockfile:\n\n%s\n\nCanceling to read from the file." % lf.lockPath
+                        self.core.popup(msg)
+                        return
+
+                elif result == "Cancel":
+                    return
 
             with open(path, "r") as config:
                 try:
                     yamlData = yaml.load(config)
                 except Exception as e:
-                    self.core.popup("Failed to open file: %s\n\n%s" % (path, e))
+                    if retry:
+                        time.sleep(0.5)
+                        return self.readYaml(path=path, data=data, stream=stream, retry=False)
+                    else:
+                        if os.path.exists(path):
+                            msg = "Cannot read the content of this file:\n\n%s\n\nThe file exists, but the content is not in a valid yaml format." % path
+                        else:
+                            msg = "Cannot read the content of this file because the file can't be accessed:\n\n%s" % path
+
+                        result = self.core.popupQuestion(msg, icon=QMessageBox.Warning, buttons=["Retry", "Cancel"], default="Cancel")
+                        if result == "Retry":
+                            return self.readYaml(path=path, data=data, stream=stream, retry=False)
+                        elif result == "Cancel":
+                            return
+                        else:
+                            print(result)
 
             if lf.isLocked():
                 yamlData = self.readYaml(path=path, data=data, stream=stream)
@@ -363,7 +404,7 @@ You will need to set your last project again, but no project files (like scenefi
         return yamlData
 
     @err_catcher(name=__name__)
-    def writeYaml(self, path=None, data=None, stream=None):
+    def writeYaml(self, path=None, data=None, stream=None, retry=True ):
         logger.debug("write to config: %s" % path)
         if not data:
             return
@@ -387,7 +428,15 @@ You will need to set your last project again, but no project files (like scenefi
                 if getattr(e, "errno", None) == 28:
                     self.core.popup("Not enough diskspace to save config:\n\n%s" % path)
                 else:
-                    raise
+                    if retry:
+                        time.sleep(0.5)
+                        self.writeYaml(path=path, data=data, stream=stream, retry=False)
+                    else:
+                        if getattr(e, "errno", None) == 13:
+                            msg = "No write permissions for this file:\n%s" % path
+                            result = self.core.popupQuestion(msg, icon=QMessageBox.Warning, buttons=["Retry", "Skip"], default="Skip")
+                            if result == "Retry":
+                                self.writeYaml(path=path, data=data, stream=stream, retry=False)
         else:
             if not stream:
                 stream = StringIO()
