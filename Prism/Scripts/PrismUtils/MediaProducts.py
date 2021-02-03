@@ -533,6 +533,11 @@ class MediaProducts(object):
         return self.getVersionFromVersionFolder(versionFoldername)
 
     @err_catcher(name=__name__)
+    def getVersionFromPlayblastFilepath(self, path):
+        versionFoldername = os.path.basename(os.path.dirname(path))
+        return self.getVersionFromVersionFolder(versionFoldername)
+
+    @err_catcher(name=__name__)
     def getVersionFromVersionFolder(self, versionFolder):
         versionFolder = os.path.basename(versionFolder)
         fileData = versionFolder.split(self.core.filenameSeparator)
@@ -614,7 +619,10 @@ class MediaProducts(object):
         logger.debug("updating master render version: %s" % masterPath)
 
         if not add:
-            self.deleteMasterVersion(masterPath, isFilepath=True)
+            result = self.deleteMasterVersion(masterPath, isFilepath=True)
+            if not result:
+                return
+
             masterVersions = []
         else:
             masterVersions = self.getVersionPathsFromMaster(masterPath, isFilepath=True)
@@ -661,7 +669,7 @@ class MediaProducts(object):
         if os.path.exists(path):
             try:
                 shutil.rmtree(path)
-            except PermissionError as e:
+            except Exception as e:
                 msg = "Couldn't remove the existing master version:\n\n%s" % (str(e))
                 result = self.core.popupQuestion(msg, buttons=["Retry", "Don't update master version"], icon=QMessageBox.Warning)
                 if result == "Retry":
@@ -669,7 +677,7 @@ class MediaProducts(object):
                 else:
                     return False
 
-            return True
+        return True
 
     @err_catcher(name=__name__)
     def addToMasterVersion(self, path, isFilepath=True):

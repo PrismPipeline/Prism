@@ -136,6 +136,19 @@ class Products(object):
         return versionFolder
 
     @err_catcher(name=__name__)
+    def getVersionsFromProduct(self, entity, entityName, product, locations="all"):
+        if locations == "all":
+            locations = self.core.paths.getExportProductBasePaths()
+
+        ppaths = []
+        for loc in locations:
+            ppath = self.getProductPathFromEntity(entity, entityName, product, location=loc)
+            ppaths.append(ppath)
+
+        versions = self.getVersionsFromPaths(ppaths)
+        return versions
+
+    @err_catcher(name=__name__)
     def isVersionFolderName(self, name):
         nameData = name.split(self.core.filenameSeparator)
         isValid = len(nameData) == 3 and name[0] == "v"
@@ -235,7 +248,7 @@ class Products(object):
         return versions
 
     @err_catcher(name=__name__)
-    def getVersionFromFilepath(self, path):
+    def getVersionFromFilepath(self, path, num=False):
         fileData = os.path.splitext(os.path.basename(path))[0].split(
             self.core.filenameSeparator
         )
@@ -253,7 +266,22 @@ class Products(object):
                 except:
                     pass
 
+        if fileversion and num:
+            fileversion = self.getIntVersionFromVersionName(fileversion)
+
         return fileversion
+
+    @err_catcher(name=__name__)
+    def getIntVersionFromVersionName(self, versionName):
+        if versionName.startswith("v"):
+            versionName = versionName[1:]
+
+        try:
+            version = int(versionName)
+        except:
+            return
+
+        return version
 
     @err_catcher(name=__name__)
     def getVersionNameFromFilepath(self, path):
@@ -270,6 +298,24 @@ class Products(object):
         return versionName
 
     @err_catcher(name=__name__)
+    def getLatestVersionFromVersions(self, versions):
+        latestVersion = None
+
+        if versions:
+            latestVersionName = sorted(versions, reverse=True)[0]
+            latestVersion = versions[latestVersionName]
+
+        return latestVersion
+
+    @err_catcher(name=__name__)
+    def getLatestVersionFromProductPath(self, productPath):
+        latestVersion = None
+        versions = self.getVersionsFromPath(productPath)
+        latestVersion = self.getLatestVersionFromVersions(versions)
+
+        return latestVersion
+
+    @err_catcher(name=__name__)
     def getLatestVersionFromPath(self, path):
         latestVersion = None
 
@@ -280,13 +326,26 @@ class Products(object):
         versionName = self.getVersionNameFromFilepath(path)
 
         if versionName:
-            taskPath = os.path.dirname(versionDir)
-            versions = self.getVersionsFromPath(taskPath)
-            if versions:
-                latestVersionName = sorted(versions, reverse=True)[0]
-                latestVersion = versions[latestVersionName]
+            productPath = os.path.dirname(versionDir)
+            latestVersion = self.getLatestVersionFromProductPath(productPath)
 
         return latestVersion
+
+    @err_catcher(name=__name__)
+    def getLatestVersionpathFromProduct(self, product, entity=None, entityName=None):
+        if not entity or not entityName:
+            fname = self.core.getCurrentFileName()
+            data = self.core.getScenefileData(fname)
+            entity = data["entity"]
+            entityName = data["entityName"]
+
+        path = self.getProductPathFromEntity(entity, entityName, product)
+        version = self.getLatestVersionFromProductPath(path)
+        if not version:
+            return
+
+        filepath = self.getPreferredFileFromVersion(version)
+        return filepath
 
     @err_catcher(name=__name__)
     def getPreferredFileFromVersion(self, version, preferredUnit=None, location=None):
@@ -309,6 +368,32 @@ class Products(object):
                         filepath = version["locations"][vlocation][unit]
                         filepathUnit = unit
 
+        return filepath
+
+    @err_catcher(name=__name__)
+    def getVersionpathFromProductVersion(self, product, version, entity=None, entityName=None):
+        if not entity or not entityName:
+            fname = self.core.getCurrentFileName()
+            data = self.core.getScenefileData(fname)
+            entity = data["entity"]
+            entityName = data["entityName"]
+
+        versions = self.getVersionsFromProduct(entity, entityName, product)
+        sVersion = None
+        for v in versions:
+            vdata = self.getDataFromVersionName(v)
+            vname = vdata.get("version")
+            if not vname:
+                continue
+
+            if self.getIntVersionFromVersionName(vname) == int(version):
+                sVersion = versions[v]
+                break
+
+        if not sVersion:
+            return
+
+        filepath = self.getPreferredFileFromVersion(sVersion)
         return filepath
 
     @err_catcher(name=__name__)

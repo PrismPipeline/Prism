@@ -92,20 +92,23 @@ class Prism_Nuke_Integration(object):
             )
             addedFiles = []
 
-            origMenuFile = os.path.join(integrationBase, "menu.py")
-            with open(origMenuFile, "r") as mFile:
-                initStr = mFile.read()
+            integrationFiles = ["menu.py", "init.py"]
 
-            menuFile = os.path.join(installPath, "menu.py")
-            self.core.integration.removeIntegrationData(filepath=menuFile)
+            for integrationFile in integrationFiles:
+                origMenuFile = os.path.join(integrationBase, integrationFile)
+                with open(origMenuFile, "r") as mFile:
+                    initStr = mFile.read()
 
-            with open(menuFile, "a") as initfile:
-                initStr = initStr.replace(
-                    "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
-                )
-                initfile.write(initStr)
+                menuFile = os.path.join(installPath, integrationFile)
+                self.core.integration.removeIntegrationData(filepath=menuFile)
 
-            addedFiles.append(menuFile)
+                with open(menuFile, "a") as initfile:
+                    initStr = initStr.replace(
+                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+                    )
+                    initfile.write(initStr)
+
+                addedFiles.append(menuFile)
 
             if platform.system() in ["Linux", "Darwin"]:
                 for i in addedFiles:
@@ -134,9 +137,12 @@ class Prism_Nuke_Integration(object):
                 if os.path.exists(i):
                     os.remove(i)
 
-            menu = os.path.join(installPath, "menu.py")
+            integrationFiles = ["menu.py", "init.py"]
 
-            self.core.integration.removeIntegrationData(filepath=menu)
+            for integrationFile in integrationFiles:
+                fpath = os.path.join(installPath, integrationFile)
+
+                self.core.integration.removeIntegrationData(filepath=fpath)
 
             return True
 

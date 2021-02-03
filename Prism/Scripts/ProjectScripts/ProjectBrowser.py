@@ -4340,9 +4340,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             vData = self.core.getConfig("information", configPath=path)
 
             vInfo = []
-            for i in vData:
-                i = i[0].upper() + i[1:]
-                vInfo.append([i, vData[i]])
+            for key in vData:
+                label = key[0].upper() + key[1:]
+                vInfo.append([label, vData[key]])
 
         if type(vInfo) == str or len(vInfo) == 0:
             self.core.popup(vInfo, severity="info")

@@ -55,6 +55,8 @@ from PrismUtils.Decorators import err_catcher
 
 
 class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
+    productPathSet = Signal(object)
+
     def __init__(self, core, importState=None):
         QDialog.__init__(self)
         self.setupUi(self)
@@ -310,6 +312,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 return
 
         self.productPath = path
+        self.productPathSet.emit(path)
         return True
 
     @err_catcher(name=__name__)
@@ -337,7 +340,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                         self.tw_assets.model().createIndex(-1, 0)
                     )
                     self.updateTasks()
-                path = self.core.getAssetPath()
+                path = self.core.assetPath
             else:
                 path = item.data(0, Qt.UserRole)[0]["path"]
 
@@ -439,7 +442,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
             infoAct = QAction("Show version info", self)
             infoAct.triggered.connect(
-                lambda: self.showVersionInfo(os.path.dirname(path))
+                lambda: self.showVersionInfo(os.path.dirname(os.path.dirname(path)))
             )
             rcmenu.addAction(infoAct)
 
@@ -575,7 +578,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         for basePath in assetPaths:
             for path in assetPaths[basePath]:
-                assetBase = self.core.getAssetPath().replace(self.core.projectPath, basePath)
+                assetBase = self.core.assetPath.replace(self.core.projectPath, basePath)
                 relPath = path.replace(assetBase, "")
                 pathData = relPath.split(os.sep)[1:]
 
@@ -632,7 +635,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     def getFilteredAssetPaths(self, basePaths):
         filteredAssets = {}
         assetPaths = self.core.entities.getAssetPaths()
-        omittedAssets = self.core.getConfig("asset", config="omit", dft=[])
 
         for ePath in basePaths:
             basePath = self.export_paths[ePath]
@@ -640,21 +642,13 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 basePath += os.sep
 
             for aPath in assetPaths:
-                assetPath = aPath.replace(self.core.projectPath, basePath)
+                assetPath = self.core.paths.convertExportPath(aPath, "global", ePath)
 
-                if (
-                    assetPath != basePath
-                    and assetPath.replace(basePath + os.sep, "") in omittedAssets
-                ):
+                if self.core.entities.isAssetPathOmitted(assetPath):
                     continue
 
-                taskPath = self.core.products.getProductPathFromEntityPath(assetPath)
-                tasks = []
-                for k in os.walk(taskPath):
-                    tasks += k[1]
-                    break
-
-                if len(tasks) == 0:
+                products = self.core.entities.getExportProductNamesFromAsset(assetPath)
+                if not products:
                     continue
 
                 if basePath not in filteredAssets:

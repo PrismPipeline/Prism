@@ -280,7 +280,11 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def runSanityChecks(self, cachePath):
-        result = self.checkFrameRange(cachePath)
+        result = True
+
+        if getattr(self.core.appPlugin, "hasFrameRange", True):
+            result = self.checkFrameRange(cachePath)
+
         if not result:
             return False
 
@@ -401,7 +405,7 @@ class ImportFileClass(object):
             "importfile": impFileName,
             "importedObjects": self.nodeNames,
         }
-        result = self.core.callback("postImport", **kwargs)
+        self.core.callback("postImport", **kwargs)
 
         self.stateManager.saveImports()
         self.updateUi()

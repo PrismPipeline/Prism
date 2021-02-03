@@ -445,7 +445,7 @@ You will need to set your last project again, but no project files (like scenefi
             return stream.getvalue()
 
     @err_catcher(name=__name__)
-    def readJson(self, path=None, stream=None, data=None):
+    def readJson(self, path=None, stream=None, data=None, ignoreErrors=False):
         logger.debug("read from config: %s" % path)
         import json
 
@@ -455,7 +455,13 @@ You will need to set your last project again, but no project files (like scenefi
                 return OrderedDict([])
 
             with open(path, "r") as f:
-                jsonData = json.load(f)
+                try:
+                    jsonData = json.load(f)
+                except Exception as e:
+                    if not ignoreErrors:
+                        msg = "Failed to read json config:\n\n%s\n\n%s" % (path, str(e))
+                        self.core.popup(msg)
+                        return
         else:
             if not stream:
                 if not data:
@@ -464,13 +470,16 @@ You will need to set your last project again, but no project files (like scenefi
 
             try:
                 jsonData = json.load(stream)
-            except ValueError:
-                return
+            except Exception as e:
+                if not ignoreErrors:
+                    msg = "Failed to read json config:\n\n%s\n\n%s" % (path, str(e))
+                    self.core.popup(msg)
+                    return
 
         return jsonData
 
     @err_catcher(name=__name__)
-    def writeJson(self, data, path=None, stream=None):
+    def writeJson(self, data, path=None, stream=None, indent=4):
         logger.debug("write to config: %s" % path)
         import json
 
@@ -479,12 +488,12 @@ You will need to set your last project again, but no project files (like scenefi
                 os.makedirs(os.path.dirname(path))
 
             with open(path, "w") as config:
-                json.dump(data, config, indent=4)
+                json.dump(data, config, indent=indent)
         else:
             if not stream:
                 stream = StringIO()
 
-            json.dump(data, stream, indent=4)
+            json.dump(data, stream, indent=indent)
             return stream.getvalue()
 
     @err_catcher(name=__name__)

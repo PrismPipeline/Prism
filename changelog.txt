@@ -1,3 +1,6 @@
+v1.3.0.67:
+- fixed a bug that setting the scene resolution in Maya to the project resolution could change the pixel aspect ratio
+
 v1.3.0.66:
 - added environment variables to use for other tools: PRISM_JOB, PRISM_JOB_LOCAL, PRISM_SEQUENCE, PRISM_SHOT, PRISM_ASSET, PRISM_ASSETPATH, PRISM_STEP, PRISM_CATEGORY, PRISM_USER, PRISM_FILE_VERSION
 - improved handling of unreadable configfiles

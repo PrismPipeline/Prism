@@ -10,6 +10,8 @@ Gizmo {
  addUserKnob {26 ""}
  addUserKnob {41 channels T WritePrismBase.channels}
  addUserKnob {41 file_type l "file type" T WritePrismBase.file_type}
+ addUserKnob {41 datatype l "datatype" T WritePrismBase.datatype}
+ addUserKnob {41 compression l "compression" T WritePrismBase.compression}
  addUserKnob {41 colorspace T WritePrismBase.colorspace}
  addUserKnob {26 ""}
  addUserKnob {1 fileName l filepath}

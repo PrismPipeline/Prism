@@ -455,7 +455,7 @@ class PlayblastClass(object):
 
         outputPath = outputPath.replace("\\", "/")
         outputFolder = os.path.dirname(outputPath)
-        hVersion = self.core.mediaProducts.getVersionFromFilepath(outputPath)
+        hVersion = self.core.mediaProducts.getVersionFromPlayblastFilepath(outputPath)
 
         return outputPath, outputFolder, hVersion
 

@@ -498,6 +498,21 @@ class PathManager(object):
         return path
 
     @err_catcher(name=__name__)
+    def convertExportPath(self, path, fromLocation, toLocation):
+        bases = self.getExportProductBasePaths()
+        baseFrom = bases[fromLocation]
+        baseTo = bases[toLocation]
+
+        if not baseFrom.endswith(os.sep):
+            baseFrom += os.sep
+
+        if not baseTo.endswith(os.sep):
+            baseTo += os.sep
+
+        cPath = path.replace(baseFrom, baseTo)
+        return cPath
+
+    @err_catcher(name=__name__)
     def addExportProductBasePath(self, location, path):
         exportPaths = self.getExportProductBasePaths(default=False)
         if location in exportPaths and path == exportPaths[location]:
@@ -588,3 +603,14 @@ class PathManager(object):
             replacedStr = replacedStr.replace(version, replacement)
 
         return replacedStr
+
+    @err_catcher(name=__name__)
+    def getFrameFromFilename(self, filename):
+        filename = os.path.basename(filename)
+        base, ext = os.path.splitext(filename)
+        match = re.search("[0-9]{%s}$" % self.core.framePadding, base)
+        if not match:
+            return
+
+        frame = match.group(0)
+        return frame

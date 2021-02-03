@@ -176,6 +176,15 @@ class Prism_Houdini_Filecache(object):
         sm.publish(executeState=True, useVersion=version, states=[state], successPopup=False)
 
     @err_catcher(name=__name__)
+    def getReadVersionFromNode(self, node):
+        if node.parm("latestVersionRead").eval():
+            version = "latest"
+        else:
+            version = node.parm("readVersion").evalAsString()
+
+        return version
+
+    @err_catcher(name=__name__)
     def getWriteVersionFromNode(self, node):
         if node.parm("nextVersionWrite").eval():
             version = "next"
@@ -208,8 +217,6 @@ class Prism_Houdini_Filecache(object):
 
     @err_catcher(name=__name__)
     def findExistingVersion(self, kwargs, mode):
-        version = 3
-
         import TaskSelection
 
         ts = TaskSelection.TaskSelection(core=self.core)
@@ -217,10 +224,18 @@ class Prism_Houdini_Filecache(object):
         self.core.parentWindow(widget)
         widget.setWindowTitle("Select Version")
         widget.resize(1000, 600)
+
+        ts.productPathSet.connect(lambda x, m=mode, k=kwargs: self.versionSelected(x, m, k))
+        ts.productPathSet.connect(widget.close)
+
         widget.show()
 
-        if not ts.productPath:
+    @err_catcher(name=__name__)
+    def versionSelected(self, path, mode, kwargs):
+        if not path:
             return
+
+        version = self.core.products.getVersionFromFilepath(path, num=True)
 
         if mode == "write":
             kwargs["node"].parm("nextVersionWrite").set(0)
@@ -228,5 +243,23 @@ class Prism_Houdini_Filecache(object):
         elif mode == "read":
             kwargs["node"].parm("latestVersionRead").set(0)
             kwargs["node"].parm("readVersion").set(version)
+            kwargs["node"].parm("importPath").set(path)
 
         return version
+
+    @err_catcher(name=__name__)
+    def getImportPath(self):
+        node = hou.pwd()
+        product = node.parm("task").eval()
+        version = self.getReadVersionFromNode(node)
+        if version == "latest":
+            path = self.core.products.getLatestVersionpathFromProduct(product)
+        else:
+            path = self.core.products.getVersionpathFromProductVersion(product, version)
+
+        if path:
+            path = path.replace("\\", "/")
+        else:
+            path = ""
+
+        return path

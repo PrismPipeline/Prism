@@ -824,6 +824,21 @@ class ProjectEntities(object):
         return filteredPaths
 
     @err_catcher(name=__name__)
+    def getExportProductNamesFromAsset(self, assetPath):
+        productPath = self.core.products.getProductPathFromEntityPath(assetPath)
+        pnames = []
+        for root, folders, files in os.walk(productPath):
+            pnames += folders
+            break
+
+        return pnames
+
+    @err_catcher(name=__name__)
+    def isAssetPathOmitted(self, assetPath):
+        isOmitted = not bool(self.filterOmittedAssets([assetPath]))
+        return isOmitted
+
+    @err_catcher(name=__name__)
     def isValidAssetName(self, assetName):
         if self.core.getConfig("globals", "useStrictAssetDetection"):
             return True
