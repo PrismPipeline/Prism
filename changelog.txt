@@ -1,5 +1,11 @@
 v1.3.0.67:
+- added support for the Nuke WritePrism node for commandline rendering (renderfarm)
+- added compression and datatype settings to the Nuke WritePrism node
+- fixed a bug that import state in the State Manager were not created in some cases
 - fixed a bug that setting the scene resolution in Maya to the project resolution could change the pixel aspect ratio
+- fixed a bug that alembic caches, which got applied to existing objects in Maya were not updated correctly to a new version
+- fixed an error when showing the versioninfo of 2d rendering in the Project Browser in some cases
+- changed the default namespace in Maya for imported/referenced objects to include the sequencename
 
 v1.3.0.66:
 - added environment variables to use for other tools: PRISM_JOB, PRISM_JOB_LOCAL, PRISM_SEQUENCE, PRISM_SHOT, PRISM_ASSET, PRISM_ASSETPATH, PRISM_STEP, PRISM_CATEGORY, PRISM_USER, PRISM_FILE_VERSION
