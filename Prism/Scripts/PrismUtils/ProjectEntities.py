@@ -866,9 +866,12 @@ class ProjectEntities(object):
         data["filename"] = fileName
 
         if len(fname) == 6:
+            basepath = self.core.paths.getEntityBasePath(fileName)
+            relpath = self.getAssetRelPathFromPath(basepath)
             data.update({
                 "entity": "asset",
                 "entityName": fname[0],
+                "fullEntityName": relpath,
                 "step": fname[1],
                 "category": "",
                 "version": fname[2],
@@ -878,9 +881,12 @@ class ProjectEntities(object):
             })
 
         elif len(fname) == 7:
+            basepath = self.core.paths.getEntityBasePath(fileName)
+            relpath = self.getAssetRelPathFromPath(basepath)
             data.update({
                 "entity": "asset",
                 "entityName": fname[0],
+                "fullEntityName": relpath,
                 "step": fname[1],
                 "category": fname[2],
                 "version": fname[3],
@@ -893,6 +899,7 @@ class ProjectEntities(object):
             data.update({
                 "entity": "shot",
                 "entityName": fname[1],
+                "fullEntityName": fname[1],
                 "step": fname[2],
                 "category": fname[3],
                 "version": fname[4],

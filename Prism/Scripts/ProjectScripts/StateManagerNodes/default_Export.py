@@ -538,9 +538,6 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
-        if self.cb_outType.currentText() == ".hda":
-            return self.getHDAOutputName(useVersion)
-
         fileName = self.core.getCurrentFileName()
         fnameData = self.core.getScenefileData(fileName)
         location = self.cb_outPath.currentText()

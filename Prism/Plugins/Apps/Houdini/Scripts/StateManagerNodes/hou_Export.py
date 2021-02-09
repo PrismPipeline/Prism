@@ -627,11 +627,17 @@ class ExportClass(object):
                 if frange:
                     startFrame, endFrame = frange
         elif rangeType == "Node" and self.node:
-            try:
-                startFrame = self.node.parm("f1").eval()
-                endFrame = self.node.parm("f2").eval()
-            except:
-                pass
+            if self.isPrismFilecacheNode(self.node):
+                if self.node.parm("framerange").eval() == 0:
+                    startFrame = self.core.appPlugin.getCurrentFrame()
+                    endFrame = startFrame
+
+            if not startFrame:
+                try:
+                    startFrame = self.node.parm("f1").eval()
+                    endFrame = self.node.parm("f2").eval()
+                except:
+                    pass
         elif rangeType == "Single Frame":
             startFrame = self.core.appPlugin.getCurrentFrame()
         elif rangeType == "Custom":

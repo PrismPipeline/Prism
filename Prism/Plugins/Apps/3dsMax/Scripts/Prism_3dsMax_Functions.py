@@ -1176,10 +1176,15 @@ obj.modifiers[1].gizmo.scale = [100,100,100]
 
         self.executeScript(
             origin,
-            """
+        """
 dnSendKeys = (dotNetClass "System.Windows.Forms.SendKeys")
 dnmarshal = (dotNetClass "System.Runtime.InteropServices.Marshal")
 insidedialog = false
+global createPreviewVersion =(maxVersion())[1]
+global pathstring = \"%s\"
+global rStart = %s
+global rEnd = %s
+global sceneFps = frameRate
 
 fn setoutput =
 (
@@ -1241,26 +1246,31 @@ fn setoutput =
 	return true
 )
 
+
 tmpanimrange = [animationrange.start, animationrange.end]
-animationrange = interval %s %s
-insidedialog = False
+animationrange = interval rStart rEnd
 ViewCubeOps.Visibility = false
-DialogMonitorOPS.Enabled = true
-DialogMonitorOPS.RegisterNotification setoutput id:#myoutput
-actionMan.executeAction 0 "40033"
-CreatePreview outputAVI:False percentsize:100 start:%s end:%s skip:1 fps:24 dspGeometry:True dspShapes:False dspLights:False dspCameras:False dspHelpers:False dspParticles:True dspBones:False dspGrid:False dspSafeFrame:False dspFrameNums:False dspBkg:True
-DialogMonitorOPS.UnRegisterNotification  id:#myoutput
-DialogMonitorOPS.Enabled = false
+    if createPreviewVersion<22000 then
+    (
+        DialogMonitorOPS.Enabled = true
+        DialogMonitorOPS.RegisterNotification setoutput id:#myoutput
+        max preview
+        CreatePreview outputAVI:False percentsize:100 start:rStart end:rEnd skip:1 fps:sceneFps dspGeometry:True dspShapes:False dspLights:False dspCameras:False dspHelpers:False dspParticles:True dspBones:False dspGrid:False dspSafeFrame:False dspFrameNums:False dspBkg:True
+        DialogMonitorOPS.UnRegisterNotification  id:#myoutput
+        DialogMonitorOPS.Enabled = false
+    )
+    else
+    (
+        CreatePreview filename:pathstring outputAVI:False percentsize:100 start:rStart end:rEnd skip:1 fps:sceneFps dspGeometry:True dspShapes:False dspLights:False dspCameras:False dspHelpers:False dspParticles:True dspBones:False dspGrid:False dspSafeFrame:False dspFrameNums:False dspBkg:True
+    )
 ViewCubeOps.Visibility = True
 animationrange = interval tmpanimrange.x tmpanimrange.y
-
 """
-            % (
-                outputName.replace("\\", "\\\\"),
-                jobFrames[0],
-                jobFrames[1],
-                jobFrames[0],
-                jobFrames[1],
+        % (
+            outputName.replace("\\", "\\\\"),
+            jobFrames[0],
+            jobFrames[1],
+            outputName.replace("\\", "\\\\"),
             ),
         )
 

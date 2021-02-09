@@ -555,6 +555,14 @@ class Prism_Photoshop_Functions(object):
         if not self.core.users.ensureUser():
             return False
 
+        curfile = self.core.getCurrentFileName()
+        fname = self.core.getScenefileData(curfile)
+
+        if fname["entity"] == "invalid":
+            entityType = "context"
+        else:
+            entityType = fname["entity"]
+
         self.dlg_export = QDialog()
         self.core.parentWindow(self.dlg_export)
         self.dlg_export.setWindowTitle("Prism - Export image")
@@ -562,10 +570,7 @@ class Prism_Photoshop_Functions(object):
         lo_export = QVBoxLayout()
         self.dlg_export.setLayout(lo_export)
 
-        curfile = self.core.getCurrentFileName()
-        fname = self.core.getScenefileData(curfile)
-
-        self.rb_task = QRadioButton("Export into current %s" % fname["entity"])
+        self.rb_task = QRadioButton("Export into current %s" % entityType)
         self.w_task = QWidget()
         lo_prismExport = QVBoxLayout()
         lo_task = QHBoxLayout()

@@ -384,48 +384,52 @@ class ImportFileClass(object):
         self.fileNode = self.importTarget.createNode("alembic")
         self.fileNode.moveToGoodPosition()
         self.fileNode.parm("fileName").set(importPath)
-        self.fileNode.parm("loadmode").set(1)
-        self.fileNode.parm("polysoup").set(0)
+        if not self.isPrismImportNode(self.node):
+            self.fileNode.parm("loadmode").set(1)
+            self.fileNode.parm("polysoup").set(0)
         self.fileNode.parm("groupnames").set(4)
 
     @err_catcher(name=__name__)
     def importFBX(self, importPath, taskName):
-        self.node.destroy()
+        if self.isPrismImportNode(self.node):
+            self.importFile(importPath, taskName)
+        else:
+            self.node.destroy()
 
-        tlSettings = [hou.frame()]
-        tlSettings += hou.playbar.playbackRange()
+            tlSettings = [hou.frame()]
+            tlSettings += hou.playbar.playbackRange()
 
-        node = hou.hipFile.importFBX(importPath)[0]
-        self.setNode(node)
+            node = hou.hipFile.importFBX(importPath)[0]
+            self.setNode(node)
 
-        if not self.node:
-            self.core.popup("Import failed.")
-            self.updateUi()
-            self.stateManager.saveStatesToScene()
-            return
+            if not self.node:
+                self.core.popup("Import failed.")
+                self.updateUi()
+                self.stateManager.saveStatesToScene()
+                return
 
-        self.core.appPlugin.setFrameRange(tlSettings[1], tlSettings[2], tlSettings[0])
+            self.core.appPlugin.setFrameRange(tlSettings[1], tlSettings[2], tlSettings[0])
 
-        self.node.setName("IMPORT_" + taskName, unique_name=True)
-        fbxObjs = [
-            x for x in self.node.children() if x.type().name() == "geo"
-        ]
-        mergeGeo = self.importTarget.createNode("geo", "FBX_Objects")
-        mergeGeo.moveToGoodPosition()
-        if len(mergeGeo.children()) > 0:
-            mergeGeo.children()[0].destroy()
-        self.fileNode = mergeGeo.createNode("merge", "Merged_Objects")
-        self.fileNode.moveToGoodPosition()
-        for i in fbxObjs:
-            i.setDisplayFlag(False)
-            objmerge = mergeGeo.createNode("object_merge", i.name())
-            objmerge.moveToGoodPosition()
-            objmerge.parm("objpath1").set(i.path())
-            objmerge.parm("xformtype").set(1)
-            self.fileNode.setNextInput(objmerge)
+            self.node.setName("IMPORT_" + taskName, unique_name=True)
+            fbxObjs = [
+                x for x in self.node.children() if x.type().name() == "geo"
+            ]
+            mergeGeo = self.importTarget.createNode("geo", "FBX_Objects")
+            mergeGeo.moveToGoodPosition()
+            if len(mergeGeo.children()) > 0:
+                mergeGeo.children()[0].destroy()
+            self.fileNode = mergeGeo.createNode("merge", "Merged_Objects")
+            self.fileNode.moveToGoodPosition()
+            for i in fbxObjs:
+                i.setDisplayFlag(False)
+                objmerge = mergeGeo.createNode("object_merge", i.name())
+                objmerge.moveToGoodPosition()
+                objmerge.parm("objpath1").set(i.path())
+                objmerge.parm("xformtype").set(1)
+                self.fileNode.setNextInput(objmerge)
 
-        mergeGeo.layoutChildren()
-        self.node.layoutChildren()
+            mergeGeo.layoutChildren()
+            self.node.layoutChildren()
 
     @err_catcher(name=__name__)
     def importRedshiftProxy(self, importPath, taskName):
@@ -753,6 +757,7 @@ class ImportFileClass(object):
             statusColor = QColor(0, 0, 0, 0)
 
         self.statusColor = statusColor
+        self.stateManager.tw_import.repaint()
 
     @err_catcher(name=__name__)
     def updateUi(self):

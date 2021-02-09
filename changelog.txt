@@ -1,3 +1,12 @@
+v1.3.0.68:
+- added the -writeUvSets flag to the alembic export of Maya objects
+- fixed a bug that applying alembic caches multiple times from the same import state in Maya didn't work correctly
+- fixed the 3dsMax playblast state for 3dsMax 2020 and 2021
+- fixed a problem that the Prism menu was not visible in Houdini Core
+- fixed a bug that the SaveComment dialog didn't open in Photoshop in some cases
+- changed the default to not set the Maya project to the Prism project fro new Prism installations
+- disabled the autosave popup in Maya 2020 because it could cause random Maya crashes
+
 v1.3.0.67:
 - added support for the Nuke WritePrism node for commandline rendering (renderfarm)
 - added compression and datatype settings to the Nuke WritePrism node

@@ -184,7 +184,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.67"
+            self.version = "v1.3.0.68"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -1680,9 +1680,12 @@ License: GNU GPL-3.0-or-later<br>
                 os.remove(modPath)
             import SaveComment
 
-        savec = SaveComment.SaveComment(core=self)
-        savec.accepted.connect(lambda: self.saveWithCommentAccepted(savec))
-        savec.show()
+        self.savec = SaveComment.SaveComment(core=self)
+        self.savec.accepted.connect(lambda: self.saveWithCommentAccepted(self.savec))
+
+        self.savec.show()
+        self.savec.activateWindow()
+        return True
 
     @err_catcher(name=__name__)
     def saveWithCommentAccepted(self, dlg):
@@ -2503,7 +2506,7 @@ License: GNU GPL-3.0-or-later<br>
         return result
 
     @err_catcher(name=__name__)
-    def popupNoButton(self, text, title=None, buttons=None, default=None, icon=None, parent=None):
+    def popupNoButton(self, text, title=None, buttons=None, default=None, icon=None, parent=None, show=True):
         text = str(text)
         title = str(title or "Prism")
 
@@ -2526,14 +2529,18 @@ License: GNU GPL-3.0-or-later<br>
         for i in msg.buttons():
             i.setVisible(False)
         msg.setModal(False)
-        msg.show()
-        QCoreApplication.processEvents()
+        if show:
+            msg.show()
+            QCoreApplication.processEvents()
 
         return msg
 
-    class waitPopup(object):
-        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None, hidden=False, parent=None):
+    class waitPopup(QObject):
+        canceled = Signal()
+
+        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None, hidden=False, parent=None, allowCancel=False):
             self.core = core
+            super(self.core.waitPopup, self).__init__()
             self.parent = parent
             self.text = text
             self.title = title
@@ -2541,6 +2548,7 @@ License: GNU GPL-3.0-or-later<br>
             self.default = default
             self.icon = icon
             self.hidden = hidden
+            self.allowCancel = allowCancel
             self.msg = None
 
         def __enter__(self):
@@ -2550,12 +2558,32 @@ License: GNU GPL-3.0-or-later<br>
         def __exit__(self, type, value, traceback):
             self.close()
 
+        def createPopup(self):
+            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon, parent=self.parent, show=False)
+
         def show(self):
-            self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon, parent=self.parent)
+            self.createPopup()
+            self.msg.show()
+            QCoreApplication.processEvents()
+
+        def exec_(self):
+            self.createPopup()
+            for button in self.msg.buttons():
+                button.setVisible(self.allowCancel)
+
+        #    if self.allowCancel:
+        #        self.msg.canceled.connect(self.canceled)
+
+            result = self.msg.exec_()
+            if result:
+                self.cancel()
 
         def close(self):
             if self.msg and self.msg.isVisible():
                 self.msg.close()
+
+        def cancel(self):
+            self.canceled.emit()
 
     def writeErrorLog(self, text):
         try:

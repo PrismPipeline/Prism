@@ -147,3 +147,12 @@ class Prism_Houdini_ImportFile(object):
             }
             state = sm.createState("Folder", stateData=stateData)
             return state
+
+    @err_catcher(name=__name__)
+    def getNodeDescription(self):
+        node = hou.pwd()
+        task = node.parm("task").eval()
+        version = node.parm("version").eval()
+
+        descr = task + "\n" + version
+        return descr

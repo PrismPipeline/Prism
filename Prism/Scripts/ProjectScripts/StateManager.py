@@ -1541,7 +1541,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             actionString = "Publish"
             actionString2 = "publish"
 
-        if not [x for x in self.execStates if x.checkState(0) == Qt.Checked]:
+        if not executeState and not [x for x in self.execStates if x.checkState(0) == Qt.Checked]:
             self.core.popup("No states to publish.")
             return
 

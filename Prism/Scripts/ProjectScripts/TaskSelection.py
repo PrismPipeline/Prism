@@ -32,6 +32,7 @@
 
 
 import os
+import sys
 import shutil
 
 from collections import OrderedDict
@@ -45,6 +46,10 @@ except:
     from PySide.QtCore import *
     from PySide.QtGui import *
     psVersion = 1
+
+uiPath = os.path.join(os.path.dirname(__file__), "UserInterfaces")
+if uiPath not in sys.path:
+    sys.path.append(uiPath)
 
 if psVersion == 1:
     import TaskSelection_ui
@@ -68,6 +73,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         self.curTask = None
         self.adclick = False
         self.autoClose = True
+        self.handleImport = True
         self.preferredUnit = getattr(self.importState, "preferredUnit", "meter")
         self.export_paths = self.core.paths.getExportProductBasePaths()
 
@@ -270,7 +276,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             if result:
                 if self.autoClose:
                     self.close()
-                else:
+                elif self.handleImport:
                     self.importFile()
 
     @err_catcher(name=__name__)
@@ -300,7 +306,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 if self.autoClose:
                     self.closing = True
                     self.close()
-                else:
+                elif self.handleImport:
                     self.importFile()
 
     @err_catcher(name=__name__)
@@ -402,12 +408,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 path = self.tw_versions.model().index(row, pathC).data()
                 showInfo = True
 
-        rcmenu = QMenu(self)
-        openex = QAction("Open in Explorer", self)
+        rcmenu = QMenu(viewUi)
+        openex = QAction("Open in Explorer", viewUi)
         openex.triggered.connect(lambda: self.core.openFolder(path))
         rcmenu.addAction(openex)
 
-        copAct = QAction("Copy path", self)
+        copAct = QAction("Copy path", viewUi)
         copAct.triggered.connect(lambda: self.core.copyToClipboard(path))
         rcmenu.addAction(copAct)
 
@@ -417,14 +423,14 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 column = self.versionLabels.index("Version")
                 version = self.tw_versions.item(row, column).text()
                 if version.startswith("master"):
-                    masterAct = QAction("Delete master", self)
+                    masterAct = QAction("Delete master", viewUi)
                     masterAct.triggered.connect(
                         lambda: self.core.products.deleteMasterVersion(path)
                     )
                     masterAct.triggered.connect(self.updateVersions)
                     rcmenu.addAction(masterAct)
                 else:
-                    masterAct = QAction("Set as master", self)
+                    masterAct = QAction("Set as master", viewUi)
                     masterAct.triggered.connect(
                         lambda: self.core.products.updateMasterVersion(path)
                     )
@@ -435,12 +441,12 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                 column = self.versionLabels.index("Location")
                 location = self.tw_versions.item(row, column).text()
                 if "local" in location and "global" not in location:
-                    glbAct = QAction("Move to global", self)
+                    glbAct = QAction("Move to global", viewUi)
                     versionDir = os.path.dirname(os.path.dirname(path))
                     glbAct.triggered.connect(lambda: self.moveToGlobal(versionDir))
                     rcmenu.addAction(glbAct)
 
-            infoAct = QAction("Show version info", self)
+            infoAct = QAction("Show version info", viewUi)
             infoAct.triggered.connect(
                 lambda: self.showVersionInfo(os.path.dirname(os.path.dirname(path)))
             )
@@ -451,7 +457,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
             if not os.path.exists(infoPath):
                 self.core.configs.findDeprecatedConfig(infoPath)
 
-            depAct = QAction("Show dependencies", self)
+            depAct = QAction("Show dependencies", viewUi)
             depAct.triggered.connect(
                 lambda: self.core.dependencyViewer(infoPath, modal=True)
             )
@@ -832,10 +838,11 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         row = self.tw_versions.rowCount()
         self.tw_versions.insertRow(row)
 
-        if versionName.startswith("master"):
+        if versionName.startswith("master") and sys.version[0] != "2":
             item = MasterItem(versionName)
         else:
             item = QTableWidgetItem(versionName)
+
         item.setTextAlignment(Qt.Alignment(Qt.AlignCenter))
         rowItems = 0
         self.tw_versions.setItem(row, rowItems, item)
@@ -1030,6 +1037,92 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                         self.tw_versions.selectRow(i)
                         return True
             return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def navigateToEntity(self, entity, entityName):
+        if entity == "asset":
+            result = self.navigateToAsset(entityName)
+        elif entity == "shot":
+            result = self.navigateToShot(entityName)
+
+        return result
+
+    @err_catcher(name=__name__)
+    def navigateToAsset(self, assetName):
+        self.tbw_entity.setCurrentIndex(0)
+
+        hierarchy = assetName.split(os.sep)
+        hItem = self.tw_assets.findItems(hierarchy[0], Qt.MatchExactly, 0)
+        if len(hItem) == 0:
+            return False
+
+        hItem = hItem[-1]
+        hItem.setExpanded(True)
+
+        if len(hierarchy) > 1:
+            for idx, i in enumerate(hierarchy[1:]):
+                for k in range(hItem.childCount() - 1, -1, -1):
+                    if hItem.child(k).text(0) == i:
+                        hItem = hItem.child(k)
+                        if len(hierarchy) > (idx + 2):
+                            hItem.setExpanded(True)
+                        break
+                else:
+                    break
+
+        self.tw_assets.setCurrentItem(hItem)
+        return True
+
+    @err_catcher(name=__name__)
+    def navigateToShot(self, shotName):
+        self.tbw_entity.setCurrentIndex(1)
+        shotName, seqName = self.core.entities.splitShotname(shotName)
+
+        for seqNum in range(self.tw_shots.topLevelItemCount()):
+            seqItem = self.tw_shots.topLevelItem(seqNum)
+            if seqItem.text(0) == seqName:
+                seqItem.setExpanded(True)
+                for shotNum in range(seqItem.childCount()):
+                    shotItem = seqItem.child(shotNum)
+                    if shotItem.text(0) == shotName:
+                        self.tw_shots.setCurrentItem(shotItem)
+                        return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def navigateToProduct(self, product, entity=None, entityName=None):
+        if entity and entityName:
+            result = self.navigateToEntity(entity, entityName)
+            if not result:
+                return False
+
+        self.updateTasks()
+        if product == "_ShotCam":
+            product = "ShotCam"
+
+        matchingItems = self.lw_tasks.findItems(product, Qt.MatchExactly)
+        if matchingItems:
+            self.lw_tasks.setCurrentItem(matchingItems[0])
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def navigateToVersion(self, version, entity=None, entityName=None, product=None):
+        if product:
+            result = self.navigateToProduct(product, entity, entityName)
+            if not result:
+                return False
+
+        self.updateVersions()
+
+        for versionNum in range(self.tw_versions.model().rowCount()):
+            if self.tw_versions.model().index(versionNum, 0).data() == version:
+                self.tw_versions.selectRow(versionNum)
+                return True
 
         return False
 

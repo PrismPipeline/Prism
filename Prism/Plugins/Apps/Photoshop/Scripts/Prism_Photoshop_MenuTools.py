@@ -65,7 +65,7 @@ if hasattr(pcore.appPlugin, "psApp") or platform.system() == "Darwin":
     elif sys.argv[1] == "SaveVersion":
         pcore.saveScene()
     elif sys.argv[1] == "SaveComment":
-        pcore.saveWithComment()
+        result = pcore.saveWithComment()
     elif sys.argv[1] == "Export":
         result = pcore.appPlugin.exportImage()
     elif sys.argv[1] == "ProjectBrowser":

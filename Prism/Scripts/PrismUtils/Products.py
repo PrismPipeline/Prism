@@ -85,6 +85,16 @@ class Products(object):
         return products
 
     @err_catcher(name=__name__)
+    def getProductsFromEntity(self, entity, entityName):
+        if entity == "asset":
+            entityPath = self.core.paths.getEntityPath(asset=entityName)
+        elif entity == "shot":
+            entityPath = self.core.paths.getEntityPath(shot=entityName)
+
+        products = self.getProductsFromEntityPath(entityPath)
+        return products
+
+    @err_catcher(name=__name__)
     def getProductsFromEntityPath(self, path):
         productPath = self.getProductPathFromEntityPath(path)
         products = self.getProductsFromPath(productPath)
@@ -249,17 +259,21 @@ class Products(object):
 
     @err_catcher(name=__name__)
     def getVersionFromFilepath(self, path, num=False):
-        fileData = os.path.splitext(os.path.basename(path))[0].split(
+        fileDataFirst = os.path.splitext(os.path.basename(path))[0].split(
             self.core.filenameSeparator
         )
+        fileData = []
+        for data in fileDataFirst:
+            fileData += data.split(".")
+
         fileversion = None
         for data in fileData:
             try:
-                num = int(data[1:])
+                ver = int(data[1:])
             except:
-                num = None
+                ver = None
 
-            if len(data) == (self.core.versionPadding+1) and data[0] == "v" and num:
+            if len(data) == (self.core.versionPadding+1) and data[0] == "v" and ver:
                 try:
                     fileversion = data
                     break
@@ -337,7 +351,9 @@ class Products(object):
             fname = self.core.getCurrentFileName()
             data = self.core.getScenefileData(fname)
             entity = data["entity"]
-            entityName = data["entityName"]
+            if entity == "invalid":
+                return
+            entityName = data["fullEntityName"]
 
         path = self.getProductPathFromEntity(entity, entityName, product)
         version = self.getLatestVersionFromProductPath(path)
@@ -376,7 +392,9 @@ class Products(object):
             fname = self.core.getCurrentFileName()
             data = self.core.getScenefileData(fname)
             entity = data["entity"]
-            entityName = data["entityName"]
+            if entity == "invalid":
+                return
+            entityName = data["fullEntityName"]
 
         versions = self.getVersionsFromProduct(entity, entityName, product)
         sVersion = None

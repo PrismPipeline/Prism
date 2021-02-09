@@ -448,6 +448,7 @@ class ImportFileClass(object):
             statusColor = QColor(0, 0, 0, 0)
 
         self.statusColor = statusColor
+        self.stateManager.tw_import.repaint()
 
     @err_catcher(name=__name__)
     def updateUi(self):
@@ -477,7 +478,9 @@ class ImportFileClass(object):
                 else:
                     self.b_importLatest.setPalette(self.updatePalette)
             else:
-                if latestVersion:
+                if curVersion and latestVersion:
+                    status = "ok"
+                elif self.nodes:
                     status = "ok"
 
                 if useSS:
