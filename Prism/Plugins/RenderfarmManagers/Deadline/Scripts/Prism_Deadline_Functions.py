@@ -430,6 +430,9 @@ class Prism_Deadline_Functions(object):
     def sm_render_submitJob(self, origin, jobOutputFile, parent):
         if self.core.appPlugin.pluginName == "Houdini":
             jobOutputFile = jobOutputFile.replace("$F4", "#"*self.core.framePadding)
+            jobOutputFile = hou.expandString(jobOutputFile)
+            if jobOutputFile.startswith("\\") and not jobOutputFile.startswith("\\\\"):
+                jobOutputFile = "\\" + jobOutputFile
 
         homeDir = (
             self.deadlineCommand(["-GetCurrentUserHomeDirectory"], background=False)
@@ -448,6 +451,9 @@ class Prism_Deadline_Functions(object):
             jobOutputFile = origin.curRenderer.getNsiOutputPath(origin, jobOutputFileOrig)
             if self.core.appPlugin.pluginName == "Houdini":
                 jobOutputFile = jobOutputFile.replace("$F4", "#"*self.core.framePadding)
+                jobOutputFile = hou.expandString(jobOutputFile)
+                if jobOutputFile.startswith("\\") and not jobOutputFile.startswith("\\\\"):
+                    jobOutputFile = "\\" + jobOutputFile
         else:
             renderNSIs = False
 

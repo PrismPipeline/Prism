@@ -112,9 +112,14 @@ class Prism_Houdini_ImportFile(object):
             comment = ""
             user = ""
 
+        versionLabel = data.get("version", "")
+        versionName = self.core.products.getVersionNameFromFilepath(path)
+        if versionName == "master":
+            versionLabel = self.core.products.getMasterVersionLabel(path)
+
         kwargs["node"].parm("entity").set(data.get("fullEntity"))
         kwargs["node"].parm("task").set(task)
-        kwargs["node"].parm("version").set(data.get("version", ""))
+        kwargs["node"].parm("version").set(versionLabel)
         kwargs["node"].parm("comment").set(comment)
         kwargs["node"].parm("user").set(user)
         kwargs["node"].parm("date").set(date)

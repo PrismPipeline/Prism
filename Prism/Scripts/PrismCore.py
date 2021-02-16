@@ -184,7 +184,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.68"
+            self.version = "v1.3.0.69"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -737,7 +737,7 @@ class PrismCore:
             if self.appPlugin.pluginName != "Standalone" and self.useOnTop:
                 win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
-        if not self.parentWindows or not self.uiAvailable:
+        if (not parent and not self.parentWindows) or not self.uiAvailable:
             return
 
         parent = parent or self.messageParent
@@ -808,6 +808,7 @@ License: GNU GPL-3.0-or-later<br>
         fbDlg.b_addScreenGrab.clicked.connect(lambda: self.attachScreenGrab(fbDlg))
         fbDlg.b_removeScreenGrab.clicked.connect(lambda: self.removeScreenGrab(fbDlg))
         fbDlg.b_removeScreenGrab.setVisible(False)
+        fbDlg.resize(900*self.core.uiScaleFactor, 500*self.core.uiScaleFactor)
         fbDlg.origSize = fbDlg.size()
 
         result = fbDlg.exec_()
@@ -2411,6 +2412,20 @@ License: GNU GPL-3.0-or-later<br>
             warnDlg.exec_()
 
     @err_catcher(name=__name__)
+    def isPopupTooLong(self, text):
+        rows = text.split("\n")
+        tooLong = len(rows) > 50
+        return tooLong
+
+    @err_catcher(name=__name__)
+    def shortenPopupMsg(self, text):
+        rows = text.split("\n")
+        rows = rows[:50]
+        shortText = "\n".join(rows)
+        shortText += "\n..."
+        return shortText
+
+    @err_catcher(name=__name__)
     def popup(self, text, title=None, severity="warning", notShowAgain=False, parent=None, modal=True):
         if title is None:
             if severity == "warning":
@@ -2436,6 +2451,8 @@ License: GNU GPL-3.0-or-later<br>
         if "silent" not in self.prismArgs and self.uiAvailable and isGuiThread:
             parent = parent or getattr(self, "messageParent", None)
             msg = QMessageBox(parent)
+            if self.isPopupTooLong(text):
+                text = self.shortenPopupMsg(text)
             msg.setText(text)
             msg.setWindowTitle(title)
             msg.setModal(modal)
@@ -2632,6 +2649,8 @@ License: GNU GPL-3.0-or-later<br>
                     with open(userErPath, "a") as erLog:
                         erLog.write(text)
 
+                self.lastErrorTime = time.time()
+
         except:
             msg = "ERROR - writeErrorLog - %s\n\n%s" % (traceback.format_exc(), text)
             logger.warning(msg)
@@ -2770,6 +2789,200 @@ If this plugin is an official Prism plugin, please submit this error to the deve
             os.remove(attachment)
         except Exception:
             pass
+
+    @err_catcher(name=__name__)
+    def copyFile(self, source, destination, adminFallback=True):
+        try:
+            shutil.copy2(source, destination)
+            return True
+        except PermissionError:
+            if adminFallback and platform.system() == "Windows":
+                return self.copyFileAsAdmin(source, destination)
+
+        return False
+
+    @err_catcher(name=__name__)
+    def removeFile(self, path, adminFallback=True):
+        try:
+            os.remove(path)
+            return True
+        except PermissionError:
+            if adminFallback and platform.system() == "Windows":
+                return self.removeFileAsAdmin(path)
+
+        return False
+
+    @err_catcher(name=__name__)
+    def writeToFile(self, path, text, adminFallback=True):
+        try:
+            with open(path, "w") as f:
+                f.write(text)
+            return True
+        except PermissionError:
+            if adminFallback and platform.system() == "Windows":
+                return self.writeToFileAsAdmin(path, text)
+
+        return False
+
+    @err_catcher(name=__name__)
+    def createDirectory(self, path, adminFallback=True):
+        try:
+            os.makedirs(path)
+            return True
+        except PermissionError:
+            if adminFallback and platform.system() == "Windows":
+                return self.createFolderAsAdmin(path)
+
+        return False
+
+    @err_catcher(name=__name__)
+    def getCopyFileCmd(self, source, destination):
+        source = source.replace("\\", "/")
+        destination = destination.replace("\\", "/")
+        cmd = "import shutil;shutil.copy2('%s', '%s')" % (source, destination)
+        return cmd
+
+    @err_catcher(name=__name__)
+    def copyFileAsAdmin(self, source, destination):
+        cmd = self.getCopyFileCmd(source, destination)
+        self.winRunAsAdmin(cmd)
+        result = self.validateCopyFile(source, destination)
+        return result
+
+    @err_catcher(name=__name__)
+    def validateCopyFile(self, source, destination):
+        result = os.path.exists(destination)
+        return result
+
+    @err_catcher(name=__name__)
+    def getRemoveFileCmd(self, path):
+        cmd = "import os;os.remove('%s')" % path.replace("\\", "/")
+        return cmd
+
+    @err_catcher(name=__name__)
+    def removeFileAsAdmin(self, path):
+        cmd = self.getRemoveFileCmd(path)
+        self.winRunAsAdmin(cmd)
+        result = self.validateRemoveFile(path)
+        return result
+
+    @err_catcher(name=__name__)
+    def validateRemoveFile(self, path):
+        result = not os.path.exists(path)
+        return result
+
+    @err_catcher(name=__name__)
+    def getWriteToFileCmd(self, path, text):
+        tempPath = tempfile.NamedTemporaryFile().name
+        self.writeToFile(tempPath, text, adminFallback=False)
+        cmd = self.getCopyFileCmd(tempPath, path)
+        return cmd
+
+    @err_catcher(name=__name__)
+    def writeToFileAsAdmin(self, path, text):
+        tempPath = tempfile.NamedTemporaryFile().name
+        self.writeToFile(tempPath, text, adminFallback=False)
+        result = self.copyFileAsAdmin(tempPath, path)
+        os.remove(tempPath)
+        return result
+
+    @err_catcher(name=__name__)
+    def validateWriteToFile(self, path, text):
+        with open(path, "r") as f:
+            data = f.read()
+
+        result = data == text
+        return result
+
+    @err_catcher(name=__name__)
+    def getCreateFolderCmd(self, path):
+        cmd = "import os;os.makedirs('%s')" % path.replace("\\", "/")
+        return cmd
+
+    @err_catcher(name=__name__)
+    def createFolderAsAdmin(self, path):
+        cmd = self.getCreateFolderCmd(path)
+        self.winRunAsAdmin(cmd)
+        result = self.validateCreateFolder(path)
+        return result
+
+    @err_catcher(name=__name__)
+    def validateCreateFolder(self, path):
+        result = os.path.exists(path)
+        return result
+
+    @err_catcher(name=__name__)
+    def winRunAsAdmin(self, script):
+        if platform.system() != "Windows":
+            return
+
+        cmd = 'Start-Process "%s" -ArgumentList @("-c", "`"%s`"") -Verb RunAs -Wait' % (sys.executable, script)
+        logger.debug("powershell command: %s" % cmd)
+        prog = subprocess.Popen(['Powershell', '-command', cmd])
+        prog.communicate()
+
+    @err_catcher(name=__name__)
+    def runFileCommands(self, commands):
+        for command in commands:
+            result = self.runFileCommand(command)
+            if result is not True:
+                break
+        else:
+            return True
+
+        cmd = ""
+        for command in commands:
+            cmd += self.getFileCommandStr(command) + ";"
+
+        self.core.winRunAsAdmin(cmd)
+        for command in commands:
+            if not command.get("validate", True):
+                continue
+
+            result = self.validateFileCommand(command)
+            if not result:
+                return "failed to run command: %s, args: %s" % (command["type"], command["args"])
+        else:
+            return True
+
+    @err_catcher(name=__name__)
+    def runFileCommand(self, command):
+        if command["type"] == "copyFile":
+            result = self.core.copyFile(*command["args"], adminFallback=False)
+        elif command["type"] == "removeFile":
+            result = self.core.removeFile(*command["args"], adminFallback=False)
+        elif command["type"] == "writeToFile":
+            result = self.core.writeToFile(*command["args"], adminFallback=False)
+        elif command["type"] == "createFolder":
+            result = self.core.createDirectory(*command["args"], adminFallback=False)
+
+        return result
+
+    @err_catcher(name=__name__)
+    def getFileCommandStr(self, command):
+        if command["type"] == "copyFile":
+            result = self.core.getCopyFileCmd(*command["args"])
+        elif command["type"] == "removeFile":
+            result = self.core.getRemoveFileCmd(*command["args"])
+        elif command["type"] == "writeToFile":
+            result = self.core.getWriteToFileCmd(*command["args"])
+        elif command["type"] == "createFolder":
+            result = self.core.getCreateFolderCmd(*command["args"])
+
+        return result
+
+    @err_catcher(name=__name__)
+    def validateFileCommand(self, command):
+        if command["type"] == "copyFile":
+            result = self.core.validateCopyFile(*command["args"])
+        elif command["type"] == "removeFile":
+            result = self.core.validateRemoveFile(*command["args"])
+        elif command["type"] == "writeToFile":
+            result = self.core.validateWriteToFile(*command["args"])
+        elif command["type"] == "createFolder":
+            result = self.core.validateCreateFolder(*command["args"])
+
+        return result
 
 
 class Worker(QThread):

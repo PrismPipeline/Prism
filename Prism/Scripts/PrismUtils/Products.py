@@ -589,3 +589,14 @@ class Products(object):
         if os.path.exists(masterFolder):
             shutil.rmtree(masterFolder)
             return True
+
+    @err_catcher(name=__name__)
+    def getMasterVersionLabel(self, path):
+        versionName = "master"
+        versionData = self.core.paths.getCachePathData(path)
+        if "filename" in versionData:
+            versionFolder = os.path.basename(os.path.dirname(os.path.dirname(versionData["filename"])))
+            versionName, comment, user = versionFolder.split(self.core.filenameSeparator)
+            versionName = "master (%s)" % versionName
+
+        return versionName

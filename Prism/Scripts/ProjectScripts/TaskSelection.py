@@ -783,12 +783,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                         filepath = self.core.products.getPreferredFileFromVersion(version, preferredUnit=self.preferredUnit, location=location)
                         comment = ""
                         user = ""
-                        versionData = self.core.paths.getCachePathData(filepath)
-                        if "filename" in versionData:
-                            versionFolder = os.path.basename(os.path.dirname(os.path.dirname(versionData["filename"])))
-                            versionName, comment, user = versionFolder.split(self.core.filenameSeparator)
-                            versionName = "master (%s)" % versionName
-
+                        versionName = self.core.products.getMasterVersionLabel(filepath)
                         units = self.core.products.getUnitsFromVersion(version, short=True, location=location)
                         uStr = ", ".join(units)
 

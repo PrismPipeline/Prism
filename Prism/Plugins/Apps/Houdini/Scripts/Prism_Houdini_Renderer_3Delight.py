@@ -167,6 +167,17 @@ def executeAOVs(origin, outputName):
     if not origin.core.appPlugin.setNodeParm(origin.node, "default_image_filename", val=outputName):
         return [origin.state.text(0) + ": error - could not set filename. Publish canceled"]
 
+    base, ext = os.path.splitext(outputName)
+    if ext == ".exr":
+        formatVal = "exr"
+    elif ext == ".png":
+        formatVal = "png"
+    else:
+        return [origin.state.text(0) + ": error - invalid image format. Publish canceled"]
+
+    if not origin.core.appPlugin.setNodeParm(origin.node, "default_image_format", val=formatVal):
+        return [origin.state.text(0) + ": error - could not set format. Publish canceled"]
+
     return True
 
 

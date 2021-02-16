@@ -230,8 +230,9 @@ class ImportFileClass(object):
         importPath = ts.productPath
 
         if importPath:
-            self.e_file.setText(importPath)
-            self.importObject(update=True)
+            result = self.importObject(update=True, path=importPath)
+            if result:
+                self.e_file.setText(importPath)
             self.updateUi()
 
     @err_catcher(name=__name__)
@@ -327,13 +328,13 @@ class ImportFileClass(object):
         return path
 
     @err_catcher(name=__name__)
-    def importObject(self, update=False):
+    def importObject(self, update=False, path=None):
         result = True
         if self.stateManager.standalone:
             return result
 
         fileName = self.core.getCurrentFileName()
-        impFileName = self.getImportPath()
+        impFileName = path or self.getImportPath()
         impFileName = self.convertToPreferredUnit(impFileName)
 
         kwargs = {
@@ -358,8 +359,6 @@ class ImportFileClass(object):
             return
 
         cacheData = self.core.paths.getCachePathData(impFileName)
-        self.e_file.setText(impFileName)
-
         self.taskName = cacheData.get("task")
         doImport = True
 
@@ -382,6 +381,9 @@ class ImportFileClass(object):
                 self.setStateMode(importResult["mode"])
 
         if doImport:
+            if result == "canceled":
+                return
+
             self.nodeNames = [
                 self.core.appPlugin.getNodeName(self, x) for x in self.nodes
             ]
@@ -406,7 +408,7 @@ class ImportFileClass(object):
             "importedObjects": self.nodeNames,
         }
         self.core.callback("postImport", **kwargs)
-
+        self.e_file.setText(impFileName)
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
@@ -458,6 +460,10 @@ class ImportFileClass(object):
         else:
             curVersion = latestVersion = ""
 
+        if curVersion == "master":
+            filepath = self.getImportPath()
+            curVersion = self.core.products.getMasterVersionLabel(filepath)
+
         self.l_curVersion.setText(curVersion or "-")
         self.l_latestVersion.setText(latestVersion or "-")
 
@@ -469,7 +475,7 @@ class ImportFileClass(object):
                 status = "ok"
         else:
             useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
-            if curVersion and latestVersion and curVersion != latestVersion:
+            if curVersion and latestVersion and curVersion != latestVersion and not curVersion.startswith("master"):
                 status = "warning"
                 if useSS:
                     self.b_importLatest.setStyleSheet(

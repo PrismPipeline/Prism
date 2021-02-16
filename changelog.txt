@@ -1,3 +1,16 @@
+v1.3.0.69:
+- solved the problem of the multiple error popups when an error occours
+- when adding the Prism integration to Blender or Photoshop and admin privileges are required an admin prompt will popup instead of the error message in previous Prism version
+- fixed a problem that only one WritePrism node could be executed at the same time in Nuke
+- fixed an error when editing the comment of a scenefile
+- fixed an issue that the format setting for 3Delight and Redshift renderings in Houdini were ignored and rendered always as .exr
+- fixed a bug that incrementing product versions in the local project folder didn't work in some cases
+- fixed a display bug that a master version was not displayed as the latest version in an import state in the State Manager
+- fixed a bug that the Prism integration couldn't be added to Blender if there were multiple version folders in the top-level Blender installation folder
+- fixed an issue in Maya that in some cases the set of an import remained in the scene when updating to a new import version
+- fixed a popup that said import failed when canceling the reference dialog in Maya
+- the text of popups is limited to 50 lines now to avoid popups going below the botton of the screen
+
 v1.3.0.68:
 - added the -writeUvSets flag to the alembic export of Maya objects
 - fixed a bug that applying alembic caches multiple times from the same import state in Maya didn't work correctly

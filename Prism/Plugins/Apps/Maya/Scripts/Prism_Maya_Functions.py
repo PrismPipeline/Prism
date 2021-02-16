@@ -2118,6 +2118,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                         doRef = False
                         importOnly = False
                         applyCache = False
+                        return {"result": "canceled", "doImport": doImport}
                     else:
                         doRef = rb_reference.isChecked()
                         applyCache = rb_applyCache.isChecked()
@@ -2297,6 +2298,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
 
         # buggy
         # cmds.select([ x for x in origin.nodes if self.isNodeValid(origin, x)])
+        self.validateSet(origin.setName)
         if len(origin.nodes) > 0:
             origin.setName = cmds.sets(name="Import_%s_" % fileName[0])
         for i in origin.nodes:
@@ -2307,6 +2309,21 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         rDict["mode"] = "ApplyCache" if (applyCache or updateCache) else "ImportFile"
 
         return rDict
+
+    @err_catcher(name=__name__)
+    def validateSet(self, setName):
+        if not self.isNodeValid(self, setName):
+            return
+
+        members = cmds.sets(setName, q=True)
+        empty = True
+        for member in members:
+            if cmds.objectType(member) != "shadingEngine":
+                empty = False
+
+        if empty:
+            for member in members:
+                cmds.delete(member)
 
     @err_catcher(name=__name__)
     def sm_import_updateObjects(self, origin):

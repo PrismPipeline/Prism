@@ -995,6 +995,10 @@ class ImageRenderClass(object):
         if frames is None or frames == []:
             warnings.append(["Framerange is invalid.", "", 3])
 
+        extension = self.cb_format.currentText()
+        if extension == ".jpg" and self.curRenderer.label == "3Delight":
+            warnings.append([".jpg output is not supported with 3Delight.", "", 3])
+
         try:
             self.node.name()
         except:

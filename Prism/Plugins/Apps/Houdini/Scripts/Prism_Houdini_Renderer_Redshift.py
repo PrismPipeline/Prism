@@ -184,8 +184,6 @@ def executeAOVs(origin, outputName):
         origin.node, "RS_outputFileNamePrefix", val=outputName
     ):
         return [origin.state.text(0) + ": error - Publish canceled"]
-    if not origin.core.appPlugin.setNodeParm(origin.node, "RS_outputFileFormat", val=0):
-        return [origin.state.text(0) + ": error - Publish canceled"]
 
     origin.core.appPlugin.setNodeParm(origin.node, "RS_outputDisableSuffixes", val=1, severity="debug")
 
@@ -211,6 +209,15 @@ def executeAOVs(origin, outputName):
                 origin.node, parm.name(), val=outPut
             ):
                 return [origin.state.text(0) + ": error - Publish canceled"]
+
+    base, ext = os.path.splitext(outputName)
+    if ext in [".exr", ".png", ".jpg"]:
+        formatVal = ext
+    else:
+        return [origin.state.text(0) + ": error - invalid image format. Publish canceled"]
+
+    if not origin.core.appPlugin.setNodeParm(origin.node, "RS_outputFileFormat", val=formatVal):
+        return [origin.state.text(0) + ": error - could not set format. Publish canceled"]
 
     return True
 

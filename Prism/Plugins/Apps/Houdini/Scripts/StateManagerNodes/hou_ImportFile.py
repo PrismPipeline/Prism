@@ -807,6 +807,10 @@ class ImportFileClass(object):
         else:
             curVersion = latestVersion = ""
 
+        if curVersion == "master":
+            filepath = self.getImportPath()
+            curVersion = self.core.products.getMasterVersionLabel(filepath)
+
         self.l_curVersion.setText(curVersion or "-")
         self.l_latestVersion.setText(latestVersion or "-")
 
@@ -814,7 +818,7 @@ class ImportFileClass(object):
             if curVersion and latestVersion and curVersion != latestVersion:
                 self.importLatest(refreshUi=False)
         else:
-            if curVersion and latestVersion and curVersion != latestVersion:
+            if curVersion and latestVersion and curVersion != latestVersion and not curVersion.startswith("master"):
                 self.b_importLatest.setStyleSheet(
                     "QPushButton { background-color : rgb(150,80,0); border: none;}"
                 )

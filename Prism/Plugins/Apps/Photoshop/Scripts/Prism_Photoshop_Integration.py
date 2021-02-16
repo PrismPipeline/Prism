@@ -123,6 +123,12 @@ class Prism_Photoshop_Integration(object):
             elif platform.system() == "Darwin":
                 osName = "Mac"
 
+            cmds = []
+            scriptdir = os.path.join(installPath, "Presets", "Scripts")
+            if not os.path.exists(scriptdir):
+                cmd = {"type": "createFolder", "args": [scriptdir]}
+                cmds.append(cmd)
+
             for i in [
                 "Prism - 1 Tools.jsx",
                 "Prism - 2 Save Version.jsx",
@@ -132,26 +138,29 @@ class Prism_Photoshop_Integration(object):
                 "Prism - 6 Settings.jsx",
             ]:
                 origFile = os.path.join(integrationBase, osName, i)
-                targetFile = os.path.join(installPath, "Presets", "Scripts", i)
-
-                if not os.path.exists(os.path.dirname(targetFile)):
-                    os.makedirs(os.path.dirname(targetFile))
+                targetFile = os.path.join(scriptdir, i)
 
                 if os.path.exists(targetFile):
-                    os.remove(targetFile)
+                    cmd = {"type": "removeFile", "args": [targetFile], "validate": False}
+                    cmds.append(cmd)
 
-                shutil.copy2(origFile, targetFile)
+                cmd = {"type": "copyFile", "args": [origFile, targetFile]}
+                cmds.append(cmd)
 
-                with open(targetFile, "r") as init:
+                with open(origFile, "r") as init:
                     initStr = init.read()
 
                 initStr = initStr.replace("PRISMROOT", "%s" % self.core.prismRoot)
                 initStr = initStr.replace("PRISMLIBS", "%s" % self.core.prismLibs)
 
-                with open(targetFile, "w") as init:
-                    init.write(initStr)
+                cmd = {"type": "writeToFile", "args": [targetFile, initStr]}
+                cmds.append(cmd)
 
-            return True
+            result = self.core.runFileCommands(cmds)
+            if result is True:
+                return True
+            else:
+                raise Exception(result)
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()

@@ -104,13 +104,14 @@ class Prism_Blender_Integration(object):
         try:
             if not os.path.exists(os.path.join(installPath, "scripts", "startup")):
                 if os.path.exists(installPath):
-                    for f in os.listdir(installPath):
+                    for f in sorted(os.listdir(installPath), reverse=True):
                         try:
                             float(f)
                         except ValueError:
                             pass
                         else:
                             installPath = os.path.join(installPath, f)
+                            break
 
             if not os.path.exists(os.path.join(installPath, "scripts", "startup")):
                 msgStr = "Invalid Blender path: %s.\n\nThe path has to be the Blender version folder in the installation folder, which usually looks like this: (with your Blender version):\n\n%s" % (installPath, self.examplePath)
@@ -122,36 +123,42 @@ class Prism_Blender_Integration(object):
             )
 
             # prismInit
-            initpath = os.path.join(installPath, "scripts", "startup", "PrismInit.py")
+            initpath = os.path.join(installPath, "scripts", "startup", "PrismInit.py").replace("\\", "/")
             saveRenderPath = os.path.join(
                 installPath, "scripts", "startup", "PrismAutoSaveRender.py"
-            )
+            ).replace("\\", "/")
             addedFiles = []
 
+            cmds = []
             if os.path.exists(initpath):
-                os.remove(initpath)
+                cmd = {"type": "removeFile", "args": [initpath], "validate": False}
+                cmds.append(cmd)
 
             if os.path.exists(initpath + "c"):
-                os.remove(initpath + "c")
+                cmd = {"type": "removeFile", "args": [initpath + "c"]}
+                cmds.append(cmd)
 
             if os.path.exists(saveRenderPath):
-                os.remove(saveRenderPath)
+                cmd = {"type": "removeFile", "args": [saveRenderPath], "validate": False}
+                cmds.append(cmd)
 
             if os.path.exists(saveRenderPath + "c"):
-                os.remove(saveRenderPath + "c")
+                cmd = {"type": "removeFile", "args": [saveRenderPath + "c"]}
+                cmds.append(cmd)
 
             baseinitfile = os.path.join(integrationBase, "PrismInit.py")
-            shutil.copy2(baseinitfile, initpath)
+            cmd = {"type": "copyFile", "args": [baseinitfile, initpath]}
+            cmds.append(cmd)
             addedFiles.append(initpath)
 
-            with open(initpath, "r") as init:
+            with open(baseinitfile, "r") as init:
                 initStr = init.read()
 
-            with open(initpath, "w") as init:
-                initStr = initStr.replace(
-                    "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
-                )
-                init.write(initStr)
+            initStr = initStr.replace(
+                "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+            )
+            cmd = {"type": "writeToFile", "args": [initpath, initStr]}
+            cmds.append(cmd)
 
             topbarPath = os.path.join(
                 installPath, "scripts", "startup", "bl_ui", "space_topbar.py"
@@ -189,14 +196,17 @@ class Prism_Blender_Integration(object):
                 tbStr = tbStr.replace(fClassStr, bTbStr2 + fClassStr)
                 tbStr = tbStr.replace(hClassName, hClassName + "\n    TOPBAR_MT_prism,")
 
-                if not os.path.exists(topbarPath + ".bak"):
-                    shutil.copy2(topbarPath, topbarPath + ".bak")
+                bakPath = topbarPath + ".bak"
+                if not os.path.exists(bakPath):
+                    cmd = {"type": "copyFile", "args": [topbarPath, bakPath]}
+                    cmds.append(cmd)
 
-                with open(topbarPath, "w") as init:
-                    init.write(tbStr)
+                cmd = {"type": "writeToFile", "args": [topbarPath, tbStr]}
+                cmds.append(cmd)
 
             baseRenderfile = os.path.join(integrationBase, "PrismAutoSaveRender.py")
-            shutil.copy2(baseRenderfile, saveRenderPath)
+            cmd = {"type": "copyFile", "args": [baseRenderfile, saveRenderPath]}
+            cmds.append(cmd)
             addedFiles.append(saveRenderPath)
 
             if platform.system() == "Windows":
@@ -205,11 +215,14 @@ class Prism_Blender_Integration(object):
                     os.path.dirname(installPath), "platforms", "qminimal.dll"
                 )
 
-                if not os.path.exists(os.path.dirname(winPath)):
-                    os.mkdir(os.path.dirname(winPath))
+                dirPath = os.path.dirname(winPath)
+                if not os.path.exists(dirPath):
+                    cmd = {"type": "createFolder", "args": [dirPath]}
+                    cmds.append(cmd)
 
                 if not os.path.exists(winPath):
-                    shutil.copy2(baseWinfile, winPath)
+                    cmd = {"type": "copyFile", "args": [baseWinfile, winPath]}
+                    cmds.append(cmd)
 
                 baseWinfile = os.path.join(integrationBase, "qoffscreen.dll")
                 winPath = os.path.join(
@@ -217,7 +230,8 @@ class Prism_Blender_Integration(object):
                 )
 
                 if not os.path.exists(winPath):
-                    shutil.copy2(baseWinfile, winPath)
+                    cmd = {"type": "copyFile", "args": [baseWinfile, winPath]}
+                    cmds.append(cmd)
 
                 baseWinfile = os.path.join(integrationBase, "qwindows.dll")
                 winPath = os.path.join(
@@ -225,19 +239,25 @@ class Prism_Blender_Integration(object):
                 )
 
                 if not os.path.exists(winPath):
-                    shutil.copy2(baseWinfile, winPath)
+                    cmd = {"type": "copyFile", "args": [baseWinfile, winPath]}
+                    cmds.append(cmd)
 
                 baseWinfile = os.path.join(integrationBase, "python3.dll")
                 winPath = os.path.join(os.path.dirname(installPath), "python3.dll")
 
                 if not os.path.exists(winPath):
-                    shutil.copy2(baseWinfile, winPath)
+                    cmd = {"type": "copyFile", "args": [baseWinfile, winPath]}
+                    cmds.append(cmd)
 
             if platform.system() in ["Linux", "Darwin"]:
                 for i in addedFiles:
                     os.chmod(i, 0o777)
 
-            return True
+            result = self.core.runFileCommands(cmds)
+            if result is True:
+                return True
+            else:
+                raise Exception(result)
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()

@@ -1455,17 +1455,17 @@ QComboBox::drop-down:focus {
 }
 
 QComboBox::down-arrow {
-    image: url(qss:images/up-down_arrow_light.png);
+    image: url(qss:images/down_arrow_light.png);
 }
 
 QComboBox::down-arrow:on,
 QComboBox::down-arrow:focus {
-    image: url(qss:images/up-down_arrow_lighter.png);
+    image: url(qss:images/down_arrow_lighter.png);
 }
 
 QComboBox::down-arrow:off,
 QComboBox::down-arrow:disabled {
-    image: url(qss:images/up-down_arrow_disabled_dark.png);
+    image: url(qss:images/down_arrow_disabled_dark.png);
 }
 
 /* ComboBox menu */

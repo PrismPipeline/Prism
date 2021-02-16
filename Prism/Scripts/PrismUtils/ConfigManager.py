@@ -72,10 +72,19 @@ class ConfigManager(object):
         self.core = core
         self.cachedConfigs = {}
         self.preferredExtension = ".yml"
+        self.configItems = {}
 
         dprConfig = os.path.splitext(self.core.userini)[0] + ".ini"
         if not os.path.exists(self.core.userini) and os.path.exists(dprConfig):
             self.convertDeprecatedConfig(dprConfig)
+
+    @err_catcher(name=__name__)
+    def addConfigItem(self, key, path):
+        if key in self.configItems:
+            return False
+
+        self.configItems[key] = path
+        return True
 
     @err_catcher(name=__name__)
     def getConfigPath(self, config, location=None):
@@ -96,6 +105,8 @@ class ConfigManager(object):
             return os.path.join(
                 os.path.dirname(self.core.prismIni), "Assetinfo", "assetInfo.yml"
             )
+        elif config in self.configItems:
+            return self.configItems[config]
         else:
             return self.generateConfigPath(name=config, location=location)
 

@@ -478,7 +478,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_refreshTabs.clicked.connect(self.refreshUI)
         self.b_refreshTabs.setIconSize(QSize(20, 20))
         self.b_refreshTabs.setToolTip("Refresh")
-        self.b_refreshTabs.setStyleSheet("QWidget{padding: 0; border-width: 0px;} QWidget:hover{border-width: 1px; }")
+        self.b_refreshTabs.setStyleSheet("QWidget{padding: 0; border-width: 0px;background-color: transparent} QWidget:hover{border-width: 1px; }")
         self.b_refreshTabs.setContextMenuPolicy(Qt.CustomContextMenu)
         self.b_refreshTabs.customContextMenuRequested.connect(lambda x: self.showContextMenu("refresh"))
 

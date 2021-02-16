@@ -35,7 +35,7 @@ Gizmo {
   file_type exr
   version 2
   beforeRender "try: pcore.appPlugin.getOutputPath(nuke.thisNode(), nuke.thisGroup(), render=True)\nexcept: pass"
-  afterRender "try: pcore.appPlugin.isRendering = \[False,\"\"]\nexcept: pass"
+  afterRender "try: pcore.appPlugin.finishedRendering(nuke.thisNode())\nexcept: pass"
   name WritePrismBase
   xpos -263
   ypos -143

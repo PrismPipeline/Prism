@@ -58,7 +58,7 @@ class Prism_Nuke_Functions(object):
         self.core = core
         self.plugin = plugin
 
-        self.isRendering = [False, ""]
+        self.isRendering = {}
         self.useLastVersion = False
 
     @err_catcher(name=__name__)
@@ -235,11 +235,12 @@ class Prism_Nuke_Functions(object):
             return ""
 
         outputName = self.core.getCompositingOut(
-            taskName, fileType, self.useLastVersion, render, location, comment
+            taskName, fileType, self.useLastVersion, render, location, comment, node=node
         )
 
         isNukeAssist = "--nukeassist" in nuke.rawArgs
-        if not self.isRendering[0] and not isNukeAssist:
+
+        if not self.isNodeRendering(node) and not isNukeAssist:
             group.knob("fileName").setValue(outputName)
             # group.knob("fileName").clearFlag(0x10000000) # makes knob read-only, but leads to double property Uis
 
@@ -288,6 +289,31 @@ class Prism_Nuke_Functions(object):
         node.knob("Render").execute()
 
         self.useLastVersion = False
+
+    @err_catcher(name=__name__)
+    def startedRendering(self, node, outputPath):
+        nodePath = node.fullName()
+        self.isRendering[nodePath] = [True, outputPath]
+
+    @err_catcher(name=__name__)
+    def isNodeRendering(self, node):
+        nodePath = node.fullName()
+        rendering = nodePath in self.isRendering and self.isRendering[nodePath][0]
+        return rendering
+
+    @err_catcher(name=__name__)
+    def getPathFromRenderingNode(self, node):
+        nodePath = node.fullName()
+        if nodePath in self.isRendering:
+            return self.isRendering[nodePath][1]
+        else:
+            return ""
+
+    @err_catcher(name=__name__)
+    def finishedRendering(self, node):
+        nodePath = node.fullName()
+        if nodePath in self.isRendering:
+            del self.isRendering[nodePath]
 
     @err_catcher(name=__name__)
     def getAppVersion(self, origin):
