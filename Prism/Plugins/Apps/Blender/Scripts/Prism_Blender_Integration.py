@@ -249,11 +249,12 @@ class Prism_Blender_Integration(object):
                     cmd = {"type": "copyFile", "args": [baseWinfile, winPath]}
                     cmds.append(cmd)
 
+            result = self.core.runFileCommands(cmds)
+
             if platform.system() in ["Linux", "Darwin"]:
                 for i in addedFiles:
                     os.chmod(i, 0o777)
 
-            result = self.core.runFileCommands(cmds)
             if result is True:
                 return True
             else:

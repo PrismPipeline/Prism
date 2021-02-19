@@ -161,3 +161,11 @@ class Prism_Houdini_ImportFile(object):
 
         descr = task + "\n" + version
         return descr
+
+    @err_catcher(name=__name__)
+    def abcGroupsToggled(self, kwargs):
+        abcNode = self.getStateFromNode(kwargs).ui.fileNode
+        if kwargs["node"].parm("groupsAbc").eval():
+            abcNode.parm("groupnames").set(4)
+        else:
+            abcNode.parm("groupnames").set(0)

@@ -455,3 +455,39 @@ class Prism_Standalone_Functions(object):
                 os.chown(i, uid, -1)
 
         return True
+
+    @err_catcher(name=__name__)
+    def addWindowsStartMenuEntry(self, name, executable, script, args=None):
+        startMenuPath = os.path.join(
+            os.environ["AppData"], "Microsoft", "Windows", "Start Menu", "Programs"
+        )
+        scPath = os.path.join(startMenuPath, "Prism", name + ".lnk")
+
+        if not os.path.isabs(executable):
+            executable = os.path.join(self.core.prismLibs, "Python37", executable)
+            if not executable.endswith(".exe"):
+                executable += ".exe"
+
+        if not os.path.exists(executable):
+            self.core.popup("Executable doesn't exist: %s" % executable)
+            return
+
+        script
+        if not os.path.isabs(script):
+            script = os.path.join(self.core.prismRoot.replace("/", "\\"), "Scripts", script)
+            if not script.endswith(".py"):
+                script += ".py"
+
+        if not os.path.exists(script):
+            self.core.popup("Script doesn't exist: %s" % script)
+            return
+
+        scDir = os.path.dirname(scPath)
+        if not os.path.exists(scDir):
+            os.makedirs(scDir)
+
+        args = args or []
+        args = ['""%s""' % script] + args
+        argStr = " ".join(args)
+        self.core.createShortcut(scPath, executable, args=argStr)
+        return scPath

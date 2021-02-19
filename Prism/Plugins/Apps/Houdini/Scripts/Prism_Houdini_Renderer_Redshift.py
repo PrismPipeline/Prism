@@ -32,6 +32,8 @@
 
 
 import os
+import time
+import glob
 
 import hou
 
@@ -246,6 +248,22 @@ def setResolution(origin):
 
 def executeRender(origin):
     origin.node.parm("execute").pressButton()
+    waitForRenderCompleted(origin.node)
+    return True
+
+
+def waitForRenderCompleted(node):
+    outputPath = node.parm("RS_outputFileNamePrefix").eval()
+    outputDir = os.path.dirname(outputPath)
+    globPath = outputDir + "/*.lock"
+    waitTime = 0
+    maxWaitTime = 10
+    while glob.glob(globPath):
+        time.sleep(1)
+        waitTime += 1
+        if waitTime >= maxWaitTime:
+            return False
+
     return True
 
 

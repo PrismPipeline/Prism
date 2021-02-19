@@ -384,10 +384,13 @@ class ImportFileClass(object):
         self.fileNode = self.importTarget.createNode("alembic")
         self.fileNode.moveToGoodPosition()
         self.fileNode.parm("fileName").set(importPath)
-        if not self.isPrismImportNode(self.node):
+        if self.isPrismImportNode(self.node):
+            if self.node.parm("groupsAbc").eval():
+                self.fileNode.parm("groupnames").set(4)
+        else:
             self.fileNode.parm("loadmode").set(1)
             self.fileNode.parm("polysoup").set(0)
-        self.fileNode.parm("groupnames").set(4)
+            self.fileNode.parm("groupnames").set(4)
 
     @err_catcher(name=__name__)
     def importFBX(self, importPath, taskName):

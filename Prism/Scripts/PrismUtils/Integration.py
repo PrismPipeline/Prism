@@ -72,34 +72,37 @@ class Ingegration(object):
         self.convertDeprecatedConfig()
 
     @err_catcher(name=__name__)
-    def removeIntegrationData(self, content=None, filepath=None, deleteEmpty=True):
+    def removeIntegrationData(self, content=None, filepath=None, deleteEmpty=True, searchStrings=None):
         if isinstance(filepath, list):
             for f in filepath:
-                result = self._removeIntegrationData(content=content, filepath=f, deleteEmpty=deleteEmpty)
+                result = self._removeIntegrationData(content=content, filepath=f, deleteEmpty=deleteEmpty, searchStrings=searchStrings)
             return result
         else:
-            return self._removeIntegrationData(content=content, filepath=filepath, deleteEmpty=deleteEmpty)
+            return self._removeIntegrationData(content=content, filepath=filepath, deleteEmpty=deleteEmpty, searchStrings=searchStrings)
 
     @err_catcher(name=__name__)
-    def _removeIntegrationData(self, content=None, filepath=None, deleteEmpty=True):
-        if not content:
+    def _removeIntegrationData(self, content=None, filepath=None, deleteEmpty=True, searchStrings=None):
+        if content is None:
             if not os.path.exists(filepath):
                 return True
 
             with open(filepath, "r") as f:
                 content = f.read()
 
+        if not searchStrings:
+            searchStrings = [
+                ["# >>>PrismStart", "# <<<PrismEnd"],
+                ["#>>>PrismStart", "#<<<PrismEnd"],
+            ]
+
         while True:
-            if "# >>>PrismStart" in content and "# <<<PrismEnd" in content:
-                content = (
-                    content[:content.find("# >>>PrismStart")]
-                    + content[content.find("# <<<PrismEnd", content.find("# >>>PrismStart")) + len("# <<<PrismEnd"):]
-                )
-            elif "#>>>PrismStart" in content and "#<<<PrismEnd" in content:
-                content = (
-                    content[:content.find("#>>>PrismStart")]
-                    + content[content.find("#<<<PrismEnd", content.find("#>>>PrismStart")) + len("#<<<PrismEnd"):]
-                )
+            for sstr in searchStrings:
+                if sstr[0] in content and sstr[1] in content:
+                    content = (
+                        content[:content.find(sstr[0])]
+                        + content[content.find(sstr[1], content.find(sstr[0])) + len(sstr[1]):]
+                    )
+                    break
             else:
                 break
 

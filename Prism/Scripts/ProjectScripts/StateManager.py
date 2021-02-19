@@ -1521,6 +1521,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
         useVersion="next",
         states=None,
         successPopup=True,
+        saveScene=None,
+        incrementScene=None,
     ):
         if self.publishPaused and not continuePublish:
             return
@@ -1765,26 +1767,30 @@ class %s(QWidget, %s.%s, %s.%sClass):
                     "username": self.core.getConfig("globals", "username"),
                 }
 
-            if executeState:
-                if not self.core.fileInPipeline():
-                    msg = "The current scenefile is not inside the pipeline.\nUse the Project Browser to create a file in the pipeline."
-                    self.core.popup(msg)
-                    return False
+            if saveScene is None or saveScene is True:
+                if executeState:
+                    increment = False if incrementScene is None else incrementScene
+                    if not self.core.fileInPipeline():
+                        msg = "The current scenefile is not inside the pipeline.\nUse the Project Browser to create a file in the pipeline."
+                        self.core.popup(msg)
+                        return False
 
-                sceneSaved = self.core.saveScene(
-                    versionUp=False, details=details, preview=self.previewImg
-                )
-            else:
-                sceneSaved = self.core.saveScene(
-                    comment=self.e_comment.text(),
-                    publish=True,
-                    details=details,
-                    preview=self.previewImg,
-                )
+                    sceneSaved = self.core.saveScene(
+                        versionUp=increment, details=details, preview=self.previewImg
+                    )
+                else:
+                    increment = True if incrementScene is None else incrementScene
+                    sceneSaved = self.core.saveScene(
+                        comment=self.e_comment.text(),
+                        publish=True,
+                        versionUp=increment,
+                        details=details,
+                        preview=self.previewImg,
+                    )
 
-            if not sceneSaved:
-                logger.debug(actionString + " canceled")
-                return
+                if not sceneSaved:
+                    logger.debug(actionString + " canceled")
+                    return
 
             self.description = ""
             self.previewImg = None

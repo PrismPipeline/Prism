@@ -555,7 +555,11 @@ class Products(object):
         )
         logger.debug("updating master version: %s" % masterPath)
 
-        self.deleteMasterVersion(masterPath)
+        result = self.deleteMasterVersion(masterPath)
+        if not result:
+            self.core.popup("Failed to update master version. Couldn't remove old master version.")
+            return
+
         if not os.path.exists(os.path.dirname(masterPath)):
             os.makedirs(os.path.dirname(masterPath))
 
@@ -587,7 +591,10 @@ class Products(object):
     def deleteMasterVersion(self, path):
         masterFolder = os.path.dirname(os.path.dirname(path))
         if os.path.exists(masterFolder):
-            shutil.rmtree(masterFolder)
+            try:
+                shutil.rmtree(masterFolder)
+            except Exception:
+                return False
             return True
 
     @err_catcher(name=__name__)

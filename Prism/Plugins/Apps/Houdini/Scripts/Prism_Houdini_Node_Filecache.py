@@ -73,6 +73,19 @@ class Prism_Houdini_Filecache(object):
         return tokens
 
     @err_catcher(name=__name__)
+    def getLocations(self, kwargs):
+        state = self.getStateFromNode(kwargs)
+        cb = state.ui.cb_outPath
+        locations = [cb.itemText(idx) for idx in range(cb.count())] 
+
+        tokens = []
+        for loc in locations:
+            tokens.append(loc)
+            tokens.append(loc)
+
+        return tokens
+
+    @err_catcher(name=__name__)
     def getReadVersions(self, kwargs):
         versions = []
         versions.insert(0, "latest")
@@ -99,14 +112,23 @@ class Prism_Houdini_Filecache(object):
     @err_catcher(name=__name__)
     def onNodeCreated(self, kwargs):
         self.plugin.onNodeCreated(kwargs)
-        state = self.getStateFromNode(kwargs)
-        task = kwargs["node"].parm("task").eval()
+        kwargs["node"].setColor(hou.Color(0.95, 0.5, 0.05))
+        self.nodeInit(kwargs["node"])
+
+    @err_catcher(name=__name__)
+    def nodeInit(self, node, state=None):
+        if not state:
+            state = self.getStateFromNode({"node": node})
+
+        location = node.parm("format").evalAsString()
+        task = node.parm("task").eval()
+        outformat = node.parm("format").evalAsString()
+        location = node.parm("location").evalAsString()
         state.ui.setTaskname(task)
         state.ui.setRangeType("Node")
-        state.ui.setOutputType(kwargs["node"].parm("format").evalAsString())
-        self.updateLatestVersion(kwargs["node"])
-        kwargs["node"].setColor(hou.Color(0.95, 0.5, 0.05))
-        kwargs["node"].parm("_init").set(1)
+        state.ui.setOutputType(outformat)
+        state.ui.setLocation(location)
+        self.updateLatestVersion(node)
 
     @err_catcher(name=__name__)
     def onNodeDeleted(self, kwargs):
@@ -118,14 +140,21 @@ class Prism_Houdini_Filecache(object):
 
     @err_catcher(name=__name__)
     def setTaskFromNode(self, kwargs):
+        taskname = kwargs["node"].parm("task").eval()
         state = self.getStateFromNode(kwargs)
-        state.ui.setTaskname(kwargs["script_value"])
+        state.ui.setTaskname(taskname)
         self.updateLatestVersion(kwargs["node"])
 
     @err_catcher(name=__name__)
     def setFormatFromNode(self, kwargs):
         state = self.getStateFromNode(kwargs)
         state.ui.setOutputType(kwargs["script_value"])
+
+    @err_catcher(name=__name__)
+    def setLocationFromNode(self, kwargs):
+        location = kwargs["node"].parm("location").evalAsString()
+        state = self.getStateFromNode(kwargs)
+        state.ui.setLocation(location)
 
     @err_catcher(name=__name__)
     def showInStateManagerFromNode(self, kwargs):
@@ -139,9 +168,6 @@ class Prism_Houdini_Filecache(object):
 
     @err_catcher(name=__name__)
     def refreshNodeUi(self, node, state):
-        if not node.parm("_init").eval():
-            return
-
         taskname = state.getTaskname()
         if taskname != node.parm("task").eval():
             self.plugin.setNodeParm(node, "task", taskname, clear=True)
@@ -173,7 +199,9 @@ class Prism_Houdini_Filecache(object):
         rop.parm("execute").pressButton()
         QCoreApplication.processEvents()
         self.updateLatestVersion(node)
-        self.core.popup("Finished caching successfully.", severity="info", modal=False)
+        node.node("switch_abc").cook(force=True)
+        if node.parm("showSuccessPopup").eval():
+            self.core.popup("Finished caching successfully.", severity="info", modal=False)
 
     @err_catcher(name=__name__)
     def executePressed(self, kwargs):
@@ -184,7 +212,16 @@ class Prism_Houdini_Filecache(object):
         sm = self.core.getStateManager()
         state = self.getStateFromNode(kwargs)
         version = self.getWriteVersionFromNode(kwargs["node"])
-        sm.publish(executeState=True, useVersion=version, states=[state], successPopup=False)
+        saveScene = bool(kwargs["node"].parm("saveScene").eval())
+        incrementScene = saveScene and bool(kwargs["node"].parm("incrementScene").eval())
+        sm.publish(
+            executeState=True,
+            useVersion=version,
+            states=[state],
+            successPopup=False,
+            saveScene=saveScene,
+            incrementScene=incrementScene,
+        )
         self.reload(kwargs)
 
     @err_catcher(name=__name__)
@@ -320,6 +357,8 @@ class Prism_Houdini_Filecache(object):
 
         if path:
             path = path.replace("\\", "/")
+            path = self.core.appPlugin.detectCacheSequence(path)
+            path = hou.expandString(path)
         else:
             path = ""
 

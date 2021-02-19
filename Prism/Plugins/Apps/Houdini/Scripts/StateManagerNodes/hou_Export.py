@@ -130,6 +130,9 @@ class ExportClass(object):
             if idx != -1:
                 self.cb_outType.setCurrentIndex(idx)
                 self.typeChanged(self.cb_outType.currentText())
+
+            if self.isPrismFilecacheNode(self.node):
+                self.core.appPlugin.filecache.nodeInit(self.node, state)
         elif stateData is None:
             self.sp_rangeStart.setValue(hou.playbar.playbackRange()[0])
             self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
@@ -162,7 +165,7 @@ class ExportClass(object):
                 if idx != -1:
                     self.cb_sCamShot.setCurrentIndex(idx)
 
-            if fnameData.get("category"):
+            if fnameData.get("category") and not self.isPrismFilecacheNode(self.node):
                 self.l_taskName.setText(fnameData.get("category"))
                 self.b_changeTask.setStyleSheet("")
 
@@ -516,6 +519,19 @@ class ExportClass(object):
         if idx != -1:
             self.cb_rangeType.setCurrentIndex(idx)
             self.updateRange()
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def getLocation(self):
+        return self.cb_outPath.currentText()
+
+    @err_catcher(name=__name__)
+    def setLocation(self, location):
+        idx = self.cb_outPath.findText(location)
+        if idx != -1:
+            self.cb_outPath.setCurrentIndex(idx)
             return True
 
         return False
@@ -1430,7 +1446,11 @@ class ExportClass(object):
                     ):
                         return [self.state.text(0) + ": error - Publish canceled"]
 
-                hou.hipFile.save()
+                if self.isPrismFilecacheNode(self.node):
+                    if self.node.parm("saveScene").eval():
+                        hou.hipFile.save()
+                else:
+                    hou.hipFile.save()
 
                 if idx == 1:
                     if not self.core.appPlugin.setNodeParm(
