@@ -1,3 +1,7 @@
+v1.3.0.70:
+- fixed and error when updating the Blender integration on Linux
+- fixed an error if the master product version couldn't be updated because of missing permissions
+
 v1.3.0.69:
 - solved the problem of the multiple error popups when an error occours
 - when adding the Prism integration to Blender or Photoshop and admin privileges are required an admin prompt will popup instead of the error message in previous Prism version
