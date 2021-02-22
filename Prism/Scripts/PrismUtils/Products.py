@@ -355,8 +355,8 @@ class Products(object):
                 return
             entityName = data["fullEntityName"]
 
-        path = self.getProductPathFromEntity(entity, entityName, product)
-        version = self.getLatestVersionFromProductPath(path)
+        versions = self.getVersionsFromProduct(entity, entityName, product)
+        version = self.getLatestVersionFromVersions(versions)
         if not version:
             return
 

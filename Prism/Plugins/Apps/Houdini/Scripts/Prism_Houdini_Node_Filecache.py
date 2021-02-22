@@ -76,7 +76,7 @@ class Prism_Houdini_Filecache(object):
     def getLocations(self, kwargs):
         state = self.getStateFromNode(kwargs)
         cb = state.ui.cb_outPath
-        locations = [cb.itemText(idx) for idx in range(cb.count())] 
+        locations = [cb.itemText(idx) for idx in range(cb.count())]
 
         tokens = []
         for loc in locations:
@@ -407,3 +407,9 @@ class Prism_Houdini_Filecache(object):
             descr += "\nRead: " + readv
 
         return descr
+
+    @err_catcher(name=__name__)
+    def isSingleFrame(self, node):
+        rangeType = node.parm("framerange").evalAsString()
+        isSingle = rangeType == "Save Current Frame"
+        return isSingle

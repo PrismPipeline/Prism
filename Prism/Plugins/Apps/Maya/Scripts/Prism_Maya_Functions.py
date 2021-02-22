@@ -2519,8 +2519,10 @@ Show only polygon objects in viewport.
         selFmt = origin.cb_formats.currentText()
         if selFmt == "avi (with audio)":
             fmt = "avi"
+            outputName += ".avi"
         elif selFmt == "qt (with audio)":
             fmt = "qt"
+            outputName += ".mov"
         else:
             fmt = "image"
 
@@ -2543,6 +2545,8 @@ Show only polygon objects in viewport.
         self.executeScript(origin, cmdString, logErr=False)
         if len(os.listdir(os.path.dirname(outputName))) < 2 and fmt == "qt":
             self.core.popup("Couldn't create quicktime video. Make sure quicktime is installed on your system and try again.")
+        else:
+            origin.updateLastPath(outputName)
 
     @err_catcher(name=__name__)
     def sm_playblast_preExecute(self, origin):

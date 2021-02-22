@@ -1,3 +1,6 @@
+v1.3.0.71:
+- fixed a bug that the displayed outputname on the playblast state in Maya had a wrong extension in some cases
+
 v1.3.0.70:
 - fixed and error when updating the Blender integration on Linux
 - fixed an error if the master product version couldn't be updated because of missing permissions

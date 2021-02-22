@@ -506,6 +506,15 @@ class PathManager(object):
         return path
 
     @err_catcher(name=__name__)
+    def requestFilepath(self, title="Select File", startPath="", parent=None, fileFilter="All files (*.*)"):
+        path = ""
+        parent = parent or self.core.messageParent
+        if self.core.uiAvailable:
+            path = QFileDialog.getSaveFileName(parent, title, startPath, fileFilter)[0]
+
+        return path
+
+    @err_catcher(name=__name__)
     def convertExportPath(self, path, fromLocation, toLocation):
         bases = self.getExportProductBasePaths()
         baseFrom = bases[fromLocation]

@@ -1076,6 +1076,10 @@ class ExportClass(object):
             # )
 
             rangeType = self.cb_rangeType.currentText()
+            if self.isPrismFilecacheNode(self.node):
+                if self.core.appPlugin.filecache.isSingleFrame(self.node):
+                    rangeType = "Single Frame"
+
             framePadding = ".$F4" if rangeType != "Single Frame" else ""
             extension = self.cb_outType.currentText()
 
