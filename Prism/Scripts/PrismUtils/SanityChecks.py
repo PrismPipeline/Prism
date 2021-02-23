@@ -101,7 +101,7 @@ class SanityChecks(object):
         if not getattr(self.core, "projectPath", None) or not os.path.exists(self.core.prismIni):
             return
 
-        paths = self.core.appPlugin.getImportPaths(self.core)
+        paths = getattr(self.core.appPlugin, "getImportPaths", lambda x: None)(self.core)
 
         if not paths:
             return

@@ -74,6 +74,10 @@ class Prism_Houdini_Filecache(object):
 
     @err_catcher(name=__name__)
     def getLocations(self, kwargs):
+        # if function gets called before scene is fully loaded
+        if self.core.getCurrentFileName() != self.core.getStateManager().scenename:
+            return []
+
         state = self.getStateFromNode(kwargs)
         cb = state.ui.cb_outPath
         locations = [cb.itemText(idx) for idx in range(cb.count())]
