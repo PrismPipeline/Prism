@@ -1,3 +1,8 @@
+v1.3.0.73:
+- added the option to import alembic caches as GPU cache in Maya for increased performance
+- added an automatic resolution adjustment when creating a playblast with an uneven resolution in Maya, when the outputtype is set to mp4
+- fixed a bug that renders were not versioned up in some cases when rendering to an external location
+
 v1.3.0.71:
 - fixed a bug that the displayed outputname on the playblast state in Maya had a wrong extension in some cases
 

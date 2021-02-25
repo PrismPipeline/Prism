@@ -199,13 +199,25 @@ class Prism_Houdini_Filecache(object):
         else:
             ropName = "write_geo"
 
+        isBackground = node.parm("background").eval()
+
+        if isBackground:
+            parmName = "executebackground"
+        else:
+            parmName = "execute"
+
         rop = node.node(ropName)
-        rop.parm("execute").pressButton()
+        rop.parm(parmName).pressButton()
         QCoreApplication.processEvents()
         self.updateLatestVersion(node)
         node.node("switch_abc").cook(force=True)
-        if node.parm("showSuccessPopup").eval():
+        if not isBackground and node.parm("showSuccessPopup").eval():
             self.core.popup("Finished caching successfully.", severity="info", modal=False)
+
+        if isBackground:
+            return "background"
+        else:
+            return True
 
     @err_catcher(name=__name__)
     def executePressed(self, kwargs):
@@ -215,9 +227,11 @@ class Prism_Houdini_Filecache(object):
 
         sm = self.core.getStateManager()
         state = self.getStateFromNode(kwargs)
+        sanityChecks = bool(kwargs["node"].parm("sanityChecks").eval())
         version = self.getWriteVersionFromNode(kwargs["node"])
         saveScene = bool(kwargs["node"].parm("saveScene").eval())
         incrementScene = saveScene and bool(kwargs["node"].parm("incrementScene").eval())
+
         sm.publish(
             executeState=True,
             useVersion=version,
@@ -225,6 +239,8 @@ class Prism_Houdini_Filecache(object):
             successPopup=False,
             saveScene=saveScene,
             incrementScene=incrementScene,
+            sanityChecks=sanityChecks,
+            versionWarning=False,
         )
         self.reload(kwargs)
 

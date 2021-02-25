@@ -37,6 +37,7 @@ import traceback
 import time
 import shutil
 import platform
+import logging
 
 import maya.cmds as cmds
 import maya.mel as mel
@@ -57,6 +58,9 @@ except:
     from PySide.QtGui import *
 
 from PrismUtils.Decorators import err_catcher as err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class Prism_Maya_Functions(object):
@@ -2015,6 +2019,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         importOnly = True
         applyCache = False
         updateCache = False
+        doGpuCache = False
         importedNodes = []
 
         if fileName[1] in [".ma", ".mb", ".abc"]:
@@ -2075,6 +2080,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     rb_import = QRadioButton("Import objects only")
                     rb_reference.setChecked(mode == "import")
                     rb_applyCache = QRadioButton("Apply as cache to selected objects")
+                    rb_gpuCache = QRadioButton("Load as GPU cache")
                     rb_reference.setChecked(mode == "applyCache")
                     w_namespace = QWidget()
                     nLayout = QHBoxLayout()
@@ -2095,6 +2101,12 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     if fileName[1] != ".abc" or len(cmds.ls(selection=True)) == 0:
                         rb_applyCache.setEnabled(False)
 
+                    rb_gpuCache.toggled.connect(
+                        lambda x: w_namespace.setEnabled(not x)
+                    )
+                    if fileName[1] != ".abc":
+                        rb_gpuCache.setEnabled(False)
+
                     bb_warn = QDialogButtonBox()
                     bb_warn.addButton("Ok", QDialogButtonBox.AcceptRole)
                     bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
@@ -2106,6 +2118,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     bLayout.addWidget(rb_reference)
                     bLayout.addWidget(rb_import)
                     bLayout.addWidget(rb_applyCache)
+                    bLayout.addWidget(rb_gpuCache)
                     bLayout.addWidget(w_namespace)
                     bLayout.addWidget(bb_warn)
                     refDlg.setLayout(bLayout)
@@ -2122,6 +2135,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     else:
                         doRef = rb_reference.isChecked()
                         applyCache = rb_applyCache.isChecked()
+                        doGpuCache = rb_gpuCache.isChecked()
                         if chb_namespace.isChecked():
                             nSpace = e_namespace.text()
                         else:
@@ -2129,6 +2143,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                 else:
                     doRef = mode == "reference"
                     applyCache = mode == "applyCache"
+                    doGpuCache = mode == "gpuCache"
                     if useNamespace:
                         nSpace = namespace
                     else:
@@ -2138,6 +2153,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     cmds.referenceQuery(validNodes[0], isNodeReferenced=True)
                     or cmds.objectType(validNodes[0]) == "reference"
                 )
+                doGpuCache = bool([node for node in origin.nodes if cmds.objectType(node) == "gpuCache"])
                 if ":" in validNodes[0]:
                     nSpace = validNodes[0].rsplit("|", 1)[0].rsplit(":", 1)[0]
                 else:
@@ -2213,6 +2229,16 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                         except:
                             pass
                     importedNodes = [refNode]
+
+            elif doGpuCache:
+                if update:
+                    gpuNode = [node for node in origin.nodes if cmds.objectType(node) == "gpuCache"][0]
+                    importedNodes = self.updateGpuCache(gpuNode, impFileName, name=fileName[0])
+                else:
+                    origin.preDelete(
+                        baseText="Do you want to delete the currently connected objects?\n\n"
+                    )
+                    importedNodes = self.createGpuCache(impFileName, name=fileName[0]) or []
 
             elif importOnly:
                 origin.preDelete(
@@ -2299,16 +2325,40 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         # buggy
         # cmds.select([ x for x in origin.nodes if self.isNodeValid(origin, x)])
         self.validateSet(origin.setName)
+        if origin.setName:
+            cmds.delete(origin.setName)
+
         if len(origin.nodes) > 0:
             origin.setName = cmds.sets(name="Import_%s_" % fileName[0])
-        for i in origin.nodes:
-            cmds.sets(i, include=origin.setName)
+        for node in origin.nodes:
+            cmds.sets(node, include=origin.setName)
         result = len(importedNodes) > 0
 
         rDict = {"result": result, "doImport": doImport}
         rDict["mode"] = "ApplyCache" if (applyCache or updateCache) else "ImportFile"
 
         return rDict
+
+    @err_catcher(name=__name__)
+    def createGpuCache(self, filepath, geoPath="|", name=None):
+        cmds.loadPlugin("gpuCache.mll", quiet=True)
+        parent = cmds.createNode("transform", name=name)
+        node = cmds.createNode("gpuCache", parent=parent)
+        cmds.setAttr(node + ".cacheFileName", filepath, type="string")
+        cmds.setAttr(node + ".cacheGeomPath", geoPath, type="string")
+        return [parent, node]
+
+    @err_catcher(name=__name__)
+    def updateGpuCache(self, node, filepath, geoPath="|", name=None):
+        nodes = [node]
+        cmds.setAttr(node + ".cacheFileName", filepath, type="string")
+        cmds.setAttr(node + ".cacheGeomPath", geoPath, type="string")
+        if name:
+            parent = cmds.ls(node, long=True)[0].rsplit("|", 1)[0]
+            renamedParent = cmds.rename(parent, name)
+            nodes = [renamedParent]
+            nodes += cmds.listRelatives(renamedParent)
+        return nodes
 
     @err_catcher(name=__name__)
     def validateSet(self, setName):
@@ -2539,6 +2589,16 @@ Show only polygon objects in viewport.
                 origin.sp_resWidth.value(),
                 origin.sp_resHeight.value(),
             )
+        else:
+            if origin.cb_formats.currentText() == ".mp4":
+                res = self.getViewportResolution()
+                if not self.isViewportResolutionEven(res):
+                    evenRes = self.getEvenViewportResolution(res)
+                    cmdString += ", width=%s, height=%s" % (
+                        evenRes["width"],
+                        evenRes["height"],
+                    )
+                    logger.debug("using even resolution to be able to convert to mp4")
 
         cmdString += ")"
 
@@ -2549,8 +2609,58 @@ Show only polygon objects in viewport.
             origin.updateLastPath(outputName)
 
     @err_catcher(name=__name__)
+    def getViewFromName(self, viewportName):
+        view = OpenMayaUI.M3dView()
+        OpenMayaUI.M3dView.getM3dViewFromModelEditor(viewportName, view)
+        return view
+
+    @err_catcher(name=__name__)
+    def getViewportResolution(self, view=None):
+        if not view:
+            view = OpenMayaUI.M3dView.active3dView()
+        width = view.portWidth()
+        height = view.portHeight()
+        return {"width": width, "height": height}
+
+    @err_catcher(name=__name__)
+    def isViewportResolutionEven(self, resolution):
+        evenRes = self.getEvenViewportResolution(resolution)
+        return evenRes == resolution
+
+    @err_catcher(name=__name__)
+    def getEvenViewportResolution(self, resolution):
+        if resolution["width"] % 2:
+            width = resolution["width"] - 1
+        else:
+            width = resolution["width"]
+
+        if resolution["height"] % 2:
+            height = resolution["height"] - 1
+        else:
+            height = resolution["height"]
+
+        return {"width": width, "height": height}
+
+    @err_catcher(name=__name__)
     def sm_playblast_preExecute(self, origin):
         warnings = []
+
+        if not origin.chb_resOverride.isChecked():
+            res = self.getViewportResolution()
+            if not self.isViewportResolutionEven(res):
+                if origin.cb_formats.currentText() == ".mp4":
+                    warning = [
+                        "Viewport resolution is not even",
+                        "The resolution for mp4 files has to be even. The playblast resolution will be adjusted to be even.",
+                        2,
+                    ]
+                else:
+                    warning = [
+                        "Viewport resolution is not even",
+                        "Creating .jpg files with uneven resolution cannot be converted to mp4 videos later on.",
+                        2,
+                    ]
+                warnings.append(warning)
 
         return warnings
 

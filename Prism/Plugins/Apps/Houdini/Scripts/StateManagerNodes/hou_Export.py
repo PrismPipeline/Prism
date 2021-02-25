@@ -1431,6 +1431,7 @@ class ExportClass(object):
             self.b_copyLast.setEnabled(True)
 
             self.stateManager.saveStatesToScene()
+            updateMaster = True
 
             for idx, outputName in enumerate(outputNames):
                 outputName = outputName.replace("\\", "/")
@@ -1469,9 +1470,11 @@ class ExportClass(object):
                 else:
                     try:
                         result = self.executeNode()
-
                         if result:
-                            if len(os.listdir(os.path.dirname(expandedOutputName))) > 0:
+                            if result == "background":
+                                updateMaster = False
+
+                            if result == "background" or len(os.listdir(os.path.dirname(expandedOutputName))) > 0:
                                 result = "Result=Success"
                             else:
                                 result = "unknown error (files do not exist)"
@@ -1494,9 +1497,10 @@ class ExportClass(object):
                     if not self.core.appPlugin.setNodeParm(transformNode, "scale", val=1):
                         return [self.state.text(0) + ": error - Publish canceled"]
 
-            useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
-            if useMaster:
-                self.core.products.updateMasterVersion(expandedOutputName)
+            if updateMaster:
+                useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
+                if useMaster:
+                    self.core.products.updateMasterVersion(expandedOutputName)
 
             kwargs = {
                 "state": self,
@@ -1532,7 +1536,7 @@ class ExportClass(object):
     def executeNode(self):
         result = True
         if self.isPrismFilecacheNode(self.node):
-            self.core.appPlugin.filecache.executeNode(self.node)
+            result = self.core.appPlugin.filecache.executeNode(self.node)
         else:
             self.node.parm("execute").pressButton()
 

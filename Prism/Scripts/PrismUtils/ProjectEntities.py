@@ -982,7 +982,10 @@ class ProjectEntities(object):
     def getHighestTaskVersion(self, dstname, getExisting=False, ignoreEmpty=False):
         taskDirs = []
         dstname = os.path.normpath(dstname)
-        outPaths = self.core.paths.getExportProductBasePaths().values()
+        if os.path.normpath("Rendering/3dRender") in dstname or os.path.normpath("Rendering/2dRender") in dstname:
+            outPaths = self.core.paths.getRenderProductBasePaths().values()
+        else:
+            outPaths = self.core.paths.getExportProductBasePaths().values()
 
         for path in outPaths:
             dstname = dstname.replace(path, self.core.projectPath)
