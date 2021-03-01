@@ -1128,6 +1128,12 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
         self.core.ps.tw_settings.setCurrentIndex(5)
 
     @err_catcher(name=__name__)
+    def reload(self):
+        idx = self.tw_settings.currentIndex()
+        self.core.prismSettings()
+        self.core.ps.tw_settings.setCurrentIndex(idx)
+
+    @err_catcher(name=__name__)
     def createPluginWindow(self):
         dlg_plugin = CreatePluginDialog(self.core)
         action = dlg_plugin.exec_()

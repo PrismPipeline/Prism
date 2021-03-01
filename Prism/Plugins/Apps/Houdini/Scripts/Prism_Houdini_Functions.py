@@ -1532,7 +1532,7 @@ class Prism_Houdini_Functions(object):
         sm = self.core.getStateManager()
 
         if kwargs["node"].type().name().startswith(self.importFile.getTypeName()):
-            parent = self.importFile.getParentFolder()
+            parent = self.importFile.getParentFolder(node=kwargs["node"])
             if parent:
                 parentExpanded = parent.isExpanded()
             state = sm.createState("ImportFile", node=kwargs["node"], setActive=True, openProductsBrowser=False, parent=parent)

@@ -595,7 +595,7 @@ class Products(object):
                 shutil.rmtree(masterFolder)
             except Exception:
                 return False
-            return True
+        return True
 
     @err_catcher(name=__name__)
     def getMasterVersionLabel(self, path):

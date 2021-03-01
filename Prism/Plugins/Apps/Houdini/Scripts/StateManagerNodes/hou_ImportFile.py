@@ -510,7 +510,11 @@ class ImportFileClass(object):
             self.importShotCam(importPath)
         else:
             for node in self.importTarget.children():
-                node.destroy()
+                try:
+                    node.destroy()
+                except:
+                    self.core.popup("Import canceled.\nFailed to delete node:\n\n%s" % node.path())
+                    return
 
             self.taskName = cacheData.get("task") or ""
             extension = os.path.splitext(importPath)[1]
@@ -539,11 +543,12 @@ class ImportFileClass(object):
         cacheData = cacheData or {}
         taskName = cacheData.get("task")
         if taskName:
-            self.node.setName("IMPORT_" + taskName, unique_name=True)
-            for child in self.node.children():
-                if prevTaskName in child.name():
-                    newName = child.name().replace(prevTaskName, taskName)
-                    child.setName(newName, unique_name=True)
+            if not self.isPrismImportNode(self.node):
+                self.node.setName("IMPORT_" + taskName, unique_name=True)
+                for child in self.node.children():
+                    if prevTaskName in child.name():
+                        newName = child.name().replace(prevTaskName, taskName)
+                        child.setName(newName, unique_name=True)
 
         extension = os.path.splitext(importPath)[1]
         if extension == ".abc" and "_ShotCam_" in importPath:

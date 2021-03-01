@@ -84,12 +84,18 @@ class Prism_Houdini_ImportFile(object):
         state = self.getStateFromNode(kwargs)
         state.ui.browse()
         self.refreshUiFromNode(kwargs, state)
+        if state.parent() and state.parent().text(0) == "ImportNodes":
+            self.updateStateParent(kwargs["node"], state)
 
     @err_catcher(name=__name__)
     def refreshUiFromNode(self, kwargs, state=None):
         state = state or self.getStateFromNode(kwargs)
         path = state.ui.getImportPath()
-        kwargs["node"].parm("filepath").set(path)
+        if path != kwargs["node"].parm("filepath").eval():
+            try:
+                kwargs["node"].parm("filepath").set(path)
+            except:
+                logger.debug("failed to set parm \"filepath\" on node %s" % kwargs["node"].path())
 
         data = self.core.paths.getCachePathData(path)
         if data["entityType"]:
@@ -117,12 +123,35 @@ class Prism_Houdini_ImportFile(object):
         if versionName == "master":
             versionLabel = self.core.products.getMasterVersionLabel(path)
 
-        kwargs["node"].parm("entity").set(data.get("fullEntity"))
-        kwargs["node"].parm("task").set(task)
-        kwargs["node"].parm("version").set(versionLabel)
-        kwargs["node"].parm("comment").set(comment)
-        kwargs["node"].parm("user").set(user)
-        kwargs["node"].parm("date").set(date)
+        try:
+            kwargs["node"].parm("entity").set(data.get("fullEntity"))
+        except:
+            logger.debug("failed to set parm \"entity\" on node %s" % kwargs["node"].path())
+
+        try:
+            kwargs["node"].parm("task").set(task)
+        except:
+            logger.debug("failed to set parm \"task\" on node %s" % kwargs["node"].path())
+
+        try:
+            kwargs["node"].parm("version").set(versionLabel)
+        except:
+            logger.debug("failed to set parm \"version\" on node %s" % kwargs["node"].path())
+
+        try:
+            kwargs["node"].parm("comment").set(comment)
+        except:
+            logger.debug("failed to set parm \"comment\" on node %s" % kwargs["node"].path())
+
+        try:
+            kwargs["node"].parm("user").set(user)
+        except:
+            logger.debug("failed to set parm \"user\" on node %s" % kwargs["node"].path())
+
+        try:
+            kwargs["node"].parm("date").set(date)
+        except:
+            logger.debug("failed to set parm \"date\" on node %s" % kwargs["node"].path())
 
     @err_catcher(name=__name__)
     def setPathFromNode(self, kwargs):
@@ -133,25 +162,65 @@ class Prism_Houdini_ImportFile(object):
         self.refreshUiFromNode(kwargs)
 
     @err_catcher(name=__name__)
-    def getParentFolder(self, create=True):
+    def getParentFolder(self, create=True, node=None):
+        parents = ["ImportNodes"]
+        if node:
+            cachePath = node.parm("filepath").eval()
+            data = self.core.paths.getCachePathData(cachePath)
+            if data["entityType"] == "asset":
+                parents = data["fullEntity"].replace("\\", "/").split("/")
+            elif data["entityType"] == "shot":
+                parents = [data["sequence"], data["shot"]]
+
         sm = self.core.getStateManager()
-        for state in sm.states:
+        state = None
+        states = sm.states
+        for parent in parents:
+            cstate = self.findFolderState(states, parent)
+            if cstate:
+                state = cstate
+            else:
+                if not create:
+                    return
+
+                stateData = {
+                    "statename": parent,
+                    "listtype": "Import",
+                    "stateexpanded": False,
+                }
+                state = sm.createState("Folder", stateData=stateData, parent=state)
+
+            states = [state.child(idx) for idx in range(state.childCount())]
+
+        return state
+
+    @err_catcher(name=__name__)
+    def updateStateParent(self, node, state):
+        parent = self.getParentFolder(node=node)
+        if parent is not state.parent():
+            prevParent = state.parent()
+            s = prevParent.takeChild(prevParent.indexOfChild(state))
+            parent.addChild(s)
+            sm = self.core.getStateManager()
+            if prevParent:
+                while True:
+                    nextParent = prevParent.parent()
+                    if prevParent.childCount() == 0:
+                        sm.deleteState(prevParent)
+
+                    if nextParent:
+                        prevParent = nextParent
+                    else:
+                        return
+
+    @err_catcher(name=__name__)
+    def findFolderState(self, states, name):
+        for state in states:
             if state.ui.listType != "Import" or state.ui.className != "Folder":
                 continue
 
-            if state.ui.e_name.text() != "ImportNodes":
-                continue
-
-            return state
-
-        if create:
-            stateData = {
-                "statename": "ImportNodes",
-                "listtype": "Import",
-                "stateexpanded": False,
-            }
-            state = sm.createState("Folder", stateData=stateData)
-            return state
+            if state.ui.e_name.text() == name:
+                return state
 
     @err_catcher(name=__name__)
     def getNodeDescription(self):

@@ -184,7 +184,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.73"
+            self.version = "v1.3.0.74"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -254,6 +254,7 @@ class PrismCore:
             self.versionPadding = 4
             self.framePadding = 4
             self.versionFormatVan = "v#"
+            self.versionFormat = self.versionFormatVan.replace("#", "%0{}d".format(self.versionPadding))
             self.debugMode = False
             self.useLocalFiles = False
             self.pb = None
@@ -383,6 +384,9 @@ class PrismCore:
 
     @err_catcher(name=__name__)
     def startup(self):
+        if not self.appPlugin:
+            return
+
         if self.appPlugin.hasQtParent:
             self.elapsed += 1
             if self.elapsed > self.maxwait and hasattr(self, "timer"):
@@ -733,8 +737,8 @@ class PrismCore:
     def parentWindow(self, win, parent=None):
         self.scaleUI(win)
 
-        if not self.appPlugin.hasQtParent:
-            if self.appPlugin.pluginName != "Standalone" and self.useOnTop:
+        if not self.appPlugin or not self.appPlugin.hasQtParent:
+            if not self.appPlugin or (self.appPlugin.pluginName != "Standalone" and self.useOnTop):
                 win.setWindowFlags(win.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
         if (not parent and not self.parentWindows) or not self.uiAvailable:
@@ -873,9 +877,9 @@ License: GNU GPL-3.0-or-later<br>
         webbrowser.open(url)
 
     @err_catcher(name=__name__)
-    def getStateManager(self):
+    def getStateManager(self, create=True):
         sm = getattr(self, "sm", None)
-        if not sm:
+        if not sm and create:
             sm = self.stateManager(openUi=False)
 
         return sm
@@ -2553,6 +2557,10 @@ License: GNU GPL-3.0-or-later<br>
         return msg
 
     class waitPopup(QObject):
+        """
+        with self.core.waitPopup(self.core, text):
+
+        """
         canceled = Signal()
 
         def __init__(self, core, text, title=None, buttons=None, default=None, icon=None, hidden=False, parent=None, allowCancel=False):

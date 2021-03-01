@@ -75,7 +75,8 @@ class Prism_Houdini_Filecache(object):
     @err_catcher(name=__name__)
     def getLocations(self, kwargs):
         # if function gets called before scene is fully loaded
-        if self.core.getCurrentFileName() != self.core.getStateManager().scenename:
+        sm = self.core.getStateManager(create=False)
+        if not sm or self.core.getCurrentFileName() != sm.scenename:
             return []
 
         state = self.getStateFromNode(kwargs)
@@ -199,9 +200,7 @@ class Prism_Houdini_Filecache(object):
         else:
             ropName = "write_geo"
 
-        isBackground = node.parm("background").eval()
-
-        if isBackground:
+        if self.executeBackground:
             parmName = "executebackground"
         else:
             parmName = "execute"
@@ -211,16 +210,16 @@ class Prism_Houdini_Filecache(object):
         QCoreApplication.processEvents()
         self.updateLatestVersion(node)
         node.node("switch_abc").cook(force=True)
-        if not isBackground and node.parm("showSuccessPopup").eval():
+        if not self.executeBackground and node.parm("showSuccessPopup").eval():
             self.core.popup("Finished caching successfully.", severity="info", modal=False)
 
-        if isBackground:
+        if self.executeBackground:
             return "background"
         else:
             return True
 
     @err_catcher(name=__name__)
-    def executePressed(self, kwargs):
+    def executePressed(self, kwargs, background=False):
         if not kwargs["node"].inputs():
             self.core.popup("No inputs connected")
             return
@@ -232,6 +231,7 @@ class Prism_Houdini_Filecache(object):
         saveScene = bool(kwargs["node"].parm("saveScene").eval())
         incrementScene = saveScene and bool(kwargs["node"].parm("incrementScene").eval())
 
+        self.executeBackground = background
         sm.publish(
             executeState=True,
             useVersion=version,
@@ -242,6 +242,7 @@ class Prism_Houdini_Filecache(object):
             sanityChecks=sanityChecks,
             versionWarning=False,
         )
+        self.executeBackground = False
         self.reload(kwargs)
 
     @err_catcher(name=__name__)
@@ -367,6 +368,10 @@ class Prism_Houdini_Filecache(object):
 
     @err_catcher(name=__name__)
     def getImportPath(self):
+        sm = self.core.getStateManager(create=False)
+        if not sm or self.core.getCurrentFileName() != sm.scenename:
+            return ""
+
         node = hou.pwd()
         product = node.parm("task").eval()
         version = self.getReadVersionFromNode(node)

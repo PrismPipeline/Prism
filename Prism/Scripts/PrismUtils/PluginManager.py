@@ -75,8 +75,9 @@ class PluginManager(object):
             return
 
         self.loadPlugins(pluginPaths=pluginDirs["pluginPaths"], directories=pluginDirs["searchPaths"], force=False)
+        self.core.callback("onPluginsLoaded")
 
-        if self.core.appPlugin.pluginName != "Standalone":
+        if self.core.appPlugin and self.core.appPlugin.pluginName != "Standalone":
             self.core.maxwait = 20
             self.core.elapsed = 0
             if self.core.uiAvailable:
@@ -144,9 +145,15 @@ class PluginManager(object):
                 pluginPath = os.path.join(pluginPath, "Scripts")
 
         sys.path.append(pluginPath)
-        self.core.appPlugin = getattr(
+        self.core.appPlugin = None
+        appPlug = getattr(
             __import__("Prism_%s_init" % pluginName), "Prism_Plugin_%s" % pluginName
         )(self.core)
+        if not getattr(appPlug, "isActive", lambda: True)():
+            logger.debug("no appPlugin loaded")
+            return
+
+        self.core.appPlugin = appPlug
 
         if not self.core.appPlugin:
             msg = "Prism could not initialize correctly and may not work correctly in this session."
@@ -559,7 +566,7 @@ class PluginManager(object):
 
     @err_catcher(name=__name__)
     def getPlugin(self, pluginName):
-        if pluginName == self.core.appPlugin.pluginName:
+        if self.core.appPlugin and pluginName == self.core.appPlugin.pluginName:
             return self.core.appPlugin
         else:
             for i in self.core.unloadedAppPlugins:
@@ -618,6 +625,12 @@ class PluginManager(object):
 
     @err_catcher(name=__name__)
     def addToPluginConfig(self, pluginPath=None, searchPath=None):
+        if pluginPath:
+            pluginPath = os.path.normpath(pluginPath)
+
+        if searchPath:
+            searchPath = os.path.normpath(searchPath)
+
         userPluginConfig = self.core.getConfig(config="PluginPaths") or {}
         if "plugins" not in userPluginConfig:
             userPluginConfig["plugins"] = []
@@ -634,6 +647,21 @@ class PluginManager(object):
             userPluginConfig["searchPaths"].append(pathData)
 
         self.core.setConfig(data=userPluginConfig, config="PluginPaths")
+
+    @err_catcher(name=__name__)
+    def canPluginBeFound(self, pluginPath):
+        pluginPath = os.path.normpath(pluginPath)
+        userPluginConfig = self.core.getConfig(config="PluginPaths") or {}
+        if "plugins" in userPluginConfig:
+            if pluginPath in userPluginConfig["plugins"]:
+                return True
+
+        if "searchPaths" in userPluginConfig:
+            parent = os.path.dirname(pluginPath)
+            if parent in userPluginConfig["searchPaths"]:
+                return True
+
+        return False
 
     @err_catcher(name=__name__)
     def monkeyPatch(self, orig, new, plugin):

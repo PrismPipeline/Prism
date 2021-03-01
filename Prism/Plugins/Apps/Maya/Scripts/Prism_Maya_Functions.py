@@ -2325,7 +2325,7 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         # buggy
         # cmds.select([ x for x in origin.nodes if self.isNodeValid(origin, x)])
         self.validateSet(origin.setName)
-        if origin.setName:
+        if self.isNodeValid(self, origin.setName):
             cmds.delete(origin.setName)
 
         if len(origin.nodes) > 0:
