@@ -281,9 +281,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
     @err_catcher(name=__name__)
     def loadVersion(self, index, currentVersion=False):
-        if self.core.appPlugin.pluginName == "Standalone":
-            return
-
         if currentVersion:
             self.tw_versions.sortByColumn(0, Qt.DescendingOrder)
             pathC = self.tw_versions.model().columnCount() - 1

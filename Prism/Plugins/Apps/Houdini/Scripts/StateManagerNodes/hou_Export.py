@@ -66,6 +66,7 @@ class ExportClass(object):
         self.curCam = None
         self.initsim = True
 
+        self.setTaskname("")
         self.cb_outType.addItems(self.core.appPlugin.outputFormats)
         self.export_paths = self.core.paths.getExportProductBasePaths()
 
@@ -137,17 +138,9 @@ class ExportClass(object):
             self.sp_rangeStart.setValue(hou.playbar.playbackRange()[0])
             self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
 
-        self.nameChanged(state.text(0))
         self.managerChanged(True)
-
         self.connectEvents()
-
-        self.b_changeTask.setStyleSheet(
-            "QPushButton { background-color: rgb(150,0,0); border: none;}"
-        )
-
         self.core.appPlugin.fixStyleSheet(self.gb_submit)
-
         self.e_osSlaves.setText("All")
 
         self.updateUi()
@@ -166,17 +159,14 @@ class ExportClass(object):
                     self.cb_sCamShot.setCurrentIndex(idx)
 
             if fnameData.get("category") and not self.isPrismFilecacheNode(self.node):
-                self.l_taskName.setText(fnameData.get("category"))
-                self.b_changeTask.setStyleSheet("")
+                self.setTaskname(fnameData.get("category"))
 
     @err_catcher(name=__name__)
     def loadData(self, data):
         if "statename" in data:
             self.e_name.setText(data["statename"])
         if "taskname" in data:
-            self.l_taskName.setText(data["taskname"])
-            if data["taskname"] != "":
-                self.b_changeTask.setStyleSheet("")
+            self.setTaskname(data["taskname"])
         if "rangeType" in data:
             idx = self.cb_rangeType.findText(data["rangeType"])
             if idx != -1:
@@ -471,11 +461,8 @@ class ExportClass(object):
         result = self.nameWin.exec_()
 
         if result == 1:
-            self.l_taskName.setText(self.nameWin.e_item.text())
-            self.nameChanged(self.e_name.text())
-
-            self.b_changeTask.setStyleSheet("")
-
+            taskName = self.nameWin.e_item.text()
+            self.setTaskname(taskName)
             self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)

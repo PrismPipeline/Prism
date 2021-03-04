@@ -184,7 +184,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.74"
+            self.version = "v1.3.0.75"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -593,11 +593,20 @@ class PrismCore:
             curName = command[1]
             newName = command[2]
             self.entities.renameShot(curName, newName)
+
+        elif command[0] == "renameLocalShot":
+            curName = command[1]
+            newName = command[2]
+            msg = "A shot in your project was renamed from \"%s\" to \"%s\". Do you want to check if there are local files with the old shotname and rename them to the new shotname?" % (curName, newName)
+            result = self.popupQuestion(msg)
+            if result == "Yes":
+                self.entities.renameShot(curName, newName, locations=["local"])
+
         else:
             self.popup("Unknown command: %s" % (command))
 
     @err_catcher(name=__name__)
-    def createCmd(self, cmd):
+    def createCmd(self, cmd, includeCurrent=False):
         if not os.path.exists(self.prismIni):
             return
 
@@ -609,7 +618,10 @@ class PrismCore:
                 return
 
         for i in os.listdir(cmdDir):
-            if i == self.username:
+            if not includeCurrent and i == socket.gethostname():
+                continue
+
+            if i == socket.gethostname():
                 self.handleCmd(cmd)
                 continue
 
@@ -1799,7 +1811,11 @@ License: GNU GPL-3.0-or-later<br>
         return path
 
     @err_catcher(name=__name__)
-    def getFileModificationDate(self, path):
+    def getFileModificationDate(self, path, validate=False):
+        if validate:
+            if not os.path.exists(path):
+                return ""
+
         cdate = datetime.fromtimestamp(os.path.getmtime(path))
         cdate = cdate.replace(microsecond=0)
         cdate = cdate.strftime("%d.%m.%y,  %H:%M:%S")
@@ -2494,7 +2510,7 @@ License: GNU GPL-3.0-or-later<br>
         title = str(title or "Prism")
         buttons = buttons or ["Yes", "No"]
         icon = QMessageBox.Question if icon is None else icon
-        parent or getattr(self, "messageParent", None)
+        parent = parent or getattr(self, "messageParent", None)
 
         if "silent" in self.prismArgs or not self.uiAvailable:
             logger.info("%s - %s - %s" % (title, text, default))

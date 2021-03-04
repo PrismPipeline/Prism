@@ -1,3 +1,9 @@
+v1.3.0.75:
+- added option to the project settings to disable linking of master version and use copying instead
+- improved hadnling of renaming shots
+- added name attribute to FBX imports in Houdini
+- fixed a bug that the resolution preset from camera didn't respect the camera override
+
 v1.3.0.74:
 - fixed an error when updating imported assets in Maya in some cases
 - fixed an error when updating master export versions in some cases

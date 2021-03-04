@@ -52,6 +52,9 @@ class Prism_Houdini_Filecache(object):
     def __init__(self, plugin):
         self.plugin = plugin
         self.core = self.plugin.core
+        self.initState = None
+        self.executeBackground = False
+        self.nodeExecuted = False
 
     @err_catcher(name=__name__)
     def getTypeName(self):
@@ -79,7 +82,11 @@ class Prism_Houdini_Filecache(object):
         if not sm or self.core.getCurrentFileName() != sm.scenename:
             return []
 
-        state = self.getStateFromNode(kwargs)
+        if self.initState:
+            state = self.initState
+        else:
+            state = self.getStateFromNode(kwargs)
+
         cb = state.ui.cb_outPath
         locations = [cb.itemText(idx) for idx in range(cb.count())]
 
@@ -118,13 +125,14 @@ class Prism_Houdini_Filecache(object):
     def onNodeCreated(self, kwargs):
         self.plugin.onNodeCreated(kwargs)
         kwargs["node"].setColor(hou.Color(0.95, 0.5, 0.05))
-        self.nodeInit(kwargs["node"])
+        self.getStateFromNode(kwargs)
 
     @err_catcher(name=__name__)
     def nodeInit(self, node, state=None):
         if not state:
             state = self.getStateFromNode({"node": node})
 
+        self.initState = state
         location = node.parm("format").evalAsString()
         task = node.parm("task").eval()
         outformat = node.parm("format").evalAsString()
@@ -134,6 +142,7 @@ class Prism_Houdini_Filecache(object):
         state.ui.setOutputType(outformat)
         state.ui.setLocation(location)
         self.updateLatestVersion(node)
+        self.initState = None
 
     @err_catcher(name=__name__)
     def onNodeDeleted(self, kwargs):
@@ -210,7 +219,7 @@ class Prism_Houdini_Filecache(object):
         QCoreApplication.processEvents()
         self.updateLatestVersion(node)
         node.node("switch_abc").cook(force=True)
-        if not self.executeBackground and node.parm("showSuccessPopup").eval():
+        if not self.executeBackground and node.parm("showSuccessPopup").eval() and self.nodeExecuted:
             self.core.popup("Finished caching successfully.", severity="info", modal=False)
 
         if self.executeBackground:
@@ -231,6 +240,7 @@ class Prism_Houdini_Filecache(object):
         saveScene = bool(kwargs["node"].parm("saveScene").eval())
         incrementScene = saveScene and bool(kwargs["node"].parm("incrementScene").eval())
 
+        self.nodeExecuted = True
         self.executeBackground = background
         sm.publish(
             executeState=True,
@@ -243,6 +253,7 @@ class Prism_Houdini_Filecache(object):
             versionWarning=False,
         )
         self.executeBackground = False
+        self.nodeExecuted = False
         self.reload(kwargs)
 
     @err_catcher(name=__name__)
@@ -310,7 +321,7 @@ class Prism_Houdini_Filecache(object):
                 "statename": "Filecaches",
                 "listtype": "Export",
                 "stateenabled": "PySide2.QtCore.Qt.CheckState.Checked",
-                "stateexpanded": False,
+                "stateexpanded": True,
             }
             state = sm.createState("Folder", stateData=stateData)
             return state

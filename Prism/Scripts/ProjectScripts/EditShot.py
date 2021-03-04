@@ -300,8 +300,9 @@ class EditShot(QDialog, EditShot_ui.Ui_dlg_EditShot):
                 )
 
             if str(result).endswith(".Yes"):
-                self.core.createCmd(["renameShot", self.shotName, newSName])
-                self.core.checkCommands()
+                self.core.entities.renameShot(self.shotName, newSName)
+                if self.core.useLocalFiles:
+                    self.core.createCmd(["renameLocalShot", self.shotName, newSName])
                 self.shotName = newSName
         else:
             self.shotName = newSName

@@ -639,18 +639,22 @@ class ProjectEntities(object):
                     break
 
     @err_catcher(name=__name__)
-    def renameShot(self, curShotName, newShotName):
-        shotFolder = self.core.getEntityPath(shot=curShotName)
-        newShotFolder = self.core.getEntityPath(shot=newShotName)
-        shotFolders = {shotFolder: newShotFolder}
+    def renameShot(self, curShotName, newShotName, locations=None):
+        shotFolder = os.path.normpath(self.core.getEntityPath(shot=curShotName))
+        newShotFolder = os.path.normpath(self.core.getEntityPath(shot=newShotName))
+        shotFolders = {}
+        if not locations or "global" in locations:
+            shotFolders[shotFolder] = newShotFolder
+
         if self.core.useLocalFiles:
-            lShotFolder = shotFolder.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-            newLShotFolder = newShotFolder.replace(
-                self.core.projectPath, self.core.localProjectPath
-            )
-            shotFolders[lShotFolder] = newLShotFolder
+            if not locations or "local" in locations:
+                lShotFolder = shotFolder.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+                newLShotFolder = newShotFolder.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+                shotFolders[lShotFolder] = newLShotFolder
 
         while True:
             try:

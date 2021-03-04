@@ -1149,6 +1149,7 @@ class Prism_Houdini_Functions(object):
             if self.core.sm.stateTypes["Save HDA"].canConnectNode():
                 msg = "The selected node can be connected to a \"Save HDA\" state.\nDo you want to create a \"Save HDA\" state?"
                 result = self.core.popupQuestion(msg, parent=self.core.sm)
+                self.core.sm.activateWindow()
                 if result == "Yes":
                     return "Save HDA"
 
@@ -1500,6 +1501,11 @@ class Prism_Houdini_Functions(object):
             QCoreApplication.processEvents()
 
         state = self.getStateFromNode(kwargs)
+        parent = state.parent()
+        while parent:
+            parent.setExpanded(True)
+            parent = parent.parent()
+
         sm.selectState(state)
 
     @err_catcher(name=__name__)
@@ -1518,14 +1524,19 @@ class Prism_Houdini_Functions(object):
 
         state = self.getStateFromNode(kwargs)
         if kwargs["node"].type().name().startswith(self.importFile.getTypeName()):
-            parent = self.importFile.getParentFolder(create=False)
+            parent = self.importFile.getParentFolder(create=False, node=kwargs["node"])
         elif kwargs["node"].type().name().startswith(self.filecache.getTypeName()):
             parent = self.filecache.getParentFolder(create=False)
 
         sm = self.core.getStateManager()
         sm.deleteState(state, silent=True)
-        if parent and parent.childCount() == 0:
-            sm.deleteState(parent)
+        while parent:
+            if parent and parent.childCount() == 0:
+                newParent = parent.parent()
+                sm.deleteState(parent)
+                parent = newParent
+            else:
+                break
 
     @err_catcher(name=__name__)
     def createStateForNode(self, kwargs):

@@ -408,6 +408,7 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
             cData["globals"]["resolution"] = [self.sp_prjResolutionWidth.value(), self.sp_prjResolutionHeight.value()]
             cData["globals"]["useMasterVersion"] = self.chb_curPuseMaster.isChecked()
             cData["globals"]["useMasterRenderVersion"] = self.chb_curPuseMasterRender.isChecked()
+            cData["globals"]["useHardLinksForMasterVersions"] = self.chb_curPuseHardLinks.isChecked()
             cData["globals"]["forceversions"] = self.gb_curPversions.isChecked()
             cData["changeProject"] = changeProject
 
@@ -712,6 +713,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
                 self.chb_curPuseMaster.setChecked(gblData["useMasterVersion"])
             if "useMasterRenderVersion" in gblData:
                 self.chb_curPuseMasterRender.setChecked(gblData["useMasterRenderVersion"])
+            if "useHardLinksForMasterVersions" in gblData:
+                self.chb_curPuseHardLinks.setChecked(gblData["useHardLinksForMasterVersions"])
             if "forceversions" in gblData:
                 self.gb_curPversions.setChecked(gblData["forceversions"])
 

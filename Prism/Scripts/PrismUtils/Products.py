@@ -575,7 +575,8 @@ class Products(object):
             else:
                 masterPathPadded = masterPath
 
-            if platform.system() == "Windows" and drive == masterDrive:
+            useHL = self.core.getConfig("globals", "useHardLinksForMasterVersions", config="project", dft=False)
+            if platform.system() == "Windows" and drive == masterDrive and useHL:
                 self.core.createSymlink(masterPathPadded, seqFile)
             else:
                 shutil.copy2(seqFile, masterPathPadded)
@@ -583,7 +584,10 @@ class Products(object):
         ext = self.core.configs.preferredExtension
         infoPath = os.path.join(os.path.dirname(os.path.dirname(path)), "versioninfo" + ext)
         masterInfoPath = os.path.join(os.path.dirname(os.path.dirname(masterPath)), "versioninfo" + ext)
-        self.core.createSymlink(masterInfoPath, infoPath)
+        if platform.system() == "Windows" and drive == masterDrive and useHL:
+            self.core.createSymlink(masterInfoPath, infoPath)
+        else:
+            shutil.copy2(infoPath, masterInfoPath)
         self.core.setConfig("filename", val=path, configPath=masterInfoPath)
         return masterPath
 

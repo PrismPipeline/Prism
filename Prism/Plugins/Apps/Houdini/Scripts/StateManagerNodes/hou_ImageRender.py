@@ -635,21 +635,15 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def setCamResolution(self):
-        pbCam = None
-
-        if self.node:
-            camParm = self.node.parm("camera")
-            if camParm:
-                cam = camParm.evalAsNode()
-
-        if cam is None:
-            QMessageBox.warning(
-                self, "Resolution Override", "No camera is selected or active."
-            )
+        if not self.core.appPlugin.isNodeValid(self, self.curCam):
+            msg = "No camera is selected or active."
+            title = "Resolution Override"
+            self.core.popup(msg, title=title)
             return
 
-        self.sp_resWidth.setValue(cam.parm("resx").eval())
-        self.sp_resHeight.setValue(cam.parm("resy").eval())
+
+        self.sp_resWidth.setValue(self.curCam.parm("resx").eval())
+        self.sp_resHeight.setValue(self.curCam.parm("resy").eval())
 
         self.stateManager.saveStatesToScene()
 

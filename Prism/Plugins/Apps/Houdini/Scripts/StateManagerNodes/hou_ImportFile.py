@@ -404,6 +404,8 @@ class ImportFileClass(object):
 
             node = hou.hipFile.importFBX(importPath)[0]
             self.setNode(node)
+            self.node.moveToGoodPosition()
+            self.addNodeToImportNetworkBox(self.node)
 
             if not self.node:
                 self.core.popup("Import failed.")
@@ -429,7 +431,9 @@ class ImportFileClass(object):
                 objmerge.moveToGoodPosition()
                 objmerge.parm("objpath1").set(i.path())
                 objmerge.parm("xformtype").set(1)
-                self.fileNode.setNextInput(objmerge)
+                namenode = objmerge.createOutputNode("name", "Add_Name_" + i.name())
+                namenode.parm("name1").set("`opinput(\".\", 0)`")
+                self.fileNode.setNextInput(namenode)
 
             mergeGeo.layoutChildren()
             self.node.layoutChildren()
@@ -457,7 +461,14 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def importFile(self, importPath, taskName):
-        self.fileNode = self.importTarget.createNode("file")
+        try:
+            self.fileNode = self.importTarget.createNode("file")
+        except:
+            if self.importTarget.isInsideLockedHDA():
+                msg = "Cannot create node inside\"%s\".\nMake sure the node is set as editable node in youe HDA." % self.importTarget.path()
+                self.core.popup(msg)
+                return
+
         self.fileNode.moveToGoodPosition()
         self.fileNode.parm("file").set(importPath)
 

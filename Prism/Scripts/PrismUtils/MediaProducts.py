@@ -649,7 +649,8 @@ class MediaProducts(object):
             if not os.path.exists(os.path.dirname(masterFile)):
                 os.makedirs(os.path.dirname(masterFile))
 
-            if platform.system() == "Windows" and drive == masterDrive:
+            useHL = self.core.getConfig("globals", "useHardLinksForMasterVersions", config="project", dft=False)
+            if platform.system() == "Windows" and drive == masterDrive and useHL:
                 self.core.createSymlink(masterFile, file)
             else:
                 shutil.copy2(file, masterFile)

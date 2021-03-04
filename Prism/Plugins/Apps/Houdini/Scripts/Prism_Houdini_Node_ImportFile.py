@@ -62,6 +62,7 @@ class Prism_Houdini_ImportFile(object):
     def onNodeCreated(self, kwargs):
         self.plugin.onNodeCreated(kwargs)
         kwargs["node"].setColor(hou.Color(0.451, 0.369, 0.796))
+        self.getStateFromNode(kwargs)
 
     @err_catcher(name=__name__)
     def onNodeDeleted(self, kwargs):
@@ -168,29 +169,34 @@ class Prism_Houdini_ImportFile(object):
             cachePath = node.parm("filepath").eval()
             data = self.core.paths.getCachePathData(cachePath)
             if data["entityType"] == "asset":
-                parents = data["fullEntity"].replace("\\", "/").split("/")
+                parents = os.path.dirname(data["fullEntity"]).replace("\\", "/").split("/")
             elif data["entityType"] == "shot":
                 parents = [data["sequence"], data["shot"]]
 
         sm = self.core.getStateManager()
         state = None
         states = sm.states
+        createdStates = []
         for parent in parents:
             cstate = self.findFolderState(states, parent)
             if cstate:
                 state = cstate
             else:
                 if not create:
-                    return
+                    return state
 
                 stateData = {
                     "statename": parent,
                     "listtype": "Import",
-                    "stateexpanded": False,
+                    "stateexpanded": True,
                 }
                 state = sm.createState("Folder", stateData=stateData, parent=state)
+                createdStates.append(state)
 
             states = [state.child(idx) for idx in range(state.childCount())]
+
+        for cs in createdStates:
+            cs.setExpanded(True)
 
         return state
 
