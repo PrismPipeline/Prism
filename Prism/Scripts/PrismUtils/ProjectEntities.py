@@ -1187,11 +1187,21 @@ class ProjectEntities(object):
         presetScenes = []
         emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
         if os.path.exists(emptyDir):
-            for filename in sorted(os.listdir(emptyDir)):
-                if filename == "readme.txt":
-                    continue
+            for root, folders, files in os.walk(emptyDir):
+                for filename in sorted(files):
+                    if filename == "readme.txt":
+                        continue
 
-                presetScenes.append(filename)
+                    if filename.startswith(".") or filename.startswith("_"):
+                        continue
+
+                    presetDir = root.replace(emptyDir, "")
+                    if presetDir:
+                        presetName = presetDir[1:].replace("\\", "/") + "/" + filename
+                    else:
+                        presetName = filename
+
+                    presetScenes.append(presetName)
 
         return presetScenes
 

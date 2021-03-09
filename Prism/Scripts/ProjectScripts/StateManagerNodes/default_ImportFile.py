@@ -277,7 +277,7 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def getImportPath(self):
-        return self.e_file.text().replace("\\", "/")
+        return os.path.normpath(self.e_file.text())
 
     @err_catcher(name=__name__)
     def runSanityChecks(self, cachePath):
@@ -336,6 +336,7 @@ class ImportFileClass(object):
         fileName = self.core.getCurrentFileName()
         impFileName = path or self.getImportPath()
         impFileName = self.convertToPreferredUnit(impFileName)
+        impFileName = os.path.normpath(impFileName)
 
         kwargs = {
             "state": self,

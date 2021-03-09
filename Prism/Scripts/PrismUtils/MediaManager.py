@@ -341,9 +341,10 @@ class MediaManager(object):
             pheight = size.height()
         elif ext in [".exr", ".dpx"]:
             oiio = self.getOIIO()
-            imgSpecs = oiio.ImageBuf(path).spec()
-            pwidth = imgSpecs.full_width
-            pheight = imgSpecs.full_height
+            if oiio:
+                imgSpecs = oiio.ImageBuf(path).spec()
+                pwidth = imgSpecs.full_width
+                pheight = imgSpecs.full_height
         elif ext in [".mp4", ".mov"]:
             if os.stat(path).st_size == 0:
                 vidReader = "Error"

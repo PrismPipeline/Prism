@@ -237,15 +237,8 @@ class ConfigManager(object):
                 configPath = self.convertDeprecatedConfig(configPath)
 
             configData = self.readYaml(configPath)
-            if not configData and isUserConfig:
-                warnStr = """The Prism preferences file seems to be corrupt.
-
-It will be reset, which means all local Prism settings will fall back to their defaults.
-You will need to set your last project again, but no project files (like scenefiles or renderings) are lost."""
-
-                self.core.popup(warnStr)
-                self.createUserPrefs()
-                configData = self.readYaml(configPath)
+            if configData is None:
+                return dft
 
             self.cachedConfigs[configPath] = configData
 
@@ -388,9 +381,16 @@ You will need to set your last project again, but no project files (like scenefi
                         else:
                             msg = "Cannot read the content of this file because the file can't be accessed:\n\n%s" % path
 
-                        result = self.core.popupQuestion(msg, icon=QMessageBox.Warning, buttons=["Retry", "Cancel"], default="Cancel")
+                        result = self.core.popupQuestion(msg, icon=QMessageBox.Warning, buttons=["Retry", "Reset File", "Cancel"], default="Cancel")
                         if result == "Retry":
                             return self.readYaml(path=path, data=data, stream=stream, retry=False)
+                        elif result == "Reset File":
+                            if path == self.core.userini:
+                                self.createUserPrefs()
+                            else:
+                                open(path, "w").close()
+
+                            yamlData = self.readYaml(path)
                         elif result == "Cancel":
                             return
                         else:

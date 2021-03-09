@@ -137,7 +137,7 @@ class Updater(object):
         curLibVersion = "v1.3.0.0"
         libConfig = os.path.join(self.core.prismLibs, "PythonLibs", "libraries.yml")
         if os.path.exists(libConfig):
-            libInfo = self.core.readYaml(libConfig)
+            libInfo = self.core.readYaml(libConfig) or {}
             if "version" in libInfo:
                 curLibVersion = libInfo["version"]
 

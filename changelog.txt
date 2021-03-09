@@ -1,3 +1,7 @@
+v1.3.0.76:
+- added the option to have subfolders in the preset scenes folder of the project
+- fixed a bug that importing from Windows network drives didn't work in some cases
+
 v1.3.0.75:
 - added option to the project settings to disable linking of master version and use copying instead
 - improved hadnling of renaming shots

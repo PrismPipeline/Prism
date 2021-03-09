@@ -1577,3 +1577,7 @@ class Prism_Houdini_Functions(object):
         convertedFilename = ".".join(convertedParts) + ext
         convertedPath = os.path.join(folder, convertedFilename).replace("\\", "/")
         return convertedPath
+
+    @err_catcher(name=__name__)
+    def handleNetworkDrop(self, fileList):
+        return False

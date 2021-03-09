@@ -47,7 +47,6 @@ import subprocess
 import logging
 import tempfile
 import hashlib
-from collections import OrderedDict
 from datetime import datetime
 
 # check if python 2 or python 3 is used
@@ -184,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.75"
+            self.version = "v1.3.0.76"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 

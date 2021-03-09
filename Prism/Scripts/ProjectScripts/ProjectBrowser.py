@@ -1652,15 +1652,26 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             rcmenu.addAction(current)
             emp = QMenu("Create new version from preset", self)
             scenes = self.core.entities.getPresetScenes()
+            dirMenus = {}
             for scene in scenes:
                 base, ext = os.path.splitext(scene)
-                empAct = QAction(base, self)
-                empAct.triggered.connect(
-                    lambda y=None, x=tabName, fname=scene: self.createEmptyScene(
-                        x, fname
-                    )
-                )
-                emp.addAction(empAct)
+                folders = base.split("/")
+                curPath = ""
+                for idx, folder in enumerate(folders):
+                    if idx == (len(folders)-1):
+                        empAct = QAction(folder, self)
+                        empAct.triggered.connect(
+                            lambda y=None, x=tabName, fname=scene: self.createEmptyScene(
+                                x, fname
+                            )
+                        )
+                        dirMenus.get(curPath, emp).addAction(empAct)
+                    else:
+                        curMenu = dirMenus.get(curPath, emp)
+                        curPath = os.path.join(curPath, folder)
+                        if curPath not in dirMenus:
+                            dirMenus[curPath] = QMenu(folder, self)
+                            curMenu.addMenu(dirMenus[curPath])
 
             newPreset = QAction("< Create new preset from current >", self)
             newPreset.triggered.connect(self.core.entities.createPresetScene)
