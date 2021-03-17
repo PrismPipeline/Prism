@@ -1166,6 +1166,36 @@ class Prism_Houdini_Functions(object):
             return False
 
     @err_catcher(name=__name__)
+    def getCamNodes(self, origin, cur=False):
+        sceneCams = []
+        for node in hou.node("/").allSubChildren():
+            if (
+                node.type().name() == "cam" and node.name() != "ipr_camera"
+            ) or node.type().name() == "vrcam":
+                sceneCams.append(node)
+
+        if cur:
+            sceneCams = ["Current View"] + sceneCams
+
+        return sceneCams
+
+    @err_catcher(name=__name__)
+    def getCamName(self, origin, handle):
+        if handle == "Current View":
+            return handle
+
+        if self.core.isStr(handle):
+            name = [x.name() for x in self.getCamNodes(origin) if x.name() == handle]
+            if not name:
+                return "invalid"
+            else:
+                name = name[0]
+        else:
+            name = handle.name()
+
+        return name
+
+    @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         renderers = self.getRendererPlugins()
         if len(hou.selectedNodes()) > 0:

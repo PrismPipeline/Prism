@@ -6,6 +6,7 @@ if not prismRoot:
     prismRoot = PRISMROOT
 
 sys.path.append(os.path.join(prismRoot, "Scripts"))
+sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
 
 try:

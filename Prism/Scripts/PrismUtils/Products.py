@@ -491,7 +491,6 @@ class Products(object):
         outputPath = os.path.join(outputPath, versionFoldername, prefUnit)
         filename = self.generateProductFilename(entity, entityName, task, hVersion, framePadding, extension)
         outputName = os.path.join(outputPath, filename)
-
         basePath = self.core.paths.getExportProductBasePaths()[location]
         prjPath = os.path.normpath(self.core.projectPath)
         basePath = os.path.normpath(basePath)
@@ -535,18 +534,11 @@ class Products(object):
     @err_catcher(name=__name__)
     def updateMasterVersion(self, path):
         data = self.core.paths.getCachePathData(path)
-
-        if data["entityType"] == "asset":
-            assetPath = self.core.paths.getEntityBasePathFromProductPath(path)
-            entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
-        else:
-            entityName = self.core.entities.getShotname(data["sequence"], data["shot"])
-
         location = self.getLocationFromFilepath(path)
 
         masterPath = self.generateProductPath(
             entity=data["entityType"],
-            entityName=entityName,
+            entityName=data["fullEntity"],
             task=data["task"],
             extension=data["extension"],
             version="master",
@@ -567,6 +559,7 @@ class Products(object):
         drive = os.path.splitdrive(path)[0]
 
         seqFiles = self.core.detectFileSequence(path)
+        useHL = self.core.getConfig("globals", "useHardLinksForMasterVersions", config="project", dft=False)
         for seqFile in seqFiles:
             if len(seqFiles) > 1:
                 frameStr = "." + os.path.splitext(seqFile)[0][-self.core.framePadding:]
@@ -575,8 +568,7 @@ class Products(object):
             else:
                 masterPathPadded = masterPath
 
-            useHL = self.core.getConfig("globals", "useHardLinksForMasterVersions", config="project", dft=False)
-            if platform.system() == "Windows" and drive == masterDrive and useHL:
+            if platform.system() == "Windows" and drive == masterDrive and useHL and not masterDrive.startswith("\\"):
                 self.core.createSymlink(masterPathPadded, seqFile)
             else:
                 shutil.copy2(seqFile, masterPathPadded)
@@ -584,7 +576,7 @@ class Products(object):
         ext = self.core.configs.preferredExtension
         infoPath = os.path.join(os.path.dirname(os.path.dirname(path)), "versioninfo" + ext)
         masterInfoPath = os.path.join(os.path.dirname(os.path.dirname(masterPath)), "versioninfo" + ext)
-        if platform.system() == "Windows" and drive == masterDrive and useHL:
+        if platform.system() == "Windows" and drive == masterDrive and useHL and not masterDrive.startswith("\\"):
             self.core.createSymlink(masterInfoPath, infoPath)
         else:
             shutil.copy2(infoPath, masterInfoPath)
@@ -611,3 +603,4 @@ class Products(object):
             versionName = "master (%s)" % versionName
 
         return versionName
+

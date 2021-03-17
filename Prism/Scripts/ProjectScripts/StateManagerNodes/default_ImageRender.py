@@ -492,7 +492,7 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def showResPresets(self):
-        pmenu = QMenu()
+        pmenu = QMenu(self)
 
         for preset in self.resolutionPresets:
             pAct = QAction(preset, self)

@@ -323,6 +323,11 @@ class MediaProducts(object):
         return infoPath
 
     @err_catcher(name=__name__)
+    def getPlayblastVersionInfoPathFromFilepath(self, path):
+        infoPath = os.path.join(os.path.dirname(path), "versioninfo.yml")
+        return infoPath
+
+    @err_catcher(name=__name__)
     def getMediaVersionInfoPath(self, basepath, product, version):
         if version.endswith(" (local)"):
             basepath = self.core.convertPath(basepath, target="local")
@@ -687,7 +692,7 @@ class MediaProducts(object):
     @err_catcher(name=__name__)
     def getVersionPathsFromMaster(self, path, isFilepath=True):
         infoPath = self.getMediaVersionInfoPathFromFilepath(path)
-        paths = self.core.getConfig("versionpaths", configPath=infoPath)
+        paths = self.core.getConfig("versionpaths", configPath=infoPath) or []
         return paths
 
     @err_catcher(name=__name__)

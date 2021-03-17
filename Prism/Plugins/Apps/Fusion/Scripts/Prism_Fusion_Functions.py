@@ -51,7 +51,7 @@ class Prism_Fusion_Functions(object):
 
     @err_catcher(name=__name__)
     def instantStartup(self, origin):
-        # 	qapp = QApplication.instance()
+        #   qapp = QApplication.instance()
 
         with (
             open(
@@ -92,8 +92,8 @@ class Prism_Fusion_Functions(object):
         # ssheet = ssheet.replace("white", "rgb(200, 200, 200)")
         if "parentWindows" in origin.prismArgs:
             origin.messageParent.setStyleSheet(ssheet)
-            # 	origin.messageParent.resize(10,10)
-            # 	origin.messageParent.show()
+            #   origin.messageParent.resize(10,10)
+            #   origin.messageParent.show()
             origin.parentWindows = True
         else:
             qapp = QApplication.instance()
@@ -123,7 +123,8 @@ class Prism_Fusion_Functions(object):
 
     @err_catcher(name=__name__)
     def sceneOpen(self, origin):
-        pass
+        if hasattr(origin, "asThread") and origin.asThread.isRunning():
+            origin.startasThread()
 
     @err_catcher(name=__name__)
     def executeScript(self, origin, code, preventError=False):
@@ -132,7 +133,8 @@ class Prism_Fusion_Functions(object):
                 return eval(code)
             except Exception as e:
                 msg = "\npython code:\n%s" % code
-                exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
+                exec(
+                    "raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
         else:
             return eval(code)
 
@@ -142,7 +144,8 @@ class Prism_Fusion_Functions(object):
         if curComp is None:
             currentFileName = ""
         else:
-            currentFileName = self.fusion.GetCurrentComp().GetAttrs()["COMPS_FileName"]
+            currentFileName = self.fusion.GetCurrentComp().GetAttrs()[
+                "COMPS_FileName"]
 
         return currentFileName
 
@@ -163,19 +166,31 @@ class Prism_Fusion_Functions(object):
 
     @err_catcher(name=__name__)
     def getFrameRange(self, origin):
-        startframe = self.fusion.GetCurrentComp().GetAttrs()["COMPN_GlobalStart"]
+        startframe = self.fusion.GetCurrentComp().GetAttrs()[
+            "COMPN_GlobalStart"]
         endframe = self.fusion.GetCurrentComp().GetAttrs()["COMPN_GlobalEnd"]
 
         return [startframe, endframe]
 
     @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
-        self.fusion.GetCurrentComp().SetPrefs(
+        comp = self.fusion.GetCurrentComp()
+        comp.Lock()
+        comp.SetAttrs(
+            {
+                "COMPN_GlobalStart": startFrame,
+                "COMPN_RenderStart": startFrame,
+                "COMPN_GlobalEnd": endFrame,
+                "COMPN_RenderEnd": endFrame
+            }
+        )
+        comp.SetPrefs(
             {
                 "Comp.Unsorted.GlobalStart": startFrame,
                 "Comp.Unsorted.GlobalEnd": endFrame,
             }
         )
+        comp.Unlock()
 
     @err_catcher(name=__name__)
     def getFPS(self, origin):
@@ -186,31 +201,55 @@ class Prism_Fusion_Functions(object):
         return self.fusion.GetCurrentComp().SetPrefs({"Comp.FrameFormat.Rate": fps})
 
     @err_catcher(name=__name__)
+    def getResolution(self):
+        width = self.fusion.GetCurrentComp().GetPrefs()[
+            "Comp"]["FrameFormat"]["Height"]
+        height = self.fusion.GetCurrentComp().GetPrefs()[
+            "Comp"]["FrameFormat"]["Width"]
+        return [width, height]
+
+    @err_catcher(name=__name__)
+    def setResolution(self, width=None, height=None):
+        self.fusion.GetCurrentComp().SetPrefs(
+            {
+                "Comp.FrameFormat.Width": width,
+                "Comp.FrameFormat.Height": height,
+            }
+        )
+
+    @err_catcher(name=__name__)
     def updateReadNodes(self):
         updatedNodes = []
 
         selNodes = self.fusion.GetCurrentComp().GetToolList(True, "Loader")
-        for k in selNodes:
-            i = selNodes[k]
-            curPath = i.GetAttrs()["TOOLST_Clip_Name"][1]
+        if len(selNodes) == 0:
+            selNodes = self.fusion.GetCurrentComp().GetToolList(False, "Loader")
 
-            newPath = self.core.getLatestCompositingVersion(curPath)
+        if len(selNodes):
+            comp = self.fusion.GetCurrentComp()
+            comp.StartUndo("Updating loaders")
+            for k in selNodes:
+                i = selNodes[k]
+                curPath = comp.MapPath(i.GetAttrs()["TOOLST_Clip_Name"][1])
 
-            if os.path.exists(os.path.dirname(newPath)) and not curPath.startswith(
-                os.path.dirname(newPath)
-            ):
-                firstFrame = i.GetInput("GlobalIn")
-                lastFrame = i.GetInput("GlobalOut")
+                newPath = self.core.getLatestCompositingVersion(curPath)
 
-                i.Clip = newPath
+                if os.path.exists(os.path.dirname(newPath)) and not curPath.startswith(
+                    os.path.dirname(newPath)
+                ):
+                    firstFrame = i.GetInput("GlobalIn")
+                    lastFrame = i.GetInput("GlobalOut")
 
-                i.GlobalOut = lastFrame
-                i.GlobalIn = firstFrame
-                i.ClipTimeStart = 0
-                i.ClipTimeEnd = lastFrame - firstFrame
-                i.HoldLastFrame = 0
+                    i.Clip = newPath
 
-                updatedNodes.append(i)
+                    i.GlobalOut = lastFrame
+                    i.GlobalIn = firstFrame
+                    i.ClipTimeStart = 0
+                    i.ClipTimeEnd = lastFrame - firstFrame
+                    i.HoldLastFrame = 0
+
+                    updatedNodes.append(i)
+            comp.EndUndo(True)
 
         if len(updatedNodes) == 0:
             QMessageBox.information(
@@ -221,7 +260,8 @@ class Prism_Fusion_Functions(object):
             for i in updatedNodes:
                 mStr += i.GetAttrs()["TOOLS_Name"] + "\n"
 
-            QMessageBox.information(self.core.messageParent, "Information", mStr)
+            QMessageBox.information(
+                self.core.messageParent, "Information", mStr)
 
     @err_catcher(name=__name__)
     def getAppVersion(self, origin):
@@ -236,7 +276,10 @@ class Prism_Fusion_Functions(object):
         if os.path.splitext(filepath)[1] not in self.sceneFormats:
             return False
 
-        comp = self.fusion.LoadComp(filepath)
+        try:
+            self.fusion.LoadComp(filepath)
+        except:
+            pass
 
         return True
 
@@ -260,7 +303,7 @@ class Prism_Fusion_Functions(object):
         )
         msg.addButton("Current pass", QMessageBox.YesRole)
         msg.addButton("All passes", QMessageBox.YesRole)
-        # 	msg.addButton("Layout all passes", QMessageBox.YesRole)
+        #   msg.addButton("Layout all passes", QMessageBox.YesRole)
         self.core.parentWindow(msg)
         action = msg.exec_()
 
@@ -281,7 +324,8 @@ class Prism_Fusion_Functions(object):
             firstFrame = i[1]
             lastFrame = i[2]
 
-            filePath = filePath.replace("#"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame)
+            filePath = filePath.replace(
+                "#"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame)
 
             tool = self.fusion.GetCurrentComp().AddTool("Loader", -32768, -32768)
             tool.Clip = filePath
@@ -304,7 +348,8 @@ class Prism_Fusion_Functions(object):
             firstFrame = i[1]
             lastFrame = i[2]
 
-            filePath = filePath.replace("#"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame)
+            filePath = filePath.replace(
+                "#"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame)
 
             self.fusion.GetCurrentComp().CurrentFrame.FlowView.Select()
             tool = self.fusion.GetCurrentComp().AddTool("Loader", -32768, -32768)
@@ -340,6 +385,16 @@ class Prism_Fusion_Functions(object):
     @err_catcher(name=__name__)
     def getOutputPath(self, node, render=False):
         self.isRendering = [False, ""]
+
+        if node is None:
+            msg = QMessageBox(
+                QMessageBox.Warning, "Prism Warning", "Please select one or more write nodes you wish to refresh"
+            )
+            self.core.parentWindow(msg)
+            if self.core.useOnTop:
+                msg.setWindowFlags(msg.windowFlags() ^ Qt.WindowStaysOnTopHint)
+            msg.exec_()
+            return ""
 
         taskName = node.GetInput("PrismTaskControl")
         origComment = node.GetInput("PrismCommentControl")
@@ -440,12 +495,7 @@ class Prism_Fusion_Functions(object):
             # EXR fallback format
             fileType = "exr"
 
-        saveLocal = node.GetInput("SaveLocalControl")
-        if self.core.useLocalFiles and saveLocal:
-            location = "local"
-        else:
-            location = "global"
-
+        location = node.GetInput("Location")
         useLastVersion = node.GetInput("RenderLastVersionControl")
 
         if taskName is None or taskName == "":
@@ -495,3 +545,44 @@ class Prism_Fusion_Functions(object):
             return
 
         self.core.saveScene(versionUp=False)
+
+    @err_catcher(name=__name__)
+    def updateNodeUI(self, nodeType, node):
+        if nodeType == "writePrism":
+            locations = self.core.paths.getRenderProductBasePaths()
+            locNames = list(locations.keys())
+
+            # As copySettings and loadSettings doesn't work with python we'll have to execute them as Lua code
+            luacode = ' \
+            local tool = comp.ActiveTool  \
+            local ctrls = tool.UserControls  \
+            local settings = comp:CopySettings(tool)  \
+  \
+            comp:Lock()  \
+  \
+            ctrls.Location = {'
+
+            for location in locNames:
+                luacode = luacode + \
+                    '{CCS_AddString = "' + str(location) + '"},\n \
+                     {CCID_AddID = "' + str(location) + '"},\n'
+
+            luacode = luacode + ' \
+            ICD_Width = 0.7,  \
+            INP_Integer = false,  \
+            INP_External = false,  \
+            LINKID_DataType = "FuID",  \
+            ICS_ControlPage = "File",  \
+            CC_LabelPosition = "Horizontal",  \
+            INPID_InputControl = "ComboIDControl",  \
+            LINKS_Name = "Location",  \
+        }  \
+ \
+            tool.UserControls = ctrls \
+            tool:LoadSettings(settings) \
+            refresh = tool:Refresh() \
+            comp:Unlock() \
+            '
+
+            comp = self.fusion.GetCurrentComp()
+            comp.Execute(luacode)

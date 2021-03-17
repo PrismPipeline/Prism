@@ -4,7 +4,7 @@ import sys
 prismRoot = os.getenv("PRISM_ROOT")
 if not prismRoot:
     prismRoot = PRISMROOT
-	
+
 sys.path.append(os.path.join(prismRoot, "Scripts"))
 sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
 sys.path.append(os.path.join(prismRoot, "PythonLibs", "Python37", "PySide"))
@@ -29,18 +29,6 @@ curPrj = pcore.getConfig('globals', 'current project')
 if curPrj is not None and curPrj != "":
 	pcore.changeProject(curPrj)
 	tool = comp.ActiveTool
-	try:
-		versionPath = os.path.dirname(tool.GetAttrs()["TOOLST_Clip_Name"][1])
-		if not os.path.exists(versionPath):
-			versionPath = os.path.dirname(versionPath)
-	except:
-		versionPath = ""
-
-	if os.path.exists(versionPath):
-		pcore.openFolder(versionPath)
-	else:
-		msg = QMessageBox(QMessageBox.Warning, "Prism Warning", "The outputfolder doesn't exist yet.")
-		pcore.parentWindow(msg)
-		msg.exec_()
+	pcore.appPlugin.updateNodeUI("writePrism", tool)
 else:
 	QMessageBox.warning(pcore.messageParent, "Prism warning", "No project is active.\nPlease set a project in the Prism Settings or by opening the Project Browser.")

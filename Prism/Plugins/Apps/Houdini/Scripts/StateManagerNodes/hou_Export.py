@@ -1087,6 +1087,7 @@ class ExportClass(object):
                 location=location
             )
 
+        outputPath = outputPath.replace("\\", "/")
         outputFolder = os.path.dirname(outputPath)
         hVersion = self.core.products.getVersionFromFilepath(outputPath)
 

@@ -37,6 +37,7 @@ import glob
 import imp
 import logging
 import shutil
+import platform
 from collections import OrderedDict
 
 try:
@@ -346,6 +347,29 @@ class Projects(object):
             useLocal = False
 
         return useLocal
+
+    @err_catcher(name=__name__)
+    def getDefaultLocalPath(self, projectName=None):
+        if not projectName:
+            if hasattr(self.core, "projectName"):
+                projectName = self.core.projectName
+            else:
+                projectName = ""
+
+        if platform.system() == "Windows":
+            defaultLocalPath = os.path.join(
+                os.getenv("USERPROFILE"), "Documents", "LocalProjects", projectName
+            )
+        elif platform.system() == "Linux":
+            defaultLocalPath = os.path.join(
+                os.path.expanduser("~"), "Documents", "LocalProjects", projectName
+            )
+        elif platform.system() == "Darwin":
+            defaultLocalPath = os.path.join(
+                os.path.expanduser("~"), "Documents", "LocalProjects", projectName
+            )
+
+        return defaultLocalPath
 
     @err_catcher(name=__name__)
     def setRecentPrj(self, path, action="add"):

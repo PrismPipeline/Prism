@@ -940,7 +940,7 @@ class Prism_Shotgun_Functions(object):
                     updatedShots.append(shotName)
 
             if shotData["image"] is not None:
-                import urllib2
+                import requests
 
                 shotImgPath = os.path.join(
                     os.path.dirname(self.core.prismIni),
@@ -953,7 +953,7 @@ class Prism_Shotgun_Functions(object):
 
                 prvExist = os.path.exists(shotImgPath)
 
-                response = urllib2.urlopen(shotData["image"])
+                response = requests.get(shotData["image"])
 
                 with open(shotImgPath, "wb") as prvImg:
                     prvImg.write(response.read())

@@ -30,6 +30,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
+
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+except:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -38,6 +47,29 @@ class Prism_Fusion_externalAccess_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+
+    @err_catcher(name=__name__)
+    def prismSettings_loadUI(self, origin, tab):
+        origin.chb_openPrism = QCheckBox("Open Prism UI on startup")
+        tab.layout().addWidget(origin.chb_openPrism)
+
+    @err_catcher(name=__name__)
+    def prismSettings_saveSettings(self, origin, settings):
+        if "fusion" not in settings:
+            settings["fusion"] = {}
+
+        settings["fusion"]["openprism"] = origin.chb_openPrism.isChecked()
+
+    @err_catcher(name=__name__)
+    def prismSettings_loadSettings(self, origin, settings):
+        if "fusion" in settings:
+            if "openprism" in settings["fusion"]:
+                origin.chb_openPrism.setChecked(
+                    settings["fusion"]["openprism"])
+        else:
+            origin.chb_openPrism.setChecked(True)
+            settings["fusion"] = {}
+            settings["fusion"]["openprism"] = origin.chb_openPrism.isChecked()
 
     @err_catcher(name=__name__)
     def getAutobackPath(self, origin, tab):

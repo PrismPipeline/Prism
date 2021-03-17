@@ -653,13 +653,15 @@ class PluginManager(object):
         pluginPath = os.path.normpath(pluginPath)
         userPluginConfig = self.core.getConfig(config="PluginPaths") or {}
         if "plugins" in userPluginConfig:
-            if pluginPath in userPluginConfig["plugins"]:
-                return True
+            for path in userPluginConfig["plugins"]:
+                if pluginPath == path["path"]:
+                    return True
 
         if "searchPaths" in userPluginConfig:
             parent = os.path.dirname(pluginPath)
-            if parent in userPluginConfig["searchPaths"]:
-                return True
+            for path in userPluginConfig["searchPaths"]:
+                if parent == path["path"]:
+                    return True
 
         return False
 

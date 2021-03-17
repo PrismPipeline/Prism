@@ -631,3 +631,35 @@ class PathManager(object):
 
         frame = match.group(0)
         return frame
+
+    @err_catcher(name=__name__)
+    def getLocationFromPath(self, path):
+        if path.startswith(self.core.projectPath):
+            return "global"
+        elif self.core.useLocalFiles and path.startswith(self.core.localProjectPath):
+            return "local"
+        else:
+            productPaths = self.getExportProductBasePaths()
+            for ppath in productPaths:
+                if path.startswith(productPaths[ppath]):
+                    return ppath
+
+            renderPaths = self.getRenderProductBasePaths()
+            for rpath in renderPaths:
+                if path.startswith(renderPaths[rpath]):
+                    return rpath
+
+    @err_catcher(name=__name__)
+    def getLocationPath(self, locationName):
+        if locationName == "global":
+            return self.core.projectPath
+        elif self.core.useLocalFiles and locationName == "local":
+            return self.core.localProjectPath
+        else:
+            productPaths = self.getExportProductBasePaths()
+            if locationName in productPaths:
+                return productPaths[locationName]
+
+            renderPaths = self.getRenderProductBasePaths()
+            if locationName in renderPaths:
+                return renderPaths[locationName]

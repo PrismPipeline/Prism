@@ -1,3 +1,11 @@
+v1.3.0.77:
+- updated Fusion integration including location option on WritePrism node and option to "Solo" a write node (Thanks to EmberLightVFX)
+- fixed a bug that the local project path dialog could open in some cases when Prism was executed in commandline mode (like on Deadline)
+- fixed an error when using master export versions and submitting a job to Deadline
+- fixed an error when rendering or exporting to Windows network paths from Houdini in some cases
+- fixed an error when syncing shots with Shotgun in some cases
+- fixed a bug that asset exports in other locations than global were only visible when the asset existed in the global location as well
+
 v1.3.0.76:
 - added the option to have subfolders in the preset scenes folder of the project
 - fixed a bug that importing from Windows network drives didn't work in some cases

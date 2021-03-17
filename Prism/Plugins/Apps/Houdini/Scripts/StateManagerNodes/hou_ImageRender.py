@@ -360,6 +360,7 @@ class ImageRenderClass(object):
         self.b_resPresets.clicked.connect(self.showResPresets)
         self.chb_useTake.stateChanged.connect(self.useTakeChanged)
         self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
+        self.cb_master.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
         self.cb_format.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_renderer.currentIndexChanged[str].connect(self.rendererChanged)
@@ -1037,6 +1038,7 @@ class ImageRenderClass(object):
             location=location
         )
 
+        outputPath = outputPath.replace("\\", "/")
         outputFolder = os.path.dirname(outputPath)
         hVersion = self.core.mediaProducts.getVersionFromFilepath(outputPath)
 

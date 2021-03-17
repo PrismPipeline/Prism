@@ -2189,17 +2189,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     def refreshAHierarchy(self, load=False):
         self.tw_aHierarchy.blockSignals(True)
         self.tw_aHierarchy.clear()
-        self.tw_aHierarchy.blockSignals(False)
 
         if self.e_assetSearch.isVisible():
             assets, folders = self.core.entities.getAssetPaths(returnFolders=True, depth=0)
             filterStr = self.e_assetSearch.text()
             self.filteredAssets = []
             self.filteredAssets += self.core.entities.filterAssets(assets, filterStr)
+            assetFolders = []
+            for fasset in self.filteredAssets:
+                fasset = os.path.dirname(fasset)
+                while fasset != self.core.assetPath:
+                    assetFolders.append(fasset)
+                    fasset = os.path.dirname(fasset)
+
+            self.filteredAssets += assetFolders
             self.filteredAssets += self.core.entities.filterAssets(folders, filterStr)
 
         self.refreshAssets()
         self.tw_aHierarchy.resizeColumnToContents(0)
+        self.tw_aHierarchy.blockSignals(False)
 
         if self.tw_aHierarchy.topLevelItemCount() > 0 and not self.e_assetSearch.isVisible():
             self.tw_aHierarchy.setCurrentItem(self.tw_aHierarchy.topLevelItem(0))
@@ -2217,26 +2225,25 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         assets = self.core.entities.filterOmittedAssets(assets)
         folders = self.core.entities.filterOmittedAssets(folders)
-
         if self.e_assetSearch.isVisible():
             filteredAssets = []
+
             for asset in assets:
-                for fasset in self.filteredAssets:
-                    if (asset == fasset or asset + os.sep in fasset) and asset not in filteredAssets:
-                        filteredAssets.append(asset)
+                if asset in self.filteredAssets:
+                    filteredAssets.append(asset)
 
             assets = filteredAssets
 
             filteredFolders = []
             for folder in folders:
-                for fasset in self.filteredAssets:
-                    if (folder == fasset or folder + os.sep in fasset) and folder not in filteredFolders:
-                        filteredFolders.append(folder)
+                if folder in self.filteredAssets:
+                    filteredFolders.append(folder)
 
             folders = filteredFolders
 
         itemPaths = copy.copy(assets)
         itemPaths += folders
+
         for path in sorted(itemPaths):
             if path in assets:
                 pathType = "asset"

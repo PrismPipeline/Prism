@@ -58,11 +58,6 @@ class SetPath(QDialog, SetPath_ui.Ui_dlg_SetPath):
         self.setupUi(self)
         self.core = core
 
-        if hasattr(self.core, "projectName"):
-            prjName = self.core.projectName
-        else:
-            prjName = ""
-
         self.l_description.setText(
             """All your local scenefiles are saved in this folder.
 This folder should be empty or should not exist.
@@ -72,23 +67,7 @@ This folder should be on your local hard drive and don't need to be synrchonized
 """
         )
 
-        if platform.system() == "Windows":
-            defaultLocalPath = os.path.join(
-                os.getenv("USERPROFILE"), "Documents", "LocalProjects", prjName
-            )
-        elif platform.system() == "Linux":
-            defaultLocalPath = os.path.join(
-                os.path.expanduser("~"), "Documents", "LocalProjects", prjName
-            )
-        elif platform.system() == "Darwin":
-            defaultLocalPath = os.path.join(
-                os.path.expanduser("~"), "Documents", "LocalProjects", prjName
-            )
-
-        self.e_path.setText(defaultLocalPath)
-
         self.browseTitle = "Select Project Folder"
-
         self.connectEvents()
 
     def connectEvents(self):

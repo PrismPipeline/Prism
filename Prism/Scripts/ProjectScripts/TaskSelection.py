@@ -527,7 +527,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
                     entityItem = self.tw_shots.currentItem()
 
                 if entityItem and entityItem.data(0, Qt.UserRole):
-                    path = entityItem.data(0, Qt.UserRole)[0]
+                    path = entityItem.data(0, Qt.UserRole)[0]["path"]
 
         self.updateAssets()
         self.updateShots()
@@ -582,6 +582,7 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
         for basePath in assetPaths:
             for path in assetPaths[basePath]:
                 assetBase = self.core.assetPath.replace(self.core.projectPath, basePath)
+
                 relPath = path.replace(assetBase, "")
                 pathData = relPath.split(os.sep)[1:]
 
@@ -637,16 +638,15 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
     @err_catcher(name=__name__)
     def getFilteredAssetPaths(self, basePaths):
         filteredAssets = {}
-        assetPaths = self.core.entities.getAssetPaths()
 
         for ePath in basePaths:
             basePath = self.export_paths[ePath]
+            aPath = self.core.assetPath.replace(os.path.normpath(self.core.projectPath), basePath)
+            assetPaths = self.core.entities.getAssetPaths(path=aPath)
             if not basePath.endswith(os.sep):
                 basePath += os.sep
 
-            for aPath in assetPaths:
-                assetPath = self.core.paths.convertExportPath(aPath, "global", ePath)
-
+            for assetPath in assetPaths:
                 if self.core.entities.isAssetPathOmitted(assetPath):
                     continue
 
@@ -957,7 +957,6 @@ class TaskSelection(QDialog, TaskSelection_ui.Ui_dlg_TaskSelection):
 
         if entityType == "asset":
             uielement = self.tw_assets
-            entityName = fileNameData[-4]
             self.tbw_entity.setCurrentIndex(0)
 
             itemPath = fileName.replace(aBase + os.sep, "")

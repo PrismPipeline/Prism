@@ -820,6 +820,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
     ):
         logger.debug("create state: %s" % statetype)
         if statetype not in self.stateTypes:
+            logger.warning("invalid state type: %s" % statetype)
+            logger.debug("available state types: %s" % self.stateTypes)
             return False
 
         item = QTreeWidgetItem([statetype])
@@ -896,7 +898,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_catcher(name=__name__)
     def copyAllStates(self):
-        stateData = self.core.appPlugin.sm_readStates(self)
+        stateData = getattr(self.core.appPlugin, "sm_readStates", lambda x: None)(self)
 
         cb = QClipboard()
         cb.setText(stateData)
@@ -1198,7 +1200,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.saveEnabled = False
         self.loading = True
         if stateText is None:
-            stateText = self.core.appPlugin.sm_readStates(self)
+            stateText = getattr(self.core.appPlugin, "sm_readStates", lambda x: None)(self)
 
         stateData = None
         if stateText is not None:
@@ -1304,7 +1306,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         stateStr = self.core.configs.writeJson(stateData)
 
-        self.core.appPlugin.sm_saveStates(self, stateStr)
+        getattr(self.core.appPlugin, "sm_saveStates", lambda x, y: None)(self, stateStr)
 
     @err_catcher(name=__name__)
     def saveImports(self):
@@ -1991,30 +1993,37 @@ class ImportDelegate(QStyledItemDelegate):
         painterQPainter.fillRect(rect, QBrush(item.ui.statusColor))
 
 
-def openStateSettings(core, stateType, settings=None):
+def getStateWindow(core, stateType, settings=None, connectBBox=True):
     settings = settings or None
-    stateNameBase = stateType.replace(stateType.split("_", 1)[0] + "_", "")
+    #  stateNameBase = stateType.replace(stateType.split("_", 1)[0] + "_", "")
     sm = StateManager(core, forceStates=[stateType], standalone=True)
-    item = sm.createState(stateNameBase, stateData=settings)
+    item = sm.createState(stateType, stateData=settings)
+    if not item:
+        return
 
     dlg_settings = QDialog()
-    dlg_settings.setWindowTitle("Statesettings - %s" % stateNameBase)
-    w_settings = QWidget()
-    bb_settings = QDialogButtonBox()
-    bb_settings.addButton("Accept", QDialogButtonBox.AcceptRole)
-    bb_settings.addButton("Cancel", QDialogButtonBox.RejectRole)
-    bb_settings.accepted.connect(dlg_settings.accept)
-    bb_settings.rejected.connect(dlg_settings.reject)
+    dlg_settings.setWindowTitle("Statesettings - %s" % stateType)
+    dlg_settings.bb_settings = QDialogButtonBox()
+    dlg_settings.bb_settings.addButton("Accept", QDialogButtonBox.AcceptRole)
+    dlg_settings.bb_settings.addButton("Cancel", QDialogButtonBox.RejectRole)
+    if connectBBox:
+        dlg_settings.bb_settings.accepted.connect(dlg_settings.accept)
+        dlg_settings.bb_settings.rejected.connect(dlg_settings.reject)
 
     lo_settings = QVBoxLayout()
     lo_settings.addWidget(item.ui)
-    lo_settings.addWidget(bb_settings)
+    lo_settings.addWidget(dlg_settings.bb_settings)
     dlg_settings.setLayout(lo_settings)
     dlg_settings.setParent(core.messageParent, Qt.Window)
+    dlg_settings.stateItem = item
+    return dlg_settings
 
+
+def openStateSettings(core, stateType, settings=None):
+    dlg_settings = getStateWindow(stateType, settings)
     action = dlg_settings.exec_()
 
     if action == 0:
         return
 
-    return item.ui.getStateProps()
+    return dlg_settings.stateItem.ui.getStateProps()

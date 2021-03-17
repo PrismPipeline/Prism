@@ -1,0 +1,37 @@
+{
+    Event {
+        -- Add a new event that intercepts the AddTool{} Action
+        Action = "Comp_Start_Render",
+        Targets = {
+            Composition = {
+                Execute =[[
+                    comp = fusion.CurrentComp
+                    if comp ~= nil then
+                        local scriptPath = app:MapPath("Scripts:Prism/pre-render check.py")
+                        if bmd.fileexists(scriptPath) == false then
+                            print("[Prism Error] Can't run file: " .. scriptPath)
+                        else
+                            comp:RunScript(scriptPath)
+                        end
+                    end
+                    ]]
+            },
+        },
+        Action = "Comp_Opened",
+        Targets = {
+            Fusion = {
+                Execute = [[
+                    comp = fusion.CurrentComp
+                    if comp ~= nil then
+                        local scriptPath = app:MapPath("Scripts:Prism/sceneOpen.py")
+                        if bmd.fileexists(scriptPath) == false then
+                            print("[Prism Error] Can't run file: " .. scriptPath)
+                        else
+                            comp:RunScript(scriptPath)
+                        end
+                    end
+                    ]]
+            },
+        },
+    },
+}

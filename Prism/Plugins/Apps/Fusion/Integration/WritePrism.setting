@@ -61,14 +61,6 @@
 					LINKS_Name = "Create"
 				},
 
-			--	Clip = {
-			--		LINKS_Name = "Filename",
-			--		ICS_ControlPage = "File",
-			--		LINKID_DataType = "Text",
-			--		INPID_InputControl = "none",
-			--		INP_External = false,
-			--	},
-
 				ProcessMode = {
 					LINKS_Name = "Process Mode2",
 					LINKID_DataType = "Number",
@@ -144,48 +136,85 @@
 					TEC_Wrap = false
 				},
 
-				SaveLocalControl = {
-					CBC_TriState = false,
-					INP_Integer = true,
-					LINKID_DataType = "Number",
+				Location = {
+					{ CCS_AddString = "global" },
+					ICD_Width = 0.7,
+					INP_Integer = false,
+					INP_External = false,
+					LINKID_DataType = "FuID",
 					ICS_ControlPage = "File",
-					INP_Default = 0,
-					ICD_Width = 0.4,
-					INPID_InputControl = "CheckboxControl",
-					LINKS_Name = "Local output"
+					CC_LabelPosition = "Horizontal",
+					INPID_InputControl = "ComboIDControl",
+					LINKS_Name = "Location",
+				},
+
+				LocationUpdateButton = {
+					ICD_Width = 0.3,
+					INP_External = false,
+					LINKID_DataType = "Number",
+					BTNCS_Execute = "comp:RunScript(\"Scripts:Prism/refresh location.py\")",
+					ICS_ControlPage = "File",
+					INPID_InputControl = "ButtonControl",
+					LINKS_Name = "Update",
 				},
 
 				RenderLastVersionControl = {
 					CBC_TriState = false,
 					INP_Integer = true,
 					LINKID_DataType = "Number",
-					ICS_ControlPage = "File",
 					INP_Default = 0,
-					ICD_Width = 0.6,
+					ICS_ControlPage = "File",
 					INPID_InputControl = "CheckboxControl",
-					LINKS_Name = "Render as previous version"
+					LINKS_Name = "Render as previous version",
 				},
-
-			--	FilePathControl = {
-			--		TEC_ReadOnly = true,
-			--		LINKS_Name = "Filepath",
-			--		ICS_ControlPage = "File",
-			--		LINKID_DataType = "Text",
-			--		INPID_InputControl = "TextEditControl",
-			--		TEC_Lines = 1,
-			--		TEC_Wrap = false
-			--	},
 
 				RefreshButton = {
 					LINKS_Name = "Refresh",
 					LINKID_DataType = "Number",
 					INPID_InputControl = "ButtonControl",
 					BTNCS_Execute = [=[
-tool = comp.ActiveTool
-comp:RunScript("Scripts:Prism/refresh writer.py", tool)]=],
+						tool = comp.ActiveTool
+						comp:RunScript("Scripts:Prism/refresh writer.py", tool)]=],
 					INP_Integer = false,
 					ICD_Width = 0.5,
 					ICS_ControlPage = "File"
+				},
+
+				SOLO = {
+					ICD_Width = 0.5,
+					INP_Default = 0,
+					ICS_ControlPage = "File",
+					BTNCS_Execute = [=[
+						function check_selected(tool)
+						    return tool:GetAttrs('TOOLB_Selected')
+						end
+
+						function check_enabled(tool)
+						    return tool:GetAttrs('TOOLB_PassThrough')
+						end
+
+						local selectedSavers = comp:GetToolList(true, "Saver")
+						local allSavers = comp:GetToolList(false, "Saver")
+
+						comp:StartUndo("Updating loaders")
+
+						for _, currentSaver in pairs(allSavers) do
+						    if not check_selected(currentSaver) then
+						        currentSaver:SetAttrs( { TOOLB_PassThrough = true } )
+						    end
+						end
+						for _, sel in pairs(selectedSavers) do
+						    if check_enabled(sel) then
+						        sel:SetAttrs({ TOOLB_PassThrough = false})
+						    end
+						end
+
+						comp:EndUndo(True)
+
+						]=],
+					INPID_InputControl = "ButtonControl",
+					LINKID_DataType = "Number",
+					LINKS_Name = "Solo"
 				},
 
 				OpenDirButton = {
@@ -193,11 +222,23 @@ comp:RunScript("Scripts:Prism/refresh writer.py", tool)]=],
 					LINKID_DataType = "Number",
 					INPID_InputControl = "ButtonControl",
 					BTNCS_Execute = [=[
-tool = comp.ActiveTool
-comp:RunScript("Scripts:Prism/open in explorer.py", tool)]=],
+						tool = comp.ActiveTool
+						comp:RunScript("Scripts:Prism/open in explorer.py", tool)]=],
 					INP_Integer = false,
 					ICD_Width = 0.5,
 					ICS_ControlPage = "File"
+				},
+
+				ML = {
+					ICD_Width = 0.5,
+					INP_Default = 0,
+					ICS_ControlPage = "File",
+					BTNCS_Execute = [=[
+						tool = comp.ActiveTool
+						comp:RunScript("Scripts:Prism/LoaderFromSaver.lua", tool)]=],
+					INPID_InputControl = "ButtonControl",
+					LINKID_DataType = "Number",
+					LINKS_Name = "Make Loader"
 				},
 			}
 		}

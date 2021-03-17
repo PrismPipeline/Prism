@@ -183,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.76"
+            self.version = "v1.3.0.77"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -641,27 +641,33 @@ class PrismCore:
 
     @err_catcher(name=__name__)
     def getLocalPath(self):
-        try:
-            import SetPath
-        except:
-            modPath = imp.find_module("SetPath")[1]
-            if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
-                os.remove(modPath)
-            import SetPath
+        defaultLocalPath = self.projects.getDefaultLocalPath()
+        if self.uiAvailable:
+            try:
+                import SetPath
+            except:
+                modPath = imp.find_module("SetPath")[1]
+                if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
+                    os.remove(modPath)
+                import SetPath
 
-        self.pathWin = SetPath.SetPath(core=self)
-        self.pathWin.setModal(True)
-        self.parentWindow(self.pathWin)
-        result = self.pathWin.exec_()
-        self.localProjectPath = ""
-        if result == 1:
-            setPathResult = self.setLocalPath(self.pathWin.e_path.text())
+            self.pathWin = SetPath.SetPath(core=self)
+            self.pathWin.setModal(True)
+            self.parentWindow(self.pathWin)
+            self.pathWin.e_path.setText(defaultLocalPath)
+            result = self.pathWin.exec_()
+            self.localProjectPath = ""
+            if result == 1:
+                setPathResult = self.setLocalPath(self.pathWin.e_path.text())
+            else:
+                return False
+
+            if not setPathResult and result == 1:
+                self.popup("Please enter a valid path to continue.")
+                self.getLocalPath()
         else:
-            return False
-
-        if not setPathResult and result == 1:
-            self.popup("Please enter a valid path to continue.")
-            self.getLocalPath()
+            logger.info("setting local project path to: %s" % defaultLocalPath)
+            self.setLocalPath(defaultLocalPath)
 
         return True
 
@@ -1407,8 +1413,10 @@ License: GNU GPL-3.0-or-later<br>
             prjPath = self.localProjectPath
         else:
             prjPath = self.paths.getExportProductBasePaths().get(location, "")
-        scenePath = os.path.normpath(os.path.join(prjPath, sceneName))
+            if not prjPath:
+                prjPath = self.paths.getRenderProductBasePaths().get(location, "")
 
+        scenePath = os.path.normpath(os.path.join(prjPath, sceneName))
         return scenePath
 
     @property
@@ -1455,19 +1463,11 @@ License: GNU GPL-3.0-or-later<br>
     @err_catcher(name=__name__)
     def convertPath(self, path, target="global"):
         path = os.path.normpath(path)
-        if self.useLocalFiles:
-            if target == "global":
-                scenePath = self.getScenePath("local")
-                if path.startswith(scenePath):
-                    path = path.replace(
-                        self.core.localProjectPath, self.core.projectPath
-                    )
-            elif target == "local":
-                scenePath = self.getScenePath("global")
-                if path.startswith(scenePath):
-                    path = path.replace(
-                        self.core.projectPath, self.core.localProjectPath
-                    )
+        source = self.paths.getLocationFromPath(path)
+        sourcePath = self.getScenePath(source)
+        targetPath = self.getScenePath(target)
+        if path.startswith(sourcePath):
+            path = path.replace(sourcePath, targetPath)
 
         return path
 
@@ -2071,6 +2071,9 @@ License: GNU GPL-3.0-or-later<br>
     @property
     @err_catcher(name=__name__)
     def timeMeasure(self):
+        """
+        with self.core.timeMeasure:
+        """
         if not hasattr(self, "_timeMeasure"):
             self._timeMeasure = TimeMeasure()
 

@@ -98,7 +98,7 @@ class Prism_Fusion_Integration(object):
             addedFiles = []
 
             # "PrismMenu.fu" add a Prism menu, but leads to freezes
-            for i in ["PrismRenderStartEvent.fu", "PrismMenu.fu"]:
+            for i in ["PrismEvents.fu", "PrismMenu.fu", "PrismRenderStartEvent.fu"]:
                 origFile = os.path.join(integrationBase, i)
                 targetFile = os.path.join(installPath, "Config", i)
 
@@ -115,35 +115,36 @@ class Prism_Fusion_Integration(object):
                 with open(targetFile, "r") as init:
                     initStr = init.read()
                     initStr = initStr.replace(
-                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace(
+                            "\\", "/")
                     )
 
                 with open(targetFile, "w") as init:
                     init.write(initStr)
 
-            if platform.system() == "Windows":
-                for i in ["PrismInit.scriptlib"]:
-                    origFile = os.path.join(integrationBase, i)
-                    targetFile = os.path.join(installPath, "Scripts", i)
+            for i in ["PrismInit.scriptlib"]:
+                origFile = os.path.join(integrationBase, i)
+                targetFile = os.path.join(installPath, "Scripts", i)
 
-                    if not os.path.exists(os.path.dirname(targetFile)):
-                        os.makedirs(os.path.dirname(targetFile))
-                        addedFiles.append(os.path.dirname(targetFile))
+                if not os.path.exists(os.path.dirname(targetFile)):
+                    os.makedirs(os.path.dirname(targetFile))
+                    addedFiles.append(os.path.dirname(targetFile))
 
-                    if os.path.exists(targetFile):
-                        os.remove(targetFile)
+                if os.path.exists(targetFile):
+                    os.remove(targetFile)
 
-                    shutil.copy2(origFile, targetFile)
-                    addedFiles.append(targetFile)
+                shutil.copy2(origFile, targetFile)
+                addedFiles.append(targetFile)
 
-                    with open(targetFile, "r") as init:
-                        initStr = init.read()
+                with open(targetFile, "r") as init:
+                    initStr = init.read()
 
-                    with open(targetFile, "w") as init:
-                        initStr = initStr.replace(
-                            "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
-                        )
-                        init.write(initStr)
+                with open(targetFile, "w") as init:
+                    initStr = initStr.replace(
+                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace(
+                            "\\", "/")
+                    )
+                    init.write(initStr)
 
             for i in [
                 "1 Save Version.py",
@@ -152,7 +153,10 @@ class Prism_Fusion_Integration(object):
                 "4 Update selected load nodes.py",
                 "5 Settings.py",
                 "open in explorer.py",
+                "refresh location.py",
                 "refresh writer.py",
+                "sceneOpen.py",
+                "LoaderFromSaver.lua",
             ]:
                 origFile = os.path.join(integrationBase, i)
                 targetFile = os.path.join(installPath, "Scripts", "Prism", i)
@@ -172,7 +176,8 @@ class Prism_Fusion_Integration(object):
 
                 with open(targetFile, "w") as init:
                     initStr = initStr.replace(
-                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace(
+                            "\\", "/")
                     )
                     init.write(initStr)
 
@@ -195,7 +200,8 @@ class Prism_Fusion_Integration(object):
 
                 with open(targetFile, "w") as init:
                     initStr = initStr.replace(
-                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace(
+                            "\\", "/")
                     )
                     init.write(initStr)
 
@@ -214,19 +220,24 @@ class Prism_Fusion_Integration(object):
             )
             msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            QMessageBox.warning(self.core.messageParent,
+                                "Prism Integration", msgStr)
             return False
 
     def removeIntegration(self, installPath):
         try:
             pFiles = []
             pFiles.append(
-                os.path.join(installPath, "Config", "PrismRenderStartEvent.fu")
+                os.path.join(installPath, "Config", "PrismEvents.fu")
             )
             pFiles.append(
                 os.path.join(installPath, "Config", "PrismMenu.fu")
             )
-            pFiles.append(os.path.join(installPath, "Scripts", "PrismInit.scriptlib"))
+            pFiles.append(
+                os.path.join(installPath, "Config", "PrismRenderStartEvent.fu")
+            )
+            pFiles.append(os.path.join(
+                installPath, "Scripts", "PrismInit.scriptlib"))
             pFiles.append(
                 os.path.join(
                     installPath, "Scripts", "Prism", "1 Save Version.py"
@@ -254,18 +265,38 @@ class Prism_Fusion_Integration(object):
                 os.path.join(installPath, "Scripts", "Prism", "5 Settings.py")
             )
             pFiles.append(
-                os.path.join(installPath, "Scripts", "Prism", "open in explorer.py")
+                os.path.join(installPath, "Scripts",
+                             "Prism", "open in explorer.py")
             )
             pFiles.append(
-                os.path.join(installPath, "Scripts", "Prism", "refresh writer.py")
+                os.path.join(installPath, "Scripts",
+                             "Prism", "refresh location.py")
+            )
+
+            pFiles.append(
+                os.path.join(installPath, "Scripts",
+                             "Prism", "refresh writer.py")
             )
             pFiles.append(
-                os.path.join(installPath, "Scripts", "Macros", "WritePrism.setting")
+                os.path.join(installPath, "Scripts",
+                             "Prism", "sceneOpen.py")
+            )
+            pFiles.append(
+                os.path.join(installPath, "Scripts",
+                             "Prism", "LoaderFromSaver.lua")
+            )
+            pFiles.append(
+                os.path.join(installPath, "Scripts",
+                             "Macros", "WritePrism.setting")
             )
 
             for i in pFiles:
                 if os.path.exists(i):
                     os.remove(i)
+
+            pfolder = os.path.join(installPath, "Scripts", "Prism")
+            if not os.listdir(pfolder):
+                os.rmdir(pfolder)
 
             return True
 
@@ -278,7 +309,8 @@ class Prism_Fusion_Integration(object):
             )
             msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            QMessageBox.warning(self.core.messageParent,
+                                "Prism Integration", msgStr)
             return False
 
     def updateInstallerUI(self, userFolders, pItem):
@@ -312,7 +344,8 @@ class Prism_Fusion_Integration(object):
             if fusionItem.checkState(0) == Qt.Checked and os.path.exists(
                 fusionItem.text(1)
             ):
-                result["Fusion integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=fusionItem.text(1), quiet=True)
+                result["Fusion integration"] = self.core.integration.addIntegration(
+                    self.plugin.pluginName, path=fusionItem.text(1), quiet=True)
                 if result["Fusion integration"]:
                     installLocs.append(fusionItem.text(1))
 
