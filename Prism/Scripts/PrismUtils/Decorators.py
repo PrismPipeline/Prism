@@ -58,9 +58,16 @@ def err_handler(func, name="", plugin=False):
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
 
+            if hasattr(args[0], "core"):
+                core = args[0].core
+            else:
+                core = None
+                logger.warning("class has no core")
+
             versionStr = ""
-            versionStr += "\nCore: %s" % args[0].core.version
-            if getattr(args[0].core, "appPlugin", None):
+            if core:
+                versionStr += "\nCore: %s" % core.version
+            if core and getattr(args[0].core, "appPlugin", None):
                 versionStr += "\nApp plugin: %s %s" % (args[0].core.appPlugin.pluginName, args[0].core.appPlugin.version)
             if plugin:
                 versionStr += "\nPlugin: %s %s" % (args[0].plugin.pluginName, args[0].plugin.version)
@@ -72,6 +79,9 @@ def err_handler(func, name="", plugin=False):
                 "".join(traceback.format_stack()),
                 traceback.format_exc(),
             )
+
+            if not core:
+                raise Exception(erStr)
 
             ltime = getattr(args[0].core, "lastErrorTime", 0)
             if (time.time() - ltime) > 1:

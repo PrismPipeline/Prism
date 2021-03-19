@@ -81,9 +81,16 @@ class Prism_Houdini_Functions(object):
             ".otlnc",
             ".otllc",
         ]
+        self.whiteListedExternalFiles = [
+            {
+                "nodeType": "topnet",
+                "parmName": "taskgraphfile",
+            },
+        ]
         self.ropLocation = "/out"
         self.filecache = Prism_Houdini_Node_Filecache.Prism_Houdini_Filecache(self.plugin)
         self.importFile = Prism_Houdini_Node_ImportFile.Prism_Houdini_ImportFile(self.plugin)
+        self.nodeTypeAPIs = [self.filecache, self.importFile]
         self.callbacks = []
         self.registerCallbacks()
 
@@ -812,7 +819,8 @@ class Prism_Houdini_Functions(object):
 
             if val is not None:
                 node.parm(parm).set(val)
-        except:
+        except Exception as e:
+            logger.debug(str(e))
             if not node.parm(parm):
                 msg = "parm doesn't exist: \"%s\" on node \"%s\"" % (parm, node.path())
                 if severity == "warning":
@@ -1106,12 +1114,16 @@ class Prism_Houdini_Functions(object):
             ]:
                 continue
 
-            if (
-                x[0] is not None
-                and x[0].name() in ["taskgraphfile"]
-                and x[0].node().type().name()
-                in ["topnet"]
-            ):
+            doContinue = False
+            for whiteListed in self.whiteListedExternalFiles:
+                if (
+                    x[0] and x[0].name() == whiteListed["parmName"]
+                    and x[0].node().type().name() == whiteListed["nodeType"]
+                ):
+                    doContinue = True
+                    break
+
+            if doContinue:
                 continue
 
             if (
@@ -1553,10 +1565,10 @@ class Prism_Houdini_Functions(object):
             return
 
         state = self.getStateFromNode(kwargs)
-        if kwargs["node"].type().name().startswith(self.importFile.getTypeName()):
-            parent = self.importFile.getParentFolder(create=False, node=kwargs["node"])
-        elif kwargs["node"].type().name().startswith(self.filecache.getTypeName()):
-            parent = self.filecache.getParentFolder(create=False)
+        parent = None
+        for api in self.nodeTypeAPIs:
+            if kwargs["node"].type().name().startswith(api.getTypeName()):
+                parent = api.getParentFolder(create=False, node=kwargs["node"])
 
         sm = self.core.getStateManager()
         sm.deleteState(state, silent=True)
@@ -1572,16 +1584,14 @@ class Prism_Houdini_Functions(object):
     def createStateForNode(self, kwargs):
         sm = self.core.getStateManager()
 
-        if kwargs["node"].type().name().startswith(self.importFile.getTypeName()):
-            parent = self.importFile.getParentFolder(node=kwargs["node"])
-            if parent:
-                parentExpanded = parent.isExpanded()
-            state = sm.createState("ImportFile", node=kwargs["node"], setActive=True, openProductsBrowser=False, parent=parent)
-        elif kwargs["node"].type().name().startswith(self.filecache.getTypeName()):
-            parent = self.filecache.getParentFolder()
-            if parent:
-                parentExpanded = parent.isExpanded()
-            state = sm.createState("Export", node=kwargs["node"], setActive=True, parent=parent)
+        for api in self.nodeTypeAPIs:
+            if kwargs["node"].type().name().startswith(api.getTypeName()):
+                parent = api.getParentFolder(create=False, node=kwargs["node"])
+                if parent:
+                    parentExpanded = parent.isExpanded()
+
+                openBrowser = False if api.listType == "Import" else None
+                state = sm.createState(api.stateType, node=kwargs["node"], setActive=True, openProductsBrowser=openBrowser, parent=parent)
 
         if parent:
             parent.setExpanded(parentExpanded)

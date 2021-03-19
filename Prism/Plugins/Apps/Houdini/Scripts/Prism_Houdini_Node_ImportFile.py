@@ -53,6 +53,8 @@ class Prism_Houdini_ImportFile(object):
     def __init__(self, plugin):
         self.plugin = plugin
         self.core = self.plugin.core
+        self.stateType = "ImportFile"
+        self.listType = "Import"
 
     @err_catcher(name=__name__)
     def getTypeName(self):

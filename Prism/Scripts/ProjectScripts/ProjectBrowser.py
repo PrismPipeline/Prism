@@ -4811,7 +4811,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         for file in files:
             kwargs["extension"] = os.path.splitext(file)[1]
             targetPath = self.core.paths.generateScenePath(**kwargs)
-            targetPath = self.core.convertPath(targetPath, target="local")
+            if self.core.useLocalFiles:
+                targetPath = self.core.convertPath(targetPath, target="local")
 
             if not os.path.exists(os.path.dirname(targetPath)):
                 try:

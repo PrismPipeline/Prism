@@ -1,3 +1,8 @@
+v1.3.0.78:
+- fixed an error dropping files in the scenefiles list in the Project Browser in some cases
+- fixed an error when opening Blender scenes from the standalone Project Browser
+- fixed an error that the Project Browser in Fusion didn't open in some cases
+
 v1.3.0.77:
 - updated Fusion integration including location option on WritePrism node and option to "Solo" a write node (Thanks to EmberLightVFX)
 - fixed a bug that the local project path dialog could open in some cases when Prism was executed in commandline mode (like on Deadline)

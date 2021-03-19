@@ -176,8 +176,7 @@ class ImageRenderClass(object):
             fileName = self.core.getCurrentFileName()
             fnameData = self.core.getScenefileData(fileName)
             if fnameData.get("category"):
-                self.l_taskName.setText(fnameData.get("category"))
-                self.b_changeTask.setStyleSheet("")
+                self.setTaskname(fnameData.get("category"))
 
             self.updateUi()
 
@@ -204,9 +203,7 @@ class ImageRenderClass(object):
         if "statename" in data:
             self.e_name.setText(data["statename"])
         if "taskname" in data:
-            self.l_taskName.setText(data["taskname"])
-            if data["taskname"] != "":
-                self.b_changeTask.setStyleSheet("")
+            self.setTaskname(data["taskname"])
         if "renderpresetoverride" in data:
             res = eval(data["renderpresetoverride"])
             self.chb_renderPreset.setChecked(res)
@@ -579,12 +576,56 @@ class ImageRenderClass(object):
         result = self.nameWin.exec_()
 
         if result == 1:
-            self.l_taskName.setText(self.nameWin.e_item.text())
+            self.setTaskname(self.nameWin.e_item.text())
             self.nameChanged(self.e_name.text())
 
             self.b_changeTask.setStyleSheet("")
 
             self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def setTaskname(self, taskname):
+        self.l_taskName.setText(taskname)
+        self.nameChanged(self.e_name.text())
+        if taskname:
+            self.b_changeTask.setStyleSheet("")
+        else:
+            self.b_changeTask.setStyleSheet(
+                "QPushButton { background-color: rgb(150,0,0); border: none;}"
+            )
+        self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def getTaskname(self):
+        taskName = self.l_taskName.text()
+        return taskName
+
+    @err_catcher(name=__name__)
+    def getRangeType(self):
+        return self.cb_rangeType.currentText()
+
+    @err_catcher(name=__name__)
+    def setRangeType(self, rangeType):
+        idx = self.cb_rangeType.findText(rangeType)
+        if idx != -1:
+            self.cb_rangeType.setCurrentIndex(idx)
+            self.updateRange()
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def getLocation(self):
+        return self.cb_outPath.currentText()
+
+    @err_catcher(name=__name__)
+    def setLocation(self, location):
+        idx = self.cb_outPath.findText(location)
+        if idx != -1:
+            self.cb_outPath.setCurrentIndex(idx)
+            return True
+
+        return False
 
     @err_catcher(name=__name__)
     def presetOverrideChanged(self, checked):
@@ -641,7 +682,6 @@ class ImageRenderClass(object):
             title = "Resolution Override"
             self.core.popup(msg, title=title)
             return
-
 
         self.sp_resWidth.setValue(self.curCam.parm("resx").eval())
         self.sp_resHeight.setValue(self.curCam.parm("resy").eval())
@@ -1183,16 +1223,22 @@ class ImageRenderClass(object):
 
             try:
                 for frameChunk in frameChunks:
-                    if not self.core.appPlugin.setNodeParm(self.node, "f1", clear=True):
-                        return [self.state.text(0) + ": error - Publish canceled"]
-                    if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
-                        return [self.state.text(0) + ": error - Publish canceled"]
+                    isStart = self.node.parm("f1").eval() == frameChunk[0]
+                    isEnd = self.node.parm("f2").eval() == frameChunk[1]
 
-                    if not self.core.appPlugin.setNodeParm(self.node, "f1", val=frameChunk[0]):
-                        return [self.state.text(0) + ": error - Publish canceled"]
+                    if not isStart:
+                        if not self.core.appPlugin.setNodeParm(self.node, "f1", clear=True):
+                            return [self.state.text(0) + ": error - Publish canceled"]
 
-                    if not self.core.appPlugin.setNodeParm(self.node, "f2", val=frameChunk[1]):
-                        return [self.state.text(0) + ": error - Publish canceled"]
+                        if not self.core.appPlugin.setNodeParm(self.node, "f1", val=frameChunk[0]):
+                            return [self.state.text(0) + ": error - Publish canceled"]
+
+                    if not isEnd:
+                        if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
+                            return [self.state.text(0) + ": error - Publish canceled"]
+
+                        if not self.core.appPlugin.setNodeParm(self.node, "f2", val=frameChunk[1]):
+                            return [self.state.text(0) + ": error - Publish canceled"]
 
                     result = self.curRenderer.executeRender(self)
                     if not result:

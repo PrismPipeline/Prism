@@ -634,7 +634,7 @@ class PathManager(object):
 
     @err_catcher(name=__name__)
     def getLocationFromPath(self, path):
-        if path.startswith(self.core.projectPath):
+        if path.startswith(getattr(self.core, "projectPath", "")):
             return "global"
         elif self.core.useLocalFiles and path.startswith(self.core.localProjectPath):
             return "local"

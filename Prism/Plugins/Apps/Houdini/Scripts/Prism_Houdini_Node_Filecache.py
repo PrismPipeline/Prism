@@ -55,6 +55,8 @@ class Prism_Houdini_Filecache(object):
         self.initState = None
         self.executeBackground = False
         self.nodeExecuted = False
+        self.stateType = "Export"
+        self.listType = "Export"
 
     @err_catcher(name=__name__)
     def getTypeName(self):
@@ -305,7 +307,7 @@ class Prism_Houdini_Filecache(object):
             node.parm("readVersion").set(latestVersion)
 
     @err_catcher(name=__name__)
-    def getParentFolder(self, create=True):
+    def getParentFolder(self, create=True, node=None):
         sm = self.core.getStateManager()
         for state in sm.states:
             if state.ui.listType != "Export" or state.ui.className != "Folder":
