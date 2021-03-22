@@ -183,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.78"
+            self.version = "v1.3.0.79"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -524,24 +524,20 @@ class PrismCore:
         version2 = str(version2).split(".")
         version2 = [int(str(x)) for x in version2]
 
-        if (
-            version1[0] < version2[0]
-            or (version1[0] == version2[0] and version1[1] < version2[1])
-            or (
-                version1[0] == version2[0]
-                and version1[1] == version2[1]
-                and version1[2] < version2[2]
-            )
-            or (
-                version1[0] == version2[0]
-                and version1[1] == version2[1]
-                and version1[2] == version2[2]
-                and version1[3] < version2[3]
-            )
-        ):
-            return "lower"
-        else:
-            return "higher"
+        if len(version1) != len(version2):
+            while len(version1) > len(version2):
+                version2.append(0)
+
+            while len(version1) < len(version2):
+                version1.append(0)
+
+        for idx in range(len(version1)):
+            if version1[idx] < version2[idx]:
+                return "lower"
+            elif version1[idx] > version2[idx]:
+                return "higher"
+
+        return "equal"
 
     @err_catcher(name=__name__)
     def checkCommands(self):
@@ -1049,15 +1045,16 @@ License: GNU GPL-3.0-or-later<br>
         return True
 
     @err_catcher(name=__name__)
-    def prismSettings(self, tab=0):
+    def prismSettings(self, tab=0, restart=False, reload_module=False):
         if getattr(self, "ps", None) and self.ps.isVisible():
             self.ps.close()
 
-        if not getattr(self, "ps", None) or self.debugMode:
-            try:
-                del sys.modules["PrismSettings"]
-            except:
-                pass
+        if not getattr(self, "ps", None) or self.debugMode or restart or reload_module:
+            if not getattr(self, "ps", None) or self.debugMode or reload_module:
+                try:
+                    del sys.modules["PrismSettings"]
+                except:
+                    pass
 
             try:
                 import PrismSettings

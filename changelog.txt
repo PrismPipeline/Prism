@@ -1,3 +1,6 @@
+v1.3.0.79:
+- internal changes
+
 v1.3.0.78:
 - fixed an error dropping files in the scenefiles list in the Project Browser in some cases
 - fixed an error when opening Blender scenes from the standalone Project Browser
