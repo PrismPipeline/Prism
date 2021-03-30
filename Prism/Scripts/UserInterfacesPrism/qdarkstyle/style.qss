@@ -1183,6 +1183,9 @@ QFrame[height="3"], QFrame[width="3"] {
     background-color: #76797C;
 }
 
+QSplitter {
+    border: 0px dashed #76797C;
+}
 
 QSplitter::handle {
     border: 1px dashed #76797C;

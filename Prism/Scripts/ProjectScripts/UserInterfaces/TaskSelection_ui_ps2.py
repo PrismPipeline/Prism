@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'TaskSelection.ui',
-# licensing of 'TaskSelection.ui' applies.
+# Form implementation generated from reading ui file 'TaskSelection.ui'
 #
-# Created: Wed Nov 25 17:14:38 2020
-#      by: pyside2-uic  running on PySide2 5.9.0a1.dev1528389443
+# Created: Wed Mar 24 00:55:49 2021
+#      by: pyside2-uic @pyside_tools_VERSION@ running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -21,10 +20,12 @@ class Ui_dlg_TaskSelection(object):
         self.widget_4 = QtWidgets.QWidget(dlg_TaskSelection)
         self.widget_4.setObjectName("widget_4")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout(self.widget_4)
-        self.horizontalLayout_2.setSpacing(6)
         self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.widget = QtWidgets.QWidget(self.widget_4)
+        self.splitter = QtWidgets.QSplitter(self.widget_4)
+        self.splitter.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter.setObjectName("splitter")
+        self.widget = QtWidgets.QWidget(self.splitter)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
         sizePolicy.setVerticalStretch(0)
@@ -33,10 +34,12 @@ class Ui_dlg_TaskSelection(object):
         self.widget.setObjectName("widget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.widget)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setObjectName("verticalLayout")
         self.w_paths = QtWidgets.QWidget(self.widget)
         self.w_paths.setObjectName("w_paths")
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout(self.w_paths)
+        self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
         self.l_paths = QtWidgets.QLabel(self.w_paths)
@@ -88,26 +91,25 @@ class Ui_dlg_TaskSelection(object):
         self.b_custom = QtWidgets.QPushButton(self.widget)
         self.b_custom.setObjectName("b_custom")
         self.verticalLayout.addWidget(self.b_custom)
-        self.horizontalLayout_2.addWidget(self.widget)
-        self.widget_2 = QtWidgets.QWidget(self.widget_4)
+        self.w_tasks = QtWidgets.QWidget(self.splitter)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.widget_2.sizePolicy().hasHeightForWidth())
-        self.widget_2.setSizePolicy(sizePolicy)
-        self.widget_2.setObjectName("widget_2")
-        self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.widget_2)
+        sizePolicy.setHeightForWidth(self.w_tasks.sizePolicy().hasHeightForWidth())
+        self.w_tasks.setSizePolicy(sizePolicy)
+        self.w_tasks.setObjectName("w_tasks")
+        self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.w_tasks)
+        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
-        self.label_2 = QtWidgets.QLabel(self.widget_2)
+        self.label_2 = QtWidgets.QLabel(self.w_tasks)
         self.label_2.setObjectName("label_2")
         self.verticalLayout_3.addWidget(self.label_2)
-        self.lw_tasks = QtWidgets.QListWidget(self.widget_2)
+        self.lw_tasks = QtWidgets.QListWidget(self.w_tasks)
         self.lw_tasks.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.lw_tasks.setObjectName("lw_tasks")
         self.verticalLayout_3.addWidget(self.lw_tasks)
-        self.horizontalLayout_2.addWidget(self.widget_2)
-        self.widget_3 = QtWidgets.QWidget(self.widget_4)
+        self.widget_3 = QtWidgets.QWidget(self.splitter)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(3)
         sizePolicy.setVerticalStretch(0)
@@ -116,10 +118,12 @@ class Ui_dlg_TaskSelection(object):
         self.widget_3.setObjectName("widget_3")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.widget_3)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.widget_5 = QtWidgets.QWidget(self.widget_3)
         self.widget_5.setObjectName("widget_5")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.widget_5)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.l_version = QtWidgets.QLabel(self.widget_5)
@@ -147,7 +151,7 @@ class Ui_dlg_TaskSelection(object):
         self.tw_versions.horizontalHeader().setMinimumSectionSize(0)
         self.tw_versions.verticalHeader().setVisible(False)
         self.verticalLayout_2.addWidget(self.tw_versions)
-        self.horizontalLayout_2.addWidget(self.widget_3)
+        self.horizontalLayout_2.addWidget(self.splitter)
         self.verticalLayout_4.addWidget(self.widget_4)
 
         self.retranslateUi(dlg_TaskSelection)

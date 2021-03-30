@@ -878,6 +878,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             parent.setExpanded(True)
 
         self.updateStateList()
+        self.stateInCreation = None
 
         if statetype != "Folder":
             item.setFlags(item.flags() & ~Qt.ItemIsDropEnabled)
@@ -1971,6 +1972,19 @@ No frame will be rendered twice. This makes it easier to spot problems in the se
             "comment": self.e_comment.text(),
             "description": self.description,
         }
+
+    @err_catcher(name=__name__)
+    def importFile(self, path, activateWindow=True):
+        if not path:
+            return
+
+        extension = os.path.splitext(path)[1]
+        stateType = getattr(self.core.appPlugin, "sm_getImportHandlerType", lambda x: None)(extension) or "ImportFile"
+
+        self.createState(stateType, importPath=path)
+        self.setListActive(self.tw_import)
+        if activateWindow:
+            self.activateWindow()
 
 
 class ImportDelegate(QStyledItemDelegate):

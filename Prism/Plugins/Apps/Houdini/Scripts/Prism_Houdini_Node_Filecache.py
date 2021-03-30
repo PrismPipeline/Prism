@@ -380,13 +380,17 @@ class Prism_Houdini_Filecache(object):
         return version
 
     @err_catcher(name=__name__)
+    def getProductName(self, node):
+        return node.parm("task").eval()
+
+    @err_catcher(name=__name__)
     def getImportPath(self):
         sm = self.core.getStateManager(create=False)
         if not sm or self.core.getCurrentFileName() != sm.scenename:
             return ""
 
         node = hou.pwd()
-        product = node.parm("task").eval()
+        product = self.getProductName(node)
         version = self.getReadVersionFromNode(node)
         if version == "latest":
             path = self.core.products.getLatestVersionpathFromProduct(product)
@@ -410,6 +414,7 @@ class Prism_Houdini_Filecache(object):
         if data["entity"] == "invalid":
             return names
         names = self.core.products.getProductsFromEntity(data["entity"], data["fullEntityName"])
+        names = sorted(names.keys())
         names = [name for name in names for _ in range(2)]
         return names
 
@@ -428,6 +433,17 @@ class Prism_Houdini_Filecache(object):
         return ranges
 
     @err_catcher(name=__name__)
+    def getFrameRange(self, node):
+        if node.parm("framerange").eval() == 0:
+            startFrame = self.core.appPlugin.getCurrentFrame()
+            endFrame = startFrame
+        else:
+            startFrame = node.parm("f1").eval()
+            endFrame = node.parm("f2").eval()
+
+        return startFrame, endFrame
+
+    @err_catcher(name=__name__)
     def framerangeChanged(self, kwargs):
         state = self.getStateFromNode(kwargs)
         state.ui.updateUi()
@@ -438,7 +454,7 @@ class Prism_Houdini_Filecache(object):
         version = self.getWriteVersionFromNode(node)
         if version == "next":
             version += " (%s)" % (self.core.versionFormat % node.parm("writeVersion").eval())
-        descr = node.parm("task").eval() + "\n" + version
+        descr = self.getProductName(node) + "\n" + version
 
         if not node.parm("latestVersionRead").eval():
             readv = self.core.versionFormat % node.parm("readVersion").eval()

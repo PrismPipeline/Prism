@@ -630,12 +630,11 @@ class ExportClass(object):
                 if frange:
                     startFrame, endFrame = frange
         elif rangeType == "Node" and self.node:
-            if self.isPrismFilecacheNode(self.node):
-                if self.node.parm("framerange").eval() == 0:
-                    startFrame = self.core.appPlugin.getCurrentFrame()
-                    endFrame = startFrame
+            api = self.core.appPlugin.getApiFromNode(self.node)
+            if api:
+                startFrame, endFrame = api.getFrameRange(self.node)
 
-            if not startFrame:
+            if startFrame is None:
                 try:
                     startFrame = self.node.parm("f1").eval()
                     endFrame = self.node.parm("f2").eval()
@@ -1309,22 +1308,22 @@ class ExportClass(object):
             if self.cb_outType.currentText() in [".abc", ".fbx", ".usd"]:
                 outputName = outputName.replace(".$F4", "")
 
-            fc = self.isPrismFilecacheNode(self.node)
+            api = self.core.appPlugin.getApiFromNode(self.node)
             isStart = ropNode.parm("f1").eval() == startFrame
             isEnd = ropNode.parm("f2").eval() == endFrame
 
-            if not fc:
+            if not api:
                 if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not (fc and isStart):
+            if not (api and isStart):
                 if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
                 if not self.core.appPlugin.setNodeParm(ropNode, "f1", val=startFrame):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not (fc and isEnd):
+            if not (api and isEnd):
                 if not self.core.appPlugin.setNodeParm(ropNode, "f2", clear=True):
                     return [self.state.text(0) + ": error - Publish canceled"]
 

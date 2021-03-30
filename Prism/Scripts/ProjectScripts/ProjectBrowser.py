@@ -2249,6 +2249,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                 pathType = "asset"
             else:
                 pathType = "folder"
+
             self.addAssetItem(path, itemType=pathType, parent=parent, refreshItem=refreshChildren)
 
     @err_catcher(name=__name__)
@@ -2267,19 +2268,21 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         item.takeChildren()
         path = item.text(1)
         itemType = item.text(2)
+        expand = path in self.aExpanded or (self.e_assetSearch.isVisible() and self.e_assetSearch.text())
 
         if itemType == "asset":
             item.setText(2, "asset")
         else:
             item.setText(2, "folder")
-            self.refreshAssets(path=path, parent=item, refreshChildren=False)
+            refreshChildren = expand and self.tw_aHierarchy.signalsBlocked()
+            self.refreshAssets(path=path, parent=item, refreshChildren=refreshChildren)
 
         if itemType == "asset":
             iFont = item.font(0)
             iFont.setBold(True)
             item.setFont(0, iFont)
 
-        if path in self.aExpanded or (self.e_assetSearch.isVisible() and self.e_assetSearch.text()):
+        if expand:
             item.setExpanded(True)
 
     @err_catcher(name=__name__)

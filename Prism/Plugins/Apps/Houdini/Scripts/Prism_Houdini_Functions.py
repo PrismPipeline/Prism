@@ -1532,6 +1532,9 @@ class Prism_Houdini_Functions(object):
             if node and node.path() == knode.path():
                 return state
 
+        if getattr(sm, "stateInCreation", None):
+            return sm.stateInCreation
+
         state = self.createStateForNode(kwargs)
         return state
 
@@ -1560,15 +1563,23 @@ class Prism_Houdini_Functions(object):
         pass
 
     @err_catcher(name=__name__)
+    def getApiFromNode(self, node):
+        for api in self.nodeTypeAPIs:
+            validApi = self.isValidNodeApi(node, api)
+
+            if validApi:
+                return api
+
+    @err_catcher(name=__name__)
     def onNodeDeleted(self, kwargs):
         if hou.hipFile.isLoadingHipFile() or hou.hipFile.isShuttingDown():
             return
 
         state = self.getStateFromNode(kwargs)
         parent = None
-        for api in self.nodeTypeAPIs:
-            if kwargs["node"].type().name().startswith(api.getTypeName()):
-                parent = api.getParentFolder(create=False, node=kwargs["node"])
+        api = self.getApiFromNode(kwargs["node"])
+        if api:
+            parent = api.getParentFolder(create=False, node=kwargs["node"])
 
         sm = self.core.getStateManager()
         sm.deleteState(state, silent=True)
@@ -1581,17 +1592,34 @@ class Prism_Houdini_Functions(object):
                 break
 
     @err_catcher(name=__name__)
+    def isValidNodeApi(self, node, api):
+        validApi = False
+        typeName = api.getTypeName()
+        if isinstance(typeName, list):
+            typeNames = typeName
+        else:
+            typeNames = [typeName]
+
+        for name in typeNames:
+            validApi = node.type().name().startswith(name)
+            if validApi:
+                break
+
+        return validApi
+
+    @err_catcher(name=__name__)
     def createStateForNode(self, kwargs):
         sm = self.core.getStateManager()
 
-        for api in self.nodeTypeAPIs:
-            if kwargs["node"].type().name().startswith(api.getTypeName()):
-                parent = api.getParentFolder(create=False, node=kwargs["node"])
-                if parent:
-                    parentExpanded = parent.isExpanded()
+        parent = None
+        api = self.getApiFromNode(kwargs["node"])
+        if api:
+            parent = api.getParentFolder(create=False, node=kwargs["node"])
+            if parent:
+                parentExpanded = parent.isExpanded()
 
-                openBrowser = False if api.listType == "Import" else None
-                state = sm.createState(api.stateType, node=kwargs["node"], setActive=True, openProductsBrowser=openBrowser, parent=parent)
+            openBrowser = False if api.listType == "Import" else None
+            state = sm.createState(api.stateType, node=kwargs["node"], setActive=True, openProductsBrowser=openBrowser, parent=parent)
 
         if parent:
             parent.setExpanded(parentExpanded)

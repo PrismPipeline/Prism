@@ -233,6 +233,9 @@ class PluginManager(object):
                 if pluginNames and pluginName not in pluginNames:
                     continue
 
+                if not os.path.exists(pPath):
+                    continue
+
                 pData = {"name": pluginName, "path": pPath}
                 result.append(pData)
 
@@ -699,3 +702,33 @@ class PluginManager(object):
 
         for mid in unpatched:
             self.monkeyPatchedFunctions.pop(mid)
+
+    @err_catcher(name=__name__)
+    def unmonkeyPatchFunction(self, className, functionName):
+        mid = "%s.%s" % (className, functionName)
+        patch = self.monkeyPatchedFunctions.get(mid, None)
+        if not patch:
+            return False
+
+        if sys.version[0] == "3":
+            origClass = patch["orig"].__self__
+        else:
+            origClass = patch["orig"].im_self
+
+        setattr(origClass, patch["new"].__name__, patch["orig"])
+        self.monkeyPatchedFunctions.pop(mid)
+
+    @err_catcher(name=__name__)
+    def isFunctionMonkeyPatched(self, className, functionName, plugin=None):
+        mid = "%s.%s" % (className, functionName)
+        patch = self.monkeyPatchedFunctions.get(mid, None)
+        if not patch:
+            return False
+
+        if not plugin:
+            return True
+
+        if patch["plugin"] == plugin:
+            return True
+        else:
+            return False

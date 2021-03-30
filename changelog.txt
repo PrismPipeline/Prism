@@ -1,3 +1,9 @@
+v1.3.0.80:
+- added support for Maya 2022
+- added support for Nuke 13
+- made the lists in the Task Selection window resizable
+- fixed a bug that children of nested asset folders were not displayed correctly in the Project Browser in some cases
+
 v1.3.0.79:
 - internal changes
 

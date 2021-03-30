@@ -183,7 +183,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v1.3.0.79"
+            self.version = "v1.3.0.80"
             self.requiredLibraries = "v1.3.0.0"
             self.core = self
 
@@ -898,8 +898,12 @@ License: GNU GPL-3.0-or-later<br>
         return sm
 
     @err_catcher(name=__name__)
+    def stateManagerEnabled(self):
+        return self.appPlugin.appType == "3d"
+
+    @err_catcher(name=__name__)
     def stateManager(self, stateDataPath=None, restart=False, openUi=True, reload_module=False):
-        if self.appPlugin.appType != "3d":
+        if not self.stateManagerEnabled():
             return False
 
         if not self.projects.ensureProject(openUi="stateManager"):
@@ -2578,7 +2582,7 @@ License: GNU GPL-3.0-or-later<br>
         """
         canceled = Signal()
 
-        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None, hidden=False, parent=None, allowCancel=False):
+        def __init__(self, core, text, title=None, buttons=None, default=None, icon=None, hidden=False, parent=None, allowCancel=False, activate=True):
             self.core = core
             super(self.core.waitPopup, self).__init__()
             self.parent = parent
@@ -2589,6 +2593,7 @@ License: GNU GPL-3.0-or-later<br>
             self.icon = icon
             self.hidden = hidden
             self.allowCancel = allowCancel
+            self.activate = activate
             self.msg = None
 
         def __enter__(self):
@@ -2600,6 +2605,8 @@ License: GNU GPL-3.0-or-later<br>
 
         def createPopup(self):
             self.msg = self.core.popupNoButton(self.text, title=self.title, buttons=self.buttons, default=self.default, icon=self.icon, parent=self.parent, show=False)
+            if not self.activate:
+                self.msg.setAttribute(Qt.WA_ShowWithoutActivating)
 
         def show(self):
             self.createPopup()

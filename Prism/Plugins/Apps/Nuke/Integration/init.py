@@ -24,12 +24,16 @@ if not nuke.env["studio"] and not nuke.env.get("gui"):
         if scriptDir not in sys.path:
             sys.path.append(scriptDir)
 
-
         qapp = QApplication.instance()
-        if not qapp or isinstance(qapp, QCoreApplication):
+        if not qapp:
             qapp = QApplication(sys.argv)
 
-        import PrismCore
+        if isinstance(qapp, QCoreApplication):
+            print("a QCoreApplication exists. failed to load Prism")
+        else:
+            print(qapp)
+            import PrismCore
 
-        pcore = PrismCore.PrismCore(app="Nuke", prismArgs=["noUI"])
+            pcore = PrismCore.PrismCore(app="Nuke", prismArgs=["noUI"])
+
 # <<<PrismEnd

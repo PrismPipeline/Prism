@@ -121,7 +121,7 @@ class ExportClass(object):
                     self.cb_sCamShot.setCurrentIndex(idx)
 
             if fnameData.get("category"):
-                self.l_taskName.setText(fnameData.get("category"))
+                self.setTaskname(fnameData.get("category"))
                 getattr(self.core.appPlugin, "sm_export_updateObjects", lambda x: None)(self)
 
             if not self.stateManager.standalone:
@@ -132,9 +132,7 @@ class ExportClass(object):
     @err_catcher(name=__name__)
     def loadData(self, data):
         if "taskname" in data:
-            self.l_taskName.setText(data["taskname"])
-            if data["taskname"] != "":
-                self.b_changeTask.setPalette(self.oldPalette)
+            self.setTaskname(data["taskname"])
         if "connectednodes" in data:
             self.nodes = eval(data["connectednodes"])
 
@@ -247,7 +245,7 @@ class ExportClass(object):
         if self.cb_outType.currentText() == "ShotCam":
             sText = text + " (ShotCam - %s)" % self.cb_cam.currentText()
         else:
-            taskname = self.l_taskName.text()
+            taskname = self.getTaskname()
             if taskname == "":
                 taskname = "None"
 
@@ -269,16 +267,25 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def setTaskname(self, taskname):
-        prevTaskName = self.l_taskName.text()
-        self.core.appPlugin.sm_export_setTaskText(self, prevTaskName, taskname)
+        prevTaskName = self.getTaskname()
+        default_func = lambda x1, x2, newTaskName: self.l_taskName.setText(
+            newTaskName
+        )
+        getattr(self.core.appPlugin, "sm_export_setTaskText", default_func)(
+            self, prevTaskName, taskname
+        )
         self.updateUi()
+
+    @err_catcher(name=__name__)
+    def getUnitConvert(self):
+        return self.chb_convertExport.isChecked()
 
     @err_catcher(name=__name__)
     def changeTask(self):
         import CreateItem
 
         self.nameWin = CreateItem.CreateItem(
-            startText=self.l_taskName.text(),
+            startText=self.getTaskname(),
             showTasks=True,
             taskType="export",
             core=self.core,
@@ -288,18 +295,10 @@ class ExportClass(object):
         self.nameWin.l_item.setText("Taskname:")
         self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
-        prevTaskName = self.l_taskName.text()
         result = self.nameWin.exec_()
 
         if result == 1:
-            default_func = lambda x1, x2, newTaskName: self.l_taskName.setText(
-                newTaskName
-            )
-            getattr(self.core.appPlugin, "sm_export_setTaskText", default_func)(
-                self, prevTaskName, self.nameWin.e_item.text()
-            )
-            self.b_changeTask.setPalette(self.oldPalette)
-            self.nameChanged(self.e_name.text())
+            self.setTaskname(self.nameWin.e_item.text())
             self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -404,7 +403,7 @@ class ExportClass(object):
                 self.lw_objects.addItem(item)
                 newObjList.append(node)
 
-        if self.l_taskName.text() != "":
+        if self.getTaskname():
             self.b_changeTask.setPalette(self.oldPalette)
 
         if self.lw_objects.count() == 0 and not self.chb_wholeScene.isChecked():
@@ -523,7 +522,7 @@ class ExportClass(object):
             if self.curCam is None:
                 warnings.append(["No camera specified.", "", 3])
         else:
-            if self.l_taskName.text() == "":
+            if not self.getTaskname():
                 warnings.append(["No taskname is given.", "", 3])
 
             if not self.chb_wholeScene.isChecked() and len(self.nodes) == 0:
@@ -561,7 +560,7 @@ class ExportClass(object):
                 location=location
             )
         else:
-            task = self.l_taskName.text()
+            task = self.getTaskname()
             if not task:
                 return
 
@@ -688,7 +687,7 @@ class ExportClass(object):
                 return [self.state.text(0) + " - unknown error"]
         else:
 
-            if self.l_taskName.text() == "":
+            if not self.getTaskname():
                 return [
                     self.state.text(0)
                     + ": error - No taskname is given. Skipped the activation of this state."
@@ -806,7 +805,7 @@ class ExportClass(object):
         stateProps.update(
             {
                 "statename": self.e_name.text(),
-                "taskname": self.l_taskName.text(),
+                "taskname": self.getTaskname(),
                 "rangeType": str(self.cb_rangeType.currentText()),
                 "startframe": self.sp_rangeStart.value(),
                 "endframe": self.sp_rangeEnd.value(),

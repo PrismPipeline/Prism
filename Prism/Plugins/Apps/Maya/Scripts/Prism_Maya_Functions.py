@@ -67,6 +67,7 @@ class Prism_Maya_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+        self.importHandlers = {}
 
     @err_catcher(name=__name__)
     def startup(self, origin):
@@ -452,11 +453,11 @@ class Prism_Maya_Functions(object):
         if objects:
             cmds.select(objects)
 
-        setName = self.validate(origin.l_taskName.text())
+        setName = self.validate(origin.getTaskname())
         if not setName:
             setName = self.sm_export_setTaskText(origin, None, "Export")
 
-        setName = self.validate(origin.l_taskName.text())
+        setName = self.validate(origin.getTaskname())
         for i in cmds.ls(selection=True, long=True):
             if i not in origin.nodes:
                 try:
@@ -525,7 +526,8 @@ class Prism_Maya_Functions(object):
         origin.f_objectList.setStyleSheet(
             "QFrame { border: 0px solid rgb(150,150,150); }"
         )
-        origin.w_additionalOptions.setVisible(False)
+        if hasattr(origin, "w_additionalOptions"):
+            origin.w_additionalOptions.setVisible(False)
 
         origin.w_exportNamespaces = QWidget()
         origin.lo_exportNamespaces = QHBoxLayout()
@@ -634,19 +636,19 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_removeSetItem(self, origin, node):
-        setName = self.validate(origin.l_taskName.text())
+        setName = self.validate(origin.getTaskname())
         cmds.sets(node, remove=setName)
 
     @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
-        setName = origin.l_taskName.text()
+        setName = origin.getTaskname()
         if self.isNodeValid(origin, setName):
             cmds.sets(clear=setName)
 
     @err_catcher(name=__name__)
     def sm_export_updateObjects(self, origin):
         prevSel = cmds.ls(selection=True, long=True)
-        setName = self.validate(origin.l_taskName.text())
+        setName = self.validate(origin.getTaskname())
         if not setName:
             setName = self.sm_export_setTaskText(origin, None, "Export")
 
@@ -695,7 +697,7 @@ class Prism_Maya_Functions(object):
     ):
         cmds.select(clear=True)
         if nodes is None:
-            setName = self.validate(origin.l_taskName.text())
+            setName = self.validate(origin.getTaskname())
             if not self.isNodeValid(origin, setName):
                 return (
                     'Canceled: The selection set "%s" is invalid.'
@@ -711,7 +713,7 @@ class Prism_Maya_Functions(object):
             ]
 
         if expType is None:
-            expType = origin.cb_outType.currentText()
+            expType = origin.getOutputType()
 
         if expType == ".obj":
             cmds.loadPlugin("objExport", quiet=True)
@@ -948,7 +950,7 @@ class Prism_Maya_Functions(object):
 
         if scaledExport:
             cmds.delete(nodes)
-        elif origin.chb_convertExport.isChecked():
+        elif origin.getUnitConvert():
             if expType == ".obj":
                 QMessageBox.warning(
                     self.core.messageParent,
@@ -1058,7 +1060,7 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
-        setName = self.validate(origin.l_taskName.text())
+        setName = self.validate(origin.getTaskname())
         try:
             cmds.delete(setName)
         except:
@@ -1085,10 +1087,10 @@ class Prism_Maya_Functions(object):
     def sm_export_preExecute(self, origin, startFrame, endFrame):
         warnings = []
 
-        if origin.cb_outType.currentText() != "ShotCam":
+        if origin.getOutputType() != "ShotCam":
             if (
-                origin.cb_outType.currentText() == ".obj"
-                and origin.chb_convertExport.isChecked()
+                origin.getOutputType() == ".obj"
+                and origin.getUnitConvert()
             ):
                 warnings.append(
                     [
@@ -2302,13 +2304,32 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
                     mel.eval("FBXImportMode -v merge")
                     mel.eval("FBXImportConvertUnitString  -v cm")
 
-                try:
-                    importedNodes = cmds.file(impFileName, i=True, returnNewNodes=True)
-                except Exception as e:
+                kwargs = {
+                    "i": True,
+                    "returnNewNodes": True,
+                    "importFunction": self.basicImport
+                }
+
+                if fileName[1] in self.importHandlers:
+                    kwargs.update(self.importHandlers[fileName[1]])
+
+                result = kwargs["importFunction"](impFileName, kwargs)
+
+                if result and result["result"]:
+                    importedNodes = result["nodes"]
+                else:
                     importedNodes = []
+                    if result:
+                        if "error" not in result:
+                            return
+
+                        error = str(result["error"])
+                    else:
+                        error = ""
+
                     msg = "An error occured while importing the file:\n\n%s\n\n%s" % (
                         impFileName,
-                        str(e),
+                        error,
                     )
                     self.core.popup(msg, title="Import error")
 
@@ -2338,6 +2359,18 @@ tabLayout -e -sti %s $tabLayout;""" % tabNum
         rDict["mode"] = "ApplyCache" if (applyCache or updateCache) else "ImportFile"
 
         return rDict
+
+    @err_catcher(name=__name__)
+    def basicImport(self, filepath, kwargs):
+        del kwargs["importFunction"]
+        try:
+            importedNodes = cmds.file(filepath, **kwargs)
+        except Exception as e:
+            result = {"result": False, "error": e}
+            return result
+
+        result = {"result": True, "nodes": importedNodes}
+        return result
 
     @err_catcher(name=__name__)
     def createGpuCache(self, filepath, geoPath="|", name=None):
@@ -2750,7 +2783,10 @@ Show only polygon objects in viewport.
     def sm_readStates(self, origin):
         val = cmds.fileInfo("PrismStates", query=True)
         if len(val) != 0:
-            stateStr = val[0].decode('string_escape')
+            if sys.version[0] == "2":
+                stateStr = val[0].decode('string_escape')
+            else:
+                stateStr = str.encode(val[0]).decode('unicode_escape')
 
             # for backwards compatibility with scenes created before v1.3.0
             jsonData = self.core.configs.readJson(data=stateStr)
