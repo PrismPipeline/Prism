@@ -360,7 +360,7 @@ class Prism_Maya_Functions(object):
                     else:
                         cmds.SaveScene()
                     if cmds.file(q=True, exists=True):
-                        cmds.file(filepath, o=True)
+                        cmds.file(filepath, o=True, force=True)
                 elif option == "Don't Save":
                     cmds.file(filepath, o=True, force=True)
             else:
