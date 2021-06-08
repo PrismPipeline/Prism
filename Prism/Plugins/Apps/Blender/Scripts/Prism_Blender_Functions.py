@@ -397,11 +397,6 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
         setName = newTaskName
-        extension = 1
-        while setName in self.getGroups() and extension < 999:
-            if "%s_%s" % (setName, extension) not in self.getGroups():
-                setName += "_%s" % extension
-            extension += 1
 
         if prevTaskName and prevTaskName in self.getGroups():
             self.getGroups()[prevTaskName].name = setName

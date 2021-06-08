@@ -956,7 +956,7 @@ class Prism_Shotgun_Functions(object):
                 response = requests.get(shotData["image"])
 
                 with open(shotImgPath, "wb") as prvImg:
-                    prvImg.write(response.read())
+                    prvImg.write(response.content)
 
                 if (
                     shotName not in createdShots
@@ -1170,14 +1170,17 @@ class Prism_Shotgun_Functions(object):
                     pass
 
                 if len(data.keys()) > 1 or shotImg != "":
-                    result = sg.update("Shot", sgShots[shot[0]]["id"], data)
-                    if (
-                        [shot[1], shot[2]]
-                        not in [[x["code"], x["sg_sequence"]] for x in createdShots]
-                        and shot[0] not in updatedShots
-                        and (len(data.keys()) > 1 or sgShots[shot[0]]["image"] is None)
-                    ):
-                        updatedShots.append(shot[0])
+                    try:
+                        result = sg.update("Shot", sgShots[shot[0]]["id"], data)
+                        if (
+                            [shot[1], shot[2]]
+                            not in [[x["code"], x["sg_sequence"]] for x in createdShots]
+                            and shot[0] not in updatedShots
+                            and (len(data.keys()) > 1 or sgShots[shot[0]]["image"] is None)
+                        ):
+                            updatedShots.append(shot[0])
+                    except:
+                        print("failed to update shot: %s" % shot[0])
 
             shotSteps = []
             stepsPath = self.core.getEntityPath(entity="step", shot=shot[0])

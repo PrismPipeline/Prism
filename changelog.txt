@@ -1,3 +1,7 @@
+v1.3.0.81:
+- fixed a bug that tasknames on Blender export states incremented when reloading the state
+- fixed some errors when syncing shot preview images with Shotgun
+
 v1.3.0.80:
 - added support for Maya 2022
 - added support for Nuke 13
