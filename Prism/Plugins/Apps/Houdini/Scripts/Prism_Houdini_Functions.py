@@ -141,6 +141,7 @@ class Prism_Houdini_Functions(object):
                 origin.messageParent = hou.ui.mainQtWindow()
 
             origin.timer.stop()
+            origin.startasThread()
         else:
             QApplication.addLibraryPath(
                 os.path.join(hou.expandString("$HFS"), "bin", "Qt_plugins")
