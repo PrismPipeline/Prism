@@ -214,7 +214,9 @@ class ConfigManager(object):
         elif configPath is None:
             configPath = self.core.userini
 
-        configPath = os.path.normpath(configPath)
+        if configPath:
+            configPath = os.path.normpath(configPath)
+
         if configPath and os.path.normpath(configPath) in self.cachedConfigs:
             configData = self.cachedConfigs[os.path.normpath(configPath)]
         else:

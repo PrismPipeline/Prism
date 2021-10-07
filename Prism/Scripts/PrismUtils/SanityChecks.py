@@ -349,5 +349,5 @@ current project.\n\nYour current version: %s\nVersion configured in project: %s\
                 curVersion,
                 rversion,
                 self.core.appPlugin.pluginName,
-            ),
+            )
             self.core.popup(msgStr)

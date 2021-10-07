@@ -1,3 +1,8 @@
+v1.3.0.82:
+- added support for Blender 2.93+
+- fixed an error in Maya, when creating an Export state when the scenefile was saved in a category, which contained a "-" character
+- fixed a bug that the "Force Version" popup was not working correctly in Houdini
+
 v1.3.0.81:
 - fixed a bug that tasknames on Blender export states incremented when reloading the state
 - fixed some errors when syncing shot preview images with Shotgun

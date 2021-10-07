@@ -493,6 +493,9 @@ class Prism_Maya_Functions(object):
 
     @err_catcher(name=__name__)
     def isNodeValid(self, origin, handle):
+        if "-" in handle:
+            return False
+
         return len(cmds.ls(handle)) > 0
 
     @err_catcher(name=__name__)

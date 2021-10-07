@@ -268,12 +268,11 @@ class ExportClass(object):
     @err_catcher(name=__name__)
     def setTaskname(self, taskname):
         prevTaskName = self.getTaskname()
-        default_func = lambda x1, x2, newTaskName: self.l_taskName.setText(
-            newTaskName
-        )
-        getattr(self.core.appPlugin, "sm_export_setTaskText", default_func)(
+        default_func = lambda x1, x2, newTaskName: taskname
+        taskname = getattr(self.core.appPlugin, "sm_export_setTaskText", default_func)(
             self, prevTaskName, taskname
         )
+        self.l_taskName.setText(taskname)
         self.updateUi()
 
     @err_catcher(name=__name__)

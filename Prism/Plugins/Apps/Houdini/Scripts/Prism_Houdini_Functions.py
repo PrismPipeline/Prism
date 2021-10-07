@@ -705,7 +705,7 @@ class Prism_Houdini_Functions(object):
 
     @err_catcher(name=__name__)
     def getAppVersion(self, origin):
-        return hou.applicationVersion()[1:-1]
+        return hou.applicationVersionString()
 
     @err_catcher(name=__name__)
     def onProjectBrowserStartup(self, origin):
