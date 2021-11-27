@@ -65,7 +65,7 @@ class Prism_Blender_Integration(object):
         if platform.system() == "Windows":
             self.examplePath = self.getBlenderPath() or "C:/Program Files/Blender Foundation/Blender 2.82/"
         elif platform.system() == "Linux":
-            self.examplePath = "/usr/local/blender-2.79b-linux-glibc219-x86_64/2.79"
+            self.examplePath = self.getBlenderPath()
         elif platform.system() == "Darwin":
             self.examplePath = "/Applications/blender/blender.app/Resources/2.79"
 
@@ -79,25 +79,33 @@ class Prism_Blender_Integration(object):
 
     @err_catcher(name=__name__)
     def getBlenderPath(self):
-        try:
-            key = _winreg.OpenKey(
-                _winreg.HKEY_LOCAL_MACHINE,
-                "SOFTWARE\\Classes\\blendfile\\shell\\open\\command",
-                0,
-                _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
-            )
-            blenderPath = (
-                (_winreg.QueryValueEx(key, ""))[0].split(' "%1"')[0].replace('"', "")
-            )
+        if platform.system() == "Windows":
+            try:
+                key = _winreg.OpenKey(
+                    _winreg.HKEY_LOCAL_MACHINE,
+                    "SOFTWARE\\Classes\\blendfile\\shell\\open\\command",
+                    0,
+                    _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
+                )
+                blenderPath = (
+                    (_winreg.QueryValueEx(key, ""))[0].split(' "%1"')[0].replace('"', "")
+                )
 
-            vpath = os.path.join(os.path.dirname(blenderPath), "2.81")
+                vpath = os.path.join(os.path.dirname(blenderPath), "2.81")
 
-            if os.path.exists(vpath):
-                return vpath
-            else:
+                if os.path.exists(vpath):
+                    return vpath
+                else:
+                    return ""
+
+            except:
                 return ""
-
-        except:
+        elif platform.system() == "Linux":
+            for location in ["/usr/share/blender", "/opt/blender2.93",
+                             "/opt/blender2.92", "/usr/local/blender-2.79b-linux-glibc219-x86_64/2.79"]:
+                if os.path.exists(location):
+                    return location
+        else:
             return ""
 
     def addIntegration(self, installPath):
@@ -333,7 +341,7 @@ class Prism_Blender_Integration(object):
             if platform.system() == "Windows":
                 blenderPath = self.getBlenderPath()
             elif platform.system() == "Linux":
-                blenderPath = "/usr/local/blender-2.79b-linux-glibc219-x86_64/2.79"
+                blenderPath = self.getBlenderPath()
             elif platform.system() == "Darwin":
                 blenderPath = "/Applications/blender/blender.app/Resources/2.79"
 
