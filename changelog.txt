@@ -1,5 +1,5 @@
 v1.3.0.83:
-- added support for Blender 3.0+
+- added support for Blender 3.0+ (requires updated dependencies from installer)
 - the Shotgun password and API key are hidden now in the UI
 
 v1.3.0.82:
