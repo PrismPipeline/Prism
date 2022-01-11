@@ -1,3 +1,7 @@
+v1.3.0.83:
+- added support for Blender 3.0+
+- the Shotgun password and API key are hidden now in the UI
+
 v1.3.0.82:
 - added support for Blender 2.93+
 - fixed an error in Maya, when creating an Export state when the scenefile was saved in a category, which contained a "-" character

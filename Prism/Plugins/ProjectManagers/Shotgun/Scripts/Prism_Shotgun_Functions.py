@@ -97,6 +97,7 @@ class Prism_Shotgun_Functions(object):
         origin.l_sgUserPassword = QLabel("Password:")
         origin.e_sgUserName = QLineEdit()
         origin.e_sgUserPassword = QLineEdit()
+        origin.e_sgUserPassword.setEchoMode(QLineEdit.Password)
 
         lo_sg.addWidget(origin.l_sgUserName)
         lo_sg.addWidget(origin.l_sgUserPassword)
@@ -125,6 +126,7 @@ class Prism_Shotgun_Functions(object):
         origin.e_sgPrjName = QLineEdit()
         origin.e_sgScriptName = QLineEdit()
         origin.e_sgApiKey = QLineEdit()
+        origin.e_sgApiKey.setEchoMode(QLineEdit.Password)
 
         lo_sg.addWidget(origin.l_sgSite)
         lo_sg.addWidget(origin.l_sgPrjName)

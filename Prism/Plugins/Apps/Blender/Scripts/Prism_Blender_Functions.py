@@ -166,7 +166,7 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
-        return bpy.ops.wm.save_as_mainfile(filepath=filepath)
+        return bpy.ops.wm.save_as_mainfile(self.getOverrideContext(origin), filepath=filepath)
 
     @err_catcher(name=__name__)
     def getImportPaths(self, origin):
