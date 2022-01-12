@@ -348,8 +348,8 @@ class PrismSettings(QDialog, PrismSettings_ui.Ui_dlg_PrismSettings):
 
             cData["localfiles"][self.core.projectName] = lpath
 
-        if self.e_localPath.text() != "disabled":
-            self.core.localProjectPath = lpath
+            if self.e_localPath.text() != "disabled":
+                self.core.localProjectPath = lpath
 
         if hasattr(self.core, "projectName"):
             useLocal = [x for x in self.useLocalStates if self.useLocalStates[x] == self.cb_userUseLocal.currentText()][0]

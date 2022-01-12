@@ -64,25 +64,25 @@ if not prismLibs:
     prismLibs = prismRoot
 
 if not os.path.exists(os.path.join(prismLibs, "PythonLibs")):
-    raise Exception("Prism: Couldn't find libraries. Set \"PRISM_LIBS\" to fix this.")
+    print("Prism: Couldn't find distributed libraries. Set \"PRISM_LIBS\" to fix this.")
+else:
+	pyLibPath = os.path.join(prismLibs, "PythonLibs", pyLibs)
+	cpLibs = os.path.join(prismLibs, "PythonLibs", "CrossPlatform")
+
+	if cpLibs not in sys.path:
+		sys.path.append(cpLibs)
+
+	if pyLibPath not in sys.path:
+		sys.path.append(pyLibPath)
+
+	if platform.system() == "Windows":
+		sys.path.insert(0, os.path.join(pyLibPath, "win32"))
+		sys.path.insert(0, os.path.join(pyLibPath, "win32", "lib"))
+		os.environ['PATH'] = os.path.join(pyLibPath, "pywin32_system32") + os.pathsep + os.environ['PATH']
 
 scriptPath = os.path.join(prismRoot, "Scripts")
 if scriptPath not in sys.path:
     sys.path.append(scriptPath)
-
-pyLibPath = os.path.join(prismLibs, "PythonLibs", pyLibs)
-cpLibs = os.path.join(prismLibs, "PythonLibs", "CrossPlatform")
-
-if cpLibs not in sys.path:
-    sys.path.append(cpLibs)
-
-if pyLibPath not in sys.path:
-    sys.path.append(pyLibPath)
-
-if platform.system() == "Windows":
-    sys.path.insert(0, os.path.join(pyLibPath, "win32"))
-    sys.path.insert(0, os.path.join(pyLibPath, "win32", "lib"))
-    os.environ['PATH'] = os.path.join(pyLibPath, "pywin32_system32") + os.pathsep + os.environ['PATH']
 
 guiPath = os.path.join(prismRoot, "Scripts", "UserInterfacesPrism")
 if guiPath not in sys.path:
