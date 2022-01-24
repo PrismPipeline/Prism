@@ -3965,6 +3965,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
                                 mediaPlayback["vidPrw"] = imageio.get_reader(
                                     imgPath, "ffmpeg"
                                 )
+                                if str(mediaPlayback["vidPrw"]._meta["nframes"]) == "inf":
+                                    mediaPlayback["vidPrw"]._meta["nframes"] = int(round(mediaPlayback["vidPrw"]._meta["fps"]*mediaPlayback["vidPrw"]._meta["duration"]))
                             except:
                                 mediaPlayback["vidPrw"] = "Error"
                                 logger.debug("failed to read videofile: %s" % traceback.format_exc())
