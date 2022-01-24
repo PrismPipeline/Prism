@@ -155,6 +155,7 @@ class PathManager(object):
         fileType = fileType or "exr"
         singleFileFormats = ["avi", "mp4", "mov"]
         padding = "." if fileType in singleFileFormats else ".####."
+        task = task.replace("/", "\\")
 
         if entity == "asset":
             outputPath = os.path.join(
@@ -172,7 +173,7 @@ class PathManager(object):
             outputFile = (
                 os.path.basename(entityName)
                 + self.core.filenameSeparator
-                + task
+                + os.path.basename(task)
                 + self.core.filenameSeparator
                 + version
                 + padding
@@ -195,7 +196,7 @@ class PathManager(object):
                 + self.core.filenameSeparator
                 + entityName
                 + self.core.filenameSeparator
-                + task
+                + os.path.basename(task)
                 + self.core.filenameSeparator
                 + version
                 + padding
