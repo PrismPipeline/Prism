@@ -24,7 +24,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_static_path = ['_static']
 
-import os, sys
+import os
+import sys
+
 scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Scripts")
 sys.path.insert(0, scriptPath)
 
