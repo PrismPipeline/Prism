@@ -10,10 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
       - name: Install dependencies
         run: |
           pip install sphinx sphinx_book_theme myst_parser PySide2
+
       - name: Sphinx build
         run: |
           sphinx-apidoc --no-toc --module-first -o doc/autodoc Prism/Scripts
