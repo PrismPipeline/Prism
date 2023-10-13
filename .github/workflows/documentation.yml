@@ -16,7 +16,9 @@ jobs:
           pip install sphinx sphinx_book_theme myst_parser
       - name: Sphinx build
         run: |
-          sphinx-build Documentation _build
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc Prism/Scripts
+          sphinx-build doc _build -b dirhtml
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev_pages' }}
