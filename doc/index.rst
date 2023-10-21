@@ -1,12 +1,26 @@
 Welcome to Prism Pipeline's Python API Reference!
 ===================================
 
+
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Core:
    
-   autodoc/*
+   autodoc/core/*
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Plugins:
+
+   3dsMax
+   Blender
+   Deadline
+   Houdini
+   Maya
+   Nuke
+   Photoshop
+   Standalone
 
 Indices and tables
 ==================

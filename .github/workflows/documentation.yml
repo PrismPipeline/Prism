@@ -22,7 +22,15 @@ jobs:
         env:
           PRISM_NO_LIBS: "1"
         run: |
-          sphinx-apidoc --no-toc --module-first -o doc/autodoc Prism/Scripts
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/core Prism/Scripts/ Prism/Scripts//UserInterfacesPrism
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/3dsMax Prism/Plugins/Apps/3dsMax/Scripts Prism/Plugins/Apps/3dsMax/Scripts/*_init* Prism/Plugins/Apps/3dsMax/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Blender Prism/Plugins/Apps/Blender/Scripts Prism/Plugins/Apps/Blender/Scripts/*_init* Prism/Plugins/Apps/Blender/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Houdini Prism/Plugins/Apps/Houdini/Scripts Prism/Plugins/Apps/Houdini/Scripts/*_init* Prism/Plugins/Apps/Houdini/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Maya Prism/Plugins/Apps/Maya/Scripts Prism/Plugins/Apps/Maya/Scripts/*_init* Prism/Plugins/Apps/Maya/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Nuke Prism/Plugins/Apps/Nuke/Scripts Prism/Plugins/Apps/Nuke/Scripts/*_init* Prism/Plugins/Apps/Nuke/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Photoshop Prism/Plugins/Apps/Photoshop/Scripts Prism/Plugins/Apps/Photoshop/Scripts/*_init* Prism/Plugins/Apps/Photoshop/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Deadline Prism/Plugins/RenderfarmManagers/Deadline/Scripts Prism/Plugins/RenderfarmManagers/Deadline/Scripts/*_init* Prism/Plugins/RenderfarmManagers/Deadline/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Standalone Prism/Plugins/Apps/Standalone/Scripts Prism/Plugins/Apps/Standalone/Scripts/*_init* Prism/Plugins/Apps/Standalone/Scripts/*_Variables*
           sphinx-build doc _build -b dirhtml
 
       - name: Deploy to GitHub Pages
