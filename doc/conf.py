@@ -30,6 +30,30 @@ import sys
 scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Scripts")
 sys.path.insert(0, scriptPath)
 
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "3dsMax", "Scripts")
+sys.path.insert(0, scriptPath)
+
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "Blender", "Scripts")
+sys.path.insert(0, scriptPath)
+
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "Houdini", "Scripts")
+sys.path.insert(0, scriptPath)
+
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "Maya", "Scripts")
+sys.path.insert(0, scriptPath)
+
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "Nuke", "Scripts")
+sys.path.insert(0, scriptPath)
+
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "Photoshop", "Scripts")
+sys.path.insert(0, scriptPath)
+
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "Standalone", "Scripts")
+sys.path.insert(0, scriptPath)
+
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "RenderfarmManagers", "Deadline", "Scripts")
+sys.path.insert(0, scriptPath)
+
 autodoc_default_flags = ['members']
 
 html_theme = 'sphinx_book_theme'

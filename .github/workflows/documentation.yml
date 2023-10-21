@@ -22,7 +22,7 @@ jobs:
         env:
           PRISM_NO_LIBS: "1"
         run: |
-          sphinx-apidoc --no-toc --module-first -o doc/autodoc/core Prism/Scripts/ Prism/Scripts//UserInterfacesPrism
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/core Prism/Scripts/ Prism/Scripts//UserInterfacesPrism Prism/Scripts/OSX_Post-Install* Prism/Scripts/OSX_Pre-Install*
           sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/3dsMax Prism/Plugins/Apps/3dsMax/Scripts Prism/Plugins/Apps/3dsMax/Scripts/*_init* Prism/Plugins/Apps/3dsMax/Scripts/*_Variables*
           sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Blender Prism/Plugins/Apps/Blender/Scripts Prism/Plugins/Apps/Blender/Scripts/*_init* Prism/Plugins/Apps/Blender/Scripts/*_Variables*
           sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Houdini Prism/Plugins/Apps/Houdini/Scripts Prism/Plugins/Apps/Houdini/Scripts/*_init* Prism/Plugins/Apps/Houdini/Scripts/*_Variables*
