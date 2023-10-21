@@ -59,3 +59,13 @@ autodoc_default_flags = ['members']
 html_theme = 'sphinx_book_theme'
 html_logo = '_static/prism-pipeline-logo.png'
 html_title = 'Prism Pipeline Python API Reference'
+
+html_theme_options = {
+    "home_page_in_toc": True,
+    "use_download_button": True,
+    "use_repository_button": True,
+    "repository_url": "https://github.com/PrismPipeline/Prism",
+    "external_links": [
+        ("Prism", "https://prism-pipeline.com"),
+    ]
+}
