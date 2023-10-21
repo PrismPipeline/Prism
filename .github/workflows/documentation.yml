@@ -19,6 +19,8 @@ jobs:
           pip install sphinx sphinx_book_theme myst_parser PySide2
 
       - name: Sphinx build
+        env:
+          PRISM_NO_LIBS: "1"
         run: |
           sphinx-apidoc --no-toc --module-first -o doc/autodoc Prism/Scripts
           sphinx-build doc _build -b dirhtml
