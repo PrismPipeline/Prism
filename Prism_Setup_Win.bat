@@ -1,2 +1,0 @@
-Prism/Win_Setup_Integrations.bat
-Prism/Win_Setup_Startmenu.bat

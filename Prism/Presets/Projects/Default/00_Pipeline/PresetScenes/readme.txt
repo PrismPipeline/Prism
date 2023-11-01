@@ -1,0 +1,1 @@
+The EmptyScenes folder contains preset scenefiles for various DCC apps. These files are loaded when you choose "Create new version from preset" in the Project Browser. You can open these files and modify them to create your own EmptyScene preset scene. You can create new presets from the Project Browser or by placing new files in this folder.

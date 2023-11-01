@@ -587,6 +587,10 @@ QLabel, QGroupBox {
     color: white;
 }
 
+QLabel {
+    background-color: transparent;
+}
+
 QTabBar::tab:top:!selected:hover,
 QTabBar::tab:bottom:!selected:hover {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #626262, stop:1 #464646);
@@ -1011,7 +1015,6 @@ QSplitter::handle:horizontal {
     width: 2px;
     margin: 0px;
     padding: 0px;
-    background-image: url(qss:images_photoshop/vertical_line.png);
     background-position: center center;
     background-repeat: repeat-y;
 }
@@ -1020,7 +1023,6 @@ QSplitter::handle:vertical {
     height: 2px;
     margin: 0px;
     padding: 0px;
-    background-image: url(qss:images_photoshop/horizontal_line.png);
     background-position: center center;
     background-repeat: repeat-x;
 }
@@ -1194,8 +1196,8 @@ QDateEdit,
 QDateTimeEdit {
     color: white;
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgb(58, 58, 58), stop:1 rgb(58, 58, 58));
-    selection-color: white;
-    selection-background-color: #5a5a5a;
+    selection-color: rgb(100, 100, 100);
+    selection-background-color: rgb(200, 200, 200);
     border: 1px solid #2f2f2f;
     border-radius: 4px;
     min-width: 50px; /* it ensures the default value is correctly displayed */
@@ -1624,6 +1626,10 @@ QDialog QToolButton:pressed {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #555555, stop:1 #717171);
 }
 
+QToolButton:checked {
+    color: white;
+    background-color: rgba(250, 250, 250, 80);
+}
 
 /*==================================================================================================
 Tool button inside Task Panel content that works as QPushButtons
@@ -1687,7 +1693,7 @@ QRadioButton:disabled {
 }
 
 QRadioButton {
-    color: black;
+    color: white;
 }
 
 QRadioButton:disabled {
@@ -2295,3 +2301,7 @@ QDialog QGroupBox QFrame {
 }
 
 *[mandatoryField="true"] { background-color: cyan }
+
+QToolButton {
+    color: white;
+}

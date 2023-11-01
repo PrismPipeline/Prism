@@ -11,36 +11,43 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2019 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
 from Prism_PluginEmpty_Variables import Prism_PluginEmpty_Variables
-from Prism_PluginEmpty_externalAccess_Functions import Prism_PluginEmpty_externalAccess_Functions
+from Prism_PluginEmpty_externalAccess_Functions import (
+    Prism_PluginEmpty_externalAccess_Functions,
+)
 from Prism_PluginEmpty_Functions import Prism_PluginEmpty_Functions
 from Prism_PluginEmpty_Integration import Prism_PluginEmpty_Integration
 
 
-class Prism_Plugin_PluginEmpty(Prism_PluginEmpty_Variables, Prism_PluginEmpty_externalAccess_Functions, Prism_PluginEmpty_Functions, Prism_PluginEmpty_Integration):
-	def __init__(self, core):
-		Prism_PluginEmpty_Variables.__init__(self, core, self)
-		Prism_PluginEmpty_externalAccess_Functions.__init__(self, core, self)
-		Prism_PluginEmpty_Functions.__init__(self, core, self)
-		Prism_PluginEmpty_Integration.__init__(self, core, self)
+class Prism_Plugin_PluginEmpty(
+    Prism_PluginEmpty_Variables,
+    Prism_PluginEmpty_externalAccess_Functions,
+    Prism_PluginEmpty_Functions,
+    Prism_PluginEmpty_Integration,
+):
+    def __init__(self, core):
+        Prism_PluginEmpty_Variables.__init__(self, core, self)
+        Prism_PluginEmpty_externalAccess_Functions.__init__(self, core, self)
+        Prism_PluginEmpty_Functions.__init__(self, core, self)
+        Prism_PluginEmpty_Integration.__init__(self, core, self)

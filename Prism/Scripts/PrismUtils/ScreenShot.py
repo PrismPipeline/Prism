@@ -11,153 +11,135 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2019 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
-except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+import sys
 
-import sys, traceback, time
-from functools import wraps
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
+
+from PrismUtils.Decorators import err_catcher
 
 
 class ScreenShot(QDialog):
-	def __init__(self, core):
-		super(ScreenShot, self).__init__()
-		self.core = core
+    def __init__(self, core):
+        super(ScreenShot, self).__init__()
+        self.core = core
 
-		self.imgmap = None
-		self.origin = None
+        self.imgmap = None
+        self.origin = None
 
-		desktop = QApplication.desktop()
-		uRect = QRect()
-		for i in range(desktop.screenCount()):
-			uRect = uRect.united(desktop.screenGeometry(i))
+        uRect = QRect()
+        for i in range(len(QApplication.screens())):
+            uRect = uRect.united(QApplication.screens()[i].geometry())
 
-		width, height = uRect.width(), uRect.height()
-		self.setAttribute(Qt.WA_TranslucentBackground)
-		self.setCursor(Qt.CrossCursor)
-		self.setGeometry(0, 0, width, height)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setCursor(Qt.CrossCursor)
+        self.setGeometry(uRect)
 
-		self.setWindowFlags(
-				  Qt.FramelessWindowHint # hides the window controls
-				| Qt.WindowStaysOnTopHint # forces window to top... maybe
-				| Qt.SplashScreen # this one hides it from the task bar!
-				)
+        self.setWindowFlags(
+            Qt.FramelessWindowHint  # hides the window controls
+            | Qt.WindowStaysOnTopHint  # forces window to top... maybe
+            | Qt.SplashScreen  # this one hides it from the task bar!
+        )
 
-		self.rubberband = QRubberBand(QRubberBand.Rectangle, self)
-		self.rubberband.setWindowOpacity(0)
+        self.rubberband = QRubberBand(QRubberBand.Rectangle, self)
+        self.rubberband.setWindowOpacity(0)
 
-		self.setMouseTracking(True)
+        self.setMouseTracking(True)
 
+    @err_catcher(name=__name__)
+    def mousePressEvent(self, event):
+        self.origin = event.pos()
+        self.rubberband.setGeometry(QRect(self.origin, QSize()))
+        QWidget.mousePressEvent(self, event)
 
-	def err_decorator(func):
-		@wraps(func)
-		def func_wrapper(*args, **kwargs):
-			exc_info = sys.exc_info()
-			try:
-				return func(*args, **kwargs)
-			except Exception as e:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Screenshot %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, ''.join(traceback.format_stack()), traceback.format_exc()))
-				args[0].core.writeErrorLog(erStr)
+    @err_catcher(name=__name__)
+    def mouseMoveEvent(self, event):
+        if self.origin is not None:
+            rect = QRect(self.origin, event.pos()).normalized()
+            self.rubberband.setGeometry(rect)
 
-		return func_wrapper
+        self.repaint()
+        QWidget.mouseMoveEvent(self, event)
 
+    @err_catcher(name=__name__)
+    def paintEvent(self, event):
+        painter = QPainter(self)
 
-	@err_decorator
-	def mousePressEvent(self, event):
-		self.origin = event.pos()
-		self.rubberband.setGeometry(QRect(self.origin, QSize()))
-		QWidget.mousePressEvent(self, event)
+        painter.setBrush(QColor(0, 0, 0, 100))
+        painter.setPen(Qt.NoPen)
+        painter.drawRect(event.rect())
 
+        if self.origin is not None:
+            rect = QRect(self.origin, self.mapFromGlobal(QCursor.pos()))
+            painter.setCompositionMode(QPainter.CompositionMode_Clear)
+            painter.drawRect(rect)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
 
-	@err_decorator
-	def mouseMoveEvent(self, event):
-		if self.origin is not None:
-			rect = QRect(self.origin, event.pos()).normalized()
-			self.rubberband.setGeometry(rect)
+            pen = QPen(QColor(200, 150, 0, 255), 1)
+            painter.setPen(pen)
+            painter.drawLine(rect.left(), rect.top(), rect.right(), rect.top())
+            painter.drawLine(rect.left(), rect.top(), rect.left(), rect.bottom())
+            painter.drawLine(rect.right(), rect.top(), rect.right(), rect.bottom())
+            painter.drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom())
 
-		self.repaint()
-		QWidget.mouseMoveEvent(self, event)
+        QWidget.paintEvent(self, event)
 
+    @err_catcher(name=__name__)
+    def mouseReleaseEvent(self, event):
+        if self.origin is not None:
+            self.rubberband.hide()
+            self.hide()
+            rect = self.rubberband.geometry()
+            if hasattr(QApplication, "primaryScreen"):
+                screen = QApplication.primaryScreen()
+            else:
+                screen = QPixmap
 
-	@err_decorator
-	def paintEvent(self, event):
-		painter = QPainter(self)
+            desktop = QApplication.desktop()
+            winID = desktop.winId()
+            if sys.version[0] == "2":
+                try:
+                    winID = long(winID)
+                except:
+                    pass
 
-		painter.setBrush(QColor(0, 0, 0, 100))
-		painter.setPen(Qt.NoPen)
-		painter.drawRect(event.rect())
+            pos = self.mapToGlobal(rect.topLeft())
+            try:
+                self.imgmap = screen.grabWindow(
+                    winID, pos.x(), pos.y(), rect.width(), rect.height()
+                )
+            except:
+                self.imgmap = screen.grabWindow(
+                    int(winID), pos.x(), pos.y(), rect.width(), rect.height()
+                )
+            self.close()
 
-		if self.origin is not None:
-			rect = QRect(self.origin, QCursor.pos())
-			painter.setCompositionMode(QPainter.CompositionMode_Clear)
-			painter.drawRect(rect)
-			painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-
-			pen = QPen(QColor(200, 150, 0, 255), 1)
-			painter.setPen(pen)
-			painter.drawLine(rect.left(), rect.top(), rect.right(), rect.top())
-			painter.drawLine(rect.left(), rect.top(), rect.left(), rect.bottom())
-			painter.drawLine(rect.right(), rect.top(), rect.right(), rect.bottom())
-			painter.drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom())
-
-		QWidget.paintEvent(self, event)
-
-
-	@err_decorator
-	def mouseReleaseEvent(self, event):
-		if self.origin is not None:
-			self.rubberband.hide()
-			self.hide()
-			rect = self.rubberband.geometry()
-			desktop = QApplication.desktop()
-			if hasattr(QApplication, "primaryScreen"):
-				screen = QApplication.primaryScreen()
-			else:
-				screen = QPixmap
-
-			winID = desktop.winId()
-			if sys.version[0] == "2":
-				try:
-					winID = long(winID)
-				except:
-					pass
-
-			try:
-				self.imgmap = screen.grabWindow(winID, rect.x(), rect.y(), rect.width(), rect.height())
-			except:
-				self.imgmap = screen.grabWindow(int(winID), rect.x(), rect.y(), rect.width(), rect.height())
-			self.close()
-		QWidget.mouseReleaseEvent(self, event)
+        QWidget.mouseReleaseEvent(self, event)
 
 
 def grabScreenArea(core):
-	ss = ScreenShot(core)
-	ss.exec_()
-	return ss.imgmap
+    ss = ScreenShot(core)
+    ss.exec_()
+    return ss.imgmap

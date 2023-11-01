@@ -7,26 +7,8 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>1076</height>
+    <height>1347</height>
    </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>340</width>
-    <height>0</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>340</width>
-    <height>16777215</height>
-   </size>
   </property>
   <property name="windowTitle">
    <string>Image Render</string>
@@ -83,7 +65,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="groupBox">
+    <widget class="QGroupBox" name="gb_imageRender">
      <property name="title">
       <string>General</string>
      </property>
@@ -100,7 +82,7 @@
          <item>
           <widget class="QLabel" name="label_2">
            <property name="text">
-            <string>Taskname:</string>
+            <string>Identifier:</string>
            </property>
           </widget>
          </item>
@@ -130,67 +112,6 @@
            </property>
            <property name="text">
             <string>change</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="w_renderPreset" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_12">
-         <property name="spacing">
-          <number>6</number>
-         </property>
-         <property name="leftMargin">
-          <number>9</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>9</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QLabel" name="l_renderPreset">
-           <property name="text">
-            <string>Rendersettings preset:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_6">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="chb_renderPreset">
-           <property name="text">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QComboBox" name="cb_renderPreset">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>150</width>
-             <height>0</height>
-            </size>
            </property>
           </widget>
          </item>
@@ -236,62 +157,45 @@
           </spacer>
          </item>
          <item>
-          <widget class="QCheckBox" name="chb_globalRange">
-           <property name="text">
-            <string>global</string>
-           </property>
-           <property name="checked">
-            <bool>true</bool>
+          <widget class="QComboBox" name="cb_rangeType">
+           <property name="minimumSize">
+            <size>
+             <width>150</width>
+             <height>0</height>
+            </size>
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QSpinBox" name="sp_rangeStart">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>55</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="maximum">
-            <number>99999</number>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_5">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeType">
-            <enum>QSizePolicy::Fixed</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>5</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_frameRangeValues" native="true">
+        <layout class="QGridLayout" name="gridLayout">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item row="1" column="5">
           <widget class="QLabel" name="l_rangeEnd">
-           <property name="enabled">
-            <bool>false</bool>
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>0</height>
+            </size>
            </property>
            <property name="text">
-            <string>to:</string>
+            <string>1100</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
            </property>
           </widget>
          </item>
-         <item>
+         <item row="1" column="6">
           <widget class="QSpinBox" name="sp_rangeEnd">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
            <property name="maximumSize">
             <size>
              <width>55</width>
@@ -302,7 +206,117 @@
             <number>99999</number>
            </property>
            <property name="value">
-            <number>100</number>
+            <number>1100</number>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="6">
+          <widget class="QSpinBox" name="sp_rangeStart">
+           <property name="maximumSize">
+            <size>
+             <width>55</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="maximum">
+            <number>99999</number>
+           </property>
+           <property name="value">
+            <number>1001</number>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="5">
+          <widget class="QLabel" name="l_rangeStart">
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>1001</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="l_rangeStartInfo">
+           <property name="text">
+            <string>Start:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="4">
+          <spacer name="horizontalSpacer_7">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="l_rangeEndInfo">
+           <property name="text">
+            <string>End:</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_frameExpression" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_17">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>9</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_frameExpression">
+           <property name="text">
+            <string>Frame expression:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_23">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="le_frameExpression">
+           <property name="minimumSize">
+            <size>
+             <width>150</width>
+             <height>0</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -515,7 +529,7 @@
            </property>
            <property name="minimumSize">
             <size>
-             <width>124</width>
+             <width>150</width>
              <height>0</height>
             </size>
            </property>
@@ -525,8 +539,8 @@
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="f_localOutput" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_16">
+       <widget class="QWidget" name="w_renderPreset" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_12">
          <property name="topMargin">
           <number>0</number>
          </property>
@@ -534,14 +548,14 @@
           <number>0</number>
          </property>
          <item>
-          <widget class="QLabel" name="l_localOutput">
+          <widget class="QLabel" name="l_renderPreset">
            <property name="text">
-            <string>Local output:</string>
+            <string>Rendersettings preset:</string>
            </property>
           </widget>
          </item>
          <item>
-          <spacer name="horizontalSpacer_12">
+          <spacer name="horizontalSpacer_6">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
@@ -554,9 +568,175 @@
           </spacer>
          </item>
          <item>
-          <widget class="QCheckBox" name="chb_localOutput">
+          <widget class="QCheckBox" name="chb_renderPreset">
            <property name="text">
             <string/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="cb_renderPreset">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>150</width>
+             <height>0</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_master" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_20">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>9</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_master">
+           <property name="text">
+            <string>Master Version:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_29">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>113</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QComboBox" name="cb_master">
+           <property name="minimumSize">
+            <size>
+             <width>150</width>
+             <height>0</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_outPath" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_18">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>9</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_outPath">
+           <property name="text">
+            <string>Location:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_9">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>113</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QComboBox" name="cb_outPath">
+           <property name="minimumSize">
+            <size>
+             <width>150</width>
+             <height>0</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_format" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_13">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>9</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_8">
+           <property name="text">
+            <string>Format:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_14">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QComboBox" name="cb_format">
+           <property name="minimumSize">
+            <size>
+             <width>150</width>
+             <height>0</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -680,7 +860,7 @@
             <enum>Qt::NoFocus</enum>
            </property>
            <property name="text">
-            <string>Connect with selected ROP Node</string>
+            <string>Connect to selected ROP</string>
            </property>
           </widget>
          </item>
@@ -919,6 +1099,174 @@
        </widget>
       </item>
       <item>
+       <widget class="QWidget" name="w_renderIFDs" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_35">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_22">
+           <property name="text">
+            <string>Render .ifd files:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_30">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_rjIFDs">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_renderNSIs" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_32">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_20">
+           <property name="text">
+            <string>Render NSIs:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_27">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_rjNSIs">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_renderRS" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_33">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_21">
+           <property name="text">
+            <string>Render .rs files:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_28">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_rjRS">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_renderASSs" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_36">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_23">
+           <property name="text">
+            <string>Render .ass files:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_31">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_rjASSs">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <widget class="QWidget" name="f_osDependencies" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_27">
          <property name="topMargin">
@@ -1085,48 +1433,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="f_dlGroup" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_7">
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QLabel" name="label_9">
-           <property name="text">
-            <string>Assign to group:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_8">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QComboBox" name="cb_dlGroup">
-           <property name="minimumSize">
-            <size>
-             <width>150</width>
-             <height>0</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
        <widget class="QWidget" name="w_dlConcurrentTasks" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_29">
          <property name="topMargin">
@@ -1271,6 +1577,45 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_5">
       <item>
+       <widget class="QWidget" name="w_separateAovs" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_37">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_separateAovs">
+           <property name="text">
+            <string>Save as separate files:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_32">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_separateAovs">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <widget class="QWidget" name="widget_14" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_14">
          <property name="topMargin">
@@ -1281,6 +1626,12 @@
          </property>
          <item>
           <widget class="QTableWidget" name="tw_passes">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>200</height>
+            </size>
+           </property>
            <property name="contextMenuPolicy">
             <enum>Qt::CustomContextMenu</enum>
            </property>
@@ -1350,62 +1701,44 @@
      <property name="checked">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_4">
-      <property name="leftMargin">
-       <number>18</number>
-      </property>
-      <property name="rightMargin">
-       <number>18</number>
-      </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_34">
       <item>
-       <widget class="QLabel" name="l_pathLast">
-        <property name="text">
-         <string>None</string>
+       <widget class="QScrollArea" name="scrollArea">
+        <property name="widgetResizable">
+         <bool>true</bool>
         </property>
+        <widget class="QWidget" name="scrollAreaWidgetContents">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>289</width>
+           <height>69</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_16">
+          <item>
+           <widget class="QLabel" name="l_pathLast">
+            <property name="text">
+             <string>None</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="widget_2" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_19">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QPushButton" name="b_openLast">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="focusPolicy">
-            <enum>Qt::NoFocus</enum>
-           </property>
-           <property name="text">
-            <string>Open in explorer</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="b_copyLast">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="focusPolicy">
-            <enum>Qt::NoFocus</enum>
-           </property>
-           <property name="text">
-            <string>Copy path to clipboard</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
+       <widget class="QToolButton" name="b_pathLast">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string>...</string>
+        </property>
+        <property name="arrowType">
+         <enum>Qt::DownArrow</enum>
+        </property>
        </widget>
       </item>
      </layout>
@@ -1413,6 +1746,45 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>e_name</tabstop>
+  <tabstop>cb_rangeType</tabstop>
+  <tabstop>sp_rangeStart</tabstop>
+  <tabstop>sp_rangeEnd</tabstop>
+  <tabstop>le_frameExpression</tabstop>
+  <tabstop>chb_camOverride</tabstop>
+  <tabstop>cb_cams</tabstop>
+  <tabstop>chb_resOverride</tabstop>
+  <tabstop>sp_resWidth</tabstop>
+  <tabstop>sp_resHeight</tabstop>
+  <tabstop>b_resPresets</tabstop>
+  <tabstop>chb_useTake</tabstop>
+  <tabstop>cb_take</tabstop>
+  <tabstop>chb_renderPreset</tabstop>
+  <tabstop>cb_renderPreset</tabstop>
+  <tabstop>cb_master</tabstop>
+  <tabstop>cb_outPath</tabstop>
+  <tabstop>cb_format</tabstop>
+  <tabstop>cb_renderer</tabstop>
+  <tabstop>gb_submit</tabstop>
+  <tabstop>cb_manager</tabstop>
+  <tabstop>sp_rjPrio</tabstop>
+  <tabstop>sp_rjFramesPerTask</tabstop>
+  <tabstop>sp_rjTimeout</tabstop>
+  <tabstop>chb_rjSuspended</tabstop>
+  <tabstop>chb_rjNSIs</tabstop>
+  <tabstop>chb_rjRS</tabstop>
+  <tabstop>chb_osDependencies</tabstop>
+  <tabstop>chb_osUpload</tabstop>
+  <tabstop>chb_osPAssets</tabstop>
+  <tabstop>e_osSlaves</tabstop>
+  <tabstop>sp_dlConcurrentTasks</tabstop>
+  <tabstop>sp_dlGPUpt</tabstop>
+  <tabstop>le_dlGPUdevices</tabstop>
+  <tabstop>tw_passes</tabstop>
+  <tabstop>scrollArea</tabstop>
+  <tabstop>b_pathLast</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

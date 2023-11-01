@@ -7,26 +7,8 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>680</height>
+    <height>600</height>
    </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>340</width>
-    <height>0</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>340</width>
-    <height>16777215</height>
-   </size>
   </property>
   <property name="windowTitle">
    <string>ImportFile</string>
@@ -105,98 +87,13 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <widget class="QWidget" name="f_importPath" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout">
-         <property name="leftMargin">
-          <number>9</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>9</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QLabel" name="l_file">
-           <property name="text">
-            <string>File:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLineEdit" name="e_file">
-           <property name="readOnly">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="b_browse">
-           <property name="minimumSize">
-            <size>
-             <width>22</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>22</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="focusPolicy">
-            <enum>Qt::NoFocus</enum>
-           </property>
-           <property name="contextMenuPolicy">
-            <enum>Qt::CustomContextMenu</enum>
-           </property>
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="f_importButton" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_3">
-         <property name="leftMargin">
-          <number>9</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>9</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QPushButton" name="b_import">
-           <property name="focusPolicy">
-            <enum>Qt::NoFocus</enum>
-           </property>
-           <property name="text">
-            <string>Import</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
        <widget class="QGroupBox" name="groupBox">
         <property name="title">
          <string>Version</string>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
-          <widget class="QWidget" name="f_curVersion" native="true">
+          <widget class="QWidget" name="w_currentVersion" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout_5">
             <property name="leftMargin">
              <number>9</number>
@@ -241,7 +138,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QWidget" name="f_lVersion" native="true">
+          <widget class="QWidget" name="w_latestVersion" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout_6">
             <property name="leftMargin">
              <number>9</number>
@@ -286,7 +183,55 @@
           </widget>
          </item>
          <item>
-          <widget class="QWidget" name="f_importLatest" native="true">
+          <widget class="QWidget" name="w_autoUpdate" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout_14">
+            <property name="leftMargin">
+             <number>9</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>9</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="l_autoUpdate">
+              <property name="text">
+               <string>Auto load latest version:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_10">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chb_autoUpdate">
+              <property name="text">
+               <string/>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="w_importLatest" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout_7">
             <property name="leftMargin">
              <number>9</number>
@@ -300,6 +245,19 @@
             <property name="bottomMargin">
              <number>0</number>
             </property>
+            <item>
+             <widget class="QPushButton" name="b_browse">
+              <property name="focusPolicy">
+               <enum>Qt::NoFocus</enum>
+              </property>
+              <property name="contextMenuPolicy">
+               <enum>Qt::CustomContextMenu</enum>
+              </property>
+              <property name="text">
+               <string>Browse</string>
+              </property>
+             </widget>
+            </item>
             <item>
              <widget class="QPushButton" name="b_importLatest">
               <property name="minimumSize">
@@ -319,6 +277,28 @@
               </property>
               <property name="text">
                <string>Import latest Version</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="widget" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout">
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="b_import">
+              <property name="focusPolicy">
+               <enum>Qt::NoFocus</enum>
+              </property>
+              <property name="text">
+               <string>Re-Import</string>
               </property>
              </widget>
             </item>
@@ -457,54 +437,6 @@
           </widget>
          </item>
          <item>
-          <widget class="QWidget" name="f_unitConversion" native="true">
-           <layout class="QHBoxLayout" name="horizontalLayout_13">
-            <property name="leftMargin">
-             <number>9</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>9</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <widget class="QLabel" name="l_keepRefEdits_3">
-              <property name="text">
-               <string>Unit conversion:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_8">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="b_unitConversion">
-              <property name="focusPolicy">
-               <enum>Qt::NoFocus</enum>
-              </property>
-              <property name="text">
-               <string>cm -&gt; m</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
           <widget class="QWidget" name="f_abcPath" native="true">
            <layout class="QHBoxLayout" name="horizontalLayout_11">
             <property name="leftMargin">
@@ -541,54 +473,6 @@
             </item>
             <item>
              <widget class="QCheckBox" name="chb_abcPath">
-              <property name="text">
-               <string/>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QWidget" name="w_preferUnit" native="true">
-           <layout class="QHBoxLayout" name="horizontalLayout_8">
-            <property name="leftMargin">
-             <number>9</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>9</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <widget class="QLabel" name="l_preferUnit">
-              <property name="text">
-               <string>Prefer versions in meter:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_4">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chb_preferUnit">
               <property name="text">
                <string/>
               </property>
@@ -696,7 +580,13 @@
  </widget>
  <tabstops>
   <tabstop>e_name</tabstop>
-  <tabstop>e_file</tabstop>
+  <tabstop>chb_autoUpdate</tabstop>
+  <tabstop>chb_keepRefEdits</tabstop>
+  <tabstop>chb_autoNameSpaces</tabstop>
+  <tabstop>chb_abcPath</tabstop>
+  <tabstop>chb_trackObjects</tabstop>
+  <tabstop>lw_objects</tabstop>
+  <tabstop>b_selectAll</tabstop>
  </tabstops>
  <resources/>
  <connections/>

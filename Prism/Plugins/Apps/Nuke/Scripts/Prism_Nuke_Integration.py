@@ -11,245 +11,208 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2019 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
+import sys
+import platform
 
-try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
-except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
-import os, sys
-import traceback, time, platform, shutil, socket
-
-if platform.system() in ["Linux", "Darwin"]:
-	import pwd
-
-from functools import wraps
+from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
 class Prism_Nuke_Integration(object):
-	def __init__(self, core, plugin):
-		self.core = core
-		self.plugin = plugin
-		if platform.system() == "Windows":
-			self.examplePath = os.path.join(os.environ["userprofile"], ".nuke")
-		elif platform.system() == "Linux":
-			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = os.path.join("/home", userName, ".nuke")
-		elif platform.system() == "Darwin":
-			userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-			self.examplePath = "/Users/%s/.nuke" % userName
+    def __init__(self, core, plugin):
+        self.core = core
+        self.plugin = plugin
+        if platform.system() == "Windows":
+            self.examplePath = os.path.join(os.environ["userprofile"], ".nuke")
+        elif platform.system() == "Linux":
+            userName = (
+                os.environ["SUDO_USER"]
+                if "SUDO_USER" in os.environ
+                else os.environ["USER"]
+            )
+            self.examplePath = os.path.join("/home", userName, ".nuke")
+        elif platform.system() == "Darwin":
+            userName = (
+                os.environ["SUDO_USER"]
+                if "SUDO_USER" in os.environ
+                else os.environ["USER"]
+            )
+            self.examplePath = "/Users/%s/.nuke" % userName
 
+    @err_catcher(name=__name__)
+    def getExecutable(self):
+        execPath = ""
+        if platform.system() == "Windows":
+            execPath = "C:\\Program Files\\Nuke11.2v2\\Nuke11.2.exe"
 
-	def err_decorator(func):
-		@wraps(func)
-		def func_wrapper(*args, **kwargs):
-			exc_info = sys.exc_info()
-			try:
-				return func(*args, **kwargs)
-			except Exception as e:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				erStr = ("%s ERROR - Prism_Plugin_Nuke_Integration - Core: %s - Plugin: %s:\n%s\n\n%s" % (time.strftime("%d/%m/%y %X"), args[0].core.version, args[0].plugin.version, ''.join(traceback.format_stack()), traceback.format_exc()))
-				if hasattr(args[0].core, "writeErrorLog"):
-					args[0].core.writeErrorLog(erStr)
-				else:
-					QMessageBox.warning(args[0].core.messageParent, "Prism Integration", erStr)
+        return execPath
 
-		return func_wrapper
+    def addIntegration(self, installPath):
+        try:
+            if not os.path.exists(installPath):
+                QMessageBox.warning(
+                    self.core.messageParent,
+                    "Prism Integration",
+                    "Invalid Nuke path: %s.\nThe path doesn't exist." % installPath,
+                    QMessageBox.Ok,
+                )
+                return False
 
+            integrationBase = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "Integration"
+            )
+            addedFiles = []
 
-	@err_decorator
-	def getExecutable(self):
-		execPath = ""
-		if platform.system() == "Windows":
-			execPath = "C:\\Program Files\\Nuke11.2v2\\Nuke11.2.exe"
+            integrationFiles = ["menu.py", "init.py"]
 
-		return execPath
+            for integrationFile in integrationFiles:
+                origMenuFile = os.path.join(integrationBase, integrationFile)
+                with open(origMenuFile, "r") as mFile:
+                    initStr = mFile.read()
 
+                menuFile = os.path.join(installPath, integrationFile)
+                self.core.integration.removeIntegrationData(filepath=menuFile)
 
-	@err_decorator
-	def integrationAdd(self, origin):
-		path = QFileDialog.getExistingDirectory(self.core.messageParent, "Select Nuke folder", self.examplePath)
+                with open(menuFile, "a") as initfile:
+                    initStr = initStr.replace(
+                        "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+                    )
+                    initfile.write(initStr)
 
-		if path == "":
-			return False
+                addedFiles.append(menuFile)
 
-		result = self.writeNukeFiles(path)
+            if platform.system() in ["Linux", "Darwin"]:
+                for i in addedFiles:
+                    os.chmod(i, 0o777)
 
-		if result:
-			QMessageBox.information(self.core.messageParent, "Prism Integration", "Prism integration was added successfully")
-			return path
+            return True
 
-		return result
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
 
+            msgStr = (
+                "Errors occurred during the installation of the Nuke integration.\nThe installation is possibly incomplete.\n\n%s\n%s\n%s"
+                % (str(e), exc_type, exc_tb.tb_lineno)
+            )
+            msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-	@err_decorator
-	def integrationRemove(self, origin, installPath):
-		result = self.removeIntegration(installPath)
+            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            return False
 
-		if result:
-			QMessageBox.information(self.core.messageParent, "Prism Integration", "Prism integration was removed successfully")
+    def removeIntegration(self, installPath):
+        try:
+            # kept for backwards compatibility
+            gizmo = os.path.join(installPath, "WritePrism.gizmo")
 
-		return result
+            for i in [gizmo]:
+                if os.path.exists(i):
+                    os.remove(i)
 
+            integrationFiles = ["menu.py", "init.py"]
 
-	def writeNukeFiles(self, nukepath):
-		try:
-			if not os.path.exists(nukepath):
-				QMessageBox.warning(self.core.messageParent, "Prism Integration", "Invalid Nuke path: %s.\nThe path doesn't exist." % nukepath, QMessageBox.Ok)
-				return False
+            for integrationFile in integrationFiles:
+                fpath = os.path.join(installPath, integrationFile)
 
-			integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
-			addedFiles = []
+                self.core.integration.removeIntegrationData(filepath=fpath)
 
-			origMenuFile = os.path.join(integrationBase, "menu.py")
-			with open(origMenuFile, 'r') as mFile:
-				initString = mFile.read()
+            return True
 
-			menuFile = os.path.join(nukepath, "menu.py")
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
 
-			writeInit = True
-			if os.path.exists(menuFile):
-				with open(menuFile, 'r') as mFile:
-					fileContent = mFile.read()
-				if initString in fileContent:
-					writeInit = False
-				elif "#>>>PrismStart" in fileContent and "#<<<PrismEnd" in fileContent:
-					fileContent = fileContent[:fileContent.find("#>>>PrismStart")] + fileContent[fileContent.find("#<<<PrismEnd")+12:]
-					with open(menuFile, 'w') as mFile:
-						mFile.write(fileContent)
+            msgStr = (
+                "Errors occurred during the removal of the Nuke integration.\n\n%s\n%s\n%s"
+                % (str(e), exc_type, exc_tb.tb_lineno)
+            )
+            msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
 
-			if writeInit:
-				with open(menuFile, 'a') as initfile:
-					initfile.write(initString)
+            QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
+            return False
 
-			with open(menuFile, "r") as init:
-				initStr = init.read()
+    def updateInstallerUI(self, userFolders, pItem):
+        try:
+            nukeItem = QTreeWidgetItem(["Nuke"])
+            pItem.addChild(nukeItem)
 
-			with open(menuFile, "w") as init:
-				initStr = initStr.replace("PRISMROOT", "\"%s\"" % self.core.prismRoot.replace("\\", "/"))
-				init.write(initStr)
+            if platform.system() == "Windows":
+                nukePath = os.path.join(userFolders["UserProfile"], ".nuke")
+            elif platform.system() == "Linux":
+                userName = (
+                    os.environ["SUDO_USER"]
+                    if "SUDO_USER" in os.environ
+                    else os.environ["USER"]
+                )
+                nukePath = os.path.join("/home", userName, ".nuke")
+            elif platform.system() == "Darwin":
+                userName = (
+                    os.environ["SUDO_USER"]
+                    if "SUDO_USER" in os.environ
+                    else os.environ["USER"]
+                )
+                nukePath = "/Users/%s/.nuke" % userName
 
-			addedFiles.append(menuFile)
+            if os.path.exists(nukePath):
+                nukeItem.setCheckState(0, Qt.Checked)
+                nukeItem.setText(1, nukePath)
+                nukeItem.setToolTip(0, nukePath)
+            else:
+                nukeItem.setCheckState(0, Qt.Unchecked)
+                nukeItem.setText(1, "< doubleclick to browse path >")
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            msg = QMessageBox.warning(
+                self.core.messageParent,
+                "Prism Installation",
+                "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s"
+                % (__file__, str(e), exc_type, exc_tb.tb_lineno),
+            )
+            return False
 
-			wPrismFile = os.path.join(integrationBase, "WritePrism.gizmo")
-			wpPath = os.path.join(nukepath, "WritePrism.gizmo")
+    def installerExecute(self, nukeItem, result):
+        try:
+            installLocs = []
 
-			if os.path.exists(wpPath):
-				os.remove(wpPath)
+            if nukeItem.checkState(0) == Qt.Checked and os.path.exists(
+                nukeItem.text(1)
+            ):
+                result["Nuke integration"] = self.core.integration.addIntegration(
+                    self.plugin.pluginName, path=nukeItem.text(1), quiet=True
+                )
+                if result["Nuke integration"]:
+                    installLocs.append(nukeItem.text(1))
 
-			shutil.copy2(wPrismFile, wpPath)
-			addedFiles.append(wpPath)
-
-			if platform.system() in ["Linux", "Darwin"]:
-				for i in addedFiles:
-					os.chmod(i, 0o777)
-
-			return True
-
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-
-			msgStr = "Errors occurred during the installation of the Nuke integration.\nThe installation is possibly incomplete.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno)
-			msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
-
-			QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
-			return False
-
-
-	def removeIntegration(self, installPath):
-		try:
-			gizmo = os.path.join(installPath, "WritePrism.gizmo")
-
-			for i in [gizmo]:
-				if os.path.exists(i):
-					os.remove(i)
-
-			menu = os.path.join(installPath, "menu.py")
-
-			for i in [menu]:
-				if os.path.exists(i):
-					with open(i, "r") as usFile:
-						text = usFile.read()
-
-					if "#>>>PrismStart" in text and "#<<<PrismEnd" in text:
-						text = text[:text.find("#>>>PrismStart")] + text[text.find("#<<<PrismEnd")+len("#<<<PrismEnd"):]
-						with open(i, "w") as usFile:
-							usFile.write(text)
-
-			return True
-
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-
-			msgStr = "Errors occurred during the removal of the Nuke integration.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno)
-			msgStr += "\n\nRunning this application as administrator could solve this problem eventually."
-
-			QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
-			return False
-
-
-	def updateInstallerUI(self, userFolders, pItem):
-		try:
-			nukeItem = QTreeWidgetItem(["Nuke"])
-			pItem.addChild(nukeItem)
-
-			if platform.system() == "Windows":
-				nukePath = os.path.join(userFolders["UserProfile"], ".nuke")
-			elif platform.system() == "Linux":
-				userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-				nukePath = os.path.join("/home", userName, ".nuke")
-			elif platform.system() == "Darwin":
-				userName = os.environ['SUDO_USER'] if 'SUDO_USER' in os.environ else os.environ['USER']
-				nukePath = "/Users/%s/.nuke" % userName
-
-			if os.path.exists(nukePath):
-				nukeItem.setCheckState(0, Qt.Checked)
-				nukeItem.setText(1, nukePath)
-				nukeItem.setToolTip(0, nukePath)
-			else:
-				nukeItem.setCheckState(0, Qt.Unchecked)
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			msg = QMessageBox.warning(self.core.messageParent, "Prism Installation", "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s" % (__file__, str(e), exc_type, exc_tb.tb_lineno))
-			return False
-
-
-	def installerExecute(self, nukeItem, result, locFile):
-		try:
-			installLocs = []
-
-			if nukeItem.checkState(0) == Qt.Checked and os.path.exists(nukeItem.text(1)):
-				result["Nuke integration"] = self.writeNukeFiles(nukeItem.text(1))
-				if result["Nuke integration"]:
-					installLocs.append(nukeItem.text(1))
-
-			return installLocs
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			msg = QMessageBox.warning(self.core.messageParent, "Prism Installation", "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s" % (__file__, str(e), exc_type, exc_tb.tb_lineno))
-			return False
+            return installLocs
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            msg = QMessageBox.warning(
+                self.core.messageParent,
+                "Prism Installation",
+                "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s"
+                % (__file__, str(e), exc_type, exc_tb.tb_lineno),
+            )
+            return False

@@ -1,25 +1,29 @@
+fname = "CreateItem"
+# fname = "EnterText"
+# fname = "SetPath"
+# fname = "SaveComment"
+# fname = "ChangeUser"
+# fname = "CreateProject"
+fname = "UserSettings"
+fname = "ProjectSettings"
+# fname = "CreateProject"
+# fname = "PrismInstaller"
+
+code = """
 import sys, pprint
+sys.path.append("C:/Users/richa/Downloads/qtpy-tools-main/qtpy-tools-main")
 
+fname = "%s"
+from qtpyuic import compileUi
+pyfile = open(fname + "_ui.py", "w")
+compileUi(fname + ".ui", pyfile, False, 4, False)
 
-fname = "SetPath"
-fname = "CreateProject"
-#fname = "SetProject"
-#fname = "PrismSettings"
-#fname = "ExternalPandoraSubmitter"
-#fname = "ProjectCreated"
-#fname = "PrismInstaller"
-#fname = "SaveComment"
-
-pyside = 0
-
-if pyside in [0,1]:
-	from pysideuic import compileUi
-	pyfile = open(fname + "_ui.py", 'w')
-	compileUi(fname + ".ui", pyfile, False, 4,False)
-
-if pyside in [0,2]:
-	from pyside2uic import compileUi as compileUi2
-	pyfile = open(fname + "_ui_ps2.py", 'w')
-	compileUi2(fname + ".ui", pyfile, False, 4,False)
 
 pyfile.close()
+print("done")
+""" % fname
+
+import subprocess
+proc = subprocess.Popen(["python2", "-c", code])
+result = proc.communicate()
+print(result)

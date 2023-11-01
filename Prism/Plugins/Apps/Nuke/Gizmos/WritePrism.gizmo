@@ -1,0 +1,52 @@
+#! C:/Program Files/Nuke10.5v2/nuke-10.5.2.dll -nx
+#write_info WritePrismBase file:"" format:"2048 1556 1" chans:":" framerange:"1 100" fps:"0" colorspace:"default (linear)" datatype:"16 bit half" transfer:"unknown" views:"main" colorManagement:"Nuke"
+version 10.5 v2
+Gizmo {
+ note_font Verdana
+ addUserKnob {20 User l WritePrism}
+ addUserKnob {1 identifier}
+ addUserKnob {1 comment l "comment (optional)"}
+ addUserKnob {4 location l "location" M {"                              "}}
+ addUserKnob {26 ""}
+ addUserKnob {41 channels T WritePrismBase.channels}
+ addUserKnob {41 file_type l "file type" T WritePrismBase.file_type}
+ addUserKnob {41 datatype l "datatype" T WritePrismBase.datatype}
+ addUserKnob {41 compression l "compression" T WritePrismBase.compression}
+ addUserKnob {41 colorspace T WritePrismBase.colorspace}
+ addUserKnob {26 ""}
+ addUserKnob {1 fileName l filepath}
+ fileName FileNotInPipeline
+ addUserKnob {22 refresh l "Refresh" T "pcore.appPlugin.getOutputPath(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
+ addUserKnob {26 ""}
+ addUserKnob {22 b_startRender l Render T "pcore.appPlugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
+ addUserKnob {22 b_startRenderLastVersion l "Render as previous version..." -STARTLINE T "pcore.appPlugin.renderAsVersion(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())"}
+ addUserKnob {22 b_openSubmitter l "Submit Job..." T "pcore.appPlugin.openFarmSubmitter(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())"}
+ addUserKnob {26 prevFileName l "previous filepath" T "-"}
+ addUserKnob {22 openDir l "Open In..." T "pcore.appPlugin.openInClicked(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
+ onCreate "try: pcore.appPlugin.writeGizmoCreated()\nexcept: pass"
+ knobChanged "try:\n\tpcore.getPlugin(\"Nuke\").updateNodeUI(\"writePrism\", nuke.thisNode())\nexcept:\n\tpass"
+}
+ Input {
+  inputs 0
+  name Input1
+  xpos -263
+  ypos -185
+ }
+ Write {
+  file "[value fileName]"
+  file_type exr
+  version 2
+  beforeRender "try: pcore.appPlugin.getOutputPath(nuke.thisNode(), nuke.thisGroup(), render=True)\nexcept: pass"
+  afterRender "try: pcore.appPlugin.finishedRendering(nuke.thisNode())\nexcept: pass"
+  name WritePrismBase
+  xpos -263
+  ypos -143
+  disable {{parent.disable}}
+  create_directories 1
+ }
+ Output {
+  name Output1
+  xpos -263
+  ypos -44
+ }
+end_group

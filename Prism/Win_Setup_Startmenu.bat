@@ -1,1 +1,0 @@
-start Python27/pythonw.exe Scripts/PrismCore.py setupStartMenu

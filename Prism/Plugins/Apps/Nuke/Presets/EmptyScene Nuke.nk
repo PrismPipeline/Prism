@@ -1,0 +1,25 @@
+Root {
+ inputs 0
+ name P:/00_Pipeline/EmptyScenes/EmptyScene_Nuke11.nk
+ first_frame 1001
+ last_frame 1100
+ fps 25
+ format "1920 1080 0 0 1920 1080 1 HD_1080"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+Viewer {
+ inputs 0
+ frame 1
+ frame_range 1001-1100
+ name Viewer1
+ xpos -40
+ ypos -10
+}

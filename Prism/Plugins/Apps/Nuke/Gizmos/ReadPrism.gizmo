@@ -1,0 +1,25 @@
+Gizmo {
+ addUserKnob {1 fileName l filepath}
+ addUserKnob {22 b_browse l Browse T "pcore.appPlugin.readNode_onBrowseClicked(nuke.thisNode())" +STARTLINE}
+ addUserKnob {22 b_openExplorer l "Open In Explorer" T "pcore.appPlugin.readNode_onOpenInClicked(nuke.thisNode())"}
+ addUserKnob {22 b_createRead l "Create Read" T "pcore.appPlugin.readNode_onCreateReadClicked(nuke.thisNode())"}
+ onCreate "try: pcore.appPlugin.readGizmoCreated()\nexcept: pass"
+ knobChanged "try:\n\tpcore.getPlugin(\"Nuke\").updateNodeUI(\"readPrism\", nuke.thisNode())\nexcept:\n\tpass"
+}
+ Input {
+  inputs 0
+  name Input1
+  xpos -263
+  ypos -185
+ }
+ Read {
+  file "[value fileName]"
+  name ReadPrismBase
+  disable {{parent.disable}}
+ }
+ Output {
+  name Output1
+  xpos -263
+  ypos -44
+ }
+end_group

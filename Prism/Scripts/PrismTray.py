@@ -11,282 +11,432 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2019 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-
-import sys, os, time, subprocess, shutil, platform
-
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27"))
-sys.path.insert(0, os.path.join(prismRoot, "PythonLibs", "Python27", "PySide"))
-
-if platform.system() == "Windows":
-	import psutil
-
-try:
-	from PySide2.QtCore import *
-	from PySide2.QtGui import *
-	from PySide2.QtWidgets import *
-	psVersion = 2
-except:
-	from PySide.QtCore import *
-	from PySide.QtGui import *
-	psVersion = 1
+import os
+import sys
+import subprocess
+import platform
+import logging
+import traceback
+import time
 
 if sys.version[0] == "3":
-	from configparser import ConfigParser
-	pVersion = 3
-else:
-	from ConfigParser import ConfigParser
-	pVersion = 2
+    sys.path.append(os.path.dirname(__file__))
 
-from UserInterfacesPrism import qdarkstyle
+if __name__ == "__main__":
+    import PrismCore
 
-class PrismTray():
-	def __init__(self, core):
-		self.core = core
+if platform.system() == "Windows":
+    import psutil
 
-		try:
-			pIcon = QIcon(os.path.join(os.path.dirname(os.path.abspath(__file__)), "UserInterfacesPrism", "p_tray.ico"))
-			qApp.setWindowIcon(pIcon)
-
-			#if platform.system() == "Windows":
-			#	coreProc = []
-			#	for x in psutil.pids():
-			#		try:
-			#			if x != os.getpid() and os.path.basename(psutil.Process(x).exe()) ==  "PrismTray.exe":
-			#				coreProc.append(x)
-			#		except:
-			#			pass
-
-			#	if len(coreProc) > 0:
-			#		QMessageBox.warning(self.core.messageParent, "PrismTray", "PrismTray is already running.")
-			#		qApp.quit()
-			#		sys.exit()
-			#		return
-
-			self.createTrayIcon()
-			self.trayIcon.show()
-
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			QMessageBox.critical(self.core.messageParent, "Unknown Error", "initTray - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno))
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 
-	def createTrayIcon(self):
-		try:
-			self.trayIconMenu = QMenu(self.core.messageParent)
-			self.browserAction = QAction("Project Browser...", self.core.messageParent, triggered=self.startBrowser)
-			self.trayIconMenu.addAction(self.browserAction)
-			self.dailiesAction = QAction("Open dailies folder...", self.core.messageParent, triggered=self.openDailies)
-			self.trayIconMenu.addAction(self.dailiesAction)
-			self.trayIconMenu.addSeparator()
-
-			self.settingsAction = QAction("Prism Settings...", self.core.messageParent, triggered=self.openSettings)
-			self.trayIconMenu.addAction(self.settingsAction)
-			self.trayIconMenu.addSeparator()
-
-			self.pDirAction = QAction("Open Prism directory", self.core.messageParent, triggered=lambda: self.openFolder(location="Prism"))
-			self.trayIconMenu.addAction(self.pDirAction)
-			self.prjDirAction = QAction("Open project directory", self.core.messageParent, triggered=lambda: self.openFolder(location="Project"))
-			self.trayIconMenu.addAction(self.prjDirAction)
-			self.trayIconMenu.addSeparator()
-			self.exitAction = QAction("Exit", self.core.messageParent , triggered=self.exitTray)
-			self.trayIconMenu.addAction(self.exitAction)
-
-			self.trayIcon = QSystemTrayIcon()
-			self.trayIcon.setContextMenu(self.trayIconMenu)
-			self.trayIcon.setToolTip("Prism Tools")
-
-			self.icon = QIcon(os.path.join(os.path.dirname(os.path.abspath(__file__)), "UserInterfacesPrism", "p_tray.png"))
-
-			self.trayIcon.setIcon(self.icon)
-
-			self.trayIcon.activated.connect(self.iconActivated)
-
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			QMessageBox.critical(self.core.messageParent, "Unknown Error", "createTray - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno))
+logger = logging.getLogger(__name__)
 
 
-	def iconActivated(self, reason):
-		try:
-			if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
-				if platform.system() == "Darwin" and reason != QSystemTrayIcon.DoubleClick:
-					return
+class PrismTray:
+    def __init__(self, core):
+        self.core = core
 
-				if platform.system() == "Windows" and reason == QSystemTrayIcon.DoubleClick:
-					return
+        try:
+            self.launching = False
+            self.browserStarted = False
+            self.createTrayIcon()
+            self.trayIcon.show()
+            self.startListener()
 
-				self.startBrowser()
-			elif reason == QSystemTrayIcon.Context:
-				curProject = self.core.getConfig("globals", "current project")
-				self.dailiesAction.setEnabled(curProject is not None and curProject is not "")
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            QMessageBox.critical(
+                self.core.messageParent,
+                "Unknown Error",
+                "initTray - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno),
+            )
 
-				self.core.callback(name="openTrayContextMenu", types=["custom"], args=[self, self.trayIconMenu])
+    def startListener(self):
+        self.listenerThread = ListenerThread()
+        self.listenerThread.dataReceived.connect(self.onDataReceived)
+        self.listenerThread.errored.connect(self.core.writeErrorLog)
+        self.listenerThread.start()
 
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-		#	QMessageBox.critical(self.core.messageParent, "Unknown Error", "iconActivated - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno))
+    def onDataReceived(self, data):
+        logger.warning("received data: %s" % data)
+        if data == "openProjectBrowser":
+            self.startBrowser()
+        elif data == "close":
+            self.exitTray()
+
+    def createTrayIcon(self):
+        try:
+            self.trayIconMenu = QMenu(self.core.messageParent)
+            self.browserAction = QAction(
+                "Project Browser...",
+                self.core.messageParent,
+                triggered=self.startBrowser,
+            )
+            self.trayIconMenu.addAction(self.browserAction)
+
+            self.settingsAction = QAction(
+                "Settings...",
+                self.core.messageParent,
+                triggered=self.openSettings,
+            )
+            self.trayIconMenu.addAction(self.settingsAction)
+            self.trayIconMenu.addSeparator()
+
+            self.pDirAction = QAction(
+                "Open Prism directory",
+                self.core.messageParent,
+                triggered=lambda: self.openFolder(location="Prism"),
+            )
+            self.trayIconMenu.addAction(self.pDirAction)
+            self.prjDirAction = QAction(
+                "Open project directory",
+                self.core.messageParent,
+                triggered=lambda: self.openFolder(location="Project"),
+            )
+            self.trayIconMenu.addAction(self.prjDirAction)
+            self.trayIconMenu.addSeparator()
+            self.restartAction = QAction(
+                "Restart", self.core.messageParent, triggered=self.restartTray
+            )
+            self.trayIconMenu.addAction(self.restartAction)
+            self.exitAction = QAction(
+                "Exit", self.core.messageParent, triggered=self.exitTray
+            )
+            self.trayIconMenu.addAction(self.exitAction)
+
+            self.core.callback(
+                name="trayContextMenuRequested",
+                args=[self, self.trayIconMenu],
+            )
+
+            self.trayIcon = QSystemTrayIcon()
+            self.trayIcon.setContextMenu(self.trayIconMenu)
+            self.trayIcon.setToolTip("Prism Tools")
+
+            self.icon = QIcon(
+                os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "UserInterfacesPrism",
+                    "p_tray.png",
+                )
+            )
+
+            self.trayIcon.setIcon(self.icon)
+
+            self.trayIcon.activated.connect(self.iconActivated)
+
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            QMessageBox.critical(
+                self.core.messageParent,
+                "Unknown Error",
+                "createTray - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno),
+            )
+
+    def iconActivated(self, reason):
+        try:
+            if reason == QSystemTrayIcon.Trigger:
+                self.browserStarted = False
+                if (
+                    platform.system() == "Darwin"
+                    and reason != QSystemTrayIcon.DoubleClick
+                ):
+                    return
+
+                if (
+                    platform.system() == "Windows"
+                    and reason == QSystemTrayIcon.DoubleClick
+                ):
+                    return
+
+                results = self.core.callback(name="trayIconClicked", args=[self, reason])
+                if not [r for r in results if r == "handled"]:
+                    self.browserStarted = True
+                    self.startBrowser()
+
+            elif reason == QSystemTrayIcon.DoubleClick:
+                if not self.browserStarted:
+                    self.startBrowser()
+
+            elif reason == QSystemTrayIcon.Context:
+                self.core.callback(
+                    name="openTrayContextMenu",
+                    args=[self, self.trayIconMenu],
+                )
+
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+        #   QMessageBox.critical(self.core.messageParent, "Unknown Error", "iconActivated - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno))
+
+    def startBrowser(self):
+        if self.launching:
+            logger.debug("Launching in progress. Skipped opening Project Browser")
+            return
+
+        self.launching = True
+        self.core.projectBrowser()
+        self.launching = False
+        return
+
+        # the following code starts the RenderHandler in a new process, but is a lot slower
+        try:
+            browserPath = os.path.join(os.path.dirname(__file__), "PrismCore.py")
+            if not os.path.exists(browserPath):
+                self.trayIcon.showMessage(
+                    "Script missing",
+                    "PrismCore.py does not exist.",
+                    icon=QSystemTrayIcon.Warning,
+                )
+                return None
+
+            if platform.system() == "Windows":
+                command = '"%s/Tools/Prism Project Browser.lnk"' % self.core.prismLibs
+            else:
+                command = "python %s" % os.path.join(
+                    self.core.prismRoot, "Scripts", "PrismCore.py"
+                )
+
+            self.browserProc = subprocess.Popen(command, shell=True)
+
+            if platform.system() == "Windows":
+                PROCNAME = "Prism.exe"
+                for proc in psutil.process_iter():
+                    if proc.name() == PROCNAME:
+                        if proc.pid == self.browserProc.pid:
+                            continue
+
+                        p = psutil.Process(proc.pid)
+
+                        if not "SYSTEM" in p.username():
+                            proc.kill()
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            self.trayIcon.showMessage(
+                "Unknown Error",
+                "startBrowser - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno),
+                icon=QSystemTrayIcon.Critical,
+            )
+
+    def openFolder(self, path="", location=None):
+        if location == "Prism":
+            path = self.core.prismRoot
+        elif location == "Project":
+            curProject = self.core.getConfig("globals", "current project")
+            if curProject is None:
+                QMessageBox.warning(
+                    self.core.messageParent,
+                    "Open directory",
+                    "No active project is set.",
+                )
+                return
+            else:
+                path = os.path.dirname(os.path.dirname(curProject))
+
+        self.core.openFolder(path)
+
+    def openSettings(self):
+        self.core.prismSettings()
+        return
+
+        # the following code starts the RenderHandler in a new process, but is a lot slower
+        try:
+            settingsPath = os.path.join(os.path.dirname(__file__), "PrismSettings.py")
+            if not os.path.exists(settingsPath):
+                self.trayIcon.showMessage(
+                    "Script missing",
+                    "PrismSettings.py does not exist.",
+                    icon=QSystemTrayIcon.Warning,
+                )
+                return None
+
+            if platform.system() == "Windows":
+                command = '"%s/Tools/PrismSettings.lnk"' % self.core.prismLibs
+            else:
+                command = "python %s" % os.path.join(
+                    self.core.prismRoot, "Scripts", "PrismSettings.py"
+                )
+
+            self.settingsProc = subprocess.Popen(command, shell=True)
+
+            if platform.system() == "Windows":
+                PROCNAME = "Prism.exe"
+                for proc in psutil.process_iter():
+                    if proc.name() == PROCNAME:
+                        if proc.pid == self.settingsProc.pid:
+                            continue
+                        p = psutil.Process(proc.pid)
+
+                        if not "SYSTEM" in p.username():
+                            proc.kill()
+
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            self.trayIcon.showMessage(
+                "Unknown Error",
+                "openSettings - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno),
+                icon=QSystemTrayIcon.Critical,
+            )
+
+    def restartTray(self):
+        self.listenerThread.shutDown()
+
+        pythonPath = self.core.getPythonPath(executable="Prism")
+        filepath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
+        cmd = """start "" "%s" "%s" showSplash""" % (pythonPath, filepath)
+        subprocess.Popen(cmd, cwd=self.core.prismRoot, shell=True)
+        sys.exit(0)
+
+    def exitTray(self):
+        self.listenerThread.shutDown()
+        qApp.quit()
 
 
-	def startBrowser(self):
-		self.core.projectBrowser()
-		return
+class ListenerThread(QThread):
 
-		# the following code starts the RenderHandler in a new process, but is a lot slower		
-		try:
-			browserPath = os.path.join(os.path.dirname(__file__), "PrismCore.py")
-			if not os.path.exists(browserPath):
-				self.trayIcon.showMessage("Script missing", "PrismCore.py does not exist.", icon = QSystemTrayIcon.Warning)
-				return None
+    dataReceived = Signal(object)
+    errored = Signal(object)
 
-			if platform.system() == "Windows":
-				command = '\"%s/Tools/PrismProjectBrowser.lnk\"' % prismRoot
-			else:
-				command = "python %s" % os.path.join(prismRoot, "Scripts", "PrismCore.py")
+    def __init__(self, function=None):
+        super(ListenerThread, self).__init__()
 
-			self.browserProc = subprocess.Popen(command, shell=True)
+    def run(self):
+        try:
+            from multiprocessing.connection import Listener
 
-			if platform.system() == "Windows":
-				PROCNAME = 'PrismProjectBrowser.exe'
-				for proc in psutil.process_iter():
-					if proc.name() == PROCNAME:
-						if proc.pid == self.browserProc.pid:
-							continue
+            port = 7571
+            address = ('localhost', port)
+            try:
+                self.listener = Listener(address)
+            except Exception as e:
+                if e.errno == 10048:
+                    logging.warning("Port %s is already in use. Please contact the support." % port)
+                    return
+                else:
+                    raise
 
-						p = psutil.Process(proc.pid)
+            while True:
+                self.conn = self.listener.accept()
+                while True:
+                    try:
+                        data = self.conn.recv()
+                    except Exception as e:
+                        break
 
-						if not 'SYSTEM' in p.username():
-							proc.kill()
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			self.trayIcon.showMessage("Unknown Error", "startBrowser - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno), icon = QSystemTrayIcon.Critical)
+                    self.dataReceived.emit(data)
 
+            self.listener.close()
+            self.quit()
+        except Exception as e:
+            self.errored.emit(traceback.format_exc())
 
-	def openDailies(self):
-		try:
-			curProject = self.core.getConfig("globals", "current project")
-			if curProject is None:
-				return None
+    def shutDown(self):
+        if hasattr(self, "listener"):
+            self.listener.close()
 
-			projectPath = os.path.dirname(os.path.dirname(curProject))
-			if not os.path.exists(curProject):
-				self.trayIcon.showMessage("Config missing", "Project config does not exist.", icon = QSystemTrayIcon.Warning)
-				return None
-
-			projectConfig = ConfigParser()
-			projectConfig.read(curProject)
-
-			if not projectConfig.has_option("paths", "dailies"):
-				self.trayIcon.showMessage("Information missing", "The dailies folder is not set in the project config.", icon = QSystemTrayIcon.Warning)
-				return None
-
-			dailiesName = projectConfig.get("paths", "dailies")
-
-			curDate = time.strftime("%Y_%m_%d", time.localtime())
-
-			dailiesFolder = os.path.join(projectPath, dailiesName, curDate)
-			if os.path.exists(dailiesFolder):
-				self.openFolder(dailiesFolder)
-			else:
-				msg = QMessageBox(QMessageBox.Question, "Dailies folder", "The dailies folder for today does not exist yet.\n\nDo you want to create it?", QMessageBox.No)
-				msg.addButton("Yes", QMessageBox.YesRole)
-				msg.setParent(self.core.messageParent, Qt.Window)
-				action = msg.exec_()
-
-				if action == 0:
-					os.makedirs(dailiesFolder)
-					self.openFolder(dailiesFolder)
-				else:
-					self.openFolder(os.path.dirname(dailiesFolder))
-
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			self.trayIcon.showMessage("Unknown Error", "openDailies - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno), icon = QSystemTrayIcon.Critical)
-		
-
-	def openFolder(self, path="", location=None):
-		if location == "Prism":
-			path = prismRoot
-		elif location == "Project":
-			curProject = self.core.getConfig("globals", "current project")
-			if curProject is None:
-				QMessageBox.warning(self.core.messageParent, "Open directory", "No active project is set.")
-				return
-			else:
-				path = os.path.dirname(os.path.dirname(curProject))
-
-		self.core.openFolder(path)
+        self.quit()
 
 
-	def openSettings(self):
-		self.core.prismSettings()
-		return
+class SenderThread(QThread):
+    def __init__(self, function=None):
+        super(SenderThread, self).__init__()
+        self.canceled = False
 
-		# the following code starts the RenderHandler in a new process, but is a lot slower
-		try:
-			settingsPath = os.path.join(os.path.dirname(__file__), "PrismSettings.py")
-			if not os.path.exists(settingsPath):
-				self.trayIcon.showMessage("Script missing", "PrismSettings.py does not exist.", icon = QSystemTrayIcon.Warning)
-				return None
+    def run(self):
+        from multiprocessing.connection import Client
+        port = 7571
+        address = ('localhost', port)
+        self.conn = Client(address)
 
-			if platform.system() == "Windows":
-				command = '\"%s/Tools/PrismSettings.lnk\"' % prismRoot
-			else:
-				command = "python %s" % os.path.join(prismRoot, "Scripts", "PrismSettings.py")
+    def shutDown(self):
+        self.conn.close()
+        self.quit()
 
-			self.settingsProc = subprocess.Popen(command, shell=True)
-
-			if platform.system() == "Windows":
-				PROCNAME = 'PrismSettings.exe'
-				for proc in psutil.process_iter():
-					if proc.name() == PROCNAME:
-						if proc.pid == self.settingsProc.pid:
-							continue
-						p = psutil.Process(proc.pid)
-
-						if not 'SYSTEM' in p.username():
-							proc.kill()
-
-		except Exception as e:
-			exc_type, exc_obj, exc_tb = sys.exc_info()
-			self.trayIcon.showMessage("Unknown Error", "openSettings - %s - %s - %s" % (str(e), exc_type, exc_tb.tb_lineno), icon = QSystemTrayIcon.Critical)
+    def send(self, data):
+        self.conn.send(data)
 
 
-	def exitTray(self):
-		qApp.quit()	
+def isAlreadyRunning():
+    if platform.system() == "Windows":
+        coreProc = []
+        for proc in psutil.process_iter():
+            try:
+                if (
+                    proc.pid != os.getpid()
+                    and os.path.basename(proc.exe()) == "Prism.exe"
+                    and proc.username() == psutil.Process(os.getpid()).username()
+                ):
+                    coreProc.append(proc.pid)
+                    return True
+            except:
+                pass
+
+    return False
 
 
 if __name__ == "__main__":
-	qApp = QApplication(sys.argv)
-	qApp.setQuitOnLastWindowClosed(False)
-	qApp.setStyleSheet(qdarkstyle.load_stylesheet(pyside=True))
+    qApp = QApplication(sys.argv)
+    qApp.setQuitOnLastWindowClosed(False)
+    if not QSystemTrayIcon.isSystemTrayAvailable():
+        QMessageBox.critical(
+            None,
+            "PrismTray",
+            "Could not launch PrismTray. Tray icons are not supported on this OS.",
+        )
+        sys.exit(1)
 
-	if not QSystemTrayIcon.isSystemTrayAvailable():
-		QMessageBox.critical(None, "PrismTray", "Could not launch PrismTray.")
-		sys.exit(1)
+    if isAlreadyRunning():
+        senderThread = SenderThread()
+        senderThread.start()
+        idx = 0
+        while True:
+            if hasattr(senderThread, "conn"):
+                break
 
-	import PrismCore
-	pc = PrismCore.PrismCore(prismArgs=["loadProject", "silent"])
-	pc.startTray()
-	sys.exit(qApp.exec_())
+            time.sleep(1)
+            idx += 1
+            if idx > 3:
+                break
+
+        if hasattr(senderThread, "conn"):
+            senderThread.send("openProjectBrowser")
+            senderThread.shutDown()
+        else:
+            senderThread.quit()
+            QMessageBox.warning(None, "Prism", "Prism is already running.")
+        
+        sys.exit()
+    else:
+        args = ["loadProject", "tray"]
+        if "projectBrowser" not in sys.argv:
+            args.append("noProjectBrowser")
+            if "showSplash" not in sys.argv:
+                args.append("noSplash")
+
+        pc = PrismCore.create(prismArgs=args)
+        pc.startTray()
+        sys.exit(qApp.exec_())

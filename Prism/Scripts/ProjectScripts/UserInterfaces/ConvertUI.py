@@ -1,27 +1,33 @@
-import sys, pprint
-
-
 fname = "ProjectBrowser"
-#fname = "CombineMedia"
-#fname = "EditShot"
-#fname = "CreateItem"
+# fname = "MediaBrowser"
+# fname = "SceneBrowser"
+# fname = "CombineMedia"
+# fname = "EditShot"
+# fname = "CreateItem"
 fname = "StateManager"
-fname = "TaskSelection"
-#fname = "EnterText"
-#fname = "ItemList"
-#fname = "ExternalTask"
-#fname = "DependencyViewer"
+fname = "ProductBrowser"
+# fname = "EnterText"
+# fname = "ItemList"
+# fname = "ExternalTask"
+# fname = "DependencyViewer"
 
-pyside = 0
 
-if pyside in [0,1]:
-	from pysideuic import compileUi
-	pyfile = open(fname + "_ui.py", 'w')
-	compileUi(fname + ".ui", pyfile, False, 4, False)
+code = """
+import sys, pprint
+sys.path.append("C:/Users/richa/Downloads/qtpy-tools-main/qtpy-tools-main")
 
-if pyside in [0,2]:
-	from pyside2uic import compileUi as compileUi2
-	pyfile = open(fname + "_ui_ps2.py", 'w')
-	compileUi2(fname + ".ui", pyfile, False, 4, False)
+fname = "%s"
+from qtpyuic import compileUi
+pyfile = open(fname + "_ui.py", "w")
+compileUi(fname + ".ui", pyfile, False, 4, False)
+
 
 pyfile.close()
+print("done")
+""" % fname
+
+
+import subprocess
+proc = subprocess.Popen(["python2", "-c", code])
+result = proc.communicate()
+print(result)

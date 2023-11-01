@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mainMenu>
+    <menuBar>
+        <subMenu id="prism_main">
+            <label>Prism</label>
+
+            <scriptItem id="prism_save">
+                <label>Save Version</label>
+                <scriptCode><![CDATA[import PrismInit
+PrismInit.pcore.saveScene()]]></scriptCode>
+            </scriptItem>
+
+            <scriptItem id="prism_commentsave">
+                <label>Save Comment...</label>
+                <scriptCode><![CDATA[import PrismInit
+PrismInit.pcore.saveWithComment()]]></scriptCode>
+            </scriptItem>
+
+            <scriptItem id="prism_browser">
+                <label>Project Browser...</label>
+                <scriptCode><![CDATA[import PrismInit
+PrismInit.pcore.projectBrowser()]]></scriptCode>
+            </scriptItem>
+
+            <scriptItem id="prism_manager">
+                <label>State Manager...</label>
+                <scriptCode><![CDATA[import PrismInit
+PrismInit.pcore.stateManager()]]></scriptCode>
+            </scriptItem>
+
+            <scriptItem id="prism_settings">
+                <label>Settings...</label>
+                <scriptCode><![CDATA[import PrismInit
+PrismInit.pcore.prismSettings()]]></scriptCode>
+            </scriptItem>
+
+        </subMenu>
+    </menuBar>
+</mainMenu>
