@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -37,12 +38,19 @@ import platform
 
 import bpy
 
-prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
+if "PRISM_ROOT" in os.environ:
+    prismRoot = os.environ["PRISM_ROOT"]
+    if not prismRoot:
+        raise Exception("PRISM_ROOT is not set")
+else:
     prismRoot = PRISMROOT
 
-if sys.version_info[1] not in [7, 9]:
-    raise RuntimeError("Prism supports only Blender versions, which are using Python 3.7 or Python 3.9")
+pluginRoot = os.getenv("PRISM_APP_PLUGIN_ROOT")
+if not pluginRoot:
+    pluginRoot = PLUGINROOT
+
+if sys.version_info[0] != 3 or sys.version_info[1] < 7:
+    raise RuntimeError("Prism supports only Blender versions, which are using at least Python 3.7")
 
 sys.path.insert(0, os.path.join(prismRoot, "Scripts"))
 import PrismCore
@@ -139,7 +147,7 @@ class PrismStateManager(bpy.types.Operator):
 
 class PrismSettings(bpy.types.Operator):
     bl_idname = "object.prism_settings"
-    bl_label = "Prism Settings"
+    bl_label = "Settings"
 
     def execute(self, context):
         if platform.system() == "Linux":
@@ -189,41 +197,8 @@ def register():
 
     try:
         qapp = QApplication.instance()
-        if qapp == None:
+        if qapp is None:
             qapp = QApplication(sys.argv)
-
-        if bpy.app.version < (2, 80, 0):
-            qssFile = os.path.join(
-                prismRoot,
-                "Plugins",
-                "Apps",
-                "Blender",
-                "UserInterfaces",
-                "BlenderStyleSheet",
-                "Blender2.79.qss",
-            )
-        else:
-            qssFile = os.path.join(
-                prismRoot,
-                "Plugins",
-                "Apps",
-                "Blender",
-                "UserInterfaces",
-                "BlenderStyleSheet",
-                "Blender2.8.qss",
-            )
-
-        with (open(qssFile, "r")) as ssFile:
-            ssheet = ssFile.read()
-
-        ssheet = ssheet.replace(
-            "qss:", os.path.dirname(qssFile).replace("\\", "/") + "/"
-        )
-        qapp.setStyleSheet(ssheet)
-        appIcon = QIcon(
-            os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
-        )
-        qapp.setWindowIcon(appIcon)
 
         global pcore
         pcore = prismInit()

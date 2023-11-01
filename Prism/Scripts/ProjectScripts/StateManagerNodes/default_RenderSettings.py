@@ -11,45 +11,33 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import os
 import sys
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
-
-if sys.version[0] == "3":
-    pVersion = 3
-else:
-    pVersion = 2
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher
 
@@ -67,14 +55,14 @@ class RenderSettingsClass(object):
         presets = {}
         appName = core.appPlugin.pluginName
         presetPath = os.path.join(
-            os.path.dirname(core.prismIni), "Presets", "RenderSettings", appName
+            core.projects.getPresetFolder(), "RenderSettings", appName
         )
         if not os.path.exists(presetPath):
             return presets
 
         for pFile in os.listdir(presetPath):
             base, ext = os.path.splitext(pFile)
-            if ext != ".yml":
+            if ext != core.configs.getProjectExtension():
                 continue
 
             presets[base] = os.path.join(presetPath, pFile)
@@ -105,6 +93,9 @@ class RenderSettingsClass(object):
         if state:
             self.e_name.setText("Render Settings")
             self.nameChanged("Render Settings")
+        
+        self.l_name.setVisible(False)
+        self.e_name.setVisible(False)
         self.editChanged(self.chb_editSettings.isChecked())
         self.connectEvents()
 
@@ -144,6 +135,7 @@ class RenderSettingsClass(object):
         getattr(self.core.appPlugin, "sm_renderSettings_loadData", lambda x, y: None)(
             self, data
         )
+        self.core.callback("onStateSettingsLoaded", self, data)
 
     @err_catcher(name=__name__)
     def connectEvents(self):
@@ -197,10 +189,12 @@ class RenderSettingsClass(object):
 
         if not self.cb_addSetting.isHidden():
             settings = getattr(
-                self.core.appPlugin, "sm_renderSettings_getCurrentSettings", lambda x, y: {}
+                self.core.appPlugin,
+                "sm_renderSettings_getCurrentSettings",
+                lambda x, y: {},
             )(self, asString=False)
             self.cb_addSetting.clear()
-            settingNames = [x.keys()[0] for x in settings]
+            settingNames = [list(x.keys())[0] for x in settings]
             settingNames.insert(0, "")
             self.cb_addSetting.addItems(settingNames)
 
@@ -270,11 +264,10 @@ class RenderSettingsClass(object):
 
         appName = self.core.appPlugin.pluginName
         presetPath = os.path.join(
-            os.path.dirname(self.core.prismIni),
-            "Presets",
+            self.core.projects.getPresetFolder(),
             "RenderSettings",
             appName,
-            "%s.yml" % result[0],
+            "%s%s" % (result[0], self.core.configs.getProjectExtension()),
         )
 
         if self.chb_editSettings.isChecked():

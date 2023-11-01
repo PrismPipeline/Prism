@@ -4,5 +4,5 @@ try:
 
     PrismInit.createPrismCore()
 except Exception as e:
-    print (str(e))
+    print(str(e))
 # <<<PrismEnd

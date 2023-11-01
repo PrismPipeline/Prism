@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,19 +36,23 @@ import os
 import sys
 import platform
 import subprocess
+import logging
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 if platform.system() == "Windows":
     import win32com.client
+    if sys.version[0] == "3":
+        import winreg as _winreg
+    else:
+        import _winreg
 
 from PrismUtils.Decorators import err_catcher as err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class Prism_Photoshop_Functions(object):
@@ -55,44 +60,20 @@ class Prism_Photoshop_Functions(object):
         self.core = core
         self.plugin = plugin
         self.win = platform.system() == "Windows"
+        self.core.registerCallback(
+            "onSaveExtendedOpen", self.onSaveExtendedOpen, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onGetSaveExtendedDetails", self.onGetSaveExtendedDetails, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onProjectBrowserStartup", self.onProjectBrowserStartup, plugin=self.plugin
+        )
 
     @err_catcher(name=__name__)
     def startup(self, origin):
         origin.timer.stop()
-
-        with (
-            open(
-                os.path.join(
-                    self.core.prismRoot,
-                    "Plugins",
-                    "Apps",
-                    "Photoshop",
-                    "UserInterfaces",
-                    "PhotoshopStyleSheet",
-                    "Photoshop.qss",
-                ),
-                "r",
-            )
-        ) as ssFile:
-            ssheet = ssFile.read()
-
-        ssheet = ssheet.replace(
-            "qss:",
-            os.path.join(
-                self.core.prismRoot,
-                "Plugins",
-                "Apps",
-                "Photoshop",
-                "UserInterfaces",
-                "PhotoshopStyleSheet",
-            ).replace("\\", "/")
-            + "/",
-        )
-        # ssheet = ssheet.replace("#c8c8c8", "rgb(40, 40, 40)").replace("#727272", "rgb(83, 83, 83)").replace("#5e90fa", "rgb(89, 102, 120)").replace("#505050", "rgb(70, 70, 70)")
-        # ssheet = ssheet.replace("#a6a6a6", "rgb(145, 145, 145)").replace("#8a8a8a", "rgb(95, 95, 95)").replace("#b5b5b5", "rgb(155, 155, 155)").replace("#999999", "rgb(105, 105, 105)")
-        # ssheet = ssheet.replace("#9f9f9f", "rgb(58, 58, 58)").replace("#b2b2b2", "rgb(58, 58, 58)").replace("#aeaeae", "rgb(65, 65, 65)").replace("#c1c1c1", "rgb(65, 65, 65)")
-
-        qApp.setStyleSheet(ssheet)
+        self.core.setActiveStyleSheet("Photoshop")
         appIcon = QIcon(
             os.path.join(
                 self.core.prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png"
@@ -101,16 +82,36 @@ class Prism_Photoshop_Functions(object):
         qApp.setWindowIcon(appIcon)
 
         if self.win:
-            try:
-                # CS6: .60, CC2015: .90
-                self.psApp = win32com.client.Dispatch("Photoshop.Application")
-            except Exception as e:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Warning",
-                    "Could not connect to Photoshop:\n\n%s" % str(e),
-                )
-                return False
+            excludes = []
+            while True:
+                dname = self.getPhotoshopDispatchName(excludes=excludes)
+                self.psApp = None
+                if dname:
+                    try:
+                        self.psApp = win32com.client.Dispatch(dname)
+                        
+                    except:
+                        self.psApp = None
+                        excludes.append(dname)
+                        continue
+                    else:
+                        try:
+                            self.psApp.ActiveDocument
+                        except AttributeError:
+                            self.psApp = None
+                            excludes.append(dname)
+                            continue
+                        except:
+                            pass
+
+                if not self.psApp:
+                    msg = "Could not connect to Photoshop."
+                    self.core.popup(msg)
+                    return
+
+                self.dispatchSuffix = dname.replace("Photoshop.Application", "")
+                logger.debug("using %s" % dname)
+                break
         else:
             self.psAppName = "Adobe Photoshop CC 2019"
             for foldercont in os.walk("/Applications"):
@@ -130,26 +131,66 @@ class Prism_Photoshop_Functions(object):
             )
             self.executeAppleScript(scpt)
 
-        return False
-
     @err_catcher(name=__name__)
-    def onProjectChanged(self, origin):
-        pass
+    def getPhotoshopDispatchName(self, excludes=None):
+        envkey = os.getenv("PRISM_PHOTOSHOP_KEY")
+        if envkey:
+            return envkey
+
+        name = "Photoshop.Application"
+        classBase = "SOFTWARE\\Classes\\"
+        try:
+            if excludes and name in excludes:
+                raise Exception()
+
+            _winreg.OpenKey(
+                _winreg.HKEY_LOCAL_MACHINE,
+                classBase + name,
+                0,
+                _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
+            )
+        except:
+            classKey = _winreg.OpenKey(
+                _winreg.HKEY_LOCAL_MACHINE,
+                classBase,
+                0,
+                _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
+            )
+            try:
+                i = 0
+                keyName = None
+                while True:
+                    classNameKey = _winreg.EnumKey(classKey, i)
+                    if sys.version[0] == "2":
+                        classNameKey = unicode(classNameKey)
+
+                    if excludes and classNameKey in excludes:
+                        i += 1
+                        continue
+
+                    if classNameKey.startswith("Photoshop.Application."):
+                        if keyName:
+                            try:
+                                if float(classNameKey.replace("Photoshop.Application.", "")) > float(keyName.replace("Photoshop.Application.", "")):
+                                    keyName = classNameKey
+                            except:
+                                pass
+                        else:
+                            keyName = classNameKey
+
+                    elif keyName:
+                        return keyName
+
+                    i += 1
+            except WindowsError:
+                pass
+
+        else:
+            return name
 
     @err_catcher(name=__name__)
     def sceneOpen(self, origin):
         pass
-
-    @err_catcher(name=__name__)
-    def executeScript(self, origin, code, preventError=False):
-        if preventError:
-            try:
-                return eval(code)
-            except Exception as e:
-                msg = "\npython code:\n%s" % code
-                exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
-        else:
-            return eval(code)
 
     @err_catcher(name=__name__)
     def executeAppleScript(self, script):
@@ -260,8 +301,8 @@ class Prism_Photoshop_Functions(object):
         try:
             if self.win:
                 if os.path.splitext(filepath)[1] == ".psb":
-                    desc1 = win32com.client.Dispatch("Photoshop.ActionDescriptor")
-                    desc2 = win32com.client.Dispatch("Photoshop.ActionDescriptor")
+                    desc1 = win32com.client.Dispatch("Photoshop.ActionDescriptor" + self.dispatchSuffix)
+                    desc2 = win32com.client.Dispatch("Photoshop.ActionDescriptor" + self.dispatchSuffix)
                     desc2.PutBoolean(self.getStringID("maximizeCompatibility"), True)
                     desc1.PutObject(
                         self.getCharID("As  "), self.getCharID("Pht8"), desc2
@@ -270,6 +311,7 @@ class Prism_Photoshop_Functions(object):
                     desc1.PutBoolean(self.getCharID("LwCs"), True)
                     self.psApp.ExecuteAction(self.getCharID("save"), desc1)
                 else:
+                    filepath = os.path.normpath(filepath)
                     doc.SaveAs(filepath)
             else:
                 if os.path.splitext(filepath)[1] == ".psb":
@@ -378,71 +420,13 @@ class Prism_Photoshop_Functions(object):
         return True
 
     @err_catcher(name=__name__)
-    def correctExt(self, origin, lfilepath):
-        return lfilepath
-
-    @err_catcher(name=__name__)
-    def setSaveColor(self, origin, btn):
-        btn.setPalette(origin.savedPalette)
-
-    @err_catcher(name=__name__)
-    def clearSaveColor(self, origin, btn):
-        btn.setPalette(origin.oldPalette)
-
-    @err_catcher(name=__name__)
     def importImages(self, origin):
-        fString = "Please select an import option:"
-        msg = QMessageBox(
-            QMessageBox.NoIcon, "Photoshop Import", fString, QMessageBox.Cancel
-        )
-        msg.addButton("Current pass", QMessageBox.YesRole)
-        #   msg.addButton("All passes", QMessageBox.YesRole)
-        #   msg.addButton("Layout all passes", QMessageBox.YesRole)
-        self.core.parentWindow(msg)
-        action = msg.exec_()
-
-        if action == 0:
-            self.photoshopImportSource(origin)
-        #   elif action == 1:
-        #       self.photoshopImportPasses(origin)
-        #   elif action == 2:
-        #       self.photoshopLayout(origin)
-        else:
-            return
+        self.photoshopImportSource(origin)
 
     @err_catcher(name=__name__)
     def photoshopImportSource(self, origin):
-        mpb = origin.mediaPlaybacks["shots"]
-        sourceFolder = os.path.dirname(
-            os.path.join(mpb["basePath"], mpb["seq"][0])
-        ).replace("\\", "/")
-        sources = origin.getImgSources(sourceFolder)
-        for curSourcePath in sources:
-
-            if "@@@@" in curSourcePath:
-                if (
-                    "pstart" not in mpb
-                    or "pend" not in mpb
-                    or mpb["pstart"] == "?"
-                    or mpb["pend"] == "?"
-                ):
-                    firstFrame = 0
-                    lastFrame = 0
-                else:
-                    firstFrame = mpb["pstart"]
-                    lastFrame = mpb["pend"]
-
-                filePath = curSourcePath.replace("@"*self.core.framePadding, "%04d".replace("4", str(self.core.framePadding)) % firstFrame).replace(
-                    "\\", "/"
-                )
-            else:
-                filePath = curSourcePath.replace("\\", "/")
-                firstFrame = 0
-                lastFrame = 0
-
-            self.openScene(origin, filePath, force=True)
-
-            # curReadNode = photoshop.createNode("Read",'file %s first %s last %s' % (filePath,firstFrame,lastFrame),False)
+        filepath = origin.seq[origin.getCurrentFrame()].replace("\\", "/")
+        self.openScene(origin, filepath, force=True)
 
     @err_catcher(name=__name__)
     def photoshopImportPasses(self, origin):
@@ -496,26 +480,6 @@ class Prism_Photoshop_Functions(object):
             )
 
     @err_catcher(name=__name__)
-    def setProject_loading(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def onPrismSettingsOpen(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def createProject_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def editShot_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def shotgunPublish_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
     def openPhotoshopTools(self):
         self.dlg_tools = QDialog()
 
@@ -544,6 +508,7 @@ class Prism_Photoshop_Functions(object):
         self.dlg_tools.setWindowTitle("Prism")
 
         self.dlg_tools.show()
+        self.dlg_tools.resize(self.dlg_tools.width()*1.5, self.dlg_tools.height())
 
         return True
 
@@ -558,10 +523,10 @@ class Prism_Photoshop_Functions(object):
         curfile = self.core.getCurrentFileName()
         fname = self.core.getScenefileData(curfile)
 
-        if fname["entity"] == "invalid":
-            entityType = "context"
+        if "type" in fname:
+            entityType = fname["type"]
         else:
-            entityType = fname["entity"]
+            entityType = "context"
 
         self.dlg_export = QDialog()
         self.core.parentWindow(self.dlg_export)
@@ -581,9 +546,10 @@ class Prism_Photoshop_Functions(object):
         lo_version = QHBoxLayout()
         lo_extension = QHBoxLayout()
         lo_localOut = QHBoxLayout()
-        l_task = QLabel("Task:")
+        l_task = QLabel("Identifier:")
         l_task.setMinimumWidth(110)
         self.le_task = QLineEdit()
+        self.le_task.setText(fname.get("task", ""))
         self.b_task = QPushButton(u"▼")
         self.b_task.setMinimumSize(35, 0)
         self.b_task.setMaximumSize(35, 500)
@@ -599,7 +565,37 @@ class Prism_Photoshop_Functions(object):
         l_ext.setMinimumWidth(110)
         self.cb_formats = QComboBox()
         self.cb_formats.addItems([".jpg", ".png", ".tif", ".exr"])
-        self.chb_localOutput = QCheckBox("Local output")
+        self.w_location = QWidget()
+        self.lo_location = QHBoxLayout()
+        self.lo_location.setContentsMargins(0, 0, 0, 0)
+        self.w_location.setLayout(self.lo_location)
+        self.l_location = QLabel("Location:")
+        self.l_location.setMinimumWidth(140)
+        self.cb_location = QComboBox()
+        self.export_paths = self.core.paths.getRenderProductBasePaths()
+        self.cb_location.addItems(list(self.export_paths.keys()))
+        self.lo_location.addWidget(self.l_location)
+        self.lo_location.addWidget(self.cb_location)
+        if len(self.export_paths) < 2:
+            self.w_location.setVisible(False)
+
+        self.w_master = QWidget()
+        self.lo_master = QHBoxLayout()
+        self.lo_master.setContentsMargins(0, 0, 0, 0)
+        self.w_master.setLayout(self.lo_master)
+        self.l_master = QLabel("Master Version:")
+        self.l_master.setMinimumWidth(140)
+        self.cb_master = QComboBox()
+        self.export_paths = self.core.paths.getRenderProductBasePaths()
+        self.lo_master.addWidget(self.l_master)
+        self.lo_master.addWidget(self.cb_master)
+
+        masterItems = ["Set as master", "Add to master", "Don't update master"]
+        self.cb_master.addItems(masterItems)
+
+        if not self.core.mediaProducts.getUseMaster():
+            self.w_master.setVisible(False)
+
         lo_task.addWidget(l_task)
         lo_task.addWidget(self.le_task)
         lo_task.addWidget(self.b_task)
@@ -607,16 +603,14 @@ class Prism_Photoshop_Functions(object):
         lo_comment.addWidget(self.le_comment)
         lo_version.addWidget(self.chb_useNextVersion)
         lo_version.addWidget(self.cb_versions)
-        lo_version.addStretch()
         lo_extension.addWidget(l_ext)
         lo_extension.addWidget(self.cb_formats)
-        lo_extension.addStretch()
-        lo_localOut.addWidget(self.chb_localOutput)
+        lo_localOut.addWidget(self.w_location)
         lo_prismExport.addLayout(lo_task)
         lo_prismExport.addWidget(self.w_comment)
         lo_prismExport.addLayout(lo_version)
         lo_prismExport.addLayout(lo_extension)
-        lo_prismExport.addLayout(lo_localOut)
+        lo_prismExport.addWidget(self.w_master)
         self.w_task.setLayout(lo_prismExport)
         lo_version.setContentsMargins(0, 0, 0, 0)
 
@@ -640,13 +634,9 @@ class Prism_Photoshop_Functions(object):
         self.le_task.editingFinished.connect(self.exportGetVersions)
         self.b_export.clicked.connect(self.saveExport)
 
-        if not self.core.useLocalFiles:
-            self.chb_localOutput.setVisible(False)
-
         self.exportGetTasks()
         self.core.callback(
             name="photoshop_onExportOpen",
-            types=[],
             args=[self],
         )
 
@@ -675,7 +665,7 @@ class Prism_Photoshop_Functions(object):
     def exportShowTasks(self):
         tmenu = QMenu(self.dlg_export)
 
-        for i in self.taskList:
+        for i in sorted(self.taskList, key=lambda x: x.lower()):
             tAct = QAction(i, self.dlg_export)
             tAct.triggered.connect(lambda x=None, t=i: self.le_task.setText(t))
             tAct.triggered.connect(self.exportGetVersions)
@@ -712,79 +702,31 @@ class Prism_Photoshop_Functions(object):
         if self.le_task.text() == "":
             return
 
+        task = self.le_task.text()
         extension = self.cb_formats.currentText()
         fileName = self.core.getCurrentFileName()
-
-        if self.core.useLocalFiles:
-            if self.chb_localOutput.isChecked():
-                fileName = self.core.convertPath(fileName, target="local")
-            else:
-                fileName = self.core.convertPath(fileName, target="global")
-
-        hVersion = ""
-        pComment = self.le_comment.text()
-        if useVersion != "next":
-            hVersion = useVersion.split(self.core.filenameSeparator)[0]
-            pComment = useVersion.split(self.core.filenameSeparator)[1]
-
         fnameData = self.core.getScenefileData(fileName)
-        if fnameData["entity"] == "shot":
-            outputPath = os.path.abspath(
-                os.path.join(
-                    fileName,
-                    os.pardir,
-                    os.pardir,
-                    os.pardir,
-                    os.pardir,
-                    "Rendering",
-                    "2dRender",
-                    self.le_task.text(),
-                )
-            )
-            if hVersion == "":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
 
-            outputFile = os.path.join(
-                "shot"
-                + "_"
-                + fnameData["entityName"]
-                + "_"
-                + self.le_task.text()
-                + "_"
-                + hVersion
-                + extension
-            )
-        elif fnameData["entity"] == "asset":
-            base = self.core.getEntityBasePath(fileName)
-            outputPath = os.path.abspath(
-                os.path.join(
-                    base,
-                    "Rendering",
-                    "2dRender",
-                    self.le_task.text(),
-                )
-            )
-            if hVersion == "":
-                hVersion = self.core.getHighestTaskVersion(outputPath)
-
-            outputFile = os.path.join(
-                fnameData["entityName"]
-                + "_"
-                + self.le_task.text()
-                + "_"
-                + hVersion
-                + extension
-            )
-        else:
+        if "type" not in fnameData:
             return
 
-        outputPath = os.path.join(outputPath, hVersion)
-        if pComment != "":
-            outputPath += "_" + pComment
+        location = self.cb_location.currentText()
+        outputPathData = self.core.mediaProducts.generateMediaProductPath(
+            entity=fnameData,
+            task=task,
+            extension=extension,
+            comment=fnameData.get("comment", ""),
+            framePadding="",
+            version=useVersion if useVersion != "next" else None,
+            location=location,
+            returnDetails=True,
+            mediaType="2drenders",
+        )
 
-        outputName = os.path.join(outputPath, outputFile)
+        outputFolder = os.path.dirname(outputPathData["path"])
+        hVersion = outputPathData["version"]
 
-        return outputName, outputPath, hVersion
+        return outputPathData["path"], outputFolder, hVersion
 
     @err_catcher(name=__name__)
     def exportVersionToggled(self, checked):
@@ -801,16 +743,12 @@ class Prism_Photoshop_Functions(object):
             taskName = self.le_task.text()
             if taskName is None or taskName == "":
                 QMessageBox.warning(
-                    self.core.messageParent, "Warning", "Please choose a taskname"
+                    self.core.messageParent, "Warning", "Please choose an identifier"
                 )
                 return
 
             if not self.core.fileInPipeline():
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Warning",
-                    "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline.",
-                )
+                self.core.showFileNotInProjectWarning(title="Warning")
                 return False
 
             oversion = "next"
@@ -826,25 +764,37 @@ class Prism_Photoshop_Functions(object):
             outputPath, outputDir, hVersion = self.exportGetOutputName(oversion)
 
             outLength = len(outputPath)
-            if platform.system() == "Windows" and outLength > 255:
-                msg = "The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath." % outLength
+            if platform.system() == "Windows" and os.getenv("PRISM_IGNORE_PATH_LENGTH") != "1" and outLength > 255:
+                msg = (
+                    "The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, identifier or projectpath."
+                    % outLength
+                )
                 self.core.popup(msg)
                 return
 
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
 
+            fileName = self.core.getCurrentFileName()
+            context = self.core.getScenefileData(fileName)
+
+            details = context.copy()
+            if "filename" in details:
+                del details["filename"]
+
+            if "extension" in details:
+                del details["extension"]
+
+            details["version"] = hVersion
+            details["sourceScene"] = fileName
+            details["identifier"] = self.le_task.text()
+
             self.core.saveVersionInfo(
-                location=os.path.dirname(outputPath),
-                version=hVersion,
-                origin=self.core.getCurrentFileName(),
+                filepath=os.path.dirname(outputPath),
+                details=details,
             )
         else:
-            startLocation = os.path.join(
-                self.core.projectPath,
-                self.core.getConfig("paths", "assets", configPath=self.core.prismIni),
-                "Textures",
-            )
+            startLocation = self.core.projects.getResolvedProjectStructurePath("textures")
             outputPath = QFileDialog.getSaveFileName(
                 self.dlg_export,
                 "Enter output filename",
@@ -855,133 +805,11 @@ class Prism_Photoshop_Functions(object):
             if outputPath == "":
                 return
 
-        ext = os.path.splitext(outputPath)[1].lower()
-
-        if self.win:
-            bdepth = self.psApp.Application.ActiveDocument.bitsPerChannel
-            if ext in [".exr"]:
-                if bdepth != 32:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Export",
-                        "To export in this format you need to set the bit depth of your current document to 32.",
-                    )
-                    return
-
-                descr = win32com.client.dynamic.Dispatch("Photoshop.ActionDescriptor")
-                descr.PutString(self.getCharID("As  "), "OpenEXR")
-                descr.PutPath(self.getCharID("In  "), outputPath)
-                descr.PutBoolean(self.getCharID("LwCs"), True)
-                descr.PutBoolean(self.getCharID("Cpy "), True)
-                descr.PutEnumerated(
-                    self.getStringID("saveStage"),
-                    self.getStringID("saveStageType"),
-                    self.getStringID("saveSucceeded"),
-                )
-                self.psApp.ExecuteAction(self.getCharID("save"), descr, 3)
-            else:
-                if bdepth == 32:
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Export",
-                        "To export in this format you need to lower the bit depth of your current document.",
-                    )
-                    return
-
-                if ext in [".jpg", ".jpeg"]:
-                    options = win32com.client.dynamic.Dispatch(
-                        "Photoshop.JPEGSaveOptions"
-                    )
-                elif ext in [".png"]:
-                    options = win32com.client.dynamic.Dispatch(
-                        "Photoshop.PNGSaveOptions"
-                    )
-                elif ext in [".tif", ".tiff"]:
-                    options = win32com.client.dynamic.Dispatch(
-                        "Photoshop.TiffSaveOptions"
-                    )
-
-                self.psApp.Application.ActiveDocument.SaveAs(outputPath, options, True)
-        else:
-            bdScpt = """
-                    tell application "%s"
-                        bits per channel of current document
-                    end tell
-                """ % (
-                self.psAppName
-            )
-
-            bdepth = self.executeAppleScript(bdScpt)
-
-            if ext in [".exr"]:
-                if bdepth != "thirty two\n":
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Export",
-                        "To export in this format you need to set the bit depth of your current document to 32.",
-                    )
-                    return
-
-                scpt = """
-                    tell application "%s"
-                        do javascript "
-                            var idsave = charIDToTypeID( 'save' );
-                                var desc26 = new ActionDescriptor();
-                                var idAs = charIDToTypeID( 'As  ' );
-                                    var desc27 = new ActionDescriptor();
-                                    var idBtDp = charIDToTypeID( 'BtDp' );
-                                    desc27.putInteger( idBtDp, 16 );
-                                    var idCmpr = charIDToTypeID( 'Cmpr' );
-                                    desc27.putInteger( idCmpr, 4 );
-                                    var idAChn = charIDToTypeID( 'AChn' );
-                                    desc27.putInteger( idAChn, 0 );
-                                var idEXRf = charIDToTypeID( 'EXRf' );
-                                desc26.putObject( idAs, idEXRf, desc27 );
-                                var idIn = charIDToTypeID( 'In  ' );
-                                desc26.putPath( idIn, new File( '%s' ) );
-                                var idCpy = charIDToTypeID( 'Cpy ' );
-                                desc26.putBoolean( idCpy, true );
-                                var idsaveStage = stringIDToTypeID( 'saveStage' );
-                                var idsaveStageType = stringIDToTypeID( 'saveStageType' );
-                                var idsaveSucceeded = stringIDToTypeID( 'saveSucceeded' );
-                                desc26.putEnumerated( idsaveStage, idsaveStageType, idsaveSucceeded );
-                            executeAction( idsave, desc26, DialogModes.NO );
-                        " show debugger on runtime error
-                    end tell
-                """ % (
-                    self.psAppName,
-                    outputPath,
-                )
-            else:
-                if bdepth == "thirty two\n":
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Export",
-                        "To export in this format you need to lower the bit depth of your current document.",
-                    )
-                    return
-
-                if ext in [".jpg", ".jpeg"]:
-                    formatName = "JPEG"
-                elif ext in [".png"]:
-                    formatName = "PNG"
-                elif ext in [".tif", ".tiff"]:
-                    formatName = "TIFF"
-
-                scpt = """
-                    tell application "%s"
-                        save current document in file "%s" as %s with copying
-                    end tell
-                """ % (
-                    self.psAppName,
-                    outputPath,
-                    formatName,
-                )
-            self.executeAppleScript(scpt)
-
+        self.exportImageToPath(outputPath)
+        self.handleMasterVersion(outputPath)
         self.dlg_export.accept()
-        self.core.copyToClipboard(outputPath)
-        self.core.callback(name="photoshop_onImageExported", types=[], args=[self, outputPath])
+        self.core.copyToClipboard(outputPath, file=True)
+        self.core.callback(name="photoshop_onImageExported", args=[self, outputPath])
 
         try:
             self.core.pb.refreshRender()
@@ -1000,3 +828,88 @@ class Prism_Photoshop_Functions(object):
                 "Export",
                 "Unknown error. Image file doesn't exist:\n\n%s" % outputPath,
             )
+
+    @err_catcher(name=__name__)
+    def exportImageToPath(self, outputPath):
+        ext = os.path.splitext(outputPath)[1].lower()
+        bdepth = self.psApp.Application.ActiveDocument.bitsPerChannel
+        if ext in [".exr"]:
+            if bdepth != 32:
+                QMessageBox.warning(
+                    self.core.messageParent,
+                    "Export",
+                    "To export in this format you need to set the bit depth of your current document to 32.",
+                )
+                return
+
+            descr = win32com.client.dynamic.Dispatch("Photoshop.ActionDescriptor" + self.dispatchSuffix)
+            descr.PutString(self.getCharID("As  "), "OpenEXR")
+            descr.PutPath(self.getCharID("In  "), outputPath)
+            descr.PutBoolean(self.getCharID("LwCs"), True)
+            descr.PutBoolean(self.getCharID("Cpy "), True)
+            descr.PutEnumerated(
+                self.getStringID("saveStage"),
+                self.getStringID("saveStageType"),
+                self.getStringID("saveSucceeded"),
+            )
+            self.psApp.ExecuteAction(self.getCharID("save"), descr, 3)
+        else:
+            if bdepth == 32:
+                msg = "To export in this format you need to lower the bit depth of your current document."
+                result = self.core.popupQuestion(msg, buttons=["Lower bit depth and continue", "Cancel"], icon=QMessageBox.Warning)
+                if result != "Lower bit depth and continue":
+                    return
+
+                self.psApp.Application.ActiveDocument.bitsPerChannel = 16
+
+            if ext in [".jpg", ".jpeg"]:
+                options = win32com.client.dynamic.Dispatch(
+                    "Photoshop.JPEGSaveOptions" + self.dispatchSuffix
+                )
+                options.quality = 10
+            elif ext in [".png"]:
+                options = win32com.client.dynamic.Dispatch(
+                    "Photoshop.PNGSaveOptions" + self.dispatchSuffix
+                )
+            elif ext in [".tif", ".tiff"]:
+                options = win32com.client.dynamic.Dispatch(
+                    "Photoshop.TiffSaveOptions" + self.dispatchSuffix
+                )
+
+            self.psApp.Application.ActiveDocument.SaveAs(outputPath, options, True)
+
+    @err_catcher(name=__name__)
+    def isUsingMasterVersion(self):
+        useMaster = self.core.mediaProducts.getUseMaster()
+        if not useMaster:
+            return False
+
+        masterAction = self.cb_master.currentText()
+        if masterAction == "Don't update master":
+            return False
+
+        return True
+
+    @err_catcher(name=__name__)
+    def handleMasterVersion(self, outputName):
+        if not self.isUsingMasterVersion():
+            return
+
+        masterAction = self.cb_master.currentText()
+        if masterAction == "Set as master":
+            self.core.mediaProducts.updateMasterVersion(outputName, mediaType="2drenders")
+        elif masterAction == "Add to master":
+            self.core.mediaProducts.addToMasterVersion(outputName, mediaType="2drenders")
+
+    @err_catcher(name=__name__)
+    def captureViewportThumbnail(self):
+        import tempfile
+        path = tempfile.NamedTemporaryFile(suffix=".jpg").name
+        self.exportImageToPath(path.replace("\\", "/"))
+        pm = self.core.media.getPixmapFromPath(path)
+        try:
+            os.remove(path)
+        except:
+            pass
+
+        return pm

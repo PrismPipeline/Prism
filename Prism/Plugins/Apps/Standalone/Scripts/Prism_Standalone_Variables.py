@@ -11,34 +11,34 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 class Prism_Standalone_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v1.3.0.0"
+        self.version = "v2.0.0.beta2"
         self.pluginName = "Standalone"
         self.pluginType = "App"
         self.appShortName = "So"
         self.appType = "standalone"
         self.hasQtParent = False
         self.sceneFormats = []
-        self.preferredUnit = "centimeter"
         self.platforms = ["Windows", "Linux", "Darwin"]

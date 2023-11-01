@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,18 +36,13 @@ import os
 import sys
 import traceback
 import time
+import logging
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
+from pymxs import runtime as rt
 
 try:
     import MaxPlus
@@ -56,61 +52,95 @@ except:
 from PrismUtils.Decorators import err_catcher as err_catcher
 
 
+logger = logging.getLogger(__name__)
+
+
 class Prism_3dsMax_Functions(object):
+    # TODO smaller stuff
+    #region Init
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+        # 3dsMax major version is offset by 2
+        # 3dsMax2020 will be 22 for example
+        self.appVersion = self.getAppVersion(None)
 
-        if not "MaxPlus" in globals() and sys.version[0] == "3":
-            self.enabled = False
-            self.core.popup("Prism works in 3ds Max with Python 2.7 only.\nSet the environment variable ADSK_3DSMAX_PYTHON_VERSION to \"2\" to use Prism in this version of 3ds Max")
+        self.core.registerCallback(
+            "onProductBrowserOpen", self.onProductBrowserOpen, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onStateManagerOpen", self.onStateManagerOpen, plugin=self.plugin
+        )
+
+    @err_catcher(name=__name__)
+    def onProductBrowserOpen(self, origin):
+        origin.l_versionRight.setText(
+            "(Press CTRL and double click a version to show the import options)"
+        )
 
     @err_catcher(name=__name__)
     def startup(self, origin):
         origin.timer.stop()
-        if psVersion == 1:
-            origin.messageParent = MaxPlus.GetQMaxWindow()
-        else:
-            origin.messageParent = MaxPlus.GetQMaxMainWindow()
-        MaxPlus.NotificationManager.Register(
-            MaxPlus.NotificationCodes.FilePostOpenProcess, origin.sceneOpen
-        )
+        parent = QWidget.find(rt.windows.getMAXHWND())
+        origin.messageParent = parent
 
-        origin.startasThread()
-
-    @err_catcher(name=__name__)
-    def autosaveEnabled(self, origin):
-        return self.executeScript(origin, "autosave.Enable")
-
-    @err_catcher(name=__name__)
-    def onProjectChanged(self, origin):
-        pass
+        if self.appVersion[0] < 23: # before Max2021
+            MaxPlus.NotificationManager.Register(
+                MaxPlus.NotificationCodes.FilePostOpenProcess, origin.sceneOpen
+            )
+        else: # Max2021+
+            rt.callbacks.addScript(rt.Name("filePostOpenProcess"), origin.sceneOpen, id=rt.Name("filePostOpenProcess_sceneOpen"))
+            
+        
+        origin.startAutosaveTimer()
 
     @err_catcher(name=__name__)
     def sceneOpen(self, origin):
-        if hasattr(origin, "asThread") and origin.asThread.isRunning():
-            origin.startasThread()
+        if self.core.shouldAutosaveTimerRun():
+            origin.startAutosaveTimer()
 
     @err_catcher(name=__name__)
-    def executeScript(self, origin, code, returnVal=True):
-        try:
-            val = MaxPlus.Core.EvalMAXScript(code)
-        except Exception as e:
-            msg = "\nmaxscript code:\n%s" % code
-            exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
+    def onStateManagerOpen(self, origin):
+        origin.disabledCol = QColor(40, 40, 40)
+        origin.activePalette = QPalette()
+        origin.activePalette.setColor(QPalette.Window, QColor(150, 150, 150))
+        origin.inactivePalette = QPalette()
+        origin.inactivePalette.setColor(QPalette.Window, QColor(68, 68, 68))
+        origin.f_import.setAutoFillBackground(True)
+        origin.f_export.setAutoFillBackground(True)
+        origin.gb_publish.setStyleSheet("QGroupBox::title{color: rgb(220, 220, 220);}")
+        origin.shotcamFileType = ".fbx"
 
-        if returnVal:
-            try:
-                return val.Get()
-            except:
-                return None
+        # TODO callbacks
+        if not origin.core.smCallbacksRegistered:
+            if self.appVersion[0] < 23:
+                MaxPlus.NotificationManager.Register(
+                    MaxPlus.NotificationCodes.FilePostSave, origin.core.scenefileSaved
+                )
+                MaxPlus.NotificationManager.Register(
+                    MaxPlus.NotificationCodes.PostSceneReset, origin.core.sceneUnload
+                )
+                MaxPlus.NotificationManager.Register(
+                    MaxPlus.NotificationCodes.FilePreOpen, origin.core.sceneUnload
+                )
+            else:
+                rt.callbacks.addScript(rt.Name("filePostSave"), origin.core.scenefileSaved, id=rt.Name("filePostSave_scenefileSaved"))
+                rt.callbacks.addScript(rt.Name("postSceneReset"), origin.core.sceneUnload, id=rt.Name("postSceneReset_sceneUnload"))
+                rt.callbacks.addScript(rt.Name("filePreOpen"), origin.core.sceneUnload, id=rt.Name("filePreOpen_sceneUnload"))
+        
+    #endregion
 
+    #region Scene
     @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
         if path:
-            return self.executeScript(origin, "maxFilePath + maxFileName")
+            return rt.execute( "maxFilePath + maxFileName")
         else:
-            return self.executeScript(origin, "maxFileName")
+            return rt.execute( "maxFileName")
+
+    @err_catcher(name=__name__)
+    def getCurrentSceneFiles(self, origin):
+        return [self.core.getCurrentFileName()]
 
     @err_catcher(name=__name__)
     def getSceneExtension(self, origin):
@@ -118,31 +148,26 @@ class Prism_3dsMax_Functions(object):
 
     @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
-        return self.executeScript(origin, 'saveMaxFile "%s"' % filepath)
+        return rt.execute( 'saveMaxFile "%s"' % filepath)
 
     @err_catcher(name=__name__)
-    def getImportPaths(self, origin):
-        num = self.executeScript(
-            origin, 'fileProperties.findProperty #custom "PrismImports"'
-        )
-        if num == 0:
+    def openScene(self, origin, filepath, force=False):
+        if not filepath.endswith(".max"):
             return False
-        else:
-            return self.executeScript(
-                origin, "fileProperties.getPropertyValue #custom %s" % num
-            )
 
+        if force or rt.execute( "checkforsave()"):
+            rt.execute( 'loadMaxFile "%s" useFileUnits:true' % filepath)
+
+        return True
+    #endregion
+
+    #region Frames
     @err_catcher(name=__name__)
     def getFrameRange(self, origin):
-        startframe = self.executeScript(origin, "animationrange.start.frame")
-        endframe = self.executeScript(origin, "animationrange.end.frame")
+        startframe = rt.execute( "animationrange.start.frame")
+        endframe = rt.execute( "animationrange.end.frame")
 
         return [startframe, endframe]
-
-    @err_catcher(name=__name__)
-    def getCurrentFrame(self):
-        currentFrame = self.executeScript(self, "sliderTime.frame")
-        return currentFrame
 
     @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
@@ -153,173 +178,277 @@ class Prism_3dsMax_Functions(object):
                 "The startframe and the endframe cannot be the same in 3dsMax.",
             )
             return
+            
+        rt.animationRange = rt.Interval(startFrame, endFrame)
 
-        MaxPlus.Animation.SetRange(
-            MaxPlus.Interval(
-                startFrame * MaxPlus.Animation.GetTicksPerFrame(),
-                endFrame * MaxPlus.Animation.GetTicksPerFrame(),
-            )
-        )
-        MaxPlus.Animation.SetTime(startFrame * MaxPlus.Animation.GetTicksPerFrame())
+    @err_catcher(name=__name__)
+    def getCurrentFrame(self):
+        sliderTime = rt.sliderTime
+        currentFrame = sliderTime.frame
+        return currentFrame
+
+    @err_catcher(name=__name__)
+    def setCurrentFrame(self, origin, frame):
+        rt.sliderTime = frame
 
     @err_catcher(name=__name__)
     def getFPS(self, origin):
-        return self.executeScript(origin, "frameRate")
+        return rt.frameRate
 
     @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
-        return self.executeScript(origin, "frameRate = %s" % fps)
+        # Max changes the framerange when changing the fps
+        # so we store the framerange and then restore later
+        framerange = self.getFrameRange(origin)
+
+        rt.frameRate = fps
+
+        self.setFrameRange(origin, framerange[0], framerange[1])
+    #endregion
+
+    #region Nodes
+    @err_catcher(name=__name__)
+    def getCamNodes(self, origin, cur=False):
+        sceneCamHandles = rt.execute("for i in cameras where (superclassof i) == camera collect i.handle")
+        sceneCamHandles = list(sceneCamHandles)
+
+        if cur:
+            sceneCamHandles = ["Current View"] + sceneCamHandles
+
+        return sceneCamHandles
 
     @err_catcher(name=__name__)
-    def getResolution(self):
-        width = MaxPlus.RenderSettings.GetWidth()
-        height = MaxPlus.RenderSettings.GetHeight()
-        return [width, height]
+    def getCamName(self, origin, nodeHandle):
+        if nodeHandle == "Current View":
+            return nodeHandle
 
-    @err_catcher(name=__name__)
-    def setResolution(self, width=None, height=None):
-        if width:
-            MaxPlus.RenderSettings.SetWidth(width)
-        if height:
-            MaxPlus.RenderSettings.SetHeight(height)
+        # stateProps["currentcam"] gets force saved as string for some reason
+        # it has to be integer to be read from max
+        if not isinstance(nodeHandle, int):
+            try:
+                nodeHandle = int(nodeHandle)
+            except:
+                return "invalid"
 
-    @err_catcher(name=__name__)
-    def getAppVersion(self, origin):
-        return self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"').split()[0]
-
-    @err_catcher(name=__name__)
-    def onProjectBrowserStartup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def openScene(self, origin, filepath, force=False):
-        if not filepath.endswith(".max"):
-            return False
-
-        if force or self.executeScript(origin, "checkforsave()"):
-            self.executeScript(origin, 'loadMaxFile "%s" useFileUnits:true' % filepath)
-
-        return True
-
-    @err_catcher(name=__name__)
-    def correctExt(self, origin, lfilepath):
-        return lfilepath
-
-    @err_catcher(name=__name__)
-    def setSaveColor(self, origin, btn):
-        btn.setPalette(origin.savedPalette)
-
-    @err_catcher(name=__name__)
-    def clearSaveColor(self, origin, btn):
-        btn.setPalette(origin.oldPalette)
-
-    @err_catcher(name=__name__)
-    def setProject_loading(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def onPrismSettingsOpen(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def createProject_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def editShot_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def shotgunPublish_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def sm_export_addObjects(self, origin, objects=None):
-        if not objects:
-            objects = MaxPlus.SelectionManager_GetNodes()
-
-        for i in objects:
-            handle = i.GetHandle()
-            if not handle in origin.nodes:
-                origin.nodes.append(handle)
-
-        origin.updateUi()
-        origin.stateManager.saveStatesToScene()
-
-    @err_catcher(name=__name__)
-    def getNodeName(self, origin, node):
-        if self.isNodeValid(origin, node):
-            return MaxPlus.INode.GetINodeByHandle(node).GetName()
+        if not self.isNodeValid(origin, nodeHandle):
+            return "invalid"
         else:
-            return origin.nodeNames[origin.nodes.index(node)]
+            return self.getNodeName(origin, nodeHandle)
+
+    @err_catcher(name=__name__)
+    def isNodeValid(self, origin, nodeHandle):
+        node = rt.maxOps.getNodeByHandle(nodeHandle)
+        return rt.isValidNode(node)
+
+    @err_catcher(name=__name__)
+    def getNodeName(self, origin, nodeHandle):
+        if self.isNodeValid(origin, nodeHandle):
+            node = rt.maxOps.getNodeByHandle(nodeHandle)
+            return node.name
+        else:
+            return origin.nodeNames[origin.nodes.index(nodeHandle)]
 
     @err_catcher(name=__name__)
     def selectNodes(self, origin):
         if origin.lw_objects.selectedItems() != []:
-            MaxPlus.SelectionManager_ClearNodeSelection()
-            nodes = MaxPlus.INodeTab()
+            rt.clearSelection()
+
+            nodes = []
             for i in origin.lw_objects.selectedItems():
-                node = origin.nodes[origin.lw_objects.row(i)]
-                if self.isNodeValid(origin, node):
-                    nodes.Append(MaxPlus.INode.GetINodeByHandle(node))
-            MaxPlus.SelectionManager_SelectNodes(nodes)
-
-    @err_catcher(name=__name__)
-    def isNodeValid(self, origin, handle):
-        return not (
-            handle is None
-            or MaxPlus.INode.GetINodeByHandle(handle).GetUnwrappedPtr() is None
-        )
-
-    @err_catcher(name=__name__)
-    def getCamNodes(self, origin, cur=False):
-        cams = self.executeScript(
-            origin, "for i in cameras where (superclassof i) == camera collect i"
-        )
-        sceneCams = [cams.GetItem(x).GetHandle() for x in range(cams.GetCount())]
-        if cur:
-            sceneCams = ["Current View"] + sceneCams
-
-        return sceneCams
-
-    @err_catcher(name=__name__)
-    def getCamName(self, origin, handle):
-        if handle == "Current View":
-            return handle
-
-        if type(handle) != long:
-            try:
-                handle = long(handle)
-            except:
-                return "invalid"
-
-        node = MaxPlus.INode.GetINodeByHandle(handle)
-
-        if node.GetUnwrappedPtr() is None:
-            return "invalid"
-        else:
-            return node.GetName()
+                nodeHandle = origin.nodes[origin.lw_objects.row(i)]
+                if self.isNodeValid(origin, nodeHandle):
+                    node = rt.maxOps.getNodeByHandle(nodeHandle)
+                    nodes.append(node)
+            rt.select(nodes)
 
     @err_catcher(name=__name__)
     def selectCam(self, origin):
         if self.isNodeValid(origin, origin.curCam):
-            MaxPlus.SelectionManager_ClearNodeSelection()
-            camNode = MaxPlus.INode.GetINodeByHandle(origin.curCam)
-            if camNode.GetTarget().GetUnwrappedPtr() is not None:
-                camNodes = MaxPlus.INodeTab()
-                camNodes.Append(camNode)
-                camNodes.Append(camNode.GetTarget())
-                MaxPlus.SelectionManager_SelectNodes(camNodes)
-            else:
-                MaxPlus.SelectionManager_SelectNode(camNode)
+            curCamNode = rt.maxOps.getNodeByHandle(origin.curCam)
+            rt.select(curCamNode)
+    #endregion
 
+    #region Export
     @err_catcher(name=__name__)
     def sm_export_startup(self, origin):
         origin.lw_objects.setStyleSheet("QListWidget { background: rgb(100,100,100);}")
 
     @err_catcher(name=__name__)
-    def sm_export_removeSetItem(self, origin, node):
-        pass
+    def sm_export_addObjects(self, origin, objects=None):
+        if not objects:
+            sel = rt.selection
+            objects = [i for i in sel]
+        
+        for object in objects:
+            objectHandle = object.handle
+            if objectHandle not in origin.nodes:
+                origin.nodes.append(objectHandle)
+
+    @err_catcher(name=__name__)
+    def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
+        # We always additionally export an .fbx because imported .abc cameras
+        # are basically blackboxes in 3dsmax.
+        if startFrame == endFrame:
+            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame + 1)
+        else:
+            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame)
+
+        rt.execute( "AlembicExport.CoordinateSystem = #Maya")
+
+        if 18 <= self.appVersion[0] < 21: # Max 2016 - 2018
+            rt.execute( "AlembicExport.CacheTimeRange = #StartEnd")
+            rt.execute( "AlembicExport.StepFrameTime = 1")
+            rt.execute( "AlembicExport.StartFrameTime = %s" % startFrame)
+            rt.execute( "AlembicExport.EndFrameTime = %s" % endFrame)
+            rt.execute( "AlembicExport.ParticleAsMesh = False")
+        elif self.appVersion[0] >= 21: # Max 2019+
+            rt.execute( "AlembicExport.AnimTimeRange = #StartEnd")
+            rt.execute( "AlembicExport.SamplesPerFrame = 1")
+            rt.execute( "AlembicExport.StartFrame = %s" % startFrame)
+            rt.execute( "AlembicExport.EndFrame = %s" % endFrame)
+            rt.execute( "AlembicExport.ParticleAsMesh = False")
+        else:
+            rt.messageBox("There is no alembic support for this version of 3dsMax.", title="Alembic not supported")
+
+        if startFrame == endFrame:
+            rt.execute('FbxExporterSetParam "Animation" False')
+            self.setCurrentFrame(origin, startFrame)
+        else:
+            rt.execute('FbxExporterSetParam "Animation" True')
+
+        self.selectCam(origin)
+        rt.exportFile(outputName + ".abc", rt.Name("NoPrompt"), selectedOnly=True, using=rt.Alembic_Export)
+
+        exportFBX = rt.execute("(classof (maxOps.getNodeByHandle %s)) != Physical" % origin.curCam)
+
+        if exportFBX:
+            self.selectCam(origin)
+            rt.exportFile(outputName + ".fbx", rt.Name("NoPrompt"), selectedOnly=True, using=rt.FBXEXP)
+
+        # TODO: store and restore selection
+        rt.clearSelection()
+
+    #region sm_export_exportAppObjects
+    @err_catcher(name=__name__)
+    def sm_export_exportAppObjects(
+        self,
+        origin,
+        startFrame,
+        endFrame,
+        outputName,
+    ):
+        if startFrame == endFrame:
+            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame + 1)
+        else:
+            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame)
+
+        expNodeHandles = origin.nodes
+
+        additionalOptions = origin.chb_additionalOptions.isChecked()
+        selectedOnly = not origin.chb_wholeScene.isChecked()
+
+        if selectedOnly:
+            rt.clearSelection()
+
+            nodeHandles = [handle for handle in expNodeHandles if self.isNodeValid(origin,handle)]
+            nodes = [rt.maxOps.getNodeByHandle(handle) for handle in nodeHandles]
+            rt.select(nodes)
+
+        if origin.cb_outType.currentText() == ".obj":
+            for i in range(startFrame, endFrame + 1):
+                self.setCurrentFrame(origin,i)
+
+                foutputName = outputName.replace("####", format(i, "04"))
+                
+                if additionalOptions:
+                    rt.exportFile(foutputName, selectedOnly=selectedOnly)
+                else:
+                    rt.exportFile(foutputName, rt.Name("NoPrompt"), selectedOnly=selectedOnly)
+
+            outputName = foutputName
+
+        elif origin.cb_outType.currentText() == ".fbx":
+            if startFrame == endFrame:
+                rt.execute('FbxExporterSetParam "Animation" False')
+
+                self.setCurrentFrame(origin, startFrame)
+            else:
+                rt.execute('FbxExporterSetParam "Animation" True')
+
+            if additionalOptions:
+                rt.exportFile(outputName, selectedOnly=selectedOnly, using=rt.FBXEXP)
+            else:
+                rt.exportFile(outputName, rt.Name("NoPrompt"), selectedOnly=selectedOnly, using=rt.FBXEXP)
+
+        elif origin.cb_outType.currentText() == ".abc":
+            rt.execute( "AlembicExport.CoordinateSystem = #Maya")
+
+            # TODO fix versions
+            if 18 <= self.appVersion[0] < 21: # Max 2016 - 2018
+                rt.execute( "AlembicExport.CacheTimeRange = #StartEnd")
+                rt.execute( "AlembicExport.StepFrameTime = 1")
+                rt.execute("AlembicExport.StartFrameTime = %s" % startFrame)
+                rt.execute( "AlembicExport.EndFrameTime = %s" % endFrame)
+                rt.execute( "AlembicExport.ParticleAsMesh = False")
+            elif self.appVersion[0] >= 21: # Max 2019+
+                rt.execute( "AlembicExport.AnimTimeRange = #StartEnd")
+                rt.execute( "AlembicExport.SamplesPerFrame = 1")
+                rt.execute( "AlembicExport.StartFrame = %s" % startFrame)
+                rt.execute( "AlembicExport.EndFrame = %s" % endFrame)
+                rt.execute( "AlembicExport.ParticleAsMesh = False")
+            else:
+                rt.messageBox("There is no alembic support for this version of 3dsMax.", title="Alembic not supported")
+
+            if additionalOptions:
+                rt.exportFile(outputName, selectedOnly=selectedOnly, using=rt.Alembic_Export)
+            else:
+                rt.exportFile(outputName, rt.Name("NoPrompt"), selectedOnly=selectedOnly, using=rt.Alembic_Export)
+
+        elif origin.cb_outType.currentText() == ".max":
+            if selectedOnly:
+                rt.saveNodes(nodes, outputName, quiet=True)
+            else:
+                rt.saveMaxFile(outputName, useNewFile=False, quiet=True)
+
+        # TODO save and restore selection
+        if selectedOnly:
+            rt.clearSelection()
+
+        return outputName
+    #endregion
+
+    @err_catcher(name=__name__)
+    def sm_export_preExecute(self, origin, startFrame, endFrame):
+        warnings = []
+
+        if origin.cb_outType.currentText() != "ShotCam":
+            if origin.cb_outType.currentText() != ".fbx":
+                for nodeHandle in origin.nodes:
+                    if not self.isNodeValid(origin, nodeHandle):
+                        continue
+
+                    if rt.maxOps.getNodeByHandle(nodeHandle).isHidden:
+                        warnings.append(
+                            [
+                                "%s is hidden." % rt.maxOps.getNodeByHandle(nodeHandle).name,
+                                "Hidden objects are only supported with fbx exports.",
+                                2,
+                            ]
+                        )
+                        break
+
+        if (
+            (
+                origin.cb_outType.currentText() == ".fbx"
+                or origin.cb_outType.currentText() == "ShotCam"
+            )
+            and startFrame == endFrame
+        ):
+            warnings.append(
+                ["Single frame FBX exports will export Frame 0 only.", "", 2]
+            )
+
+        return warnings
 
     @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
@@ -330,287 +459,8 @@ class Prism_3dsMax_Functions(object):
         pass
 
     @err_catcher(name=__name__)
-    def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
-        if startFrame == endFrame:
-            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame + 1)
-        else:
-            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame)
-
-        self.executeScript(origin, "AlembicExport.CoordinateSystem = #Maya")
-
-        if self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"')[:2] in [
-            "19",
-            "20",
-        ]:
-            self.executeScript(origin, "AlembicExport.CacheTimeRange = #StartEnd")
-            self.executeScript(origin, "AlembicExport.StepFrameTime = 1")
-            self.executeScript(
-                origin, "AlembicExport.StartFrameTime = %s" % startFrame
-            )
-            self.executeScript(origin, "AlembicExport.EndFrameTime = %s" % endFrame)
-            self.executeScript(origin, "AlembicExport.ParticleAsMesh = False")
-        else:
-            self.executeScript(origin, "AlembicExport.AnimTimeRange = #StartEnd")
-            self.executeScript(origin, "AlembicExport.SamplesPerFrame = 1")
-            self.executeScript(origin, "AlembicExport.StartFrame = %s" % startFrame)
-            self.executeScript(origin, "AlembicExport.EndFrame = %s" % endFrame)
-            self.executeScript(origin, "AlembicExport.ParticleAsMesh = False")
-
-        if startFrame == endFrame:
-            self.executeScript(
-                origin, 'FbxExporterSetParam "Animation" False', returnVal=False
-            )
-            MaxPlus.Animation.SetTime(
-                startFrame * MaxPlus.Animation.GetTicksPerFrame(), False
-            )
-        else:
-            self.executeScript(
-                origin, 'FbxExporterSetParam "Animation" True', returnVal=False
-            )
-
-        self.selectCam(origin)
-        MaxPlus.FileManager.ExportSelected(outputName + ".abc", True)
-
-        exportFBX = self.executeScript(
-            origin, "(classof (maxOps.getNodeByHandle %s)) != Physical" % origin.curCam
-        )
-
-        if exportFBX:
-            self.selectCam(origin)
-            MaxPlus.FileManager.ExportSelected(outputName + ".fbx", True)
-
-        if origin.chb_convertExport.isChecked():
-            outputName = os.path.join(
-                os.path.dirname(os.path.dirname(outputName)),
-                "meter",
-                os.path.basename(outputName),
-            )
-            if not os.path.exists(os.path.dirname(outputName)):
-                os.makedirs(os.path.dirname(outputName))
-            self.executeScript(
-                origin,
-                """
-sHelper = point()
-sHelper.name = ("SCALEOVERRIDE_%s")
-for obj in selection do(
-	obj.parent = sHelper
-)
-sVal = 0.01
-sHelper.scale = [sVal, sVal, sVal]
-"""
-                % MaxPlus.INode.GetINodeByHandle(origin.curCam).GetName(),
-            )
-
-            self.selectCam(origin)
-            MaxPlus.FileManager.ExportSelected(outputName + ".abc", True)
-
-            if exportFBX:
-                self.selectCam(origin)
-                MaxPlus.FileManager.ExportSelected(outputName + ".fbx", True)
-
-            self.executeScript(
-                origin,
-                """
-for obj in selection do(
-	if obj.parent != undefined and obj.parent.name == ("SCALEOVERRIDE_" + obj.name) do (
-		sVal = 1
-		sHelper = obj.parent
-		sHelper.scale = [sVal, sVal, sVal]
-		delete sHelper
-	)
-)
-""",
-            )
-
-        MaxPlus.SelectionManager_ClearNodeSelection(False)
-
-    @err_catcher(name=__name__)
-    def sm_export_exportAppObjects(
-        self,
-        origin,
-        startFrame,
-        endFrame,
-        outputName,
-        scaledExport=False,
-        expNodes=None,
-    ):
-        if startFrame == endFrame:
-            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame + 1)
-        else:
-            self.setFrameRange(origin, startFrame=startFrame, endFrame=endFrame)
-
-        if expNodes is None:
-            expNodes = origin.nodes
-
-        if not origin.chb_wholeScene.isChecked() or scaledExport:
-            MaxPlus.SelectionManager_ClearNodeSelection(False)
-            nodes = MaxPlus.INodeTab()
-            for node in expNodes:
-                if self.isNodeValid(origin, node):
-                    nodes.Append(MaxPlus.INode.GetINodeByHandle(node))
-            MaxPlus.SelectionManager_SelectNodes(nodes)
-
-        if origin.cb_outType.currentText() == ".obj":
-            for i in range(startFrame, endFrame + 1):
-                MaxPlus.Animation.SetTime(
-                    i * MaxPlus.Animation.GetTicksPerFrame(), False
-                )
-                foutputName = outputName.replace("####", format(i, "04"))
-                if origin.chb_wholeScene.isChecked():
-                    MaxPlus.FileManager.Export(
-                        foutputName, not origin.chb_additionalOptions.isChecked()
-                    )
-                else:
-                    MaxPlus.FileManager.ExportSelected(
-                        foutputName, not origin.chb_additionalOptions.isChecked()
-                    )
-
-            outputName = foutputName
-        elif origin.cb_outType.currentText() == ".fbx":
-            if startFrame == endFrame:
-                self.executeScript(
-                    origin, 'FbxExporterSetParam "Animation" False', returnVal=False
-                )
-                MaxPlus.Animation.SetTime(
-                    startFrame * MaxPlus.Animation.GetTicksPerFrame(), False
-                )
-            else:
-                self.executeScript(
-                    origin, 'FbxExporterSetParam "Animation" True', returnVal=False
-                )
-            if origin.chb_wholeScene.isChecked():
-                MaxPlus.FileManager.Export(
-                    outputName, not origin.chb_additionalOptions.isChecked()
-                )
-            else:
-                MaxPlus.FileManager.ExportSelected(
-                    outputName, not origin.chb_additionalOptions.isChecked()
-                )
-
-        elif origin.cb_outType.currentText() == ".abc":
-            self.executeScript(origin, "AlembicExport.CoordinateSystem = #Maya")
-            if self.executeScript(origin, 'getFileVersion "$max/3dsmax.exe"')[:2] in [
-                "19",
-                "20",
-            ]:
-                self.executeScript(origin, "AlembicExport.CacheTimeRange = #StartEnd")
-                self.executeScript(origin, "AlembicExport.StepFrameTime = 1")
-                self.executeScript(
-                    origin, "AlembicExport.StartFrameTime = %s" % startFrame
-                )
-                self.executeScript(origin, "AlembicExport.EndFrameTime = %s" % endFrame)
-                self.executeScript(origin, "AlembicExport.ParticleAsMesh = False")
-            else:
-                self.executeScript(origin, "AlembicExport.AnimTimeRange = #StartEnd")
-                self.executeScript(origin, "AlembicExport.SamplesPerFrame = 1")
-                self.executeScript(origin, "AlembicExport.StartFrame = %s" % startFrame)
-                self.executeScript(origin, "AlembicExport.EndFrame = %s" % endFrame)
-                self.executeScript(origin, "AlembicExport.ParticleAsMesh = False")
-            if origin.chb_wholeScene.isChecked():
-                MaxPlus.FileManager.Export(
-                    outputName, not origin.chb_additionalOptions.isChecked()
-                )
-            else:
-                MaxPlus.FileManager.ExportSelected(
-                    outputName, not origin.chb_additionalOptions.isChecked()
-                )
-        elif origin.cb_outType.currentText() == ".max":
-            if origin.chb_wholeScene.isChecked():
-                MaxPlus.FileManager.Save(outputName, True, False)
-            else:
-                MaxPlus.FileManager.SaveSelected(outputName)
-
-        if not origin.chb_wholeScene.isChecked():
-            MaxPlus.SelectionManager_ClearNodeSelection(False)
-
-        if scaledExport:
-            nodes = MaxPlus.INodeTab()
-            for i in expNodes:
-                iNode = MaxPlus.INode.GetINodeByHandle(i)
-                nodes.Append(iNode)
-                scaleHelper = MaxPlus.INode.GetINodeByName(
-                    "SCALEOVERRIDE_" + iNode.GetName()
-                )
-                if scaleHelper.GetUnwrappedPtr() is not None:
-                    nodes.Append(scaleHelper)
-
-            MaxPlus.INode.DeleteNodes(nodes)
-        elif origin.chb_convertExport.isChecked():
-            fileName = os.path.splitext(os.path.basename(outputName))
-            if fileName[1] == ".max":
-                MaxPlus.FileManager.Merge(outputName, True, True)
-            else:
-                if fileName[1] == ".abc":
-                    self.executeScript(origin, "AlembicImport.ImportToRoot = True")
-                elif fileName[1] == ".fbx":
-                    self.executeScript(origin, 'FBXImporterSetParam "Mode" #create')
-                    self.executeScript(origin, 'FBXImporterSetParam "ConvertUnit" #cm')
-                self.executeScript(
-                    origin,
-                    """
-fn checkDialog = (
-	local hwnd = dialogMonitorOps.getWindowHandle()
-	if (uiAccessor.getWindowText hwnd == "Import Name Conflict") then (
-		uiAccessor.PressButtonByName hwnd "OK"
-	)
-	true
-)
-
-dialogMonitorOps.enabled = true
-dialogMonitorOps.registerNotification checkDialog id:#test
-""",
-                )
-                MaxPlus.FileManager.Import(outputName, True)
-                self.executeScript(
-                    origin,
-                    """
-dialogMonitorOps.unRegisterNotification id:#test
-dialogMonitorOps.enabled = false""",
-                )
-
-            impNodes = [x.GetHandle() for x in MaxPlus.SelectionManager_GetNodes()]
-            scaleNodes = [
-                x
-                for x in impNodes
-                if (MaxPlus.INode.GetINodeByHandle(x)).GetParent().GetName()
-                == "Scene Root"
-            ]
-            for i in scaleNodes:
-                self.executeScript(
-                    origin,
-                    """obj = (maxOps.getNodeByHandle %s)
-sHelper = point()
-sHelper.name = ("SCALEOVERRIDE_" + obj.name)
-obj.parent = sHelper
-sVal = 0.01
-sHelper.scale = [sVal, sVal, sVal]"""
-                    % i,
-                )
-
-            MaxPlus.Animation.SetTime(
-                origin.sp_rangeStart.value() * MaxPlus.Animation.GetTicksPerFrame()
-            )
-            # 		for i in impNodes:
-            # 			self.executeScript(origin, "ResetXForm (maxOps.getNodeByHandle %s)" % i)
-
-            outputName = os.path.join(
-                os.path.dirname(os.path.dirname(outputName)),
-                "meter",
-                os.path.basename(outputName),
-            )
-            if not os.path.exists(os.path.dirname(outputName)):
-                os.makedirs(os.path.dirname(outputName))
-
-            outputName = self.sm_export_exportAppObjects(
-                origin,
-                startFrame,
-                endFrame,
-                outputName,
-                scaledExport=True,
-                expNodes=impNodes,
-            )
-
-        return outputName
+    def sm_export_removeSetItem(self, origin, node):
+        pass
 
     @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
@@ -627,330 +477,23 @@ sHelper.scale = [sVal, sVal, sVal]"""
     @err_catcher(name=__name__)
     def sm_export_typeChanged(self, origin, idx):
         origin.w_additionalOptions.setVisible(not idx in ["ShotCam", ".max"])
+    #endregion
 
-    @err_catcher(name=__name__)
-    def sm_export_preExecute(self, origin, startFrame, endFrame):
-        warnings = []
-
-        if origin.cb_outType.currentText() != "ShotCam":
-            if origin.cb_outType.currentText() != ".fbx":
-                for handle in origin.nodes:
-                    if not self.isNodeValid(origin, handle):
-                        continue
-
-                    if MaxPlus.INode.GetINodeByHandle(handle).IsHidden():
-                        warnings.append(
-                            [
-                                "Some chosen objects are hidden.",
-                                "Hidden objects are only supported with fbx exports.",
-                                2,
-                            ]
-                        )
-                        break
-
-            if origin.chb_convertExport.isChecked():
-                warnings.append(
-                    [
-                        "Unit conversion is enabled.",
-                        "This causes a renaming of the exported converted objects.",
-                        2,
-                    ]
-                )
-
-        if (
-            origin.cb_outType.currentText() == ".fbx"
-            or origin.cb_outType.currentText() == "ShotCam"
-            and startFrame == endFrame
-        ):
-            warnings.append(
-                ["Single frame FBX exports will export Frame 0 only.", "", 2]
-            )
-
-        return warnings
-
-    @err_catcher(name=__name__)
-    def sm_render_isVray(self, origin):
-        return self.executeScript(
-            origin,
-            'matchpattern (classof renderers.current as string) pattern: "V_Ray*"',
-        )
-
-    @err_catcher(name=__name__)
-    def sm_render_setVraySettings(self, origin):
-        if self.sm_render_isVray(origin):
-            self.executeScript(
-                origin,
-                'rs = renderers.current\nif matchpattern (classof rs as string) pattern: "V_Ray*" then(\nrs.imageSampler_type = 1\nrs.twoLevel_baseSubdivs = %s\nrs.twoLevel_fineSubdivs = %s\nrs.twoLevel_threshold = %s\nrs.dmc_earlyTermination_threshold = %s)'
-                % (
-                    origin.sp_minSubdivs.value(),
-                    origin.sp_maxSubdivs.value(),
-                    origin.sp_cThres.value(),
-                    origin.sp_nThres.value(),
-                ),
-            )
-
-    @err_catcher(name=__name__)
-    def sm_render_startup(self, origin):
-        origin.sp_rangeStart.setValue(
-            self.executeScript(origin, "animationrange.start.frame")
-        )
-        origin.sp_rangeEnd.setValue(
-            self.executeScript(origin, "animationrange.end.frame")
-        )
-
-    @err_catcher(name=__name__)
-    def sm_render_refreshPasses(self, origin):
-        origin.lw_passes.clear()
-        elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
-        for i in range(elementMgr.NumRenderElements()):
-            element = elementMgr.GetRenderElement(i)
-            item = QListWidgetItem(element.GetElementName())
-            item.setToolTip(element.GetClassName())
-            origin.lw_passes.addItem(item)
-
-    @err_catcher(name=__name__)
-    def sm_render_openPasses(self, origin, item=None):
-        MaxPlus.RenderSettings.OpenDialog()
-
-    @err_catcher(name=__name__)
-    def removeAOV(self, aovName):
-        elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
-        for i in range(elementMgr.NumRenderElements()):
-            element = elementMgr.GetRenderElement(i)
-            if element.GetElementName() == aovName:
-                elementMgr.RemoveRenderElement(element)
-                break
-
-    @err_catcher(name=__name__)
-    def sm_render_preSubmit(self, origin, rSettings):
-        MaxPlus.RenderSettings.CloseDialog()
-
-        elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
-        rSettings["elementsActive"] = MaxPlus.RenderElementMgr.GetElementsActive(
-            elementMgr
-        )
-        MaxPlus.RenderElementMgr.SetElementsActive(
-            elementMgr, origin.gb_passes.isChecked()
-        )
-
-        if origin.gb_passes.isChecked():
-            for i in range(elementMgr.NumRenderElements()):
-                element = elementMgr.GetRenderElement(i)
-                passName = element.GetElementName()
-                passOutputName = os.path.join(
-                    os.path.dirname(os.path.dirname(rSettings["outputName"])),
-                    passName,
-                    os.path.basename(rSettings["outputName"]).replace(
-                        "beauty", passName
-                    ),
-                )
-                try:
-                    os.makedirs(os.path.dirname(passOutputName))
-                except:
-                    pass
-                self.executeScript(
-                    origin,
-                    '(maxOps.GetCurRenderElementMgr()).SetRenderElementFilename %s "%s"'
-                    % (i, passOutputName.replace("\\", "\\\\")),
-                    returnVal=False,
-                )
-
-        rSettings["savefile"] = MaxPlus.RenderSettings.GetSaveFile()
-        rSettings["savefilepath"] = MaxPlus.RenderSettings.GetOutputFile()
-        MaxPlus.RenderSettings.SetSaveFile(True)
-        MaxPlus.RenderSettings.SetOutputFile(rSettings["outputName"])
-
-    @err_catcher(name=__name__)
-    def sm_render_startLocalRender(self, origin, outputName, rSettings):
-        if origin.chb_resOverride.isChecked():
-            rSettings["width"] = MaxPlus.RenderSettings.GetWidth()
-            rSettings["height"] = MaxPlus.RenderSettings.GetHeight()
-            MaxPlus.RenderSettings.SetWidth(origin.sp_resWidth.value())
-            MaxPlus.RenderSettings.SetHeight(origin.sp_resHeight.value())
-
-        rSettings["timetype"] = MaxPlus.RenderSettings.GetTimeType()
-        rSettings["prev_start"] = MaxPlus.RenderSettings.GetStart()
-        rSettings["prev_end"] = MaxPlus.RenderSettings.GetEnd()
-
-        self.executeScript(origin, "rendUseActiveView = True")
-        if origin.curCam != "Current View":
-            MaxPlus.Viewport.SetViewCamera(
-                MaxPlus.ViewportManager.GetActiveViewport(),
-                MaxPlus.INode.GetINodeByHandle(origin.curCam),
-            )
-
-        if rSettings["startFrame"] is None:
-            frameChunks = [[x, x] for x in rSettings["frames"]]
-        else:
-            frameChunks = [[rSettings["startFrame"], rSettings["endFrame"]]]
-
-        try:
-            for frameChunk in frameChunks:
-                if rSettings["rangeType"] == "Single Frame":
-                    timeType = 0
-                else:
-                    timeType = 2
-                MaxPlus.RenderSettings.SetTimeType(timeType)
-                MaxPlus.RenderSettings.SetStart(
-                    frameChunk[0] * MaxPlus.Animation.GetTicksPerFrame()
-                )
-                MaxPlus.RenderSettings.SetEnd(
-                    frameChunk[1] * MaxPlus.Animation.GetTicksPerFrame()
-                )
-                self.executeScript(origin, "max quick render")
-
-            if len(os.listdir(os.path.dirname(outputName))) > 0:
-                return "Result=Success"
-            else:
-                return "unknown error (files do not exist)"
-        except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            erStr = "%s ERROR - sm_default_imageRender %s:\n%s" % (
-                time.strftime("%d/%m/%y %X"),
-                origin.core.version,
-                traceback.format_exc(),
-            )
-            self.core.writeErrorLog(erStr)
-            return "Execute Canceled: unknown error (view console for more information)"
-
-    @err_catcher(name=__name__)
-    def sm_render_undoRenderSettings(self, origin, rSettings):
-        if "elementsActive" in rSettings:
-            elementMgr = MaxPlus.RenderSettings.GetRenderElementMgr(0)
-            MaxPlus.RenderElementMgr.SetElementsActive(
-                elementMgr, rSettings["elementsActive"]
-            )
-        if "width" in rSettings:
-            MaxPlus.RenderSettings.SetWidth(rSettings["width"])
-        if "height" in rSettings:
-            MaxPlus.RenderSettings.SetHeight(rSettings["height"])
-        if "timetype" in rSettings:
-            MaxPlus.RenderSettings.SetTimeType(rSettings["timetype"])
-        if "prev_start" in rSettings:
-            MaxPlus.RenderSettings.SetStart(rSettings["prev_start"])
-        if "prev_end" in rSettings:
-            MaxPlus.RenderSettings.SetEnd(rSettings["prev_end"])
-        if "savefile" in rSettings:
-            MaxPlus.RenderSettings.SetSaveFile(rSettings["savefile"])
-        if "savefilepath" in rSettings:
-            MaxPlus.RenderSettings.SetOutputFile(rSettings["savefilepath"])
-
-    @err_catcher(name=__name__)
-    def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
-        maxversion = self.executeScript(origin, "maxversion()").GetItem(0)
-        if type(maxversion) != int:
-            maxversion = maxversion.GetInt()
-        dlParams["pluginInfoFile"] = os.path.join(
-            homeDir, "temp", "3dsmax_plugin_info.job"
-        )
-        dlParams["jobInfoFile"] = os.path.join(
-            homeDir, "temp", "3dsmax_submit_info.job"
-        )
-
-        dlParams["jobInfos"]["Plugin"] = "3dsmax"
-        dlParams["jobInfos"]["Comment"] = "Prism-Submission-3dsmax_ImageRender"
-        dlParams["pluginInfos"]["Version"] = str(maxversion / 1000 - 2 + 2000)
-        dlParams["pluginInfos"]["MaxVersionToForce"] = dlParams["pluginInfos"]["Build"]
-        dlParams["pluginInfos"]["PopupHandling"] = "1"
-
-        if origin.chb_resOverride.isChecked():
-            resString = "Render"
-            dlParams["pluginInfos"][resString + "Width"] = str(
-                origin.sp_resWidth.value()
-            )
-            dlParams["pluginInfos"][resString + "Height"] = str(
-                origin.sp_resHeight.value()
-            )
-
-        if origin.curCam != "Current View":
-            dlParams["pluginInfos"]["Camera"] = self.core.appPlugin.getCamName(
-                origin, origin.curCam
-            )
-
-    @err_catcher(name=__name__)
-    def getCurrentRenderer(self, origin):
-        return self.executeScript(origin, "classof renderers.current as string")
-
-    @err_catcher(name=__name__)
-    def getCurrentSceneFiles(self, origin):
-        return [self.core.getCurrentFileName()]
-
-    @err_catcher(name=__name__)
-    def sm_render_getRenderPasses(self, origin):
-        if self.sm_render_isVray(origin):
-            return self.core.getConfig(
-                "defaultpasses", "max_vray", configPath=self.core.prismIni
-            )
-        else:
-            return self.core.getConfig(
-                "defaultpasses", "max_scanline", configPath=self.core.prismIni
-            )
-
-    @err_catcher(name=__name__)
-    def sm_render_addRenderPass(self, origin, passName, steps):
-        if self.executeScript(origin, passName) is not None:
-            self.executeScript(
-                origin,
-                "(MaxOps.GetCurRenderElementMgr()).AddRenderElement(%s())" % passName,
-            )
-
-    @err_catcher(name=__name__)
-    def sm_render_preExecute(self, origin):
-        warnings = []
-
-        if self.sm_render_isVray(origin):
-            if self.executeScript(origin, "renderers.current.output_on"):
-                warnings.append(["VrayFrameBuffer is activated.", "", 2])
-
-            if self.executeScript(origin, "renderers.current.system_frameStamp_on"):
-                warnings.append(["FrameStamp is activated.", "", 2])
-
-            if self.executeScript(origin, "vrayVFBGetRegionEnabled()"):
-                warnings.append(["Region rendering is enabled.", "", 2])
-
-        return warnings
-
-    @err_catcher(name=__name__)
-    def deleteNodes(self, origin, handles):
-        nodes = MaxPlus.INodeTab()
-        for i in handles:
-            nodes.Append(MaxPlus.INode.GetINodeByHandle(i))
-
-        xref = self.executeScript(
-            origin,
-            "item = objXRefMgr.IsNodeXRefed (maxOps.getNodeByHandle %s)\n\
-if item == undefined then (\n\
-	False\n\
-) else (\n\
-	objXRefMgr.RemoveRecordFromScene item.xrefRecord\n\
-	True\n\
-)\n\
-"
-            % handles[0],
-        )
-
-        if not xref:
-            MaxPlus.INode.DeleteNodes(nodes)
-
-    @err_catcher(name=__name__)
-    def onSelectTaskOpen(self, origin):
-        origin.l_versionRight.setText(
-            "(Press CTRL and double click a version to show the import options)"
-        )
-
+    #region Import
     @err_catcher(name=__name__)
     def sm_import_startup(self, origin):
         origin.f_abcPath.setVisible(True)
-        origin.b_unitConversion.setText("m -> cm")
 
     @err_catcher(name=__name__)
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
         impFileName = os.path.normpath(impFileName)
         fileName = os.path.splitext(os.path.basename(impFileName))
-
+        result = False
+        
+        #region max
         if fileName[1] == ".max":
-            validNodes = [x for x in origin.nodes if self.isNodeValid(origin, x)]
-            if not update or len(validNodes) == 0:
+            validNodeHandles = [x for x in origin.nodes if self.isNodeValid(origin, x)]
+            if not update or len(validNodeHandles) == 0:
                 msg = QMessageBox(
                     QMessageBox.Question,
                     "Create Reference",
@@ -962,36 +505,30 @@ if item == undefined then (\n\
                 action = msg.exec_()
             else:
                 action = 1 - int(
-                    self.executeScript(
-                        origin,
-                        """
+                    rt.execute("""
 (
 	item = objXRefMgr.IsNodeXRefed (maxOps.getNodeByHandle %s)
 	item != undefined
 )"""
-                        % validNodes[0],
+                        % validNodeHandles[0],
                     )
                 )
 
             if action == 0:
                 createNewXref = True
 
-                if len(validNodes) > 0:
-                    isXref = self.executeScript(
-                        origin,
-                        """
+                if len(validNodeHandles) > 0:
+                    isXref = rt.execute("""
 (
 	item = objXRefMgr.IsNodeXRefed (maxOps.getNodeByHandle %s)
 	item != undefined
 )"""
-                        % validNodes[0],
+                        % validNodeHandles[0],
                     )
 
                     if isXref:
                         createNewXref = False
-                        result = self.executeScript(
-                            origin,
-                            """
+                        result = rt.execute("""
 (
 	item = objXRefMgr.IsNodeXRefed (maxOps.getNodeByHandle %s)
 	item.xrefRecord.srcFileName =\"%s\"
@@ -1010,7 +547,7 @@ if item == undefined then (\n\
 		True
 	)
 )"""
-                            % (validNodes[0], impFileName.replace("\\", "\\\\")),
+                            % (validNodeHandles[0], impFileName.replace("\\", "\\\\")),
                         )
                     else:
                         origin.preDelete(
@@ -1018,9 +555,7 @@ if item == undefined then (\n\
                         )
 
                 if createNewXref:
-                    result = self.executeScript(
-                        origin,
-                        '(\n\
+                    result = rt.execute('(\n\
 clearselection()\n\
 record = objXRefMgr.AddXRefItemsFromFile "%s" xrefOptions:#(#mergeModifiers,#selectNodes,#localControllers)\n\
 record != undefined\n\
@@ -1032,7 +567,10 @@ record != undefined\n\
                 origin.preDelete(
                     baseText="Do you want to delete the currently connected objects?\n\n"
                 )
-                result = MaxPlus.FileManager.Merge(impFileName, True, True)
+
+                rt.mergeMaxFile(impFileName, rt.Name("select"))
+        #endregion
+
         else:
             if not (fileName[1] == ".abc" and origin.chb_abcPath.isChecked()):
                 origin.preDelete(
@@ -1043,49 +581,77 @@ record != undefined\n\
                     for i in origin.nodes:
                         if not self.isNodeValid(origin, i):
                             continue
-                        MaxPlus.INode.GetINodeByHandle(
-                            i
-                        ).BaseObject.ParameterBlock.source.Value = impFileName
+
+                        i.source = impFileName
+
                         result = True
                         doImport = False
-                self.executeScript(origin, "AlembicImport.ImportToRoot = True")
+                rt.execute( "AlembicImport.ImportToRoot = True")
+
             elif fileName[1] == ".fbx":
-                self.executeScript(origin, 'FBXImporterSetParam "Mode" #create')
-                self.executeScript(origin, 'FBXImporterSetParam "ConvertUnit" #cm')
+                rt.execute( 'FBXImporterSetParam "Mode" #create')
+                rt.execute( 'FBXImporterSetParam "ConvertUnit" #cm')
+
                 prevLayers = []
-                for i in range(MaxPlus.LayerManager.GetNumLayers()):
-                    prevLayers.append(MaxPlus.LayerManager.GetLayer(i))
+                layerManager = rt.LayerManager
+
+                for i in range(layerManager.count):
+                    prevLayers.append(layerManager.getLayer(i))
 
             if doImport:
-                showProps = True
+                showProps = False
                 modifiers = QApplication.keyboardModifiers()
                 if modifiers == Qt.ControlModifier:
-                    showProps = False
+                    showProps = True
 
-                result = MaxPlus.FileManager.Import(impFileName, showProps)
+
+                if fileName[1] == ".abc":
+                    if showProps:
+                        result = rt.importFile(impFileName, using=rt.Alembic_Import)
+                    else:
+                        result = rt.importFile(impFileName, rt.Name("NoPrompt"), using=rt.Alembic_Import)
+
+                elif fileName[1] == ".fbx":
+                    if showProps:
+                        result = rt.importFile(impFileName, using=rt.FBXIMP)
+                    else:
+                        result = rt.importFile(impFileName, rt.Name("NoPrompt"), using=rt.FBXIMP)
+
+                else:
+                    if showProps:
+                        result = rt.importFile(impFileName)
+                    else:
+                        result = rt.importFile(impFileName, rt.Name("NoPrompt"))
 
             if fileName[1] == ".fbx":
                 delLayers = []
-                for i in range(MaxPlus.LayerManager.GetNumLayers()):
-                    curLayer = MaxPlus.LayerManager.GetLayer(i)
-                    if not curLayer in prevLayers and not curLayer.Used():
-                        delLayers.append(curLayer.GetName())
+
+                layerManager = rt.LayerManager
+                for i in range(layerManager.count):
+                    curLayer = layerManager.getLayer(i)
+                    isLayerUsed = layerManager.doesLayerHierarchyContainNodes(layerManager.getLayer(i).name)
+                    if not curLayer in prevLayers and not isLayerUsed:
+                        delLayers.append(curLayer.name)
 
                 for i in delLayers:
-                    MaxPlus.LayerManager.DeleteLayer(i)
+                    layerManager.deleteLayerByName(i)
 
         if doImport:
-            importedNodes = [x.GetHandle() for x in MaxPlus.SelectionManager_GetNodes()]
+            importedNodeHandles = [x.handle for x in rt.selection]
 
             if origin.chb_trackObjects.isChecked():
-                origin.nodes = importedNodes
+                origin.nodes = importedNodeHandles
 
         if origin.taskName == "ShotCam":
-            self.executeScript(origin, "setTransformLockFlags selection #all")
-            camLayer = MaxPlus.LayerManager_GetLayer("00_Cams")
-            if camLayer.GetUnwrappedPtr() is not None:
-                for i in origin.nodes:
-                    camLayer.AddToLayer(MaxPlus.INode.GetINodeByHandle(i))
+            rt.execute( "setTransformLockFlags selection #all")
+
+            layerManager = rt.LayerManager
+            camLayer = layerManager.getLayerFromName("00_Cams")
+
+            if camLayer is not None:
+                for nodeHandle in origin.nodes:
+                    node = rt.maxOps.getNodeByHandle(nodeHandle)
+                    camLayer.addnode(node)
 
         return {"result": result, "doImport": doImport}
 
@@ -1095,60 +661,62 @@ record != undefined\n\
 
     @err_catcher(name=__name__)
     def sm_import_removeNameSpaces(self, origin):
-        for i in origin.nodes:
-            if not self.isNodeValid(origin, i):
+        for nodeHandle in origin.nodes:
+            if not self.isNodeValid(origin, nodeHandle):
                 continue
 
-            nodeName = self.getNodeName(origin, i)
+            node = rt.maxOps.getNodeByHandle(nodeHandle)
+            
+            nodeName = self.getNodeName(origin, nodeHandle)
             newName = nodeName.rsplit(":", 1)[-1]
             if newName != nodeName:
-                MaxPlus.INode.GetINodeByHandle(i).SetName(newName)
+                node.name = newName
 
         origin.updateUi()
 
     @err_catcher(name=__name__)
-    def sm_import_unitConvert(self, origin):
-        if origin.taskName == "ShotCam":
-            for i in origin.nodes:
-                if not self.isNodeValid(origin, i):
-                    continue
-
-                self.executeScript(
-                    origin,
-                    """
-scaleVal = 100
-obj = (maxOps.getNodeByHandle %s)
-obj.transform=obj.transform*(matrix3 [scaleVal,0,0] [0,scaleVal,0] [0,0,scaleVal] [0,0,0])
-"""
-                    % i,
-                )
-        else:
-            QMessageBox.information(
-                self.core.messageParent,
-                "Unit conversion",
-                "Please note that only vertex transformations will be converted. Object transformations and offset from origin are not supported.\nYou can delete the XForm modifier on the imported objects to undo the unit conversion.",
-            )
-            for i in origin.nodes:
-                if not self.isNodeValid(origin, i):
-                    continue
-
-                self.executeScript(
-                    origin,
-                    """
-obj = (maxOps.getNodeByHandle %s)
-addmodifier obj (XForm())
-obj.modifiers[1].gizmo.scale = [100,100,100]
-"""
-                    % i,
-                )
-
-    @err_catcher(name=__name__)
-    def sm_import_updateListItem(self, origin, item, node):
-        if self.isNodeValid(origin, node):
+    def sm_import_updateListItem(self, origin, item, nodeHandle):
+        if self.isNodeValid(origin, nodeHandle):
             item.setBackground(QColor(0, 150, 0))
         else:
             item.setBackground(QColor(150, 0, 0))
+    #endregion
 
+    #region Statemanagement
+    # states are stored in File > File properties > Custom > 
+    # PrismStates and PrismImports (for import paths)
+    @err_catcher(name=__name__)
+    def getImportPaths(self, origin):
+        num = rt.execute('fileProperties.findProperty #custom "PrismImports"')
+        if num == 0:
+            return False
+        else:
+            return rt.execute("fileProperties.getPropertyValue #custom %s" % num)
+
+    @err_catcher(name=__name__)
+    def sm_saveStates(self, origin, buf):
+        rt.execute('fileProperties.addProperty #custom "PrismStates" "%s"'
+            % buf.replace('"', '\\"').replace("\\\\", "\\\\\\\\"),
+        )
+
+    @err_catcher(name=__name__)
+    def sm_saveImports(self, origin, importPaths):
+        rt.execute('fileProperties.addProperty #custom "PrismImports" "%s"' % importPaths)
+
+    @err_catcher(name=__name__)
+    def sm_readStates(self, origin):
+        num = rt.execute('fileProperties.findProperty #custom "PrismStates"')
+        if num != 0:
+            return rt.execute("fileProperties.getPropertyValue #custom %s" % num)
+
+    @err_catcher(name=__name__)
+    def sm_deleteStates(self, origin):
+        num = rt.execute('fileProperties.findProperty #custom "PrismStates"')
+        if num != 0:
+            rt.execute('fileProperties.deleteProperty #custom "PrismStates"')
+    #endregion
+
+    #region Playblast
     @err_catcher(name=__name__)
     def sm_playblast_startup(self, origin):
         frange = self.getFrameRange(origin)
@@ -1158,25 +726,19 @@ obj.modifiers[1].gizmo.scale = [100,100,100]
 
     @err_catcher(name=__name__)
     def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
+        # TODO look for playblast api?
         if origin.curCam is not None:
-            MaxPlus.Viewport.SetViewCamera(
-                MaxPlus.ViewportManager.GetActiveViewport(),
-                MaxPlus.INode.GetINodeByHandle(origin.curCam),
-            )
-            # prevSettings = MaxPlus.PreviewParams.GetViewportPreview()
-
-            # prevSettings.SetStart(jobFrames[0])
-            # prevSettings.SetEnd(jobFrames[1])
-
-            # MaxPlus.RenderExecute.CreatePreview(prevSettings)
+            self.setCurrentViewportCamera(origin, origin.curCam)
 
         if origin.chb_resOverride.isChecked():
-            MaxPlus.RenderSettings.SetWidth(origin.sp_resWidth.value())
-            MaxPlus.RenderSettings.SetHeight(origin.sp_resHeight.value())
+            self.setResolution(
+                origin.sp_resWidth.value(),
+                origin.sp_resHeight.value()
+                )
 
-        self.executeScript(
-            origin,
-        """
+        outputName = os.path.splitext(outputName)[0].rstrip("#") + os.path.splitext(outputName)[1]
+        rt.execute(
+            """
 dnSendKeys = (dotNetClass "System.Windows.Forms.SendKeys")
 dnmarshal = (dotNetClass "System.Runtime.InteropServices.Marshal")
 insidedialog = false
@@ -1266,11 +828,11 @@ ViewCubeOps.Visibility = false
 ViewCubeOps.Visibility = True
 animationrange = interval tmpanimrange.x tmpanimrange.y
 """
-        % (
-            outputName.replace("\\", "\\\\"),
-            jobFrames[0],
-            jobFrames[1],
-            outputName.replace("\\", "\\\\"),
+            % (
+                outputName.replace("\\", "\\\\"),
+                jobFrames[0],
+                jobFrames[1],
+                outputName.replace("\\", "\\\\"),
             ),
         )
 
@@ -1302,86 +864,326 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
                 origin.state.text(0)
                 + ": error - Playblasts in 3ds Max are only supported with at least two frames."
             ]
+    #endregion 
+
+    #region render
+    @err_catcher(name=__name__)
+    def getCurrentRenderer(self, origin):
+        return rt.execute("classof renderers.current as string")
 
     @err_catcher(name=__name__)
-    def sm_setActivePalette(self, origin, listWidget, inactive, inactivef, activef):
-        activef.setPalette(origin.activePalette)
-        inactivef.setPalette(origin.inactivePalette)
+    def sm_render_isVray(self, origin):
+        return rt.execute('matchpattern (classof renderers.current as string) pattern: "V_Ray*"')
 
+    @err_catcher(name=__name__)
+    def sm_render_startup(self, origin):
+        origin.sp_rangeStart.setValue(
+            rt.execute("animationrange.start.frame")
+        )
+        origin.sp_rangeEnd.setValue(
+            rt.execute("animationrange.end.frame")
+        )
+
+    @err_catcher(name=__name__)
+    def sm_render_getAovNames(self):
+        aovs = []
+        elementMgr = rt.maxOps.GetCurRenderElementMgr()
+        if not elementMgr.GetElementsActive():
+            return aovs
+
+        for idx in range(elementMgr.NumRenderElements()):
+            element = elementMgr.GetRenderElement(idx)
+            aovs.append(element.elementName)
+
+        return aovs
+
+    @err_catcher(name=__name__)
+    def sm_render_refreshPasses(self, origin):
+        if hasattr(origin, "w_redshift"):
+            isRs = self.getCurrentRenderer(origin) == "Redshift_Renderer"
+            origin.w_redshift.setHidden((not isRs) or (not origin.gb_submit.isChecked()))
+
+        origin.lw_passes.clear()
+        elementMgr = rt.maxOps.GetCurRenderElementMgr()
+        for i in range(elementMgr.NumRenderElements()):
+            element = elementMgr.GetRenderElement(i)
+            item = QListWidgetItem(element.elementName)
+            origin.lw_passes.addItem(item)
+
+    @err_catcher(name=__name__)
+    def sm_render_openPasses(self, origin, item=None):
+        rt.renderSceneDialog.open()
+
+    @err_catcher(name=__name__)
+    def removeAOV(self, aovName):
+        elementMgr = rt.maxOps.GetCurRenderElementMgr()
+        
+        for i in range(elementMgr.NumRenderElements()):
+            element = elementMgr.GetRenderElement(i)
+            if element.elementName == aovName:
+                elementMgr.RemoveRenderElement(element)
+                break
+
+    @err_catcher(name=__name__)
+    def sm_render_preExecute(self, origin):
+        warnings = []
+
+        if self.sm_render_isVray(origin):
+            if rt.execute( "renderers.current.output_on"):
+                warnings.append(["VrayFrameBuffer is activated.", "", 2])
+
+            if rt.execute( "renderers.current.system_frameStamp_on"):
+                warnings.append(["FrameStamp is activated.", "", 2])
+
+            if rt.execute( "vrayVFBGetRegionEnabled()"):
+                warnings.append(["Region rendering is enabled.", "", 2])
+
+        return warnings
+
+    @err_catcher(name=__name__)
+    def sm_render_preSubmit(self, origin, rSettings):
+        if origin.cb_rangeType.currentText() != "Single Frame":
+            base, ext = os.path.splitext(rSettings["outputName"])
+            if not base.endswith("_"):
+                rsOutput = base + "_" + ext
+                rSettings["outputName"] = rsOutput
+
+        outputName = rSettings["outputName"]
+        if not origin.gb_submit.isHidden() and origin.gb_submit.isChecked():
+            if hasattr(origin, "chb_redshift") and origin.chb_redshift.isChecked() and not origin.w_redshift.isHidden():
+                base, ext = os.path.splitext(rSettings["outputName"])
+                outputName = base.strip("_") + "." + ext
+                rsOutput = base.strip("_") + "." + "#" * self.core.framePadding + ext
+                rSettings["outputName"] = rsOutput
+                rt.rendTimeType = 2  # needed for framepadding in outputpath
+
+        rt.renderSceneDialog.close()
+
+        elementMgr = rt.maxOps.GetCurRenderElementMgr()
+        rSettings["elementsActive"] = elementMgr.GetElementsActive()
+
+        elementMgr.SetElementsActive(origin.gb_passes.isChecked())
+
+        if origin.gb_passes.isChecked():
+            for i in range(elementMgr.NumRenderElements()):
+                element = elementMgr.GetRenderElement(i)
+                passName = element.elementName
+                passOutputName = os.path.join(
+                    os.path.dirname(os.path.dirname(rSettings["outputName"])),
+                    passName,
+                    os.path.basename(outputName).replace(
+                        "beauty", passName
+                    ),
+                )
+                try:
+                    os.makedirs(os.path.dirname(passOutputName))
+                except:
+                    pass
+                # TODO convert to rt.thingy
+                rt.execute(
+                    '(maxOps.GetCurRenderElementMgr()).SetRenderElementFilename %s "%s"'
+                    % (i, passOutputName.replace("\\", "\\\\"))
+                )
+
+        rSettings["savefile"] = rt.rendSaveFile
+        rSettings["savefilepath"] = rt.rendOutputFilename
+
+        rt.rendSaveFile = True
+        # if self.appVersion[0] < 25:  # before Max2023
+        # outName = rSettings["outputName"].replace("#" * self.core.framePadding, "")
+        # else:
+        # outName = rSettings["outputName"]
+        rt.rendOutPutFilename = outputName
+
+    @err_catcher(name=__name__)
+    def sm_render_startLocalRender(self, origin, outputName, rSettings):
+        if origin.chb_resOverride.isChecked():
+            resolution = self.getResolution()
+
+            rSettings["width"] = resolution[0]
+            rSettings["height"] = resolution[1]
+
+            self.setResolution(
+                origin.sp_resWidth.value(),
+                origin.sp_resHeight.value())
+
+        rSettings["timetype"] = rt.rendTimeType
+        rSettings["prev_start"] = rt.rendStart
+        rSettings["prev_end"] = rt.rendEnd
+
+        rt.execute("rendUseActiveView = True")
+        if origin.curCam != "Current View":
+            self.setCurrentViewportCamera(origin, origin.curCam)
+
+        if rSettings["startFrame"] is None:
+            frameChunks = [[x, x] for x in rSettings["frames"]]
+        else:
+            frameChunks = [[rSettings["startFrame"], rSettings["endFrame"]]]
+
+        try:
+            for frameChunk in frameChunks:
+                if rSettings["rangeType"] == "Single Frame":
+                    timeType = 1
+                else:
+                    timeType = 3
+                
+                rt.rendTimeType = timeType
+                rt.rendStart = frameChunk[0]
+                rt.rendEnd = frameChunk[1]
+
+                rt.execute("max quick render")
+
+            if len(os.listdir(os.path.dirname(outputName))) > 0:
+                return "Result=Success"
+            else:
+                return "unknown error (files do not exist)"
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            erStr = "%s ERROR - sm_default_imageRender %s:\n%s" % (
+                time.strftime("%d/%m/%y %X"),
+                origin.core.version,
+                traceback.format_exc(),
+            )
+            self.core.writeErrorLog(erStr)
+            return "Execute Canceled: unknown error (view console for more information)"
+
+    @err_catcher(name=__name__)
+    def sm_render_undoRenderSettings(self, origin, rSettings):
+        if "elementsActive" in rSettings:
+            elementMgr = rt.maxOps.GetCurRenderElementMgr()
+            
+            elementMgr.SetElementsActive(rSettings["elementsActive"])
+
+        if "width" in rSettings:
+            self.setResolution(width=rSettings["width"])
+        if "height" in rSettings:
+            self.setResolution(height=rSettings["height"])
+        if "timetype" in rSettings:
+            rt.rendTimeType = rSettings["timetype"]
+        if "prev_start" in rSettings:
+            rt.rendStart = rSettings["prev_start"]
+        if "prev_end" in rSettings:
+            rt.rendEnd = rSettings["prev_end"]
+        if "savefile" in rSettings:
+            rt.rendSaveFile = rSettings["savefile"]
+        if "savefilepath" in rSettings:
+            rt.rendOutputFilename = rSettings["savefilepath"]
+
+    @err_catcher(name=__name__)
+    def sm_render_getDeadlineParams(self, origin, dlParams, homeDir):
+        dlParams["pluginInfoFile"] = os.path.join(
+            homeDir, "temp", "3dsmax_plugin_info.job"
+        )
+        dlParams["jobInfoFile"] = os.path.join(
+            homeDir, "temp", "3dsmax_submit_info.job"
+        )
+
+        dlParams["jobInfos"]["Plugin"] = "3dsmax"
+        dlParams["jobInfos"]["Comment"] = "Prism-Submission-3dsmax_ImageRender"
+        dlParams["pluginInfos"]["Version"] = str(self.getAppVersion(origin)[0] - 2 + 2000)
+        dlParams["pluginInfos"]["MaxVersionToForce"] = dlParams["pluginInfos"]["Build"]
+        dlParams["pluginInfos"]["PopupHandling"] = "1"
+
+        if origin.chb_resOverride.isChecked():
+            resString = "Render"
+            dlParams["pluginInfos"][resString + "Width"] = str(
+                origin.sp_resWidth.value()
+            )
+            dlParams["pluginInfos"][resString + "Height"] = str(
+                origin.sp_resHeight.value()
+            )
+
+        if origin.curCam != "Current View":
+            dlParams["pluginInfos"]["Camera"] = self.core.appPlugin.getCamName(
+                origin, origin.curCam
+            )
+            cams = self.getCamNodes(self)
+            for idx, cam in enumerate(cams):
+                dlParams["pluginInfos"]["Camera%s" % idx] = self.getCamName(self, cam)
+
+        if dlParams["sceneDescription"] == "redshift":
+            dlParams["pluginInfos"]["MAXScriptJob"] = "1"
+            msPath = self.core.getTempFilepath(ext=".ms", filenamebase="MAXScriptJob_")
+            rsOutput = dlParams["jobInfos"]["OutputFilename0"]
+            if origin.curCam == "Current View":
+                camera = rt.execute("""
+(
+camName = ""
+currentCamera = viewport.GetCamera()
+if iskindof currentCamera camera then (
+    camName = currentCamera.name
+)
+camName)""")
+            else:
+                camera = self.core.appPlugin.getCamName(
+                    origin, origin.curCam
+                )
+
+            script = self.getMaxScriptDeadlineScript(rsOutput, camera)
+            logger.debug("submitting Redshift job: output: %s, camera: %s" % (rsOutput, camera))
+            with open(msPath, "w") as f:
+                f.write(script)
+
+            dlParams["arguments"].append(msPath)
+
+    @err_catcher(name=__name__)
+    def sm_render_getRenderPasses(self, origin):
+        if self.sm_render_isVray(origin):
+            return self.core.getConfig(
+                "defaultpasses", "max_vray", configPath=self.core.prismIni
+            )
+        else:
+            return self.core.getConfig(
+                "defaultpasses", "max_scanline", configPath=self.core.prismIni
+            )
+
+    @err_catcher(name=__name__)
+    def sm_render_addRenderPass(self, origin, passName, steps):
+        if rt.execute(passName) is not None:
+            rt.execute("(MaxOps.GetCurRenderElementMgr()).AddRenderElement(%s())" % passName)
+    #endregion
+
+    #region Pre/Post
+    # TODO possible to rename origTime to origFrame?
     @err_catcher(name=__name__)
     def sm_preExecute(self, origin):
-        origin.origTimeRange = MaxPlus.Animation.GetAnimRange()
-        origin.origTime = MaxPlus.Animation.GetTime()
+        origin.origTimeRange = self.getFrameRange(origin)
+        origin.origTime = self.getCurrentFrame()
 
     @err_catcher(name=__name__)
     def sm_postExecute(self, origin):
-        MaxPlus.Animation.SetRange(origin.origTimeRange)
-        MaxPlus.Animation.SetTime(origin.origTime)
+        self.setFrameRange(origin, origin.origTimeRange[0],origin.origTimeRange[1])
+        self.setCurrentFrame(origin, origin.origTime)
+    #endregion
 
     @err_catcher(name=__name__)
-    def onStateManagerOpen(self, origin):
-        origin.disabledCol = QColor(40, 40, 40)
-        origin.activePalette = QPalette()
-        origin.activePalette.setColor(QPalette.Window, QColor(150, 150, 150))
-        origin.inactivePalette = QPalette()
-        origin.inactivePalette.setColor(QPalette.Window, QColor(68, 68, 68))
-        origin.f_import.setAutoFillBackground(True)
-        origin.f_export.setAutoFillBackground(True)
-        startframe = self.executeScript(origin, "animationrange.start.frame")
-        endframe = self.executeScript(origin, "animationrange.end.frame")
-        origin.sp_rangeStart.setValue(startframe)
-        origin.sp_rangeEnd.setValue(endframe)
-        origin.shotcamFileType = ".fbx"
-
-        if not origin.core.smCallbacksRegistered:
-            MaxPlus.NotificationManager.Register(
-                MaxPlus.NotificationCodes.FilePostSave, origin.core.scenefileSaved
-            )
-            MaxPlus.NotificationManager.Register(
-                MaxPlus.NotificationCodes.PostSceneReset, origin.core.sceneUnload
-            )
-            MaxPlus.NotificationManager.Register(
-                MaxPlus.NotificationCodes.FilePreOpen, origin.core.sceneUnload
-            )
+    def getResolution(self):
+        return [rt.renderWidth, rt.renderHeight]
 
     @err_catcher(name=__name__)
-    def sm_saveStates(self, origin, buf):
-        self.executeScript(
-            origin,
-            'fileProperties.addProperty #custom "PrismStates" "%s"'
-            % buf.replace('"', '\\"'),
-        )
+    def setResolution(self, width=None, height=None):
+        if width:
+            rt.renderWidth = width
+        if height:
+            rt.renderHeight = height
 
     @err_catcher(name=__name__)
-    def sm_saveImports(self, origin, importPaths):
-        self.executeScript(
-            origin,
-            'fileProperties.addProperty #custom "PrismImports" "%s"' % importPaths,
-        )
+    def getAppVersion(self, origin):
+        # 3dsMax major version is offset by 2
+        # 3dsMax2020 will be 22 for example
+        versionSegmentStringList = rt.execute( 'getFileVersion "$max/3dsmax.exe"').split()[0].split(',')
+        return [int(versionSegmentString) for versionSegmentString in versionSegmentStringList]
 
     @err_catcher(name=__name__)
-    def sm_readStates(self, origin):
-        num = self.executeScript(
-            origin, 'fileProperties.findProperty #custom "PrismStates"'
-        )
-        if num != 0:
-            return self.executeScript(
-                origin, "fileProperties.getPropertyValue #custom %s" % num
-            )
-
+    def autosaveEnabled(self, origin):
+        return rt.execute( "autosave.Enable")
+        
     @err_catcher(name=__name__)
-    def sm_deleteStates(self, origin):
-        num = self.executeScript(
-            origin, 'fileProperties.findProperty #custom "PrismStates"'
-        )
-        if num != 0:
-            self.executeScript(
-                origin, 'fileProperties.deleteProperty #custom "PrismStates"'
-            )
+    def sm_createRenderPressed(self, origin):
+        origin.createPressed("Render")
 
     def sm_getExternalFiles(self, origin):
-        extFiles = self.executeScript(
-            origin,
+        extFiles = rt.execute(
             "mapfiles=#()\n\
 fn addmap mapfile =\n\
 (\n\
@@ -1397,5 +1199,113 @@ for mapfile in mapfiles collect mapfile",
         return [extFiles, []]
 
     @err_catcher(name=__name__)
-    def sm_createRenderPressed(self, origin):
-        origin.createPressed("Render")
+    def sm_setActivePalette(self, origin, listWidget, inactive, inactivef, activef):
+        activef.setPalette(origin.activePalette)
+        inactivef.setPalette(origin.inactivePalette)
+
+    @err_catcher(name=__name__)
+    def setCurrentViewportCamera(self, origin, cameraHandle):
+        viewport = rt.viewport
+        camera = rt.maxOps.getNodeByHandle(cameraHandle)
+        viewport.setCamera(camera)
+
+    @err_catcher(name=__name__)
+    def deleteNodes(self, origin, handles):
+        # Called when import state gets deleted
+        # Deletes nodes of connected import state
+        nodes = [rt.maxOps.getNodeByHandle(handle) for handle in handles]
+
+        #clear xrefs first
+        xref = rt.execute("item = objXRefMgr.IsNodeXRefed (maxOps.getNodeByHandle %s)\n\
+if item == undefined then (\n\
+False\n\
+) else (\n\
+objXRefMgr.RemoveRecordFromScene item.xrefRecord\n\
+True\n\
+)\n\
+"
+            % handles[0],
+        )
+        
+        # then delete nodes
+        if not xref:
+            rt.delete(nodes)
+
+    @err_catcher(name=__name__)
+    def getMaxScriptDeadlineScript(self, outputPath, camera):
+        script = """
+try
+(
+    local du = DeadlineUtil  --this is the interface exposed by the Lightning Plugin which provides communication between Deadline and 3ds Max
+    if du == undefined do  --if the script is not being run on Deadline (for testing purposes),
+    (
+        struct DeadlineUtilStruct   --define a stand-in struct with the same methods as the Lightning plugin
+        (
+            fn SetTitle title = ( format "Title: %%\\n" title ),
+            fn SetProgress percent = (true),
+            fn FailRender msg = ( throw msg ),
+            --For "Job Info Parameters" (as displayed in Monitor -> job -> job properties > Submission Params)
+            --Please consult the Scripting API reference online -> Deadline.Jobs.Job Class Reference
+            --http://docs.thinkboxsoftware.com/products/deadline/8.0/2_Scripting%%20Reference/class_deadline_1_1_jobs_1_1_job.html#properties
+            --All of our job properties can be accessed here and are prefixed with "Job" such as:
+            --fn GetSubmitInfoEntry( "JobSubmitMachine" ), --for "MachineName="
+            fn GetSubmitInfoEntry key = ( undefined ),
+            fn GetSubmitInfoEntryElementCount key = ( 0 ),
+            fn GetSubmitInfoEntryElement index key = ( undefined ),
+            --For "Plugin Info Parameters" (as displayed in Monitor -> job -> job properties > Submission Params)
+            --Please consult the displayed Key=Value pairs in the "Plugin Info Parameters" in Monitor such as:
+            --fn GetJobInfoEntry( "MaxVersion" ), --for "MaxVersion=2017"
+            fn GetJobInfoEntry key = ( undefined ),
+            fn GetAuxFilename index = ( undefined ),
+            fn GetOutputFilename index = ( undefined ),
+            fn LogMessage msg = ( format "INFO: %%\\n" msg ),
+            fn WarnMessage msg = ( format "WARNING: %%\\n" msg ),
+            CurrentFrame = ((sliderTime as string) as integer),
+            CurrentTask = ( -1 ),
+            SceneFileName = ( maxFilePath + maxFileName ),
+            SceneFilePath = ( maxFilePath ),
+            JobsDataFolder = ( "" ),
+            PluginsFolder = ( "" )
+        )
+        du = DeadlineUtilStruct() --create an instance of the stand-in struct
+    )--end if
+    
+    du.SetTitle "MAXScript Job" --set the job title 
+    du.LogMessage "Starting MAXScript Job..." --output a message to the log
+    local st = timestamp() --get the current system time
+    
+    
+    
+    --YOUR SCENE PROCESSING CODE GOES HERE
+    frameString = formattedPrint du.CurrentFrame format:"04d"
+    -- origOutputFilename = rendOutputFilename
+    -- rendOutputFilename = substituteString rendOutputFilename "####" frameString
+    f = "%s"
+    f = substituteString f "####" frameString
+    camObj = getNodeByName "%s"
+    rsProxyExportRollout.doProxyExport f selected:false startFrame:du.CurrentFrame endFrame:du.CurrentFrame warnExisting:false camera:camObj
+    -- rendOutputFilename = origOutputFilename
+    
+    
+    
+    du.LogMessage ("Finished MAXScript Job in "+ ((timestamp() - st)/1000.0) as string + " sec.") --output the job duration
+    true  --return true if the task has finished successfully, return false to fail the task.
+)--end script
+catch
+(
+    if ((maxVersion())[1]/1000 as integer) >= 19 then --Max2017 or later only
+    (
+        if hasCurrentExceptionStackTrace() then
+        (
+            local stackTrace = getCurrentExceptionStackTrace()
+            stackTrace =  filterString stackTrace "\\n"
+            for line in stackTrace do
+            (
+                if DeadlineUtil == undefined then (format "WARNING: %%\\n" line) else DeadlineUtil.WarnMessage(line)
+            )
+        )
+    )
+    throw()
+)""" % (outputPath.replace("\\", "\\\\"), camera)
+
+        return script

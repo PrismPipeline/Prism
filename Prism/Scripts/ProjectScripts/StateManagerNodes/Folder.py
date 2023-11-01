@@ -11,45 +11,40 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 
 class FolderClass(object):
     className = "Folder"
 
     def setup(self, state, core, stateManager, stateData=None, listType=None):
+        self.core = core
         self.state = state
         self.stateManager = stateManager
+        self.canSetVersion = True
         self.e_name.setText(state.text(0))
 
         if listType is None:
@@ -83,6 +78,8 @@ class FolderClass(object):
             if not data["stateexpanded"]:
                 self.stateManager.collapsedFolders.append(self.state)
 
+        self.core.callback("onStateSettingsLoaded", self, data)
+
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -93,12 +90,16 @@ class FolderClass(object):
     def updateUi(self):
         return True
 
-    def preExecuteState(self):
-        warnings = [self.state.text(0), []]
+    def preExecuteState(self, states=None):
+        warnings = [[self.state.text(0), []]]
 
         for i in range(self.state.childCount()):
-            if self.state.child(i).checkState(0) == Qt.Checked:
-                warnings += self.state.child(i).ui.preExecuteState()
+            curState = self.state.child(i)
+            if (states is None or id(curState) in [id(s) for s in states] or curState.ui.className == "Folder") and curState.checkState(0) == Qt.Checked:
+                if curState.ui.className == "Folder":
+                    warnings += curState.ui.preExecuteState(states=states)
+                else:
+                    warnings.append(curState.ui.preExecuteState())
 
         return warnings
 
@@ -110,20 +111,15 @@ class FolderClass(object):
 
         for i in range(self.state.childCount()):
             curState = self.state.child(i)
-            if self.state.child(i).checkState(0) == Qt.Checked and curState in set(
+            if (self.stateManager.publishType == "execute" or curState.checkState(0) == Qt.Checked) and (curState.ui.className == "Folder" or curState in set(
                 self.stateManager.execStates
-            ):
-                if self.state.child(i).ui.className in [
-                    "ImageRender",
-                    "Export",
-                    "Playblast",
-                    "Folder",
-                ]:
-                    exResult = self.state.child(i).ui.executeState(
+            )):
+                if getattr(curState.ui, "canSetVersion", False):
+                    exResult = curState.ui.executeState(
                         parent=self, useVersion=useVersion
                     )
                 else:
-                    exResult = self.state.child(i).ui.executeState(parent=self)
+                    exResult = curState.ui.executeState(parent=self)
 
                 if curState.ui.className == "Folder":
                     result += exResult
@@ -134,7 +130,7 @@ class FolderClass(object):
                 else:
                     result.append({"state": curState.ui, "result": exResult})
 
-                    if "publish paused" in exResult[0]:
+                    if exResult and "publish paused" in exResult[0]:
                         return result
 
         self.osSubmittedJobs = {}

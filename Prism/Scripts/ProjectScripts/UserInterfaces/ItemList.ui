@@ -6,16 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>276</width>
-    <height>420</height>
+    <width>292</width>
+    <height>393</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Select Steps</string>
+   <string>Select Departments</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QTableWidget" name="tw_steps">
+     <property name="contextMenuPolicy">
+      <enum>Qt::CustomContextMenu</enum>
+     </property>
      <property name="editTriggers">
       <set>QAbstractItemView::NoEditTriggers</set>
      </property>
@@ -46,16 +49,9 @@
     </widget>
    </item>
    <item>
-    <widget class="QPushButton" name="b_addStep">
-     <property name="text">
-      <string>Add new</string>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QCheckBox" name="chb_category">
      <property name="text">
-      <string>Create default category</string>
+      <string>Create default tasks</string>
      </property>
      <property name="checked">
       <bool>true</bool>
@@ -91,38 +87,5 @@
   </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>dlg_ItemList</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>dlg_ItemList</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

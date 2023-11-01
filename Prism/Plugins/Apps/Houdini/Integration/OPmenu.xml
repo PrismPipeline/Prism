@@ -6,113 +6,13 @@
                 <insertAfter>opmenu.outputs_menu</insertAfter>
             </separatorItem>
 
-        <scriptItem id="opmenu.capture_thumbnail">
+        <scriptItem id="opmenu.prism_actions">
             <insertAfter>opmenu.capture_sep</insertAfter>
-            <label>[Prism] Capture thumbnail</label>
+            <label>Prism actions...</label>
             <scriptCode><![CDATA[
-import os, time
-
 import PrismInit
-from PrismUtils import ScreenShot
-
-import hou
-import nodegraphutils as utils
-
-
-
-def removeImage(**kwargs):
-    nwPane = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-    curImgs = nwPane.backgroundImages()
-    newImgs = ()
-    for img in curImgs:
-        if img.relativeToPath() != kwargs["node"].path():
-            newImgs = newImgs + (img,)
-        else:
-            try:
-                os.remove(img.path())
-            except:
-                pass
-
-    nwPane.setBackgroundImages(newImgs)
-    utils.saveBackgroundImages(nwPane.pwd(), newImgs)
-    
-    
-def changeBrightness(**kwargs):
-    brightness = 0.3 if kwargs["node"].isBypassed() else 1.0
-    nwPane = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-    curImgs = nwPane.backgroundImages()
-    newImgs = ()
-    for img in curImgs:
-        if img.relativeToPath() == kwargs["node"].path():
-            img.setBrightness(brightness)
-            
-    nwPane.setBackgroundImages(curImgs)
-    utils.saveBackgroundImages(nwPane.pwd(), curImgs)
-
-
-node = kwargs.get("node", None)
-if node:
-    previewImg = ScreenShot.grabScreenArea(PrismInit.pcore)
-
-    if previewImg:
-        hip = os.path.dirname(hou.hipFile.path())
-        prvPath = hip + '/network_previews/%s_%s.jpg' % (node.name(), int(time.time()))
-        relPath = prvPath.replace(hip, "$HIP")
-        if not os.path.exists(os.path.dirname(prvPath)):
-            os.makedirs(os.path.dirname(prvPath))
-            
-        previewImg.save(prvPath, "JPG")
-
-        ratio = previewImg.size().width()/ float(previewImg.size().height())
-
-        width = 4.0
-        height = width/ratio
-
-        if height > width:
-            maxBound = width
-            width = width/(height/width)
-            height = maxBound
-
-        startX = 1.07
-        startY = -0.4
-
-        rect = hou.BoundingRect(startX, startY, startX+width, startY-height)
-        img = hou.NetworkImage(relPath, rect)
-        img.setRelativeToPath(node.path())
-        nwPane = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-        curImgs = nwPane.backgroundImages()
-        newImgs = curImgs + (img,)
-        nwPane.setBackgroundImages(newImgs)
-        utils.saveBackgroundImages(nwPane.pwd(), newImgs)
-        
-        node.addEventCallback((hou.nodeEventType.BeingDeleted,), removeImage)
-        node.addEventCallback((hou.nodeEventType.FlagChanged,), changeBrightness)
+PrismInit.pcore.appPlugin.onOpmenuActionsTriggered(kwargs)
             ]]></scriptCode>
         </scriptItem>
-
-        <scriptToggleItem  id="h.pane.wsheet.edit_images">
-            <insertAfter>opmenu.capture_thumbnail</insertAfter>
-            <label>[Prism] Edit Thumbnails</label>
-            <variableName>backgroundimageediting</variableName>
-            <scriptCode><![CDATA[
-hou.hscript("""
-if( $backgroundimageediting ) then
-set -g backgroundimageediting = 0;
-else
-set -g backgroundimageediting = 1;
-endif
-""")
-hou.hscript('varchange backgroundimageediting')
-(out, err) = hou.hscript('echo $backgroundimageediting')
-nwPane = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
-if( int(out) ):
-    nwPane.setPref("backgroundimageediting", "1")
-else:
-    nwPane.setPref("backgroundimageediting", "0")
-        ]]></scriptCode>
-
-        </scriptToggleItem>
-
-
     </menu>
 </menuDocument>

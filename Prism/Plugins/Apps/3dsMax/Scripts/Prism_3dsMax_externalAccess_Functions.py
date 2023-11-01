@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -41,16 +42,17 @@ class Prism_3dsMax_externalAccess_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+        self.core.registerCallback("getPresetScenes", self.getPresetScenes, plugin=self.plugin)
 
     @err_catcher(name=__name__)
-    def getAutobackPath(self, origin, tab):
+    def getAutobackPath(self, origin):
         autobackpath = ""
         if self.core.appPlugin.pluginName == "3dsmax":
             autobackpath = self.executeScript(self, "getdir #autoback")
         else:
             if platform.system() == "Windows":
                 autobackpath = os.path.join(
-                    os.getenv("USERPROFILE"), "Documents", "3dsMax", "autoback"
+                    self.core.getWindowsDocumentsPath(), "3dsMax", "autoback"
                 )
 
         fileStr = "3ds Max Scene File ("
@@ -60,3 +62,9 @@ class Prism_3dsMax_externalAccess_Functions(object):
         fileStr += ")"
 
         return autobackpath, fileStr
+
+    @err_catcher(name=__name__)
+    def getPresetScenes(self, presetScenes):
+        presetDir = os.path.join(self.pluginDirectory, "Presets")
+        scenes = self.core.entities.getPresetScenesFromFolder(presetDir)
+        presetScenes += scenes

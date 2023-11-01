@@ -1,3 +1,8 @@
 {
-    "path" : "PRISMROOT/Plugins/Apps/Houdini/Integration"
+    "env": [
+        {"PRISM_ROOT": "${PRISM_ROOT-PRISMROOT}"
+        }
+    ],
+    "path" : "PLUGINROOT/Integration",
+    "load_package_once": true
 }

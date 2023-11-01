@@ -11,37 +11,35 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import os
 import re
 
 import hou
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 
 label = "V-Ray"
@@ -54,6 +52,11 @@ def isActive():
 
 def getCam(node):
     return hou.node(node.parm("render_camera").eval())
+
+
+def getFormatFromNode(node):
+    ext = os.path.splitext(node.parm("SettingsOutput_img_file_path").eval())[1]
+    return ext
 
 
 def createROP(origin):
@@ -258,14 +261,14 @@ def setCam(origin, node, val):
 
 
 def executeAOVs(origin, outputName):
-    outputName = outputName.replace(".$F4", "")
-
     if not origin.core.appPlugin.setNodeParm(
         origin.node, "SettingsOutput_img_save", val=True
     ):
         return [origin.state.text(0) + ": error - Publish canceled"]
+
+    parmPath = origin.core.appPlugin.getPathRelativeToProject(outputName) if origin.core.appPlugin.getUseRelativePath() else outputName
     if not origin.core.appPlugin.setNodeParm(
-        origin.node, "SettingsOutput_img_file_path", val=outputName
+        origin.node, "SettingsOutput_img_file_path", val=parmPath
     ):
         return [origin.state.text(0) + ": error - Publish canceled"]
 

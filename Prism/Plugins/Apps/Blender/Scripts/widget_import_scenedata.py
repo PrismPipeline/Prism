@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -62,7 +63,9 @@ class Import_SceneData(QDialog):
         self.state = state
         self.updated = False
 
-        validNodes = [x for x in self.state.nodes if self.plugin.isNodeValid(self.state, x)]
+        validNodes = [
+            x for x in self.state.nodes if self.plugin.isNodeValid(self.state, x)
+        ]
         if update and validNodes:
             self.updated = self.updateData(validNodes)
             if self.updated:
@@ -85,12 +88,8 @@ class Import_SceneData(QDialog):
         self.tw_scenedata.setColumnCount(1)
         self.tw_scenedata.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.tw_scenedata.setSortingEnabled(False)
-        self.tw_scenedata.setHorizontalScrollMode(
-            QAbstractItemView.ScrollPerPixel
-        )
-        self.tw_scenedata.setVerticalScrollMode(
-            QAbstractItemView.ScrollPerPixel
-        )
+        self.tw_scenedata.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.tw_scenedata.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.tw_scenedata.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tw_scenedata.itemClicked.connect(self.selectionChanged)
 
@@ -121,7 +120,10 @@ class Import_SceneData(QDialog):
 
     @err_catcher(name=__name__)
     def refreshTree(self):
-        with bpy.data.libraries.load(self.scenepath, link=False) as (data_from, data_to):
+        with bpy.data.libraries.load(self.scenepath, link=False) as (
+            data_from,
+            data_to,
+        ):
             pass
 
         self.tw_scenedata.clear()
@@ -182,11 +184,23 @@ class Import_SceneData(QDialog):
         # bpy.context.collection.children.link creates collections, which can't have library overrides so we have to use bpy.ops
         if link:
             if data["collections"]:
-                bpy.ops.wm.link(ctx, directory=self.scenepath + "/Collection/", files=data["collections"])
+                bpy.ops.wm.link(
+                    ctx,
+                    directory=self.scenepath + "/Collection/",
+                    files=data["collections"],
+                )
             if data["objects"]:
-                bpy.ops.wm.link(ctx, directory=self.scenepath + "/Object/", files=data["objects"])
+                bpy.ops.wm.link(
+                    ctx, directory=self.scenepath + "/Object/", files=data["objects"]
+                )
         else:
             if data["collections"]:
-                bpy.ops.wm.append(ctx, directory=self.scenepath + "/Collection/", files=data["collections"])
+                bpy.ops.wm.append(
+                    ctx,
+                    directory=self.scenepath + "/Collection/",
+                    files=data["collections"],
+                )
             if data["objects"]:
-                bpy.ops.wm.append(ctx, directory=self.scenepath + "/Object/", files=data["objects"])
+                bpy.ops.wm.append(
+                    ctx, directory=self.scenepath + "/Object/", files=data["objects"]
+                )

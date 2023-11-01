@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,17 +36,9 @@ import os
 import platform
 import shutil
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -54,9 +47,20 @@ class Prism_Maya_externalAccess_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+        self.core.registerCallback(
+            "userSettings_saveSettings",
+            self.userSettings_saveSettings,
+            plugin=self.plugin,
+        )
+        self.core.registerCallback(
+            "userSettings_loadSettings",
+            self.userSettings_loadSettings,
+            plugin=self.plugin,
+        )
+        self.core.registerCallback("getPresetScenes", self.getPresetScenes, plugin=self.plugin)
 
     @err_catcher(name=__name__)
-    def prismSettings_loadUI(self, origin, tab):
+    def userSettings_loadUI(self, origin, tab):
         if self.core.appPlugin.pluginName == "Maya":
             origin.w_addModulePath = QWidget()
             origin.b_addModulePath = QPushButton(
@@ -74,15 +78,15 @@ class Prism_Maya_externalAccess_Functions(object):
             if not os.path.exists(self.core.prismIni):
                 origin.b_addModulePath.setEnabled(False)
 
-        lo_settings = QGridLayout()
-        tab.layout().addLayout(lo_settings)
+        tab.lo_settings = QGridLayout()
+        tab.layout().addLayout(tab.lo_settings)
         spacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Expanding)
-        lo_settings.addItem(spacer, 0, 0)
+        tab.lo_settings.addItem(spacer, 0, 0)
 
         origin.l_sceneType = QLabel("Save scene as:")
         origin.cb_sceneType = QComboBox()
-        lo_settings.addWidget(origin.l_sceneType, 1, 1)
-        lo_settings.addWidget(origin.cb_sceneType, 1, 2)
+        tab.lo_settings.addWidget(origin.l_sceneType, 1, 1)
+        tab.lo_settings.addWidget(origin.cb_sceneType, 1, 2)
 
         self.saveSceneTypes = [
             ".ma",
@@ -97,27 +101,38 @@ class Prism_Maya_externalAccess_Functions(object):
         origin.chb_mayaProject = QCheckBox("")
         origin.chb_mayaProject.setChecked(True)
         origin.chb_mayaProject.setLayoutDirection(Qt.RightToLeft)
-        lo_settings.addWidget(origin.l_mayaProject, 2, 1)
-        lo_settings.addWidget(origin.chb_mayaProject, 2, 2)
+
+        origin.l_mayaPluginPaths = QLabel("Add project to Maya plugin search paths: ")
+        origin.chb_mayaPluginPaths = QCheckBox("")
+        origin.chb_mayaPluginPaths.setLayoutDirection(Qt.RightToLeft)
+
+        tab.lo_settings.addWidget(origin.l_mayaProject, 2, 1)
+        tab.lo_settings.addWidget(origin.chb_mayaProject, 2, 2)
+        tab.lo_settings.addWidget(origin.l_mayaPluginPaths, 3, 1)
+        tab.lo_settings.addWidget(origin.chb_mayaPluginPaths, 3, 2)
 
     @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin, settings):
+    def userSettings_saveSettings(self, origin, settings):
         if "maya" not in settings:
             settings["maya"] = {}
 
         settings["maya"]["saveSceneType"] = origin.cb_sceneType.currentText()
         settings["maya"]["setMayaProject"] = origin.chb_mayaProject.isChecked()
+        settings["maya"]["addProjectPluginPaths"] = origin.chb_mayaPluginPaths.isChecked()
         if self.core.appPlugin.pluginName == "Maya":
             if settings["maya"]["setMayaProject"]:
                 if getattr(self.core, "projectPath", None):
                     prj = self.core.appPlugin.getMayaProject()
-                    if os.path.normpath(prj) == os.path.normpath(self.core.projectPath):
+                    if os.path.normpath(prj) != os.path.normpath(self.core.projectPath):
                         self.core.appPlugin.setMayaProject(self.core.projectPath)
             else:
                 self.core.appPlugin.setMayaProject(default=True)
 
+            if settings["maya"]["addProjectPluginPaths"]:
+                self.core.appPlugin.addProjectPaths()
+
     @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin, settings):
+    def userSettings_loadSettings(self, origin, settings):
         if "maya" in settings:
             if "saveSceneType" in settings["maya"]:
                 saveType = settings["maya"]["saveSceneType"]
@@ -129,18 +144,20 @@ class Prism_Maya_externalAccess_Functions(object):
                 mayaProject = settings["maya"]["setMayaProject"]
                 origin.chb_mayaProject.setChecked(mayaProject)
 
+            if "addProjectPluginPaths" in settings["maya"]:
+                pluginPaths = settings["maya"]["addProjectPluginPaths"]
+                origin.chb_mayaPluginPaths.setChecked(pluginPaths)
+
     @err_catcher(name=__name__)
-    def getAutobackPath(self, origin, tab):
+    def getAutobackPath(self, origin):
         autobackpath = ""
         if self.core.appPlugin.pluginName == "Maya":
-            autobackpath = self.executeScript(
-                origin, "cmds.autoSave( q=True, destinationFolder=True )"
-            )
+            import maya.cmds as cmds
+            autobackpath = cmds.autoSave(q=True, destinationFolder=True)
         else:
             if platform.system() == "Windows":
                 autobackpath = os.path.join(
-                    os.getenv("USERPROFILE"),
-                    "Documents",
+                    self.core.getWindowsDocumentsPath(),
                     "maya",
                     "projects",
                     "default",
@@ -176,3 +193,9 @@ class Prism_Maya_externalAccess_Functions(object):
                     shutil.copy2(curFilePath, tFilePath)
                 elif mode == "move":
                     shutil.move(curFilePath, tFilePath)
+
+    @err_catcher(name=__name__)
+    def getPresetScenes(self, presetScenes):
+        presetDir = os.path.join(self.pluginDirectory, "Presets")
+        scenes = self.core.entities.getPresetScenesFromFolder(presetDir)
+        presetScenes += scenes

@@ -11,36 +11,33 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import os
 import logging
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher as err_catcher
 
@@ -64,6 +61,9 @@ class Prism_Houdini_ImportFile(object):
     def onNodeCreated(self, kwargs):
         self.plugin.onNodeCreated(kwargs)
         kwargs["node"].setColor(hou.Color(0.451, 0.369, 0.796))
+        if os.getenv("PRISM_HOUDINI_IMPORT_SELECTABLE_PARMS") == "1":
+            self.plugin.setNodeParm(kwargs["node"], "selectableInfo", 1)
+
         self.getStateFromNode(kwargs)
 
     @err_catcher(name=__name__)
@@ -85,6 +85,9 @@ class Prism_Houdini_ImportFile(object):
     @err_catcher(name=__name__)
     def openProductBrowserFromNode(self, kwargs):
         state = self.getStateFromNode(kwargs)
+        if not state:
+            return
+
         state.ui.browse()
         self.refreshUiFromNode(kwargs, state)
         if state.parent() and state.parent().text(0) == "ImportNodes":
@@ -93,73 +96,83 @@ class Prism_Houdini_ImportFile(object):
     @err_catcher(name=__name__)
     def refreshUiFromNode(self, kwargs, state=None):
         state = state or self.getStateFromNode(kwargs)
-        path = state.ui.getImportPath()
-        if path != kwargs["node"].parm("filepath").eval():
+        path = state.ui.getImportPath(expand=False)
+        parmPath = self.core.appPlugin.getPathRelativeToProject(path) if self.core.appPlugin.getUseRelativePath() else path
+        if parmPath != kwargs["node"].parm("filepath").eval():
             try:
-                kwargs["node"].parm("filepath").set(path)
+                kwargs["node"].parm("filepath").set(parmPath)
             except:
-                logger.debug("failed to set parm \"filepath\" on node %s" % kwargs["node"].path())
+                logger.debug(
+                    'failed to set parm "filepath" on node %s' % kwargs["node"].path()
+                )
 
         data = self.core.paths.getCachePathData(path)
-        if data["entityType"]:
-            date = self.core.getFileModificationDate(os.path.dirname(path))
-            task = data.get("task", "")
-            versionDir = os.path.basename(os.path.dirname(os.path.dirname(path)))
-            versionData = versionDir.split(self.core.filenameSeparator)
-            if len(versionData) == 3:
-                _, comment, user = versionData
-            else:
-                comment = data.get("comment", "")
-                user = data.get("user", "")
+        if data.get("type"):
+            date = self.core.getFileModificationDate(
+                os.path.dirname(path), validate=True
+            )
+            product = data.get("product", "")
+            comment = data.get("comment", "")
+            user = data.get("user", "")
         else:
-            expandedPath = hou.expandString(path)
+            expandedPath = hou.text.expandString(path)
             if os.path.exists(expandedPath):
-                date = self.core.getFileModificationDate(expandedPath)
+                date = self.core.getFileModificationDate(expandedPath, validate=True)
             else:
                 date = ""
-            task = ""
+            product = ""
             comment = ""
             user = ""
 
         versionLabel = data.get("version", "")
-        versionName = self.core.products.getVersionNameFromFilepath(path)
-        if versionName == "master":
+        if versionLabel == "master":
             versionLabel = self.core.products.getMasterVersionLabel(path)
 
-        try:
-            kwargs["node"].parm("entity").set(data.get("fullEntity"))
-        except:
-            logger.debug("failed to set parm \"entity\" on node %s" % kwargs["node"].path())
+        if data.get("type") == "asset":
+            name = data.get("asset_path", "")
+        elif data.get("type") == "shot":
+            name = self.core.entities.getShotName(data)
 
         try:
-            kwargs["node"].parm("task").set(task)
+            kwargs["node"].parm("entity").set(name)
         except:
-            logger.debug("failed to set parm \"task\" on node %s" % kwargs["node"].path())
+            logger.debug(
+                'failed to set parm "entity" on node %s' % kwargs["node"].path()
+            )
+
+        try:
+            kwargs["node"].parm("product").set(product)
+        except:
+            logger.debug('failed to set parm "product" on node %s' % kwargs["node"].path())
 
         try:
             kwargs["node"].parm("version").set(versionLabel)
         except:
-            logger.debug("failed to set parm \"version\" on node %s" % kwargs["node"].path())
+            logger.debug(
+                'failed to set parm "version" on node %s' % kwargs["node"].path()
+            )
 
         try:
             kwargs["node"].parm("comment").set(comment)
         except:
-            logger.debug("failed to set parm \"comment\" on node %s" % kwargs["node"].path())
+            logger.debug(
+                'failed to set parm "comment" on node %s' % kwargs["node"].path()
+            )
 
         try:
             kwargs["node"].parm("user").set(user)
         except:
-            logger.debug("failed to set parm \"user\" on node %s" % kwargs["node"].path())
+            logger.debug('failed to set parm "user" on node %s' % kwargs["node"].path())
 
         try:
             kwargs["node"].parm("date").set(date)
         except:
-            logger.debug("failed to set parm \"date\" on node %s" % kwargs["node"].path())
+            logger.debug('failed to set parm "date" on node %s' % kwargs["node"].path())
 
     @err_catcher(name=__name__)
     def setPathFromNode(self, kwargs):
         state = self.getStateFromNode(kwargs)
-        state.ui.e_file.setText(kwargs["script_value"])
+        state.ui.setImportPath(kwargs["script_value"])
         state.ui.importObject()
         state.ui.updateUi()
         self.refreshUiFromNode(kwargs)
@@ -170,12 +183,17 @@ class Prism_Houdini_ImportFile(object):
         if node:
             cachePath = node.parm("filepath").eval()
             data = self.core.paths.getCachePathData(cachePath)
-            if data["entityType"] == "asset":
-                parents = os.path.dirname(data["fullEntity"]).replace("\\", "/").split("/")
-            elif data["entityType"] == "shot":
+            if data.get("type") == "asset":
+                parents = (
+                    os.path.dirname(data["asset_path"]).replace("\\", "/").split("/")
+                )
+            elif data.get("type") == "shot":
                 parents = [data["sequence"], data["shot"]]
 
         sm = self.core.getStateManager()
+        if not sm:
+            return
+
         state = None
         states = sm.states
         createdStates = []
@@ -233,15 +251,25 @@ class Prism_Houdini_ImportFile(object):
     @err_catcher(name=__name__)
     def getNodeDescription(self):
         node = hou.pwd()
-        task = node.parm("task").eval()
+        product = node.parm("product").eval()
         version = node.parm("version").eval()
 
-        descr = task + "\n" + version
+        descr = product + "\n" + version
         return descr
 
     @err_catcher(name=__name__)
     def abcGroupsToggled(self, kwargs):
-        abcNode = self.getStateFromNode(kwargs).ui.fileNode
+        state = self.getStateFromNode(kwargs)
+        if not state:
+            return
+
+        abcNode = state.ui.fileNode
+        if not abcNode:
+            return
+
+        if abcNode.type().name() != "alembic":
+            return
+
         if kwargs["node"].parm("groupsAbc").eval():
             abcNode.parm("groupnames").set(4)
         else:

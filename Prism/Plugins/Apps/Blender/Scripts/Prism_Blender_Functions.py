@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -40,25 +41,19 @@ import time
 import shutil
 import logging
 import operator
+import tempfile
 
 import bpy
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
-
-try:
-    del sys.modules["widget_import_scenedata"]
-except:
-    pass
+if eval(os.getenv("PRISM_DEBUG", "False")):
+    try:
+        del sys.modules["widget_import_scenedata"]
+    except:
+        pass
 
 import widget_import_scenedata
 from PrismUtils.Decorators import err_catcher as err_catcher
@@ -100,6 +95,34 @@ class Prism_Blender_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+        self.core.registerCallback(
+            "onUserSettingsOpen", self.onUserSettingsOpen, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onProjectBrowserStartup", self.onProjectBrowserStartup, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onStateManagerOpen", self.onStateManagerOpen, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onStateCreated", self.onStateCreated, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "prePlayblast", self.prePlayblast, plugin=self.plugin
+        )
+
+        self.importHandlers = {
+            ".abc": {"importFunction": self.importAlembic},
+            ".fbx": {"importFunction": self.importFBX},
+            ".obj": {"importFunction": self.importObj},
+        }
+
+        self.exportHandlers = {
+            ".abc": {"exportFunction": self.exportAlembic},
+            ".fbx": {"exportFunction": self.exportFBX},
+            ".obj": {"exportFunction": self.exportObj},
+            ".blend": {"exportFunction": self.exportBlend},
+        }
 
     @err_catcher(name=__name__)
     def startup(self, origin):
@@ -122,9 +145,15 @@ class Prism_Blender_Functions(object):
         except:
             return False
 
-        origin.timer.stop()
+        self.core.setActiveStyleSheet("Blender")
+        appIcon = QIcon(
+            os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
+        )
+        qapp = QApplication.instance()
+        qapp.setWindowIcon(appIcon)
 
-        origin.startasThread()
+        origin.timer.stop()
+        origin.startAutosaveTimer()
 
     @err_catcher(name=__name__)
     def autosaveEnabled(self, origin):
@@ -134,22 +163,9 @@ class Prism_Blender_Functions(object):
             return bpy.context.preferences.filepaths.use_auto_save_temporary_files
 
     @err_catcher(name=__name__)
-    def onProjectChanged(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
-        if hasattr(origin, "asThread") and origin.asThread.isRunning():
-            origin.startasThread()
-
-    @err_catcher(name=__name__)
-    def executeScript(self, origin, code):
-        try:
-            return eval(code)
-        except Exception as e:
-            raise type(e)(str(e) + "\npython code:\n%s" % code).with_traceback(
-                sys.exc_info()[2]
-            )
+        if self.core.shouldAutosaveTimerRun():
+            origin.startAutosaveTimer()
 
     @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
@@ -166,11 +182,16 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def saveScene(self, origin, filepath, details={}):
-        return bpy.ops.wm.save_as_mainfile(self.getOverrideContext(origin), filepath=filepath)
+        filepath = os.path.normpath(filepath)
+        if bpy.app.version < (4, 0, 0):
+            return bpy.ops.wm.save_as_mainfile(self.getOverrideContext(origin), filepath=filepath)
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                return bpy.ops.wm.save_as_mainfile(filepath=filepath)
 
     @err_catcher(name=__name__)
     def getImportPaths(self, origin):
-        if not "PrismImports" in bpy.context.scene:
+        if "PrismImports" not in bpy.context.scene:
             return False
         else:
             return bpy.context.scene["PrismImports"]
@@ -189,10 +210,19 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def setFrameRange(self, origin, startFrame, endFrame):
-        bpy.context.scene.frame_start = startFrame
-        bpy.context.scene.frame_end = endFrame
-        bpy.context.scene.frame_current = startFrame
-        bpy.ops.action.view_all(self.getOverrideContext(origin, context="DOPESHEET_EDITOR"))
+        bpy.context.scene.frame_start = int(startFrame)
+        bpy.context.scene.frame_end = int(endFrame)
+        bpy.context.scene.frame_current = int(startFrame)
+        if bpy.app.version < (4, 0, 0):
+            try:
+                bpy.ops.action.view_all(
+                    self.getOverrideContext(origin, context="DOPESHEET_EDITOR")
+                )
+            except:
+                pass
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(context="DOPESHEET_EDITOR")):
+                bpy.ops.action.view_all()
 
     @err_catcher(name=__name__)
     def getFPS(self, origin):
@@ -200,7 +230,7 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def setFPS(self, origin, fps):
-        bpy.context.scene.render.fps = fps
+        bpy.context.scene.render.fps = int(fps)
 
     @err_catcher(name=__name__)
     def getResolution(self):
@@ -229,28 +259,23 @@ class Prism_Blender_Functions(object):
         if not filepath.endswith(".blend"):
             return False
 
-        bpy.ops.wm.open_mainfile(filepath=filepath)
+        ctx = self.getOverrideContext(dftContext=False)
+        try:
+            if bpy.app.version < (4, 0, 0):
+                bpy.ops.wm.open_mainfile(ctx, "INVOKE_DEFAULT", filepath=filepath, display_file_selector=False)
+            else:
+                bpy.ops.wm.open_mainfile(filepath=filepath, display_file_selector=False)
+        except Exception as e:
+            if "File written by newer Blender binary" in str(e):
+                msg = "Warning occurred while opening file:\n\n%s" % str(e)
+                self.core.popup(msg)
+            else:
+                raise
 
         return True
 
     @err_catcher(name=__name__)
-    def correctExt(self, origin, lfilepath):
-        return lfilepath
-
-    @err_catcher(name=__name__)
-    def setSaveColor(self, origin, btn):
-        btn.setPalette(origin.savedPalette)
-
-    @err_catcher(name=__name__)
-    def clearSaveColor(self, origin, btn):
-        btn.setPalette(origin.oldPalette)
-
-    @err_catcher(name=__name__)
-    def setProject_loading(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def onPrismSettingsOpen(self, origin):
+    def onUserSettingsOpen(self, origin):
         origin.resize(origin.width(), origin.height() + 60)
 
     @err_catcher(name=__name__)
@@ -263,9 +288,17 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def createGroups(self, name):
         if bpy.app.version < (2, 80, 0):
-            bpy.ops.group.create(name=name)
+            return bpy.ops.group.create(self.getOverrideContext(), name=name)
         else:
-            bpy.ops.collection.create(name=name)
+            if bpy.app.version < (4, 0, 0):
+                if bpy.ops.collection.create.poll(self.getOverrideContext()):
+                    return bpy.ops.collection.create(self.getOverrideContext(), name=name)
+            else:
+                ctx = self.getOverrideContext()
+                ctx.pop("region")
+                with bpy.context.temp_override(**ctx):
+                    if bpy.ops.collection.create.poll():
+                        return bpy.ops.collection.create(name=name)
 
     @err_catcher(name=__name__)
     def getSelectObject(self, obj):
@@ -306,7 +339,9 @@ class Prism_Blender_Functions(object):
                             "Set viewlayer '%s' active" % obj_layer.name,
                             QMessageBox.YesRole,
                         )
-                        msg.addButton("Skip object '%s'" % obj.name, QMessageBox.YesRole)
+                        msg.addButton(
+                            "Skip object '%s'" % obj.name, QMessageBox.YesRole
+                        )
 
                         self.core.parentWindow(msg)
                         action = msg.exec_()
@@ -331,10 +366,14 @@ class Prism_Blender_Functions(object):
     def sm_export_addObjects(self, origin, objects=None):
         taskName = origin.getTaskname()
         if not taskName:
-            taskName = self.sm_export_setTaskText(origin, None, "Export")
+            origin.setTaskname("Export")
+            taskName = origin.getTaskname()
 
         if taskName not in self.getGroups():
-            self.createGroups(name=taskName)
+            result = self.createGroups(name=taskName)
+            if not result:
+                self.core.popup("Couldn't add objects. Make sure you are in a context where collections can be created.")
+                return
 
         if not objects:
             objects = [
@@ -347,9 +386,6 @@ class Prism_Blender_Functions(object):
         for i in objects:
             self.getGroups()[taskName].objects.link(i)
 
-        origin.updateUi()
-        origin.stateManager.saveStatesToScene()
-
     @err_catcher(name=__name__)
     def getNodeName(self, origin, node):
         return node["name"]
@@ -357,9 +393,14 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def selectNodes(self, origin):
         if origin.lw_objects.selectedItems() != []:
-            bpy.ops.object.select_all(
-                self.getOverrideContext(origin), action="DESELECT"
-            )
+            if bpy.app.version < (4, 0, 0):
+                bpy.ops.object.select_all(
+                    self.getOverrideContext(origin), action="DESELECT"
+                )
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext()):
+                    bpy.ops.object.select_all(action="DESELECT")
+
             for i in origin.lw_objects.selectedItems():
                 node = origin.nodes[origin.lw_objects.row(i)]
                 if self.getObject(node):
@@ -383,27 +424,39 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def selectCam(self, origin):
         if self.getObject(origin.curCam):
-            bpy.ops.object.select_all(
-                self.getOverrideContext(origin), action="DESELECT"
-            )
+            if bpy.app.version < (4, 0, 0):
+                bpy.ops.object.select_all(
+                    self.getOverrideContext(origin), action="DESELECT"
+                )
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext()):
+                    bpy.ops.object.select_all(action="DESELECT")
+
             self.selectObject(self.getObject(origin.curCam))
 
     @err_catcher(name=__name__)
     def sm_export_startup(self, origin):
         if origin.className == "Export":
-            origin.l_convertExport.setText("Additional export in centimeters:")
             origin.w_additionalOptions.setVisible(False)
+
+    @err_catcher(name=__name__)
+    def getValidGroupName(self, groupName):
+        extension = 1
+        while groupName in self.getGroups() and extension < 999:
+            if "%s_%s" % (groupName, extension) not in self.getGroups():
+                groupName += "_%s" % extension
+            extension += 1
+
+        return groupName
 
     @err_catcher(name=__name__)
     def sm_export_setTaskText(self, origin, prevTaskName, newTaskName):
         setName = newTaskName
-
         if prevTaskName and prevTaskName in self.getGroups():
             self.getGroups()[prevTaskName].name = setName
         else:
             self.createGroups(name=setName)
 
-        origin.l_taskName.setText(setName)
         return setName
 
     @err_catcher(name=__name__)
@@ -411,9 +464,7 @@ class Prism_Blender_Functions(object):
         if origin.getTaskname() not in self.getGroups():
             return
 
-        self.getGroups()[origin.getTaskname()].objects.unlink(
-            self.getObject(node)
-        )
+        self.getGroups()[origin.getTaskname()].objects.unlink(self.getObject(node))
 
     @err_catcher(name=__name__)
     def sm_export_clearSet(self, origin):
@@ -442,43 +493,7 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def sm_export_exportShotcam(self, origin, startFrame, endFrame, outputName):
         self.selectCam(origin)
-        bpy.ops.wm.alembic_export(
-            self.getOverrideContext(origin),
-            filepath=(outputName + ".abc"),
-            start=startFrame,
-            end=endFrame,
-            selected=True,
-            as_background_job=False,
-        )
-        self.selectCam(origin)
-        bpy.ops.export_scene.fbx(
-            self.getOverrideContext(origin),
-            filepath=(outputName + ".fbx"),
-            use_selection=True,
-        )
-
-        if (
-            origin.chb_convertExport.isChecked()
-        ):  # disabled because of a blender bug (rescales animated object back to 1 on export)
-            prevObjs = list(bpy.context.scene.objects)
-            bpy.ops.object.empty_add(type="PLAIN_AXES")
-            empObj = [x for x in bpy.context.scene.objects if x not in prevObjs][0]
-            empObj.name = "SCALEOVERRIDE"
-            empObj.location = [0, 0, 0]
-
-            self.getObject(origin.curCam).parent = empObj
-            sVal = 100
-            empObj.scale = [sVal, sVal, sVal]
-
-            outputName = os.path.join(
-                os.path.dirname(os.path.dirname(outputName)),
-                "centimeter",
-                os.path.basename(outputName),
-            )
-            if not os.path.exists(os.path.dirname(outputName)):
-                os.makedirs(os.path.dirname(outputName))
-
-            self.selectCam(origin)
+        if bpy.app.version < (4, 0, 0):
             bpy.ops.wm.alembic_export(
                 self.getOverrideContext(origin),
                 filepath=(outputName + ".abc"),
@@ -487,79 +502,89 @@ class Prism_Blender_Functions(object):
                 selected=True,
                 as_background_job=False,
             )
-            self.selectCam(origin)
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext()):
+                bpy.ops.wm.alembic_export(
+                    filepath=(outputName + ".abc"),
+                    start=startFrame,
+                    end=endFrame,
+                    selected=True,
+                    as_background_job=False,
+                )
+
+        self.selectCam(origin)
+        if bpy.app.version < (4, 0, 0):
             bpy.ops.export_scene.fbx(
                 self.getOverrideContext(origin),
                 filepath=(outputName + ".fbx"),
                 use_selection=True,
             )
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext()):
+                bpy.ops.export_scene.fbx(
+                    filepath=(outputName + ".fbx"),
+                    use_selection=True,
+                )
 
-            sVal = 0.01
-            empObj.scale = [sVal, sVal, sVal]
-
+        if bpy.app.version < (4, 0, 0):
             bpy.ops.object.select_all(
                 self.getOverrideContext(origin), action="DESELECT"
             )
-            self.selectObject(empObj)
-            bpy.ops.object.delete(self.getOverrideContext(origin))
-
-        bpy.ops.object.select_all(self.getOverrideContext(origin), action="DESELECT")
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext()):
+                bpy.ops.object.select_all(action="DESELECT")
 
     @err_catcher(name=__name__)
-    def sm_export_exportAppObjects(
-        self,
-        origin,
-        startFrame,
-        endFrame,
-        outputName,
-        scaledExport=False,
-        expNodes=None,
-    ):
-        if expNodes is None:
-            expNodes = origin.nodes
-
-        ctx = self.getOverrideContext(origin)
-        if bpy.app.version >= (2, 80, 0):
-            ctx.pop("screen")
-            ctx.pop("area")
-        bpy.ops.object.select_all(ctx, action="DESELECT")
-        for i in expNodes:
-            if self.getObject(i):
-                self.selectObject(self.getObject(i))
-
-        outType = origin.getOutputType()
-
-        if outType == ".obj":
-            for i in range(startFrame, endFrame + 1):
-                bpy.context.scene.frame_current = i
-                foutputName = outputName.replace("####", format(i, "04"))
+    def exportObj(self, outputName, origin, startFrame, endFrame, expNodes):
+        for i in range(startFrame, endFrame + 1):
+            bpy.context.scene.frame_current = i
+            foutputName = outputName.replace("####", format(i, "04"))
+            if bpy.app.version < (4, 0, 0):
                 bpy.ops.export_scene.obj(
                     self.getOverrideContext(origin),
                     filepath=foutputName,
                     use_selection=(not origin.chb_wholeScene.isChecked()),
                 )
-            outputName = foutputName
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext()):
+                    bpy.ops.wm.obj_export(
+                        filepath=foutputName,
+                        export_selected_objects=(not origin.chb_wholeScene.isChecked()),
+                    )
 
-        elif outType == ".fbx":
-            useAnim = startFrame != endFrame
-            if bpy.app.version >= (2, 79, 7):
+        outputName = foutputName
+        return outputName
+
+    @err_catcher(name=__name__)
+    def exportFBX(self, outputName, origin, startFrame, endFrame, expNodes):
+        useAnim = startFrame != endFrame
+        if bpy.app.version >= (2, 79, 7):
+            if bpy.app.version < (4, 0, 0):
                 bpy.ops.export_scene.fbx(
                     self.getOverrideContext(origin),
                     filepath=outputName,
                     use_selection=(not origin.chb_wholeScene.isChecked()),
-                    bake_anim=useAnim,
-                    global_scale=0.01,
+                    bake_anim=useAnim
                 )
             else:
-                bpy.ops.export_scene.fbx(
-                    self.getOverrideContext(origin),
-                    filepath=outputName,
-                    use_selection=(not origin.chb_wholeScene.isChecked()),
-                    use_anim=useAnim,
-                    global_scale=0.01,
-                )
+                with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                    bpy.ops.export_scene.fbx(
+                        filepath=outputName,
+                        use_selection=(not origin.chb_wholeScene.isChecked()),
+                        bake_anim=useAnim
+                    )
+        else:
+            bpy.ops.export_scene.fbx(
+                self.getOverrideContext(origin),
+                filepath=outputName,
+                use_selection=(not origin.chb_wholeScene.isChecked()),
+                use_anim=useAnim
+            )
+        return outputName
 
-        elif outType == ".abc":
+    @err_catcher(name=__name__)
+    def exportAlembic(self, outputName, origin, startFrame, endFrame, expNodes):
+        if bpy.app.version < (4, 0, 0):
             bpy.ops.wm.alembic_export(
                 self.getOverrideContext(origin),
                 filepath=outputName,
@@ -568,131 +593,141 @@ class Prism_Blender_Functions(object):
                 selected=(not origin.chb_wholeScene.isChecked()),
                 as_background_job=False,
             )
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                bpy.ops.wm.alembic_export(
+                    filepath=outputName,
+                    start=startFrame,
+                    end=endFrame,
+                    selected=(not origin.chb_wholeScene.isChecked()),
+                    as_background_job=False,
+                )
 
-        elif outType == ".usd":
+        return outputName
+
+    @err_catcher(name=__name__)
+    def exportBlend(self, outputName, origin, startFrame, endFrame, expNodes):
+        if origin.chb_wholeScene.isChecked():
+            shutil.copyfile(self.core.getCurrentFileName(), outputName)
+        else:
+            origin.setLastPath(outputName)
+            self.core.saveScene(prismReq=False)
+            for object_ in bpy.data.objects:
+                if object_ not in [self.getObject(x) for x in expNodes]:
+                    bpy.data.objects.remove(object_, do_unlink=True)
+            bpy.ops.wm.save_as_mainfile(filepath=outputName, copy=True)
+            bpy.ops.wm.revert_mainfile()
+            self.core.stateManager()
+
+        return outputName
+
+    @err_catcher(name=__name__)
+    def exportUsd(self, outputName, origin, startFrame, endFrame, expNodes):
+        from _bpy import ops as _ops_module
+        try:
+            _ops_module.as_string("WM_OT_usd_export")
+        except:
+            ext = os.path.splitext(outputName)[1]
+            msg = "Format \"%s\" is not supported in this Blender version. Exporting USD requires at least Blender 2.82" % ext
+            self.core.popup(msg)
+            return False
+
+        self.setFrameRange(origin, startFrame, endFrame)
+        if bpy.app.version < (4, 0, 0):
             bpy.ops.wm.usd_export(
                 self.getOverrideContext(origin),
                 filepath=outputName,
-                export_animation=startFrame!=endFrame,
+                export_animation=startFrame != endFrame,
                 selected_objects_only=(not origin.chb_wholeScene.isChecked()),
             )
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                bpy.ops.wm.usd_export(
+                    filepath=outputName,
+                    export_animation=startFrame != endFrame,
+                    selected_objects_only=(not origin.chb_wholeScene.isChecked()),
+                )
+        return outputName
 
-        elif outType == ".blend":
-            if origin.chb_wholeScene.isChecked():
-                shutil.copyfile(self.core.getCurrentFileName(), outputName)
-            else:
-                for object_ in bpy.data.objects:
-                    if object_ not in [self.getObject(x) for x in expNodes]:
-                        bpy.data.objects.remove(object_, do_unlink=True)
-                bpy.ops.wm.save_as_mainfile(filepath=outputName, copy=True)
-                bpy.ops.wm.revert_mainfile()
-                self.core.stateManager()
-
-        fileName = os.path.splitext(os.path.basename(outputName))
-        if scaledExport:
-            bpy.ops.wm.revert_mainfile()
-        elif origin.className == "Export" and origin.chb_convertExport.isChecked():
-            #   for i in expNodes:
-            #       bpy.data.objects.remove(bpy.data.objects[i], True)
-            #   existingNodes = list(bpy.data.objects)
-            #   if fileName[1] == ".fbx":
-            #       bpy.ops.import_scene.fbx(filepath=outputName, global_scale=100)
-            #   elif fileName[1] == ".obj":
-            #       bpy.ops.import_scene.obj(filepath=outputName)
-            #   elif fileName[1] == ".abc":
-            #       bpy.ops.wm.alembic_import(self.getOverrideContext(origin), filepath=outputName, set_frame_range=False, as_background_job=False)
-            #   elif fileName[1] == ".blend":
-            #       with bpy.data.libraries.load(outputName, link=False) as (data_from, data_to):
-            #           data_to.objects = data_from.objects
-            #
-            #               for obj in data_to.objects:
-            #                   if obj in existingNodes:
-            #                       del existingNodes[existingNodes.index(obj)]
-            #                   elif obj is not None:
-            #                       bpy.context.scene.objects.link(obj)
-            #
-            #           impNodes = []
-            #           for i in bpy.data.objects:
-            #               if i not in existingNodes:
-            #                   impNodes.append(i.name)
-
-            bpy.context.scene.frame_current = origin.sp_rangeStart.value()
-
-            scaleNodes = [x for x in expNodes if self.getObject(x).parent is None]
+    @err_catcher(name=__name__)
+    def sm_export_exportAppObjects(
+        self,
+        origin,
+        startFrame,
+        endFrame,
+        outputName,
+    ):
+        expNodes = origin.nodes
+        ctx = self.getOverrideContext(origin)
+        if bpy.app.version >= (2, 80, 0):
+            ctx.pop("screen")
+            ctx.pop("area")
+        if bpy.app.version < (4, 0, 0):
             bpy.ops.object.select_all(ctx, action="DESELECT")
-            for i in scaleNodes:
-                if self.getObject(i):
-                    self.selectObject(self.getObject(i))
-            # bpy.ops.object.transform_apply(self.getOverrideContext(origin), location=True, rotation=True, scale=True)
+        else:
+            with bpy.context.temp_override(**ctx):
+                bpy.ops.object.select_all(action="DESELECT")
 
-            for i in scaleNodes:
-                prevObjs = list(bpy.context.scene.objects)
-                bpy.ops.object.empty_add(type="PLAIN_AXES")
-                empObj = [x for x in bpy.context.scene.objects if x not in prevObjs][0]
-                empObj.name = "SCALEOVERRIDE_" + i["name"]
-                empObj.location = [0, 0, 0]
+        for i in expNodes:
+            if self.getObject(i):
+                self.selectObject(self.getObject(i))
 
-                self.getObject(i).parent = empObj
-                sVal = 100
-                empObj.scale = [sVal, sVal, sVal]
+        ext = origin.getOutputType()
+        if ext in self.exportHandlers:
+            outputName = self.exportHandlers[ext]["exportFunction"](
+                outputName, origin, startFrame, endFrame, expNodes
+            )
+        else:
+            msg = "Canceled: Format \"%s\" is not supported." % ext
+            return msg
 
+        if bpy.app.version < (4, 0, 0):
             bpy.ops.object.select_all(ctx, action="DESELECT")
-            for i in expNodes:
-                if self.getObject(i):
-                    self.selectObject(self.getObject(i))
-            #   bpy.ops.object.transform_apply(self.getOverrideContext(origin), location=True, rotation=True, scale=True)
-
-            outputName = os.path.join(
-                os.path.dirname(os.path.dirname(outputName)),
-                "centimeter",
-                os.path.basename(outputName),
-            )
-            if not os.path.exists(os.path.dirname(outputName)):
-                os.makedirs(os.path.dirname(outputName))
-
-            outputName = self.sm_export_exportAppObjects(
-                origin,
-                startFrame,
-                endFrame,
-                outputName,
-                scaledExport=True,
-                expNodes=expNodes,
-            )
-
-        bpy.ops.object.select_all(ctx, action="DESELECT")
+        else:
+            with bpy.context.temp_override(**ctx):
+                bpy.ops.object.select_all(action="DESELECT")
 
         return outputName
 
     @err_catcher(name=__name__)
     def sm_export_preDelete(self, origin):
         try:
-            self.getGroups().remove(self.getGroups()[origin.getTaskname()], True)
-        except:
-            pass
+            self.getGroups().remove(self.getGroups()[origin.getTaskname()], do_unlink=True)
+        except Exception as e:
+            logger.debug(e)
 
     @err_catcher(name=__name__)
-    def getOverrideContext(self, origin, context=None):
+    def getOverrideContext(self, origin=None, context=None, dftContext=True):
+        if dftContext:
+            ctx = bpy.context.copy()
+        else:
+            ctx = {}
+
         for window in bpy.context.window_manager.windows:
+            ctx["window"] = window
             screen = window.screen
+            ctx["screen"] = screen
 
             if context:
                 for area in screen.areas:
                     if area.type == context:
-                        override = {"window": window, "screen": screen, "area": area}
+                        ctx["area"] = area
                         for region in area.regions:
-                            if region.type == 'WINDOW':
-                                override = {"window": window, "screen": screen, "area": area, "region": region}
-                                return override
+                            if region.type == "WINDOW":
+                                ctx["region"] = region
+                                return ctx
 
             for area in screen.areas:
                 if area.type == "VIEW_3D":
-                    override = {"window": window, "screen": screen, "area": area}
-                    return override
+                    ctx["area"] = area
+                    return ctx
 
             for area in screen.areas:
                 if area.type == "IMAGE_EDITOR":
-                    override = {"window": window, "screen": screen, "area": area}
-                    return override
+                    ctx["area"] = area
+                    return ctx
+
+        return ctx
 
     @err_catcher(name=__name__)
     def sm_export_preExecute(self, origin, startFrame, endFrame):
@@ -715,14 +750,6 @@ class Prism_Blender_Functions(object):
                 )
 
         return warnings
-
-    @err_catcher(name=__name__)
-    def sm_render_isVray(self, origin):
-        return False
-
-    @err_catcher(name=__name__)
-    def sm_render_setVraySettings(self, origin):
-        pass
 
     @err_catcher(name=__name__)
     def sm_render_startup(self, origin):
@@ -753,7 +780,7 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def getNodeAOVs(self):
-        if bpy.context.scene.node_tree is None or bpy.context.scene.use_nodes:
+        if bpy.context.scene.node_tree is None or not bpy.context.scene.use_nodes:
             return
 
         outNodes = [
@@ -810,7 +837,9 @@ class Prism_Blender_Functions(object):
     def getAvailableAOVs(self):
         curlayer = bpy.context.window_manager.windows[0].view_layer
         aovParms = [x for x in dir(curlayer) if x.startswith("use_pass_")]
-        aovParms += ["cycles." + x for x in dir(curlayer.cycles) if x.startswith("use_pass_")]
+        aovParms += [
+            "cycles." + x for x in dir(curlayer.cycles) if x.startswith("use_pass_")
+        ]
         aovs = [
             {"name": "Denoising Data", "parm": "cycles.denoising_store_passes"},
             {"name": "Render Time", "parm": "cycles.pass_debug_render_time"},
@@ -825,7 +854,7 @@ class Prism_Blender_Functions(object):
             name = nameOverrides[name] if name in nameOverrides else name
             aovs.append({"name": name, "parm": aov})
 
-        aovs = sorted(aovs, key= lambda x: x["name"])
+        aovs = sorted(aovs, key=lambda x: x["name"])
 
         return aovs
 
@@ -921,8 +950,6 @@ class Prism_Blender_Functions(object):
         bpy.context.scene["PrismIsRendering"] = True
         bpy.context.scene.render.filepath = rSettings["outputName"]
         bpy.context.scene.render.image_settings.file_format = fileFormat
-        if imgFormat != ".jpg":
-            bpy.context.scene.render.image_settings.color_depth = "16"
         bpy.context.scene.render.use_overwrite = True
         bpy.context.scene.render.use_file_extension = False
         bpy.context.scene.render.resolution_percentage = 100
@@ -1017,10 +1044,10 @@ class Prism_Blender_Functions(object):
                     "Local rendering - %s - please wait.." % origin.state.text(0),
                     QMessageBox.Cancel,
                 )
-            #    self.core.parentWindow(origin.waitmsg)
-            #    origin.waitmsg.buttons()[0].setHidden(True)
-            #    origin.waitmsg.show()
-            #    QCoreApplication.processEvents()
+                #    self.core.parentWindow(origin.waitmsg)
+                #    origin.waitmsg.buttons()[0].setHidden(True)
+                #    origin.waitmsg.show()
+                #    QCoreApplication.processEvents()
 
                 bpy.app.handlers.render_complete.append(renderFinished_handler)
                 bpy.app.handlers.render_cancel.append(renderFinished_handler)
@@ -1029,8 +1056,11 @@ class Prism_Blender_Functions(object):
 
             ctx = self.getOverrideContext(origin)
             if bpy.app.version >= (2, 80, 0):
-                ctx.pop("screen")
-                ctx.pop("area")
+                if "screen" in ctx:
+                    ctx.pop("screen")
+
+                if "area" in ctx:
+                    ctx.pop("area")
 
             if rSettings["startFrame"] is None:
                 frameChunks = [[x, x] for x in rSettings["frames"]]
@@ -1044,7 +1074,21 @@ class Prism_Blender_Functions(object):
                 bpy.context.scene.frame_start = frameChunk[0]
                 bpy.context.scene.frame_end = frameChunk[1]
                 singleFrame = rSettings["rangeType"] == "Single Frame"
-                bpy.ops.render.render(ctx, "INVOKE_DEFAULT", animation=not singleFrame, write_still=singleFrame)
+                if bpy.app.version < (4, 0, 0):
+                    bpy.ops.render.render(
+                        ctx,
+                        "INVOKE_DEFAULT",
+                        animation=not singleFrame,
+                        write_still=singleFrame,
+                    )
+                else:
+                    with bpy.context.temp_override(**ctx):
+                        bpy.ops.render.render(
+                            "INVOKE_DEFAULT",
+                            animation=not singleFrame,
+                            write_still=singleFrame,
+                        )
+                
                 origin.renderingStarted = True
                 origin.LastRSettings = rSettings
 
@@ -1168,7 +1212,11 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_render_getRenderPasses(self, origin):
-        aovNames = [x["name"] for x in self.getAvailableAOVs() if x["name"] not in self.getViewLayerAOVs()]
+        aovNames = [
+            x["name"]
+            for x in self.getAvailableAOVs()
+            if x["name"] not in self.getViewLayerAOVs()
+        ]
         return aovNames
 
     @err_catcher(name=__name__)
@@ -1189,7 +1237,9 @@ class Prism_Blender_Functions(object):
     def sm_render_fixOutputPath(self, origin, outputName, singleFrame=False):
         if not singleFrame:
             outputName = (
-                os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
+                os.path.splitext(outputName)[0]
+                + "." + "#"*self.core.framePadding
+                + os.path.splitext(outputName)[1]
             )
         return outputName
 
@@ -1213,11 +1263,93 @@ class Prism_Blender_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_import_startup(self, origin):
-        origin.b_browse.setMinimumWidth(50 * self.core.uiScaleFactor)
-        origin.b_browse.setMaximumWidth(50 * self.core.uiScaleFactor)
         origin.f_abcPath.setVisible(True)
-        origin.f_unitConversion.setVisible(False)
-        origin.l_preferUnit.setText("Prefer versions in cm:")
+
+    @err_catcher(name=__name__)
+    def importAlembic(self, importPath, origin):
+        if origin.chb_abcPath.isChecked() and len(origin.nodes) > 0:
+            cache = None
+            for i in origin.nodes:
+                constraints = [
+                    x
+                    for x in self.getObject(i).constraints
+                    if x.type == "TRANSFORM_CACHE"
+                ]
+                modifiers = [
+                    x
+                    for x in self.getObject(i).modifiers
+                    if x.type == "MESH_SEQUENCE_CACHE"
+                ]
+                if len(constraints) > 0:
+                    cache = constraints[0].cache_file
+                elif len(modifiers) > 0:
+                    cache = modifiers[0].cache_file
+
+            if cache is not None:
+                cache.filepath = importPath
+                cache.name = os.path.basename(importPath)
+            #       bpy.context.scene.frame_current += 1        #updates the cache, but leads to crashes
+            #       bpy.context.scene.frame_current -= 1
+            else:
+                self.core.popup("No caches updated.")
+            return True
+        else:
+            if bpy.app.version < (4, 0, 0):
+                bpy.ops.wm.alembic_import(
+                    self.getOverrideContext(origin),
+                    filepath=importPath,
+                    set_frame_range=False,
+                    as_background_job=False,
+                )
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                    bpy.ops.wm.alembic_import(
+                        filepath=importPath,
+                        set_frame_range=False,
+                        as_background_job=False,
+                    )
+
+    @err_catcher(name=__name__)
+    def importFBX(self, importPath, origin):
+        if bpy.app.version < (4, 0, 0):
+            bpy.ops.import_scene.fbx(self.getOverrideContext(origin), filepath=importPath)
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                bpy.ops.import_scene.fbx(filepath=importPath)
+
+    @err_catcher(name=__name__)
+    def importObj(self, importPath, origin):
+        if bpy.app.version < (4, 0, 0):
+            bpy.ops.import_scene.obj(self.getOverrideContext(origin), filepath=importPath)
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                bpy.ops.wm.obj_import(filepath=importPath)
+
+    @err_catcher(name=__name__)
+    def importUsd(self, filepath, origin):
+        from _bpy import ops as _ops_module
+        try:
+            _ops_module.as_string("WM_OT_usd_import")
+        except:
+            ext = os.path.splitext(filepath)[1]
+            msg = "Format \"%s\" is not supported in this Blender version. Importing USD requires at least Blender 3.0." % ext
+            self.core.popup(msg)
+            return False
+
+        if bpy.app.version < (4, 0, 0):
+            bpy.ops.wm.usd_import(
+                self.getOverrideContext(origin),
+                filepath=filepath,
+                set_frame_range=False,
+                import_usd_preview=True,
+            )
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                bpy.ops.wm.usd_import(
+                    filepath=filepath,
+                    set_frame_range=False,
+                    import_usd_preview=True,
+                )
 
     @err_catcher(name=__name__)
     def sm_import_importToApp(self, origin, doImport, update, impFileName):
@@ -1227,7 +1359,9 @@ class Prism_Blender_Functions(object):
 
         ext = fileName[1].lower()
         if ext in [".blend"]:
-            dlg_sceneData = widget_import_scenedata.Import_SceneData(self.core, self.plugin)
+            dlg_sceneData = widget_import_scenedata.Import_SceneData(
+                self.core, self.plugin
+            )
             dlgResult = dlg_sceneData.importScene(impFileName, update, origin)
             if not dlgResult:
                 return
@@ -1236,53 +1370,17 @@ class Prism_Blender_Functions(object):
                 result = True
             existingNodes = dlg_sceneData.existingNodes
         else:
-            if ext not in [".fbx", ".obj", ".abc"]:
-                self.core.popup("Format is not supported.")
-                return {"result": False, "doImport": doImport}
-
             if not (ext == ".abc" and origin.chb_abcPath.isChecked()):
                 origin.preDelete(
                     baseText="Do you want to delete the currently connected objects?\n\n"
                 )
             existingNodes = list(bpy.data.objects)
-            if ext == ".fbx":
-                bpy.ops.import_scene.fbx(filepath=impFileName, global_scale=100)
-            elif ext == ".obj":
-                bpy.ops.import_scene.obj(filepath=impFileName)
-            elif ext == ".abc":
-                if origin.chb_abcPath.isChecked() and len(origin.nodes) > 0:
-                    cache = None
-                    for i in origin.nodes:
-                        constraints = [
-                            x
-                            for x in self.getObject(i).constraints
-                            if x.type == "TRANSFORM_CACHE"
-                        ]
-                        modifiers = [
-                            x
-                            for x in self.getObject(i).modifiers
-                            if x.type == "MESH_SEQUENCE_CACHE"
-                        ]
-                        if len(constraints) > 0:
-                            cache = constraints[0].cache_file
-                        elif len(modifiers) > 0:
-                            cache = modifiers[0].cache_file
 
-                    if cache is not None:
-                        cache.filepath = impFileName
-                        cache.name = os.path.basename(impFileName)
-                    #       bpy.context.scene.frame_current += 1        #updates the cache, but leads to crashes
-                    #       bpy.context.scene.frame_current -= 1
-                    else:
-                        self.core.popup("No caches updated.")
-                    result = True
-                else:
-                    bpy.ops.wm.alembic_import(
-                        self.getOverrideContext(origin),
-                        filepath=impFileName,
-                        set_frame_range=False,
-                        as_background_job=False,
-                    )
+            if ext in self.importHandlers:
+                result = self.importHandlers[ext]["importFunction"](impFileName, origin)
+            else:
+                self.core.popup("Format is not supported.")
+                return {"result": False, "doImport": doImport}
 
         if not result:
             importedNodes = []
@@ -1307,9 +1405,13 @@ class Prism_Blender_Functions(object):
                     if obj and obj.name not in self.getGroups()[origin.setName].objects:
                         self.getGroups()[origin.setName].objects.link(obj)
 
-            bpy.ops.object.select_all(
-                self.getOverrideContext(origin), action="DESELECT"
-            )
+            if bpy.app.version < (4, 0, 0):
+                bpy.ops.object.select_all(
+                    self.getOverrideContext(origin), action="DESELECT"
+                )
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                    bpy.ops.object.select_all(action="DESELECT")
 
             objs = [self.getObject(x) for x in importedNodes]
             self.selectObjects(objs, quiet=True)
@@ -1332,7 +1434,10 @@ class Prism_Blender_Functions(object):
             node = self.getNode(node)
 
         for obj in bpy.data.objects:
-            if obj.name == node["name"] and getattr(obj.library, "filepath", "") == node["library"]:
+            if (
+                obj.name == node["name"]
+                and getattr(obj.library, "filepath", "") == node["library"]
+            ):
                 return obj
 
     @err_catcher(name=__name__)
@@ -1373,39 +1478,8 @@ class Prism_Blender_Functions(object):
         origin.updateUi()
 
     @err_catcher(name=__name__)
-    def sm_import_unitConvert(self, origin):
-        if origin.taskName == "ShotCam" and len(origin.nodes) == 1:
-            prevObjs = list(bpy.context.scene.objects)
-            bpy.ops.object.empty_add(type="PLAIN_AXES")
-            empObj = [x for x in bpy.context.scene.objects if x not in prevObjs][0]
-            empObj.name = "UnitConversion"
-            empObj.location = [0, 0, 0]
-
-            self.getObject(origin.nodes[0]).parent = empObj
-            sVal = 0.01
-            empObj.scale = [sVal, sVal, sVal]
-
-            bpy.ops.object.select_all(
-                self.getOverrideContext(origin), action="DESELECT"
-            )
-            self.selectObject(self.getObject(origin.nodes[0]))
-            bpy.ops.object.parent_clear(
-                self.getOverrideContext(origin), type="CLEAR_KEEP_TRANSFORM"
-            )
-
-            bpy.ops.object.select_all(
-                self.getOverrideContext(origin), action="DESELECT"
-            )
-            self.selectObject(empObj)
-            bpy.ops.object.delete(self.getOverrideContext(origin))
-
-    @err_catcher(name=__name__)
     def sm_import_fixImportPath(self, filepath):
         return filepath.replace("\\\\", "\\")
-
-    @err_catcher(name=__name__)
-    def sm_import_updateUi(self, origin):
-        origin.f_unitConversion.setVisible(origin.taskName == "ShotCam")
 
     @err_catcher(name=__name__)
     def sm_playblast_startup(self, origin):
@@ -1417,13 +1491,21 @@ class Prism_Blender_Functions(object):
         origin.b_resPresets.setMaximumHeight(500 * self.core.uiScaleFactor)
 
     @err_catcher(name=__name__)
-    def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
-        singleFrame = origin.cb_rangeType.currentText() == "Single Frame"
-        if not singleFrame:
+    def prePlayblast(self, **kwargs):
+        renderAnim = kwargs["startframe"] != kwargs["endframe"]
+        if not renderAnim:
             outputName = (
-                os.path.splitext(outputName)[0] + "####" + os.path.splitext(outputName)[1]
+                os.path.splitext(kwargs["outputpath"])[0]
+                + "."
+                + ("%0" + str(self.core.framePadding) + "d") % kwargs["startframe"]
+                + os.path.splitext(kwargs["outputpath"])[1]
             )
 
+            return {"outputName": outputName}
+
+    @err_catcher(name=__name__)
+    def sm_playblast_createPlayblast(self, origin, jobFrames, outputName):
+        renderAnim = jobFrames[0] != jobFrames[1]
         if origin.curCam is not None:
             bpy.context.scene.camera = bpy.context.scene.objects[origin.curCam]
             for window in bpy.context.window_manager.windows:
@@ -1432,8 +1514,6 @@ class Prism_Blender_Functions(object):
                     if area.type == "VIEW_3D":
                         area.spaces[0].region_3d.view_perspective = "CAMERA"
                         break
-
-        renderAnim = jobFrames[0] != jobFrames[1]
 
         prevRange = [bpy.context.scene.frame_start, bpy.context.scene.frame_end]
         prevRes = [
@@ -1454,12 +1534,16 @@ class Prism_Blender_Functions(object):
             bpy.context.scene.render.resolution_y = origin.sp_resHeight.value()
             bpy.context.scene.render.resolution_percentage = 100
 
-        bpy.context.scene.render.filepath = outputName
+        bpy.context.scene.render.filepath = os.path.normpath(outputName)
         bpy.context.scene.render.image_settings.file_format = "JPEG"
 
-        bpy.ops.render.opengl(
-            self.getOverrideContext(origin), animation=renderAnim, write_still=True
-        )
+        if bpy.app.version < (4, 0, 0):
+            bpy.ops.render.opengl(
+                self.getOverrideContext(origin), animation=renderAnim, write_still=True
+            )
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                bpy.ops.render.opengl(animation=renderAnim, write_still=True)
 
         bpy.context.scene.frame_start = prevRange[0]
         bpy.context.scene.frame_end = prevRange[1]
@@ -1480,16 +1564,29 @@ class Prism_Blender_Functions(object):
         pass
 
     @err_catcher(name=__name__)
+    def captureViewportThumbnail(self):
+        path = tempfile.NamedTemporaryFile(suffix=".jpg").name
+        if bpy.app.version < (4, 0, 0):
+            bpy.ops.screen.screenshot(self.getOverrideContext(), filepath=path)
+        else:
+            with bpy.context.temp_override(**self.getOverrideContext()):
+                bpy.ops.screen.screenshot(filepath=path)
+
+        pm = self.core.media.getPixmapFromPath(path)
+        try:
+            os.remove(path)
+        except:
+            pass
+
+        return pm
+
+    @err_catcher(name=__name__)
     def sm_setActivePalette(self, origin, listWidget, inactive, inactivef, activef):
         listWidget.setStyleSheet("QTreeWidget { border: 1px solid rgb(30,130,230); }")
         inactive.setStyleSheet("QTreeWidget { border: 1px solid rgb(30,30,30); }")
 
     @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin):
-        startframe, endframe = self.getFrameRange(origin)
-        origin.sp_rangeStart.setValue(startframe)
-        origin.sp_rangeEnd.setValue(endframe)
-
         origin.b_showImportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
         origin.b_showExportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
 
@@ -1509,8 +1606,6 @@ class Prism_Blender_Functions(object):
         origin.b_createRender.setMaximumWidth(70 * self.core.uiScaleFactor)
         origin.b_createPlayblast.setMinimumWidth(80 * self.core.uiScaleFactor)
         origin.b_createPlayblast.setMaximumWidth(80 * self.core.uiScaleFactor)
-        origin.b_getRange.setMaximumWidth(200 * self.core.uiScaleFactor)
-        origin.b_setRange.setMaximumWidth(200 * self.core.uiScaleFactor)
         origin.b_description.setMinimumWidth(35 * self.core.uiScaleFactor)
         origin.b_description.setMaximumWidth(35 * self.core.uiScaleFactor)
         origin.b_preview.setMinimumWidth(35 * self.core.uiScaleFactor)
@@ -1541,3 +1636,10 @@ class Prism_Blender_Functions(object):
     @err_catcher(name=__name__)
     def sm_createRenderPressed(self, origin):
         origin.createPressed("Render")
+
+    @err_catcher(name=__name__)
+    def onStateCreated(self, origin, state, stateData):
+        if state.className == "ImageRender":
+            state.b_resPresets.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+        elif state.className == "Playblast":
+            state.b_resPresets.setStyleSheet("padding-left: 1px;padding-right: 1px;")

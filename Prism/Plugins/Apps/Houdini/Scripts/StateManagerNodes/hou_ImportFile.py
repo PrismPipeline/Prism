@@ -11,27 +11,29 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import os
+import logging
 
 try:
     from PySide2.QtCore import *
@@ -46,36 +48,56 @@ import hou
 from PrismUtils.Decorators import err_catcher as err_catcher
 
 
+logger = logging.getLogger(__name__)
+
+
 class ImportFileClass(object):
     className = "ImportFile"
     listType = "Import"
 
     @err_catcher(name=__name__)
     def setup(
-        self, state, core, stateManager, node=None, importPath=None, stateData=None, openProductsBrowser=True
+        self,
+        state,
+        core,
+        stateManager,
+        node=None,
+        importPath=None,
+        stateData=None,
+        openProductsBrowser=True,
     ):
         self.state = state
         self.core = core
         self.stateManager = stateManager
         self.taskName = None
 
-        stateNameTemplate = "{entity}_{task}_{version}"
-        self.stateNameTemplate = self.core.getConfig("globals", "defaultImportStateName", dft=stateNameTemplate, configPath=self.core.prismIni)
+        stateNameTemplate = "{entity}_{product}_{version}"
+        self.stateNameTemplate = self.core.getConfig(
+            "globals",
+            "defaultImportStateName",
+            dft=stateNameTemplate,
+            configPath=self.core.prismIni,
+        )
         self.e_name.setText(self.stateNameTemplate)
+        self.l_name.setVisible(False)
+        self.e_name.setVisible(False)
 
         self.node = None
         self.importTarget = None
         self.fileNode = None
         if node:
             self.setNode(node)
-        self.updatePrefUnits()
 
         self.importHandlers = {
-            ".abc": self.importAlembic,
-            ".fbx": self.importFBX,
-            ".rs": self.importRedshiftProxy,
+            ".abc": {"import": self.importAlembic, "update": self.updateImportNodes},
+            ".fbx": {"import": self.importFBX, "update": self.updateImportNodes},
+            ".rs": {
+                "import": self.importRedshiftProxy,
+                "update": self.updateImportNodes,
+            },
         }
         self.core.callback("getImportHandlers", args=[self, self.importHandlers])
+        self.core.callback("onStateStartup", self)
 
         createEmptyState = (
             QApplication.keyboardModifiers() == Qt.ControlModifier
@@ -88,9 +110,9 @@ class ImportFileClass(object):
             and not createEmptyState
             and not self.stateManager.standalone
         ):
-            import TaskSelection
+            import ProductBrowser
 
-            ts = TaskSelection.TaskSelection(core=core, importState=self)
+            ts = ProductBrowser.ProductBrowser(core=core, importState=self)
             self.core.parentWindow(ts)
             if self.core.uiScaleFactor != 1:
                 self.core.scaleUI(self.state, sFactor=0.5)
@@ -99,7 +121,7 @@ class ImportFileClass(object):
             importPath = ts.productPath
 
         if importPath:
-            self.e_file.setText(importPath)
+            self.setImportPath(importPath)
             result = self.importObject()
 
             if not result:
@@ -124,7 +146,7 @@ class ImportFileClass(object):
         if "statename" in data:
             self.e_name.setText(data["statename"])
         if "filepath" in data:
-            self.e_file.setText(data["filepath"])
+            self.setImportPath(data["filepath"])
         if "connectednode" in data:
             node = hou.node(data["connectednode"])
             if node is None:
@@ -142,11 +164,10 @@ class ImportFileClass(object):
             self.chb_updateOnly.setChecked(eval(data["updatepath"]))
         if "autonamespaces" in data:
             self.chb_autoNameSpaces.setChecked(eval(data["autonamespaces"]))
-        if "preferunit" in data:
-            self.chb_preferUnit.setChecked(eval(data["preferunit"]))
-            self.updatePrefUnits()
         if "autoUpdate" in data:
             self.chb_autoUpdate.setChecked(eval(data["autoUpdate"]))
+
+        self.core.callback("onStateSettingsLoaded", self, data)
 
     @err_catcher(name=__name__)
     def findNode(self, path):
@@ -170,24 +191,26 @@ class ImportFileClass(object):
             self.importTarget = node.node("IMPORT")
         else:
             self.importTarget = node
+            self.node.addEventCallback([hou.nodeEventType.BeingDeleted], self.onNodeDeleted)
+
+    def onNodeDeleted(self, event_type, **kwargs):
+        if kwargs["node"] == self.node:
+            self.stateManager.deleteState(self.state, silent=True)
 
     @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
-        self.e_file.editingFinished.connect(self.pathChanged)
         self.b_browse.clicked.connect(self.browse)
         self.b_browse.customContextMenuRequested.connect(self.openFolder)
         self.b_importLatest.clicked.connect(self.importLatest)
         self.chb_autoUpdate.stateChanged.connect(self.autoUpdateChanged)
         self.chb_autoNameSpaces.stateChanged.connect(self.autoNameSpaceChanged)
-        self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
         if not self.stateManager.standalone:
             self.b_goTo.clicked.connect(self.goToNode)
             self.b_import.clicked.connect(self.importObject)
             self.b_objMerge.clicked.connect(self.objMerge)
             self.b_nameSpaces.clicked.connect(self.removeNameSpaces)
-            self.b_unitConversion.clicked.connect(self.unitConvert)
             self.chb_updateOnly.stateChanged.connect(
                 self.stateManager.saveStatesToScene
             )
@@ -196,8 +219,14 @@ class ImportFileClass(object):
     def nameChanged(self, text=None):
         text = self.e_name.text()
         cacheData = self.core.paths.getCachePathData(self.getImportPath())
-        num = 0
+        if cacheData.get("type") == "asset":
+            cacheData["entity"] = os.path.basename(cacheData.get("asset_path", ""))
+        elif cacheData.get("type") == "shot" and "sequence" in cacheData:
+            shotName = self.core.entities.getShotName(cacheData)
+            if shotName:
+                cacheData["entity"] = shotName
 
+        num = 0
         try:
             if "{#}" in text:
                 while True:
@@ -223,10 +252,9 @@ class ImportFileClass(object):
         self.state.setText(0, name)
 
     @err_catcher(name=__name__)
-    def pathChanged(self):
-        self.stateManager.saveImports()
-        self.updateUi()
-        self.stateManager.saveStatesToScene()
+    def getSortKey(self):
+        cacheData = self.core.paths.getCachePathData(self.getImportPath())
+        return cacheData.get("product")
 
     @err_catcher(name=__name__)
     def isShotCam(self, path=None):
@@ -252,29 +280,29 @@ class ImportFileClass(object):
         if checked:
             curVersion, latestVersion = self.checkLatestVersion()
             if self.chb_autoUpdate.isChecked():
-                if curVersion and latestVersion and curVersion != latestVersion:
+                if curVersion.get("version") and latestVersion.get("version") and curVersion["version"] != latestVersion["version"]:
                     self.importLatest()
 
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def browse(self):
-        import TaskSelection
+        import ProductBrowser
 
-        ts = TaskSelection.TaskSelection(core=self.core, importState=self)
+        ts = ProductBrowser.ProductBrowser(core=self.core, importState=self)
         self.core.parentWindow(ts)
         if self.core.uiScaleFactor != 1:
             self.core.scaleUI(self.state, sFactor=0.5)
         ts.exec_()
 
         if ts.productPath:
-            self.e_file.setText(ts.productPath)
+            self.setImportPath(ts.productPath)
             self.importObject()
             self.updateUi()
 
     @err_catcher(name=__name__)
     def openFolder(self, pos):
-        path = hou.expandString(self.e_file.text())
+        path = hou.text.expandString(self.getImportPath())
         if os.path.isfile(path):
             path = os.path.dirname(path)
 
@@ -310,8 +338,24 @@ class ImportFileClass(object):
             self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
-    def getImportPath(self):
-        return self.e_file.text().replace("\\", "/")
+    def getImportPath(self, expand=True):
+        path = getattr(self, "importPath", "")
+        if path:
+            path = path.replace("\\", "/")
+
+        if expand:
+            path = hou.text.expandString(path)
+
+        return path
+
+    @err_catcher(name=__name__)
+    def setImportPath(self, path):
+        path = self.core.appPlugin.getPathRelativeToProject(path) if self.core.appPlugin.getUseRelativePath() else path
+        self.importPath = path
+        self.w_currentVersion.setToolTip(path)
+        self.stateManager.saveImports()
+        self.updateUi()
+        self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def runSanityChecks(self, cachePath):
@@ -323,10 +367,11 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def checkFrameRange(self, cachePath):
-        versionInfoPath = os.path.join(
-            os.path.dirname(os.path.dirname(cachePath)), "versioninfo.yml"
+        versionInfoPath = self.core.getVersioninfoPath(
+            self.core.products.getVersionInfoPathFromProductFilepath(cachePath)
         )
-        impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
+
+        impFPS = self.core.getConfig("fps", configPath=versionInfoPath)
         curFPS = self.core.getFPS()
         if not impFPS or impFPS == curFPS:
             return True
@@ -336,26 +381,17 @@ class ImportFileClass(object):
             % (curFPS, impFPS)
         )
 
-        result = self.core.popupQuestion(fString, title="FPS mismatch", buttons=["Continue", "Cancel"], icon=QMessageBox.Warning)
+        result = self.core.popupQuestion(
+            fString,
+            title="FPS mismatch",
+            buttons=["Continue", "Cancel"],
+            icon=QMessageBox.Warning,
+        )
 
         if result == "Cancel":
             return False
 
         return True
-
-    @err_catcher(name=__name__)
-    def convertToPreferredUnit(self, path):
-        parDirName = os.path.basename(os.path.dirname(path))
-        if parDirName in ["centimeter", "meter"]:
-            prefFile = os.path.join(
-                os.path.dirname(os.path.dirname(path)),
-                self.preferredUnit,
-                os.path.basename(path),
-            )
-            if parDirName == self.unpreferredUnit and os.path.exists(prefFile):
-                path = prefFile
-
-        return path
 
     @err_catcher(name=__name__)
     def importHDA(self, path):
@@ -368,22 +404,33 @@ class ImportFileClass(object):
             hou.hda.installFile(path, force_use_assets=True)
 
     @err_catcher(name=__name__)
-    def importShotCam(self, importPath):
+    def importShotCam(self, importPath, cacheData=None):
         self.fileNode = None
-        node = hou.node("/obj").createNode(
-            "alembicarchive", "IMPORT_ShotCam"
-        )
+        entityName = self.core.entities.getEntityName(cacheData)
+        node = hou.node("/obj").createNode("alembicarchive", "IMPORT_%s_ShotCam" % entityName, force_valid_node_name=True)
         self.setNode(node)
-        self.node.parm("fileName").set(importPath)
+        parmPath = self.core.appPlugin.getPathRelativeToProject(importPath) if self.core.appPlugin.getUseRelativePath() else importPath
+        self.node.parm("fileName").set(parmPath)
         self.node.parm("buildHierarchy").pressButton()
         self.node.moveToGoodPosition()
         self.addNodeToImportNetworkBox(self.node)
+        self.loadShotcamResolution(cacheData)
+
+    @err_catcher(name=__name__)
+    def loadShotcamResolution(self, cacheData):
+        resolution = cacheData.get("resolution") if cacheData else None
+        if resolution:
+            for node in self.node.allSubChildren():
+                if node.type().name() == "cam":
+                    self.core.appPlugin.setNodeParm(node, "resx", val=resolution[0])
+                    self.core.appPlugin.setNodeParm(node, "resy", val=resolution[1])
 
     @err_catcher(name=__name__)
     def importAlembic(self, importPath, taskName):
         self.fileNode = self.importTarget.createNode("alembic")
         self.fileNode.moveToGoodPosition()
-        self.fileNode.parm("fileName").set(importPath)
+        parmPath = self.core.appPlugin.getPathRelativeToProject(importPath) if self.core.appPlugin.getUseRelativePath() else importPath
+        self.fileNode.parm("fileName").set(parmPath)
         if self.isPrismImportNode(self.node):
             if self.node.parm("groupsAbc").eval():
                 self.fileNode.parm("groupnames").set(4)
@@ -413,12 +460,22 @@ class ImportFileClass(object):
                 self.stateManager.saveStatesToScene()
                 return
 
-            self.core.appPlugin.setFrameRange(tlSettings[1], tlSettings[2], tlSettings[0])
+            self.core.appPlugin.setFrameRange(
+                tlSettings[1], tlSettings[2], tlSettings[0]
+            )
+            cacheData = self.core.paths.getCachePathData(importPath)
+            entityName = (self.core.entities.getEntityName(cacheData) or "").replace("/", "_").replace("\\", "_")
+            if entityName:
+                nodeName = "IMPORT_%s_%s" % (entityName, taskName)
+            else:
+                nodeName = "IMPORT_%s" % os.path.splitext(os.path.basename(importPath))[0]
 
-            self.node.setName("IMPORT_" + taskName, unique_name=True)
-            fbxObjs = [
-                x for x in self.node.children() if x.type().name() == "geo"
-            ]
+            try:
+                self.node.setName(nodeName, unique_name=True)
+            except:
+                logger.warning("cannot set nodename: %s" % nodeName)
+
+            fbxObjs = [x for x in self.node.children() if x.type().name() == "geo"]
             mergeGeo = self.importTarget.createNode("geo", "FBX_Objects")
             mergeGeo.moveToGoodPosition()
             if len(mergeGeo.children()) > 0:
@@ -427,12 +484,12 @@ class ImportFileClass(object):
             self.fileNode.moveToGoodPosition()
             for i in fbxObjs:
                 i.setDisplayFlag(False)
-                objmerge = mergeGeo.createNode("object_merge", i.name())
+                objmerge = mergeGeo.createNode("object_merge", i.name(), force_valid_node_name=True)
                 objmerge.moveToGoodPosition()
                 objmerge.parm("objpath1").set(i.path())
                 objmerge.parm("xformtype").set(1)
                 namenode = objmerge.createOutputNode("name", "Add_Name_" + i.name())
-                namenode.parm("name1").set("`opinput(\".\", 0)`")
+                namenode.parm("name1").set('`opinput(".", 0)`')
                 self.fileNode.setNextInput(namenode)
 
             mergeGeo.layoutChildren()
@@ -441,7 +498,9 @@ class ImportFileClass(object):
     @err_catcher(name=__name__)
     def importRedshiftProxy(self, importPath, taskName):
         if not hou.nodeType(hou.sopNodeTypeCategory(), "Redshift_Proxy_Output"):
-            msg = "Format is not supported, because Redshift is not available in Houdini."
+            msg = (
+                "Format is not supported, because Redshift is not available in Houdini."
+            )
             self.core.popup(msg)
             self.removeImportNetworkBox()
             try:
@@ -457,7 +516,8 @@ class ImportFileClass(object):
         self.node.setCurrent(True, clear_all_selected=True)
         hou.hscript("Redshift_objectSpareParameters")
         self.node.parm("RS_objprop_proxy_enable").set(True)
-        self.node.parm("RS_objprop_proxy_file").set(importPath)
+        parmPath = self.core.appPlugin.getPathRelativeToProject(importPath) if self.core.appPlugin.getUseRelativePath() else importPath
+        self.node.parm("RS_objprop_proxy_file").set(parmPath)
 
     @err_catcher(name=__name__)
     def importFile(self, importPath, taskName):
@@ -465,12 +525,16 @@ class ImportFileClass(object):
             self.fileNode = self.importTarget.createNode("file")
         except:
             if self.importTarget.isInsideLockedHDA():
-                msg = "Cannot create node inside\"%s\".\nMake sure the node is set as editable node in youe HDA." % self.importTarget.path()
+                msg = (
+                    'Cannot create node inside"%s".\nMake sure the node is set as editable node in youe HDA.'
+                    % self.importTarget.path()
+                )
                 self.core.popup(msg)
                 return
 
         self.fileNode.moveToGoodPosition()
-        self.fileNode.parm("file").set(importPath)
+        parmPath = self.core.appPlugin.getPathRelativeToProject(importPath) if self.core.appPlugin.getUseRelativePath() else importPath
+        self.fileNode.parm("file").set(parmPath)
 
     @err_catcher(name=__name__)
     def getImportNetworkBox(self, create=True):
@@ -508,9 +572,14 @@ class ImportFileClass(object):
         if self.isShotCam(importPath):
             return
 
-        self.taskName = cacheData.get("task") or ""
+        self.taskName = cacheData.get("product") or ""
+        entityName = self.core.entities.getEntityName(cacheData)
+        if entityName:
+            nodeName = "IMPORT_%s_%s" % (entityName, self.taskName)
+        else:
+            nodeName = "IMPORT_%s" % os.path.splitext(os.path.basename(importPath))[0]
 
-        node = hou.node("/obj").createNode("geo", "IMPORT_" + self.taskName)
+        node = hou.node("/obj").createNode("geo", nodeName, force_valid_node_name=True)
         self.setNode(node)
         self.node.moveToGoodPosition()
         self.addNodeToImportNetworkBox(self.node)
@@ -518,26 +587,35 @@ class ImportFileClass(object):
     @err_catcher(name=__name__)
     def handleImport(self, importPath, cacheData=None, objMerge=True):
         if self.isShotCam(importPath):
-            self.importShotCam(importPath)
+            self.importShotCam(importPath, cacheData)
         else:
             for node in self.importTarget.children():
                 try:
                     node.destroy()
                 except:
-                    self.core.popup("Import canceled.\nFailed to delete node:\n\n%s" % node.path())
+                    self.core.popup(
+                        "Import canceled.\nFailed to delete node:\n\n%s" % node.path()
+                    )
                     return
 
-            self.taskName = cacheData.get("task") or ""
+            self.taskName = cacheData.get("product") or ""
             extension = os.path.splitext(importPath)[1]
             if extension in self.importHandlers:
-                self.importHandlers[extension](importPath, self.taskName)
+                self.importHandlers[extension]["import"](importPath, self.taskName)
             else:
                 self.importFile(importPath, self.taskName)
 
             if not self.core.appPlugin.isNodeValid(self, self.fileNode):
                 return
 
-            outNode = self.fileNode.createOutputNode("null", "OUT_" + self.taskName)
+            if self.taskName:
+                suffix = self.taskName
+            else:
+                suffix = os.path.splitext(os.path.basename(importPath))[0]
+
+            outNode = self.fileNode.parent().createNode("null", "OUT_" + suffix, force_valid_node_name=True)
+            outNode.setInput(0, self.fileNode)
+            outNode.moveToGoodPosition()
             outNode.setDisplayFlag(True)
             outNode.setRenderFlag(True)
 
@@ -548,41 +626,57 @@ class ImportFileClass(object):
             self.objMerge()
 
     @err_catcher(name=__name__)
-    def updateImportNodes(self, importPath, cacheData=None):
-        prevTaskName = self.node.name().split("IMPORT_")[-1]
+    def handleUpdate(self, importPath, cacheData=None):
+        extension = os.path.splitext(importPath)[1]
+        if extension in self.importHandlers:
+            self.importHandlers[extension]["update"](importPath, cacheData)
+        else:
+            self.updateImportNodes(importPath, cacheData)
 
+    @err_catcher(name=__name__)
+    def updateImportNodes(self, importPath, cacheData=None):
+        prevTaskName = self.node.name().split("_")[-1]
         cacheData = cacheData or {}
-        taskName = cacheData.get("task")
+        taskName = cacheData.get("product")
         if taskName:
+            entityName = self.core.entities.getEntityName(cacheData)
             if not self.isPrismImportNode(self.node):
-                self.node.setName("IMPORT_" + taskName, unique_name=True)
+                nodeName = "IMPORT_%s_%s" % (entityName, taskName)
+                try:
+                    self.node.setName(nodeName, unique_name=True)
+                except:
+                    logger.warning("cannot set nodename: %s" % nodeName)
+                
                 for child in self.node.children():
                     if prevTaskName in child.name():
                         newName = child.name().replace(prevTaskName, taskName)
-                        child.setName(newName, unique_name=True)
+                        try:
+                            child.setName(newName, unique_name=True)
+                        except:
+                            logger.warning("cannot set nodename: %s" % newName)
 
         extension = os.path.splitext(importPath)[1]
-        if extension == ".abc" and "_ShotCam_" in importPath:
-            if self.core.appPlugin.setNodeParm(
-                self.node, "fileName", val=importPath
-            ):
+        parmPath = self.core.appPlugin.getPathRelativeToProject(importPath) if self.core.appPlugin.getUseRelativePath() else importPath
+        if extension == ".abc" and "_ShotCam_" in parmPath:
+            if self.core.appPlugin.setNodeParm(self.node, "fileName", val=parmPath):
                 self.node.parm("buildHierarchy").pressButton()
+                self.loadShotcamResolution(cacheData)
         elif extension == ".abc":
-            self.core.appPlugin.setNodeParm(
-                self.fileNode, "fileName", val=importPath
-            )
+            self.core.appPlugin.setNodeParm(self.fileNode, "fileName", val=parmPath)
         elif extension == ".usd":
             self.core.appPlugin.setNodeParm(
-                self.fileNode, "import_file", val=importPath
+                self.fileNode, "import_file", val=parmPath
             )
         elif extension == ".rs":
             self.core.appPlugin.setNodeParm(
-                self.node, "RS_objprop_proxy_file", val=importPath
+                self.node, "RS_objprop_proxy_file", val=parmPath
             )
         else:
-            self.core.appPlugin.setNodeParm(
-                self.fileNode, "file", val=importPath
-            )
+            pathParm = "file"
+            if not self.fileNode.parm(pathParm):
+                pathParm = "filepath1"
+
+            self.core.appPlugin.setNodeParm(self.fileNode, pathParm, val=parmPath)
 
     @err_catcher(name=__name__)
     def importObject(self, objMerge=True):
@@ -590,8 +684,7 @@ class ImportFileClass(object):
             return False
 
         fileName = self.core.getCurrentFileName()
-        impFileName = self.getImportPath()
-        impFileName = self.convertToPreferredUnit(impFileName)
+        impFileName = self.getImportPath(expand=False)
 
         kwargs = {
             "state": self,
@@ -599,8 +692,10 @@ class ImportFileClass(object):
             "importfile": impFileName,
         }
         result = self.core.callback("preImport", **kwargs)
-
         for res in result:
+            if isinstance(res, dict) and res.get("cancel", False):
+                return
+
             if res and "importfile" in res:
                 impFileName = res["importfile"]
                 if not impFileName:
@@ -615,7 +710,7 @@ class ImportFileClass(object):
             return
 
         cacheData = self.core.paths.getCachePathData(impFileName)
-        self.e_file.setText(impFileName)
+        self.setImportPath(impFileName)
 
         try:
             self.node.path()
@@ -630,16 +725,12 @@ class ImportFileClass(object):
             self.node is None
             or (
                 self.fileNode is None
-                and not (
-                    extension == ".abc"
-                    and "_ShotCam_" in impFileName
-                )
+                and not (extension == ".abc" and "_ShotCam_" in impFileName)
             )
             or not self.chb_updateOnly.isChecked()
             or (
-                self.fileNode is not None
-                and (self.fileNode.type().name() == "alembic")
-                == (extension != ".abc")
+                self.core.appPlugin.isNodeValid(self, self.fileNode)
+                and (self.fileNode.type().name() == "alembic") == (extension != ".abc")
             )
             or self.node.type().name() == "subnet"
         )
@@ -654,7 +745,7 @@ class ImportFileClass(object):
 
             self.handleImport(impFileName, cacheData=cacheData, objMerge=objMerge)
         else:
-            self.updateImportNodes(impFileName, cacheData)
+            self.handleUpdate(impFileName, cacheData)
 
         impNodes = []
         try:
@@ -684,19 +775,34 @@ class ImportFileClass(object):
         return True
 
     @err_catcher(name=__name__)
-    def importLatest(self, refreshUi=True):
+    def importLatest(self, refreshUi=True, selectedStates=True):
         if refreshUi:
             self.updateUi()
 
-        latestVersion = self.core.products.getLatestVersionFromPath(self.getImportPath())
-        filepath = self.core.products.getPreferredFileFromVersion(latestVersion, preferredUnit=self.preferredUnit)
+        latestVersion = self.core.products.getLatestVersionFromPath(
+            self.getImportPath()
+        )
+        filepath = self.core.products.getPreferredFileFromVersion(latestVersion)
         if not filepath:
-            self.core.popup("Couldn't get latest version.")
+            if not self.chb_autoUpdate.isChecked():
+                self.core.popup("Couldn't get latest version.")
             return
 
         filepath = getattr(self.core.appPlugin, "fixImportPath", lambda x: x)(filepath)
-        self.e_file.setText(filepath)
+        prevState = self.stateManager.applyChangesToSelection
+        self.stateManager.applyChangesToSelection = False
+        self.setImportPath(filepath)
         self.importObject()
+        if selectedStates:
+            selStates = self.stateManager.getSelectedStates()
+            for state in selStates:
+                if state.__hash__() == self.state.__hash__():
+                    continue
+
+                if hasattr(state.ui, "importLatest"):
+                    state.ui.importLatest(refreshUi=refreshUi, selectedStates=False)
+
+        self.stateManager.applyChangesToSelection = prevState
 
     @err_catcher(name=__name__)
     def objMerge(self):
@@ -712,9 +818,9 @@ class ImportFileClass(object):
         if nodePath.isInsideLockedHDA():
             return
 
-        if os.path.splitext(self.e_file.text())[1] == ".hda":
-            if os.path.exists(self.e_file.text()):
-                defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
+        if os.path.splitext(self.getImportPath())[1] == ".hda":
+            if os.path.exists(self.getImportPath()):
+                defs = hou.hda.definitionsInFile(self.getImportPath())
                 if len(defs) > 0:
                     tname = defs[0].nodeTypeName()
                     mNode = None
@@ -758,11 +864,15 @@ class ImportFileClass(object):
     @err_catcher(name=__name__)
     def checkLatestVersion(self):
         path = self.getImportPath()
-        curVersionName = self.core.products.getVersionNameFromFilepath(path) or ""
+        curVersionName = self.core.products.getVersionFromFilepath(path) or ""
+        curVersionData = {"version": curVersionName, "path": path}
         latestVersion = self.core.products.getLatestVersionFromPath(path)
-        latestVersionName = latestVersion["name"] if latestVersion else ""
+        if latestVersion:
+            latestVersionData = {"version": latestVersion["version"], "path": latestVersion["path"]}
+        else:
+            latestVersionData = {}
 
-        return curVersionName, latestVersionName
+        return curVersionData, latestVersionData
 
     @err_catcher(name=__name__)
     def setStateColor(self, status):
@@ -780,7 +890,7 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def updateUi(self):
-        if os.path.splitext(self.e_file.text())[1] == ".hda":
+        if os.path.splitext(self.getImportPath())[1] == ".hda":
             self.gb_options.setVisible(False)
             self.b_goTo.setVisible(False)
             self.b_objMerge.setText("Create Node")
@@ -788,8 +898,8 @@ class ImportFileClass(object):
             self.l_status.setToolTip("")
             self.l_status.setStyleSheet("QLabel { background-color : rgb(130,0,0); }")
             status = "error"
-            if os.path.exists(self.e_file.text()):
-                defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
+            if os.path.exists(self.getImportPath()):
+                defs = hou.hda.definitionsInFile(self.getImportPath())
                 if len(defs) > 0:
                     if defs[0].isInstalled():
                         self.l_status.setText("installed")
@@ -801,16 +911,18 @@ class ImportFileClass(object):
             self.gb_options.setVisible(True)
             self.b_goTo.setVisible(True)
             self.b_objMerge.setText("Create Obj Merge")
-            try:
-                self.node.name()
+            if self.core.appPlugin.isNodeValid(self, self.node):
                 self.l_status.setText(self.node.name())
                 self.l_status.setToolTip(self.node.path())
                 self.l_status.setStyleSheet(
                     "QLabel { background-color : rgb(0,130,0); }"
                 )
-                status = "ok"
+                if self.isPrismImportNode(self.node) and not self.node.parm("filepath").eval():
+                    status = "error"
+                else:
+                    status = "ok"
                 self.b_objMerge.setEnabled(True)
-            except:
+            else:
                 self.nameChanged()
                 self.l_status.setText("Not found in scene")
                 self.l_status.setToolTip("")
@@ -826,18 +938,31 @@ class ImportFileClass(object):
         else:
             curVersion = latestVersion = ""
 
-        if curVersion == "master":
+        if curVersion.get("version") == "master":
             filepath = self.getImportPath()
-            curVersion = self.core.products.getMasterVersionLabel(filepath)
+            curVersionName = self.core.products.getMasterVersionLabel(filepath)
+        else:
+            curVersionName = curVersion.get("version")
 
-        self.l_curVersion.setText(curVersion or "-")
-        self.l_latestVersion.setText(latestVersion or "-")
+        if latestVersion.get("version") == "master":
+            filepath = latestVersion["path"]
+            latestVersionName = self.core.products.getMasterVersionLabel(filepath)
+        else:
+            latestVersionName = latestVersion.get("version")
+
+        self.l_curVersion.setText(curVersionName or "-")
+        self.l_latestVersion.setText(latestVersionName or "-")
 
         if self.chb_autoUpdate.isChecked():
-            if curVersion and latestVersion and curVersion != latestVersion:
+            if curVersionName and latestVersionName and curVersionName != latestVersionName:
                 self.importLatest(refreshUi=False)
         else:
-            if curVersion and latestVersion and curVersion != latestVersion and not curVersion.startswith("master"):
+            if (
+                curVersionName
+                and latestVersionName
+                and curVersionName != latestVersionName
+                and not curVersionName.startswith("master")
+            ):
                 self.b_importLatest.setStyleSheet(
                     "QPushButton { background-color : rgb(150,80,0); border: none;}"
                 )
@@ -846,7 +971,9 @@ class ImportFileClass(object):
                 self.b_importLatest.setStyleSheet("")
 
         if self.isPrismImportNode(self.node):
-            self.core.appPlugin.importFile.refreshUiFromNode({"node": self.node}, self.state)
+            self.core.appPlugin.importFile.refreshUiFromNode(
+                {"node": self.node}, self.state
+            )
 
         self.nameChanged()
         self.setStateColor(status)
@@ -856,59 +983,12 @@ class ImportFileClass(object):
         self.b_objMerge.setVisible(not isShotCam)
 
     @err_catcher(name=__name__)
-    def getCurrentVersion(self):
-        return self.e_file.text().replace("\\", "/")
-
-    @err_catcher(name=__name__)
-    def getLatestVersion(self):
-        parDir = os.path.dirname(self.e_file.text())
-        if os.path.basename(parDir) in ["centimeter", "meter"]:
-            versionData = os.path.basename(os.path.dirname(parDir)).split(
-                self.core.filenameSeparator
-            )
-            taskPath = os.path.dirname(os.path.dirname(parDir))
-        else:
-            versionData = os.path.basename(parDir).split(self.core.filenameSeparator)
-            taskPath = os.path.dirname(parDir)
-
-        if (
-            len(versionData) == 3
-            and self.core.getScenePath().replace(self.core.projectPath, "")
-            in self.e_file.text()
-        ):
-            self.l_curVersion.setText(
-                versionData[0]
-                + self.core.filenameSeparator
-                + versionData[1]
-                + self.core.filenameSeparator
-                + versionData[2]
-            )
-            self.l_latestVersion.setText("-")
-            for i in os.walk(taskPath):
-                folders = i[1]
-                folders.sort()
-                for k in reversed(folders):
-                    meterDir = os.path.join(i[0], k, "meter")
-                    cmeterDir = os.path.join(i[0], k, "centimeter")
-                    if (
-                        len(k.split(self.core.filenameSeparator)) == 3
-                        and k[0] == "v"
-                        and len(k.split(self.core.filenameSeparator)[0]) == 5
-                        and (
-                            (os.path.exists(meterDir) and len(os.listdir(meterDir)) > 0)
-                            or (
-                                os.path.exists(cmeterDir)
-                                and len(os.listdir(cmeterDir)) > 0
-                            )
-                        )
-                    ):
-                        return os.path.join(i[0], k).replace("\\", "/")
-                break
-
-        return ""
-
-    @err_catcher(name=__name__)
     def removeNameSpaces(self):
+        if not self.fileNode:
+            msg = "No valid node connected."
+            self.core.popup(msg)
+            return
+
         outputCons = self.fileNode.outputConnections()
 
         for i in outputCons:
@@ -919,17 +999,10 @@ class ImportFileClass(object):
                 return
 
             if (
-                i.outputNode().type().name() == "xform"
-                and i.outputNode().name() == "UnitConversion"
+                i.outputNode().type().name() == "grouprename"
+                and i.outputNode().name() == "RemoveMayaNameSpaces"
             ):
-                outputConsUnit = i.outputNode().outputConnections()
-
-                for k in outputConsUnit:
-                    if (
-                        k.outputNode().type().name() == "grouprename"
-                        and k.outputNode().name() == "RemoveMayaNameSpaces"
-                    ):
-                        return
+                return
 
         renameNode = self.fileNode.createOutputNode(
             "grouprename", "RemoveMayaNameSpaces"
@@ -953,70 +1026,6 @@ class ImportFileClass(object):
         self.fileNode.parent().layoutChildren()
 
     @err_catcher(name=__name__)
-    def unitConvert(self):
-        if self.isShotCam():
-            xforms = [
-                x for x in self.node.children() if x.type().name() == "alembicxform"
-            ]
-            if len(xforms) == 0:
-                return
-
-            xNode = xforms[0]
-
-            inputCons = xNode.inputConnections()
-            unitNode = xNode.createInputNode(0, "null", "UnitConversion")
-
-            for i in inputCons:
-                if i.inputNode() is None:
-                    unitNode.setInput(0, i.subnetIndirectInput(), 0)
-                else:
-                    unitNode.setInput(0, i.inputNode(), 0)
-
-            unitNode.parm("scale").set(0.01)
-            self.node.layoutChildren()
-        else:
-            outputCons = self.fileNode.outputConnections()
-
-            unitNode = None
-            for i in outputCons:
-                if (
-                    i.outputNode().type().name() == "xform"
-                    and i.outputNode().name() == "UnitConversion"
-                ):
-                    unitNode = i.outputNode()
-
-                if (
-                    i.outputNode().type().name() == "grouprename"
-                    and i.outputNode().name() == "RemoveMayaNameSpaces"
-                ):
-                    outputConsNS = i.outputNode().outputConnections()
-
-                    for k in outputConsNS:
-                        if (
-                            k.outputNode().type().name() == "xform"
-                            and k.outputNode().name() == "UnitConversion"
-                        ):
-                            unitNode = k.outputNode()
-
-            if unitNode is None:
-                unitNode = self.fileNode.createOutputNode("xform", "UnitConversion")
-
-                for i in outputCons:
-                    i.outputNode().setInput(i.inputIndex(), unitNode, 0)
-
-            self.core.appPlugin.setNodeParm(unitNode, "scale", val=0.01)
-            self.fileNode.parent().layoutChildren()
-
-    @err_catcher(name=__name__)
-    def updatePrefUnits(self):
-        if self.chb_preferUnit.isChecked():
-            self.preferredUnit = "centimeter"
-            self.unpreferredUnit = "meter"
-        else:
-            self.preferredUnit = "meter"
-            self.unpreferredUnit = "centimeter"
-
-    @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
@@ -1036,11 +1045,10 @@ class ImportFileClass(object):
 
         return {
             "statename": self.e_name.text(),
-            "filepath": self.e_file.text(),
+            "filepath": self.getImportPath(expand=False),
             "connectednode": curNode,
             "filenode": fNode,
             "autoUpdate": str(self.chb_autoUpdate.isChecked()),
             "updatepath": str(self.chb_updateOnly.isChecked()),
             "autonamespaces": str(self.chb_autoNameSpaces.isChecked()),
-            "preferunit": str(self.chb_preferUnit.isChecked()),
         }

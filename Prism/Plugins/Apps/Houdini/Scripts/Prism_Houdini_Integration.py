@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
@@ -36,13 +37,9 @@ import platform
 import shutil
 import glob
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 if platform.system() == "Windows":
     if sys.version[0] == "3":
@@ -61,7 +58,7 @@ class Prism_Houdini_Integration(object):
         if prefPaths:
             self.examplePath = prefPaths[-1]
         else:
-            self.examplePath = self.getPreferencesBasePath() + "18.0"
+            self.examplePath = self.getPreferencesBasePath() + "19.5"
 
     @err_catcher(name=__name__)
     def getExecutable(self):
@@ -113,7 +110,7 @@ class Prism_Houdini_Integration(object):
 
     def getPreferencesBasePath(self):
         if platform.system() == "Windows":
-            basepath = os.environ["userprofile"] + "\\Documents\\houdini"
+            basepath = self.core.getWindowsDocumentsPath() + "\\houdini"
         elif platform.system() == "Linux":
             userName = (
                 os.environ["SUDO_USER"]
@@ -134,16 +131,16 @@ class Prism_Houdini_Integration(object):
     def addIntegration(self, installPath):
         try:
             if not os.path.exists(installPath):
-                msg = QMessageBox(
-                    QMessageBox.Warning,
-                    "Prism Installation",
-                    "Invalid Houdini path: %s.\n\nThe path has to be the Houdini preferences folder, which usually looks like this: (with your Houdini version):\n\n%s"
-                    % (installPath, self.examplePath),
-                    QMessageBox.Ok,
-                )
-                msg.setFocus()
-                msg.exec_()
+                msg = "Invalid Houdini path: %s.\n\nThe path has to be the Houdini preferences folder, which usually looks like this: (with your Houdini version):\n\n%s" % (installPath, self.examplePath)
+                self.core.popup(msg)
                 return False
+
+            houPath = os.path.join(installPath, "bin")
+            if os.path.exists(houPath):
+                msg = "The selected folder seems to be the Houdini installation folder. The Prism integration has to be installed to your Houdini preferences folder. Are you sure you want to continue?\n\n%s" % installPath
+                result = self.core.popupQuestion(msg, icon=QMessageBox.Warning, default="No")
+                if result == "No":
+                    return
 
             addedFiles = []
 
@@ -167,6 +164,9 @@ class Prism_Houdini_Integration(object):
                 initStr = init.read()
 
             with open(packagePath, "w") as init:
+                initStr = initStr.replace(
+                    "PLUGINROOT", "%s" % os.path.dirname(self.pluginPath).replace("\\", "/")
+                )
                 initStr = initStr.replace(
                     "PRISMROOT", "%s" % self.core.prismRoot.replace("\\", "/")
                 )
@@ -232,7 +232,9 @@ class Prism_Houdini_Integration(object):
             sceneOpen = os.path.join(installBase, "scripts", "456.py")
             sceneSave = os.path.join(installBase, "scripts", "afterscenesave.py")
 
-            result = self.core.integration.removeIntegrationData(filepath=[prc, sceneOpen, sceneSave])
+            result = self.core.integration.removeIntegrationData(
+                filepath=[prc, sceneOpen, sceneSave]
+            )
             if result is not None:
                 return True
 
@@ -280,6 +282,7 @@ class Prism_Houdini_Integration(object):
 
             if not activeVersion:
                 houItem.setCheckState(0, Qt.Unchecked)
+                houCustomItem.setFlags(~Qt.ItemIsEnabled)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(
@@ -304,7 +307,9 @@ class Prism_Houdini_Integration(object):
                     houPaths.append(item.text(1))
 
             for i in houPaths:
-                result["Houdini integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=i, quiet=True)
+                result["Houdini integration"] = self.core.integration.addIntegration(
+                    self.plugin.pluginName, path=i, quiet=True
+                )
                 if result["Houdini integration"]:
                     installLocs.append(i)
 

@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,13 +36,9 @@ import os
 
 import hou
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 
 label = "Mantra"
@@ -52,8 +49,30 @@ def isActive():
     return True
 
 
+def activated(origin):
+    deep = ".exr (deep)"
+    idx = origin.cb_format.findText(deep)
+    if idx == -1:
+        origin.cb_format.addItem(deep)
+
+
+def deactivated(origin):
+    deep = ".exr (deep)"
+    idx = origin.cb_format.findText(deep)
+    if idx != -1:
+        origin.cb_format.removeItem(idx)
+
+
 def getCam(node):
     return hou.node(node.parm("camera").eval())
+
+
+def getFormatFromNode(node):
+    ext = os.path.splitext(node.parm("vm_picture").eval())[1]
+    if ext == ".exr" and node.parm("vm_deepresolver").eval() != "null":
+        ext = ".exr (deep)"
+
+    return ext
 
 
 def createROP(origin):
@@ -136,8 +155,60 @@ def setCam(origin, node, val):
 
 
 def executeAOVs(origin, outputName):
-    if not origin.core.appPlugin.setNodeParm(origin.node, "vm_picture", val=outputName):
+    if (
+        not origin.gb_submit.isHidden()
+        and origin.gb_submit.isChecked()
+        and origin.cb_manager.currentText() == "Deadline"
+        and origin.chb_rjIFDs.isChecked()
+    ):
+        renderIFD = True
+
+        ifdOutput = os.path.join(
+            os.path.dirname(outputName), "_ifd", os.path.basename(outputName)
+        )
+        ifdOutput = os.path.splitext(ifdOutput)[0] + ".ifd"
+        parmPath = origin.core.appPlugin.getPathRelativeToProject(ifdOutput) if origin.core.appPlugin.getUseRelativePath() else ifdOutput
+        if not origin.core.appPlugin.setNodeParm(
+            origin.node, "soho_diskfile", val=parmPath
+        ):
+            return [
+                origin.state.text(0)
+                + ": error - could not set archive filename. Publish canceled"
+            ]
+
+        os.makedirs(os.path.dirname(ifdOutput))
+
+    else:
+        renderIFD = False
+
+    if not origin.core.appPlugin.setNodeParm(
+        origin.node, "soho_outputmode", val=renderIFD
+    ):
+        return [
+            origin.state.text(0)
+            + ": error - could not set archive enabled. Publish canceled"
+        ]
+
+    parmPath = origin.core.appPlugin.getPathRelativeToProject(outputName) if origin.core.appPlugin.getUseRelativePath() else outputName
+    if not origin.core.appPlugin.setNodeParm(origin.node, "vm_picture", val=parmPath):
         return [origin.state.text(0) + ": error - Publish canceled"]
+
+    if origin.cb_format.currentText() == ".exr (deep)":
+        if not origin.core.appPlugin.setNodeParm(origin.node, "vm_deepresolver", val="camera"):
+            return [origin.state.text(0) + ": error - Publish canceled"]
+
+        deepPath = os.path.splitext(parmPath)[0]
+        if deepPath.endswith(".$F4"):
+            deepPath = deepPath[:-4] + "_deep" + ".$F4"
+        else:
+            deepPath += "_deep"
+
+        deepPath += os.path.splitext(parmPath)[1]
+        if not origin.core.appPlugin.setNodeParm(origin.node, "vm_dcmfilename", val=deepPath):
+            return [origin.state.text(0) + ": error - Publish canceled"]
+    else:
+        if not origin.core.appPlugin.setNodeParm(origin.node, "vm_deepresolver", val="null"):
+            return [origin.state.text(0) + ": error - Publish canceled"]
 
     origin.passNames = []
     for i in range(origin.node.parm("vm_numaux").eval()):
@@ -156,8 +227,10 @@ def executeAOVs(origin, outputName):
             origin.node, "vm_usefile_plane" + str(i + 1), val=True
         ):
             return [origin.state.text(0) + ": error - Publish canceled"]
+
+        parmPath = origin.core.appPlugin.getPathRelativeToProject(passOutputName) if origin.core.appPlugin.getUseRelativePath() else passOutputName
         if not origin.core.appPlugin.setNodeParm(
-            origin.node, "vm_filename_plane" + str(i + 1), val=passOutputName
+            origin.node, "vm_filename_plane" + str(i + 1), val=parmPath
         ):
             return [origin.state.text(0) + ": error - Publish canceled"]
 
@@ -203,26 +276,17 @@ def setResolution(origin):
 def executeRender(origin):
     bkrender = origin.stateManager.publishInfos["backgroundRender"]
     if bkrender is None:
-        msg = QMessageBox(
-            QMessageBox.Question,
-            "Render",
-            "How do you want to render?",
-            QMessageBox.Cancel,
+        msg = "How do you want to render?"
+        result = origin.core.popupQuestion(
+            msg, buttons=["Render", "Render in background", "Cancel"], default="Render"
         )
-        msg.addButton("Render", QMessageBox.YesRole)
-        msg.addButton("Render in background", QMessageBox.YesRole)
-        origin.core.parentWindow(msg)
-        action = msg.exec_()
-        origin.stateManager.publishInfos["backgroundRender"] = action
+        origin.stateManager.publishInfos["backgroundRender"] = result
     else:
-        if bkrender:
-            action = 1
-        else:
-            action = 0
+        result = bkrender
 
-    if action == 0:
+    if result == "Render":
         origin.node.parm("execute").pressButton()
-    elif action == 1:
+    elif result == "Render in background":
         hou.hipFile.save()
         origin.node.parm("executebackground").pressButton()
     else:
@@ -239,3 +303,26 @@ def postExecute(origin):
             return [origin.state.text(0) + ": error - Publish canceled"]
 
     return True
+
+
+def getCleanupScript():
+    script = """
+
+import os
+import sys
+import shutil
+
+ifdOutput = sys.argv[-1]
+
+delDir = os.path.dirname(ifdOutput)
+if os.path.basename(delDir) != "_ifd":
+    raise RuntimeError("invalid ifd directory: %s" % (delDir))
+
+if os.path.exists(delDir):
+    shutil.rmtree(delDir)
+    print("task completed successfully")
+else:
+    print("directory doesn't exist")
+
+"""
+    return script

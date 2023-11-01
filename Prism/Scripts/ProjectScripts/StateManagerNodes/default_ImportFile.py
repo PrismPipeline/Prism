@@ -11,35 +11,32 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import os
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher
 
@@ -50,29 +47,40 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def setup(
-        self, state, core, stateManager, node=None, importPath=None, stateData=None
+        self,
+        state,
+        core,
+        stateManager,
+        node=None,
+        importPath=None,
+        stateData=None,
+        openProductsBrowser=True,
+        settings=None,
     ):
         self.state = state
         self.stateMode = "ImportFile"
-
-        # self.l_name.setVisible(False)
-        # self.e_name.setVisible(False)
 
         self.core = core
         self.stateManager = stateManager
         self.taskName = ""
         self.setName = ""
 
-        stateNameTemplate = "{entity}_{task}_{version}"
-        self.stateNameTemplate = self.core.getConfig("globals", "defaultImportStateName", dft=stateNameTemplate, configPath=self.core.prismIni)
+        stateNameTemplate = "{entity}_{product}_{version}"
+        self.stateNameTemplate = self.core.getConfig(
+            "globals",
+            "defaultImportStateName",
+            dft=stateNameTemplate,
+            configPath=self.core.prismIni,
+        )
         self.e_name.setText(self.stateNameTemplate)
+        self.l_name.setVisible(False)
+        self.e_name.setVisible(False)
 
         self.nodes = []
         self.nodeNames = []
 
         self.f_abcPath.setVisible(False)
         self.f_keepRefEdits.setVisible(False)
-        self.updatePrefUnits()
 
         self.oldPalette = self.b_importLatest.palette()
         self.updatePalette = QPalette()
@@ -82,7 +90,7 @@ class ImportFileClass(object):
         createEmptyState = (
             QApplication.keyboardModifiers() == Qt.ControlModifier
             or not self.core.uiAvailable
-        )
+        ) or not openProductsBrowser
 
         if (
             importPath is None
@@ -90,15 +98,16 @@ class ImportFileClass(object):
             and not createEmptyState
             and not self.stateManager.standalone
         ):
-            import TaskSelection
-            ts = TaskSelection.TaskSelection(core=core, importState=self)
+            import ProductBrowser
+
+            ts = ProductBrowser.ProductBrowser(core=core, importState=self)
             core.parentWindow(ts)
             ts.exec_()
             importPath = ts.productPath
 
         if importPath:
-            self.e_file.setText(importPath)
-            result = self.importObject()
+            self.setImportPath(importPath)
+            result = self.importObject(settings=settings)
 
             if not result:
                 return False
@@ -133,7 +142,7 @@ class ImportFileClass(object):
             data["filepath"] = getattr(
                 self.core.appPlugin, "sm_import_fixImportPath", lambda x: x
             )(data["filepath"])
-            self.e_file.setText(data["filepath"])
+            self.setImportPath(data["filepath"])
         if "keepedits" in data:
             self.chb_keepRefEdits.setChecked(eval(data["keepedits"]))
         if "autonamespaces" in data:
@@ -142,9 +151,6 @@ class ImportFileClass(object):
             self.chb_abcPath.setChecked(eval(data["updateabc"]))
         if "trackobjects" in data:
             self.chb_trackObjects.setChecked(eval(data["trackobjects"]))
-        if "preferunit" in data:
-            self.chb_preferUnit.setChecked(eval(data["preferunit"]))
-            self.updatePrefUnits()
         if "connectednodes" in data:
             if self.core.isStr(data["connectednodes"]):
                 data["connectednodes"] = eval(data["connectednodes"])
@@ -162,11 +168,12 @@ class ImportFileClass(object):
         if "autoUpdate" in data:
             self.chb_autoUpdate.setChecked(eval(data["autoUpdate"]))
 
+        self.core.callback("onStateSettingsLoaded", self, data)
+
     @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
-        self.e_file.editingFinished.connect(self.pathChanged)
         self.b_browse.clicked.connect(self.browse)
         self.b_browse.customContextMenuRequested.connect(self.openFolder)
         self.b_import.clicked.connect(self.importObject)
@@ -176,15 +183,10 @@ class ImportFileClass(object):
         self.chb_autoNameSpaces.stateChanged.connect(self.autoNameSpaceChanged)
         self.chb_abcPath.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.chb_trackObjects.toggled.connect(self.updateTrackObjects)
-        self.chb_preferUnit.stateChanged.connect(lambda x: self.updatePrefUnits())
-        self.chb_preferUnit.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.b_selectAll.clicked.connect(self.lw_objects.selectAll)
         if not self.stateManager.standalone:
             self.b_nameSpaces.clicked.connect(
                 lambda: self.core.appPlugin.sm_import_removeNameSpaces(self)
-            )
-            self.b_unitConversion.clicked.connect(
-                lambda: self.core.appPlugin.sm_import_unitConvert(self)
             )
             self.lw_objects.itemSelectionChanged.connect(
                 lambda: self.core.appPlugin.selectNodes(self)
@@ -194,6 +196,13 @@ class ImportFileClass(object):
     def nameChanged(self, text=None):
         text = self.e_name.text()
         cacheData = self.core.paths.getCachePathData(self.getImportPath())
+        if cacheData.get("type") == "asset":
+            cacheData["entity"] = os.path.basename(cacheData.get("asset_path", ""))
+        elif cacheData.get("type") == "shot":
+            shotName = self.core.entities.getShotName(cacheData)
+            if shotName:
+                cacheData["entity"] = shotName
+
         num = 0
 
         try:
@@ -222,9 +231,15 @@ class ImportFileClass(object):
         self.state.setText(0, name)
 
     @err_catcher(name=__name__)
+    def getSortKey(self):
+        cacheData = self.core.paths.getCachePathData(self.getImportPath())
+        return cacheData.get("product")
+
+    @err_catcher(name=__name__)
     def browse(self):
-        import TaskSelection
-        ts = TaskSelection.TaskSelection(core=self.core, importState=self)
+        import ProductBrowser
+
+        ts = ProductBrowser.ProductBrowser(core=self.core, importState=self)
         self.core.parentWindow(ts)
         ts.exec_()
         importPath = ts.productPath
@@ -232,19 +247,29 @@ class ImportFileClass(object):
         if importPath:
             result = self.importObject(update=True, path=importPath)
             if result:
-                self.e_file.setText(importPath)
+                self.setImportPath(importPath)
             self.updateUi()
 
     @err_catcher(name=__name__)
     def openFolder(self, pos):
-        path = self.e_file.text()
+        path = self.getImportPath()
         if os.path.isfile(path):
             path = os.path.dirname(path)
 
         self.core.openFolder(path)
 
     @err_catcher(name=__name__)
-    def pathChanged(self):
+    def getImportPath(self):
+        path = getattr(self, "importPath", "")
+        if path:
+            path = os.path.normpath(path)
+
+        return path
+
+    @err_catcher(name=__name__)
+    def setImportPath(self, path):
+        self.importPath = path
+        self.w_currentVersion.setToolTip(path)
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
@@ -263,7 +288,7 @@ class ImportFileClass(object):
         if checked:
             curVersion, latestVersion = self.checkLatestVersion()
             if self.chb_autoUpdate.isChecked():
-                if curVersion and latestVersion and curVersion != latestVersion:
+                if curVersion.get("version") and latestVersion.get("version") and curVersion["version"] != latestVersion["version"]:
                     self.importLatest()
 
         self.stateManager.saveStatesToScene()
@@ -274,10 +299,6 @@ class ImportFileClass(object):
         if not self.stateManager.standalone:
             self.core.appPlugin.sm_import_removeNameSpaces(self)
             self.stateManager.saveStatesToScene()
-
-    @err_catcher(name=__name__)
-    def getImportPath(self):
-        return os.path.normpath(self.e_file.text())
 
     @err_catcher(name=__name__)
     def runSanityChecks(self, cachePath):
@@ -293,12 +314,13 @@ class ImportFileClass(object):
 
     @err_catcher(name=__name__)
     def checkFrameRange(self, cachePath):
-        versionInfoPath = os.path.join(
-            os.path.dirname(os.path.dirname(cachePath)), "versioninfo.yml"
+        versionInfoPath = self.core.getVersioninfoPath(
+            self.core.products.getVersionInfoPathFromProductFilepath(cachePath)
         )
-        impFPS = self.core.getConfig("information", "fps", configPath=versionInfoPath)
+
+        impFPS = self.core.getConfig("fps", configPath=versionInfoPath)
         curFPS = self.core.getFPS()
-        if not impFPS or impFPS == curFPS:
+        if not impFPS or not curFPS or impFPS == curFPS:
             return True
 
         fString = (
@@ -306,7 +328,12 @@ class ImportFileClass(object):
             % (curFPS, impFPS)
         )
 
-        result = self.core.popupQuestion(fString, title="FPS mismatch", buttons=["Continue", "Cancel"], icon=QMessageBox.Warning)
+        result = self.core.popupQuestion(
+            fString,
+            title="FPS mismatch",
+            buttons=["Continue", "Cancel"],
+            icon=QMessageBox.Warning,
+        )
 
         if result == "Cancel":
             return False
@@ -314,28 +341,13 @@ class ImportFileClass(object):
         return True
 
     @err_catcher(name=__name__)
-    def convertToPreferredUnit(self, path):
-        parDirName = os.path.basename(os.path.dirname(path))
-        if parDirName in ["centimeter", "meter"]:
-            prefFile = os.path.join(
-                os.path.dirname(os.path.dirname(path)),
-                self.preferredUnit,
-                os.path.basename(path),
-            )
-            if parDirName == self.unpreferredUnit and os.path.exists(prefFile):
-                path = prefFile
-
-        return path
-
-    @err_catcher(name=__name__)
-    def importObject(self, update=False, path=None):
+    def importObject(self, update=False, path=None, settings=None):
         result = True
         if self.stateManager.standalone:
             return result
 
         fileName = self.core.getCurrentFileName()
         impFileName = path or self.getImportPath()
-        impFileName = self.convertToPreferredUnit(impFileName)
         impFileName = os.path.normpath(impFileName)
 
         kwargs = {
@@ -344,8 +356,10 @@ class ImportFileClass(object):
             "importfile": impFileName,
         }
         result = self.core.callback("preImport", **kwargs)
-
         for res in result:
+            if isinstance(res, dict) and res.get("cancel", False):
+                return
+
             if res and "importfile" in res:
                 impFileName = res["importfile"]
                 if not impFileName:
@@ -353,6 +367,10 @@ class ImportFileClass(object):
 
         if not impFileName:
             self.core.popup("Invalid importpath:\n\n%s" % impFileName)
+            return
+
+        if not hasattr(self.core.appPlugin, "sm_import_importToApp"):
+            self.core.popup("Import into %s is not supported." % self.core.appPlugin.pluginName)
             return
 
         result = self.runSanityChecks(impFileName)
@@ -368,11 +386,17 @@ class ImportFileClass(object):
                 self
             )
 
-        importResult = self.core.appPlugin.sm_import_importToApp(
-            self, doImport=doImport, update=update, impFileName=impFileName
-        )
+        # temporary workaround until all plugin handle the settings argument
+        if self.core.appPlugin.pluginName == "Maya":
+            importResult = self.core.appPlugin.sm_import_importToApp(
+                self, doImport=doImport, update=update, impFileName=impFileName, settings=settings
+            )
+        else:
+            importResult = self.core.appPlugin.sm_import_importToApp(
+                self, doImport=doImport, update=update, impFileName=impFileName
+            )
 
-        if importResult is None:
+        if not importResult:
             result = None
             doImport = False
         else:
@@ -409,7 +433,7 @@ class ImportFileClass(object):
             "importedObjects": self.nodeNames,
         }
         self.core.callback("postImport", **kwargs)
-        self.e_file.setText(impFileName)
+        self.setImportPath(impFileName)
         self.stateManager.saveImports()
         self.updateUi()
         self.stateManager.saveStatesToScene()
@@ -417,27 +441,46 @@ class ImportFileClass(object):
         return result
 
     @err_catcher(name=__name__)
-    def importLatest(self, refreshUi=True):
+    def importLatest(self, refreshUi=True, selectedStates=True):
         if refreshUi:
             self.updateUi()
 
-        latestVersion = self.core.products.getLatestVersionFromPath(self.getImportPath())
-        filepath = self.core.products.getPreferredFileFromVersion(latestVersion, preferredUnit=self.preferredUnit)
+        latestVersion = self.core.products.getLatestVersionFromPath(
+            self.getImportPath()
+        )
+        filepath = self.core.products.getPreferredFileFromVersion(latestVersion)
         if not filepath:
-            self.core.popup("Couldn't get latest version.")
+            if not self.chb_autoUpdate.isChecked():
+                self.core.popup("Couldn't get latest version.")
             return
 
-        self.e_file.setText(filepath)
+        prevState = self.stateManager.applyChangesToSelection
+        self.stateManager.applyChangesToSelection = False
+        self.setImportPath(filepath)
         self.importObject(update=True)
+        if selectedStates:
+            selStates = self.stateManager.getSelectedStates()
+            for state in selStates:
+                if state.__hash__() == self.state.__hash__():
+                    continue
+
+                if hasattr(state.ui, "importLatest"):
+                    state.ui.importLatest(refreshUi=refreshUi, selectedStates=False)
+
+        self.stateManager.applyChangesToSelection = prevState
 
     @err_catcher(name=__name__)
     def checkLatestVersion(self):
         path = self.getImportPath()
-        curVersionName = self.core.products.getVersionNameFromFilepath(path) or ""
+        curVersionName = self.core.products.getVersionFromFilepath(path) or ""
+        curVersionData = {"version": curVersionName, "path": path}
         latestVersion = self.core.products.getLatestVersionFromPath(path)
-        latestVersionName = latestVersion["name"] if latestVersion else ""
+        if latestVersion:
+            latestVersionData = {"version": latestVersion["version"], "path": latestVersion["path"]}
+        else:
+            latestVersionData = {}
 
-        return curVersionName, latestVersionName
+        return curVersionData, latestVersionData
 
     @err_catcher(name=__name__)
     def setStateColor(self, status):
@@ -461,22 +504,36 @@ class ImportFileClass(object):
         else:
             curVersion = latestVersion = ""
 
-        if curVersion == "master":
+        if curVersion.get("version") == "master":
             filepath = self.getImportPath()
-            curVersion = self.core.products.getMasterVersionLabel(filepath)
+            curVersionName = self.core.products.getMasterVersionLabel(filepath)
+        else:
+            curVersionName = curVersion.get("version")
 
-        self.l_curVersion.setText(curVersion or "-")
-        self.l_latestVersion.setText(latestVersion or "-")
+        if latestVersion.get("version") == "master":
+            filepath = latestVersion["path"]
+            latestVersionName = self.core.products.getMasterVersionLabel(filepath)
+        else:
+            latestVersionName = latestVersion.get("version")
+
+        self.l_curVersion.setText(curVersionName or "-")
+        self.l_latestVersion.setText(latestVersionName or "-")
 
         status = "error"
         if self.chb_autoUpdate.isChecked():
-            if curVersion and latestVersion and curVersion != latestVersion:
+            if curVersionName and latestVersionName and curVersionName != latestVersionName:
                 self.importLatest(refreshUi=False)
-            if latestVersion:
+
+            if latestVersionName:
                 status = "ok"
         else:
             useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
-            if curVersion and latestVersion and curVersion != latestVersion and not curVersion.startswith("master"):
+            if (
+                curVersionName
+                and latestVersionName
+                and curVersionName != latestVersionName
+                and not curVersionName.startswith("master")
+            ):
                 status = "warning"
                 if useSS:
                     self.b_importLatest.setStyleSheet(
@@ -485,7 +542,7 @@ class ImportFileClass(object):
                 else:
                     self.b_importLatest.setPalette(self.updatePalette)
             else:
-                if curVersion and latestVersion:
+                if curVersionName and latestVersionName:
                     status = "ok"
                 elif self.nodes:
                     status = "ok"
@@ -497,8 +554,6 @@ class ImportFileClass(object):
 
         isCache = self.stateMode == "ApplyCache"
         self.f_nameSpaces.setVisible(not isCache)
-        self.f_unitConversion.setVisible(not isCache)
-        self.w_preferUnit.setVisible(not isCache)
 
         self.lw_objects.clear()
 
@@ -523,22 +578,6 @@ class ImportFileClass(object):
         self.nameChanged()
         self.setStateColor(status)
         getattr(self.core.appPlugin, "sm_import_updateUi", lambda x: None)(self)
-
-    @err_catcher(name=__name__)
-    def updatePrefUnits(self):
-        pref = self.core.appPlugin.preferredUnit
-        if self.chb_preferUnit.isChecked():
-            if pref == "centimeter":
-                pref = "meter"
-            else:
-                pref = "centimeter"
-
-        if pref == "centimeter":
-            self.preferredUnit = "centimeter"
-            self.unpreferredUnit = "meter"
-        else:
-            self.preferredUnit = "meter"
-            self.unpreferredUnit = "centimeter"
 
     @err_catcher(name=__name__)
     def updateTrackObjects(self, state):
@@ -604,20 +643,17 @@ class ImportFileClass(object):
         connectedNodes = []
         if self.chb_trackObjects.isChecked():
             for i in range(self.lw_objects.count()):
-                connectedNodes.append(
-                    [self.lw_objects.item(i).text(), self.nodes[i]]
-                )
+                connectedNodes.append([self.lw_objects.item(i).text(), self.nodes[i]])
 
         return {
             "statename": self.e_name.text(),
             "statemode": self.stateMode,
-            "filepath": self.e_file.text(),
+            "filepath": self.getImportPath(),
             "autoUpdate": str(self.chb_autoUpdate.isChecked()),
             "keepedits": str(self.chb_keepRefEdits.isChecked()),
             "autonamespaces": str(self.chb_autoNameSpaces.isChecked()),
             "updateabc": str(self.chb_abcPath.isChecked()),
             "trackobjects": str(self.chb_trackObjects.isChecked()),
-            "preferunit": str(self.chb_preferUnit.isChecked()),
             "connectednodes": connectedNodes,
             "taskname": self.taskName,
             "nodenames": str(self.nodeNames),

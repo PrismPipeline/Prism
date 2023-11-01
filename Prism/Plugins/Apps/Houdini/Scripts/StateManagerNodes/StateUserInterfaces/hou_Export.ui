@@ -7,36 +7,27 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>778</height>
+    <height>781</height>
    </rect>
-  </property>
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>340</width>
-    <height>0</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>340</width>
-    <height>16777215</height>
-   </size>
   </property>
   <property name="windowTitle">
    <string>Export</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="margin">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
     <number>0</number>
    </property>
    <item>
-    <widget class="QWidget" name="widget_4" native="true">
+    <widget class="QWidget" name="w_name" native="true">
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <property name="topMargin">
        <number>0</number>
@@ -87,7 +78,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="groupBox_2">
+    <widget class="QGroupBox" name="gb_general">
      <property name="title">
       <string>General</string>
      </property>
@@ -104,7 +95,7 @@
          <item>
           <widget class="QLabel" name="l_tasklabel">
            <property name="text">
-            <string>Taskname:</string>
+            <string>Productname:</string>
            </property>
           </widget>
          </item>
@@ -275,6 +266,57 @@
           <widget class="QLabel" name="l_rangeEndInfo">
            <property name="text">
             <string>End:</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="w_master" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_20">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>9</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_master">
+           <property name="text">
+            <string>Update Master Version:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_29">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>113</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_master">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
            </property>
           </widget>
          </item>
@@ -504,48 +546,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="f_convertExport" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_15">
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QLabel" name="l_convertExport">
-           <property name="text">
-            <string>Additional export in centimeters:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_9">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="chb_convertExport">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="checked">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
        <widget class="QWidget" name="f_status" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_4">
          <property name="topMargin">
@@ -624,7 +624,7 @@
    <item>
     <widget class="QGroupBox" name="gb_submit">
      <property name="title">
-      <string>Submit Render Job</string>
+      <string>Submit Job</string>
      </property>
      <property name="checkable">
       <bool>true</bool>
@@ -1015,53 +1015,11 @@
         </layout>
        </widget>
       </item>
-      <item>
-       <widget class="QWidget" name="f_dlGroup" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_7">
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QLabel" name="label_9">
-           <property name="text">
-            <string>Assign to group:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_13">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QComboBox" name="cb_dlGroup">
-           <property name="minimumSize">
-            <size>
-             <width>150</width>
-             <height>0</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
      </layout>
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="groupBox">
+    <widget class="QGroupBox" name="gb_previous">
      <property name="title">
       <string>Last export</string>
      </property>
@@ -1071,53 +1029,44 @@
      <property name="checked">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_4">
-      <property name="leftMargin">
-       <number>18</number>
-      </property>
-      <property name="rightMargin">
-       <number>18</number>
-      </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_10">
       <item>
-       <widget class="QLabel" name="l_pathLast">
-        <property name="text">
-         <string>None</string>
+       <widget class="QScrollArea" name="scrollArea">
+        <property name="widgetResizable">
+         <bool>true</bool>
         </property>
+        <widget class="QWidget" name="scrollAreaWidgetContents">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>289</width>
+           <height>69</height>
+          </rect>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_2">
+          <item>
+           <widget class="QLabel" name="l_pathLast">
+            <property name="text">
+             <string>None</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="widget_2" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout_14">
-         <property name="margin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QPushButton" name="b_openLast">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="focusPolicy">
-            <enum>Qt::NoFocus</enum>
-           </property>
-           <property name="text">
-            <string>Open in explorer</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="b_copyLast">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="focusPolicy">
-            <enum>Qt::NoFocus</enum>
-           </property>
-           <property name="text">
-            <string>Copy path to clipboard</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
+       <widget class="QToolButton" name="b_pathLast">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string>...</string>
+        </property>
+        <property name="arrowType">
+         <enum>Qt::DownArrow</enum>
+        </property>
        </widget>
       </item>
      </layout>
@@ -1125,6 +1074,31 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>e_name</tabstop>
+  <tabstop>cb_rangeType</tabstop>
+  <tabstop>sp_rangeStart</tabstop>
+  <tabstop>sp_rangeEnd</tabstop>
+  <tabstop>chb_master</tabstop>
+  <tabstop>cb_outPath</tabstop>
+  <tabstop>cb_outType</tabstop>
+  <tabstop>chb_useTake</tabstop>
+  <tabstop>cb_take</tabstop>
+  <tabstop>cb_cam</tabstop>
+  <tabstop>cb_sCamShot</tabstop>
+  <tabstop>gb_submit</tabstop>
+  <tabstop>cb_manager</tabstop>
+  <tabstop>sp_rjPrio</tabstop>
+  <tabstop>sp_rjFramesPerTask</tabstop>
+  <tabstop>sp_rjTimeout</tabstop>
+  <tabstop>chb_rjSuspended</tabstop>
+  <tabstop>chb_osDependencies</tabstop>
+  <tabstop>chb_osUpload</tabstop>
+  <tabstop>chb_osPAssets</tabstop>
+  <tabstop>e_osSlaves</tabstop>
+  <tabstop>scrollArea</tabstop>
+  <tabstop>b_pathLast</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -52,19 +53,22 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 class SaveHDAClass(hou_Export.ExportClass):
     className = "Save HDA"
     listType = "Export"
+    stateCategories = {"Export": [{"label": className, "stateType": className}]}
 
     @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
         self.core = core
         self.stateManager = stateManager
+        self.canSetVersion = True
 
         self.node = None
         self.nodePath = ""
 
-        self.e_name.setText(self.className)
+        self.e_name.setText(self.className + " - {product} ({node})")
         self.l_name.setVisible(False)
         self.e_name.setVisible(False)
+        self.core.callback("onStateStartup", self)
 
         self.export_paths = self.core.paths.getExportProductBasePaths()
         self.cb_outPath.addItems(list(self.export_paths.keys()))
@@ -87,19 +91,19 @@ class SaveHDAClass(hou_Export.ExportClass):
         if stateData is not None:
             self.loadData(stateData)
         else:
-            fileName = self.core.getCurrentFileName()
-            fnameData = self.core.getScenefileData(fileName)
-
-            if fnameData.get("category"):
-                self.l_taskName.setText(fnameData.get("category"))
+            entity = self.getOutputEntity()
+            if entity.get("task"):
+                self.l_taskName.setText(entity.get("task"))
                 self.b_changeTask.setStyleSheet("")
 
     @err_catcher(name=__name__)
     def loadData(self, data):
         self.updateUi()
 
-        if "statename" in data:
-            self.e_name.setText(data["statename"])
+        if "stateName" in data:
+            self.e_name.setText(data["stateName"])
+        elif "statename" in data:
+            self.e_name.setText(data["statename"] + " - {product} ({node})")
         if "taskname" in data:
             self.l_taskName.setText(data["taskname"])
             if data["taskname"] != "":
@@ -124,13 +128,11 @@ class SaveHDAClass(hou_Export.ExportClass):
 
             self.l_pathLast.setText(lePath)
             self.l_pathLast.setToolTip(lePath)
-            pathIsNone = self.l_pathLast.text() == "None"
-            self.b_openLast.setEnabled(not pathIsNone)
-            self.b_copyLast.setEnabled(not pathIsNone)
         if "stateenabled" in data:
             self.state.setCheckState(0, Qt.CheckState(data["stateenabled"]))
 
         self.nameChanged(self.e_name.text())
+        self.core.callback("onStateSettingsLoaded", self, data)
 
     @err_catcher(name=__name__)
     def connectEvents(self):
@@ -142,17 +144,58 @@ class SaveHDAClass(hou_Export.ExportClass):
             lambda x: self.w_outPath.setEnabled(not x)
         )
         self.chb_projectHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-        self.chb_externalReferences.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_externalReferences.stateChanged.connect(
+            self.stateManager.saveStatesToScene
+        )
         self.chb_blackboxHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-        self.b_openLast.clicked.connect(
-            lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text()))
-        )
-        self.b_copyLast.clicked.connect(
-            lambda: self.core.copyToClipboard(self.l_pathLast.text())
-        )
+        self.b_pathLast.clicked.connect(self.showLastPathMenu)
+
         if not self.stateManager.standalone:
             self.b_goTo.clicked.connect(self.goToNode)
             self.b_connect.clicked.connect(self.connectNode)
+
+    @err_catcher(name=__name__)
+    def showLastPathMenu(self):
+        path = self.l_pathLast.text()
+        if path == "None":
+            return
+        
+        menu = QMenu(self)
+
+        act_open = QAction("Open in Product Browser", self)
+        act_open.triggered.connect(lambda: self.openInProductBrowser(path))
+        menu.addAction(act_open)
+
+        act_open = QAction("Open in explorer", self)
+        act_open.triggered.connect(lambda: self.core.openFolder(path))
+        menu.addAction(act_open)
+
+        act_copy = QAction("Copy", self)
+        act_copy.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
+        menu.addAction(act_copy)
+
+        menu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def openInProductBrowser(self, path):
+        self.core.projectBrowser()
+        self.core.pb.showTab("Products")
+        data = self.core.paths.getCachePathData(path)
+        self.core.pb.productBrowser.navigateToVersion(version=data["version"], product=data["product"], entity=data)
+
+    @err_catcher(name=__name__)
+    def goToNode(self):
+        try:
+            self.node.name()
+        except:
+            self.updateUi()
+            return False
+
+        self.node.setCurrent(True, clear_all_selected=True)
+        paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+        if paneTab is not None:
+            paneTab.setCurrentNode(self.node)
+            paneTab.homeToSelection()
 
     @err_catcher(name=__name__)
     def nameChanged(self, text):
@@ -161,12 +204,47 @@ class SaveHDAClass(hou_Export.ExportClass):
         else:
             nodeName = "None"
 
-        sText = text + " - %s (%s)" % (self.l_taskName.text(), nodeName)
+        text = self.e_name.text()
+        context = {}
+        context["product"] = self.l_taskName.text()
+        context["node"] = nodeName
+
+        num = 0
+        try:
+            if "{#}" in text:
+                while True:
+                    context["#"] = num or ""
+                    name = text.format(**context)
+                    for state in self.stateManager.states:
+                        if state.ui.listType != "Export":
+                            continue
+
+                        if state is self.state:
+                            continue
+
+                        if state.text(0) == name:
+                            num += 1
+                            break
+                    else:
+                        break
+            else:
+                name = text.format(**context)
+        except Exception:
+            name = text
 
         if self.state.text(0).endswith(" - disabled"):
-            sText += " - disabled"
+            name += " - disabled"
 
-        self.state.setText(0, sText)
+        self.state.setText(0, name)
+
+    @err_catcher(name=__name__)
+    def getTaskname(self):
+        taskName = self.l_taskName.text()
+        return taskName
+
+    @err_catcher(name=__name__)
+    def getOutputType(self):
+        return ".hda"
 
     @err_catcher(name=__name__)
     def isNodeValid(self):
@@ -197,9 +275,8 @@ class SaveHDAClass(hou_Export.ExportClass):
             not self.isNodeValid() or self.node.type().areContentsViewable()
         )
 
-        self.w_externalReferences.setEnabled(bool(
-            self.node and
-            self.node.canCreateDigitalAsset())
+        self.w_externalReferences.setEnabled(
+            bool(self.node and self.node.canCreateDigitalAsset())
         )
 
         self.nameChanged(self.e_name.text())
@@ -221,7 +298,11 @@ class SaveHDAClass(hou_Export.ExportClass):
             if not node:
                 return False
 
-        if node.canCreateDigitalAsset() or node.type().definition():
+        return self.isConnectableNode(node)
+
+    @staticmethod
+    def isConnectableNode(node):
+        if node and node.canCreateDigitalAsset() or node.type().definition():
             return True
 
         return False
@@ -230,8 +311,10 @@ class SaveHDAClass(hou_Export.ExportClass):
     def connectNode(self, node=None):
         if node is None:
             node = self.getSelectedNode()
+            if not node:
+                return False
 
-        if self.canConnectNode(node=node):
+        if self.isConnectableNode(node=node):
             self.node = node
             self.nodePath = self.node.path()
             self.node.setUserData("PrismPath", self.nodePath)
@@ -260,7 +343,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             if result:
                 outputName, outputPath, hVersion = result
                 outLength = len(outputName)
-                if platform.system() == "Windows" and outLength > 255:
+                if platform.system() == "Windows" and os.getenv("PRISM_IGNORE_PATH_LENGTH") != "1" and outLength > 255:
                     msg = (
                         "The outputpath is longer than 255 characters (%s), which is not supported on Windows."
                         % outLength
@@ -274,7 +357,9 @@ class SaveHDAClass(hou_Export.ExportClass):
     def runSanityChecks(self):
         result = {}
         result["checks"] = self.preExecuteState()[1]
-        result["passed"] = len([check for check in result["checks"] if check[2] == 3]) == 0
+        result["passed"] = (
+            len([check for check in result["checks"] if check[2] == 3]) == 0
+        )
         return result
 
     @err_catcher(name=__name__)
@@ -282,25 +367,19 @@ class SaveHDAClass(hou_Export.ExportClass):
         result = []
         for check in sanityResult["checks"]:
             if check[2] == 3:
-                msg = self.state.text(0) + ": error - %s. Skipped the activation of this state." % check[0]
+                msg = (
+                    self.state.text(0)
+                    + ": error - %s Skipped the activation of this state." % check[0]
+                )
                 result.append(msg)
 
         return result
 
     @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
-        version = useVersion
-        comment = None
+        version = useVersion if useVersion != "next" else None
         user = None
-        if version != "next":
-            versionData = version.split(self.core.filenameSeparator)
-            if len(versionData) == 3:
-                version, comment, user = versionData
-
-        fileName = self.core.getCurrentFileName()
-        fnameData = self.core.getScenefileData(fileName)
-        if comment is None and fnameData.get("entity") != "invalid":
-            comment = fnameData["comment"]
+        comment = self.stateManager.publishComment
 
         result = self.core.appPlugin.getHDAOutputpath(
             node=self.node,
@@ -325,22 +404,28 @@ class SaveHDAClass(hou_Export.ExportClass):
 
         ropNode = self.node
         fileName = self.core.getCurrentFileName()
+        entity = self.getOutputEntity()
         result = self.getOutputName(useVersion=useVersion)
         if not result:
             return
 
         outputName, outputPath, hVersion = result
 
+        details = entity.copy()
+        del details["filename"]
+        del details["extension"]
+        details["version"] = hVersion
+        details["sourceScene"] = fileName
+        details["product"] = self.getTaskname()
+        details["comment"] = self.stateManager.publishComment
+
         self.core.saveVersionInfo(
-            location=os.path.dirname(outputName),
-            version=hVersion,
-            origin=fileName,
+            filepath=os.path.dirname(outputName),
+            details=details,
         )
 
         self.l_pathLast.setText(outputName)
         self.l_pathLast.setToolTip(outputName)
-        self.b_openLast.setEnabled(True)
-        self.b_copyLast.setEnabled(True)
 
         self.stateManager.saveStatesToScene()
         hou.hipFile.save()
@@ -371,11 +456,13 @@ class SaveHDAClass(hou_Export.ExportClass):
 
     @err_catcher(name=__name__)
     def exportHDA(self, node, outputPath, version):
-        fileName = self.core.getCurrentFileName()
-        data = self.core.getScenefileData(fileName)
-        entityName = data.get("entityName", "")
+        entity = self.getOutputEntity()
+        if entity.get("type") == "asset":
+            name = os.path.basename(entity["asset_path"])
+        elif entity.get("type") == "shot":
+            name = self.core.entities.getShotName(entity)
         taskName = self.l_taskName.text()
-        typeName = "%s_%s" % (entityName, taskName)
+        typeName = "%s_%s" % (name, taskName)
 
         label = typeName
         createBlackBox = self.chb_blackboxHDA.isChecked()
@@ -427,7 +514,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             curNode = None
 
         stateProps = {
-            "statename": self.e_name.text(),
+            "stateName": self.e_name.text(),
             "taskname": self.l_taskName.text(),
             "curoutputpath": self.cb_outPath.currentText(),
             "connectednode": curNode,

@@ -4,7 +4,7 @@ version 10.5 v2
 Gizmo {
  note_font Verdana
  addUserKnob {20 User l WritePrism}
- addUserKnob {1 task}
+ addUserKnob {1 identifier}
  addUserKnob {1 comment l "comment (optional)"}
  addUserKnob {4 location l "location" M {"                              "}}
  addUserKnob {26 ""}
@@ -16,13 +16,15 @@ Gizmo {
  addUserKnob {26 ""}
  addUserKnob {1 fileName l filepath}
  fileName FileNotInPipeline
- addUserKnob {22 refresh T "pcore.appPlugin.getOutputPath(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
- addUserKnob {22 createDir l "Create directory" -STARTLINE T "import os\npcore.createFolder(os.path.dirname(nuke.thisNode().knob(\"fileName\").value()), showMessage=True)"}
- addUserKnob {22 openDir l "Open in explorer" -STARTLINE T "import os\npcore.openFolder(os.path.dirname(nuke.thisNode().knob(\"fileName\").value()))"}
+ addUserKnob {22 refresh l "Refresh" T "pcore.appPlugin.getOutputPath(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
  addUserKnob {26 ""}
  addUserKnob {22 b_startRender l Render T "pcore.appPlugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
- addUserKnob {22 b_startRenderLastVersion l "Render as previous version" -STARTLINE T "pcore.appPlugin.startRender(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode(), useLastVersion=True)"}
- knobChanged "pcore.getPlugin(\"Nuke\").updateNodeUI(\"writePrism\", nuke.thisNode())"
+ addUserKnob {22 b_startRenderLastVersion l "Render as previous version..." -STARTLINE T "pcore.appPlugin.renderAsVersion(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())"}
+ addUserKnob {22 b_openSubmitter l "Submit Job..." T "pcore.appPlugin.openFarmSubmitter(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())"}
+ addUserKnob {26 prevFileName l "previous filepath" T "-"}
+ addUserKnob {22 openDir l "Open In..." T "pcore.appPlugin.openInClicked(nuke.thisNode().node(\"WritePrismBase\"), nuke.thisNode())" +STARTLINE}
+ onCreate "try: pcore.appPlugin.writeGizmoCreated()\nexcept: pass"
+ knobChanged "try:\n\tpcore.getPlugin(\"Nuke\").updateNodeUI(\"writePrism\", nuke.thisNode())\nexcept:\n\tpass"
 }
  Input {
   inputs 0
@@ -31,7 +33,7 @@ Gizmo {
   ypos -185
  }
  Write {
-  file "\[python -exec \{\nopath = \"\"\ntry:\n\topath = pcore.appPlugin.getOutputPath(nuke.thisNode(), nuke.thisGroup())\nexcept:\n\topath = nuke.thisGroup().knob(\"fileName\").toScript()\n\n\}]\[python opath]"
+  file "[value fileName]"
   file_type exr
   version 2
   beforeRender "try: pcore.appPlugin.getOutputPath(nuke.thisNode(), nuke.thisGroup(), render=True)\nexcept: pass"

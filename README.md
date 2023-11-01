@@ -1,40 +1,42 @@
 # Prism Pipeline
 
-This is the official repository of the Prism Pipeline for Animation and VFX projects.
+This is the official repository of the Prism Pipeline.
 
-It automates common tasks and simplifies the workflow of the complete project.
+Prism automates and simplifies the workflow of animation and VFX projects.
 
 You can find more information on the website:
 
 https://prism-pipeline.com/
 
+This repository contains the Prism core application and the officially available open source plugins.
+Additional features and plugins are available on the Prism website.
+
 
 ## Getting Started
 
-On the [website](https://prism-pipeline.com/) you can find the latest official installer.
+On the [website](https://prism-pipeline.com/downloads/) you can find the latest official installer.
 
-You can find some tutorials here, which explain the basic workflow: [Tutorials](https://prism-pipeline.com/tutorials/)
-
-The documentation can be found here: [Documentation](https://prism-pipeline.readthedocs.io/en/latest/)
+For a getting started guide about how to use Prism see the [Documentation](https://prism-pipeline.com/docs/latest/).
 
 
 ## Installing
 
-* To install the latest development version download or clone this repository and the Prism dependencies for your OS:
+**At this time Prism 2 is supported on Windows only.**
 
-[Windows-dependencies](https://dl.dropboxusercontent.com/s/w6yj55g3x3m5qx4/Prism_v1.3.0.0_dependencies_win.zip?dl=1)
+Download the installer from the [website](https://prism-pipeline.com/downloads/)
+(This version allows you to automatically update Prism and install new plugins)
 
-[Linux-dependencies](https://dl.dropboxusercontent.com/s/n43ffvhasye066l/Prism_v1.3.0.0_dependencies_linux.zip?dl=1)
+or to install Prism manually:
 
-[MacOSX-dependencies](https://dl.dropboxusercontent.com/s/f2jebuvq62xf1xq/Prism_v1.3.0.0_dependencies_mac.zip?dl=1)
+* Download or clone this repository and the [Prism dependencies](https://github.com/PrismPipeline/Prism/releases):
 
-* Extract the dependencies and copy the extracted folders into Prism/Prism of this repository.
+* Extract the dependencies and copy the extracted folders into the "Prism" folder of this repository.
 
 * Now the "Prism" folder should contain the folders like:
-"ProjectFiles", "Python37", "PythonLibs"...
+"Plugins", "Python39", "PythonLibs", "Scripts", ...
 
-* Now go two folders up and execute the Prism_Setup file.
+* Execute the setup.bat file to launch Prism.
 
 ## License
 
-This project is licensed under the GNU GPL-3.0 License - see the [LICENSE](LICENSE) file for details
+This project is licensed under the GNU LGPL-3.0-or-later License - see the [license-LGPL.txt](license-LGPL.txt) file for details.

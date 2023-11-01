@@ -11,37 +11,33 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import sys
 import platform
-import shutil
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 if platform.system() == "Windows":
     if sys.version[0] == "3":
@@ -141,7 +137,11 @@ class Prism_Photoshop_Integration(object):
                 targetFile = os.path.join(scriptdir, i)
 
                 if os.path.exists(targetFile):
-                    cmd = {"type": "removeFile", "args": [targetFile], "validate": False}
+                    cmd = {
+                        "type": "removeFile",
+                        "args": [targetFile],
+                        "validate": False,
+                    }
                     cmds.append(cmd)
 
                 cmd = {"type": "copyFile", "args": [origFile, targetFile]}
@@ -150,6 +150,7 @@ class Prism_Photoshop_Integration(object):
                 with open(origFile, "r") as init:
                     initStr = init.read()
 
+                initStr = initStr.replace("PLUGINROOT", "%s" % os.path.dirname(self.pluginPath).replace("\\", "/"))
                 initStr = initStr.replace("PRISMROOT", "%s" % self.core.prismRoot)
                 initStr = initStr.replace("PRISMLIBS", "%s" % self.core.prismLibs)
 
@@ -159,6 +160,8 @@ class Prism_Photoshop_Integration(object):
             result = self.core.runFileCommands(cmds)
             if result is True:
                 return True
+            elif result is False:
+                return False
             else:
                 raise Exception(result)
 
@@ -217,7 +220,8 @@ class Prism_Photoshop_Integration(object):
 
             activeVersion = False
             for i in reversed(psPaths):
-                psVItem = QTreeWidgetItem([i[-4:]])
+                name = os.path.basename(i).replace("Adobe Photoshop ", "")
+                psVItem = QTreeWidgetItem([name])
                 psItem.addChild(psVItem)
 
                 if os.path.exists(i):
@@ -232,6 +236,7 @@ class Prism_Photoshop_Integration(object):
 
             if not activeVersion:
                 psItem.setCheckState(0, Qt.Unchecked)
+                psCustomItem.setFlags(~Qt.ItemIsEnabled)
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -257,7 +262,9 @@ class Prism_Photoshop_Integration(object):
                     psPaths.append(item.text(1))
 
             for i in psPaths:
-                result["Photoshop integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=i, quiet=True)
+                result["Photoshop integration"] = self.core.integration.addIntegration(
+                    self.plugin.pluginName, path=i, quiet=True
+                )
                 if result["Photoshop integration"]:
                     installLocs.append(i)
 

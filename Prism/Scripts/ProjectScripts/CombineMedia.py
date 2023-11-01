@@ -11,47 +11,35 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import os
-import time
-import platform
 import subprocess
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
-
-if psVersion == 1:
-    import CombineMedia_ui
-else:
-    import CombineMedia_ui_ps2 as CombineMedia_ui
+import CombineMedia_ui
 
 from PrismUtils.Decorators import err_catcher
 
@@ -64,29 +52,14 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         self.core.parentWindow(self)
         self.ctype = ctype
 
-        dailiesName = self.core.getConfig(
-            "paths", "dailies", configPath=self.core.prismIni
-        )
-        if dailiesName is not None:
-            curDate = time.strftime("%Y_%m_%d", time.localtime())
-            outputpreset = os.path.join(
-                self.core.projectPath,
-                dailiesName,
-                curDate,
-                self.core.getConfig("globals", "username"),
-                "combined_video.mp4",
-            )
-            self.e_output.setText(outputpreset)
-
         self.e_task.setText("Combined-Video")
-        self.taskList = self.core.getTaskNames(
-            "external", basePath=self.core.pb.renderBasePath
-        )
+        context = self.core.pb.mediaBrowser.getCurrentEntity()
+        self.taskList = self.core.getTaskNames("external", context=context)
 
         if len(self.taskList) == 0:
             self.b_tasks.setHidden(True)
 
-        if self.core.pb.renderBasePath is None:
+        if not context:
             self.l_task.setEnabled(False)
             self.chb_task.setChecked(False)
             self.chb_task.setEnabled(False)
@@ -126,44 +99,21 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
             try:
                 os.makedirs(os.path.dirname(output))
             except:
-                QMessageBox.warning(
-                    self.core.messageParent,
-                    "Video combine",
-                    "Could not create outputfolder %s" % os.path.dirname(output),
-                )
+                msg = "Could not create outputfolder %s" % os.path.dirname(output)
+                self.core.popup(msg)
                 return
 
-        ffmpegIsInstalled = False
-        if platform.system() == "Windows":
-            ffmpegPath = os.path.join(
-                self.core.prismLibs, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
-            )
-            if os.path.exists(ffmpegPath):
-                ffmpegIsInstalled = True
-        elif platform.system() == "Linux":
-            ffmpegPath = "ffmpeg"
-            try:
-                subprocess.Popen([ffmpegPath])
-                ffmpegIsInstalled = True
-            except:
-                pass
-        elif platform.system() == "Darwin":
-            ffmpegPath = os.path.join(self.core.prismLibs, "Tools", "ffmpeg")
-            if os.path.exists(ffmpegPath):
-                ffmpegIsInstalled = True
-
-        if not ffmpegIsInstalled:
-            QMessageBox.critical(
-                self.core.messageParent,
-                "Video combine",
+        ffmpegPath = self.core.media.getFFmpeg(validate=True)
+        if not ffmpegPath:
+            self.core.popup(
                 "Could not find %s" % ffmpegPath,
             )
             return
 
-        if len(self.core.pb.compareStates) > 0:
-            cStates = self.core.pb.compareStates
+        if self.core.pb.mediaBrowser.compareStates:
+            cStates = self.core.pb.mediaBrowser.compareStates
         else:
-            cStates = self.core.pb.getCurRenders()[0]
+            cStates = self.core.pb.mediaBrowser.getCurRenders()
 
         if self.ctype in ["layout", "sequence"]:
             cStates = reversed(cStates)
@@ -179,32 +129,43 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
             if os.path.isfile(i):
                 inputpath = i
             else:
-                inputpath = self.core.pb.getImgSources(i, getFirstFile=True)
+                inputpath = self.core.pb.mediaBrowser.getImgSources(
+                    i, getFirstFile=True
+                )
                 if len(inputpath) == 0:
                     continue
 
                 inputpath = inputpath[0]
 
-            iw, ih = self.core.pb.getMediaResolution(inputpath)
-            if iw == "?" or ih == "?":
+            resolution = self.core.media.getMediaResolution(inputpath)
+            inWidth = resolution["width"]
+            inHeight = resolution["height"]
+            if inWidth is None or inHeight is None:
                 continue
 
-            if iw > tw:
-                tw = iw
-            if ih > th:
-                th = ih
+            if inWidth > tw:
+                tw = inWidth
+            if inHeight > th:
+                th = inHeight
 
             inputExt = os.path.splitext(inputpath)[1]
 
-            isSequence = not inputExt in [".mp4", ".mov"]
+            isSequence = inputExt not in self.core.media.videoFormats
 
             if isSequence:
-                outputpath = os.path.splitext(inputpath)[0][:-(self.core.framePadding+1)] + ".mp4"
+                outputpath = (
+                    os.path.splitext(inputpath)[0][: -(self.core.framePadding + 1)]
+                    + ".mp4"
+                )
                 if not os.path.exists(os.path.dirname(outputpath)):
                     os.makedirs(os.path.dirname(outputpath))
 
-                startNum = os.path.splitext(inputpath)[0][-self.core.framePadding:]
-                inputpath = os.path.splitext(inputpath)[0][:-self.core.framePadding] + "%04d".replace("4", str(self.core.framePadding)) + inputExt
+                startNum = os.path.splitext(inputpath)[0][-self.core.framePadding :]
+                inputpath = (
+                    os.path.splitext(inputpath)[0][: -self.core.framePadding]
+                    + "%04d".replace("4", str(self.core.framePadding))
+                    + inputExt
+                )
                 nProc = subprocess.Popen(
                     [
                         ffmpegPath,
@@ -235,7 +196,7 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                 tmpFiles.append(outputpath)
                 inputpath = outputpath
 
-            sources.append([inputpath, iw, ih])
+            sources.append([inputpath, inWidth, inHeight])
 
         for i in sources:
             inputpath = i[0]
@@ -316,16 +277,18 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
         # 	elif self.ctype == "stackDif":
 
         if self.chb_task.isChecked() and self.e_task.text() != "":
-            versionBase = os.path.join(
-                self.core.pb.renderBasePath, "Rendering", "external", self.e_task.text()
-            )
-            newVersion = self.core.getHighestTaskVersion(versionBase)
-            self.core.pb.createExternalTask(
-                data={
-                    "taskName": self.e_task.text(),
-                    "versionName": newVersion,
-                    "targetPath": output,
-                }
+            context = self.core.pb.mediaBrowser.getCurrentEntity()
+            context["identifier"] = self.e_task.text()
+            version = self.core.mediaProducts.getLatestVersionFromIdentifier(context)
+            if version:
+                intVersion = self.core.products.getIntVersionFromVersionName(
+                    version["version"]
+                )
+            else:
+                intVersion = 1
+            newVersion = self.core.versionFormat % (intVersion + 1)
+            self.core.mediaProducts.createExternalMedia(
+                output, context, context["identifier"], newVersion
             )
 
         for k in tmpFiles:
@@ -335,12 +298,9 @@ class CombineMedia(QDialog, CombineMedia_ui.Ui_dlg_CombineMedia):
                 pass
 
         if os.path.exists(output):
-            self.core.copyToClipboard(output)
-            QMessageBox.information(
-                self.core.messageParent,
-                "Media combine",
-                "The video was created successfully. (path is in clipboard)",
-            )
+            self.core.copyToClipboard(output, file=True)
+            msg = "The video was created successfully. (path is in clipboard)"
+            self.core.popup(msg, severity="info")
         else:
             self.core.ffmpegError(
                 "Media combine", "The video could not be created.", [stdout, stderr]

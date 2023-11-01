@@ -11,37 +11,30 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 import os
 import sys
@@ -57,6 +50,7 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 class ImageRenderClass(object):
     className = "ImageRender"
     listType = "Export"
+    stateCategories = {"Render": [{"label": className, "stateType": className}]}
 
     @err_catcher(name=__name__)
     def setup(
@@ -65,9 +59,12 @@ class ImageRenderClass(object):
         self.state = state
         self.core = core
         self.stateManager = stateManager
+        self.canSetVersion = True
 
         self.curCam = None
-        self.e_name.setText(state.text(0))
+        stateNameTemplate = state.text(0) + " - {identifier} ({node})"
+        self.stateNameTemplate = self.core.getConfig("globals", "defaultRenderStateName", dft=stateNameTemplate, configPath=self.core.prismIni)
+        self.e_name.setText(self.stateNameTemplate)
 
         self.renderPresets = (
             self.stateManager.stateTypes["RenderSettings"].getPresets(self.core)
@@ -86,17 +83,7 @@ class ImageRenderClass(object):
         ]
         self.cb_renderer.addItems([x.label for x in self.renderers])
 
-        dftResPresets = [
-            "Cam resolution",
-            "3840x2160",
-            "1920x1080",
-            "1280x720",
-            "960x540",
-            "640x360",
-        ]
-
-        self.resolutionPresets = self.core.getConfig("globals", "resolutionPresets", configPath=self.core.prismIni, dft=dftResPresets)
-
+        self.resolutionPresets = self.core.projects.getResolutionPresets()
         if "Cam resolution" not in self.resolutionPresets:
             self.resolutionPresets.insert(0, "Cam resolution")
 
@@ -116,21 +103,32 @@ class ImageRenderClass(object):
 
         self.cb_format.addItems(self.outputFormats)
 
-        self.rangeTypes = ["State Manager", "Scene", "Shot", "Node", "Single Frame", "Custom", "Expression"]
+        self.rangeTypes = [
+            "Scene",
+            "Shot",
+            "Node",
+            "Single Frame",
+            "Custom",
+            "Expression",
+        ]
         self.cb_rangeType.addItems(self.rangeTypes)
         for idx, rtype in enumerate(self.rangeTypes):
-            self.cb_rangeType.setItemData(idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole)
-        self.w_frameExpression.setToolTip(self.stateManager.getFrameRangeTypeToolTip("ExpressionField"))
+            self.cb_rangeType.setItemData(
+                idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole
+            )
+        self.w_frameExpression.setToolTip(
+            self.stateManager.getFrameRangeTypeToolTip("ExpressionField")
+        )
 
         self.l_name.setVisible(False)
         self.e_name.setVisible(False)
         self.tw_passes.setColumnWidth(0, 130)
         self.setPassDataEnabled = True
         self.gb_submit.setChecked(False)
+        self.w_separateAovs.setHidden(True)
 
-        for i in self.core.rfManagers.values():
-            self.cb_manager.addItem(i.pluginName)
-            i.sm_houExport_startup(self)
+        self.cb_manager.addItems([p.pluginName for p in self.core.plugins.getRenderfarmPlugins()])
+        self.core.callback("onStateStartup", self)
 
         if self.cb_manager.count() == 0:
             self.gb_submit.setVisible(False)
@@ -150,7 +148,9 @@ class ImageRenderClass(object):
                 if ropType in i.ropNames:
                     self.cb_renderer.setCurrentIndex(self.cb_renderer.findText(i.label))
 
-        self.rendererChanged(self.cb_renderer.currentText(), create=stateData is None)
+        if not hasattr(self, "curRenderer"):
+            create = (stateData is None) and QApplication.keyboardModifiers() != Qt.ControlModifier
+            self.rendererChanged(self.cb_renderer.currentText(), create=create)
 
         if hasattr(self, "node") and self.node is not None:
             self.sp_rangeStart.setValue(self.node.parm("f1").eval())
@@ -173,10 +173,19 @@ class ImageRenderClass(object):
             if node is None:
                 self.nameChanged(state.text(0))
 
-            fileName = self.core.getCurrentFileName()
-            fnameData = self.core.getScenefileData(fileName)
-            if fnameData.get("category"):
-                self.setTaskname(fnameData.get("category"))
+            context = self.getOutputEntity()
+            if self.getRangeType() != "Node":
+                if context.get("type") == "asset":
+                    self.setRangeType("Single Frame")
+                elif context.get("type") == "shot":
+                    self.setRangeType("Shot")
+                else:
+                    self.setRangeType("Scene")
+
+            if self.core.appPlugin.isNodeValid(self, self.node):
+                self.setTaskname(self.node.name())
+            if context.get("task"):
+                self.setTaskname(context.get("task"))
 
             self.updateUi()
 
@@ -200,8 +209,10 @@ class ImageRenderClass(object):
             if self.node2 is None:
                 self.node2 = self.findNode(data["connectednode2"])
 
-        if "statename" in data:
-            self.e_name.setText(data["statename"])
+        if "stateName" in data:
+            self.e_name.setText(data["stateName"])
+        elif "statename" in data:
+            self.e_name.setText(data["statename"] + " - {identifier} ({node})")
         if "taskname" in data:
             self.setTaskname(data["taskname"])
         if "renderpresetoverride" in data:
@@ -262,6 +273,8 @@ class ImageRenderClass(object):
             idx = self.cb_renderer.findText(data["renderer"])
             if idx != -1:
                 self.cb_renderer.setCurrentIndex(idx)
+        if "separateAovs" in data:
+            self.chb_separateAovs.setChecked(eval(data["separateAovs"]))
         if "submitrender" in data:
             self.gb_submit.setChecked(eval(data["submitrender"]))
         if "rjmanager" in data:
@@ -277,10 +290,14 @@ class ImageRenderClass(object):
             self.sp_rjTimeout.setValue(int(data["rjtimeout"]))
         if "rjsuspended" in data:
             self.chb_rjSuspended.setChecked(eval(data["rjsuspended"]))
+        if "rjRenderIFDs" in data:
+            self.chb_rjIFDs.setChecked(eval(data["rjRenderIFDs"]))
         if "rjRenderNSIs" in data:
             self.chb_rjNSIs.setChecked(eval(data["rjRenderNSIs"]))
         if "rjRenderRS" in data:
             self.chb_rjRS.setChecked(eval(data["rjRenderRS"]))
+        if "rjRenderASSs" in data:
+            self.chb_rjASSs.setChecked(eval(data["rjRenderASSs"]))
         if "osdependencies" in data:
             self.chb_osDependencies.setChecked(eval(data["osdependencies"]))
         if "osupload" in data:
@@ -289,10 +306,6 @@ class ImageRenderClass(object):
             self.chb_osPAssets.setChecked(eval(data["ospassets"]))
         if "osslaves" in data:
             self.e_osSlaves.setText(data["osslaves"])
-        if "curdlgroup" in data:
-            idx = self.cb_dlGroup.findText(data["curdlgroup"])
-            if idx != -1:
-                self.cb_dlGroup.setCurrentIndex(idx)
         if "dlconcurrent" in data:
             self.sp_dlConcurrentTasks.setValue(int(data["dlconcurrent"]))
         if "dlgpupt" in data:
@@ -305,9 +318,6 @@ class ImageRenderClass(object):
             lePath = self.core.fixPath(data["lastexportpath"])
             self.l_pathLast.setText(lePath)
             self.l_pathLast.setToolTip(lePath)
-            pathIsNone = self.l_pathLast.text() == "None"
-            self.b_openLast.setEnabled(not pathIsNone)
-            self.b_copyLast.setEnabled(not pathIsNone)
         if "stateenabled" in data:
             self.state.setCheckState(
                 0,
@@ -319,6 +329,7 @@ class ImageRenderClass(object):
             )
 
         self.nameChanged(self.e_name.text())
+        self.core.callback("onStateSettingsLoaded", self, data)
 
     @err_catcher(name=__name__)
     def findNode(self, path):
@@ -343,7 +354,9 @@ class ImageRenderClass(object):
         self.sp_rangeStart.editingFinished.connect(self.startChanged)
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
         self.le_frameExpression.textChanged.connect(self.frameExpressionChanged)
-        self.le_frameExpression.editingFinished.connect(self.stateManager.saveStatesToScene)
+        self.le_frameExpression.editingFinished.connect(
+            self.stateManager.saveStatesToScene
+        )
         self.le_frameExpression.setMouseTracking(True)
         self.le_frameExpression.origMoveEvent = self.le_frameExpression.mouseMoveEvent
         self.le_frameExpression.mouseMoveEvent = self.exprMoveEvent
@@ -359,8 +372,9 @@ class ImageRenderClass(object):
         self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_master.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
-        self.cb_format.activated.connect(self.stateManager.saveStatesToScene)
+        self.cb_format.activated.connect(self.onFormatChanged)
         self.cb_renderer.currentIndexChanged[str].connect(self.rendererChanged)
+        self.chb_separateAovs.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.gb_submit.toggled.connect(self.rjToggled)
         self.cb_manager.activated.connect(self.managerChanged)
         self.sp_rjPrio.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -369,8 +383,10 @@ class ImageRenderClass(object):
         )
         self.sp_rjTimeout.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.chb_rjSuspended.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_rjIFDs.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.chb_rjNSIs.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.chb_rjRS.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_rjASSs.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.chb_osDependencies.stateChanged.connect(
             self.stateManager.saveStatesToScene
         )
@@ -378,7 +394,6 @@ class ImageRenderClass(object):
         self.chb_osPAssets.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.e_osSlaves.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_osSlaves.clicked.connect(self.openSlaves)
-        self.cb_dlGroup.activated.connect(self.stateManager.saveStatesToScene)
         self.sp_dlConcurrentTasks.editingFinished.connect(
             self.stateManager.saveStatesToScene
         )
@@ -390,20 +405,51 @@ class ImageRenderClass(object):
         self.tw_passes.mouseDoubleClickEvent = self.passesDbClick
 
         self.b_addPasses.clicked.connect(self.showPasses)
-        self.b_openLast.clicked.connect(
-            lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text()))
-        )
-        self.b_copyLast.clicked.connect(
-            lambda: self.core.copyToClipboard(self.l_pathLast.text())
-        )
+        self.b_pathLast.clicked.connect(self.showLastPathMenu)
 
         if not self.stateManager.standalone:
             self.b_goTo.clicked.connect(self.goToNode)
             self.b_connect.clicked.connect(self.connectNode)
+            self.b_connect.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.b_connect.customContextMenuRequested.connect(self.onConnectMenuTriggered)
+
+    @err_catcher(name=__name__)
+    def showLastPathMenu(self):
+        path = self.l_pathLast.text()
+        if path == "None":
+            return
+        
+        menu = QMenu(self)
+
+        act_open = QAction("Play", self)
+        act_open.triggered.connect(lambda: self.core.media.playMediaInExternalPlayer(path))
+        menu.addAction(act_open)
+
+        act_open = QAction("Open in Media Browser", self)
+        act_open.triggered.connect(lambda: self.openInMediaBrowser(path))
+        menu.addAction(act_open)
+
+        act_open = QAction("Open in explorer", self)
+        act_open.triggered.connect(lambda: self.core.openFolder(path))
+        menu.addAction(act_open)
+
+        act_copy = QAction("Copy", self)
+        act_copy.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
+        menu.addAction(act_copy)
+
+        menu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def openInMediaBrowser(self, path):
+        self.core.projectBrowser()
+        self.core.pb.showTab("Media")
+        data = self.core.paths.getRenderProductData(path)
+        self.core.pb.mediaBrowser.showRender(entity=data, identifier=data.get("identifier"), version=data.get("version"))
 
     @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
-        self.updateRange()
+        self.setRangeOnNode()
+        self.updateUi()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -411,6 +457,7 @@ class ImageRenderClass(object):
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
+        self.setRangeOnNode()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -418,7 +465,23 @@ class ImageRenderClass(object):
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
+        self.setRangeOnNode()
         self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def setRangeOnNode(self):
+        if self.core.appPlugin.isNodeValid(self, self.node):
+            rangeType = self.getRangeType()
+            if rangeType != "Node" and self.node.parm("trange"):
+                if rangeType == "Single Frame":
+                    idx = 0
+                else:
+                    idx = 1
+
+                self.core.appPlugin.setNodeParm(self.node, "trange", idx, clear=True)
+                if idx == 1 and self.node.parm("f1") and self.node.parm("f2"):
+                    self.core.appPlugin.setNodeParm(self.node, "f1", self.getFrameRange(rangeType=rangeType)[0], clear=True)
+                    self.core.appPlugin.setNodeParm(self.node, "f2", self.getFrameRange(rangeType=rangeType)[1], clear=True)
 
     @err_catcher(name=__name__)
     def frameExpressionChanged(self, text=None):
@@ -426,9 +489,16 @@ class ImageRenderClass(object):
             return
 
         frames = self.core.resolveFrameExpression(self.le_frameExpression.text())
+        if len(frames) > 1000:
+            frames = frames[:1000]
+            frames.append("...")
+
+        for idx in range(int(len(frames) / 30.0)):
+            frames.insert((idx+1)*30, "\n")
+
         frameStr = ",".join([str(x) for x in frames]) or "invalid expression"
         self.expressionWinLabel.setText(frameStr)
-        self.expressionWin.resize(1,1)
+        self.expressionWin.resize(1, 1)
 
     @err_catcher(name=__name__)
     def exprMoveEvent(self, event):
@@ -441,10 +511,7 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def showExpressionWin(self, event):
-        if (
-            not hasattr(self, "expressionWin")
-            or not self.expressionWin.isVisible()
-        ):
+        if not hasattr(self, "expressionWin") or not self.expressionWin.isVisible():
             if hasattr(self, "expressionWin"):
                 self.expressionWin.close()
 
@@ -459,6 +526,13 @@ class ImageRenderClass(object):
             winheight = 10
             VBox = QVBoxLayout()
             frames = self.core.resolveFrameExpression(self.le_frameExpression.text())
+            if len(frames) > 1000:
+                frames = frames[:1000]
+                frames.append("...")
+
+            for idx in range(int(len(frames) / 30.0)):
+                frames.insert((idx+1)*30, "\n")
+
             frameStr = ",".join([str(x) for x in frames]) or "invalid expression"
             self.expressionWinLabel = QLabel(frameStr)
             VBox.addWidget(self.expressionWinLabel)
@@ -496,13 +570,16 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def rendererChanged(self, renderer, create=True):
+        if hasattr(self, "curRenderer"):
+            getattr(self.curRenderer, "deactivated", lambda x: None)(self)
+
         self.curRenderer = [x for x in self.renderers if x.label == renderer][0]
         if not self.stateManager.standalone and (
             self.node is None
             or self.node.type().name() not in self.curRenderer.ropNames
         ):
             self.deleteNode()
-            if create:
+            if create and not self.stateManager.loading:
                 self.curRenderer.createROP(self)
                 self.node.moveToGoodPosition()
 
@@ -512,6 +589,7 @@ class ImageRenderClass(object):
             "state": self,
             "renderer": self.curRenderer,
         }
+        getattr(self.curRenderer, "activated", lambda x: None)(self)
         self.core.callback("rendererChanged", **kwargs)
 
         self.nameChanged(self.e_name.text())
@@ -525,20 +603,13 @@ class ImageRenderClass(object):
         except:
             return
 
-        msg = QMessageBox(
-            QMessageBox.Question,
-            "Renderer changed",
-            (
-                "Do you want to delete the current render node?\n\n%s"
-                % (self.node.path())
-            ),
-            QMessageBox.No,
+        msg = "Do you want to delete the current render node?\n\n%s" % (
+            self.node.path()
         )
-        msg.addButton("Yes", QMessageBox.YesRole)
-        msg.setParent(self.core.messageParent, Qt.Window)
-        action = msg.exec_()
+        title = "Renderer changed"
+        result = self.core.popupQuestion(msg, title)
 
-        if action == 0:
+        if result == "Yes":
             try:
                 self.node.destroy()
                 if hasattr(self, "node2"):
@@ -548,40 +619,70 @@ class ImageRenderClass(object):
 
     @err_catcher(name=__name__)
     def nameChanged(self, text):
+        text = self.e_name.text()
+        context = {}
+        context["identifier"] = self.getTaskname()
+        if self.core.appPlugin.isNodeValid(self, self.node):
+            context["node"] = self.node
+        else:
+            context["node"] = "None"
+
+        num = 0
         try:
-            sText = text + " - %s (%s)" % (self.l_taskName.text(), self.node)
-        except:
-            sText = text + " - %s (None)" % self.l_taskName.text()
+            if "{#}" in text:
+                while True:
+                    context["#"] = num or ""
+                    name = text.format(**context)
+                    for state in self.stateManager.states:
+                        if state.ui.listType != "Export":
+                            continue
+
+                        if state is self.state:
+                            continue
+
+                        if state.text(0) == name:
+                            num += 1
+                            break
+                    else:
+                        break
+            else:
+                name = text.format(**context)
+        except Exception:
+            name = text
 
         if self.state.text(0).endswith(" - disabled"):
-            sText += " - disabled"
+            name += " - disabled"
 
-        self.state.setText(0, sText)
+        icon = self.getIcon()
+        if icon:
+            self.state.setIcon(0, icon)
+            name = name.replace(self.className + " - ", "")
+
+        self.state.setText(0, name)
+
+    @err_catcher(name=__name__)
+    def getIcon(self):
+        icon = None  # QIcon(os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "add.png"))
+        return icon
 
     @err_catcher(name=__name__)
     def changeTask(self):
-        import CreateItem
-
-        self.nameWin = CreateItem.CreateItem(
-            startText=self.l_taskName.text(),
+        from PrismUtils import PrismWidgets
+        self.nameWin = PrismWidgets.CreateItem(
+            startText=self.getTaskname(),
             showTasks=True,
-            taskType="render",
+            taskType="3d",
             core=self.core,
         )
         self.core.parentWindow(self.nameWin)
-        self.nameWin.setWindowTitle("Change Taskname")
-        self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.setWindowTitle("Change Identifier")
+        self.nameWin.l_item.setText("Identifier:")
         self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
         result = self.nameWin.exec_()
 
         if result == 1:
             self.setTaskname(self.nameWin.e_item.text())
-            self.nameChanged(self.e_name.text())
-
-            self.b_changeTask.setStyleSheet("")
-
-            self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def setTaskname(self, taskname):
@@ -601,6 +702,10 @@ class ImageRenderClass(object):
         return taskName
 
     @err_catcher(name=__name__)
+    def getSortKey(self):
+        return self.getTaskname()
+
+    @err_catcher(name=__name__)
     def getRangeType(self):
         return self.cb_rangeType.currentText()
 
@@ -615,6 +720,20 @@ class ImageRenderClass(object):
         return False
 
     @err_catcher(name=__name__)
+    def getMasterVersion(self):
+        return self.cb_master.currentText()
+
+    @err_catcher(name=__name__)
+    def setMasterVersion(self, master):
+        idx = self.cb_master.findText(master)
+        if idx != -1:
+            self.cb_master.setCurrentIndex(idx)
+            self.stateManager.saveStatesToScene()
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
     def getLocation(self):
         return self.cb_outPath.currentText()
 
@@ -623,9 +742,35 @@ class ImageRenderClass(object):
         idx = self.cb_outPath.findText(location)
         if idx != -1:
             self.cb_outPath.setCurrentIndex(idx)
+            self.stateManager.saveStatesToScene()
             return True
 
         return False
+
+    @err_catcher(name=__name__)
+    def getFormat(self):
+        return self.cb_format.currentText()
+
+    @err_catcher(name=__name__)
+    def getFormatFromNode(self):
+        return self.curRenderer.getFormatFromNode(self.node)
+
+    @err_catcher(name=__name__)
+    def setFormat(self, fmt):
+        idx = self.cb_format.findText(fmt)
+        if idx != -1:
+            self.cb_format.setCurrentIndex(idx)
+            self.stateManager.saveStatesToScene()
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def onFormatChanged(self, idx=None):
+        if self.core.appPlugin.isNodeValid(self, self.node) and hasattr(self.curRenderer, "setFormatOnNode"):
+            self.curRenderer.setFormatOnNode(self.getFormat(), self.node)
+
+        self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def presetOverrideChanged(self, checked):
@@ -651,16 +796,21 @@ class ImageRenderClass(object):
     def showResPresets(self):
         pmenu = QMenu()
 
-        for i in self.resolutionPresets:
-            pAct = QAction(i, self)
-            if i == "Cam resolution":
+        for preset in self.resolutionPresets:
+            pAct = QAction(preset, self)
+            if preset == "Cam resolution":
                 pAct.triggered.connect(lambda: self.setCamResolution())
             else:
-                try:
-                    pwidth = int(i.split("x")[0])
-                    pheight = int(i.split("x")[1])
-                except ValueError:
-                    continue
+                if preset.startswith("Project ("):
+                    res = preset[9:-1].split("x")
+                    pwidth = int(res[0])
+                    pheight = int(res[1])
+                else:
+                    try:
+                        pwidth = int(preset.split("x")[0])
+                        pheight = int(preset.split("x")[1])
+                    except ValueError:
+                        continue
 
                 pAct.triggered.connect(
                     lambda x=None, v=pwidth: self.sp_resWidth.setValue(v)
@@ -715,10 +865,9 @@ class ImageRenderClass(object):
         self.managerChanged()
         self.refreshPasses()
 
-        if self.cb_manager.currentText() in self.core.rfManagers:
-            self.core.rfManagers[self.cb_manager.currentText()].sm_houRender_updateUI(
-                self
-            )
+        plugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
+        if plugin:
+            plugin.sm_houRender_updateUI(self)
 
         # update Cams
         self.updateCams()
@@ -781,21 +930,21 @@ class ImageRenderClass(object):
     def getFrameRange(self, rangeType):
         startFrame = None
         endFrame = None
-        if rangeType == "State Manager":
-            startFrame = self.stateManager.sp_rangeStart.value()
-            endFrame = self.stateManager.sp_rangeEnd.value()
-        elif rangeType == "Scene":
+        if rangeType == "Scene":
             startFrame, endFrame = self.core.appPlugin.getFrameRange(self)
         elif rangeType == "Shot":
-            fileName = self.core.getCurrentFileName()
-            fnameData = self.core.getScenefileData(fileName)
-            if fnameData["entity"] == "shot":
-                frange = self.core.entities.getShotRange(fnameData["entityName"])
+            entity = self.getOutputEntity()
+            if entity.get("type") == "shot" and "sequence" in entity:
+                frange = self.core.entities.getShotRange(entity)
                 if frange:
                     startFrame, endFrame = frange
-        elif rangeType == "Node" and self.node:
-            startFrame = self.node.parm("f1").eval()
-            endFrame = self.node.parm("f2").eval()
+        elif rangeType == "Node" and self.core.appPlugin.isNodeValid(self, self.node):
+            if self.node.parm("trange") and self.node.parm("trange").evalAsString() == "off":
+                startFrame = self.core.appPlugin.getCurrentFrame()
+                endFrame = self.core.appPlugin.getCurrentFrame()
+            else:
+                startFrame = self.node.parm("f1").eval()
+                endFrame = self.node.parm("f2").eval()
         elif rangeType == "Single Frame":
             startFrame = self.core.appPlugin.getCurrentFrame()
         elif rangeType == "Custom":
@@ -821,20 +970,53 @@ class ImageRenderClass(object):
             paneTab.setCurrentNode(self.node)
             paneTab.homeToSelection()
 
-    @err_catcher(name=__name__)
-    def connectNode(self):
-        if len(hou.selectedNodes()) == 0:
-            return False
-
-        ropType = hou.selectedNodes()[0].type().name()
-        for i in self.renderers:
-            if ropType in i.ropNames:
-                self.node = hou.selectedNodes()[0]
-                self.cb_renderer.setCurrentIndex(self.cb_renderer.findText(i.label))
-                self.rendererChanged(self.cb_renderer.currentText())
+    @classmethod
+    def isConnectableNode(cls, node):
+        ropType = node.type().name()
+        renderers = [
+            x for x in cls.core.appPlugin.getRendererPlugins() if x.isActive()
+        ]
+        for renderer in renderers:
+            if ropType in renderer.ropNames:
                 return True
 
         return False
+
+    @err_catcher(name=__name__)
+    def onConnectMenuTriggered(self, pos):
+        menu = QMenu(self)
+        callback = lambda node: self.connectNode(node=node)
+        self.core.appPlugin.sm_openStateFromNode(
+            self.stateManager, menu, stateType="Render", callback=callback
+        )
+
+        if not menu.isEmpty():
+            menu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def connectNode(self, node=None):
+        if node is None:
+            if len(hou.selectedNodes()) == 0:
+                return False
+
+            node = hou.selectedNodes()[0]
+
+        self.setRangeType("Node")
+
+        ropType = node.type().name()
+        result = False
+        for i in self.renderers:
+            if ropType in i.ropNames:
+                self.node = node
+                if not self.getTaskname():
+                    self.setTaskname(self.node.name())
+
+                self.cb_renderer.setCurrentIndex(self.cb_renderer.findText(i.label))
+                self.rendererChanged(self.cb_renderer.currentText())
+                self.setFormat(self.getFormatFromNode())
+                result = True
+
+        return result
 
     @err_catcher(name=__name__)
     def rjToggled(self, checked):
@@ -843,22 +1025,28 @@ class ImageRenderClass(object):
     @err_catcher(name=__name__)
     def managerChanged(self, text=None):
         rfm = self.cb_manager.currentText()
-        if rfm in self.core.rfManagers:
-            self.core.rfManagers[rfm].sm_houRender_managerChanged(self)
+        plugin = self.core.plugins.getRenderfarmPlugin(rfm)
+        if plugin:
+            plugin.sm_houRender_managerChanged(self)
 
+        isMantra = self.node and (self.node.type().name() == "ifd")
         is3dl = self.node and (self.node.type().name() == "3Delight")
         isRedshift = self.node and (self.node.type().name() == "Redshift_ROP")
+        isArnold = self.node and (self.node.type().name() == "arnold")
+        self.w_renderIFDs.setVisible(bool(isMantra and (rfm == "Deadline")))
         self.w_renderNSIs.setVisible(bool(is3dl and (rfm == "Deadline")))
         self.w_renderRS.setVisible(bool(isRedshift and (rfm == "Deadline")))
+        self.w_renderASSs.setVisible(bool(isArnold and (rfm == "Deadline")))
 
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def openSlaves(self):
-        try:
-            del sys.modules["SlaveAssignment"]
-        except:
-            pass
+        if eval(os.getenv("PRISM_DEBUG", "False")):
+            try:
+                del sys.modules["SlaveAssignment"]
+            except:
+                pass
 
         import SlaveAssignment
 
@@ -919,10 +1107,11 @@ class ImageRenderClass(object):
         if not steps:
             return False
 
-        try:
-            del sys.modules["ItemList"]
-        except:
-            pass
+        if eval(os.getenv("PRISM_DEBUG", "False")):
+            try:
+                del sys.modules["ItemList"]
+            except:
+                pass
 
         import ItemList
 
@@ -930,7 +1119,6 @@ class ImageRenderClass(object):
         self.il.setWindowTitle("Select Passes")
         self.core.parentWindow(self.il)
         self.il.tw_steps.doubleClicked.connect(self.il.accept)
-        self.il.b_addStep.setVisible(False)
         if self.curRenderer.label == "Mantra":
             self.il.tw_steps.horizontalHeaderItem(0).setText("Name")
             self.il.tw_steps.horizontalHeaderItem(1).setText("VEX Variable")
@@ -1016,8 +1204,8 @@ class ImageRenderClass(object):
 
         warnings = []
 
-        if self.l_taskName.text() == "":
-            warnings.append(["No taskname is given.", "", 3])
+        if not self.getTaskname():
+            warnings.append(["No identifier is given.", "", 3])
 
         if self.curCam is None:
             warnings.append(["No camera is selected", "", 3])
@@ -1040,56 +1228,68 @@ class ImageRenderClass(object):
             warnings.append(["Node is invalid.", "", 3])
 
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-            warnings += self.core.rfManagers[
-                self.cb_manager.currentText()
-            ].sm_houRender_preExecute(self)
+            plugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
+            warnings += plugin.sm_houRender_preExecute(self)
 
         return [self.state.text(0), warnings]
 
     @err_catcher(name=__name__)
+    def getOutputEntity(self):
+        fileName = self.core.getCurrentFileName()
+        entityData = self.core.getScenefileData(fileName)
+
+        if "username" in entityData:
+            del entityData["username"]
+
+        if "user" in entityData:
+            del entityData["user"]
+
+        if "date" in entityData:
+            del entityData["date"]
+
+        return entityData
+
+    @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
-        if self.l_taskName.text() == "":
+        if not self.getTaskname():
             return
 
-        task = self.l_taskName.text()
-        extension = self.cb_format.currentText()
-        fileName = self.core.getCurrentFileName()
-        fnameData = self.core.getScenefileData(fileName)
-        framePadding = ".$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
+        task = self.getTaskname()
+        extension = self.cb_format.currentText().split(" ")[0]
+        entity = self.getOutputEntity()
+        framePadding = (
+            "$F4" if self.cb_rangeType.currentText() != "Single Frame" else ""
+        )
         location = self.cb_outPath.currentText()
 
-        if "entityName" not in fnameData:
+        if "type" not in entity:
             return
 
-        if fnameData["entity"] == "asset":
-            assetPath = self.core.getEntityBasePath(fileName)
-            entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
-        else:
-            entityName = fnameData["entityName"]
-
-        outputPath = self.core.mediaProducts.generateMediaProductPath(
-            entity=fnameData["entity"],
-            entityName=entityName,
+        outputPathData = self.core.mediaProducts.generateMediaProductPath(
+            entity=entity,
             task=task,
             extension=extension,
             framePadding=framePadding,
-            comment=fnameData["comment"],
+            comment=self.stateManager.publishComment,
             version=useVersion if useVersion != "next" else None,
-            location=location
+            location=location,
+            returnDetails=True,
+            additionalContext={"renderer": self.curRenderer.label}
         )
 
-        outputPath = outputPath.replace("\\", "/")
+        outputPath = outputPathData["path"].replace("\\", "/")
+        outputPathData["path"] = outputPathData["path"].replace("\\", "/")
         outputFolder = os.path.dirname(outputPath)
-        hVersion = self.core.mediaProducts.getVersionFromFilepath(outputPath)
+        hVersion = outputPathData["version"]
 
         return outputPath, outputFolder, hVersion
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
-        if self.l_taskName.text() == "":
+        if not self.getTaskname():
             return [
                 self.state.text(0)
-                + ": error - No taskname is given. Skipped the activation of this state."
+                + ": error - No identifier is given. Skipped the activation of this state."
             ]
 
         if self.curCam is None:
@@ -1115,22 +1315,32 @@ class ImageRenderClass(object):
             return [self.state.text(0) + ": error - Publish canceled"]
 
         fileName = self.core.getCurrentFileName()
-
+        entity = self.getOutputEntity()
         outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
 
         outLength = len(outputName)
-        if platform.system() == "Windows" and outLength > 255:
+        if platform.system() == "Windows" and os.getenv("PRISM_IGNORE_PATH_LENGTH") != "1" and outLength > 255:
             return [
                 self.state.text(0)
-                + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
+                + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, identifier or projectpath."
                 % outLength
             ]
 
         if not os.path.exists(outputPath):
             os.makedirs(outputPath)
 
+        details = entity.copy()
+        del details["filename"]
+        del details["extension"]
+        details["project_path"] = self.core.paths.getRenderProductBasePaths()[self.getLocation()]
+        details["version"] = hVersion
+        details["sourceScene"] = fileName
+        details["identifier"] = self.getTaskname()
+        details["comment"] = self.stateManager.publishComment
+
         self.core.saveVersionInfo(
-            location=os.path.dirname(outputPath), version=hVersion, origin=fileName
+            filepath=os.path.dirname(outputPath),
+            details=details,
         )
 
         rSettings = {"outputName": outputName}
@@ -1156,8 +1366,6 @@ class ImageRenderClass(object):
 
         self.l_pathLast.setText(outputName)
         self.l_pathLast.setToolTip(outputName)
-        self.b_openLast.setEnabled(True)
-        self.b_copyLast.setEnabled(True)
         self.stateManager.saveStatesToScene()
 
         if self.chb_resOverride.isChecked():
@@ -1182,7 +1390,10 @@ class ImageRenderClass(object):
                 ]
 
         hou.hipFile.save()
+        if self.core.getConfig("globals", "backupScenesOnPublish", config="project"):
+            self.core.entities.backupScenefile(os.path.dirname(outputName), bufferMinutes=0)
 
+        updateMaster = True
         rangeType = self.cb_rangeType.currentText()
         frames = self.getFrameRange(rangeType)
         if rangeType != "Expression":
@@ -1207,11 +1418,56 @@ class ImageRenderClass(object):
             "scenefile": fileName,
             "settings": rSettings,
         }
-        self.core.callback("preRender", **kwargs)
+        result = self.core.callback("preRender", **kwargs)
+        for res in result:
+            if isinstance(res, dict) and res.get("cancel", False):
+                return [
+                    self.state.text(0)
+                    + " - error - %s" % res.get("details", "preRender hook returned False")
+                ]
+
+            if res and "outputName" in res:
+                outputName = res["outputName"]
+
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-            result = self.core.rfManagers[
-                self.cb_manager.currentText()
-            ].sm_render_submitJob(self, outputName, parent)
+            handleMaster = "media" if self.isUsingMasterVersion() else False
+            plugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
+            if (
+                hasattr(self, "w_renderIFDs")
+                and not self.w_renderIFDs.isHidden()
+                and self.chb_rjIFDs.isChecked()
+            ):
+                sceneDescription = "mantra"
+            elif (
+                hasattr(self, "w_renderNSIs")
+                and not self.w_renderNSIs.isHidden()
+                and self.chb_rjNSIs.isChecked()
+            ):
+                sceneDescription = "3delight"
+            elif (
+                hasattr(self, "w_renderRS")
+                and not self.w_renderRS.isHidden()
+                and self.chb_rjRS.isChecked()
+            ):
+                sceneDescription = "redshift"
+            elif (
+                hasattr(self, "w_renderASSs")
+                and not self.w_renderASSs.isHidden()
+                and self.chb_rjASSs.isChecked()
+            ):
+                sceneDescription = "arnold"
+            else:
+                sceneDescription = None
+
+            result = plugin.sm_render_submitJob(
+                self,
+                outputName,
+                parent,
+                handleMaster=handleMaster,
+                details=details,
+                sceneDescription=sceneDescription
+            )
+            updateMaster = False
         else:
             if not self.core.appPlugin.setNodeParm(self.node, "trange", val=1):
                 return [self.state.text(0) + ": error - Publish canceled"]
@@ -1227,17 +1483,25 @@ class ImageRenderClass(object):
                     isEnd = self.node.parm("f2").eval() == frameChunk[1]
 
                     if not isStart:
-                        if not self.core.appPlugin.setNodeParm(self.node, "f1", clear=True):
+                        if not self.core.appPlugin.setNodeParm(
+                            self.node, "f1", clear=True
+                        ):
                             return [self.state.text(0) + ": error - Publish canceled"]
 
-                        if not self.core.appPlugin.setNodeParm(self.node, "f1", val=frameChunk[0]):
+                        if not self.core.appPlugin.setNodeParm(
+                            self.node, "f1", val=frameChunk[0]
+                        ):
                             return [self.state.text(0) + ": error - Publish canceled"]
 
                     if not isEnd:
-                        if not self.core.appPlugin.setNodeParm(self.node, "f2", clear=True):
+                        if not self.core.appPlugin.setNodeParm(
+                            self.node, "f2", clear=True
+                        ):
                             return [self.state.text(0) + ": error - Publish canceled"]
 
-                        if not self.core.appPlugin.setNodeParm(self.node, "f2", val=frameChunk[1]):
+                        if not self.core.appPlugin.setNodeParm(
+                            self.node, "f2", val=frameChunk[1]
+                        ):
                             return [self.state.text(0) + ": error - Publish canceled"]
 
                     result = self.curRenderer.executeRender(self)
@@ -1262,12 +1526,14 @@ class ImageRenderClass(object):
             return postResult
 
         self.undoRenderSettings(rSettings)
-        self.handleMasterVersion(outputName)
+        if updateMaster:
+            self.handleMasterVersion(outputName)
 
         kwargs = {
             "state": self,
             "scenefile": fileName,
             "settings": rSettings,
+            "result": result,
         }
         self.core.callback("postRender", **kwargs)
 
@@ -1295,16 +1561,24 @@ class ImageRenderClass(object):
                 return [result]
 
     @err_catcher(name=__name__)
-    def handleMasterVersion(self, outputName):
+    def isUsingMasterVersion(self):
         useMaster = self.core.mediaProducts.getUseMaster()
         if not useMaster:
-            return
+            return False
 
         masterAction = self.cb_master.currentText()
         if masterAction == "Don't update master":
+            return False
+
+        return True
+
+    @err_catcher(name=__name__)
+    def handleMasterVersion(self, outputName):
+        if not self.isUsingMasterVersion():
             return
 
-        elif masterAction == "Set as master":
+        masterAction = self.cb_master.currentText()
+        if masterAction == "Set as master":
             self.core.mediaProducts.updateMasterVersion(outputName)
         elif masterAction == "Add to master":
             self.core.mediaProducts.addToMasterVersion(outputName)
@@ -1333,8 +1607,8 @@ class ImageRenderClass(object):
             curNode2 = None
 
         stateProps = {
-            "statename": self.e_name.text(),
-            "taskname": self.l_taskName.text(),
+            "stateName": self.e_name.text(),
+            "taskname": self.getTaskname(),
             "renderpresetoverride": str(self.chb_renderPreset.isChecked()),
             "currentrenderpreset": self.cb_renderPreset.currentText(),
             "rangeType": str(self.cb_rangeType.currentText()),
@@ -1358,23 +1632,26 @@ class ImageRenderClass(object):
             "connectednode": curNode,
             "connectednode2": curNode2,
             "renderer": str(self.cb_renderer.currentText()),
+            "separateAovs": str(self.chb_separateAovs.isChecked()),
             "submitrender": str(self.gb_submit.isChecked()),
             "rjmanager": str(self.cb_manager.currentText()),
             "rjprio": self.sp_rjPrio.value(),
             "rjframespertask": self.sp_rjFramesPerTask.value(),
             "rjtimeout": self.sp_rjTimeout.value(),
             "rjsuspended": str(self.chb_rjSuspended.isChecked()),
+            "rjRenderIFDs": str(self.chb_rjIFDs.isChecked()),
             "rjRenderNSIs": str(self.chb_rjNSIs.isChecked()),
             "rjRenderRS": str(self.chb_rjRS.isChecked()),
+            "rjRenderASSs": str(self.chb_rjASSs.isChecked()),
             "osdependencies": str(self.chb_osDependencies.isChecked()),
             "osupload": str(self.chb_osUpload.isChecked()),
             "ospassets": str(self.chb_osPAssets.isChecked()),
             "osslaves": self.e_osSlaves.text(),
-            "curdlgroup": self.cb_dlGroup.currentText(),
             "dlconcurrent": self.sp_dlConcurrentTasks.value(),
             "dlgpupt": self.sp_dlGPUpt.value(),
             "dlgpudevices": self.le_dlGPUdevices.text(),
             "lastexportpath": self.l_pathLast.text().replace("\\", "/"),
             "stateenabled": str(self.state.checkState(0)),
         }
+        self.core.callback("onStateGetSettings", self, stateProps)
         return stateProps

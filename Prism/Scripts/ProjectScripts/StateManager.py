@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,20 +36,12 @@ import os
 import sys
 import traceback
 import time
-import imp
 import logging
+import uuid
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 if sys.version[0] == "3":
     pVersion = 3
@@ -59,34 +52,16 @@ uiPath = os.path.join(os.path.dirname(__file__), "UserInterfaces")
 if uiPath not in sys.path:
     sys.path.append(uiPath)
 
-for i in ["StateManager_ui", "StateManager_ui_ps2", "CreateItem"]:
-    try:
-        del sys.modules[i]
-    except:
-        pass
+if eval(os.getenv("PRISM_DEBUG", "False")):
+    for module in ["StateManager_ui", "StateManager_ui_ps2"]:
+        try:
+            del sys.modules[module]
+        except:
+            pass
 
-if psVersion == 1:
-    import StateManager_ui
-else:
-    import StateManager_ui_ps2 as StateManager_ui
-
-try:
-    import EnterText
-except:
-    modPath = imp.find_module("EnterText")[1]
-    if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
-        os.remove(modPath)
-    import EnterText
-
-try:
-    import CreateItem
-except:
-    modPath = imp.find_module("CreateItem")[1]
-    if modPath.endswith(".pyc") and os.path.exists(modPath[:-1]):
-        os.remove(modPath)
-    import CreateItem
-
+from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
+from UserInterfaces import StateManager_ui
 
 
 logger = logging.getLogger(__name__)
@@ -102,11 +77,16 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 
         logger.debug("Initializing State Manager")
 
-        self.setWindowTitle("Prism %s - State Manager - %s" %(self.core.version, self.core.projectName))
+        self.setWindowTitle(
+            "Prism %s - State Manager - %s" % (self.core.version, self.core.projectName)
+        )
 
         self.forceStates = forceStates
         self.scenename = self.core.getCurrentFileName()
         self.standalone = standalone
+        self.prevStateData = None
+        self.core.stateManagerInCreation = self
+        self.finishedDeletionCallbacks = []
 
         self.enabledCol = QBrush(
             self.tw_import.palette().color(self.tw_import.foregroundRole())
@@ -115,32 +95,33 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
         self.layout().setContentsMargins(6, 6, 6, 0)
 
         self.disabledCol = QBrush(QColor(100, 100, 100))
-        self.styleExists = "QPushButton { border: 1px solid rgb(100,200,100); }"
-        self.styleMissing = "QPushButton { border: 1px solid rgb(200,100,100); }"
+        self.styleExists = "QWidget{padding: 0; border-width: 1px;border-color: transparent;background-color: rgba(60, 200, 100, 150)} QWidget:hover{background-color: rgba(60, 200, 100, 200); }"
+        self.styleMissing = "QWidget{padding: 0; border-width: 1px;border-color: transparent;background-color: transparent} QWidget:hover{background-color: rgba(250, 250, 250, 40); }"
 
-        self.draggedItem = None
+        if eval(os.getenv("PRISM_DEBUG", "False")):
+            for module in ["ProductBrowser"]:
+                try:
+                    del sys.modules[module]
+                except:
+                    pass
 
-        for i in ["TaskSelection"]:
-            try:
-                del sys.modules[i]
-            except:
-                pass
+                try:
+                    del sys.modules[module + "_ui"]
+                except:
+                    pass
 
-            try:
-                del sys.modules[i + "_ui"]
-            except:
-                pass
-
-            try:
-                del sys.modules[i + "_ui_ps2"]
-            except:
-                pass
+                try:
+                    del sys.modules[module + "_ui_ps2"]
+                except:
+                    pass
 
         self.states = []
+        self.stateUis = []
         self.stateTypes = {}
 
         self.description = ""
         self.previewImg = None
+        self.publishComment = ""
 
         foldercont = ["", "", ""]
 
@@ -148,12 +129,12 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
         self.loading = False
         self.shotcamFileType = ".abc"
         self.publishPaused = False
+        self.entityDlg = EntityDlg
+        self.applyChangesToSelection = True
 
-        files = []
+        stateFiles = []
         pluginUiPath = os.path.join(
-            self.core.pluginPathApp,
-            self.core.appPlugin.pluginName,
-            "Scripts",
+            self.core.appPlugin.pluginPath,
             "StateManagerNodes",
             "StateUserInterfaces",
         )
@@ -164,7 +145,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
             for i in os.walk(os.path.dirname(pluginUiPath)):
                 foldercont = i
                 break
-            files += foldercont[2]
+            stateFiles += foldercont[2]
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "StateManagerNodes"))
         sys.path.append(
@@ -173,54 +154,63 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
             )
         )
 
-        for i in os.walk(os.path.join(os.path.dirname(__file__), "StateManagerNodes")):
-            foldercont = i
+        statePath = os.path.join(os.path.dirname(__file__), "StateManagerNodes")
+        for root, folders, files in os.walk(statePath):
+            stateFiles += [os.path.join(root, file) for file in files]
             break
-        files += foldercont[2]
 
-        for i in files:
-            self.loadStateTypeFromFile(i)
+        for file in stateFiles:
+            self.loadStateTypeFromFile(file)
 
-        fileName = self.core.getCurrentFileName()
-        fileNameData = self.core.getScenefileData(fileName)
+        self.core.callback(name="onStateManagerOpen", args=[self])
 
-        self.b_shotCam.setEnabled(fileNameData["entity"] == "shot")
-
-        self.core.callback(
-            name="onStateManagerOpen", types=["curApp", "custom"], args=[self]
-        )
         self.loadLayout()
-        self.setListActive(self.tw_import)
+        self.setListActive(self.tw_export)
         self.core.smCallbacksRegistered = True
         self.connectEvents()
         self.loadStates()
+        self.gb_import.setChecked(False)
+        self.setListActive(self.tw_export)
         self.showState()
         self.activeList.setFocus()
-
+        self.stateListToggled(self.gb_export, True)
         self.commentChanged(self.e_comment.text())
 
-        screenW = QApplication.desktop().screenGeometry().width()
-        screenH = QApplication.desktop().screenGeometry().height()
-        space = 100
-        if screenH < (self.height() + space):
-            self.resize(self.width(), screenH - space)
+        screen = self.core.getQScreenGeo()
+        if screen:
+            screenW = screen.width()
+            screenH = screen.height()
+            space = 100
+            if screenH < (self.height() + space):
+                self.resize(self.width(), screenH - space)
 
-        if screenW < (self.width() + space):
-            self.resize(screenW - space, self.height())
+            if screenW < (self.width() + space):
+                self.resize(screenW - space, self.height())
 
     @err_catcher(name=__name__)
     def loadStateTypeFromFile(self, filepath):
         try:
-            filepath = os.path.basename(filepath)
+            filename = os.path.basename(filepath)
 
-            if os.path.splitext(filepath)[0] == "__init__":
+            if os.path.splitext(filename)[0] == "__init__":
                 return
 
-            if os.path.splitext(filepath)[1] == ".pyc" and os.path.exists(os.path.splitext(filepath)[0] + ".py"):
+            if os.path.splitext(filename)[1] == ".pyc" and os.path.exists(
+                os.path.splitext(filename)[0] + ".py"
+            ):
                 return
 
-            stateName = os.path.splitext(filepath)[0]
+            stateName = os.path.splitext(filename)[0]
             stateNameBase = stateName
+
+            if " " in stateName or "(" in stateName:
+                if getattr(self.core, "deleteInvalidStates", False):
+                    try:
+                        os.remove(filepath)
+                    except:
+                        logger.warning("failed to remove file: %s" % filepath)
+
+                return
 
             if stateName.startswith("default_") or stateName.startswith(
                 self.core.appPlugin.appShortName.lower()
@@ -229,31 +219,20 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
                     stateName.split("_", 1)[0] + "_", ""
                 )
 
-            if (
-                stateNameBase in self.stateTypes
-                and stateName not in self.forceStates
-            ):
+            if stateNameBase in self.stateTypes and stateName not in self.forceStates:
                 return
 
-            if psVersion == 1:
-                stateUi = stateName + "_ui"
-            else:
-                stateUi = stateName + "_ui_ps2 as " + stateName + "_ui"
+            stateUi = stateName + "_ui"
+            if eval(os.getenv("PRISM_DEBUG", "False")):
+                try:
+                    del sys.modules[stateName]
+                except:
+                    pass
 
-            try:
-                del sys.modules[stateName]
-            except:
-                pass
-
-            try:
-                del sys.modules[stateName + "_ui"]
-            except:
-                pass
-
-            try:
-                del sys.modules[stateName + "_ui_ps2"]
-            except:
-                pass
+                try:
+                    del sys.modules[stateName + "_ui"]
+                except:
+                    pass
 
             try:
                 exec(
@@ -281,15 +260,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
             if validState:
                 classDef = eval(stateNameBase + "Class")
-                try:
-                    if not classDef.isActive(self.core):
-                        validState = False
-                except:
-                    pass
-
-                if validState:
-                    logger.debug("loaded state %s" % filepath)
-                    self.stateTypes[classDef.className] = classDef
+                self.loadState(classDef, filename=filename)
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -301,7 +272,26 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.core.writeErrorLog(erStr)
 
     @err_catcher(name=__name__)
+    def loadState(self, clsDef, filename=None):
+        try:
+            if not clsDef.isActive(self.core):
+                return
+        except:
+            pass
+
+        clsDef.core = self.core
+        logger.debug("loaded state %s" % (filename or clsDef.className))
+        self.stateTypes[clsDef.className] = clsDef
+
+    @err_catcher(name=__name__)
     def loadLayout(self):
+        self.actionVersionUp = QAction("Version Up scenefile on publish", self)
+        self.actionVersionUp.setCheckable(True)
+        self.actionVersionUp.setChecked(self.core.getConfig("stateManager", "versionUpSceneOnPublish", dft=True))
+        self.actionVersionUp.toggled.connect(self.onVersionUpToggled)
+        self.menuAbout.insertAction(self.actionCopyStates, self.actionVersionUp)
+        self.menuAbout.insertSeparator(self.actionCopyStates)
+
         helpMenu = QMenu("Help", self)
 
         self.actionWebsite = QAction("Visit website", self)
@@ -318,10 +308,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
         )
         helpMenu.addAction(self.actionWebsite)
 
-        self.actionCheckVersion = QAction("Check for Prism updates", self)
-        self.actionCheckVersion.triggered.connect(self.core.updater.checkForUpdates)
-        helpMenu.addAction(self.actionCheckVersion)
-
         self.actionAbout = QAction("About...", self)
         self.actionAbout.triggered.connect(self.core.showAbout)
         helpMenu.addAction(self.actionAbout)
@@ -329,7 +315,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.menubar.addMenu(helpMenu)
 
         self.actionSendFeedback = QAction("Send feedback...", self)
-        self.actionSendFeedback.triggered.connect(self.core.sendFeedback)
+        self.actionSendFeedback.triggered.connect(self.core.sendFeedbackDlg)
         self.menubar.addAction(self.actionSendFeedback)
 
         try:
@@ -337,22 +323,29 @@ class %s(QWidget, %s.%s, %s.%sClass):
         except:
             pass
 
+        rpAct = QAction("Manage Projects...", self)
+        rpAct.setToolTip("Open Project Overview")
+        rpAct.triggered.connect(self.core.projects.setProject)
+        self.menuRecentProjects.addAction(rpAct)
+
         recentProjects = self.core.projects.getRecentProjects()
         for project in recentProjects:
             rpAct = QAction(project["name"], self)
             rpAct.setToolTip(project["configPath"])
 
-            rpAct.triggered.connect(lambda y=None, x=project["configPath"]: self.core.changeProject(x))
+            rpAct.triggered.connect(
+                lambda y=None, x=project["configPath"]: self.core.changeProject(x)
+            )
             self.menuRecentProjects.addAction(rpAct)
-
-        if self.menuRecentProjects.isEmpty():
-            self.menuRecentProjects.setEnabled(False)
 
         if self.description == "":
             self.b_description.setStyleSheet(self.styleMissing)
         else:
             self.b_description.setStyleSheet(self.styleExists)
         self.b_preview.setStyleSheet(self.styleMissing)
+
+        self.gb_import.setObjectName("list")
+        self.gb_export.setObjectName("list")
 
         if "Render Settings" in self.stateTypes:
             self.actionRenderSettings = QAction("Rendersettings presets...", self)
@@ -362,6 +355,29 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.ImportDelegate = ImportDelegate(self)
         self.tw_import.setItemDelegate(self.ImportDelegate)
+
+        self.gb_import.setCheckable(True)
+        self.gb_export.setCheckable(True)
+
+        self.splitter.setStyleSheet(
+            'QSplitter::handle{background-image: "";background-color: transparent}'
+        )
+
+        iconPath = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "shot.png"
+        )
+        icon = self.core.media.getColoredIcon(iconPath)
+        self.b_preview.setIcon(icon)
+
+        iconPath = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "text.png"
+        )
+        icon = self.core.media.getColoredIcon(iconPath)
+        self.b_description.setIcon(icon)
+
+    @err_catcher(name=__name__)
+    def onVersionUpToggled(self, state):
+        self.core.setConfig("stateManager", "versionUpSceneOnPublish", val=state, config="user")
 
     @err_catcher(name=__name__)
     def showRenderPresets(self):
@@ -422,6 +438,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
         for i in self.collapsedFolders:
             i.setExpanded(False)
 
+        for state in self.getSelectedStates():
+            self.ensureVisibility(state)
+
     @err_catcher(name=__name__)
     def selectState(self, state):
         if not state:
@@ -433,8 +452,26 @@ class %s(QWidget, %s.%s, %s.%sClass):
             listwidget = self.tw_export
 
         self.setListActive(listwidget)
+        listwidget.clearSelection()
+        state.setSelected(True)
         listwidget.setCurrentItem(state)
         self.showState()
+
+    @err_catcher(name=__name__)
+    def ensureVisibility(self, state):
+        parent = state.parent()
+        while parent:
+            parent.setExpanded(True)
+            parent = parent.parent()
+
+    @err_catcher(name=__name__)
+    def getSelectedStates(self):
+        states = []
+        for state in self.states:
+            if state.isSelected():
+                states.append(state)
+
+        return states
 
     @err_catcher(name=__name__)
     def showState(self):
@@ -443,27 +480,24 @@ class %s(QWidget, %s.%s, %s.%sClass):
         except:
             return False
 
-        if self.activeList.currentItem() is not None:
-            grid.addWidget(self.activeList.currentItem().ui)
+        if self.getCurrentItem(self.activeList) is not None:
+            grid.addWidget(self.getCurrentItem(self.activeList).ui)
 
         widget = QWidget()
-        policy = QSizePolicy()
-        policy.setHorizontalPolicy(QSizePolicy.Fixed)
-        widget.setSizePolicy(policy)
         widget.setLayout(grid)
 
         if hasattr(self, "curUi"):
-            self.lo_stateUi.removeWidget(self.curUi)
+            self.lo_stateUi.takeAt(0)
             self.curUi.setVisible(False)
 
         self.lo_stateUi.addWidget(widget)
-        if self.activeList.currentItem() is not None:
-            self.activeList.currentItem().ui.updateUi()
+        if self.getCurrentItem(self.activeList) is not None:
+            self.getCurrentItem(self.activeList).ui.updateUi()
 
         self.curUi = widget
 
     @err_catcher(name=__name__)
-    def stateChanged(self, cur, prev, activeList):
+    def stateChanged(self, activeList):
         if self.loading:
             return False
 
@@ -475,11 +509,14 @@ class %s(QWidget, %s.%s, %s.%sClass):
             inactive = self.tw_export
             inactivef = self.f_export
             activef = self.f_import
+            self.gb_import.setChecked(True)
         else:
             inactive = self.tw_import
             inactivef = self.f_import
             activef = self.f_export
+            self.gb_export.setChecked(True)
 
+        inactive.clearSelection()
         inactive.setCurrentIndex(QModelIndex())
 
         getattr(
@@ -488,6 +525,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             lambda x1, x2, x3, x4, x5: self.setTreePalette(x2, x3, x4, x5),
         )(self, listWidget, inactive, inactivef, activef)
 
+        self.inactiveList = inactive
         self.activeList = listWidget
         self.activeList.setFocus()
 
@@ -563,11 +601,18 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.actionPasteStates.triggered.connect(self.pasteStates)
         self.actionRemoveStates.triggered.connect(self.removeAllStates)
 
+        self.gb_import.toggled.connect(
+            lambda x, y=self.gb_import: self.stateListToggled(y, x)
+        )
+        self.gb_export.toggled.connect(
+            lambda x, y=self.gb_export: self.stateListToggled(y, x)
+        )
+
         self.tw_import.customContextMenuRequested.connect(
             lambda x: self.rclTree(x, self.tw_import)
         )
-        self.tw_import.currentItemChanged.connect(
-            lambda x, y: self.stateChanged(x, y, self.tw_import)
+        self.tw_import.itemSelectionChanged.connect(
+            lambda: self.stateChanged(self.tw_import)
         )
         self.tw_import.itemClicked.connect(
             lambda x, y: self.updateForeground(x, y, self.tw_import)
@@ -584,8 +629,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.tw_export.customContextMenuRequested.connect(
             lambda x: self.rclTree(x, self.tw_export)
         )
-        self.tw_export.currentItemChanged.connect(
-            lambda x, y: self.stateChanged(x, y, self.tw_export)
+        self.tw_export.itemSelectionChanged.connect(
+            lambda: self.stateChanged(self.tw_export)
         )
         self.tw_export.itemClicked.connect(
             lambda x, y: self.updateForeground(x, y, self.tw_export)
@@ -602,13 +647,15 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         self.b_createImport.clicked.connect(lambda: self.createPressed("Import"))
         self.b_createExport.clicked.connect(lambda: self.createPressed("Export"))
-        self.b_createRender.clicked.connect(
-            lambda: self.core.appPlugin.sm_createRenderPressed(self)
-        )
+        self.b_createRender.clicked.connect(lambda: self.createPressed("Render"))
         self.b_createPlayblast.clicked.connect(lambda: self.createPressed("Playblast"))
         self.b_shotCam.clicked.connect(self.shotCam)
-        self.b_showImportStates.clicked.connect(lambda: self.showStateMenu("Import", useSelection=True))
-        self.b_showExportStates.clicked.connect(lambda: self.showStateMenu("Export", useSelection=True))
+        self.b_showImportStates.clicked.connect(
+            lambda: self.showStateMenu("Import", useSelection=True)
+        )
+        self.b_showExportStates.clicked.connect(
+            lambda: self.showStateMenu("Export", useSelection=True)
+        )
 
         self.e_comment.textChanged.connect(self.commentChanged)
         self.e_comment.editingFinished.connect(self.saveStatesToScene)
@@ -624,21 +671,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.b_preview.mouseMoveEvent = lambda x: self.detailMoveEvent(x, "p")
         self.b_preview.leaveEvent = lambda x: self.detailLeaveEvent(x, "p")
         self.b_preview.focusOutEvent = lambda x: self.detailFocusOutEvent(x, "p")
-
-        self.b_getRange.clicked.connect(self.getRange)
-        self.b_setRange.clicked.connect(
-            lambda: self.core.setFrameRange(
-                self.sp_rangeStart.value(), self.sp_rangeEnd.value()
-            )
-        )
-        self.b_setRange.customContextMenuRequested.connect(self.setRangeContextMenu)
-        self.sp_rangeStart.editingFinished.connect(self.startChanged)
-        self.sp_rangeEnd.editingFinished.connect(self.endChanged)
         self.b_publish.clicked.connect(self.publish)
 
     @err_catcher(name=__name__)
     def closeEvent(self, event):
-        self.core.callback(name="onStateManagerClose", types=["custom"], args=[self])
+        self.core.callback(name="onStateManagerClose", args=[self])
         event.accept()
 
     @err_catcher(name=__name__)
@@ -652,6 +689,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.showStateMenu()
         elif event.key() == Qt.Key_Delete:
             self.deleteState()
+        elif event.key() == Qt.Key_Up:
+            self.selectPreviousState()
+        elif event.key() == Qt.Key_Down:
+            self.selectNextState()
 
         event.accept()
 
@@ -676,6 +717,55 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.updateForeground()
         self.updateStateList()
         self.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def stateListToggled(self, widget, state):
+        for idx in reversed(range(widget.layout().count())):
+            item = widget.layout().itemAt(idx)
+            w = item.widget()
+            if w:
+                w.setHidden(not state)
+
+        imgRight = self.core.prismRoot + "/Scripts/UserInterfacesPrism/right_arrow_light.png"
+        imgDown = self.core.prismRoot + "/Scripts/UserInterfacesPrism/down_arrow_light.png"
+        ssheet = """
+QGroupBox::indicator:checked:hover,
+QGroupBox::indicator:unchecked:hover
+{
+    background: rgba(255, 255, 255, 40);
+    border-radius: 2px;
+}
+QGroupBox#list::title
+{
+    padding: 5px;
+    margin: 5px;
+    background: transparent;
+}
+QGroupBox::indicator:unchecked {
+    image:url(%s);
+    background: transparent;
+    border-width: 0px;
+}
+QGroupBox::indicator:checked {
+    image:url(%s);
+    background: transparent;
+    border-width: 0px;
+}
+""" % (
+            imgRight,
+            imgDown,
+        )
+
+        if self.core.appPlugin.pluginName == "3dsMax":
+            ssheet += "QGroupBox#list::title{color: rgb(220, 220, 220);}"
+
+        if not state:
+            ssheet += "QWidget{ border-width: 0px;}"
+            widget.layout().setContentsMargins(0, 0, 0, 0)
+        else:
+            widget.layout().setContentsMargins(5, 14, 5, 5)
+
+        widget.setStyleSheet(ssheet)
 
     @err_catcher(name=__name__)
     def getStateTypes(self, listType=None):
@@ -705,11 +795,30 @@ class %s(QWidget, %s.%s, %s.%sClass):
             act = createMenu.addAction(typeName)
             act.triggered.connect(lambda: self.setListActive(listWidget))
             act.triggered.connect(
-                lambda x=None, typeName=typeName: self.createState(typeName, parentState, setActive=True)
+                lambda x=None, typeName=typeName: self.createState(
+                    typeName, parentState, setActive=True
+                )
             )
 
-        getattr(self.core.appPlugin, "sm_openStateFromNode", lambda x, y: None)(self, createMenu)
+        if listType == "Export":
+            getattr(self.core.appPlugin, "sm_openStateFromNode", lambda x, y: None)(
+                self, createMenu
+            )
+
+        self.core.callback("getStateMenu", args=[self, createMenu])
         return createMenu
+
+    @err_catcher(name=__name__)
+    def getCurrentItem(self, widget):
+        items = widget.selectedItems()
+        if not items:
+            return
+
+        item = widget.currentItem()
+        if not item:
+            item = items[0]
+
+        return item
 
     @err_catcher(name=__name__)
     def showStateMenu(self, listType=None, useSelection=False):
@@ -718,7 +827,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if useSelection:
             listWidget = self.tw_import if listType == "Import" else self.tw_export
             if listWidget == self.activeList:
-                parentState = self.activeList.currentItem()
+                parentState = self.getCurrentItem(self.activeList)
         else:
             pos = self.activeList.mapFromGlobal(globalPos)
             idx = self.activeList.indexAt(pos)
@@ -742,66 +851,84 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         menuExecuteV = QMenu("Execute as previous version", self)
 
+        actSort = None
+        selItems = self.getSelectedStates()
+        if len(selItems) > 1:
+            parents = []
+            for item in selItems:
+                if item.parent() not in parents:
+                    parents.append(item.parent())
+
+            if len(parents) == 1:
+                actSort = QAction("Sort", self)
+                actSort.triggered.connect(lambda: self.sortStates(selItems))
+
         actCopy = QAction("Copy", self)
         actCopy.triggered.connect(self.copyState)
 
         actPaste = QAction("Paste", self)
         actPaste.triggered.connect(self.pasteStates)
 
+        actRename = QAction("Rename", self)
+        actRename.triggered.connect(self.renameState)
+
         actDel = QAction("Delete", self)
         actDel.triggered.connect(self.deleteState)
 
         if parentState is None:
             actCopy.setEnabled(False)
+            actRename.setEnabled(False)
             actDel.setEnabled(False)
             actExecute.setEnabled(False)
             menuExecuteV.setEnabled(False)
         elif hasattr(parentState.ui, "l_pathLast"):
             outPath = parentState.ui.getOutputName()
-            if outPath is None:
+            if not outPath or not outPath[0]:
                 menuExecuteV.setEnabled(False)
             else:
                 outPath = outPath[0]
-                existingVersions = []
-                versionDir = os.path.dirname(os.path.dirname(outPath))
-                if parentState.ui.className != "Playblast":
-                    versionDir = os.path.dirname(versionDir)
-
-                if os.path.exists(versionDir):
-                    for i in reversed(sorted(os.listdir(versionDir))):
-                        if len(i) < 5 or not i.startswith("v"):
-                            continue
-
-                        if pVersion == 2:
-                            if not unicode(i[1:5]).isnumeric():
-                                continue
-                        else:
-                            if not i[1:5].isnumeric():
-                                continue
-
-                        existingVersions.append(i)
-
-                for i in existingVersions:
-                    actV = QAction(i, self)
+                if "render" in parentState.ui.className.lower():
+                    existingVersions = self.core.mediaProducts.getVersionsFromSameVersionStack(
+                        outPath
+                    )
+                elif "playblast" in parentState.ui.className.lower():
+                    existingVersions = self.core.mediaProducts.getVersionsFromSameVersionStack(
+                        outPath, mediaType="playblasts"
+                    )
+                else:
+                    existingVersions = self.core.products.getVersionsFromSameVersionStack(
+                        outPath
+                    )
+                for version in sorted(
+                    existingVersions, key=lambda x: x["version"], reverse=True
+                ):
+                    name = version["version"]
+                    actV = QAction(name, self)
                     actV.triggered.connect(
-                        lambda y=None, x=actV: self.publish(
-                            executeState=True, useVersion=x.text()
+                        lambda y=None, v=version["version"]: self.publish(
+                            executeState=True, useVersion=v
                         )
                     )
                     menuExecuteV.addAction(actV)
 
-            if menuExecuteV.isEmpty():
-                menuExecuteV.setEnabled(False)
+        if menuExecuteV.isEmpty():
+            menuExecuteV.setEnabled(False)
 
         if parentState is None or parentState.ui.className == "Folder":
             createMenu = self.getStateMenu(parentState=parentState)
             rcmenu.addMenu(createMenu)
 
         if self.activeList == self.tw_export:
-            rcmenu.addAction(actExecute)
-            rcmenu.addMenu(menuExecuteV)
+            if not self.standalone:
+                rcmenu.addAction(actExecute)
+                rcmenu.addMenu(menuExecuteV)
+
+        if actSort:
+            rcmenu.addAction(actSort)
+
         rcmenu.addAction(actCopy)
         rcmenu.addAction(actPaste)
+        rcmenu.addAction(actRename)
         rcmenu.addAction(actDel)
 
         rcmenu.exec_(self.activeList.mapToGlobal(pos))
@@ -817,6 +944,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         setActive=False,
         renderer=None,
         openProductsBrowser=None,
+        settings=None
     ):
         logger.debug("create state: %s" % statetype)
         if statetype not in self.stateTypes:
@@ -826,6 +954,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         item = QTreeWidgetItem([statetype])
         item.ui = self.stateTypes[statetype]()
+        self.stateUis.append(item.ui)
 
         kwargs = {
             "state": item,
@@ -846,12 +975,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if openProductsBrowser is not None:
             kwargs["openProductsBrowser"] = openProductsBrowser
 
-        stateSetup = item.ui.setup(**kwargs)
-
-        if stateSetup is False:
-            return
-
-        self.core.scaleUI(item)
+        if settings is not None:
+            kwargs["settings"] = settings
 
         if item.ui.className == "Folder" and stateData is None:
             if self.activeList == self.tw_import:
@@ -859,17 +984,32 @@ class %s(QWidget, %s.%s, %s.%sClass):
             else:
                 listType = "Export"
         else:
-            listType = item.ui.listType
+            if stateData and "listtype" in stateData:
+                listType = stateData["listtype"]
+            else:
+                listType = item.ui.listType
 
         if listType == "Import":
             pList = self.tw_import
         else:
             pList = self.tw_export
 
-        if stateData is None and pList == self.tw_export:
+        if pList == self.tw_export:
             item.setCheckState(0, Qt.Checked)
-            if psVersion == 2:
-                item.setFlags(item.flags() & ~Qt.ItemIsAutoTristate)
+            item.setFlags(item.flags() & ~Qt.ItemIsAutoTristate)
+
+        stateSetup = item.ui.setup(**kwargs)
+
+        if stateSetup is False:
+            return
+
+        if stateData and "uuid" in stateData:
+            item.ui.uuid = stateData["uuid"]
+        else:
+            stateId = uuid.uuid4().hex
+            item.ui.uuid = stateId
+
+        self.core.scaleUI(item)
 
         if parent is None:
             pList.addTopLevelItem(item)
@@ -883,18 +1023,21 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if statetype != "Folder":
             item.setFlags(item.flags() & ~Qt.ItemIsDropEnabled)
 
-        self.core.callback(name="onStateCreated", types=["custom"], args=[self, item.ui], **{"stateData": stateData})
+        self.core.callback(
+            name="onStateCreated", args=[self, item.ui], **{"stateData": stateData}
+        )
 
         if setActive:
             self.setListActive(pList)
-        pList.setCurrentItem(item)
+
+        pList.clearSelection()
+        self.selectState(item)
         self.updateForeground()
 
         if statetype != "Folder" and self.stateTypes[statetype].listType == "Import":
             self.saveImports()
 
         self.saveStatesToScene()
-
         return item
 
     @err_catcher(name=__name__)
@@ -924,8 +1067,28 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.activeList.setFocus()
 
     @err_catcher(name=__name__)
-    def removeAllStates(self):
-        if self.core.uiAvailable:
+    def selectNextState(self):
+        states = self.getSelectedStates()
+        if not states:
+            return
+
+        state = self.getStateAfterState(states[-1])
+        if state:
+            self.selectState(state)
+
+    @err_catcher(name=__name__)
+    def selectPreviousState(self):
+        states = self.getSelectedStates()
+        if not states:
+            return
+
+        state = self.getStateBeforeState(states[0])
+        if state:
+            self.selectState(state)
+
+    @err_catcher(name=__name__)
+    def removeAllStates(self, quiet=False):
+        if self.core.uiAvailable and not quiet:
             msg = "Are you sure you want to delete all states in the current scene?"
             result = self.core.popupQuestion(msg, buttons=["Yes", "Cancel"])
 
@@ -933,12 +1096,18 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 return
 
         self.core.appPlugin.sm_deleteStates(self)
-        self.core.closeSM(restart=True)
+        return self.core.closeSM(restart=True)
+
+    @err_catcher(name=__name__)
+    def sortStates(self, states):
+        states = sorted(states, key=lambda x: getattr(x.ui, "getSortKey", lambda: "")() or "")
+        for idx, state in enumerate(states[1:]):
+            afterState = states[idx]
+            self.moveStateAfterState(state, afterState)
 
     @err_catcher(name=__name__)
     def copyState(self):
-        selStateData = []
-        selStateData.append([self.activeList.currentItem(), None])
+        selStateData = [[s, None] for s in self.getSelectedStates()]
         self.appendChildStates(selStateData[len(selStateData) - 1][0], selStateData)
 
         stateData = {"states": []}
@@ -956,64 +1125,95 @@ class %s(QWidget, %s.%s, %s.%sClass):
         cb.setText(stateStr)
 
     @err_catcher(name=__name__)
-    def deleteState(self, state=None, **kwargs):
-        if state is None:
-            item = self.activeList.currentItem()
-        else:
-            item = state
+    def renameState(self):
+        states = self.getSelectedStates()
+        name = states[0].ui.e_name.text()
+        dlg_ec = PrismWidgets.CreateItem(
+            core=self.core, startText=name, showType=False, valueRequired=False, validate=False
+        )
 
-        if not item:
+        dlg_ec.setModal(True)
+        self.core.parentWindow(dlg_ec)
+        dlg_ec.e_item.setFocus()
+        dlg_ec.setWindowTitle("Rename State")
+        dlg_ec.l_item.setText("Name:")
+        dlg_ec.buttonBox.buttons()[0].setText("Ok")
+        result = dlg_ec.exec_()
+        if not result:
             return
 
-        for i in range(item.childCount()):
-            self.deleteState(item.child(i))
+        newName = dlg_ec.e_item.text()
+        for state in states:
+            state.ui.e_name.setText(newName)
 
-        delKwargs = {"item": item}
-        delKwargs.update(kwargs)
-
-        getattr(item.ui, "preDelete", lambda **kwargs: None)(**delKwargs)
-
-        # self.states.remove(item) #buggy in qt 4
-
-        newstates = []
-        for i in self.states:
-            if id(i) != id(item):
-                newstates.append(i)
-
-        self.states = newstates
-
-        parent = item.parent()
-        if parent is None:
-            if item.ui.listType == "Export":
-                iList = self.tw_export
-            else:
-                iList = self.tw_import
-            try:
-
-                idx = iList.indexOfTopLevelItem(item)
-            except:
-                # bug in PySide2
-                for i in range(iList.topLevelItemCount()):
-                    if iList.topLevelItem(i) is item:
-                        idx = i
-
-            if "idx" in locals():
-                iList.takeTopLevelItem(idx)
+    @err_catcher(name=__name__)
+    def deleteState(self, state=None, **kwargs):
+        if state is None:
+            items = self.getSelectedStates()
         else:
-            idx = parent.indexOfChild(item)
-            parent.takeChild(idx)
+            items = [state]
 
-        self.core.callback(name="onStateDeleted", types=["custom"], args=[self, item.ui])
+        if not items:
+            return
 
-        if item.ui.listType == "Import":
-            self.saveImports()
+        self.finishedDeletionCallbacks = []
+        for item in items:
+            for i in range(item.childCount()):
+                self.deleteState(item.child(i))
 
-        self.activeList.setCurrentItem(None)
+            delKwargs = {"item": item}
+            delKwargs.update(kwargs)
+
+            try:
+                getattr(item.ui, "preDelete", lambda **kwargs: None)(**delKwargs)
+            except:
+                pass
+
+            # self.states.remove(item) #buggy in qt 4
+
+            newstates = []
+            for i in self.states:
+                if id(i) != id(item):
+                    newstates.append(i)
+
+            self.states = newstates
+
+            parent = item.parent()
+            if parent is None:
+                if item.ui.listType == "Export":
+                    iList = self.tw_export
+                else:
+                    iList = self.tw_import
+                try:
+
+                    idx = iList.indexOfTopLevelItem(item)
+                except:
+                    # bug in PySide2
+                    for i in range(iList.topLevelItemCount()):
+                        if iList.topLevelItem(i) is item:
+                            idx = i
+
+                if "idx" in locals():
+                    iList.takeTopLevelItem(idx)
+            else:
+                idx = parent.indexOfChild(item)
+                parent.takeChild(idx)
+
+            self.core.callback(name="onStateDeleted", args=[self, item.ui])
+
+            if item.ui.listType == "Import":
+                self.saveImports()
+
+        for cb in self.finishedDeletionCallbacks:
+            cb()
+
+        self.finishedDeletionCallbacks = []
+        self.activeList.clearSelection()
         self.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def createPressed(self, stateType, renderer=None):
-        curSel = self.activeList.currentItem()
+        curSel = self.getCurrentItem(self.activeList)
         if stateType == "Import":
             if (
                 self.activeList == self.tw_import
@@ -1024,23 +1224,40 @@ class %s(QWidget, %s.%s, %s.%sClass):
             else:
                 parent = None
 
-            import TaskSelection
-            ts = TaskSelection.TaskSelection(core=self.core)
-            self.core.parentWindow(ts)
-            ts.exec_()
+            createEmptyState = (
+                QApplication.keyboardModifiers() == Qt.ControlModifier
+                or not self.core.uiAvailable
+            )
 
-            productPath = ts.productPath
-            if not productPath:
-                return
+            if createEmptyState:
+                stateType = "ImportFile"
+                productPath = None
+            else:
+                import ProductBrowser
 
-            extension = os.path.splitext(productPath)[1]
-            stateType = getattr(self.core.appPlugin, "sm_getImportHandlerType", lambda x: None)(extension) or "ImportFile"
+                ts = ProductBrowser.ProductBrowser(core=self.core)
+                self.core.parentWindow(ts)
+                ts.exec_()
 
-            self.createState(stateType, parent=parent, importPath=productPath)
-            self.setListActive(self.tw_import)
+                productPath = ts.productPath
+                if not productPath:
+                    return
+
+                extension = os.path.splitext(productPath)[1]
+                stateType = (
+                    getattr(self.core.appPlugin, "sm_getImportHandlerType", lambda x: None)(
+                        extension
+                    )
+                    or "ImportFile"
+                )
+
+            state = self.createState(stateType, parent=parent, importPath=productPath, setActive=True)
+            if not createEmptyState and ts.customProduct and state:
+                state.ui.e_name.setText(os.path.basename(productPath))
+
             self.activateWindow()
 
-        elif stateType == "Export":
+        elif stateType in ["Export", "Playblast", "Render"]:
             if (
                 self.activeList == self.tw_export
                 and curSel is not None
@@ -1050,48 +1267,33 @@ class %s(QWidget, %s.%s, %s.%sClass):
             else:
                 parent = None
 
-            stateType = getattr(self.core.appPlugin, "getPreferredStateType", lambda x: x)("Export")
-            self.createState(stateType, parent=parent)
-            self.setListActive(self.tw_export)
+            exportStates = []
+            appStates = getattr(self.core.appPlugin, "sm_createStatePressed", lambda x, y: [])(self, stateType)
+            if not isinstance(appStates, list):
+                self.createState(appStates["stateType"], parent=parent, setActive=True, **appStates.get("kwargs", {}))
+                return
 
-        elif stateType == "Render":
-            if (
-                self.activeList == self.tw_export
-                and curSel is not None
-                and curSel.ui.className == "Folder"
-            ):
-                parent = curSel
+            exportStates += appStates
+            for state in self.stateTypes:
+                exportStates += getattr(self.stateTypes[state], "stateCategories", {}).get(stateType, [])
+
+            if len(exportStates) == 1:
+                self.createState(exportStates[0]["stateType"], parent=parent, setActive=True)
             else:
-                parent = None
+                menu = QMenu(self)
+                for exportState in exportStates:
+                    actSet = QAction(exportState["label"], self)
+                    actSet.triggered.connect(
+                        lambda x=None, st=exportState: self.createState(st["stateType"], parent=parent, setActive=True, **st.get("kwargs", {}))
+                    )
+                    menu.addAction(actSet)
 
-            self.createState("ImageRender", parent=parent, renderer=renderer)
-            self.setListActive(self.tw_export)
+                getattr(self.core.appPlugin, "sm_openStateFromNode", lambda x, y, stateType: None)(
+                    self, menu, stateType=stateType
+                )
 
-        elif stateType == "Playblast":
-            if (
-                self.activeList == self.tw_export
-                and curSel is not None
-                and curSel.ui.className == "Folder"
-            ):
-                parent = curSel
-            else:
-                parent = None
-
-            self.createState("Playblast", parent=parent)
-            self.setListActive(self.tw_export)
-
-        elif stateType == "Dependency":
-            if (
-                self.activeList == self.tw_export
-                and curSel is not None
-                and curSel.ui.className == "Folder"
-            ):
-                parent = curSel
-            else:
-                parent = None
-
-            self.createState("Dependency", parent=parent)
-            self.setListActive(self.tw_export)
+                if not menu.isEmpty():
+                    menu.exec_(QCursor.pos())
 
         self.activeList.setFocus()
 
@@ -1105,78 +1307,33 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         if "mCamState" in locals():
             mCamState.importLatest()
-            self.tw_import.setCurrentItem(camState)
+            self.selectState(mCamState)
         else:
             fileName = self.core.getCurrentFileName()
             fnameData = self.core.getScenefileData(fileName)
             if not (
                 os.path.exists(fileName)
-                and fnameData["entity"] == "shot"
                 and self.core.fileInPipeline(fileName)
             ):
-                msgStr = "The current file is not inside the Pipeline.\nUse the Project Browser to create a file in the Pipeline."
+                self.core.showFileNotInProjectWarning(title="Warning")
+                self.saveEnabled = True
+                return False
+
+            if fnameData.get("type") != "shot":
+                msgStr = "Shotcams are not supported for assets."
                 self.core.popup(msgStr)
                 self.saveEnabled = True
                 return False
 
-            if self.core.useLocalFiles and self.core.localProjectPath in fileName:
-                fileName = fileName.replace(
-                    self.core.localProjectPath, self.core.projectPath
-                )
-
-            camPath = os.path.abspath(
-                os.path.join(
-                    fileName,
-                    os.pardir,
-                    os.pardir,
-                    os.pardir,
-                    os.pardir,
-                    "Export",
-                    "_ShotCam",
-                )
+            filepath = self.core.products.getLatestVersionpathFromProduct(
+                "_ShotCam", entity=fnameData
             )
-
-            for i in os.walk(camPath):
-                camFolders = i[1]
-                break
-
-            if "camFolders" not in locals():
+            if not filepath:
                 self.core.popup("Could not find a shotcam for the current shot.")
                 self.saveEnabled = True
                 return False
 
-            highversion = 0
-            for i in camFolders:
-                fname = i.split(self.core.filenameSeparator)
-                if (
-                    len(fname) == 3
-                    and fname[0][0] == "v"
-                    and len(fname[0]) == 5
-                    and int(fname[0][1:5]) > highversion
-                ):
-                    highversion = int(fname[0][1:5])
-                    highFolder = i
-
-            if "highFolder" not in locals():
-                self.core.popup("Could not find a shotcam for the current shot.")
-                self.saveEnabled = True
-                return False
-
-            camPath = os.path.join(
-                camPath, highFolder, self.core.appPlugin.preferredUnit
-            )
-
-            if not os.path.exists(camPath):
-                self.core.popup("Could not find a shotcam in the right units (%s) for the current shot." % self.core.appPlugin.preferredUnit)
-                self.saveEnabled = True
-                return False
-
-            for camFile in os.listdir(camPath):
-                if camFile.endswith(self.shotcamFileType):
-                    camPath = os.path.join(camPath, camFile)
-                    break
-
-            self.createState("ImportFile", importPath=camPath)
+            self.createState("ImportFile", importPath=filepath, setActive=True)
 
         self.setListActive(self.tw_import)
         self.activateWindow()
@@ -1194,14 +1351,20 @@ class %s(QWidget, %s.%s, %s.%sClass):
         for state in self.states:
             state.ui.updateUi()
 
+        self.b_publish.setMinimumWidth(self.b_publish.width())
         self.core.callback("onStateManagerShow", args=[self])
 
     @err_catcher(name=__name__)
     def loadStates(self, stateText=None):
+        if self.standalone and not stateText:
+            return False
+
         self.saveEnabled = False
         self.loading = True
         if stateText is None:
-            stateText = getattr(self.core.appPlugin, "sm_readStates", lambda x: None)(self)
+            stateText = getattr(self.core.appPlugin, "sm_readStates", lambda x: None)(
+                self
+            )
 
         stateData = None
         if stateText is not None:
@@ -1228,7 +1391,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if stateData:
             loadedStates = []
             for i in stateData:
-                if i["statename"] == "publish":
+                if i.get("statename") == "publish":
                     self.loadSettings(i)
                 else:
                     stateParent = None
@@ -1239,16 +1402,13 @@ class %s(QWidget, %s.%s, %s.%sClass):
                     )
                     loadedStates.append(state)
 
+        self.inactiveList.clearSelection()
         self.loading = False
         self.saveEnabled = True
         self.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def loadSettings(self, data):
-        if "startframe" in data:
-            self.sp_rangeStart.setValue(int(data["startframe"]))
-        if "endframe" in data:
-            self.sp_rangeEnd.setValue(int(data["endframe"]))
         if "comment" in data:
             self.e_comment.setText(data["comment"])
         if "description" in data:
@@ -1264,8 +1424,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
         stateProps.update(
             {
                 "statename": "publish",
-                "startframe": str(self.sp_rangeStart.value()),
-                "endframe": str(self.sp_rangeEnd.value()),
                 "comment": str(self.e_comment.text()),
                 "description": self.description,
             }
@@ -1281,7 +1439,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
             return False
 
         getattr(self.core.appPlugin, "sm_preSaveToScene", lambda x: None)(self)
+        stateStr = self.getStateSettings()
+        getattr(self.core.appPlugin, "sm_saveStates", lambda x, y: None)(self, stateStr)
 
+    @err_catcher(name=__name__)
+    def getStateSettings(self):
         self.stateData = []
         for i in range(self.tw_import.topLevelItemCount()):
             self.stateData.append([self.tw_import.topLevelItem(i), None])
@@ -1295,6 +1457,30 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 self.stateData[len(self.stateData) - 1][0], self.stateData
             )
 
+        selStates = self.getSelectedStates()
+        if self.applyChangesToSelection and len(selStates) > 1 and self.prevStateData and len(self.prevStateData["states"]) == (len(self.stateData) + 1):
+            curItem = self.getCurrentItem(self.activeList)
+            curData = curItem.ui.getStateProps()
+            for idx, val in enumerate(self.stateData):
+                if val[0].__hash__() == curItem.__hash__():
+                    cid = idx
+                    break
+
+            prevData = self.prevStateData["states"][cid+1]
+            changes = {}
+            for item in curData.items():
+                if item[1] != prevData[item[0]]:
+                    changes.update({item[0]: item[1]})
+
+            self.saveEnabled = False
+            for selState in selStates:
+                if selState.__hash__() == self.getCurrentItem(self.activeList).__hash__():
+                    continue
+
+                selState.ui.loadData(changes)
+
+            self.saveEnabled = True
+
         stateData = {"states": []}
         stateData["states"].append(self.getSettings())
 
@@ -1302,22 +1488,66 @@ class %s(QWidget, %s.%s, %s.%sClass):
             stateProps = {}
             stateProps["stateparent"] = str(i[1])
             stateProps["stateclass"] = i[0].ui.className
+            stateProps["uuid"] = i[0].ui.uuid
             stateProps.update(i[0].ui.getStateProps())
+            if "statename" not in stateProps and "stateName" not in stateProps:
+                continue
+
             stateData["states"].append(stateProps)
 
+        self.prevStateData = stateData
         stateStr = self.core.configs.writeJson(stateData)
-
-        getattr(self.core.appPlugin, "sm_saveStates", lambda x, y: None)(self, stateStr)
+        return stateStr
 
     @err_catcher(name=__name__)
     def saveImports(self):
+        if not self.saveEnabled:
+            return False
+
+        if self.standalone:
+            return False
+
         importPaths = str(self.getFilePaths(self.tw_import.invisibleRootItem(), []))
-        self.core.appPlugin.sm_saveImports(self, importPaths)
+        getattr(self.core.appPlugin, "sm_saveImports", lambda x, y: None)(self, importPaths)
+
+    @err_catcher(name=__name__)
+    def updateAllImportStates(self):
+        for state in self.states:
+            if state.ui.listType != "Import":
+                continue
+
+            if not hasattr(state.ui, "checkLatestVersion"):
+                continue
+
+            versions = state.ui.checkLatestVersion()
+            if versions:
+                curVersion, latestVersion = versions
+            else:
+                curVersion = latestVersion = ""
+
+            if curVersion.get("version") == "master":
+                filepath = state.ui.getImportPath()
+                curVersionName = self.core.products.getMasterVersionLabel(filepath)
+            else:
+                curVersionName = curVersion.get("version")
+
+            if latestVersion.get("version") == "master":
+                filepath = latestVersion["path"]
+                latestVersionName = self.core.products.getMasterVersionLabel(filepath)
+            else:
+                latestVersionName = latestVersion.get("version")
+
+            if curVersionName and latestVersionName and curVersionName != latestVersionName:
+                state.ui.importLatest(refreshUi=False)
 
     @err_catcher(name=__name__)
     def getFilePaths(self, item, paths=[]):
-        if hasattr(item, "ui") and item.ui.className != "Folder" and item.ui.listType == "Import":
-            paths.append([item.ui.e_file.text(), item.text(0)])
+        if (
+            hasattr(item, "ui")
+            and item.ui.className != "Folder"
+            and item.ui.listType == "Import"
+        ):
+            paths.append([item.ui.getImportPath(), item.text(0)])
         for i in range(item.childCount()):
             paths = self.getFilePaths(item.child(i), paths)
 
@@ -1332,40 +1562,26 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
     @err_catcher(name=__name__)
     def commentChanged(self, text):
-        minLength = 2
-        self.validateComment()
+        required = self.core.getConfig("globals", "requirePublishComment", config="project", dft=True)
+        if required:
+            minLength = self.core.getConfig("globals", "publishCommentLength", config="project", dft=3)
+        else:
+            minLength = 0
+
         text = self.e_comment.text()
-        if len(text) > minLength:
+        if len(text) >= minLength:
             self.b_publish.setEnabled(True)
             self.b_publish.setText("Publish")
         else:
             self.b_publish.setEnabled(False)
             self.b_publish.setText(
                 "Publish - (%s more chars needed in comment)"
-                % (1 + minLength - len(text))
+                % (minLength - len(text))
             )
 
     @err_catcher(name=__name__)
-    def setRangeContextMenu(self, pos):
-        fname = self.core.getCurrentFileName()
-        fnameData = self.core.getScenefileData(fname)
-        if fnameData["entity"] != "shot":
-            return
-
-        cMenu = QMenu(self)
-        actSet = QAction("Set range for current shot", self)
-        start = self.sp_rangeStart.value()
-        end = self.sp_rangeEnd.value()
-        actSet.triggered.connect(
-            lambda x=None: self.core.entities.setShotRange(fnameData["entityName"], start, end)
-        )
-        cMenu.addAction(actSet)
-
-        cMenu.exec_(QCursor.pos())
-
-    @err_catcher(name=__name__)
     def showDescription(self):
-        descriptionDlg = EnterText.EnterText()
+        descriptionDlg = PrismWidgets.EnterText()
         descriptionDlg.buttonBox.removeButton(descriptionDlg.buttonBox.buttons()[1])
         descriptionDlg.setModal(True)
         self.core.parentWindow(descriptionDlg)
@@ -1385,7 +1601,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
     def getPreview(self):
         from PrismUtils import ScreenShot
 
+        self.setHidden(True)
         self.previewImg = ScreenShot.grabScreenArea(self.core)
+        self.setHidden(False)
         if self.previewImg is None:
             self.b_preview.setStyleSheet(self.styleMissing)
         else:
@@ -1448,13 +1666,13 @@ class %s(QWidget, %s.%s, %s.%sClass):
             winwidth = 320
             winheight = 10
             VBox = QVBoxLayout()
-            if detailType is "p":
+            if detailType == "p":
                 l_prv = QLabel()
                 l_prv.setPixmap(detail)
                 l_prv.setStyleSheet("border: 1px solid rgb(100,100,100);")
                 VBox.addWidget(l_prv)
                 VBox.setContentsMargins(0, 0, 0, 0)
-            elif detailType is "d":
+            elif detailType == "d":
                 descr = QLabel(self.description)
                 VBox.addWidget(descr)
             self.detailWin.setLayout(VBox)
@@ -1465,6 +1683,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             )
 
             self.detailWin.setGeometry(0, 0, winwidth, winheight)
+            self.detailWin.setAttribute(Qt.WA_ShowWithoutActivating)
             self.detailWin.move(QCursor.pos().x() + 20, QCursor.pos().y())
             self.detailWin.show()
 
@@ -1479,31 +1698,86 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.detailWin.close()
 
     @err_catcher(name=__name__)
-    def startChanged(self):
-        if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
-            self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
+    def getImportStateOrder(self, par=None, stateOrder=None):
+        if not par:
+            par = self.tw_import.invisibleRootItem()
 
-        self.saveStatesToScene()
+        stateOrder = stateOrder or []
+        for idx in range(par.childCount()):
+            child = par.child(idx)
+            stateOrder.append(child)
+            self.getImportStateOrder(par=child, stateOrder=stateOrder)
+
+        return stateOrder
 
     @err_catcher(name=__name__)
-    def endChanged(self):
-        if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
-            self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
+    def getStateExecutionOrder(self, par=None, stateOrder=None):
+        if not par:
+            par = self.tw_export.invisibleRootItem()
 
-        self.saveStatesToScene()
+        stateOrder = stateOrder or []
+        for idx in range(par.childCount()):
+            child = par.child(idx)
+            stateOrder.append(child)
+            self.getStateExecutionOrder(par=child, stateOrder=stateOrder)
+
+        return stateOrder
 
     @err_catcher(name=__name__)
-    def getRange(self):
-        fileName = self.core.getCurrentFileName()
-        fileNameData = self.core.getScenefileData(fileName)
-        if fileNameData["entity"] == "shot":
-            shotRange = self.core.entities.getShotRange(fileNameData["entityName"])
-            if not shotRange:
-                return False
+    def getStateBeforeState(self, state):
+        if state.ui.listType == "Import":
+            stateOrder = self.getImportStateOrder()
+        else:
+            stateOrder = self.getStateExecutionOrder()
+    
+        idx = stateOrder.index(state)
+        if idx == 0:
+            return
 
-            self.sp_rangeStart.setValue(shotRange[0])
-            self.sp_rangeEnd.setValue(shotRange[1])
-            self.saveStatesToScene()
+        state = stateOrder[idx-1]
+        return state
+
+    @err_catcher(name=__name__)
+    def getStateAfterState(self, state):
+        if state.ui.listType == "Import":
+            stateOrder = self.getImportStateOrder()
+        else:
+            stateOrder = self.getStateExecutionOrder()
+
+        idx = stateOrder.index(state)
+        if idx == (len(stateOrder)-1):
+            return
+
+        state = stateOrder[idx+1]
+        return state
+
+    @err_catcher(name=__name__)
+    def moveStateBeforeState(self, state, beforeState):
+        par = state.parent()
+        listWidget = self.tw_import if state.ui.listType == "Import" else self.tw_export
+        if not par:
+            par = listWidget.invisibleRootItem()
+
+        state = par.takeChild(par.indexOfChild(state))
+        par = beforeState.parent()
+        if not par:
+            par = listWidget.invisibleRootItem()
+
+        par.insertChild(par.indexOfChild(beforeState), state)
+
+    @err_catcher(name=__name__)
+    def moveStateAfterState(self, state, afterState):
+        par = state.parent()
+        listWidget = self.tw_import if state.ui.listType == "Import" else self.tw_export
+        if not par:
+            par = listWidget.invisibleRootItem()
+
+        state = par.takeChild(par.indexOfChild(state))
+        par = afterState.parent()
+        if not par:
+            par = listWidget.invisibleRootItem()
+
+        par.insertChild(par.indexOfChild(afterState)+1, state)
 
     @err_catcher(name=__name__)
     def getChildStates(self, state):
@@ -1527,7 +1801,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         saveScene=None,
         incrementScene=None,
         sanityChecks=True,
-        versionWarning=True
+        versionWarning=True,
     ):
         if self.publishPaused and not continuePublish:
             return
@@ -1537,18 +1811,23 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         if executeState:
             self.publishType = "execute"
-            self.execStates = states or self.getChildStates(
-                self.tw_export.currentItem()
-            )
+            if not continuePublish:
+                self.execStates = states or self.getChildStates(
+                    self.getCurrentItem(self.tw_export)
+                )
             actionString = "Execute"
             actionString2 = "execution"
         else:
             self.publishType = "publish"
-            self.execStates = states or self.states
+            if not continuePublish:
+                self.execStates = states or self.states
+    
             actionString = "Publish"
             actionString2 = "publish"
 
-        if not executeState and not [x for x in self.execStates if x.checkState(0) == Qt.Checked]:
+        if not executeState and not [
+            x for x in self.execStates if x.checkState(0) == Qt.Checked
+        ]:
             self.core.popup("No states to publish.")
             return
 
@@ -1564,13 +1843,16 @@ class %s(QWidget, %s.%s, %s.%sClass):
                 self.pubMsg.msg.close()
         else:
             if useVersion != "next" and versionWarning:
-                msg = "Are you sure you want to execute this state as version \"%s\"?\nThis may overwrite existing files." % useVersion
+                msg = (
+                    'Are you sure you want to execute this state as version "%s"?\nThis may overwrite existing files.'
+                    % useVersion
+                )
                 result = self.core.popupQuestion(
                     msg,
                     title=actionString,
                     buttons=["Continue", "Cancel"],
                     icon=QMessageBox.Warning,
-                    escapeButton="Cancel"
+                    escapeButton="Cancel",
                 )
 
                 if result == "Cancel":
@@ -1591,16 +1873,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
             if saveScene is None or saveScene is True:
                 if executeState:
                     increment = False if incrementScene is None else incrementScene
-                    if not self.core.fileInPipeline():
-                        msg = "The current scenefile is not inside the pipeline.\nUse the Project Browser to create a file in the pipeline."
-                        self.core.popup(msg)
-                        return False
-
                     sceneSaved = self.core.saveScene(
                         versionUp=increment, details=details, preview=self.previewImg
                     )
                 else:
-                    increment = True if incrementScene is None else incrementScene
+                    increment = self.actionVersionUp.isChecked() if incrementScene is None else incrementScene
                     sceneSaved = self.core.saveScene(
                         comment=self.e_comment.text(),
                         publish=True,
@@ -1613,6 +1890,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                     logger.debug(actionString + " canceled")
                     return
 
+            self.publishStartTime = time.time()
             self.description = ""
             self.previewImg = None
             self.b_description.setStyleSheet(self.styleMissing)
@@ -1620,58 +1898,61 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.saveStatesToScene()
 
             self.publishResult = []
-            self.osSubmittedJobs = {}
-            self.osDependencies = []
             self.dependencies = []
             self.reloadScenefile = False
             self.publishInfos = {"updatedExports": {}, "backgroundRender": None}
             self.core.sceneOpenChecksEnabled = False
+            self.publishComment = self.e_comment.text()
 
             getattr(self.core.appPlugin, "sm_preExecute", lambda x: None)(self)
-            self.core.callback(name="onPublish", types=["custom"], args=[self])
+            result = self.core.callback(name="prePublish", args=[self])
+            for res in result:
+                if isinstance(res, dict) and res.get("cancel", False):
+                    return
 
         if executeState:
-            text = "Executing \"%s\" - please wait.." % self.execStates[0].ui.state.text(0)
-            self.pubMsg = self.core.waitPopup(self.core, text)
-            with self.pubMsg:
-                if self.execStates[0].ui.className in [
-                    "ImageRender",
-                    "Export",
-                    "Playblast",
-                    "Folder",
-                ]:
-                    result = self.execStates[0].ui.executeState(
-                        parent=self, useVersion=useVersion
-                    )
-                else:
-                    result = self.execStates[0].ui.executeState(parent=self)
+            for i in range(self.tw_export.topLevelItemCount()):
+                curUi = self.tw_export.topLevelItem(i).ui
+                if curUi.className == "Folder" or id(curUi.state) in set([id(s) for s in self.execStates]):
+                    text = 'Executing "%s" - please wait..' % curUi.state.text(0)
+                    self.pubMsg = self.core.waitPopup(self.core, text)
+                    with self.pubMsg:
+                        self.curExecutedState = curUi
+                        if getattr(curUi, "canSetVersion", False):
+                            result = curUi.executeState(
+                                parent=self, useVersion=useVersion
+                            )
+                        else:
+                            result = curUi.executeState(parent=self)
 
-                if self.execStates[0].ui.className == "Folder":
-                    self.publishResult += result
+                        self.curExecutedState = None
+                        if curUi.className == "Folder":
+                            self.publishResult += result
 
-                    for k in result:
-                        if "publish paused" in k["result"][0]:
-                            self.publishPaused = True
-                            return
-                else:
-                    self.publishResult.append(
-                        {"state": self.execStates[0].ui, "result": result}
-                    )
+                            for k in result:
+                                if "publish paused" in k["result"][0]:
+                                    self.publishPaused = True
+                                    return
+                        else:
+                            self.publishResult.append(
+                                {"state": curUi, "result": result}
+                            )
 
-                    if "publish paused" in result[0]:
-                        self.publishPaused = True
-                        return
+                            if "publish paused" in result[0]:
+                                self.publishPaused = True
+                                return
 
         else:
             for i in range(self.tw_export.topLevelItemCount()):
                 curUi = self.tw_export.topLevelItem(i).ui
-                if self.tw_export.topLevelItem(i).checkState(
-                    0
-                ) == Qt.Checked and curUi.state in set(self.execStates):
-                    text = "Executing \"%s\" - please wait.." % curUi.state.text(0)
+                checked = self.tw_export.topLevelItem(i).checkState(0) == Qt.Checked
+                if checked and curUi.state in set(self.execStates):
+                    text = 'Executing "%s" - please wait..' % curUi.state.text(0)
                     self.pubMsg = self.core.waitPopup(self.core, text)
                     with self.pubMsg:
+                        self.curExecutedState = curUi
                         exResult = curUi.executeState(parent=self)
+                        self.curExecutedState = None
                         if curUi.className == "Folder":
                             self.publishResult += exResult
 
@@ -1680,7 +1961,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
                                     self.publishPaused = True
                                     return
                         else:
-                            self.publishResult.append({"state": curUi, "result": exResult})
+                            self.publishResult.append(
+                                {"state": curUi, "result": exResult}
+                            )
 
                             if exResult and "publish paused" in exResult[0]:
                                 self.publishPaused = True
@@ -1688,11 +1971,11 @@ class %s(QWidget, %s.%s, %s.%sClass):
 
         getattr(self.core.appPlugin, "sm_postExecute", lambda x: None)(self)
         pubType = "stateExecution" if executeState else "publish"
-        self.core.callback(name="postPublish", types=["custom"], args=[self, pubType], **{"result": self.publishResult})
+        self.core.callback(
+            name="postPublish", args=[self, pubType], **{"result": self.publishResult}
+        )
 
         self.publishInfos = {"updatedExports": {}, "backgroundRender": None}
-        self.osSubmittedJobs = {}
-        self.osDependencies = []
         self.dependencies = []
         self.core.sceneOpenChecksEnabled = True
 
@@ -1706,31 +1989,39 @@ class %s(QWidget, %s.%s, %s.%sClass):
         except:
             pass
 
+        result = False
         if success:
-            if successPopup:
+            if getattr(self.core, "lastErrorTime", 0) > self.publishStartTime:
+                msgStr = "The %s was completed with errors." % actionString2
+            else:
                 msgStr = "The %s was successful." % actionString2
-                self.core.popup(msgStr, title=actionString, severity="info")
+                result = True
+
+            if successPopup:
+                self.core.popup(msgStr, title=actionString, severity="info", parent=self)
         else:
             infoString = ""
             for i in self.publishResult:
                 if not i["result"]:
                     infoString += "unknown error\n"
-                elif not "publish paused" in i["result"][0]:
+                elif "publish paused" not in i["result"][0]:
                     infoString += i["result"][0] + "\n"
 
             msgStr = "Errors occured during the %s:\n\n" % actionString2 + infoString
 
-            self.core.popup(msgStr, title=actionString)
+            self.core.popup(msgStr, title=actionString, parent=self)
 
         if self.reloadScenefile:
             self.core.appPlugin.openScene(
                 self, self.core.getCurrentFileName(), force=True
             )
 
+        return result
+
     @err_catcher(name=__name__)
     def runSantityChecks(self, executeState):
         result = []
-        extResult = self.core.appPlugin.sm_getExternalFiles(self)
+        extResult = getattr(self.core.appPlugin, "sm_getExternalFiles", lambda x: None)(self)
         if extResult is not None:
             extFiles, extFilesSource = extResult
         else:
@@ -1745,8 +2036,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
             if not (
                 i.startswith(self.core.projectPath)
                 or (
-                    self.core.useLocalFiles
-                    and i.startswith(self.core.localProjectPath)
+                    self.core.useLocalFiles and i.startswith(self.core.localProjectPath)
                 )
             ):
                 if os.path.exists(i) and not i in invalidFiles:
@@ -1795,14 +2085,23 @@ class %s(QWidget, %s.%s, %s.%sClass):
             warnings.append(["", result])
 
         if executeState:
-            warnings.append(self.execStates[0].ui.preExecuteState())
+            for i in range(self.tw_export.topLevelItemCount()):
+                curState = self.tw_export.topLevelItem(i)
+                if curState.ui.className == "Folder" or id(curState) in set([id(s) for s in self.execStates]):
+                    if curState.ui.className == "Folder":
+                        warnings += curState.ui.preExecuteState(states=self.execStates)
+                    else:
+                        warnings.append(curState.ui.preExecuteState())
         else:
             for i in range(self.tw_export.topLevelItemCount()):
                 curState = self.tw_export.topLevelItem(i)
                 if curState.checkState(0) == Qt.Checked and curState in set(
                     self.execStates
                 ):
-                    warnings.append(curState.ui.preExecuteState())
+                    if curState.ui.className == "Folder":
+                        warnings += curState.ui.preExecuteState()
+                    else:
+                        warnings.append(curState.ui.preExecuteState())
 
         warnString = ""
         if self.core.uiAvailable:
@@ -1830,8 +2129,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
                         warnString += (
                             warnBase
                             + (
-                                '- <font color="red">%s</font>\n  %s\n'
-                                % (k[0], k[1])
+                                '- <font color="red">%s</font>\n  %s\n' % (k[0], k[1])
                             ).replace("\n", "\n" + warnBase)
                             + "\n"
                         )
@@ -1921,9 +2219,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
     @err_catcher(name=__name__)
     def getFrameRangeTypeToolTip(self, rangeType):
         tt = ""
-        if rangeType == "State Manager":
-            tt = "The framerange of the State Manager settings is used, which is located in the lower left corner of the State Manager window."
-        elif rangeType == "Scene":
+        if rangeType == "Scene":
             tt = "The framerange from the timeline in the currently open scenefile is used."
         elif rangeType == "Shot":
             tt = "The shotrange is used, which can be set in the Project Browser per shot."
@@ -1936,7 +2232,7 @@ class %s(QWidget, %s.%s, %s.%sClass):
         elif rangeType == "Expression":
             tt = "Allows to specify frames to render by an expression. Look at the tooltip of the expression field for more information."
         elif rangeType == "ExpressionField":
-            tt = """* Single frames are defined by a single the framenumber.
+            tt = """* Single frames are defined by a single framenumber.
     Example: "55" will render frame 55
 
 * Frameranges are defined by the startframe and endframe separated by a "-".
@@ -1961,30 +2257,30 @@ No frame will be rendered twice. This makes it easier to spot problems in the se
         return tt
 
     @err_catcher(name=__name__)
-    def validateComment(self):
-        self.core.validateLineEdit(self.e_comment)
-
-    @err_catcher(name=__name__)
     def getStateProps(self):
         return {
-            "startframe": self.sp_rangeStart.value(),
-            "endframe": self.sp_rangeEnd.value(),
             "comment": self.e_comment.text(),
             "description": self.description,
         }
 
     @err_catcher(name=__name__)
-    def importFile(self, path, activateWindow=True):
+    def importFile(self, path, activateWindow=True, settings=None):
         if not path:
             return
 
         extension = os.path.splitext(path)[1]
-        stateType = getattr(self.core.appPlugin, "sm_getImportHandlerType", lambda x: None)(extension) or "ImportFile"
+        stateType = (
+            getattr(self.core.appPlugin, "sm_getImportHandlerType", lambda x: None)(
+                extension
+            )
+            or "ImportFile"
+        )
 
-        self.createState(stateType, importPath=path)
-        self.setListActive(self.tw_import)
+        state = self.createState(stateType, importPath=path, setActive=True, settings=settings)
         if activateWindow:
             self.activateWindow()
+
+        return state
 
 
 class ImportDelegate(QStyledItemDelegate):
@@ -1993,7 +2289,9 @@ class ImportDelegate(QStyledItemDelegate):
         self.stateManager = stateManager
 
     def paint(self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex):
-        QStyledItemDelegate.paint(self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex)
+        QStyledItemDelegate.paint(
+            self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex
+        )
 
         item = self.stateManager.tw_import.itemFromIndex(indexQModelIndex)
         color = getattr(item.ui, "statusColor", None)
@@ -2002,12 +2300,12 @@ class ImportDelegate(QStyledItemDelegate):
 
         rect = QRect(optionQStyleOptionViewItem.rect)
         curRight = optionQStyleOptionViewItem.rect.right()
-        rect.setLeft(curRight-10)
+        rect.setLeft(curRight - 10)
 
         painterQPainter.fillRect(rect, QBrush(item.ui.statusColor))
 
 
-def getStateWindow(core, stateType, settings=None, connectBBox=True):
+def getStateWindow(core, stateType, settings=None, connectBBox=True, parent=None):
     settings = settings or None
     #  stateNameBase = stateType.replace(stateType.split("_", 1)[0] + "_", "")
     sm = StateManager(core, forceStates=[stateType], standalone=True)
@@ -2016,6 +2314,7 @@ def getStateWindow(core, stateType, settings=None, connectBBox=True):
         return
 
     dlg_settings = QDialog()
+    core.parentWindow(dlg_settings, parent=parent)
     dlg_settings.setWindowTitle("Statesettings - %s" % stateType)
     dlg_settings.bb_settings = QDialogButtonBox()
     dlg_settings.bb_settings.addButton("Accept", QDialogButtonBox.AcceptRole)
@@ -2024,12 +2323,17 @@ def getStateWindow(core, stateType, settings=None, connectBBox=True):
         dlg_settings.bb_settings.accepted.connect(dlg_settings.accept)
         dlg_settings.bb_settings.rejected.connect(dlg_settings.reject)
 
+    dlg_settings.sa_state = QScrollArea()
+    dlg_settings.sa_state.setWidget(item.ui)
+    dlg_settings.sa_state.setWidgetResizable(True)
+    dlg_settings.sa_state.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
     lo_settings = QVBoxLayout()
-    lo_settings.addWidget(item.ui)
+    lo_settings.addWidget(dlg_settings.sa_state)
     lo_settings.addWidget(dlg_settings.bb_settings)
     dlg_settings.setLayout(lo_settings)
-    dlg_settings.setParent(core.messageParent, Qt.Window)
     dlg_settings.stateItem = item
+    dlg_settings.sizeHint = lambda: QSize(420, dlg_settings.sa_state.viewportSizeHint().height() + 200)
     return dlg_settings
 
 
@@ -2041,3 +2345,72 @@ def openStateSettings(core, stateType, settings=None):
         return
 
     return dlg_settings.stateItem.ui.getStateProps()
+
+
+class EntityDlg(QDialog):
+
+    entitySelected = Signal(object)
+
+    def __init__(self, origin, parent=None):
+        super(EntityDlg, self).__init__()
+        self.origin = origin
+        self.parentDlg = parent
+        self.core = self.origin.core
+        self.setupUi()
+
+    @err_catcher(name=__name__)
+    def setupUi(self):
+        title = "Select entity"
+
+        self.setWindowTitle(title)
+        self.core.parentWindow(self, parent=self.parentDlg)
+
+        import EntityWidget
+        self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=True)
+        self.w_entities.getPage("Assets").tw_tree.itemDoubleClicked.connect(self.itemDoubleClicked)
+        self.w_entities.getPage("Shots").tw_tree.itemDoubleClicked.connect(self.itemDoubleClicked)
+        self.w_entities.getPage("Assets").setSearchVisible(False)
+        self.w_entities.getPage("Shots").setSearchVisible(False)
+
+        self.lo_main = QVBoxLayout()
+        self.setLayout(self.lo_main)
+
+        self.bb_main = QDialogButtonBox()
+        self.bb_main.addButton("Select", QDialogButtonBox.AcceptRole)
+        self.bb_main.addButton("Close", QDialogButtonBox.RejectRole)
+
+        self.bb_main.clicked.connect(self.buttonClicked)
+
+        self.lo_main.addWidget(self.w_entities)
+        self.lo_main.addWidget(self.bb_main)
+
+    @err_catcher(name=__name__)
+    def itemDoubleClicked(self, item, column):
+        self.buttonClicked("select")
+
+    @err_catcher(name=__name__)
+    def buttonClicked(self, button):
+        if button == "select" or button.text() == "Select":
+            entities = self.w_entities.getCurrentData()
+            if isinstance(entities, dict):
+                entities = [entities]
+
+            validEntities = []
+            for entity in entities:
+                if entity.get("type", "") not in ["asset", "shot"]:
+                    continue
+
+                validEntities.append(entity)
+
+            if not validEntities:
+                msg = "Invalid entity selected."
+                self.core.popup(msg, parent=self)
+                return
+
+            self.entitySelected.emit(validEntities[0])
+
+        self.close()
+
+    @err_catcher(name=__name__)
+    def sizeHint(self):
+        return QSize(400, 400)

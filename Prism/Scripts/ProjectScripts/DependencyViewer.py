@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,33 +36,18 @@ import os
 import sys
 import datetime
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+if eval(os.getenv("PRISM_DEBUG", "False")):
+    for module in ["DependencyViewer_ui"]:
+        try:
+            del sys.modules[module]
+        except:
+            pass
 
-    psVersion = 1
-
-if sys.version[0] == "3":
-    pVersion = 3
-else:
-    pVersion = 2
-
-for i in ["DependencyViewer_ui", "DependencyViewer_ui_ps2"]:
-    try:
-        del sys.modules[i]
-    except:
-        pass
-
-if psVersion == 1:
-    import DependencyViewer_ui
-else:
-    import DependencyViewer_ui_ps2 as DependencyViewer_ui
+import DependencyViewer_ui
 
 from PrismUtils.Decorators import err_catcher
 
@@ -75,22 +61,14 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         self.core.parentWindow(self)
 
         if os.path.basename(depRoot).startswith("versioninfo"):
-            rootName = self.core.getConfig(
-                cat="information", param="version", configPath=depRoot
-            )
+            rootName = self.core.getConfig("version", configPath=depRoot)
         else:
-            rootName = self.core.getConfig(
-                cat="information", param="filename", configPath=depRoot
-            )
+            rootName = self.core.getConfig("filename", configPath=depRoot)
 
         self.l_root.setText(rootName)
 
         self.tw_dependencies.setHeaderLabels(["Name", "", "Type", "Date", "Path"])
-
-        if psVersion == 1:
-            self.tw_dependencies.header().setResizeMode(1, QHeaderView.Fixed)
-        else:
-            self.tw_dependencies.header().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.tw_dependencies.header().setSectionResizeMode(1, QHeaderView.Fixed)
 
         self.dependencies = {}
         self.depRoot = depRoot
@@ -104,9 +82,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         self.tw_dependencies.setColumnWidth(3, 150)
         self.tw_dependencies.resizeColumnToContents(4)
 
-        self.core.callback(
-            name="onDependencyViewerOpen", types=["curApp", "custom"], args=[self]
-        )
+        self.core.callback(name="onDependencyViewerOpen", args=[self])
 
     @err_catcher(name=__name__)
     def connectEvents(self):
@@ -161,16 +137,20 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         rcmenu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
-    def updateDependencies(self, depID, versionInfo):
-        source = self.core.getConfig(
-            cat="information", param="source scene", configPath=versionInfo
+    def updateDependencies(self, depID, versionInfo, ignore=None):
+        ignore = ignore or []
+        source = self.core.getConfig("source scene", configPath=versionInfo)
+        if not source:
+            source = self.core.getConfig("sourceScene", configPath=versionInfo)
+
+        deps = (
+            self.core.getConfig("dependencies", configPath=versionInfo)
+            or []
         )
-        deps = self.core.getConfig(
-            cat="information", param="Dependencies", configPath=versionInfo
-        ) or []
-        extFiles = self.core.getConfig(
-            cat="information", param="External files", configPath=versionInfo
-        ) or []
+        extFiles = (
+            self.core.getConfig("externalFiles", configPath=versionInfo)
+            or []
+        )
 
         if source is not None:
             deps.append(source)
@@ -181,12 +161,16 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             depItem = self.dependencies[depID][1]
 
         for i in deps:
-            if pVersion == 2:
+            if sys.version[0] == "2":
                 existText = unicode("█", "utf-8")
             else:
                 existText = "█"
 
             depPath = i
+            if depPath in ignore:
+                continue
+
+            ignore.append(depPath)
 
             if not os.path.exists(i):
                 depDir = os.path.dirname(i)
@@ -221,23 +205,25 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             iFont = item.font(0)
             iFont.setBold(True)
             item.setFont(0, iFont)
-
-            depInfo = os.path.join(os.path.dirname(i), "versioninfo.yml")
+            depInfo = os.path.join(
+                os.path.dirname(i), "versioninfo" + self.core.configs.getProjectExtension()
+            )
             self.core.configs.findDeprecatedConfig(depInfo)
             if not os.path.exists(depInfo):
                 depInfo = os.path.join(
-                    os.path.dirname(os.path.dirname(i)), "versioninfo.yml"
+                    os.path.dirname(os.path.dirname(i)),
+                    "versioninfo" + self.core.configs.getProjectExtension(),
                 )
                 self.core.configs.findDeprecatedConfig(depInfo)
 
             if os.path.exists(depInfo):
-                self.updateDependencies(curID, depInfo)
+                self.updateDependencies(curID, depInfo, ignore=ignore)
 
         for i in extFiles:
             if i in deps:
                 continue
 
-            if pVersion == 2:
+            if sys.version[0] == "2":
                 existText = unicode("█", "utf-8")
             else:
                 existText = "█"

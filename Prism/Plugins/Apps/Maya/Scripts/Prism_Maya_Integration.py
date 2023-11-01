@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
@@ -35,13 +36,9 @@ import sys
 import platform
 import shutil
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 if platform.system() == "Windows":
     if sys.version[0] == "3":
@@ -58,14 +55,14 @@ class Prism_Maya_Integration(object):
         self.plugin = plugin
 
         if platform.system() == "Windows":
-            self.examplePath = os.environ["userprofile"] + "\\Documents\\maya\\2022"
+            self.examplePath = self.core.getWindowsDocumentsPath() + "\\maya\\2024"
         elif platform.system() == "Linux":
             userName = (
                 os.environ["SUDO_USER"]
                 if "SUDO_USER" in os.environ
                 else os.environ["USER"]
             )
-            self.examplePath = os.path.join("/home", userName, "maya", "2022")
+            self.examplePath = os.path.join("/home", userName, "maya", "2024")
         elif platform.system() == "Darwin":
             userName = (
                 os.environ["SUDO_USER"]
@@ -73,7 +70,7 @@ class Prism_Maya_Integration(object):
                 else os.environ["USER"]
             )
             self.examplePath = (
-                "/Users/%s/Library/Preferences/Autodesk/maya/2022" % userName
+                "/Users/%s/Library/Preferences/Autodesk/maya/2024" % userName
             )
 
     @err_catcher(name=__name__)
@@ -134,8 +131,8 @@ class Prism_Maya_Integration(object):
                 QMessageBox.warning(
                     self.core.messageParent,
                     "Prism Installation",
-                    "Invalid Maya path: %s.\n\nThe path has to be the Maya preferences folder, which usually looks like this: (with your username and Maya version):\n\nC:\\Users\\Richard\\Documents\\maya\\2018"
-                    % installPath,
+                    "Invalid Maya path:\n\n%s\n\nThe path has to be the Maya preferences folder, which usually looks like this: (with your username and Maya version):\n\n%s" 
+                    % (installPath, self.examplePath),
                     QMessageBox.Ok,
                 )
                 return False
@@ -146,11 +143,19 @@ class Prism_Maya_Integration(object):
             addedFiles = []
 
             integrationFiles = {}
-            integrationFiles["userSetup.py"] = os.path.join(integrationBase, "userSetup.py")
-            integrationFiles["PrismInit.py"] = os.path.join(integrationBase, "PrismInit.py")
-            integrationFiles["shelf_Prism.mel"] = os.path.join(integrationBase, "shelf_Prism.mel")
+            integrationFiles["userSetup.py"] = os.path.join(
+                integrationBase, "userSetup.py"
+            )
+            integrationFiles["PrismInit.py"] = os.path.join(
+                integrationBase, "PrismInit.py"
+            )
+            integrationFiles["shelf_Prism.mel"] = os.path.join(
+                integrationBase, "shelf_Prism.mel"
+            )
 
-            self.core.callback(name="preIntegrationAdded", types=["custom"], args=[self, integrationFiles])
+            self.core.callback(
+                name="preIntegrationAdded", args=[self, integrationFiles]
+            )
 
             origSetupFile = integrationFiles["userSetup.py"]
             with open(origSetupFile, "r") as mFile:
@@ -269,6 +274,7 @@ class Prism_Maya_Integration(object):
                     os.path.join(userFolders["Documents"], "maya", "2019"),
                     os.path.join(userFolders["Documents"], "maya", "2020"),
                     os.path.join(userFolders["Documents"], "maya", "2022"),
+                    os.path.join(userFolders["Documents"], "maya", "2023"),
                 ]
             elif platform.system() == "Linux":
                 userName = (
@@ -283,6 +289,7 @@ class Prism_Maya_Integration(object):
                     os.path.join("/home", userName, "maya", "2019"),
                     os.path.join("/home", userName, "maya", "2020"),
                     os.path.join("/home", userName, "maya", "2022"),
+                    os.path.join("/home", userName, "maya", "2023"),
                 ]
             elif platform.system() == "Darwin":
                 userName = (
@@ -297,6 +304,7 @@ class Prism_Maya_Integration(object):
                     "/Users/%s/Library/Preferences/Autodesk/maya/2019" % userName,
                     "/Users/%s/Library/Preferences/Autodesk/maya/2020" % userName,
                     "/Users/%s/Library/Preferences/Autodesk/maya/2022" % userName,
+                    "/Users/%s/Library/Preferences/Autodesk/maya/2023" % userName,
                 ]
 
             mayaItem = QTreeWidgetItem(["Maya"])
@@ -325,6 +333,7 @@ class Prism_Maya_Integration(object):
 
             if not activeVersion:
                 mayaItem.setCheckState(0, Qt.Unchecked)
+                mayacItem.setFlags(~Qt.ItemIsEnabled)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = QMessageBox.warning(
@@ -349,7 +358,9 @@ class Prism_Maya_Integration(object):
                     mayaPaths.append(item.text(1))
 
             for i in mayaPaths:
-                result["Maya integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=i, quiet=True)
+                result["Maya integration"] = self.core.integration.addIntegration(
+                    self.plugin.pluginName, path=i, quiet=True
+                )
                 if result["Maya integration"]:
                     installLocs.append(i)
 

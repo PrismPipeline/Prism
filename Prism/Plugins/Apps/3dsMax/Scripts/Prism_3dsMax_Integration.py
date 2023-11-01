@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,18 +36,11 @@ import os
 import sys
 import platform
 import shutil
+import glob
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 if platform.system() == "Windows":
     if sys.version[0] == "3":
@@ -64,32 +58,54 @@ class Prism_3dsMax_Integration(object):
 
         if platform.system() == "Windows":
             self.examplePath = (
-                os.environ["localappdata"] + "\\Autodesk\\3dsMax\\2020 - 64bit"
+                os.environ["localappdata"] + "\\Autodesk\\3dsMax\\2024 - 64bit"
             )
 
     @err_catcher(name=__name__)
     def getExecutable(self):
         execPath = ""
         if platform.system() == "Windows":
-            try:
-                for i in ["23.0", "22.0", "21.0", "20.0", "19.0"]:
-                    try:
-                        key = _winreg.OpenKey(
-                            _winreg.HKEY_LOCAL_MACHINE,
-                            "SOFTWARE\\Autodesk\\3dsMax\\%s" % i,
-                            0,
-                            _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
-                        )
-
-                        installDir = (_winreg.QueryValueEx(key, "Installdir"))[0]
-                    except:
-                        pass
-
-                execPath = os.path.join(installDir, "3dsmax.exe")
-            except:
-                pass
+            defaultpath = os.path.join(self.get3dsMaxPath(), "3dsmax.exe")
+            if os.path.exists(defaultpath):
+                execPath = defaultpath
 
         return execPath
+
+    @err_catcher(name=__name__)
+    def get3dsMaxPath(self):
+        try:
+            key = _winreg.OpenKey(
+                _winreg.HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\Autodesk\\3dsMax",
+                0,
+                _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
+            )
+            versions = []
+            try:
+                i = 0
+                while True:
+                    vers = _winreg.EnumKey(key, i)
+                    if sys.version[0] == "2":
+                        vers = unicode(vers)
+
+                    if vers.replace(".", "").isnumeric():
+                        versions.append(vers)
+                    i += 1
+            except WindowsError:
+                pass
+
+            validVersion = versions[-1]
+            key = _winreg.OpenKey(
+                _winreg.HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\Autodesk\\3dsMax\\%s" % validVersion,
+                0,
+                _winreg.KEY_READ | _winreg.KEY_WOW64_64KEY,
+            )
+
+            installDir = (_winreg.QueryValueEx(key, "Installdir"))[0]
+            return installDir
+        except:
+            return ""
 
     def addIntegration(self, installPath):
         try:
@@ -98,7 +114,10 @@ class Prism_3dsMax_Integration(object):
             if not os.path.exists(maxpath) or not os.path.exists(
                 os.path.join(os.path.dirname(os.path.dirname(maxpath)), "usermacros")
             ):
-                msgStr = "Invalid 3dsMax path:\n%s.\n\nThe path has to be the 3dsMax preferences folder, which usually looks like this: (with your username and 3dsMax version):\n\n%s" % (installPath, self.examplePath)
+                msgStr = (
+                    "Invalid 3dsMax path:\n%s.\n\nThe path has to be the 3dsMax preferences folder, which usually looks like this: (with your username and 3dsMax version):\n\n%s"
+                    % (installPath, self.examplePath)
+                )
                 self.core.popup(msgStr, title="Prism Integration")
                 return False
 
@@ -218,37 +237,23 @@ deleteFile curPath
             QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
             return False
 
+    @err_catcher(name=__name__)
+    def getPreferencesPaths(self):
+        paths = []
+        basepath = os.environ["localappdata"] + "\\Autodesk\\3dsMax\\"
+
+        for path in glob.glob(basepath + "*"):
+            try:
+                version = int(os.path.basename(path)[:4])
+            except:
+                continue
+
+            paths.append([path, str(version)])
+
+        return paths
+
     def updateInstallerUI(self, userFolders, pItem):
         try:
-            if platform.system() == "Windows":
-                maxPath = [
-                    [
-                        userFolders["LocalAppdata"]
-                        + "\\Autodesk\\3dsMax\\2017 - 64bit",
-                        "2017",
-                    ],
-                    [
-                        userFolders["LocalAppdata"]
-                        + "\\Autodesk\\3dsMax\\2018 - 64bit",
-                        "2018",
-                    ],
-                    [
-                        userFolders["LocalAppdata"]
-                        + "\\Autodesk\\3dsMax\\2019 - 64bit",
-                        "2019",
-                    ],
-                    [
-                        userFolders["LocalAppdata"]
-                        + "\\Autodesk\\3dsMax\\2020 - 64bit",
-                        "2020",
-                    ],
-                    [
-                        userFolders["LocalAppdata"]
-                        + "\\Autodesk\\3dsMax\\2021 - 64bit",
-                        "2021",
-                    ],
-                ]
-
             maxItem = QTreeWidgetItem(["3dsMax"])
             maxItem.setCheckState(0, Qt.Checked)
             pItem.addChild(maxItem)
@@ -262,23 +267,24 @@ deleteFile curPath
             maxItem.setExpanded(True)
 
             activeVersion = False
-            for i in maxPath:
-                if not os.path.exists(i[0]):
+            for path in self.getPreferencesPaths():
+                if not os.path.exists(path[0]):
                     continue
 
-                maxvItem = QTreeWidgetItem([i[1]])
+                maxvItem = QTreeWidgetItem([path[1]])
                 maxItem.addChild(maxvItem)
                 maxvItem.setCheckState(0, Qt.Checked)
-                maxvItem.setText(1, i[0])
-                maxvItem.setToolTip(0, i[0])
+                maxvItem.setText(1, path[0])
+                maxvItem.setToolTip(0, path[0])
                 activeVersion = True
 
             if not activeVersion:
                 maxItem.setCheckState(0, Qt.Unchecked)
+                maxcItem.setFlags(~Qt.ItemIsEnabled)
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
-            msg = QMessageBox.warning(
+            QMessageBox.warning(
                 self.core.messageParent,
                 "Prism Installation",
                 "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s"
@@ -300,14 +306,16 @@ deleteFile curPath
                     maxPaths.append(item.text(1))
 
             for i in maxPaths:
-                result["3dsMax integration"] = self.core.integration.addIntegration(self.plugin.pluginName, path=i, quiet=True)
+                result["3dsMax integration"] = self.core.integration.addIntegration(
+                    self.plugin.pluginName, path=i, quiet=True
+                )
                 if result["3dsMax integration"]:
                     installLocs.append(i)
 
             return installLocs
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
-            msg = QMessageBox.warning(
+            QMessageBox.warning(
                 self.core.messageParent,
                 "Prism Installation",
                 "Errors occurred during the installation.\n The installation is possibly incomplete.\n\n%s\n%s\n%s\n%s"

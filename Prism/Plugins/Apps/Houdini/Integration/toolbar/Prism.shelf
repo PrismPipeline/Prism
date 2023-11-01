@@ -42,7 +42,7 @@ PrismInit.pcore.stateManager()]]></script>
   </tool>
 
   <tool name="prism_settings" label="Settings" icon="prismSettings.png">
-    <helpText><![CDATA["""Opens the Prism settings"""]]></helpText>
+    <helpText><![CDATA["""Opens the Prism Settings"""]]></helpText>
     <script scriptType="python"><![CDATA[import PrismInit
 
 PrismInit.pcore.prismSettings()]]></script>

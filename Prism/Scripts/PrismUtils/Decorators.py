@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -38,13 +39,9 @@ import logging
 from datetime import datetime
 from functools import wraps
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 
 logger = logging.getLogger(__name__)
@@ -64,13 +61,26 @@ def err_handler(func, name="", plugin=False):
                 core = None
                 logger.warning("class has no core")
 
+            data = {}
             versionStr = ""
             if core:
                 versionStr += "\nCore: %s" % core.version
+                data["version"] = core.version
+
             if core and getattr(args[0].core, "appPlugin", None):
-                versionStr += "\nApp plugin: %s %s" % (args[0].core.appPlugin.pluginName, args[0].core.appPlugin.version)
-            if plugin:
-                versionStr += "\nPlugin: %s %s" % (args[0].plugin.pluginName, args[0].plugin.version)
+                data["appPlugin"] = args[0].core.appPlugin.pluginName
+                data["appPluginVersion"] = args[0].core.appPlugin.version
+                versionStr += "\nApp plugin: %s %s" % (
+                    data["appPlugin"],
+                    data["appPluginVersion"],
+                )
+            if hasattr(args[0], "plugin"):
+                data["plugin"] = args[0].plugin.pluginName
+                data["pluginVersion"] = args[0].plugin.version
+                versionStr += "\nPlugin: %s %s" % (
+                    data["plugin"],
+                    data["pluginVersion"],
+                )
 
             erStr = "%s ERROR - %s\n%s\n\n%s\n\n%s" % (
                 time.strftime("%d/%m/%y %X"),
@@ -85,9 +95,12 @@ def err_handler(func, name="", plugin=False):
 
             ltime = getattr(args[0].core, "lastErrorTime", 0)
             if (time.time() - ltime) > 1:
-                isGuiThread = QApplication.instance().thread() == QThread.currentThread()
+                isGuiThread = (
+                    QApplication.instance()
+                    and QApplication.instance().thread() == QThread.currentThread()
+                )
                 if isGuiThread:
-                    args[0].core.writeErrorLog(erStr)
+                    args[0].core.writeErrorLog(erStr, data=data)
                 else:
                     raise Exception(erStr)
 
@@ -120,6 +133,7 @@ def err_catcher_standalone(name):
                 QMessageBox.warning(None, "Prism", erStr)
 
         return func_wrapper
+
     return err_decorator
 
 
@@ -128,11 +142,12 @@ def timmer(name):
         @wraps(func)
         def func_wrapper(*args, **kwargs):
             startTime = datetime.now()
-            logger.info("starttime: %s" % startTime.strftime('%Y-%m-%d %H:%M:%S'))
+            logger.info("starttime: %s" % startTime.strftime("%Y-%m-%d %H:%M:%S"))
             func(*args, **kwargs)
             endTime = datetime.now()
-            logger.info("endtime: %s" % endTime.strftime('%Y-%m-%d %H:%M:%S'))
-            logger.info("duration: %s" % (endTime-startTime))
+            logger.info("endtime: %s" % endTime.strftime("%Y-%m-%d %H:%M:%S"))
+            logger.info("duration: %s" % (endTime - startTime))
 
         return func_wrapper
+
     return timer_decorator

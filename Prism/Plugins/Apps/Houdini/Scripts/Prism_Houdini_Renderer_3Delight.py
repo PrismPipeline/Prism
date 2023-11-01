@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
@@ -35,13 +36,9 @@ import time
 
 import hou
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 
 label = "3Delight"
@@ -52,8 +49,32 @@ def isActive():
     return hou.nodeType(hou.ropNodeTypeCategory(), ropNames[0]) is not None
 
 
+def activated(origin):
+    deep = ".exr (deep)"
+    idx = origin.cb_format.findText(deep)
+    if idx == -1:
+        origin.cb_format.addItem(deep)
+
+
+def deactivated(origin):
+    deep = ".exr (deep)"
+    idx = origin.cb_format.findText(deep)
+    if idx != -1:
+        origin.cb_format.removeItem(idx)
+
+
 def getCam(node):
     return hou.node(node.parm("camera").eval())
+
+
+def getFormatFromNode(node):
+    fmt = node.parm("default_image_format").eval()
+    if fmt == "deepexr":
+        fmt = ".exr (deep)"
+    else:
+        fmt = "." + fmt
+
+    return fmt
 
 
 def createROP(origin):
@@ -146,37 +167,75 @@ def executeAOVs(origin, outputName):
         nsi = True
 
         nsiOutput = getNsiOutputPath(origin, outputName)
-        if not origin.core.appPlugin.setNodeParm(origin.node, "default_export_nsi_filename", val=nsiOutput):
-            return [origin.state.text(0) + ": error - could not set filename. Publish canceled"]
+        parmPath = origin.core.appPlugin.getPathRelativeToProject(nsiOutput) if origin.core.appPlugin.getUseRelativePath() else nsiOutput
+        if not origin.core.appPlugin.setNodeParm(
+            origin.node, "default_export_nsi_filename", val=parmPath
+        ):
+            return [
+                origin.state.text(0)
+                + ": error - could not set filename. Publish canceled"
+            ]
 
     else:
         nsi = False
 
-    if not origin.core.appPlugin.setNodeParm(origin.node, "display_rendered_images", val=False):
-        return [origin.state.text(0) + ": error - could not set display images. Publish canceled"]
+    if not origin.core.appPlugin.setNodeParm(
+        origin.node, "display_rendered_images", val=False
+    ):
+        return [
+            origin.state.text(0)
+            + ": error - could not set display images. Publish canceled"
+        ]
 
-    if not origin.core.appPlugin.setNodeParm(origin.node, "save_rendered_images", val=False):
-        return [origin.state.text(0) + ": error - could not set save images. Publish canceled"]
+    if not origin.core.appPlugin.setNodeParm(
+        origin.node, "save_rendered_images", val=False
+    ):
+        return [
+            origin.state.text(0)
+            + ": error - could not set save images. Publish canceled"
+        ]
 
-    if not origin.core.appPlugin.setNodeParm(origin.node, "display_and_save_rendered_images", val=not nsi):
-        return [origin.state.text(0) + ": error - could not set display and save images. Publish canceled"]
+    if not origin.core.appPlugin.setNodeParm(
+        origin.node, "display_and_save_rendered_images", val=not nsi
+    ):
+        return [
+            origin.state.text(0)
+            + ": error - could not set display and save images. Publish canceled"
+        ]
 
     if not origin.core.appPlugin.setNodeParm(origin.node, "output_nsi_files", val=nsi):
-        return [origin.state.text(0) + ": error - could not set nsi export. Publish canceled"]
+        return [
+            origin.state.text(0)
+            + ": error - could not set nsi export. Publish canceled"
+        ]
 
-    if not origin.core.appPlugin.setNodeParm(origin.node, "default_image_filename", val=outputName):
-        return [origin.state.text(0) + ": error - could not set filename. Publish canceled"]
+    parmPath = origin.core.appPlugin.getPathRelativeToProject(outputName) if origin.core.appPlugin.getUseRelativePath() else outputName
+    if not origin.core.appPlugin.setNodeParm(
+        origin.node, "default_image_filename", val=parmPath
+    ):
+        return [
+            origin.state.text(0) + ": error - could not set filename. Publish canceled"
+        ]
 
     base, ext = os.path.splitext(outputName)
     if ext == ".exr":
-        formatVal = "exr"
+        if origin.cb_format.currentText() == ".exr (deep)":
+            formatVal = "deepexr"
+        else:
+            formatVal = "exr"
     elif ext == ".png":
         formatVal = "png"
     else:
-        return [origin.state.text(0) + ": error - invalid image format. Publish canceled"]
+        return [
+            origin.state.text(0) + ": error - invalid image format. Publish canceled"
+        ]
 
-    if not origin.core.appPlugin.setNodeParm(origin.node, "default_image_format", val=formatVal):
-        return [origin.state.text(0) + ": error - could not set format. Publish canceled"]
+    if not origin.core.appPlugin.setNodeParm(
+        origin.node, "default_image_format", val=formatVal
+    ):
+        return [
+            origin.state.text(0) + ": error - could not set format. Publish canceled"
+        ]
 
     return True
 
@@ -201,7 +260,8 @@ def executeRender(origin):
         origin.node.parm("execute").pressButton()
 
     while origin.node.parm("rendering").eval() or (
-        origin.node.parm("sequence_rendering") and origin.node.parm("sequence_rendering").eval()
+        origin.node.parm("sequence_rendering")
+        and origin.node.parm("sequence_rendering").eval()
     ):
         time.sleep(1)
 
@@ -236,7 +296,7 @@ for frame in range(startFrame, (endFrame+1)):
     p.communicate()
     if p.returncode:
         raise RuntimeError("renderer exited with code %s" % p.returncode)
-    elif not os.path.exists(output):
+    elif not os.path.exists(output) and "<aov>" not in output:
         raise RuntimeError("expected output doesn't exist %s" % (output))
     else:
         print("successfully rendered frame %s" % (frame))
@@ -260,14 +320,19 @@ delDir = os.path.dirname(nsiOutput)
 if os.path.basename(delDir) != "_nsi":
     raise RuntimeError("invalid nsi directory: %s" % (delDir))
 
-shutil.rmtree(delDir)
-print("task completed successfully")
+if os.path.exists(delDir):
+    shutil.rmtree(delDir)
+    print("task completed successfully")
+else:
+    print("directory doesn't exist")
 
 """
     return script
 
 
 def getNsiOutputPath(origin, renderOutputPath):
-    jobOutputFile = os.path.join(os.path.dirname(renderOutputPath), "_nsi", os.path.basename(renderOutputPath))
+    jobOutputFile = os.path.join(
+        os.path.dirname(renderOutputPath), "_nsi", os.path.basename(renderOutputPath)
+    )
     jobOutputFile = os.path.splitext(jobOutputFile)[0] + ".nsi"
     return jobOutputFile

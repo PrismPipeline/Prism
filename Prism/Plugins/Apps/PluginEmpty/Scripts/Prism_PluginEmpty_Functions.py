@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -68,7 +69,7 @@ class Prism_PluginEmpty_Functions(object):
                 origin.messageParent.windowFlags() ^ Qt.WindowStaysOnTopHint
             )
 
-        origin.startasThread()
+        origin.startAutosaveTimer()
 
     @err_catcher(name=__name__)
     def autosaveEnabled(self, origin):
@@ -76,33 +77,9 @@ class Prism_PluginEmpty_Functions(object):
         return False
 
     @err_catcher(name=__name__)
-    def onProjectChanged(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
     def sceneOpen(self, origin):
-        if hasattr(origin, "asThread") and origin.asThread.isRunning():
-            origin.startasThread()
-
-    @err_catcher(name=__name__)
-    def executeScript(self, origin, code, execute=False, logErr=True):
-        if logErr:
-            try:
-                if not execute:
-                    return eval(code)
-                else:
-                    exec(code)
-            except Exception as e:
-                msg = "\npython code:\n%s" % code
-                exec("raise type(e), type(e)(e.message + msg), sys.exc_info()[2]")
-        else:
-            try:
-                if not execute:
-                    return eval(code)
-                else:
-                    exec(code)
-            except:
-                pass
+        if self.core.shouldAutosaveTimerRun():
+            origin.startAutosaveTimer()
 
     @err_catcher(name=__name__)
     def getCurrentFileName(self, origin, path=True):
@@ -145,46 +122,9 @@ class Prism_PluginEmpty_Functions(object):
         return "1.0"
 
     @err_catcher(name=__name__)
-    def onProjectBrowserStartup(self, origin):
-        # 	origin.sl_preview.mousePressEvent = origin.sliderDrag
-        origin.sl_preview.mousePressEvent = origin.sl_preview.origMousePressEvent
-
-    @err_catcher(name=__name__)
     def openScene(self, origin, filepath, force=False):
         # load scenefile
         return True
-
-    @err_catcher(name=__name__)
-    def correctExt(self, origin, lfilepath):
-        return lfilepath
-
-    @err_catcher(name=__name__)
-    def setSaveColor(self, origin, btn):
-        btn.setPalette(origin.savedPalette)
-
-    @err_catcher(name=__name__)
-    def clearSaveColor(self, origin, btn):
-        btn.setPalette(origin.oldPalette)
-
-    @err_catcher(name=__name__)
-    def setProject_loading(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def onPrismSettingsOpen(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def createProject_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def editShot_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def shotgunPublish_startup(self, origin):
-        pass
 
     @err_catcher(name=__name__)
     def sm_export_addObjects(self, origin, objects=None):
@@ -329,14 +269,6 @@ class Prism_PluginEmpty_Functions(object):
         return stateProps
 
     @err_catcher(name=__name__)
-    def sm_render_isVray(self, origin):
-        return False
-
-    @err_catcher(name=__name__)
-    def sm_render_setVraySettings(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
     def sm_render_startup(self, origin):
         pass
 
@@ -399,10 +331,6 @@ class Prism_PluginEmpty_Functions(object):
         return warnings
 
     @err_catcher(name=__name__)
-    def sm_render_fixOutputPath(self, origin, outputName, singleFrame=False):
-        return outputName
-
-    @err_catcher(name=__name__)
     def getProgramVersion(self, origin):
         return "1.0"
 
@@ -427,10 +355,6 @@ class Prism_PluginEmpty_Functions(object):
         pass
 
     @err_catcher(name=__name__)
-    def sm_import_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
     def sm_import_disableObjectTracking(self, origin):
         self.deleteNodes(origin, [origin.setName])
 
@@ -444,10 +368,6 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_import_removeNameSpaces(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def sm_import_unitConvert(self, origin):
         pass
 
     @err_catcher(name=__name__)
@@ -472,10 +392,6 @@ class Prism_PluginEmpty_Functions(object):
 
     @err_catcher(name=__name__)
     def sm_playblast_postExecute(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def onStateManagerOpen(self, origin):
         pass
 
     @err_catcher(name=__name__)

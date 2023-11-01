@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -36,6 +37,7 @@ import sys
 import time
 import traceback
 import platform
+import logging
 
 try:
     from PySide2.QtCore import *
@@ -50,17 +52,22 @@ import hou
 from PrismUtils.Decorators import err_catcher as err_catcher
 
 
+logger = logging.getLogger(__name__)
+
+
 class ExportClass(object):
     className = "Export"
     listType = "Export"
+    stateCategories = {"Export": [{"label": className, "stateType": className}]}
 
     @err_catcher(name=__name__)
     def setup(self, state, core, stateManager, node=None, stateData=None):
         self.state = state
         self.core = core
         self.stateManager = stateManager
+        self.canSetVersion = True
 
-        self.e_name.setText(state.text(0))
+        self.e_name.setText(state.text(0) + " - {product} ({node})")
 
         self.node = None
         self.curCam = None
@@ -93,16 +100,26 @@ class ExportClass(object):
             "usd": {"outputparm": "lopoutput"},
             "Redshift_Proxy_Output": {"outputparm": "RS_archive_file"},
             "prism::Filecache::1.0": {"outputparm": "outputPath"},
+            "vellumio": {"outputparm": "file"},
+            "vellumio::2.0": {"outputparm": "file"},
         }
 
-        self.rangeTypes = ["State Manager", "Scene", "Shot", "Node", "Single Frame", "Custom"]
+        self.rangeTypes = [
+            "Scene",
+            "Shot",
+            "Node",
+            "Single Frame",
+            "Custom",
+        ]
         self.cb_rangeType.addItems(self.rangeTypes)
         for idx, rtype in enumerate(self.rangeTypes):
-            self.cb_rangeType.setItemData(idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole)
+            self.cb_rangeType.setItemData(
+                idx, self.stateManager.getFrameRangeTypeToolTip(rtype), Qt.ToolTipRole
+            )
 
-        for i in self.core.rfManagers.values():
-            self.cb_manager.addItem(i.pluginName)
-            i.sm_houExport_startup(self)
+        self.cb_manager.addItems([p.pluginName for p in self.core.plugins.getRenderfarmPlugins()])
+        self.core.callback("onStateStartup", self)
+        self.stateManager.stateInCreation = self.state
 
         if self.cb_manager.count() == 0:
             self.gb_submit.setVisible(False)
@@ -112,7 +129,7 @@ class ExportClass(object):
                 if not self.connectNode():
                     self.createNode()
         else:
-            self.node = node
+            self.connectNode(node)
 
         if self.node is not None and self.node.parm("f1") is not None:
             self.sp_rangeStart.setValue(self.node.parm("f1").eval())
@@ -130,10 +147,8 @@ class ExportClass(object):
 
             if idx != -1:
                 self.cb_outType.setCurrentIndex(idx)
-                self.typeChanged(self.cb_outType.currentText())
+                self.typeChanged(self.getOutputType())
 
-            if self.isPrismFilecacheNode(self.node):
-                self.core.appPlugin.filecache.nodeInit(self.node, state)
         elif stateData is None:
             self.sp_rangeStart.setValue(hou.playbar.playbackRange()[0])
             self.sp_rangeEnd.setValue(hou.playbar.playbackRange()[1])
@@ -147,24 +162,37 @@ class ExportClass(object):
         if stateData is not None:
             self.loadData(stateData)
         else:
-            fileName = self.core.getCurrentFileName()
-            fnameData = self.core.getScenefileData(fileName)
+            context = self.getOutputEntity()
             if (
-                os.path.exists(fileName)
-                and fnameData["entity"] == "shot"
-                and self.core.fileInPipeline(fileName)
+                context.get("type") == "shot"
+                and "sequence" in context
             ):
-                idx = self.cb_sCamShot.findText(fnameData["entityName"])
+                if self.getOutputType() == "ShotCam":
+                    self.refreshShotCameras()
+
+                shotName = self.core.entities.getShotName(context)
+                idx = self.cb_sCamShot.findText(shotName)
                 if idx != -1:
                     self.cb_sCamShot.setCurrentIndex(idx)
 
-            if fnameData.get("category") and not self.isPrismFilecacheNode(self.node):
-                self.setTaskname(fnameData.get("category"))
+            if self.getRangeType() != "Node":
+                if context.get("type") == "asset":
+                    self.setRangeType("Single Frame")
+                elif context.get("type") == "shot":
+                    self.setRangeType("Shot")
+                else:
+                    self.setRangeType("Scene")
+
+            if context.get("task") and not self.isPrismFilecacheNode(self.node):
+                self.setTaskname(context.get("task"))
 
     @err_catcher(name=__name__)
     def loadData(self, data):
-        if "statename" in data:
-            self.e_name.setText(data["statename"])
+        if "stateName" in data:
+            self.e_name.setText(data["stateName"])
+        elif "statename" in data:
+            name = data["statename"] + " - {product} ({node})"
+            self.e_name.setText(name)
         if "taskname" in data:
             self.setTaskname(data["taskname"])
         if "rangeType" in data:
@@ -187,6 +215,8 @@ class ExportClass(object):
             idx = self.cb_take.findText(data["take"])
             if idx != -1:
                 self.cb_take.setCurrentIndex(idx)
+        if "updateMasterVersion" in data:
+            self.chb_master.setChecked(data["updateMasterVersion"])
         if "curoutputpath" in data:
             idx = self.cb_outPath.findText(data["curoutputpath"])
             if idx != -1:
@@ -198,9 +228,7 @@ class ExportClass(object):
             idx = self.cb_outType.findText(data["curoutputtype"])
             if idx != -1:
                 self.cb_outType.setCurrentIndex(idx)
-                self.typeChanged(self.cb_outType.currentText(), createMissing=False)
-        if "unitconvert" in data:
-            self.chb_convertExport.setChecked(eval(data["unitconvert"]))
+                self.typeChanged(self.getOutputType(), createMissing=False)
         if "submitrender" in data:
             self.gb_submit.setChecked(eval(data["submitrender"]))
         if "rjmanager" in data:
@@ -224,15 +252,11 @@ class ExportClass(object):
             self.chb_osPAssets.setChecked(eval(data["ospassets"]))
         if "osslaves" in data:
             self.e_osSlaves.setText(data["osslaves"])
-        if "curdlgroup" in data:
-            idx = self.cb_dlGroup.findText(data["curdlgroup"])
-            if idx != -1:
-                self.cb_dlGroup.setCurrentIndex(idx)
         if "currentcam" in data:
             idx = self.cb_cam.findText(data["currentcam"])
             if idx != -1:
                 self.curCam = self.camlist[idx]
-                if self.cb_outType.currentText() == "ShotCam":
+                if self.getOutputType() == "ShotCam":
                     self.nameChanged(self.e_name.text())
         if "currentscamshot" in data:
             idx = self.cb_sCamShot.findText(data["currentscamshot"])
@@ -243,9 +267,6 @@ class ExportClass(object):
 
             self.l_pathLast.setText(lePath)
             self.l_pathLast.setToolTip(lePath)
-            pathIsNone = self.l_pathLast.text() == "None"
-            self.b_openLast.setEnabled(not pathIsNone)
-            self.b_copyLast.setEnabled(not pathIsNone)
         if "stateenabled" in data:
             self.state.setCheckState(
                 0,
@@ -257,6 +278,7 @@ class ExportClass(object):
             )
 
         self.nameChanged(self.e_name.text())
+        self.core.callback("onStateSettingsLoaded", self, data)
 
     @err_catcher(name=__name__)
     def findNode(self, path):
@@ -329,16 +351,16 @@ class ExportClass(object):
         elif curContext == "Driver":
             ropType = "geometry"
 
-        if self.cb_outType.currentText() == ".abc":
+        if self.getOutputType() == ".abc":
             if curContext == "Sop":
                 ropType = "rop_alembic"
             else:
                 ropType = "alembic"
-        elif self.cb_outType.currentText() == ".fbx":
+        elif self.getOutputType() == ".fbx":
             ropType = "rop_fbx"
-        elif self.cb_outType.currentText() == ".usd":
+        elif self.getOutputType() == ".usd":
             ropType = "usd"
-        elif self.cb_outType.currentText() == ".rs":
+        elif self.getOutputType() == ".rs":
             ropType = "Redshift_Proxy_Output"
 
         if (
@@ -370,6 +392,7 @@ class ExportClass(object):
 
         if self.isNodeValid():
             self.goToNode()
+
         self.updateUi()
 
     @err_catcher(name=__name__)
@@ -380,11 +403,11 @@ class ExportClass(object):
         self.cb_rangeType.activated.connect(self.rangeTypeChanged)
         self.sp_rangeStart.editingFinished.connect(self.startChanged)
         self.sp_rangeEnd.editingFinished.connect(self.endChanged)
-        self.cb_outPath.activated[str].connect(self.stateManager.saveStatesToScene)
+        self.cb_outPath.activated[str].connect(self.onLocationChanged)
         self.cb_outType.activated[str].connect(self.typeChanged)
         self.chb_useTake.stateChanged.connect(self.useTakeChanged)
         self.cb_take.activated.connect(self.stateManager.saveStatesToScene)
-        self.chb_convertExport.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_master.stateChanged.connect(self.onUpdateMasterChanged)
         self.gb_submit.toggled.connect(self.rjToggled)
         self.cb_manager.activated.connect(self.managerChanged)
         self.sp_rjPrio.editingFinished.connect(self.stateManager.saveStatesToScene)
@@ -400,38 +423,95 @@ class ExportClass(object):
         self.chb_osPAssets.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.e_osSlaves.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_osSlaves.clicked.connect(self.openSlaves)
-        self.cb_dlGroup.activated.connect(self.stateManager.saveStatesToScene)
         self.cb_cam.activated.connect(self.setCam)
         self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
-        self.b_openLast.clicked.connect(
-            lambda: self.core.openFolder(os.path.dirname(self.l_pathLast.text()))
-        )
-        self.b_copyLast.clicked.connect(
-            lambda: self.core.copyToClipboard(self.l_pathLast.text())
-        )
+        self.b_pathLast.clicked.connect(self.showLastPathMenu)
+
         if not self.stateManager.standalone:
             self.b_goTo.clicked.connect(self.goToNode)
             self.b_connect.clicked.connect(self.connectNode)
+            self.b_connect.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.b_connect.customContextMenuRequested.connect(self.onConnectMenuTriggered)
+
+    @err_catcher(name=__name__)
+    def showLastPathMenu(self):
+        path = self.l_pathLast.text()
+        if path == "None":
+            return
+        
+        menu = QMenu(self)
+
+        act_open = QAction("Open in Product Browser", self)
+        act_open.triggered.connect(lambda: self.openInProductBrowser(path))
+        menu.addAction(act_open)
+
+        act_open = QAction("Open in explorer", self)
+        act_open.triggered.connect(lambda: self.core.openFolder(path))
+        menu.addAction(act_open)
+
+        act_copy = QAction("Copy", self)
+        act_copy.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
+        menu.addAction(act_copy)
+
+        menu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def openInProductBrowser(self, path):
+        self.core.projectBrowser()
+        self.core.pb.showTab("Products")
+        data = self.core.paths.getCachePathData(path)
+        self.core.pb.productBrowser.navigateToVersion(version=data["version"], product=data["product"], entity=data)
 
     @err_catcher(name=__name__)
     def rangeTypeChanged(self, state):
+        if self.isPrismFilecacheNode(self.node):
+            if self.getRangeType() != "Node":
+                self.core.appPlugin.filecache.setRangeOnNode(self.node, "From State Manager")
+
         self.updateUi()
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def nameChanged(self, text):
-        if self.cb_outType.currentText() == "ShotCam":
-            sText = text + " - Shotcam (%s)" % (self.curCam)
+        text = self.e_name.text()
+        context = {}
+        if self.getOutputType() == "ShotCam":
+            context["product"] = "Shotcam"
+            context["node"] = self.curCam
         else:
-            try:
-                sText = text + " - %s (%s)" % (self.l_taskName.text(), self.node)
-            except:
-                sText = text + " - %s (None)" % self.l_taskName.text()
+            context["product"] = self.getTaskname(expanded=True)
+            if self.isNodeValid():
+                context["node"] = self.node
+            else:
+                context["node"] = "None"
+
+        num = 0
+        try:
+            if "{#}" in text:
+                while True:
+                    context["#"] = num or ""
+                    name = text.format(**context)
+                    for state in self.stateManager.states:
+                        if state.ui.listType != "Export":
+                            continue
+
+                        if state is self.state:
+                            continue
+
+                        if state.text(0) == name:
+                            num += 1
+                            break
+                    else:
+                        break
+            else:
+                name = text.format(**context)
+        except Exception:
+            name = text
 
         if self.state.text(0).endswith(" - disabled"):
-            sText += " - disabled"
+            name += " - disabled"
 
-        self.state.setText(0, sText)
+        self.state.setText(0, name)
 
     @err_catcher(name=__name__)
     def isPrismFilecacheNode(self, node):
@@ -445,17 +525,16 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def changeTask(self):
-        import CreateItem
-
-        self.nameWin = CreateItem.CreateItem(
-            startText=self.l_taskName.text(),
+        from PrismUtils import PrismWidgets
+        self.nameWin = PrismWidgets.CreateItem(
+            startText=self.getTaskname(),
             showTasks=True,
             taskType="export",
             core=self.core,
         )
         self.core.parentWindow(self.nameWin)
-        self.nameWin.setWindowTitle("Change Taskname")
-        self.nameWin.l_item.setText("Taskname:")
+        self.nameWin.setWindowTitle("Change Productname")
+        self.nameWin.l_item.setText("Productname:")
         self.nameWin.buttonBox.buttons()[0].setText("Ok")
         self.nameWin.e_item.selectAll()
         result = self.nameWin.exec_()
@@ -475,12 +554,29 @@ class ExportClass(object):
             self.b_changeTask.setStyleSheet(
                 "QPushButton { background-color: rgb(150,0,0); border: none;}"
             )
+
+        if self.isPrismFilecacheNode(self.node):
+            self.core.appPlugin.setNodeParm(self.node, "task", taskname, clear=True)
+
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
-    def getTaskname(self):
-        taskName = self.l_taskName.text()
+    def getTaskname(self, expanded=False):
+        if self.getOutputType() == "ShotCam":
+            taskName = "_ShotCam"
+        else:
+            taskName = self.l_taskName.text()
+            if expanded:
+                if self.node:
+                    taskName = taskName.replace("$OS", self.node.name())
+
+                taskName = hou.text.expandString(taskName)
+
         return taskName
+
+    @err_catcher(name=__name__)
+    def getSortKey(self):
+        return self.getTaskname(expanded=True)
 
     @err_catcher(name=__name__)
     def getOutputType(self):
@@ -489,9 +585,12 @@ class ExportClass(object):
     @err_catcher(name=__name__)
     def setOutputType(self, outputtype):
         idx = self.cb_outType.findText(outputtype)
+        if idx == self.cb_outType.currentIndex():
+            return True
+
         if idx != -1:
             self.cb_outType.setCurrentIndex(idx)
-            self.typeChanged(self.cb_outType.currentText(), createMissing=False)
+            self.typeChanged(self.getOutputType(), createMissing=False)
             return True
 
         return False
@@ -511,6 +610,28 @@ class ExportClass(object):
         return False
 
     @err_catcher(name=__name__)
+    def onUpdateMasterChanged(self, master):
+        if self.isPrismFilecacheNode(self.node):
+            self.core.appPlugin.filecache.setUpdateMasterVersionOnNode(self.node, master)
+
+        self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def getUpdateMasterVersion(self):
+        return self.chb_master.isChecked()
+
+    @err_catcher(name=__name__)
+    def setUpdateMasterVersion(self, master):
+        self.chb_master.setChecked(master)
+
+    @err_catcher(name=__name__)
+    def onLocationChanged(self, location):
+        if self.isPrismFilecacheNode(self.node):
+            self.core.appPlugin.filecache.setLocationOnNode(self.node, location)
+
+        self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
     def getLocation(self):
         return self.cb_outPath.currentText()
 
@@ -519,6 +640,7 @@ class ExportClass(object):
         idx = self.cb_outPath.findText(location)
         if idx != -1:
             self.cb_outPath.setCurrentIndex(idx)
+            self.stateManager.saveStatesToScene()
             return True
 
         return False
@@ -531,24 +653,7 @@ class ExportClass(object):
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
-    def updateUi(self):
-        try:
-            self.node.name()
-            self.l_status.setText(self.node.name())
-            self.l_status.setToolTip(self.node.path())
-            self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
-        except:
-            self.l_status.setText("Not connected")
-            self.l_status.setToolTip("")
-            self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
-
-        curTake = self.cb_take.currentText()
-        self.cb_take.clear()
-        self.cb_take.addItems([x.name() for x in hou.takes.takes()])
-        idx = self.cb_take.findText(curTake)
-        if idx != -1:
-            self.cb_take.setCurrentIndex(idx)
-
+    def refreshShotCameras(self):
         self.camlist = []
         for node in hou.node("/").allSubChildren():
             if node.type().name() == "cam" and node.name() != "ipr_camera":
@@ -572,25 +677,56 @@ class ExportClass(object):
                 self.curCam = None
             self.stateManager.saveStatesToScene()
 
+    @err_catcher(name=__name__)
+    def updateUi(self):
+        if self.isNodeValid():
+            self.l_status.setText(self.node.name())
+            self.l_status.setToolTip(self.node.path())
+            self.l_status.setStyleSheet("QLabel { background-color : rgb(0,150,0); }")
+        else:
+            self.l_status.setText("Not connected")
+            self.l_status.setToolTip("")
+            self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
+
+        if self.gb_previous.isHidden():
+            self.w_name.setVisible(True)
+            self.gb_general.setVisible(True)
+            self.gb_previous.setHidden(False)
+            self.gb_submit.setCheckable(True)
+
+            if self.cb_manager.count() == 1:
+                self.f_manager.setVisible(True)
+                self.gb_submit.setTitle("Submit Render Job")
+
+        curTake = self.cb_take.currentText()
+        self.cb_take.clear()
+        self.cb_take.addItems([x.name() for x in hou.takes.takes()])
+        idx = self.cb_take.findText(curTake)
+        if idx != -1:
+            self.cb_take.setCurrentIndex(idx)
+
+        if self.getOutputType() == "ShotCam":
+            self.refreshShotCameras()
+
         if self.isPrismFilecacheNode(self.node):
+            self.core.appPlugin.filecache.nodeInit(self.node, self.state)
             self.core.appPlugin.filecache.refreshNodeUi(self.node, self)
 
         self.updateRange()
+        if not self.core.products.getUseMaster():
+            self.w_master.setVisible(False)
+
         curShot = self.cb_sCamShot.currentText()
         self.cb_sCamShot.clear()
-        shotPath = self.core.getShotPath()
-        shotNames = []
-        omittedShots = self.core.getConfig("shot", config="omit", dft=[])
+        _, shots = self.core.entities.getShots()
+        for shot in sorted(shots, key=lambda s: self.core.entities.getShotName(s).lower()):
+            shotData = {"sequence": shot["sequence"], "shot": shot["shot"], "type": "shot"}
+            shotName = self.core.entities.getShotName(shot)
+            self.cb_sCamShot.addItem(shotName, shotData)
 
-        if os.path.exists(shotPath):
-            shotNames += [
-                x
-                for x in os.listdir(shotPath)
-                if not x.startswith("_") and x not in omittedShots
-            ]
-        self.cb_sCamShot.addItems(shotNames)
-        if curShot in shotNames:
-            self.cb_sCamShot.setCurrentIndex(shotNames.index(curShot))
+        idx = self.cb_sCamShot.findText(curShot)
+        if idx != -1:
+            self.cb_sCamShot.setCurrentIndex(idx)
         else:
             self.cb_sCamShot.setCurrentIndex(0)
             self.stateManager.saveStatesToScene()
@@ -617,16 +753,12 @@ class ExportClass(object):
     def getFrameRange(self, rangeType):
         startFrame = None
         endFrame = None
-        if rangeType == "State Manager":
-            startFrame = self.stateManager.sp_rangeStart.value()
-            endFrame = self.stateManager.sp_rangeEnd.value()
-        elif rangeType == "Scene":
+        if rangeType == "Scene":
             startFrame, endFrame = self.core.appPlugin.getFrameRange(self)
         elif rangeType == "Shot":
-            fileName = self.core.getCurrentFileName()
-            fnameData = self.core.getScenefileData(fileName)
-            if fnameData["entity"] == "shot":
-                frange = self.core.entities.getShotRange(fnameData["entityName"])
+            context = self.getOutputEntity()
+            if context.get("type") == "shot" and "sequence" in context:
+                frange = self.core.entities.getShotRange(context)
                 if frange:
                     startFrame, endFrame = frange
         elif rangeType == "Node" and self.node:
@@ -660,12 +792,12 @@ class ExportClass(object):
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
             self.w_frameRangeValues.setVisible(True)
-            self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
             if (
                 self.node is None
-                or self.node.type().name() not in ["rop_alembic", "alembic", "wedge", "prism::Filecache::1.0"]
+                or self.node.type().name()
+                not in ["rop_alembic", "alembic", "wedge", "prism::Filecache::1.0"]
             ) and createMissing:
                 self.createNode()
         elif idx == ".fbx":
@@ -676,12 +808,12 @@ class ExportClass(object):
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
             self.w_frameRangeValues.setVisible(True)
-            self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
             if (
                 self.node is None
-                or self.node.type().name() not in ["rop_fbx", "wedge", "prism::Filecache::1.0"]
+                or self.node.type().name()
+                not in ["rop_fbx", "wedge", "prism::Filecache::1.0"]
             ) and createMissing:
                 self.createNode()
         elif idx == ".usd":
@@ -692,12 +824,12 @@ class ExportClass(object):
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
             self.w_frameRangeValues.setVisible(True)
-            self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
             if (
                 self.node is None
-                or self.node.type().name() not in ["pixar::usdrop", "usd", "wedge", "prism::Filecache::1.0"]
+                or self.node.type().name()
+                not in ["pixar::usdrop", "usd", "wedge", "prism::Filecache::1.0"]
             ) and createMissing:
                 self.createNode()
         elif idx == ".rs":
@@ -708,7 +840,6 @@ class ExportClass(object):
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
             self.w_frameRangeValues.setVisible(True)
-            self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
             if (
@@ -724,7 +855,6 @@ class ExportClass(object):
             self.f_connect.setVisible(False)
             self.f_frameRange.setVisible(True)
             self.w_frameRangeValues.setVisible(True)
-            self.f_convertExport.setVisible(True)
             self.gb_submit.setVisible(False)
         elif idx == "other":
             self.f_cam.setVisible(False)
@@ -734,13 +864,11 @@ class ExportClass(object):
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
             self.w_frameRangeValues.setVisible(True)
-            self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
 
-            import CreateItem
-
-            typeWin = CreateItem.CreateItem(core=self.core)
+            from PrismUtils import PrismWidgets
+            typeWin = PrismWidgets.CreateItem(core=self.core)
             typeWin.setModal(True)
             self.core.parentWindow(typeWin)
             typeWin.setWindowTitle("Outputtype")
@@ -764,17 +892,21 @@ class ExportClass(object):
                 self.cb_outType.setCurrentIndex(0)
 
             if (
-                self.node is None
-                or self.node.type().name()
-                in [
-                    "rop_alembic",
-                    "rop_fbx",
-                    "alembic",
-                    "pixar::usdrop",
-                    "usd",
-                    "Redshift_Proxy_Output",
-                ]
-            ) and createMissing and not self.isPrismFilecacheNode(self.node):
+                (
+                    self.node is None
+                    or self.node.type().name()
+                    in [
+                        "rop_alembic",
+                        "rop_fbx",
+                        "alembic",
+                        "pixar::usdrop",
+                        "usd",
+                        "Redshift_Proxy_Output",
+                    ]
+                )
+                and createMissing
+                and not self.isPrismFilecacheNode(self.node)
+            ):
                 self.createNode()
 
         else:
@@ -785,21 +917,24 @@ class ExportClass(object):
             self.f_connect.setVisible(True)
             self.f_frameRange.setVisible(True)
             self.w_frameRangeValues.setVisible(True)
-            self.f_convertExport.setVisible(True)
             if self.cb_manager.count() > 0:
                 self.gb_submit.setVisible(True)
             if (
-                self.node is None
-                or self.node.type().name()
-                in [
-                    "rop_alembic",
-                    "rop_fbx",
-                    "alembic",
-                    "pixar::usdrop",
-                    "usd",
-                    "Redshift_Proxy_Output",
-                ]
-            ) and createMissing and not self.isPrismFilecacheNode(self.node):
+                (
+                    self.node is None
+                    or self.node.type().name()
+                    in [
+                        "rop_alembic",
+                        "rop_fbx",
+                        "alembic",
+                        "pixar::usdrop",
+                        "usd",
+                        "Redshift_Proxy_Output",
+                    ]
+                )
+                and createMissing
+                and not self.isPrismFilecacheNode(self.node)
+            ):
                 self.createNode()
 
         self.rjToggled()
@@ -808,14 +943,10 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def goToNode(self):
-        try:
-            self.node.name()
-        except:
+        if not self.isNodeValid():
             self.createNode()
 
-        try:
-            self.node.name()
-        except:
+        if not self.isNodeValid():
             self.updateUi()
             return False
 
@@ -824,6 +955,37 @@ class ExportClass(object):
         if paneTab is not None:
             paneTab.setCurrentNode(self.node)
             paneTab.homeToSelection()
+
+    @staticmethod
+    def isConnectableNode(node):
+        typeName = node.type().name()
+        cat = node.type().category().name()
+        validType = typeName in [
+            "rop_geometry",
+            "rop_dop",
+            "rop_comp",
+            "rop_alembic",
+            "rop_fbx",
+            "filecache",
+            "pixar::usdrop",
+            "usd",
+            "Redshift_Proxy_Output",
+            "prism::Filecache::1.0",
+            "vellumio",
+            "vellumio::2.0"
+        ] or cat == "Driver" and typeName in ["geometry", "alembic", "wedge"]
+        return validType
+
+    @err_catcher(name=__name__)
+    def onConnectMenuTriggered(self, pos):
+        menu = QMenu(self)
+        callback = lambda node: self.connectNode(node=node)
+        self.core.appPlugin.sm_openStateFromNode(
+            self.stateManager, menu, stateType="Export", callback=callback
+        )
+
+        if not menu.isEmpty():
+            menu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
     def connectNode(self, node=None):
@@ -834,80 +996,65 @@ class ExportClass(object):
             node = hou.selectedNodes()[0]
 
         typeName = node.type().name()
-        if (
-            typeName
-            in [
-                "rop_geometry",
-                "rop_dop",
-                "rop_comp",
-                "rop_alembic",
-                "rop_fbx",
-                "filecache",
-                "pixar::usdrop",
-                "usd",
-                "Redshift_Proxy_Output",
-                "prism::Filecache::1.0",
-            ]
-            or (
-                node.type().category().name() == "Driver"
-                and typeName in ["geometry", "alembic", "wedge"]
-            )
+        validType = self.isConnectableNode(node)
+        if not validType:
+            return False
+
+        self.node = node
+
+        extension = ""
+        if typeName in self.nodeTypes:
+            outVal = self.node.parm(self.nodeTypes[typeName]["outputparm"]).eval()
+
+        if typeName in [
+            "rop_dop",
+            "rop_comp",
+            "rop_alembic",
+            "rop_fbx",
+            "pixar::usdrop",
+            "usd",
+            "Redshift_Proxy_Output",
+        ]:
+            extension = os.path.splitext(outVal)[1]
+        elif typeName in ["rop_geometry", "filecache", "vellumio", "vellumio::2.0"]:
+            if outVal.endswith(".bgeo.sc"):
+                extension = ".bgeo.sc"
+            else:
+                extension = os.path.splitext(outVal)[1]
+        elif typeName in ["prism::Filecache::1.0"]:
+            extension = node.parm("format").evalAsString()
+        elif (
+            typeName == "geometry"
+            and self.node.type().category().name() == "Driver"
         ):
-            self.node = node
-
-            extension = ""
-            if typeName in self.nodeTypes:
-                outVal = self.node.parm(self.nodeTypes[typeName]["outputparm"]).eval()
-
-            if typeName in [
-                "rop_dop",
-                "rop_comp",
-                "rop_alembic",
-                "rop_fbx",
-                "pixar::usdrop",
-                "usd",
-                "Redshift_Proxy_Output",
-            ]:
+            if outVal.endswith(".bgeo.sc"):
+                extension = ".bgeo.sc"
+            else:
                 extension = os.path.splitext(outVal)[1]
-            elif typeName in ["rop_geometry", "filecache"]:
-                if outVal.endswith(".bgeo.sc"):
-                    extension = ".bgeo.sc"
-                else:
-                    extension = os.path.splitext(outVal)[1]
-            elif typeName in ["prism::Filecache::1.0"]:
-                extension = node.parm("format").evalAsString()
+        elif (
+            typeName == "alembic" and self.node.type().category().name() == "Driver"
+        ):
+            extension = os.path.splitext(outVal)[1]
+        elif typeName == "wedge" and self.node.type().category().name() == "Driver":
+            rop = self.getWedgeROP(self.node)
+            if rop:
+                extension = os.path.splitext(
+                    self.nodeTypes[rop.type().name()]["outputparm"]
+                )[1]
+            else:
+                extension = ".bgeo.sc"
 
-            elif (
-                typeName == "geometry"
-                and self.node.type().category().name() == "Driver"
-            ):
-                if outVal.endswith(".bgeo.sc"):
-                    extension = ".bgeo.sc"
-                else:
-                    extension = os.path.splitext(outVal)[1]
-            elif (
-                typeName == "alembic" and self.node.type().category().name() == "Driver"
-            ):
-                extension = os.path.splitext(outVal)[1]
-            elif typeName == "wedge" and self.node.type().category().name() == "Driver":
-                rop = self.getWedgeROP(self.node)
-                if rop:
-                    extension = os.path.splitext(
-                        self.nodeTypes[rop.type().name()]["outputparm"]
-                    )[1]
-                else:
-                    extension = ".bgeo.sc"
+        if self.cb_outType.findText(extension) != -1:
+            self.cb_outType.setCurrentIndex(self.cb_outType.findText(extension))
+            self.typeChanged(self.getOutputType(), createMissing=False)
 
-            if self.cb_outType.findText(extension) != -1:
-                self.cb_outType.setCurrentIndex(self.cb_outType.findText(extension))
-                self.typeChanged(self.cb_outType.currentText(), createMissing=False)
+        self.nameChanged(self.e_name.text())
+        self.updateUi()
+        if self.isPrismFilecacheNode(self.node):
+            self.core.appPlugin.filecache.nodeInit(self.node, self.state)
 
-            self.nameChanged(self.e_name.text())
-            self.updateUi()
-            self.stateManager.saveStatesToScene()
-            return True
-
-        return False
+        self.stateManager.saveStatesToScene()
+        return True
 
     @err_catcher(name=__name__)
     def getWedgeROP(self, wedge):
@@ -920,6 +1067,20 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def startChanged(self):
+        if self.isPrismFilecacheNode(self.node):
+            if self.getRangeType() != "Node":
+                self.core.appPlugin.filecache.setRangeOnNode(self.node, "From State Manager")
+                rangeType = self.getRangeType()
+                startFrame, endFrame = self.getFrameRange(rangeType)
+                if endFrame is None:
+                    endFrame = startFrame
+
+                if startFrame != self.node.parm("f1").eval():
+                    self.core.appPlugin.setNodeParm(self.node, "f1", startFrame, clear=True)
+
+                if endFrame != self.node.parm("f2").eval():
+                    self.core.appPlugin.setNodeParm(self.node, "f2", endFrame, clear=True)
+
         if self.sp_rangeStart.value() > self.sp_rangeEnd.value():
             self.sp_rangeEnd.setValue(self.sp_rangeStart.value())
 
@@ -927,6 +1088,20 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def endChanged(self):
+        if self.isPrismFilecacheNode(self.node):
+            if self.getRangeType() != "Node":
+                self.core.appPlugin.filecache.setRangeOnNode(self.node, "From State Manager")
+                rangeType = self.getRangeType()
+                startFrame, endFrame = self.getFrameRange(rangeType)
+                if endFrame is None:
+                    endFrame = startFrame
+
+                if startFrame != self.node.parm("f1").eval():
+                    self.core.appPlugin.setNodeParm(self.node, "f1", startFrame, clear=True)
+
+                if endFrame != self.node.parm("f2").eval():
+                    self.core.appPlugin.setNodeParm(self.node, "f2", endFrame, clear=True)
+        
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
 
@@ -945,18 +1120,19 @@ class ExportClass(object):
 
     @err_catcher(name=__name__)
     def managerChanged(self, text=None):
-        if self.cb_manager.currentText() in self.core.rfManagers:
-            self.core.rfManagers[self.cb_manager.currentText()].sm_houExport_activated(
-                self
-            )
+        plugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
+        if plugin:
+            plugin.sm_houExport_activated(self)
+
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def openSlaves(self):
-        try:
-            del sys.modules["SlaveAssignment"]
-        except:
-            pass
+        if eval(os.getenv("PRISM_DEBUG", "False")):
+            try:
+                del sys.modules["SlaveAssignment"]
+            except:
+                pass
 
         import SlaveAssignment
 
@@ -991,6 +1167,15 @@ class ExportClass(object):
             self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
+    def getRenderNode(self):
+        if self.isPrismFilecacheNode(self.node):
+            node = self.core.appPlugin.filecache.getRenderNode(self.node)
+        else:
+            node = self.node
+
+        return node
+
+    @err_catcher(name=__name__)
     def preDelete(self, item, silent=False):
         self.core.appPlugin.sm_preDelete(self, item, silent)
 
@@ -998,17 +1183,21 @@ class ExportClass(object):
     def preExecuteState(self):
         warnings = []
 
-        if self.cb_outType.currentText() == "ShotCam":
+        if self.getOutputType() == "ShotCam":
             if self.curCam is None:
                 warnings.append(["No camera specified.", "", 3])
-        else:
-            if self.l_taskName.text() == "":
-                warnings.append(["No taskname is given.", "", 3])
 
-            try:
-                self.node.name()
-            except:
+            if str(hou.licenseCategory()) == "licenseCategoryType.Apprentice":
+                warnings.append(["Shotcam exports are not supported in Houdini Apprentice.", "", 3])
+        else:
+            if not self.getTaskname(expanded=True):
+                warnings.append(["No productname is given.", "", 3])
+
+            if not self.isNodeValid():
                 warnings.append(["Node is invalid.", "", 3])
+
+        if self.getCurrentWedgeIndex() is not None and "wedge" not in self.core.projects.getTemplatePath("productVersions"):
+            warnings.append(["A wedge index is set, but the outputpath template doesn't contain a \"wedge\" key.", "", 2])
 
         rangeType = self.cb_rangeType.currentText()
         startFrame, endFrame = self.getFrameRange(rangeType)
@@ -1020,76 +1209,169 @@ class ExportClass(object):
             warnings.append(["Simulations are disabled.", "", 2])
 
         if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-            warnings += self.core.rfManagers[
-                self.cb_manager.currentText()
-            ].sm_houExport_preExecute(self)
+            plugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
+            warnings += plugin.sm_houExport_preExecute(self)
 
         return [self.state.text(0), warnings]
 
     @err_catcher(name=__name__)
+    def getCurrentWedgeIndex(self):
+        if self.isPrismFilecacheNode(self.node):
+            if self.node.parm("wedge").eval():
+                wedge = self.node.parm("wedgeNum").evalAsString()
+            else:
+                wedge = None
+            
+        else:
+            wedge = hou.text.expandString("`@wedgeindex`") or None
+
+        return wedge
+
+    @err_catcher(name=__name__)
+    def isContextSourceCooked(self):
+        contextSource = self.node.parm("contextSource").evalAsString()
+        if contextSource not in ["From USD stage meta data"]:
+            return True
+
+        stageNode = None
+
+        parent = self.node.parent()
+        while parent and not isinstance(parent, hou.LopNode):
+            parent = parent.parent()
+
+        if isinstance(parent, hou.LopNode):
+            parent3 = parent
+        else:
+            parent3 = None
+
+        if parent3 and parent3.inputs():
+            stageNode = parent3.inputs()[0]
+
+        if not stageNode:
+            return True
+        
+        isCooked = not stageNode.needsToCook()
+        return isCooked
+
+    @err_catcher(name=__name__)
+    def getOutputEntity(self, forceCook=False):
+        if self.isPrismFilecacheNode(self.node):
+            contextSource = self.node.parm("contextSource").evalAsString()
+            entityData = None
+            if contextSource == "From USD stage meta data":
+                stageNode = None
+
+                parent = self.node.parent()
+                while parent and not isinstance(parent, hou.LopNode):
+                    parent = parent.parent()
+
+                if isinstance(parent, hou.LopNode):
+                    parent3 = parent
+                else:
+                    parent3 = None
+
+                if parent3 and parent3.inputs():
+                    stageNode = parent3.inputs()[0]
+
+                if stageNode:
+                    if stageNode.needsToCook():
+                        if forceCook:
+                            stageNode.cook(force=True)
+
+                        if stageNode.needsToCook():
+                            entityData = self.core.configs.readJson(data=self.node.parm("customContext").eval().replace("\\", "/"), ignoreErrors=False)
+                            return entityData
+
+                    if parent3 and parent3.inputs():
+                        stage = stageNode.stage()
+                        if stage:
+                            entityData = self.core.getPlugin("USD").api.getEntityFromStage(stage)
+                else:
+                    entityData = None
+
+            elif contextSource == "Custom":
+                entityData = self.core.configs.readJson(data=self.node.parm("customContext").eval().replace("\\", "/"), ignoreErrors=False)
+
+            if contextSource == "From scenefile" or not entityData:
+                if "prism_source_scene" in os.environ:
+                    entityData = self.core.getScenefileData(os.getenv("prism_source_scene"))
+                else:
+                    fileName = self.core.getCurrentFileName()
+                    entityData = self.core.getScenefileData(fileName)
+        
+                if "type" not in entityData:
+                    return {}
+
+                if contextSource == "From USD stage meta data" and not entityData:
+                    self.core.appPlugin.filecache.setCustomContext({"node": self.node}, entityData)
+
+        elif self.getOutputType() == "ShotCam":
+            entityData = self.cb_sCamShot.currentData()
+        else:
+            fileName = self.core.getCurrentFileName()
+            entityData = self.core.getScenefileData(fileName)
+
+        if "username" in entityData:
+            del entityData["username"]
+
+        if "user" in entityData:
+            del entityData["user"]
+
+        if "date" in entityData:
+            del entityData["date"]
+
+        return entityData
+
+    @err_catcher(name=__name__)
     def getOutputName(self, useVersion="next"):
-        fileName = self.core.getCurrentFileName()
-        fnameData = self.core.getScenefileData(fileName)
+        entity = self.getOutputEntity()
         location = self.cb_outPath.currentText()
         version = useVersion if useVersion != "next" else None
 
-        if "entityName" not in fnameData:
+        task = self.getTaskname(expanded=True)
+        if not task:
             return
 
-        if self.cb_outType.currentText() == "ShotCam":
-            shot = self.cb_sCamShot.currentText()
-            task = "_ShotCam"
-            comment = fnameData["comment"]
+        if self.getOutputType() == "ShotCam":
+            entity["entityType"] = "shot"
+            entity["type"] = "shot"
+            if "asset_path" in entity:
+                del entity["asset_path"]
 
-            outputPath = self.core.products.generateProductPath(
-                entity="shot",
-                entityName=shot,
-                task=task,
-                extension="",
-                comment=comment,
-                version=version,
-                location=location
-            )
+            if "asset" in entity:
+                del entity["asset"]
+            
+            extension = ".ext"
+            framePadding = None
         else:
-            task = self.l_taskName.text()
-            if not task:
-                return
-
-            # version = (
-            #     (hVersion + "-wedge`$WEDGENUM`")
-            #     if self.node and self.node.type().name() == "wedge"
-            #     else hVersion
-            # )
-
             rangeType = self.cb_rangeType.currentText()
             if self.isPrismFilecacheNode(self.node):
                 if self.core.appPlugin.filecache.isSingleFrame(self.node):
                     rangeType = "Single Frame"
 
-            framePadding = ".$F4" if rangeType != "Single Frame" else ""
-            extension = self.cb_outType.currentText()
+            framePadding = "$F4" if rangeType != "Single Frame" else ""
+            extension = self.getOutputType()
 
-            if fnameData["entity"] == "asset":
-                assetPath = self.core.getEntityBasePath(fileName)
-                entityName = self.core.entities.getAssetRelPathFromPath(assetPath)
-            else:
-                entityName = fnameData["entityName"]
+        wedge = self.getCurrentWedgeIndex()
 
-            outputPath = self.core.products.generateProductPath(
-                entity=fnameData["entity"],
-                entityName=entityName,
-                task=task,
-                extension=extension,
-                framePadding=framePadding,
-                comment=fnameData["comment"],
-                version=version,
-                location=location
-            )
+        outputPathData = self.core.products.generateProductPath(
+            entity=entity,
+            task=task,
+            extension=extension,
+            framePadding=framePadding,
+            comment=self.stateManager.publishComment,
+            version=version,
+            location=location,
+            returnDetails=True,
+            wedge=wedge
+        )
 
-        outputPath = outputPath.replace("\\", "/")
+        if not outputPathData:
+            return
+
+        outputPath = outputPathData["path"].replace("\\", "/")
         outputFolder = os.path.dirname(outputPath)
-        hVersion = self.core.products.getVersionFromFilepath(outputPath)
-
+        hVersion = outputPathData["version"]
         return outputPath, outputFolder, hVersion
 
     @err_catcher(name=__name__)
@@ -1102,7 +1384,15 @@ class ExportClass(object):
         if rangeType == "Single Frame":
             endFrame = startFrame
 
-        if self.cb_outType.currentText() == "ShotCam":
+        if self.getCurrentWedgeIndex() is not None and "wedge" not in self.core.projects.getTemplatePath("productVersions"):
+            msg = "A wedge index is set, but the outputpath template doesn't contain a \"wedge\" key.\nThe recommended default is:\n\n\"@product_path@/@version@@_(wedge)@\""
+            result = self.core.popupQuestion(msg, buttons=["Update template", "Ignore", "Cancel"], icon=QMessageBox.Warning)
+            if result == "Update template":
+                self.core.projects.setTemplatePath("productVersions", "@product_path@/@version@@_(wedge)@")
+            elif result == "Cancel":
+                return [self.state.text(0) + ": error - Invalid outputpath template for wedging"]
+
+        if self.getOutputType() == "ShotCam":
             if self.curCam is None:
                 return [
                     self.state.text(0)
@@ -1115,15 +1405,20 @@ class ExportClass(object):
                     + ": error - No Shot specified. Skipped the activation of this state."
                 ]
 
-            fileName = self.core.getCurrentFileName()
+            if str(hou.licenseCategory()) == "licenseCategoryType.Apprentice":
+                return [
+                    self.state.text(0)
+                    + ": error - Shotcam exports are not supported in Houdini Apprentice."
+                ]
 
+            fileName = self.core.getCurrentFileName()
             outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
 
             outLength = len(outputName)
-            if platform.system() == "Windows" and outLength > 255:
+            if platform.system() == "Windows" and os.getenv("PRISM_IGNORE_PATH_LENGTH") != "1" and outLength > 255:
                 return [
                     self.state.text(0)
-                    + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
+                    + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, productname or projectpath."
                     % outLength
                 ]
 
@@ -1140,44 +1435,56 @@ class ExportClass(object):
 
             result = self.core.callback("preExport", **kwargs)
             for res in result:
+                if isinstance(res, dict) and res.get("cancel", False):
+                    return [
+                        self.state.text(0)
+                        + " - error - %s" % res.get("details", "preExport hook returned False")
+                    ]
+
                 if res and "outputName" in res:
                     outputName = res["outputName"]
 
             outputPath = os.path.dirname(outputName)
-            infoPath = self.core.products.getVersionInfoPathFromProductFilepath(outputName)
-            self.core.saveVersionInfo(
-                location=infoPath,
-                version=hVersion,
-                origin=fileName,
-                fps=startFrame != endFrame,
+            infoPath = self.core.products.getVersionInfoPathFromProductFilepath(
+                outputName
             )
+            details = (self.getOutputEntity() or {}).copy()
+            if self.isPrismFilecacheNode(self.node):
+                self.core.appPlugin.filecache.refreshContextFromEntity(self.node, details)
 
-            if self.chb_convertExport.isChecked():
-                inputCons = self.curCam.inputConnections()
-                if (
-                    len(inputCons) > 0
-                    and inputCons[0].inputNode().type().name() == "null"
-                    and inputCons[0].inputNode().name() == "SCALEOVERRIDE"
-                ):
-                    transformNode = inputCons[0].inputNode()
-                else:
-                    transformNode = self.curCam.createInputNode(
-                        0, "null", "SCALEOVERRIDE"
-                    )
-                    for i in inputCons:
-                        transformNode.setInput(0, i.inputNode(), i.inputIndex())
+            if "filename" in details:
+                del details["filename"]
+
+            if "extension" in details:
+                del details["extension"]
+
+            details["version"] = hVersion
+            details["sourceScene"] = fileName
+            details["product"] = self.getTaskname(expanded=True)
+            details["comment"] = self.stateManager.publishComment
+
+            details.update(self.cb_sCamShot.currentData())
+            details["entityType"] = "shot"
+            details["type"] = "shot"
+            if "asset_path" in details:
+                del details["asset_path"]
+
+            if startFrame != endFrame:
+                details["fps"] = self.core.getFPS()
+
+            self.core.saveVersionInfo(filepath=infoPath, details=details)
 
             abc_rop = self.core.appPlugin.createRop("alembic")
 
             abc_rop.parm("trange").set(1)
             abc_rop.parm("f1").set(startFrame)
             abc_rop.parm("f2").set(endFrame)
-            abc_rop.parm("filename").set(outputName + ".abc")
-            abc_rop.parm("root").set(self.curCam.parent().path())
-            abc_rop.parm("objects").set(self.curCam.name())
+            abc_rop.parm("filename").set(os.path.splitext(outputName)[0] + ".abc")
+            abc_rop.parm("root").set("/" + self.curCam.path().split("/", 2)[1])
+            abc_rop.parm("objects").set(self.curCam.path().split("/", 2)[-1])
 
             fbx_rop = self.core.appPlugin.createRop("filmboxfbx")
-            fbx_rop.parm("sopoutput").set(outputName + ".fbx")
+            fbx_rop.parm("sopoutput").set(os.path.splitext(outputName)[0] + ".fbx")
             fbx_rop.parm("startnode").set(self.curCam.path())
 
             for node in [abc_rop, fbx_rop]:
@@ -1202,37 +1509,25 @@ class ExportClass(object):
                             + ": error - take '%s' doesn't exist." % pTake
                         ]
 
-            abc_rop.render()
-            fbx_rop.render(frame_range=(startFrame, endFrame))
-
-            if self.chb_convertExport.isChecked():
-                transformNode.parm("scale").set(100)
-
-                outputName = os.path.join(
-                    os.path.dirname(os.path.dirname(outputName)),
-                    "centimeter",
-                    os.path.basename(outputName),
-                )
-                if not os.path.exists(os.path.dirname(outputName)):
-                    os.makedirs(os.path.dirname(outputName))
-
-                abc_rop.parm("filename").set(outputName + ".abc")
+            try:
                 abc_rop.render()
-                fbx_rop.parm("sopoutput").set(outputName + ".fbx")
-                fbx_rop.render(frame_range=(startFrame, endFrame))
+            except Exception as e:
+                if "Alembic export is only supported in Houdini" in str(e):
+                    logger.debug("Alembic export is not available with the current Houdini license.")
+                else:
+                    raise
 
-                transformNode.destroy()
+            fbx_rop.render(frame_range=(startFrame, endFrame))
 
             abc_rop.destroy()
             fbx_rop.destroy()
 
+            outputName = os.path.splitext(outputName)[0] + ".abc"
             self.l_pathLast.setText(outputName)
             self.l_pathLast.setToolTip(outputName)
-            self.b_openLast.setEnabled(True)
-            self.b_copyLast.setEnabled(True)
 
-            useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
-            if useMaster:
+            useMaster = self.core.products.getUseMaster()
+            if useMaster and self.getUpdateMasterVersion():
                 self.core.products.updateMasterVersion(outputName)
 
             kwargs = {
@@ -1247,37 +1542,25 @@ class ExportClass(object):
 
             self.stateManager.saveStatesToScene()
 
-            if os.path.exists(outputName + ".abc") and os.path.exists(
-                outputName + ".fbx"
-            ):
+            if os.path.exists(outputName):
                 return [self.state.text(0) + " - success"]
             else:
-                return [self.state.text(0) + " - error"]
+                return [self.state.text(0) + " - unknown error (files do not exist)"]
 
         else:
-            if self.l_taskName.text() == "":
+            if not self.getTaskname(expanded=True):
                 return [
                     self.state.text(0)
-                    + ": error - No taskname is given. Skipped the activation of this state."
+                    + ": error - No productname is given. Skipped the activation of this state."
                 ]
 
-            try:
-                self.node.name()
-            except:
+            if not self.isNodeValid():
                 return [
                     self.state.text(0)
                     + ": error - Node is invalid. Skipped the activation of this state."
                 ]
 
-            if (
-                not (
-                    self.node.isEditable()
-                    or (
-                        self.node.type().name() in ["filecache", "wedge", "prism::Filecache::1.0"]
-                        and self.node.isEditableInsideLockedHDA()
-                    )
-                )
-            ):
+            if self.node.isInsideLockedHDA() and not self.node.isEditableInsideLockedHDA():
                 return [
                     self.state.text(0)
                     + ": error - Node is locked. Skipped the activation of this state."
@@ -1294,18 +1577,17 @@ class ExportClass(object):
                 ropNode = self.node
 
             fileName = self.core.getCurrentFileName()
-
             outputName, outputPath, hVersion = self.getOutputName(useVersion=useVersion)
 
             outLength = len(outputName)
-            if platform.system() == "Windows" and outLength > 255:
+            if platform.system() == "Windows" and os.getenv("PRISM_IGNORE_PATH_LENGTH") != "1" and outLength > 255:
                 return [
                     self.state.text(0)
-                    + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, taskname or projectpath."
+                    + " - error - The outputpath is longer than 255 characters (%s), which is not supported on Windows. Please shorten the outputpath by changing the comment, productname or projectpath."
                     % outLength
                 ]
 
-            if self.cb_outType.currentText() in [".abc", ".fbx", ".usd"]:
+            if self.getOutputType() in [".abc", ".fbx", ".usd"]:
                 outputName = outputName.replace(".$F4", "")
 
             api = self.core.appPlugin.getApiFromNode(self.node)
@@ -1330,17 +1612,25 @@ class ExportClass(object):
                 if not self.core.appPlugin.setNodeParm(ropNode, "f2", val=endFrame):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
-            if ropNode.type().name() in [
-                "rop_geometry",
-                "rop_alembic",
-                "rop_dop",
-                "geometry",
-                "filecache",
-                "alembic",
-            ] and self.initsim:
-                if not self.core.appPlugin.setNodeParm(
-                    ropNode, "initsim", val=True
-                ):
+            if (
+                ropNode.type().name()
+                in [
+                    "rop_geometry",
+                    "rop_alembic",
+                    "rop_dop",
+                    "geometry",
+                    "filecache",
+                    "alembic",
+                    "vellumio",
+                    "vellumio::2.0",
+                ]
+                and self.initsim
+            ):
+                if not self.core.appPlugin.setNodeParm(ropNode, "initsim", val=True):
+                    return [self.state.text(0) + ": error - Publish canceled"]
+
+            if ropNode.type().name() in ["vellumio::2.0"]:
+                if not self.core.appPlugin.setNodeParm(ropNode, "filemethod", val=1):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
             if self.chb_useTake.isChecked():
@@ -1353,17 +1643,15 @@ class ExportClass(object):
                         if not self.core.appPlugin.setNodeParm(
                             ropNode, "take", val=token
                         ):
-                            return [
-                                self.state.text(0) + ": error - Publish canceled"
-                            ]
+                            return [self.state.text(0) + ": error - Publish canceled"]
                 else:
                     return [
                         self.state.text(0)
                         + ": error - take '%s' doesn't exist." % pTake
                     ]
 
-            expandedOutputPath = hou.expandString(outputPath)
-            expandedOutputName = hou.expandString(outputName)
+            expandedOutputPath = hou.text.expandString(outputPath)
+            expandedOutputName = hou.text.expandString(outputName)
             if not os.path.exists(expandedOutputPath):
                 os.makedirs(expandedOutputPath)
 
@@ -1377,64 +1665,53 @@ class ExportClass(object):
 
             self.core.callback("preExport", **kwargs)
 
-            infoPath = self.core.products.getVersionInfoPathFromProductFilepath(expandedOutputName)
-            self.core.saveVersionInfo(
-                location=infoPath,
-                version=hVersion,
-                origin=fileName,
-                fps=startFrame != endFrame,
+            infoPath = self.core.products.getVersionInfoPathFromProductFilepath(
+                expandedOutputName
             )
 
-            outputNames = [outputName]
-            if (
-                not self.chb_convertExport.isHidden()
-                and self.chb_convertExport.isChecked()
-            ):
-                inputCons = ropNode.inputConnections()
-                if (
-                    len(inputCons) > 0
-                    and inputCons[0].inputNode().type().name() == "xform"
-                    and inputCons[0].inputNode().name() == "SCALEOVERRIDE"
-                ):
-                    transformNode = inputCons[0].inputNode()
-                else:
-                    transformNode = ropNode.createInputNode(0, "xform", "SCALEOVERRIDE")
-                    for i in inputCons:
-                        transformNode.setInput(0, i.inputNode(), i.inputIndex())
+            details = (self.getOutputEntity() or {}).copy()
+            if self.isPrismFilecacheNode(self.node):
+                self.core.appPlugin.filecache.refreshContextFromEntity(self.node, details)
 
-                outputNames.append(
-                    os.path.join(
-                        os.path.dirname(os.path.dirname(expandedOutputName)),
-                        "centimeter",
-                        os.path.basename(expandedOutputName),
-                    )
-                )
-                if not os.path.exists(os.path.dirname(outputNames[1])):
-                    os.makedirs(os.path.dirname(outputNames[1]))
+            if "filename" in details:
+                del details["filename"]
+
+            if "extension" in details:
+                del details["extension"]
+
+            details["version"] = hVersion
+            details["sourceScene"] = fileName
+            details["product"] = self.getTaskname(expanded=True)
+
+            if startFrame != endFrame:
+                details["fps"] = self.core.getFPS()
+
+            self.core.saveVersionInfo(filepath=infoPath, details=details)
+
+            outputNames = [outputName]
 
             self.l_pathLast.setText(outputNames[0])
             self.l_pathLast.setToolTip(outputNames[0])
-            self.b_openLast.setEnabled(True)
-            self.b_copyLast.setEnabled(True)
 
             self.stateManager.saveStatesToScene()
             updateMaster = True
 
             for idx, outputName in enumerate(outputNames):
                 outputName = outputName.replace("\\", "/")
-                expandedOutputName = hou.expandString(outputName)
+                expandedOutputName = hou.text.expandString(outputName)
                 parmName = False
 
                 if ropNode.type().name() in self.nodeTypes:
                     parmName = self.nodeTypes[ropNode.type().name()]["outputparm"]
 
-                if parmName != False:
+                if parmName is not False:
                     self.stateManager.publishInfos["updatedExports"][
                         ropNode.parm(parmName).unexpandedString()
                     ] = outputName
 
+                    parmPath = self.core.appPlugin.getPathRelativeToProject(outputName) if self.core.appPlugin.getUseRelativePath() else outputName
                     if not self.core.appPlugin.setNodeParm(
-                        ropNode, parmName, val=outputName
+                        ropNode, parmName, val=parmPath
                     ):
                         return [self.state.text(0) + ": error - Publish canceled"]
 
@@ -1444,24 +1721,33 @@ class ExportClass(object):
                 else:
                     hou.hipFile.save()
 
-                if idx == 1:
-                    if not self.core.appPlugin.setNodeParm(
-                        transformNode, "scale", val=100
-                    ):
-                        return [self.state.text(0) + ": error - Publish canceled"]
-
                 if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
-                    result = self.core.rfManagers[
-                        self.cb_manager.currentText()
-                    ].sm_render_submitJob(self, outputName, parent)
+                    wasLocked = False
+                    if self.isPrismFilecacheNode(self.node) and self.node.matchesCurrentDefinition():
+                        self.node.allowEditingOfContents()
+                        self.core.saveScene(versionUp=False, prismReq=False)
+                        wasLocked = True
+
+                    handleMaster = "product" if self.isUsingMasterVersion() else False
+                    plugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
+                    result = plugin.sm_render_submitJob(self, outputName, parent, handleMaster=handleMaster, details=details)
+
+                    if wasLocked:
+                        self.node.matchCurrentDefinition()
+
+                    updateMaster = False
                 else:
                     try:
                         result = self.executeNode()
-                        if result:
+                        if result in [True, "background"]:
                             if result == "background":
                                 updateMaster = False
 
-                            if result == "background" or len(os.listdir(os.path.dirname(expandedOutputName))) > 0:
+                            if (
+                                result == "background"
+                                or len(os.listdir(os.path.dirname(expandedOutputName)))
+                                > 1
+                            ):
                                 result = "Result=Success"
                             else:
                                 result = "unknown error (files do not exist)"
@@ -1480,14 +1766,8 @@ class ExportClass(object):
                             + " - unknown error (view console for more information)"
                         ]
 
-                if idx == 1:
-                    if not self.core.appPlugin.setNodeParm(transformNode, "scale", val=1):
-                        return [self.state.text(0) + ": error - Publish canceled"]
-
             if updateMaster:
-                useMaster = self.core.getConfig("globals", "useMasterVersion", dft=False, config="project")
-                if useMaster:
-                    self.core.products.updateMasterVersion(expandedOutputName)
+                self.handleMasterVersion(expandedOutputName)
 
             kwargs = {
                 "state": self,
@@ -1499,7 +1779,7 @@ class ExportClass(object):
 
             self.core.callback("postExport", **kwargs)
 
-            if "Result=Success" in result:
+            if result and "Result=Success" in result:
                 return [self.state.text(0) + " - success"]
             else:
                 erStr = "%s ERROR - houExportPublish %s:\n%s" % (
@@ -1508,14 +1788,11 @@ class ExportClass(object):
                     result,
                 )
                 if result == "unknown error (files do not exist)":
-                    QMessageBox.warning(
-                        self.core.messageParent,
-                        "Warning",
-                        "No files were created during the rendering. If you think this is a Prism bug please report it in the forum:\nwww.prism-pipeline.com/forum/\nor write a mail to contact@prism-pipeline.com",
-                    )
-                elif not result.startswith(
+                    msg = "No files were created during the rendering. If you think this is a Prism bug please report it in the forum:\nwww.prism-pipeline.com/forum/\nor write a mail to contact@prism-pipeline.com"
+                    self.core.popup(msg)
+                elif not result or (not result.startswith(
                     "Execute Canceled"
-                ) and not result.startswith("Execute failed"):
+                ) and not result.startswith("Execute failed")):
                     self.core.writeErrorLog(erStr)
                 return [self.state.text(0) + " - error - " + result]
 
@@ -1524,10 +1801,13 @@ class ExportClass(object):
         result = True
         if self.isPrismFilecacheNode(self.node):
             result = self.core.appPlugin.filecache.executeNode(self.node)
+            errs = self.node.errors()
+            if not errs:
+                errs = self.core.appPlugin.filecache.getRenderNode(self.node).errors()
         else:
             self.node.parm("execute").pressButton()
+            errs = self.node.errors()
 
-        errs = self.node.errors()
         if len(errs) > 0:
             errs = "\n" + "\n\n".join(errs)
             erStr = "%s ERROR - houExportnode %s:\n%s" % (
@@ -1538,6 +1818,21 @@ class ExportClass(object):
             result = "Execute failed: " + errs
 
         return result
+
+    @err_catcher(name=__name__)
+    def isUsingMasterVersion(self):
+        useMaster = self.core.products.getUseMaster()
+        if not useMaster:
+            return False
+
+        return useMaster and self.getUpdateMasterVersion()
+
+    @err_catcher(name=__name__)
+    def handleMasterVersion(self, outputName):
+        if not self.isUsingMasterVersion():
+            return
+
+        self.core.products.updateMasterVersion(outputName)
 
     @err_catcher(name=__name__)
     def getStateProps(self):
@@ -1558,18 +1853,18 @@ class ExportClass(object):
             curCam = None
 
         stateProps = {
-            "statename": self.e_name.text(),
-            "taskname": self.l_taskName.text(),
+            "stateName": self.e_name.text(),
+            "taskname": self.getTaskname(),
             "rangeType": str(self.cb_rangeType.currentText()),
             "startframe": self.sp_rangeStart.value(),
             "endframe": self.sp_rangeEnd.value(),
             "usetake": str(self.chb_useTake.isChecked()),
             "take": self.cb_take.currentText(),
+            "updateMasterVersion": self.chb_master.isChecked(),
             "curoutputpath": self.cb_outPath.currentText(),
             "outputtypes": str(outputTypes),
-            "curoutputtype": self.cb_outType.currentText(),
+            "curoutputtype": self.getOutputType(),
             "connectednode": curNode,
-            "unitconvert": str(self.chb_convertExport.isChecked()),
             "submitrender": str(self.gb_submit.isChecked()),
             "rjmanager": str(self.cb_manager.currentText()),
             "rjprio": self.sp_rjPrio.value(),
@@ -1580,11 +1875,10 @@ class ExportClass(object):
             "osupload": str(self.chb_osUpload.isChecked()),
             "ospassets": str(self.chb_osPAssets.isChecked()),
             "osslaves": self.e_osSlaves.text(),
-            "curdlgroup": self.cb_dlGroup.currentText(),
             "currentcam": str(curCam),
             "currentscamshot": self.cb_sCamShot.currentText(),
             "lastexportpath": self.l_pathLast.text().replace("\\", "/"),
             "stateenabled": str(self.state.checkState(0)),
         }
-
+        self.core.callback("onStateGetSettings", self, stateProps)
         return stateProps

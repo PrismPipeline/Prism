@@ -11,40 +11,33 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import os
 import platform
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-
-    psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -53,9 +46,26 @@ class Prism_Blender_externalAccess_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
+        self.core.registerCallback(
+            "userSettings_saveSettings",
+            self.userSettings_saveSettings,
+            plugin=self.plugin,
+        )
+        self.core.registerCallback(
+            "userSettings_loadSettings",
+            self.userSettings_loadSettings,
+            plugin=self.plugin,
+        )
+        self.core.registerCallback("getPresetScenes", self.getPresetScenes, plugin=self.plugin)
+        ssheetPath = os.path.join(
+            self.pluginDirectory,
+            "UserInterfaces",
+            "BlenderStyleSheet"
+        )
+        self.core.registerStyleSheet(ssheetPath)
 
     @err_catcher(name=__name__)
-    def prismSettings_loadUI(self, origin, tab):
+    def userSettings_loadUI(self, origin, tab):
         origin.gb_bldAutoSave = QGroupBox("Auto save renderings")
         lo_bldAutoSave = QVBoxLayout()
         origin.gb_bldAutoSave.setLayout(lo_bldAutoSave)
@@ -94,10 +104,8 @@ class Prism_Blender_externalAccess_Functions(object):
             lambda: self.core.openFolder(origin.le_bldAutoSavePath.text())
         )
 
-        origin.groupboxes.append(origin.gb_bldAutoSave)
-
     @err_catcher(name=__name__)
-    def prismSettings_saveSettings(self, origin, settings):
+    def userSettings_saveSettings(self, origin, settings):
         if "blender" not in settings:
             settings["blender"] = {}
 
@@ -113,16 +121,20 @@ class Prism_Blender_externalAccess_Functions(object):
             settings["blender"]["autosavepath"] = bsPath
 
         settings["blender"]["autosaverender"] = origin.gb_bldAutoSave.isChecked()
-        settings["blender"]["autosaveperproject"] = origin.chb_bldRperProject.isChecked()
+        settings["blender"][
+            "autosaveperproject"
+        ] = origin.chb_bldRperProject.isChecked()
 
     @err_catcher(name=__name__)
-    def prismSettings_loadSettings(self, origin, settings):
+    def userSettings_loadSettings(self, origin, settings):
         if "blender" in settings:
             if "autosaverender" in settings["blender"]:
                 origin.gb_bldAutoSave.setChecked(settings["blender"]["autosaverender"])
 
             if "autosaveperproject" in settings["blender"]:
-                origin.chb_bldRperProject.setChecked(settings["blender"]["autosaveperproject"])
+                origin.chb_bldRperProject.setChecked(
+                    settings["blender"]["autosaveperproject"]
+                )
 
             pData = "autosavepath_%s" % getattr(self.core, "projectName", "")
             if pData in settings["blender"]:
@@ -131,7 +143,9 @@ class Prism_Blender_externalAccess_Functions(object):
 
             if "autosavepath" in settings["blender"]:
                 if not origin.chb_bldRperProject.isChecked():
-                    origin.le_bldAutoSavePath.setText(settings["blender"]["autosavepath"])
+                    origin.le_bldAutoSavePath.setText(
+                        settings["blender"]["autosavepath"]
+                    )
 
     @err_catcher(name=__name__)
     def createProject_startup(self, origin):
@@ -139,15 +153,7 @@ class Prism_Blender_externalAccess_Functions(object):
             origin.setWindowFlags(origin.windowFlags() ^ Qt.WindowStaysOnTopHint)
 
     @err_catcher(name=__name__)
-    def editShot_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def shotgunPublish_startup(self, origin):
-        pass
-
-    @err_catcher(name=__name__)
-    def getAutobackPath(self, origin, tab):
+    def getAutobackPath(self, origin):
         autobackpath = ""
         if platform.system() == "Windows":
             autobackpath = os.path.join(os.getenv("LocalAppdata"), "Temp")
@@ -159,3 +165,9 @@ class Prism_Blender_externalAccess_Functions(object):
         fileStr += ")"
 
         return autobackpath, fileStr
+
+    @err_catcher(name=__name__)
+    def getPresetScenes(self, presetScenes):
+        presetDir = os.path.join(self.pluginDirectory, "Presets")
+        scenes = self.core.entities.getPresetScenesFromFolder(presetDir)
+        presetScenes += scenes

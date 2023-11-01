@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -50,8 +51,6 @@ from PrismUtils.Decorators import err_catcher as err_catcher
 class InstallHDAClass(hou_ImportFile.ImportFileClass):
     className = "Install HDA"
     listType = "Import"
-    preferredUnit = "meter"
-    unpreferredUnit = "centimeter"
 
     @err_catcher(name=__name__)
     def setup(
@@ -64,8 +63,17 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         self.supportedFormats = self.core.appPlugin.assetFormats
 
         stateNameTemplate = "{entity}_{task}_{version}"
-        self.stateNameTemplate = self.core.getConfig("globals", "defaultImportStateName", dft=stateNameTemplate, configPath=self.core.prismIni)
+        self.stateNameTemplate = self.core.getConfig(
+            "globals",
+            "defaultImportStateName",
+            dft=stateNameTemplate,
+            configPath=self.core.prismIni,
+        )
         self.e_name.setText("HDA - " + self.stateNameTemplate)
+        self.l_name.setVisible(False)
+        self.e_name.setVisible(False)
+
+        self.core.callback("onStateStartup", self)
 
         createEmptyState = (
             QApplication.keyboardModifiers() == Qt.ControlModifier
@@ -78,9 +86,9 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
             and not createEmptyState
             and not self.stateManager.standalone
         ):
-            import TaskSelection
+            import ProductBrowser
 
-            ts = TaskSelection.TaskSelection(core=core, importState=self)
+            ts = ProductBrowser.ProductBrowser(core=core, importState=self)
             self.core.parentWindow(ts)
             if self.core.uiScaleFactor != 1:
                 self.core.scaleUI(self.state, sFactor=0.5)
@@ -88,7 +96,7 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
             importPath = ts.productPath
 
         if importPath:
-            self.e_file.setText(importPath)
+            self.setImportPath(importPath)
             result = self.importObject()
 
             if not result:
@@ -113,15 +121,16 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         if "statename" in data:
             self.e_name.setText(data["statename"])
         if "filepath" in data:
-            self.e_file.setText(data["filepath"])
+            self.setImportPath(data["filepath"])
         if "autoUpdate" in data:
             self.chb_autoUpdate.setChecked(eval(data["autoUpdate"]))
+
+        self.core.callback("onStateSettingsLoaded", self, data)
 
     @err_catcher(name=__name__)
     def connectEvents(self):
         self.e_name.textChanged.connect(self.nameChanged)
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
-        self.e_file.editingFinished.connect(self.pathChanged)
         self.b_browse.clicked.connect(self.browse)
         self.b_browse.customContextMenuRequested.connect(self.openFolder)
         self.b_importLatest.clicked.connect(self.importLatest)
@@ -170,7 +179,7 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
 
         extension = os.path.splitext(path)[1]
         if extension not in self.supportedFormats:
-            return "Format \"%s\" is not supported by this statetype." % extension
+            return 'Format "%s" is not supported by this statetype.' % extension
 
         if not os.path.exists(path):
             return "File doesn't exist:\n%s" % path
@@ -191,8 +200,8 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         if nodePath.isInsideLockedHDA():
             return
 
-        if os.path.exists(self.e_file.text()):
-            defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
+        if os.path.exists(self.getImportPath()):
+            defs = hou.hda.definitionsInFile(self.getImportPath())
             if len(defs) > 0:
                 tname = defs[0].nodeTypeName()
                 mNode = None
@@ -215,8 +224,8 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         self.l_status.setText("not installed")
         self.l_status.setStyleSheet("QLabel { background-color : rgb(130,0,0); }")
         status = "error"
-        if os.path.exists(self.e_file.text()):
-            defs = hou.hda.definitionsInFile(self.e_file.text().replace("\\", "/"))
+        if os.path.exists(self.getImportPath()):
+            defs = hou.hda.definitionsInFile(self.getImportPath())
             if len(defs) > 0:
                 if defs[0].isInstalled():
                     self.l_status.setText("installed")
@@ -225,16 +234,32 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
                     )
                     status = "ok"
 
-        curVersion, latestVersion = self.checkLatestVersion()
+        versions = self.checkLatestVersion()
+        if versions:
+            curVersion, latestVersion = versions
+        else:
+            curVersion = latestVersion = ""
 
-        self.l_curVersion.setText(curVersion or "-")
-        self.l_latestVersion.setText(latestVersion or "-")
+        if curVersion.get("version") == "master":
+            filepath = self.getImportPath()
+            curVersionName = self.core.products.getMasterVersionLabel(filepath)
+        else:
+            curVersionName = curVersion.get("version")
+
+        if latestVersion.get("version") == "master":
+            filepath = latestVersion["path"]
+            latestVersionName = self.core.products.getMasterVersionLabel(filepath)
+        else:
+            latestVersionName = latestVersion.get("version")
+
+        self.l_curVersion.setText(curVersionName or "-")
+        self.l_latestVersion.setText(latestVersionName or "-")
 
         if self.chb_autoUpdate.isChecked():
-            if curVersion and latestVersion and curVersion != latestVersion:
+            if curVersionName and latestVersionName and curVersionName != latestVersionName:
                 self.importLatest(refreshUi=False)
         else:
-            if curVersion and latestVersion and curVersion != latestVersion:
+            if curVersionName and latestVersionName and curVersionName != latestVersionName:
                 self.b_importLatest.setStyleSheet(
                     "QPushButton { background-color : rgb(150,80,0); border: none;}"
                 )
@@ -249,6 +274,6 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
     def getStateProps(self):
         return {
             "statename": self.e_name.text(),
-            "filepath": self.e_file.text(),
+            "filepath": self.getImportPath(),
             "autoUpdate": str(self.chb_autoUpdate.isChecked()),
         }

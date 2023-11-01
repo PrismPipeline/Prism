@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>436</width>
-    <height>401</height>
+    <height>371</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,24 +17,26 @@
    <property name="spacing">
     <number>15</number>
    </property>
-   <property name="margin">
+   <property name="leftMargin">
+    <number>15</number>
+   </property>
+   <property name="topMargin">
+    <number>15</number>
+   </property>
+   <property name="rightMargin">
+    <number>15</number>
+   </property>
+   <property name="bottomMargin">
     <number>15</number>
    </property>
    <item>
     <widget class="QWidget" name="w_shotName" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
-      <item>
-       <widget class="QLabel" name="label_4">
-        <property name="text">
-         <string>Sequence:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="e_sequence"/>
-      </item>
-      <item>
-       <widget class="QPushButton" name="b_showSeq">
+     <layout class="QGridLayout" name="gridLayout">
+      <property name="topMargin">
+       <number>10</number>
+      </property>
+      <item row="0" column="3">
+       <widget class="QToolButton" name="b_showSeq">
         <property name="maximumSize">
          <size>
           <width>25</width>
@@ -45,22 +47,57 @@
          <enum>Qt::NoFocus</enum>
         </property>
         <property name="toolTip">
-         <string>existing sequences</string>
+         <string>Existing sequence names</string>
         </property>
         <property name="text">
-         <string>▼</string>
+         <string/>
+        </property>
+        <property name="arrowType">
+         <enum>Qt::DownArrow</enum>
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QLabel" name="l_item">
+      <item row="0" column="1">
+       <widget class="QLabel" name="l_seq">
         <property name="text">
-         <string>Shotname:</string>
+         <string>Sequence:</string>
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QLineEdit" name="e_shotName"/>
+      <item row="0" column="2">
+       <widget class="QLineEdit" name="e_sequence">
+        <property name="placeholderText">
+         <string>sq_010</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <widget class="QLineEdit" name="e_shotName">
+        <property name="placeholderText">
+         <string>sh_010</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="l_shot">
+        <property name="text">
+         <string>Shot:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="l_seqIcon">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="l_shotIcon">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -150,16 +187,6 @@
     </widget>
    </item>
    <item>
-    <widget class="QPushButton" name="b_changePreview">
-     <property name="focusPolicy">
-      <enum>Qt::NoFocus</enum>
-     </property>
-     <property name="text">
-      <string>Change preview image</string>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QWidget" name="w_preview" native="true">
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <property name="spacing">
@@ -168,6 +195,13 @@
       <property name="topMargin">
        <number>1</number>
       </property>
+      <item>
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>Thumbnail:</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <spacer name="horizontalSpacer_2">
         <property name="orientation">
@@ -203,19 +237,6 @@
         </property>
        </widget>
       </item>
-      <item>
-       <spacer name="horizontalSpacer_3">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
      </layout>
     </widget>
    </item>
@@ -235,7 +256,16 @@
    <item>
     <widget class="QWidget" name="widget" native="true">
      <layout class="QHBoxLayout" name="horizontalLayout_4">
-      <property name="margin">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
        <number>0</number>
       </property>
       <item>
@@ -267,7 +297,7 @@
          <enum>Qt::Horizontal</enum>
         </property>
         <property name="standardButtons">
-         <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+         <set>QDialogButtonBox::NoButton</set>
         </property>
         <property name="centerButtons">
          <bool>false</bool>
@@ -282,44 +312,9 @@
  <tabstops>
   <tabstop>e_sequence</tabstop>
   <tabstop>b_showSeq</tabstop>
-  <tabstop>e_shotName</tabstop>
   <tabstop>sp_startFrame</tabstop>
   <tabstop>sp_endFrame</tabstop>
-  <tabstop>b_changePreview</tabstop>
  </tabstops>
  <resources/>
- <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>dlg_EditShot</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>dlg_EditShot</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

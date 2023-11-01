@@ -11,36 +11,32 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import os
-import platform
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher
 
@@ -48,27 +44,8 @@ from PrismUtils.Decorators import err_catcher
 class Ingegration(object):
     def __init__(self, core):
         self.core = core
-
-        if platform.system() == "Windows":
-            self.installLocPath = os.path.join(
-                os.environ["userprofile"],
-                "Documents",
-                "Prism",
-                "InstallLocations.yml",
-            )
-        elif platform.system() == "Linux":
-            self.installLocPath = os.path.join(
-                os.environ["HOME"], "Prism", "InstallLocations.yml"
-            )
-        elif platform.system() == "Darwin":
-            self.installLocPath = os.path.join(
-                os.environ["HOME"],
-                "Library",
-                "Preferences",
-                "Prism",
-                "InstallLocations.yml",
-            )
-
+        prefDir = self.core.getUserPrefDir()
+        self.installLocPath = os.path.join(prefDir, "InstallLocations" + self.core.configs.preferredExtension)
         self.convertDeprecatedConfig()
 
     @err_catcher(name=__name__)
@@ -155,6 +132,12 @@ class Ingegration(object):
         self.addIntegrations(intr)
 
     @err_catcher(name=__name__)
+    def addAllIntegrations(self):
+        installer = self.core.getInstaller()
+        installer.installShortcuts = False 
+        installer.install(successPopup=False)
+
+    @err_catcher(name=__name__)
     def addIntegrations(self, integrations, quiet=True):
         for app in integrations:
             for path in integrations[app]:
@@ -197,7 +180,7 @@ class Ingegration(object):
             path = QFileDialog.getExistingDirectory(
                 self.core.messageParent,
                 "Select %s folder" % app,
-                os.path.dirname(self.core.getPluginData(app, "examplePath")),
+                self.core.getPluginData(app, "examplePath"),
             )
 
         return path

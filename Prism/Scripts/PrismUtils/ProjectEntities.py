@@ -11,23 +11,24 @@
 ####################################################
 #
 #
-# Copyright (C) 2016-2020 Richard Frangenberg
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
 #
-# Licensed under GNU GPL-3.0-or-later
+# Licensed under GNU LGPL-3.0-or-later
 #
 # This file is part of Prism.
 #
 # Prism is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # Prism is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
@@ -35,20 +36,15 @@ import os
 import sys
 import logging
 import shutil
+import time
 
-try:
-    from PySide2.QtCore import *
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-    psVersion = 2
-except:
-    from PySide.QtCore import *
-    from PySide.QtGui import *
-    psVersion = 1
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher
 
-import CreateItem
+from PrismUtils import PrismWidgets
 
 
 logger = logging.getLogger(__name__)
@@ -57,16 +53,10 @@ logger = logging.getLogger(__name__)
 class ProjectEntities(object):
     def __init__(self, core):
         self.core = core
+        self.entityFolders = {"asset": [], "shot": []}
+        self.entityActions = {}
+        self.entityDlg = EntityDlg
         self.refreshOmittedEntities()
-
-        eDirs = [
-                "Scenefiles",
-                "Export",
-                "Playblasts",
-                "Rendering/3dRender",
-                "Rendering/2dRender",
-            ]
-        self.entityFolders = {"asset": eDirs, "shot": eDirs}
 
     @err_catcher(name=__name__)
     def refreshOmittedEntities(self):
@@ -81,130 +71,181 @@ class ProjectEntities(object):
         self.omittedEntities["assetFolder"] = oAssets
 
     @err_catcher(name=__name__)
-    def splitShotname(self, shotName):
-        if shotName and self.core.sequenceSeparator in shotName:
-            sname = shotName.split(self.core.sequenceSeparator, 1)
-            seqName = sname[0]
-            shotName = sname[1]
-        else:
-            seqName = "no sequence"
-            shotName = shotName
-
-        return shotName, seqName
+    def isEntityOmitted(self, entity):
+        if entity["type"] in ["asset", "assetFolder"]:
+            return self.isAssetOmitted(entity)
+        elif entity["type"] == "shot":
+            return self.isShotOmitted(entity)
 
     @err_catcher(name=__name__)
-    def getShotname(self, sequence, shot):
-        shotname = sequence + self.core.sequenceSeparator + shot
+    def isAssetOmitted(self, entity):
+        omitted = entity["asset_path"] in self.omittedEntities["asset"]
+        return omitted
+
+    @err_catcher(name=__name__)
+    def isShotOmitted(self, entity):
+        if entity["sequence"] in self.omittedEntities["shot"]:
+            if entity["shot"] in self.omittedEntities["shot"][entity["sequence"]]:
+                return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def getShotName(self, entity):
+        if "sequence" not in entity:
+            return
+
+        if "shot" in entity:
+            shotname = (entity["sequence"] or "") + "-" + (entity["shot"] or "")
+        else:
+            shotname = entity["sequence"] or ""
+
         return shotname
 
     @err_catcher(name=__name__)
-    def setShotRange(self, shotName, start, end):
-        self.core.setConfig("shotRanges", shotName, [start, end], config="shotinfo")
+    def setShotRange(self, entity, start, end):
+        seqRanges = self.core.getConfig(
+            "shotRanges", entity["sequence"], config="shotinfo"
+        )
+        if not seqRanges:
+            seqRanges = {}
+
+        seqRanges[entity["shot"]] = [start, end]
+        self.core.setConfig(
+            "shotRanges", entity["sequence"], seqRanges, config="shotinfo"
+        )
 
     @err_catcher(name=__name__)
-    def getShotRange(self, shotName):
-        return self.core.getConfig("shotRanges", shotName, config="shotinfo")
+    def getShotRange(self, entity):
+        ranges = self.core.getConfig("shotRanges", config="shotinfo") or {}
+        if entity.get("sequence") in ranges:
+            if entity.get("shot") in ranges[entity["sequence"]]:
+                return ranges[entity["sequence"]][entity["shot"]]
 
     @err_catcher(name=__name__)
-    def getShots(self, searchFilter="", locations=None):
-        export_paths = self.core.paths.getExportProductBasePaths()
-        relShotPath = self.core.shotPath.replace(os.path.normpath(self.core.projectPath), "")
+    def getSequences(self, searchFilter="", locations=None):
+        seqs, shots = self.getShots(searchFilter, locations, getSequences=True)
+        return seqs
+
+    @err_catcher(name=__name__)
+    def getShots(self, searchFilter="", locations=None, getSequences=True):
+        location_paths = self.core.paths.getExportProductBasePaths()
+        location_paths.update(self.core.paths.getRenderProductBasePaths())
         seqDirs = []
-        for location in export_paths:
+        for location in location_paths:
             if locations is not None and location not in locations:
                 continue
-            seqDir = {"location": location, "path": export_paths[location] + relShotPath}
+            seqDir = {"location": location, "path": location_paths[location]}
             seqDirs.append(seqDir)
+
+        shotDicts = []
+        for seqDir in seqDirs:
+            context = {"project_path": seqDir["path"]}
+            template = self.core.projects.getResolvedProjectStructurePath(
+                "shots", context=context
+            )
+            shotData = self.core.projects.getMatchingPaths(template)
+            for data in shotData:
+                if "." in os.path.basename(data["path"]) and os.path.isfile(data["path"]):
+                    continue
+
+                if data["sequence"].startswith("_"):
+                    continue
+
+                if data["shot"].startswith("_"):
+                    continue
+
+                if self.isShotOmitted(data):
+                    continue
+
+                if (
+                    searchFilter.lower() not in data["sequence"].lower()
+                    and searchFilter.lower() not in data["shot"].lower()
+                ):
+                    continue
+
+                data["location"] = seqDir["location"]
+                data["type"] = "shot"
+                shotDicts.append(data)
 
         sequences = []
         shots = []
+        for shotDict in sorted(shotDicts, key=lambda x: x["path"]):
+            for shot in shots:
+                if (
+                    shotDict["sequence"] == shot["sequence"]
+                    and shotDict["shot"] == shot["shot"]
+                ):
+                    data = {"location": shotDict["location"], "path": shotDict["path"]}
+                    shot["paths"].append(data)
+                    break
+            else:
+                shotDict["paths"] = [
+                    {"location": shotDict["location"], "path": shotDict["path"]}
+                ]
+                shots.append(shotDict)
 
-        shotDirs = []
-        for seqDir in seqDirs:
-            for root, folders, files in os.walk(seqDir["path"]):
-                for f in folders:
-                    if f.startswith("_"):
-                        continue
+            if shotDict["sequence"] not in sequences:
+                sequences.append(shotDict["sequence"])
 
-                    sPath = os.path.join(root, f)
-                    data = {"location": seqDir["location"], "path": sPath}
-                    shotDirs.append(data)
-                break
-
-        for shotDir in sorted(shotDirs, key=lambda x: x["path"]):
-            path = shotDir["path"]
-            val = os.path.basename(path)
-
-            if val in self.omittedEntities["shot"]:
-                continue
-
-            shotName, seqName = self.core.entities.splitShotname(val)
-            if searchFilter not in seqName and searchFilter not in shotName:
-                continue
-
-            if shotName:
-                for shot in shots:
-                    if seqName == shot[0] and shotName == shot[1]:
-                        shot[3].append(shotDir)
-                        break
-                else:
-                    shotData = [seqName, shotName, val, [shotDir]]
-                    shots.append(shotData)
-
-            if seqName not in sequences:
-                sequences.append(seqName)
-
-        sequences = sorted(sequences)
-        shots = sorted(shots, key=lambda x: self.core.naturalKeys(x[1]))
-
-        if "no sequence" in sequences:
-            sequences.insert(
-                len(sequences), sequences.pop(sequences.index("no sequence"))
-            )
-
-        return sequences, shots
+        shots = sorted(shots, key=lambda x: self.core.naturalKeys(x["shot"]))
+        if getSequences:
+            sequences = sorted(sequences)
+            return sequences, shots
+        else:
+            return shots
 
     @err_catcher(name=__name__)
-    def getSteps(self, asset=None, shot=None):
-        steps = []
+    def getShotsFromSequence(self, sequence):
+        seqShots = []
+        sequences, shots = self.core.entities.getShots()
+        for shot in shots:
+            if shot["sequence"] == sequence:
+                seqShots.append(shot)
 
-        if asset:
-            path = self.core.getEntityPath(entity="step", asset=asset)
-        elif shot:
-            path = self.core.getEntityPath(entity="step", shot=shot)
+        return seqShots
 
-        stepDirs = [path]
+    @err_catcher(name=__name__)
+    def getSteps(self, entity):
+        departments = []
+        path = self.core.getEntityPath(entity=entity, reqEntity="step")
+        stepDirs = []
+
+        templates = self.core.projects.getResolvedProjectStructurePaths(
+            "departments", context=entity
+        )
 
         if self.core.useLocalFiles:
-            path = self.core.convertPath(path, target="global")
-            lpath = self.core.convertPath(path, target="local")
-            stepDirs = [path, lpath]
+            for template in templates:
+                path = self.core.convertPath(template, target="global")
+                lpath = self.core.convertPath(template, target="local")
+                if path not in stepDirs:
+                    stepDirs.append(path)
+
+                if lpath not in stepDirs:
+                    stepDirs.append(lpath)
+        else:
+            stepDirs = templates
 
         dirContent = []
-
         for sDir in stepDirs:
-            if os.path.exists(sDir):
-                dirContent += [os.path.join(sDir, x) for x in os.listdir(sDir)]
+            dirContent += self.core.projects.getMatchingPaths(sDir)
 
-        for i in sorted(dirContent, key=lambda x: os.path.basename(x)):
-            stepName = os.path.basename(i)
-            if stepName.startswith("_"):
+        for content in sorted(dirContent, key=lambda x: x.get("department")):
+            dep = content.get("department", "")
+            if dep.startswith("_"):
                 continue
 
-            if os.path.isdir(i) and stepName not in steps:
-                steps.append(stepName)
+            if os.path.isdir(content["path"]) and dep not in departments:
+                departments.append(dep)
 
-        return steps
+        departments = self.orderDepartments(entity, departments)
+        return departments
 
     @err_catcher(name=__name__)
-    def getCategories(self, asset=None, shot=None, step=None):
+    def getCategories(self, entity, step=None):
         cats = []
-
-        if asset:
-            path = self.core.getEntityPath(asset=asset, step=step)
-        elif shot:
-            path = self.core.getEntityPath(shot=shot, step=step)
-
+        path = self.core.getEntityPath(entity=entity, step=step)
         catDirs = [path]
 
         if self.core.useLocalFiles:
@@ -226,27 +267,30 @@ class ProjectEntities(object):
             if os.path.isdir(i) and catName not in cats:
                 cats.append(catName)
 
+        cats = self.orderTasks(entity, step, cats)
         return cats
 
     @err_catcher(name=__name__)
-    def getScenefiles(self, asset=None, shot=None, step=None, category=None, extensions=None):
-        extensions = extensions or "*"
+    def getScenefiles(self, entity=None, step=None, category=None, extensions=None, path=None):
         scenefiles = []
 
-        if asset:
-            if (
-                self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
-                == "lower"
-            ):
-                path = self.core.getEntityPath(asset=asset, step=step)
-            else:
-                path = self.core.getEntityPath(asset=asset, step=step, category=category)
-        elif shot:
-            path = self.core.getEntityPath(
-                shot=shot,
-                step=step,
-                category=category,
-            )
+        if not path:
+            if entity["type"] == "asset":
+                if (
+                    self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
+                    == "lower"
+                ):
+                    path = self.core.getEntityPath(entity=entity, step=step)
+                else:
+                    path = self.core.getEntityPath(
+                        entity=entity, step=step, category=category
+                    )
+            elif entity["type"] == "shot":
+                path = self.core.getEntityPath(
+                    entity=entity,
+                    step=step,
+                    category=category,
+                )
 
         sceneDirs = [path]
 
@@ -262,72 +306,136 @@ class ProjectEntities(object):
                     if f in sfiles:
                         continue
 
-                    if self.isValidScenefilename(f, extensions=extensions):
-                        sfiles[f] = os.path.join(root, f)
+                    scenePath = os.path.join(root, f)
+                    if self.isValidScenefilename(scenePath, extensions=extensions):
+                        sfiles[f] = scenePath
                 break
 
-        scenefiles = sfiles.values()
-
+        scenefiles = list(sfiles.values())
         return scenefiles
 
     @err_catcher(name=__name__)
     def isValidScenefilename(self, filename, extensions=None):
-        extensions = extensions or "*"
-        sData = self.core.getScenefileData(filename)
-
-        if sData["entity"] not in ["asset", "shot"]:
+        if os.path.splitext(filename)[1] in [
+            ".jpg",
+            ".json",
+            ".yml",
+            ".ini",
+            ".lock",
+            ".old",
+            ".db"
+        ]:
             return False
+
+        sData = self.core.getScenefileData(filename)
 
         try:
             int(sData["extension"][-5:])  # ignore maya temp files
+            logger.debug("maya temp file")
             return False
         except Exception:
             pass
 
         if "extension" not in sData:
+            logger.debug("no extension")
             return False
 
         if sData["extension"].endswith("~"):  # ignore nuke autosave files
+            logger.debug("nuke autosave file")
             return False
 
         if filename.endswith(".painter_lock"):  # ignore substance painter lock files
+            logger.debug("substance lockfile")
+            return False
+
+        if sData["extension"] == ".spp" and "autosave_" in filename:  # ignore substance painter autosave files
+            logger.debug("substance lockfile")
             return False
 
         if filename.endswith("autosave"):
+            logger.debug("autosave file")
             return False
 
-        uScene = (
-            sData["extension"] not in self.core.getPluginSceneFormats()
-            and "info" not in sData["extension"]
-            and "preview" not in sData["extension"]
-        )
-
-        if (
-            sData["extension"] not in extensions
-            and not ("*" in extensions and uScene)
-        ):
+        if sData["extension"].startswith(".blend") and sData["extension"] != ".blend":  # ignore Blender autosave files
+            logger.debug("Blender autosave file")
             return False
+
+        if extensions:
+            unknownScene = sData["extension"] not in self.core.getPluginSceneFormats()
+            if unknownScene:
+                if "*" not in extensions:
+                    logger.debug("invalid extension")
+                    return False
+            else:
+                if sData["extension"] not in extensions:
+                    logger.debug("invalid extension")
+                    return False
 
         return True
+
+    @err_catcher(name=__name__)
+    def orderDepartments(self, entity, departments):
+        if entity.get("type") == "asset":
+            pdeps = self.core.projects.getAssetDepartments()
+        elif entity.get("type") == "shot":
+            pdeps = self.core.projects.getShotDepartments()
+        else:
+            return departments
+
+        abbrs = [d["abbreviation"] for d in pdeps]
+        deps = sorted(departments, key=lambda x: self.indexOf(x, abbrs))
+        return deps
+
+    @err_catcher(name=__name__)
+    def orderTasks(self, entity, department, tasks):
+        if entity.get("type") == "asset":
+            pdeps = self.core.projects.getAssetDepartments()
+        elif entity.get("type") == "shot":
+            pdeps = self.core.projects.getShotDepartments()
+        else:
+            return tasks
+
+        for dep in pdeps:
+            if dep["abbreviation"] == department:
+                tasks = sorted(tasks, key=lambda x: self.indexOf(x, dep["defaultTasks"]) if x in dep["defaultTasks"] else 999)
+                break
+
+        return tasks
+
+    @err_catcher(name=__name__)
+    def indexOf(self, val, listData):
+        try:
+            idx = listData.index(val)
+        except ValueError:
+            idx = -1
+
+        return idx
 
     @err_catcher(name=__name__)
     def getDependencies(self, path):
         info = self.core.getVersioninfoPath(path)
         deps = []
-        source = self.core.getConfig("information", "source scene", configPath=info)
+        source = self.core.getConfig("source scene", configPath=info)
         if source:
             deps.append(source)
 
-        depPaths = self.core.getConfig("information", "Dependencies", configPath=info) or []
+        depPaths = (
+            self.core.getConfig("dependencies", configPath=info) or []
+        )
         deps += depPaths
-        extFiles = self.core.getConfig("information", "External files", configPath=info) or []
+        extFiles = (
+            self.core.getConfig("externalFiles", configPath=info) or []
+        )
         deps += extFiles
 
         return deps
 
     @err_catcher(name=__name__)
     def getCurrentDependencies(self):
-        deps = getattr(self.core.appPlugin, "getImportPaths", lambda x: None)(self.core) or []
+        deps = (
+            getattr(self.core.appPlugin, "getImportPaths", lambda x: None)(self.core)
+            or []
+        )
 
         if type(deps) == str:
             deps = eval(deps.replace("\\", "/").replace("//", "/"))
@@ -341,29 +449,37 @@ class ProjectEntities(object):
         return {"dependencies": deps, "externalFiles": extFiles}
 
     @err_catcher(name=__name__)
-    def createEntity(self, entityType, entityName, dialog=None, frameRange=None):
-        if entityType == "asset":
-            result = self.createAsset(entityName, dialog=dialog)
-        elif entityType == "assetFolder":
-            result = self.createAssetFolder(entityName, dialog=dialog)
-        elif entityType == "shot":
-            result = self.createShot(entityName, frameRange=frameRange)
+    def createEntity(self, entity, dialog=None, frameRange=None, silent=False):
+        if entity["type"] == "asset":
+            result = self.createAsset(entity, dialog=dialog)
+        elif entity["type"] == "assetFolder":
+            result = self.createAssetFolder(entity, dialog=dialog)
+        elif entity["type"] == "shot":
+            result = self.createShot(entity, frameRange=frameRange)
         else:
             return {}
 
+        if not result:
+            return {}
+
         if result.get("existed"):
-            eName = self.getAssetRelPathFromPath(entityName)
-            if eName in self.omittedEntities[entityType] and self.core.uiAvailable:
+            if entity["type"] in ["asset", "assetFolder"]:
+                name = entity["asset_path"]
+            elif entity["type"] == "shot":
+                name = self.getShotName(entity)
+
+            if self.isEntityOmitted(entity) and self.core.uiAvailable:
                 msgText = (
                     "The %s %s already exists, but is marked as omitted.\n\nDo you want to restore it?"
-                    % (entityType, eName)
+                    % (entity["type"], name)
                 )
                 resultq = self.core.popupQuestion(msgText)
 
                 if resultq == "Yes":
-                    self.omitEntity(entityType, eName, omit=False)
+                    self.omitEntity(entity, omit=False)
             else:
-                self.core.popup("The %s already exists:\n\n%s" % (entityType, eName))
+                if not silent:
+                    self.core.popup("The %s already exists:\n\n%s" % (entity["type"], name))
 
         if result.get("error"):
             self.core.popup(result["error"])
@@ -371,69 +487,89 @@ class ProjectEntities(object):
         return result
 
     @err_catcher(name=__name__)
-    def createAssetFolder(self, folderPath, dialog=None):
-        if not os.path.isabs(folderPath):
-            folderPath = os.path.join(self.core.assetPath, folderPath)
+    def createAssetFolder(self, entity, dialog=None):
+        fullAssetPath = os.path.join(self.core.assetPath, entity["asset_path"])
 
-        existed = os.path.exists(folderPath)
-        if not os.path.exists(folderPath):
-            os.makedirs(folderPath)
-
-        relpath = self.getAssetRelPathFromPath(folderPath)
+        existed = os.path.exists(fullAssetPath)
+        if not os.path.exists(fullAssetPath):
+            os.makedirs(fullAssetPath)
 
         if not existed:
             self.core.callback(
                 name="onAssetFolderCreated",
-                args=[self, relpath, folderPath, dialog],
+                args=[self, entity, dialog],
             )
 
         result = {
-            "entity": "assetfolder",
-            "entityName": relpath,
-            "entityPath": folderPath,
+            "entity": entity,
             "existed": existed,
         }
         logger.debug("assetFolder created: %s" % result)
         return result
 
     @err_catcher(name=__name__)
-    def createAsset(self, assetPath, dialog=None):
-        if not os.path.isabs(assetPath):
-            assetPath = os.path.join(self.core.assetPath, assetPath)
+    def createAsset(self, entity, dialog=None):
+        fullAssetPath = os.path.join(self.core.assetPath, entity["asset_path"])
 
-        assetName = self.getAssetNameFromPath(assetPath)
+        assetName = self.getAssetNameFromPath(fullAssetPath)
         if not self.isValidAssetName(assetName):
-            return {"error": "Invalid assetname"}
+            return {"error": "Invalid assetname."}
 
-        existed = os.path.exists(assetPath)
+        existed = os.path.exists(fullAssetPath)
+        if existed and self.getTypeFromPath(fullAssetPath) == "folder":
+            return {"error": "A folder with this name exists already."}
 
         for f in self.entityFolders["asset"]:
-            aFolder = os.path.join(assetPath, f)
+            aFolder = os.path.join(fullAssetPath, f)
             if not os.path.exists(aFolder):
                 os.makedirs(aFolder)
+
+        assetDep = self.core.projects.getResolvedProjectStructurePath(
+            "departments", context=entity
+        )
+        assetProducts = self.core.projects.getResolvedProjectStructurePath(
+            "products", context=entity
+        )
+        asset3dRenders = self.core.projects.getResolvedProjectStructurePath(
+            "3drenders", context=entity
+        )
+        asset2dRenders = self.core.projects.getResolvedProjectStructurePath(
+            "2drenders", context=entity
+        )
+        assetPlayblasts = self.core.projects.getResolvedProjectStructurePath(
+            "playblasts", context=entity
+        )
+        assetFolders = [
+            os.path.dirname(assetDep),
+            os.path.dirname(assetProducts),
+            os.path.dirname(asset3dRenders),
+            os.path.dirname(asset2dRenders),
+            os.path.dirname(assetPlayblasts),
+        ]
+
+        for assetFolder in assetFolders:
+            if not os.path.exists(assetFolder):
+                try:
+                    os.makedirs(assetFolder)
+                except Exception as e:
+                    return {"error": "Failed to create folder:\n\n%s\n\nError: %s" % (assetFolder, str(e))}
 
         if not existed:
             self.core.callback(
                 name="onAssetCreated",
-                types=["custom"],
-                args=[self, assetName, assetPath, dialog],
+                args=[self, entity, dialog],
             )
-            for i in self.core.prjManagers.values():
-                i.assetCreated(self, dialog, assetPath)
 
         result = {
-            "entity": "asset",
-            "entityName": assetName,
-            "entityPath": assetPath,
+            "entity": entity,
             "existed": existed,
         }
         logger.debug("asset created: %s" % result)
         return result
 
     @err_catcher(name=__name__)
-    def createShot(self, shotName, frameRange=None):
-        sBase = self.core.getEntityPath(shot=shotName)
-
+    def createShot(self, entity, frameRange=None):
+        sBase = self.core.getEntityPath(entity=entity)
         existed = os.path.exists(sBase)
 
         for f in self.entityFolders["shot"]:
@@ -443,24 +579,51 @@ class ProjectEntities(object):
                     os.makedirs(sFolder)
                 except Exception as e:
                     if e.errno == 13:
-                        self.core.popup("Missing permissions to create folder:\n\n%s" % sFolder)
+                        self.core.popup(
+                            "Missing permissions to create folder:\n\n%s" % sFolder
+                        )
                         return {}
                     else:
                         raise
 
+        shotDep = self.core.projects.getResolvedProjectStructurePath(
+            "departments", context=entity
+        )
+        shotProducts = self.core.projects.getResolvedProjectStructurePath(
+            "products", context=entity
+        )
+        shot3dRenders = self.core.projects.getResolvedProjectStructurePath(
+            "3drenders", context=entity
+        )
+        shot2dRenders = self.core.projects.getResolvedProjectStructurePath(
+            "2drenders", context=entity
+        )
+        shotPlayblasts = self.core.projects.getResolvedProjectStructurePath(
+            "playblasts", context=entity
+        )
+        shotFolders = [
+            os.path.dirname(shotDep),
+            os.path.dirname(shotProducts),
+            os.path.dirname(shot3dRenders),
+            os.path.dirname(shot2dRenders),
+            os.path.dirname(shotPlayblasts),
+        ]
+
+        for shotFolder in shotFolders:
+            while "@" in os.path.basename(shotFolder):
+                shotFolder = os.path.dirname(shotFolder)
+
+            if not os.path.exists(shotFolder):
+                os.makedirs(shotFolder)
+
         if frameRange:
-            self.core.setConfig("shotRanges", shotName, frameRange, config="shotinfo")
+            self.setShotRange(entity, frameRange[0], frameRange[1])
 
         if not existed:
-            shotName, seqName = self.core.entities.splitShotname(shotName)
-
-            self.core.callback(
-                name="onShotCreated", types=["custom"], args=[self, seqName, shotName]
-            )
+            self.core.callback(name="onShotCreated", args=[self, entity])
 
         result = {
-            "entity": "shot",
-            "entityName": shotName,
+            "entity": entity,
             "entityPath": sBase,
             "existed": existed,
         }
@@ -468,28 +631,16 @@ class ProjectEntities(object):
         return result
 
     @err_catcher(name=__name__)
-    def createStep(
-        self, stepName, entity="shot", entityName="", stepPath="", createCat=True
-    ):
+    def createDepartment(self, department, entity, stepPath="", createCat=True):
         if not stepPath:
-            if entity == "asset":
-                entityName = self.getAssetPathFromAssetName(entityName)
-                if not entityName:
-                    msg = "Asset '%s' doesn't exist. Could not create step." % entityName
-                    self.core.popup(msg)
-                    return
-
-                stepPath = self.core.getEntityPath(asset=entityName, step=stepName)
-
-            elif entity == "shot":
-                stepPath = self.core.getEntityPath(shot=entityName, step=stepName)
+            stepPath = self.core.getEntityPath(entity=entity, step=department)
 
         if not os.path.exists(stepPath):
             existed = False
             try:
                 os.makedirs(stepPath)
             except:
-                self.core.popup("The directory %s could not be created" % stepName)
+                self.core.popup("The department %s could not be created.\n\n%s" % (department, stepPath))
                 return False
         else:
             existed = True
@@ -497,7 +648,7 @@ class ProjectEntities(object):
 
         settings = {
             "createDefaultCategory": (
-                entity == "shot"
+                entity["type"] == "shot"
                 or self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")
                 != "lower"
             )
@@ -505,47 +656,66 @@ class ProjectEntities(object):
         }
 
         self.core.callback(
-            name="onStepCreated",
-            types=["custom"],
-            args=[self, entity, stepName, stepPath, settings],
+            name="onDepartmentCreated",
+            args=[self, entity, department, stepPath, settings],
         )
 
         if not existed:
-            logger.debug("step created %s" % stepPath)
+            logger.debug("department created %s" % stepPath)
 
         if settings["createDefaultCategory"]:
-            paths = self.createDefaultCat(entity, entityName, stepName)
+            paths = self.createDefaultCat(entity, department)
             return paths
 
         return stepPath
 
     @err_catcher(name=__name__)
-    def createDefaultCat(self, entity, entityName, step):
-        existingSteps = self.core.getConfig(
-                            "globals", "pipeline_steps", configPath=self.core.prismIni
-                        )
-        if step not in existingSteps:
-            msgStr = "Step '%s' doesn't exist in the project config. Couldn't create default category." % step
-            self.core.popup(msgStr)
+    def getLongDepartmentName(self, entity, abbreviation):
+        if entity == "asset":
+            deps = self.core.projects.getAssetDepartments()
+        elif entity in ["shot", "sequence"]:
+            deps = self.core.projects.getShotDepartments()
+
+        fullNames = [dep["name"] for dep in deps if dep["abbreviation"] == abbreviation]
+        if fullNames:
+            return fullNames[0]
+
+    @err_catcher(name=__name__)
+    def getDefaultTasksForDepartment(self, entity, department):
+        if entity == "asset":
+            existingDeps = self.core.projects.getAssetDepartments()
+        elif entity in ["shot", "sequence"]:
+            existingDeps = self.core.projects.getShotDepartments()
+
+        if department not in [d["abbreviation"] for d in existingDeps]:
+            msgStr = (
+                "Department '%s' doesn't exist in the project config. Couldn't get default task."
+                % department
+            )
+            logger.debug(msgStr)
             return
 
-        categories = existingSteps[step]
-        if not isinstance(categories, list):
-            categories = [categories]
+        tasks = [d for d in existingDeps if d["abbreviation"] == department][0]["defaultTasks"]
+        if not isinstance(tasks, list):
+            tasks = [tasks]
+
+        return tasks
+
+    @err_catcher(name=__name__)
+    def createDefaultCat(self, entity, step):
+        tasks = self.getDefaultTasksForDepartment(entity["type"], step)
+        if not tasks:
+            return
 
         paths = []
-        for category in categories:
-            paths.append(self.createCategory(entity, entityName, step, category))
+        for category in tasks:
+            paths.append(self.createCategory(entity, step, category))
 
         return paths
 
     @err_catcher(name=__name__)
-    def createCategory(self, entity, entityName, step, category):
-        if entity == "asset":
-            catPath = self.core.getEntityPath(asset=entityName, step=step, category=category)
-        elif entity == "shot":
-            catPath = self.core.getEntityPath(shot=entityName, step=step, category=category)
-
+    def createCategory(self, entity, step, category):
+        catPath = self.core.getEntityPath(entity=entity, step=step, category=category)
         if not os.path.exists(catPath):
             try:
                 os.makedirs(catPath)
@@ -554,35 +724,91 @@ class ProjectEntities(object):
                 return
             else:
                 self.core.callback(
-                    name="onCategoryCreated",
-                    types=["custom"],
+                    name="onTaskCreated",
                     args=[self, category, catPath],
                 )
 
-            logger.debug("category created %s" % catPath)
+            logger.debug("task created %s" % catPath)
         else:
-            logger.debug("category already exists: %s" % catPath)
+            logger.debug("task already exists: %s" % catPath)
 
         return catPath
 
     @err_catcher(name=__name__)
-    def omitEntity(self, entityType, entityName, omit=True):
-        if entityType == "assetFolder":
+    def getTaskDataPath(self, entity, department, task):
+        taskPath = self.core.getEntityPath(entity=entity, step=department, category=task)
+        filename = "info" + self.core.configs.getProjectExtension()
+        infoPath = os.path.join(taskPath, filename)
+        return infoPath
+
+    @err_catcher(name=__name__)
+    def getTaskData(self, entity, department, task):
+        infoPath = self.getTaskDataPath(entity, department, task)
+        data = self.core.getConfig(configPath=infoPath)
+        return data
+
+    @err_catcher(name=__name__)
+    def setTaskData(self, entity, department, task, key, val):
+        infoPath = self.getTaskDataPath(entity, department, task)
+        self.core.setConfig(key, val=val, configPath=infoPath)
+        return True
+
+    @err_catcher(name=__name__)
+    def omitEntity(self, entity, omit=True):
+        if entity["type"] == "assetFolder":
             entityType = "asset"
+        else:
+            entityType = entity["type"]
 
+        if entityType == "asset":
+            entityName = entity["asset_path"]
+        elif entityType == "shot":
+            entityName = self.core.entities.getShotName(entity)
+
+        omits = self.core.getConfig(entityType, config="omit")
         if omit:
-            omits = self.core.getConfig(entityType, config="omit") or []
+            if entityType == "asset":
+                if not omits:
+                    omits = []
 
-            if entityName not in omits:
-                omits.append(entityName)
+                if entityName not in omits:
+                    omits.append(entityName)
+            elif entityType == "shot":
+                if not omits:
+                    omits = {}
+
+                if not entity["sequence"] in omits:
+                    omits[entity["sequence"]] = []
+
+                if entity["shot"] not in omits[entity["sequence"]]:
+                    omits[entity["sequence"]].append(entity["shot"])
 
             self.core.setConfig(entityType, val=omits, config="omit")
             logger.debug("omitted %s %s" % (entityType, entityName))
         else:
-            self.core.setConfig(entityType, entityName, config="omit", delete=True)
+            if not omits:
+                return False
+
+            if entityType == "asset":
+                if entityName not in omits:
+                    return False
+
+                omits.remove(entityName)
+
+            elif entityType == "shot":
+                if entity["sequence"] not in omits:
+                    return False
+
+                if entity["shot"] not in omits[entity["sequence"]]:
+                    return False
+
+                omits[entity["sequence"]].remove(entity["shot"])
+
+            self.core.setConfig(entityType, val=omits, config="omit")
             logger.debug("restored %s %s" % (entityType, entityName))
 
         self.refreshOmittedEntities()
+        return True
 
     @err_catcher(name=__name__)
     def setComment(self, filepath, comment):
@@ -590,23 +816,167 @@ class ProjectEntities(object):
         data = self.core.getScenefileData(filepath)
 
         if self.core.useLocalFiles:
-            localPath = filepath.replace(self.core.projectPath, self.core.localProjectPath)
+            localPath = filepath.replace(
+                self.core.projectPath, self.core.localProjectPath
+            )
             if os.path.exists(localPath):
                 localData = self.core.getScenefileData(localPath)
-                del localData["filename"]
-                del localData["fullEntityName"]
-                localData["comment"] = comment
-                newPath = self.core.generateScenePath(**localData)
-                self.core.copySceneFile(localPath, newPath, mode="move")
+                scenedata = {"entity": localData}
+                if "department" in localData:
+                    scenedata["department"] = localData["department"]
+
+                if "task" in localData:
+                    scenedata["task"] = localData["task"]
+
+                if "extension" in localData:
+                    scenedata["extension"] = localData["extension"]
+
+                if "version" in localData:
+                    scenedata["version"] = localData["version"]
+
+                if "user" in localData:
+                    scenedata["user"] = localData["user"]
+
+                scenedata["comment"] = comment
+                if "department" in localData:
+                    newPath = self.core.generateScenePath(**scenedata)
+                    self.core.copySceneFile(localPath, newPath, mode="move")
+                else:
+                    newPath = localPath
+
+                self.setScenefileInfo(newPath, "comment", comment)
 
         if os.path.exists(filepath):
-            data["comment"] = comment
-            del data["filename"]
-            del data["fullEntityName"]
-            newPath = self.core.generateScenePath(**data)
-            self.core.copySceneFile(filepath, newPath, mode="move")
+            scenedata = {"entity": data}
+            if "department" in data:
+                scenedata["department"] = data["department"]
+
+            if "task" in data:
+                scenedata["task"] = data["task"]
+
+            if "extension" in data:
+                scenedata["extension"] = data["extension"]
+
+            if "version" in data:
+                scenedata["version"] = data["version"]
+
+            if "user" in data:
+                scenedata["user"] = data["user"]
+
+            scenedata["comment"] = comment
+            if "department" in data:
+                newPath = self.core.generateScenePath(**scenedata)
+                self.core.copySceneFile(filepath, newPath, mode="move")
+            else:
+                newPath = filepath
+
+            self.setScenefileInfo(newPath, "comment", comment)
 
         return newPath
+
+    @err_catcher(name=__name__)
+    def setDescription(self, filepath, description):
+        self.setScenefileInfo(filepath, "description", description)
+
+    @err_catcher(name=__name__)
+    def getAssetDescription(self, assetName):
+        assetFile = os.path.join(
+            self.core.projects.getPipelineFolder(),
+            "Assetinfo",
+            "assetInfo" + self.core.configs.getProjectExtension(),
+        )
+
+        description = ""
+
+        assetInfos = self.core.getConfig(configPath=assetFile)
+        if not assetInfos:
+            assetInfos = {}
+
+        if assetName in assetInfos and "description" in assetInfos[assetName]:
+            description = assetInfos[assetName]["description"]
+
+        return description
+
+    @err_catcher(name=__name__)
+    def setAssetDescription(self, assetName, description):
+        assetFile = os.path.join(
+            self.core.projects.getPipelineFolder(),
+            "Assetinfo",
+            "assetInfo" + self.core.configs.getProjectExtension(),
+        )
+        assetInfos = self.core.getConfig(configPath=assetFile)
+        if not assetInfos:
+            assetInfos = {}
+
+        if assetName not in assetInfos:
+            assetInfos[assetName] = {}
+
+        assetInfos[assetName]["description"] = description
+
+        self.core.setConfig(data=assetInfos, configPath=assetFile)
+
+    @err_catcher(name=__name__)
+    def getMetaData(self, entity):
+        metadata = {}
+        if not entity:
+            return metadata
+
+        if entity.get("type") == "asset":
+            data = self.core.getConfig(config="assetinfo") or {}
+            if "assets" not in data:
+                return metadata
+
+            if "asset_path" not in entity:
+                return metadata
+
+            entityName = self.core.entities.getAssetNameFromPath(entity["asset_path"])
+            if entityName not in data["assets"]:
+                return metadata
+
+            metadata = data["assets"][entityName].get("metadata", {})
+
+        elif entity.get("type") == "shot":
+            data = self.core.getConfig(config="shotinfo") or {}
+            if "shots" not in data:
+                return metadata
+
+            if entity["sequence"] not in data["shots"]:
+                return metadata
+
+            if entity["shot"] not in data["shots"][entity["sequence"]]:
+                return metadata
+
+            metadata = data["shots"][entity["sequence"]][entity["shot"]].get("metadata", {})
+
+        return metadata
+
+    @err_catcher(name=__name__)
+    def setMetaData(self, entity, metaData):
+        if entity["type"] == "asset":
+            data = self.core.getConfig(config="assetinfo") or {}
+            if "assets" not in data:
+                data["assets"] = {}
+
+            entityName = self.core.entities.getAssetNameFromPath(entity["asset_path"])
+            if entityName not in data["assets"]:
+                data["assets"][entityName] = {}
+
+            data["assets"][entityName]["metadata"] = metaData
+            self.core.setConfig(data=data, config="assetinfo", updateNestedData=False)
+
+        elif entity["type"] == "shot":
+            data = self.core.getConfig(config="shotinfo") or {}
+            if "shots" not in data:
+                data["shots"] = {}
+
+            if entity["sequence"] not in data["shots"]:
+                data["shots"][entity["sequence"]] = {}
+
+            if entity["shot"] not in data["shots"][entity["sequence"]]:
+                data["shots"][entity["sequence"]][entity["shot"]] = {}
+
+            data["shots"][entity["sequence"]][entity["shot"]]["metadata"] = metaData
+            self.core.setConfig(data=data, config="shotinfo", updateNestedData=False)
 
     @err_catcher(name=__name__)
     def deleteShot(self, shotName):
@@ -623,11 +993,61 @@ class ProjectEntities(object):
                         shutil.rmtree(lShotPath)
                 break
             except Exception as e:
+                msg = (
+                    'Permission denied.\nAnother programm uses files in the shotfolder.\n\nThe shot "%s" could not be deleted completly.\n\n%s'
+                    % (shotName, str(e)),
+                )
+                result = self.core.popupQuestion(msg, buttons=["Retry", "Cancel"])
+                if result == "Cancel":
+                    self.core.popup("Deleting shot canceled.")
+                    break
+
+    @err_catcher(name=__name__)
+    def renameSequence(self, curSeqName, newSeqName, locations=None):
+        seqFolder = os.path.normpath(self.core.getEntityPath(entity={"type": "sequence", "sequence": curSeqName}))
+        newSeqFolder = os.path.normpath(self.core.getEntityPath(entity={"type": "sequence", "sequence": newSeqName}))
+        seqFolders = {}
+        if not locations or "global" in locations:
+            seqFolders[seqFolder] = newSeqFolder
+
+        if self.core.useLocalFiles:
+            if not locations or "local" in locations:
+                lSeqFolder = seqFolder.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+                newLSeqFolder = newSeqFolder.replace(
+                    self.core.projectPath, self.core.localProjectPath
+                )
+                seqFolders[lSeqFolder] = newLSeqFolder
+
+        curShots = self.getShotsFromSequence(curSeqName)
+
+        while True:
+            try:
+                for k in seqFolders:
+                    if os.path.exists(k):
+                        os.rename(k, seqFolders[k])
+
+                    cwd = os.getcwd()
+                    for i in os.walk(seqFolders[k]):
+                        os.chdir(i[0])
+                        for k in i[1]:
+                            if curSeqName in k:
+                                os.rename(k, k.replace(curSeqName, newSeqName))
+                        for k in i[2]:
+                            if curSeqName in k:
+                                os.rename(k, k.replace(curSeqName, newSeqName))
+                    os.chdir(cwd)
+
+                break
+
+            except Exception as e:
+                logger.debug(e)
                 msg = QMessageBox(
                     QMessageBox.Warning,
                     "Warning",
-                    'Permission denied.\nAnother programm uses files in the shotfolder.\n\nThe shot "%s" could not be deleted completly.\n\n%s'
-                    % (shotName, str(e)),
+                    'Permission denied.\nAnother programm uses files in the sequencefolder.\n\nThe sequence "%s" could not be renamed to "%s" completly.\n\n%s'
+                    % (curSeqName, curSeqName, str(e)),
                     QMessageBox.Cancel,
                 )
                 msg.addButton("Retry", QMessageBox.YesRole)
@@ -635,13 +1055,35 @@ class ProjectEntities(object):
                 action = msg.exec_()
 
                 if action != 0:
-                    self.core.popup("Deleting shot canceled.")
-                    break
+                    self.core.popup("Renaming sequence canceled.")
+                    return
+
+        for curShot in curShots:
+            oldPrvPath = self.getEntityPreviewPath(curShot)
+            newShot = curShot.copy()
+            newShot["sequence"] = newSeqName
+            newPrvPath = self.getEntityPreviewPath(newShot)
+            if os.path.exists(oldPrvPath):
+                os.rename(oldPrvPath, newPrvPath)
+
+        curRange = self.core.getConfig("shotRanges", config="shotinfo")
+        if curRange and curSeqName in curRange:
+            cursRange = curRange[curSeqName]
+            del curRange[curSeqName]
+            curRange[newSeqName] = cursRange
+            self.core.setConfig("shotRanges", val=curRange, config="shotinfo")
+
+        curRange = self.core.getConfig("shots", config="shotinfo")
+        if curRange and curSeqName in curRange:
+            cursRange = curRange[curSeqName]
+            del curRange[curSeqName]
+            curRange[newSeqName] = cursRange
+            self.core.setConfig("shots", val=curRange, config="shotinfo")
 
     @err_catcher(name=__name__)
-    def renameShot(self, curShotName, newShotName, locations=None):
-        shotFolder = os.path.normpath(self.core.getEntityPath(shot=curShotName))
-        newShotFolder = os.path.normpath(self.core.getEntityPath(shot=newShotName))
+    def renameShot(self, curShotData, newShotData, locations=None):
+        shotFolder = os.path.normpath(self.core.getEntityPath(entity=curShotData))
+        newShotFolder = os.path.normpath(self.core.getEntityPath(entity=newShotData))
         shotFolders = {}
         if not locations or "global" in locations:
             shotFolders[shotFolder] = newShotFolder
@@ -666,30 +1108,27 @@ class ProjectEntities(object):
                     for i in os.walk(shotFolders[k]):
                         os.chdir(i[0])
                         for k in i[1]:
-                            if curShotName in k:
-                                os.rename(k, k.replace(curShotName, newShotName))
+                            if curShotData["shot"] in k:
+                                os.rename(k, k.replace(curShotData["shot"], newShotData["shot"]))
                         for k in i[2]:
-                            if curShotName in k:
-                                os.rename(k, k.replace(curShotName, newShotName))
+                            if curShotData["shot"] in k:
+                                os.rename(k, k.replace(curShotData["shot"], newShotData["shot"]))
                     os.chdir(cwd)
 
-                prvPath = os.path.join(
-                    os.path.dirname(self.core.prismIni),
-                    "Shotinfo",
-                    "%s_preview.jpg" % curShotName,
-                )
-                if os.path.exists(prvPath):
-                    os.chdir(os.path.dirname(prvPath))
-                    os.rename(curShotName + "_preview.jpg", newShotName + "_preview.jpg")
+                oldPrvPath = self.getEntityPreviewPath(curShotData)
+                newPrvPath = self.getEntityPreviewPath(newShotData)
+                if os.path.exists(oldPrvPath):
+                    os.rename(oldPrvPath, newPrvPath)
 
                 break
 
             except Exception as e:
+                logger.debug(e)
                 msg = QMessageBox(
                     QMessageBox.Warning,
                     "Warning",
                     'Permission denied.\nAnother programm uses files in the shotfolder.\n\nThe shot "%s" could not be renamed to "%s" completly.\n\n%s'
-                    % (curShotName, newShotName, str(e)),
+                    % (self.getShotName(curShotData), self.getShotName(newShotData), str(e)),
                     QMessageBox.Cancel,
                 )
                 msg.addButton("Retry", QMessageBox.YesRole)
@@ -700,32 +1139,73 @@ class ProjectEntities(object):
                     self.core.popup("Renaming shot canceled.")
                     return
 
-        curRange = self.core.getConfig("shotRanges", curShotName, config="shotinfo")
-        if curRange:
-            self.core.setConfig("shotRanges", newShotName, curRange, config="shotinfo")
-        self.core.setConfig("shotRanges", curShotName, delete=True, config="shotinfo")
+        curRange = self.core.getConfig("shotRanges", curShotData["sequence"], config="shotinfo")
+        if curRange and curShotData["shot"] in curRange:
+            cursRange = curRange[curShotData["shot"]]
+            del curRange[curShotData["shot"]]
+            curRange[newShotData["shot"]] = cursRange
+            self.core.setConfig("shotRanges", curShotData["sequence"], curRange, config="shotinfo")
+
+        curRange = self.core.getConfig("shots", curShotData["sequence"], config="shotinfo")
+        if curRange and curShotData["shot"] in curRange:
+            cursRange = curRange[curShotData["shot"]]
+            del curRange[curShotData["shot"]]
+            curRange[newShotData["shot"]] = cursRange
+            self.core.setConfig("shots", curShotData["sequence"], curRange, config="shotinfo")
 
     @err_catcher(name=__name__)
-    def getTypeFromPath(self, path):
+    def getAssetSubFolders(self):
+        subfolders = []
+
+        template = self.core.projects.getTemplatePath("departments")
+        template = template.replace("\\", "/")
+        sceneFolder = template.split("/")[1]
+        if sceneFolder:
+            subfolders.append(sceneFolder)
+
+        template = self.core.projects.getTemplatePath("products")
+        template = template.replace("\\", "/")
+        productFolder = template.split("/")[1]
+        if productFolder:
+            subfolders.append(productFolder)
+
+        template = self.core.projects.getTemplatePath("3drenders")
+        template = template.replace("\\", "/")
+        renderFolder = template.split("/")[1]
+        if renderFolder:
+            subfolders.append(renderFolder)
+
+        template = self.core.projects.getTemplatePath("playblasts")
+        template = template.replace("\\", "/")
+        playblastFolder = template.split("/")[1]
+        if playblastFolder:
+            subfolders.append(playblastFolder)
+
+        return subfolders
+
+    @err_catcher(name=__name__)
+    def getTypeFromPath(self, path, content=None):
         if not os.path.exists(path):
             return
 
-        dirContent = os.listdir(path)
+        if content is None:
+            content = os.listdir(path)
 
-        if self.core.getConfig("globals", "useStrictAssetDetection", dft=False, config="project"):
-            isAsset = (
-                "Export" in dirContent
-                and "Playblasts" in dirContent
-                and "Rendering" in dirContent
-                and "Scenefiles" in dirContent
-            )
+        subfolders = self.getAssetSubFolders()
+
+        if self.core.getConfig(
+            "globals", "useStrictAssetDetection", dft=False, config="project"
+        ):
+            isAsset = True
+            for folder in subfolders:
+                if folder not in content:
+                    isAsset = False
+
         else:
-            isAsset = (
-                "Export" in dirContent
-                or "Playblasts" in dirContent
-                or "Rendering" in dirContent
-                or "Scenefiles" in dirContent
-            )
+            isAsset = False
+            for folder in subfolders:
+                if folder in content:
+                    isAsset = True
 
         if isAsset:
             return "asset"
@@ -733,8 +1213,24 @@ class ProjectEntities(object):
             return "folder"
 
     @err_catcher(name=__name__)
+    def getAsset(self, assetName):
+        fullAssetPath = os.path.join(self.core.assetPath, assetName)
+        existed = os.path.exists(fullAssetPath)
+        if existed:
+            return {"type": "asset", "asset_path": assetName}
+        else:
+            return
+
+    @err_catcher(name=__name__)
+    def getAssets(self):
+        assets = []
+        paths = self.getAssetPaths()
+        assets = [{"type": "asset", "asset_path": self.getAssetRelPathFromPath(p)} for p in paths]
+        return assets
+
+    @err_catcher(name=__name__)
     def getAssetPaths(self, path=None, returnFolders=False, depth=0):
-        aBasePath = path or self.core.getAssetPath()
+        aBasePath = path or self.core.assetPath
         assets = []
         assetFolders = []
 
@@ -747,8 +1243,10 @@ class ProjectEntities(object):
                     if depth == 1:
                         assetFolders.append(folderPath)
                     else:
-                        nextDepth = 0 if depth == 0 else (depth-1)
-                        childAssets, childFolders = self.getAssetPaths(path=folderPath, returnFolders=True, depth=nextDepth)
+                        nextDepth = 0 if depth == 0 else (depth - 1)
+                        childAssets, childFolders = self.getAssetPaths(
+                            path=folderPath, returnFolders=True, depth=nextDepth
+                        )
                         if childAssets or childFolders:
                             assets += childAssets
                             assetFolders += childFolders
@@ -788,9 +1286,9 @@ class ProjectEntities(object):
             if path in assetPaths:
                 assetPath = path
             else:
-                for i in assetPaths:
-                    if os.path.basename(i) == assetName:
-                        assetPath = i
+                for assetPath in assetPaths:
+                    if os.path.basename(assetPath) == assetName:
+                        assetPath = assetPath
                         break
                 else:
                     return
@@ -817,6 +1315,7 @@ class ProjectEntities(object):
 
             if filterStr.lower() in assetPath.lower():
                 filteredPaths.append(absAssetPath)
+
         return filteredPaths
 
     @err_catcher(name=__name__)
@@ -830,16 +1329,6 @@ class ProjectEntities(object):
         return filteredPaths
 
     @err_catcher(name=__name__)
-    def getExportProductNamesFromAsset(self, assetPath):
-        productPath = self.core.products.getProductPathFromEntityPath(assetPath)
-        pnames = []
-        for root, folders, files in os.walk(productPath):
-            pnames += folders
-            break
-
-        return pnames
-
-    @err_catcher(name=__name__)
     def isAssetPathOmitted(self, assetPath):
         isOmitted = not bool(self.filterOmittedAssets([assetPath]))
         return isOmitted
@@ -849,7 +1338,7 @@ class ProjectEntities(object):
         if self.core.getConfig("globals", "useStrictAssetDetection"):
             return True
         else:
-            return assetName not in ["Export", "Playblasts", "Rendering", "Scenefiles"]
+            return assetName not in self.getAssetSubFolders()
 
     @err_catcher(name=__name__)
     def getAssetNameFromPath(self, path):
@@ -861,110 +1350,91 @@ class ProjectEntities(object):
         return path.replace(self.core.assetPath, "").strip("\\").strip("/")
 
     @err_catcher(name=__name__)
-    def getScenefileData(self, fileName):
-        fname = os.path.basename(fileName).split(self.core.filenameSeparator)
-        data = {}
-        try:
-            data["basePath"] = os.path.dirname(fileName)
-        except:
-            pass
+    def getScenefileData(self, fileName, preview=False):
+        data = self.core.getConfig(configPath=self.getScenefileInfoPath(fileName)) or {}
+        data = dict(data)
+        if not data and fileName:
+            entityType = self.core.paths.getEntityTypeFromPath(fileName)
+            key = None
+            if entityType == "asset":
+                key = "assetScenefiles"
+            elif entityType == "shot":
+                key = "shotScenefiles"
 
-        data["filename"] = fileName
+            if key:
+                template = self.core.projects.getTemplatePath(key)
+                data["type"] = entityType
+                data["entityType"] = entityType
+                data = self.core.projects.extractKeysFromPath(fileName, template, context=data)
+                if data.get("asset_path"):
+                    data["asset"] = os.path.basename(data["asset_path"])
 
-        if len(fname) == 6:
-            basepath = self.core.paths.getEntityBasePath(fileName)
-            relpath = self.getAssetRelPathFromPath(basepath)
-            data.update({
-                "entity": "asset",
-                "entityName": fname[0],
-                "fullEntityName": relpath,
-                "step": fname[1],
-                "category": "",
-                "version": fname[2],
-                "comment": fname[3],
-                "user": fname[4],
-                "extension": fname[5],
-            })
+        if fileName:
+            data["filename"] = fileName
+            data["extension"] = os.path.splitext(fileName)[1]
 
-        elif len(fname) == 7:
-            basepath = self.core.paths.getEntityBasePath(fileName)
-            relpath = self.getAssetRelPathFromPath(basepath)
-            data.update({
-                "entity": "asset",
-                "entityName": fname[0],
-                "fullEntityName": relpath,
-                "step": fname[1],
-                "category": fname[2],
-                "version": fname[3],
-                "comment": fname[4],
-                "user": fname[5],
-                "extension": fname[6],
-            })
+        if "type" not in data:
+            etype = self.core.paths.getEntityTypeFromPath(fileName)
+            if etype:
+                data["type"] = etype
 
-        elif len(fname) == 8:
-            data.update({
-                "entity": "shot",
-                "entityName": fname[1],
-                "fullEntityName": fname[1],
-                "step": fname[2],
-                "category": fname[3],
-                "version": fname[4],
-                "comment": fname[5],
-                "user": fname[6],
-                "extension": fname[7],
-            })
-
-        else:
-            data.update({"entity": "invalid"})
+        if preview:
+            prvPath = os.path.splitext(fileName)[0] + "preview.jpg"
+            if os.path.exists(prvPath):
+                data["preview"] = prvPath
 
         return data
 
     @err_catcher(name=__name__)
+    def getScenePreviewPath(self, scenepath):
+        return os.path.splitext(scenepath)[0] + "preview.jpg"
+
+    @err_catcher(name=__name__)
+    def setScenePreview(self, scenepath, preview):
+        prvPath = self.getScenePreviewPath(scenepath)
+        self.core.media.savePixmap(preview, prvPath)
+
+    @err_catcher(name=__name__)
+    def getScenefileInfoPath(self, scenePath):
+        return (
+            os.path.splitext(scenePath)[0]
+            + "versioninfo"
+            + self.core.configs.getProjectExtension()
+        )
+
+    @err_catcher(name=__name__)
+    def setScenefileInfo(self, scenePath, key, value):
+        infoPath = self.getScenefileInfoPath(scenePath)
+
+        sceneInfo = {}
+        if os.path.exists(infoPath):
+            sceneInfo = self.core.getConfig(configPath=infoPath) or {}
+
+        sceneInfo[key] = value
+        self.core.setConfig(data=sceneInfo, configPath=infoPath)
+
+    @err_catcher(name=__name__)
     def getHighestVersion(
         self,
-        dstname,
-        scenetype=None,
+        entity,
+        department,
+        task,
         getExistingPath=False,
         fileTypes="*",
         localVersions=True,
         getExistingVersion=False,
     ):
-        if not scenetype:
-            glbDstname = dstname
-            assetPath = self.core.getAssetPath()
-            shotPath = self.core.getShotPath()
-
-            if self.core.useLocalFiles:
-                glbDstname = self.core.convertPath(dstname, "global")
-
-            if glbDstname.startswith(assetPath):
-                scenetype = "asset"
-            elif glbDstname.startswith(shotPath):
-                scenetype = "shot"
-            else:
-                return
-
-        files = []
-        if self.core.useLocalFiles and localVersions:
-            dstname = self.core.convertPath(dstname, "global")
-
-        for i in os.walk(dstname):
-            files += [os.path.join(i[0], x) for x in i[2]]
-            break
-
-        if self.core.useLocalFiles and localVersions:
-            for i in os.walk(self.core.convertPath(dstname, "local")):
-                files += [os.path.join(i[0], x) for x in i[2]]
-                break
-
-        highversion = [0, ""]
-        for i in files:
-            if fileTypes != "*" and os.path.splitext(i)[1] not in fileTypes:
+        scenefiles = self.getScenefiles(entity=entity, step=department, category=task)
+        highversion = [None, ""]
+        for scenefile in scenefiles:
+            if fileTypes != "*" and os.path.splitext(scenefile)[1] not in fileTypes:
                 continue
 
-            fname = self.core.getScenefileData(i)
+            if not self.isValidScenefilename(scenefile):
+                continue
 
-            if fname["entity"] != scenetype.lower():
+            fname = self.core.getScenefileData(scenefile)
+            if fname.get("type") != entity.get("type"):
                 continue
 
             try:
@@ -972,204 +1442,120 @@ class ProjectEntities(object):
             except:
                 continue
 
-            if version > highversion[0]:
-                highversion = [version, i]
+            if highversion[0] is None or version > highversion[0]:
+                highversion = [version, scenefile]
 
         if getExistingVersion:
             return highversion
         elif getExistingPath:
             return highversion[1]
         else:
-            return self.core.versionFormat % (highversion[0] + 1)
-
-    @err_catcher(name=__name__)
-    def getHighestTaskVersion(self, dstname, getExisting=False, ignoreEmpty=False):
-        taskDirs = []
-        dstname = os.path.normpath(dstname)
-        if os.path.normpath("Rendering/3dRender") in dstname or os.path.normpath("Rendering/2dRender") in dstname:
-            outPaths = self.core.paths.getRenderProductBasePaths().values()
-        else:
-            outPaths = self.core.paths.getExportProductBasePaths().values()
-
-        for path in outPaths:
-            dstname = dstname.replace(path, self.core.projectPath)
-
-        for path in outPaths:
-            opath = dstname.replace(self.core.projectPath, path)
-            for i in os.walk(opath):
-                if ignoreEmpty:
-                    for k in i[1]:
-                        exFiles = os.listdir(os.path.join(i[0], k))
-                        if len(exFiles) > 1 or (
-                            len(exFiles) == 1 and not exFiles[0].startswith("versioninfo")
-                        ):
-                            taskDirs.append(k)
-                else:
-                    taskDirs += i[1]
-                break
-
-        highversion = 0
-        for i in taskDirs:
-            fname = i.split(self.core.filenameSeparator)
-
-            if len(fname) in [1, 2, 3]:
-                try:
-                    version = int(fname[0][1:(1+self.core.versionPadding)])
-                except:
-                    continue
-
-                if version > highversion:
-                    highversion = version
-
-        if not getExisting and not self.core.separateOutputVersionStack:
-            fileName = self.core.getCurrentFileName()
-            fnameData = self.core.getScenefileData(fileName)
-            if fnameData["entity"] != "invalid":
-                hVersion = fnameData["version"]
+            if highversion[0] is None:
+                return self.core.versionFormat % (self.core.lowestVersion)
             else:
-                hVersion = self.core.versionFormat % 1
-
-            return hVersion
-
-        if getExisting and highversion != 0:
-            return self.core.versionFormat % (highversion)
-        else:
-            return self.core.versionFormat % (highversion + 1)
+                return self.core.versionFormat % (highversion[0] + 1)
 
     @err_catcher(name=__name__)
-    def getLatestCompositingVersion(self, curPath):
-        curFile = os.path.basename(curPath)
-        passName = os.path.basename(os.path.dirname(curPath))
-
-        verNum = passName[1:5]
-        if sys.version[0] == "2":
-            verNum = unicode(verNum)
-
-        if passName.startswith("v") and verNum.isnumeric():
-            curVersion = passName[:5]
-            passName = ""
-            taskPath = os.path.dirname(os.path.dirname(curPath))
-        else:
-            curVersion = os.path.basename(os.path.dirname(os.path.dirname(curPath)))[:5]
-            taskPath = os.path.dirname(os.path.dirname(os.path.dirname(curPath)))
-
-        latestVersion = self.core.getHighestTaskVersion(
-            taskPath, getExisting=True, ignoreEmpty=True
-        )
-
-        newPath = ""
-        for k in os.listdir(taskPath):
-            if k.startswith(latestVersion):
-                newPath = os.path.join(taskPath, k, passName)
-                break
-
-        newPath = os.path.join(
-            newPath, curFile.replace(curVersion, latestVersion)
-        ).replace("\\", "/")
-
-        return newPath
-
-    @err_catcher(name=__name__)
-    def getTaskNames(self, taskType, basePath=""):
-        taskList = []
-
-        if basePath is None:
-            basePath = ""
-
-        if basePath == "":
-            fname = self.core.getCurrentFileName()
-            assetPath = self.core.paths.getEntityBasePath(fname)
-            shotPath = self.core.getShotPath()
-
-            if self.core.useLocalFiles:
-                assetPath = assetPath.replace(self.core.localProjectPath, self.core.projectPath)
-                lassetPath = assetPath.replace(self.core.projectPath, self.core.localProjectPath)
-                lshotPath = shotPath.replace(self.core.projectPath, self.core.localProjectPath)
-
-            fnameData = self.core.getScenefileData(fname)
-
-            if fnameData["entity"] == "asset" and (
-                assetPath in fname or (self.core.useLocalFiles and lassetPath in fname)
-            ):
-                basePath = assetPath
-
-            elif fnameData["entity"] == "shot" and (
-                shotPath in fname or (self.core.useLocalFiles and lshotPath in fname)
-            ):
-                basePath = os.path.join(shotPath, fnameData["entityName"])
-            else:
-                return taskList
-
-            catPath = os.path.join(basePath, "Scenefiles", fnameData["step"])
-
-        if self.core.useLocalFiles:
-            lbasePath = basePath.replace(self.core.projectPath, self.core.localProjectPath)
-
-        taskPath = ""
-
-        if basePath != "":
+    def getTaskNames(self, taskType=None, locations=None, context=None, key=None, taskname=None, addDepartments=True):
+        if key is None:
             if taskType == "export":
-                taskPath = os.path.join(basePath, "Export")
-                if "lbasePath" in locals():
-                    ltaskPath = os.path.join(lbasePath, "Export")
-            elif taskType == "render":
-                taskPath = os.path.join(basePath, "Rendering", "3dRender")
-                if "lbasePath" in locals():
-                    ltaskPath = os.path.join(lbasePath, "Rendering", "3dRender")
+                key = "products"
+            elif taskType == "3d":
+                key = "3drenders"
             elif taskType == "2d":
-                taskPath = os.path.join(basePath, "Rendering", "2dRender")
-                if "lbasePath" in locals():
-                    ltaskPath = os.path.join(lbasePath, "Rendering", "2dRender")
+                key = "2drenders"
             elif taskType == "playblast":
-                taskPath = os.path.join(basePath, "Playblasts")
-                if "lbasePath" in locals():
-                    ltaskPath = os.path.join(lbasePath, "Playblasts")
+                key = "playblasts"
             elif taskType == "external":
-                taskPath = os.path.join(basePath, "Rendering", "external")
-                if "lbasePath" in locals():
-                    ltaskPath = os.path.join(lbasePath, "Rendering", "external")
+                key = "externalMedia"
+            elif taskType == "textures":
+                key = "textures"
+            else:
+                raise Exception("Invalid taskType: %s" % taskType)
+
+        context = context or {}
+        fname = self.core.getCurrentFileName()
+        fnameData = self.core.getScenefileData(fname)
+        context.update(fnameData)
+        if "version" in context:
+            del context["version"]
+
+        if "type" in context:
+            departmentNames = self.getCategories(
+                context, step=context.get("department")
+            )
+        else:
+            departmentNames = []
+
+        if key == "products":
+            locations = self.core.paths.getExportProductBasePaths()
+        else:
+            locations = self.core.paths.getRenderProductBasePaths()
+
+        productDirs = []
+        for location in locations:
+            if locations is not None and location not in locations:
+                continue
+
+            productDir = {"location": location, "path": locations[location]}
+            productDirs.append(productDir)
+
+        productDicts = []
+        for productDir in productDirs:
+            context["project_path"] = productDir["path"]
+            template = self.core.projects.getResolvedProjectStructurePath(
+                key, context=context
+            )
+            productData = self.core.projects.getMatchingPaths(template)
+            productDicts += productData
 
         taskList = []
-        if os.path.exists(taskPath):
-            taskList = [
-                x
-                for x in os.listdir(taskPath)
-                if os.path.isdir(os.path.join(taskPath, x))
-            ]
+        for data in productDicts:
+            if taskname is None:
+                if key == "products":
+                    taskname = "product"
+                else:
+                    taskname = "identifier"
 
-        if self.core.useLocalFiles and "ltaskPath" in locals() and os.path.exists(ltaskPath):
-            taskList += [
-                x
-                for x in os.listdir(ltaskPath)
-                if x not in taskList and os.path.isdir(os.path.join(ltaskPath, x))
-            ]
+            taskList.append(data[taskname])
 
-        if "catPath" in locals() and os.path.exists(catPath):
-            taskList += [
-                x
-                for x in os.listdir(catPath)
-                if x not in taskList and os.path.isdir(os.path.join(catPath, x))
-            ]
+        if addDepartments:
+            taskList += departmentNames
 
+        taskList = list(set(taskList))
         return taskList
 
     @err_catcher(name=__name__)
-    def getEntityPreviewPath(self, entityType, entityName):
-        if entityType == "asset":
+    def getEntityPreviewPath(self, entity):
+        if entity["type"] == "asset":
             folderName = "Assetinfo"
-        elif entityType in ["shot", "sequence"]:
+            entityName = self.getAssetNameFromPath(entity.get("asset_path", ""))
+        elif entity["type"] in ["shot", "sequence"]:
             folderName = "Shotinfo"
+            if entity["type"] == "sequence":
+                entityName = "seq_%s" % entity["sequence"]
+            elif entity["type"] == "shot":
+                entityName = self.getShotName(entity)
 
-        if entityType == "sequence":
-            imgName = "seq_%s_preview.jpg" % entityName
-        else:
-            imgName = "%s_preview.jpg" % entityName
-
-        imgPath = os.path.join(os.path.dirname(self.core.prismIni), folderName, imgName)
+        imgName = "%s_preview.jpg" % entityName
+        imgPath = os.path.join(
+            self.core.projects.getPipelineFolder(), folderName, imgName
+        )
         return imgPath
 
     @err_catcher(name=__name__)
-    def setEntityPreview(self, entityType, entityName, pixmap, width=250, height=141):
+    def getEntityPreview(self, entity, width=None, height=None):
+        pm = None
+        imgPath = self.getEntityPreviewPath(entity)
+        if os.path.exists(imgPath):
+            pm = self.core.media.getPixmapFromPath(imgPath)
+            if width and height:
+                pm = self.core.media.scalePixmap(pm, width, height)
+
+        return pm
+
+    @err_catcher(name=__name__)
+    def setEntityPreview(self, entity, pixmap, width=250, height=141):
         if not pixmap:
             logger.debug("invalid pixmap")
             return
@@ -1179,15 +1565,23 @@ class ProjectEntities(object):
         else:
             pmsmall = pixmap.scaledToHeight(height)
 
-        prvPath = self.getEntityPreviewPath(entityType, entityName)
+        prvPath = self.getEntityPreviewPath(entity)
+        logger.debug("setting entity preview for: %s" % entity)
         self.core.media.savePixmap(pmsmall, prvPath)
+        return pmsmall
 
     @err_catcher(name=__name__)
     def getPresetScenes(self):
+        presetDir = os.path.join(self.core.projects.getPipelineFolder(), "PresetScenes")
+        presetScenes = self.getPresetScenesFromFolder(presetDir)
+        self.core.callback("getPresetScenes", args=[presetScenes])
+        return presetScenes
+
+    @err_catcher(name=__name__)
+    def getPresetScenesFromFolder(self, folder):
         presetScenes = []
-        emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
-        if os.path.exists(emptyDir):
-            for root, folders, files in os.walk(emptyDir):
+        if os.path.exists(folder):
+            for root, folders, files in os.walk(folder):
                 for filename in sorted(files):
                     if filename == "readme.txt":
                         continue
@@ -1195,23 +1589,72 @@ class ProjectEntities(object):
                     if filename.startswith(".") or filename.startswith("_"):
                         continue
 
-                    presetDir = root.replace(emptyDir, "")
-                    if presetDir:
-                        presetName = presetDir[1:].replace("\\", "/") + "/" + filename
+                    relPresetDir = root.replace(folder, "")
+                    if relPresetDir:
+                        presetName = (
+                            relPresetDir[1:].replace("\\", "/") + "/" + filename
+                        )
                     else:
                         presetName = filename
 
-                    presetScenes.append(presetName)
+                    presetName = os.path.splitext(presetName)[0]
+                    path = os.path.join(root, filename)
+                    presetScenes.append({"label": presetName, "path": path})
 
         return presetScenes
 
     @err_catcher(name=__name__)
-    def createEmptyScene(
+    def ingestScenefiles(self, files, entity, department, task, finishCallback=None, data=None, rename=True):
+        kwargs = {
+            "entity": entity,
+            "department": department,
+            "task": task,
+            "comment": "",
+            "user": self.core.user,
+        }
+        version = self.core.entities.getHighestVersion(entity, department, task)
+        kwargs["version"] = version
+        if data:
+            kwargs.update(data)
+
+        createdFiles = []
+        for file in files:
+            kwargs["extension"] = os.path.splitext(file)[1]
+            targetPath = self.core.paths.generateScenePath(**kwargs)
+            if self.core.useLocalFiles:
+                targetPath = self.core.convertPath(targetPath, target="local")
+
+            if not rename:
+                targetPath = os.path.join(os.path.dirname(targetPath), os.path.basename(file))
+
+            if not os.path.exists(os.path.dirname(targetPath)):
+                try:
+                    os.makedirs(os.path.dirname(targetPath))
+                except:
+                    self.core.popup("The directory could not be created")
+                    return
+
+            targetPath = targetPath.replace("\\", "/")
+
+            self.core.copyWithProgress(file, targetPath, finishCallback=finishCallback)
+            details = entity.copy()
+            details["department"] = department
+            details["task"] = task
+            details["user"] = kwargs["user"]
+            details["version"] = kwargs["version"]
+            details["comment"] = kwargs["comment"]
+            details["extension"] = kwargs["extension"]
+            self.core.saveSceneInfo(targetPath, details=details)
+            createdFiles.append(targetPath)
+            logger.debug("ingested scenefile: %s" % targetPath)
+
+        return createdFiles
+
+    @err_catcher(name=__name__)
+    def createSceneFromPreset(
         self,
         entity,
         fileName,
-        entityName=None,
-        assetPath=None,
         step=None,
         category=None,
         comment=None,
@@ -1220,48 +1663,42 @@ class ProjectEntities(object):
     ):
         ext = os.path.splitext(fileName)[1]
         comment = comment or ""
+        user = self.core.user
 
-        if entity == "asset":
-            entityPath = ""
-            if assetPath:
-                entityPath = os.path.join(self.core.getAssetPath(), assetPath)
-            else:
-                self.core.popup("Invalid asset:\n\n%s" % (entityPath or entityName))
-                return
-
-            filePath = self.core.generateScenePath(
-                "asset",
-                entityName,
-                step,
-                assetPath=assetPath,
-                category=category,
-                extension=ext,
-                comment=comment,
-                version=version,
-            )
-        elif entity == "shot":
-            filePath = self.core.generateScenePath(
-                "shot",
-                entityName,
-                step,
-                category=category,
-                extension=ext,
-                comment=comment,
-                version=version,
-            )
-        else:
-            self.core.popup("Invalid entity:\n\n%s" % entity)
+        if entity["type"] not in ["asset", "shot"]:
+            self.core.popup("Invalid entity:\n\n%s" % entity["type"])
             return
+
+        if not version:
+            version = self.core.entities.getHighestVersion(entity, step, category)
+
+        filePath = self.core.generateScenePath(
+            entity,
+            step,
+            task=category,
+            extension=ext,
+            comment=comment,
+            version=version,
+            user=user,
+        )
 
         if os.path.isabs(fileName):
             scene = fileName
         else:
             scene = os.path.join(
-                os.path.dirname(self.core.prismIni), "EmptyScenes", fileName
+                self.core.projects.getPipelineFolder(), "PresetScenes", fileName
             )
 
         if location == "local" and self.core.useLocalFiles:
             filePath = self.core.convertPath(filePath, "local")
+
+        if os.path.exists(filePath):
+            msg = (
+                "Skipped creating a new version from preset.\nThe filepath exists already:\n\n%s"
+                % filePath
+            )
+            self.core.popup(msg)
+            return
 
         if not os.path.exists(os.path.dirname(filePath)):
             try:
@@ -1276,22 +1713,28 @@ class ProjectEntities(object):
         filePath = filePath.replace("\\", "/")
 
         shutil.copyfile(scene, filePath)
-        self.core.saveSceneInfo(filePath)
+        details = entity.copy()
+        details["department"] = step
+        details["task"] = category
+        details["user"] = user
+        details["version"] = version
+        details["comment"] = comment
+        details["extension"] = ext
+        self.core.saveSceneInfo(filePath, details=details)
 
         self.core.callback(
-            name="onEmptySceneCreated",
-            types=["custom"],
+            name="onSceneFromPresetCreated",
             args=[self, filePath],
         )
 
-        logger.debug("Created empty scene: %s" % filePath)
+        logger.debug("Created scene from preset: %s" % filePath)
         return filePath
 
     @err_catcher(name=__name__)
     def createPresetScene(self):
-        emptyDir = os.path.join(os.path.dirname(self.core.prismIni), "EmptyScenes")
+        presetDir = os.path.join(self.core.projects.getPipelineFolder(), "PresetScenes")
 
-        newItem = CreateItem.CreateItem(
+        newItem = PrismWidgets.CreateItem(
             core=self.core,
             startText=self.core.appPlugin.pluginName.replace(" ", ""),
         )
@@ -1307,9 +1750,618 @@ class ProjectEntities(object):
 
         pName = newItem.e_item.text()
 
-        filepath = os.path.join(emptyDir, pName)
+        filepath = os.path.join(presetDir, pName)
         filepath = filepath.replace("\\", "/")
         filepath += self.core.appPlugin.getSceneExtension(self)
 
         self.core.saveScene(filepath=filepath, prismReq=False)
         return filepath
+
+    @err_catcher(name=__name__)
+    def getAutobackPath(self, prog, entity=None, department=None, task=None):
+        if prog == self.core.appPlugin.pluginName:
+            if not hasattr(self.core.appPlugin, "getAutobackPath"):
+                return
+
+            autobackpath, fileStr = self.core.appPlugin.getAutobackPath(self)
+        else:
+            for i in self.core.unloadedAppPlugins.values():
+                if i.pluginName == prog:
+                    if not hasattr(i, "getAutobackPath"):
+                        return
+
+                    autobackpath, fileStr = i.getAutobackPath(self)
+
+        if not autobackpath and entity:
+            if entity["type"] == "asset":
+                cVersion = self.core.compareVersions(
+                    self.core.projectVersion, "v1.2.1.6"
+                )
+                if cVersion == "lower":
+                    autobackpath = self.core.getEntityPath(entity=entity, step=department)
+                else:
+                    autobackpath = self.core.getEntityPath(
+                        entity=entity, step=department, category=task
+                    )
+
+            elif entity["type"] == "shot":
+                autobackpath = self.core.getEntityPath(
+                    entity=entity, step=department, category=task
+                )
+
+        return autobackpath, fileStr
+
+    @err_catcher(name=__name__)
+    def createVersionFromAutoBackupDlg(
+        self, prog, entity, department, task, parent=None
+    ):
+        parent = parent or self.core.messageParent
+        result = self.getAutobackPath(prog, entity, department, task)
+        if not result:
+            return
+
+        autobackpath, fileStr = result
+        autobfile = QFileDialog.getOpenFileName(
+            parent, "Select Autoback File", autobackpath, fileStr
+        )[0]
+
+        if not autobfile:
+            return
+
+        return self.createVersionFromAutoBackup(autobfile, entity, department, task)
+
+    @err_catcher(name=__name__)
+    def createVersionFromAutoBackup(self, filepath, entity, department, task):
+        version = self.core.entities.getHighestVersion(entity, department, task)
+        targetpath = self.core.generateScenePath(
+            entity=entity,
+            department=department,
+            task=task,
+            extension=os.path.splitext(filepath)[1],
+            version=version
+        )
+
+        if self.core.useLocalFiles:
+            targetpath = self.core.convertPath(targetpath, "local")
+
+        if os.path.exists(targetpath):
+            msg = (
+                "Skipped creating a new version from autoback.\nThe filepath exists already:\n\n%s"
+                % targetpath
+            )
+            self.core.popup(msg)
+            return
+
+        if not os.path.exists(os.path.dirname(targetpath)):
+            try:
+                os.makedirs(os.path.dirname(targetpath))
+            except:
+                self.core.popup("The directory could not be created")
+                return
+
+        targetpath = targetpath.replace("\\", "/")
+        self.core.copySceneFile(filepath, targetpath)
+
+        details = entity.copy()
+        details["department"] = department
+        details["task"] = task
+        details["extension"] = os.path.splitext(filepath)[1]
+        details["comment"] = ""
+        details["version"] = version
+        self.core.saveSceneInfo(targetpath, details=details)
+        logger.debug("Created scene from autoback: %s" % targetpath)
+        return targetpath
+
+    @err_catcher(name=__name__)
+    def copySceneFile(self, filepath, entity, department, task, location=None):
+        version = self.core.entities.getHighestVersion(entity, department, task)
+        targetpath = self.core.generateScenePath(
+            entity=entity,
+            department=department,
+            task=task,
+            extension=os.path.splitext(filepath)[1],
+            version=version,
+            location=location
+        )
+
+        if location is None:
+            if self.core.useLocalFiles:
+                targetpath = self.core.convertPath(targetpath, "local")
+
+        if not os.path.exists(os.path.dirname(targetpath)):
+            try:
+                os.makedirs(os.path.dirname(targetpath))
+            except:
+                self.core.popup("The directory could not be created")
+                return
+
+        targetpath = targetpath.replace("\\", "/")
+        self.core.copySceneFile(filepath, targetpath)
+
+        details = entity.copy()
+        details["department"] = department
+        details["task"] = task
+        details["extension"] = os.path.splitext(filepath)[1]
+        details["version"] = version
+        self.core.saveSceneInfo(targetpath, details=details)
+        logger.debug("Copied scene: %s" % targetpath)
+        return targetpath
+
+    @err_catcher(name=__name__)
+    def createVersionFromCurrentScene(self, entity, department, task):
+        version = self.core.entities.getHighestVersion(entity, department, task)
+        filepath = self.core.generateScenePath(
+            entity=entity,
+            department=department,
+            task=task,
+            extension=self.core.appPlugin.getSceneExtension(self),
+            version=version
+        )
+
+        if self.core.useLocalFiles:
+            filepath = self.core.convertPath(filepath, "local")
+
+        if not os.path.exists(os.path.dirname(filepath)):
+            try:
+                os.makedirs(os.path.dirname(filepath))
+            except:
+                self.core.popup("The directory could not be created")
+                return
+
+        filepath = filepath.replace("\\", "/")
+        self.core.startAutosaveTimer(quit=True)
+
+        details = entity.copy()
+        details["department"] = department
+        details["task"] = task
+        details["extension"] = os.path.splitext(filepath)[1]
+        details["comment"] = ""
+        details["version"] = version
+        filepath = self.core.saveScene(filepath=filepath, details=details)
+        self.core.sceneOpen()
+        if self.core.shouldAutosaveTimerRun():
+            self.core.startAutosaveTimer()
+
+        logger.debug("Created scene from current: %s" % filepath)
+        return filepath
+
+    @err_catcher(name=__name__)
+    def backupScenefile(self, targetFolder, bufferMinutes=5):
+        filename = self.core.getCurrentFileName()
+        if not filename:
+            return
+
+        target = os.path.join(targetFolder, os.path.basename(filename))
+        if os.path.exists(target):
+            mtime = os.path.getmtime(target)
+            if time.time() - mtime < (60 * bufferMinutes):
+                return
+
+            base, ext = os.path.splitext(os.path.basename(target))
+            backupNum = 1
+            while True:
+                backup = os.path.join(os.path.dirname(target), "_backup", base + "_" + str(backupNum) + ext)
+                if not os.path.exists(backup):
+                    break
+                else:
+                    mtime = os.path.getmtime(backup)
+                    if time.time() - mtime < (60 * bufferMinutes):
+                        return
+                    backupNum += 1
+            self.core.copySceneFile(target, backup)
+
+        self.core.copySceneFile(filename, target)
+
+    @err_catcher(name=__name__)
+    def addEntityAction(self, key, types, function, label):
+        self.entityActions[key] = {"types": types, "function": function, "label": label}
+
+    @err_catcher(name=__name__)
+    def removeEntityAction(self, key):
+        if key in self.entityActions:
+            del self.entityActions[key]
+            return True
+
+    @err_catcher(name=__name__)
+    def getAssetActions(self):
+        actions = {act: self.entityActions[act] for act in self.entityActions if "asset" in self.entityActions[act]["types"]}
+        return actions
+
+    @err_catcher(name=__name__)
+    def getShotActions(self):
+        actions = {act: self.entityActions[act] for act in self.entityActions if "shot" in self.entityActions[act]["types"]}
+        return actions
+
+    @err_catcher(name=__name__)
+    def connectEntityDlg(self, entities=None, parent=None):
+        self.dlg_connectEntities = ConnectEntitiesDlg(self.core, parent)
+        self.dlg_connectEntities.navigate(entities)
+        self.dlg_connectEntities.show()
+
+    @err_catcher(name=__name__)
+    def getConnectedEntities(self, entity):
+        centities = {}
+        if not entity:
+            return centities
+
+        if entity.get("type") == "asset":
+            data = self.core.getConfig(config="assetinfo") or {}
+            if "assets" not in data:
+                return centities
+
+            if "asset_path" not in entity:
+                return centities
+
+            entityName = self.core.entities.getAssetNameFromPath(entity["asset_path"])
+            if entityName not in data["assets"]:
+                return centities
+
+            centities = data["assets"][entityName].get("connectedEntities", {})
+
+        elif entity.get("type") == "shot":
+            data = self.core.getConfig(config="shotinfo") or {}
+            if "shots" not in data:
+                return centities
+
+            if entity["sequence"] not in data["shots"]:
+                return centities
+
+            if entity["shot"] not in data["shots"][entity["sequence"]]:
+                return centities
+
+            centities = data["shots"][entity["sequence"]][entity["shot"]].get("connectedEntities", {})
+
+        return centities
+
+    @err_catcher(name=__name__)
+    def setConnectedEntities(self, entities, connectedEntities, add=False, remove=False, setReverse=True):
+        assetInfo = None
+        shotInfo = None
+        for entity in entities:
+            if entity["type"] == "asset":
+                if assetInfo is None:
+                    assetInfo = self.core.getConfig(config="assetinfo") or {}
+
+                if "assets" not in assetInfo:
+                    assetInfo["assets"] = {}
+
+                entityName = self.core.entities.getAssetNameFromPath(entity["asset_path"])
+                if entityName not in assetInfo["assets"]:
+                    assetInfo["assets"][entityName] = {}
+
+                entityInfo = assetInfo["assets"][entityName]
+
+            elif entity["type"] == "shot":
+                if shotInfo is None:
+                    shotInfo = self.core.getConfig(config="shotinfo") or {}
+
+                if "shots" not in shotInfo:
+                    shotInfo["shots"] = {}
+
+                if entity["sequence"] not in shotInfo["shots"]:
+                    shotInfo["shots"][entity["sequence"]] = {}
+
+                if entity["shot"] not in shotInfo["shots"][entity["sequence"]]:
+                    shotInfo["shots"][entity["sequence"]][entity["shot"]] = {}
+
+                entityInfo = shotInfo["shots"][entity["sequence"]][entity["shot"]]
+
+            curEntities = entityInfo.get("connectedEntities", [])
+            centities = []
+            if add or remove:
+                centities = list(curEntities)
+
+            if remove:
+                newEntities = []
+                toRemoveNames = [self.getEntityName(e) for e in connectedEntities]
+                for centity in centities:
+                    if self.getEntityName(centity) not in toRemoveNames:
+                        newEntities.append(centity)
+
+                centities = [self.getCleanEntity(e) for e in newEntities]
+            else:
+                centities += [self.getCleanEntity(e) for e in connectedEntities]
+
+            centities = self.getUniqueEntities(centities)
+            if not remove:
+                centityNames = [self.getEntityName(e) for e in centities]
+                removed = []
+                for curEntity in curEntities:
+                    name = self.getEntityName(curEntity)
+                    if name not in centityNames:
+                        removed.append(curEntity)
+
+                if removed:
+                    self.setConnectedEntities(removed, [entity], remove=True, setReverse=False)
+
+            entityInfo["connectedEntities"] = centities
+
+        if setReverse:
+            self.setConnectedEntities(connectedEntities, entities, add=True, setReverse=False)
+        
+        if assetInfo:
+            self.core.setConfig(data=assetInfo, config="assetinfo", updateNestedData=False)
+
+        if shotInfo:
+            self.core.setConfig(data=shotInfo, config="shotinfo", updateNestedData=False)
+
+        return True
+
+    @err_catcher(name=__name__)
+    def getCleanEntity(self, entity):
+        data = {}
+        data["type"] = entity.get("type")
+        if entity.get("type") == "asset":
+            data["asset_path"] = entity.get("asset_path")
+        elif entity.get("type") == "shot":
+            data["shot"] = entity.get("shot")
+            data["sequence"] = entity.get("sequence")
+
+        return data
+
+    @err_catcher(name=__name__)
+    def getUniqueEntities(self, entities):
+        data = {}
+        for entity in entities:
+            uid = self.getEntityName(entity)
+            if uid not in data:
+                data[uid] = entity
+
+        uentities = list(data.values())
+        return uentities
+
+    @err_catcher(name=__name__)
+    def getEntityName(self, entity):
+        if not entity:
+            return
+
+        name = None
+        if entity.get("type") == "asset":
+            name = entity.get("asset_path", "").replace("\\", "/")
+        elif entity.get("type") == "shot":
+            name = self.getShotName(entity)
+
+        return name
+
+
+class EntityDlg(QDialog):
+
+    entitySelected = Signal(object)
+
+    def __init__(self, origin, parent=None):
+        super(EntityDlg, self).__init__()
+        self.origin = origin
+        self.parentDlg = parent
+        self.core = self.origin.core
+        self.setupUi()
+
+    @err_catcher(name=__name__)
+    def setupUi(self):
+        title = "Select entity"
+
+        self.setWindowTitle(title)
+        self.core.parentWindow(self, parent=self.parentDlg)
+
+        import EntityWidget
+        self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=True)
+        self.w_entities.getPage("Assets").tw_tree.itemDoubleClicked.connect(self.itemDoubleClicked)
+        self.w_entities.getPage("Shots").tw_tree.itemDoubleClicked.connect(self.itemDoubleClicked)
+        self.w_entities.getPage("Assets").setSearchVisible(False)
+        self.w_entities.getPage("Shots").setSearchVisible(False)
+
+        self.lo_main = QVBoxLayout()
+        self.setLayout(self.lo_main)
+
+        self.bb_main = QDialogButtonBox()
+        self.bb_main.addButton("Select", QDialogButtonBox.AcceptRole)
+        self.bb_main.addButton("Close", QDialogButtonBox.RejectRole)
+
+        self.bb_main.clicked.connect(self.buttonClicked)
+
+        self.lo_main.addWidget(self.w_entities)
+        self.lo_main.addWidget(self.bb_main)
+
+    @err_catcher(name=__name__)
+    def itemDoubleClicked(self, item, column):
+        self.buttonClicked("select")
+
+    @err_catcher(name=__name__)
+    def buttonClicked(self, button):
+        if button == "select" or button.text() == "Select":
+            entities = self.w_entities.getCurrentData()
+            if isinstance(entities, dict):
+                entities = [entities]
+
+            validEntities = []
+            for entity in entities:
+                if entity.get("type", "") not in ["asset", "shot"]:
+                    continue
+
+                validEntities.append(entity)
+
+            if not validEntities:
+                msg = "Invalid entity selected."
+                self.core.popup(msg, parent=self)
+                return
+
+            self.entitySelected.emit(validEntities[0])
+
+        self.close()
+
+    @err_catcher(name=__name__)
+    def sizeHint(self):
+        return QSize(400, 400)
+
+
+class ConnectEntitiesDlg(QDialog):
+    def __init__(self, core, parent=None):
+        super(ConnectEntitiesDlg, self).__init__()
+        self.parentDlg = parent
+        self.core = core
+
+        self.setupUi()
+
+    @err_catcher(name=__name__)
+    def setupUi(self):
+        title = "Connect Entities"
+        self.setWindowTitle(title)
+        self.core.parentWindow(self, parent=self.parentDlg)
+
+        self.w_entitiesParent = QWidget()
+        self.lo_entitiesParent = QHBoxLayout()
+        self.w_entitiesParent.setLayout(self.lo_entitiesParent)
+
+        self.w_selEntities = QWidget()
+        self.w_selEntities.setObjectName("w_selEntities")
+        self.gb_connectedEntities = QGroupBox("Connected Entities")
+        self.gb_connectedEntities.setObjectName("gb_connectedEntities")
+
+        self.lo_entitiesParent.addWidget(self.w_selEntities)
+        self.lo_entitiesParent.addWidget(self.gb_connectedEntities)
+
+        import EntityWidget
+        self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=True)
+        self.w_connectedEnities = EntityWidget.EntityWidget(core=self.core, refresh=True)
+        self.w_connectedEnities.tb_entities.setVisible(False)
+        self.w_entities.tabChanged.connect(self.tabChanged)
+
+        self.w_entities.getPage("Assets").itemChanged.connect(self.onSelectedEntityChanged)
+        self.w_entities.getPage("Shots").itemChanged.connect(self.onSelectedEntityChanged)
+        self.w_entities.getPage("Assets").setSearchVisible(False)
+        self.w_entities.getPage("Shots").setSearchVisible(False)
+
+        self.w_connectedEnities.getPage("Assets").itemChanged.connect(self.refreshConnectedEntityInfo)
+        self.w_connectedEnities.getPage("Shots").itemChanged.connect(self.refreshConnectedEntityInfo)
+        self.w_connectedEnities.getPage("Assets").setSearchVisible(False)
+        self.w_connectedEnities.getPage("Shots").setSearchVisible(False)
+
+        self.l_info = QLabel()
+        self.l_connectedInfo = QLabel()
+
+        self.lo_assets = QVBoxLayout()
+        self.w_selEntities.setLayout(self.lo_assets)
+        self.lo_assets.addWidget(self.w_entities)
+        self.lo_assets.addWidget(self.l_info)
+
+        self.lo_shots = QVBoxLayout()
+        self.gb_connectedEntities.setLayout(self.lo_shots)
+        self.lo_shots.addWidget(self.w_connectedEnities)
+        self.lo_shots.addWidget(self.l_connectedInfo)
+
+        self.refreshEntityInfo()
+        self.refreshConnectedEntityInfo()
+
+        self.tabChanged()
+
+        self.lo_main = QVBoxLayout()
+        self.setLayout(self.lo_main)
+
+        self.bb_main = QDialogButtonBox()
+        self.bb_main.addButton("Apply", QDialogButtonBox.AcceptRole)
+        self.bb_main.addButton("Close", QDialogButtonBox.RejectRole)
+
+        self.bb_main.accepted.connect(self.onAccepted)
+        self.bb_main.rejected.connect(self.reject)
+
+        self.lo_main.addWidget(self.w_entitiesParent)
+        self.lo_main.addWidget(self.bb_main)
+
+    @err_catcher(name=__name__)
+    def sizeHint(self):
+        return QSize(800, 700)
+
+    @err_catcher(name=__name__)
+    def onAccepted(self):
+        entities = self.w_entities.getCurrentData(returnOne=False)
+        entities = [e for e in entities if e["type"] in ["asset", "shot"]]
+        if not entities:
+            msg = "No valid entity selected."
+            self.core.popup(msg)
+            return
+
+        connectedEntities = self.w_connectedEnities.getCurrentData(returnOne=False)
+        connectedEntities = [e for e in connectedEntities if e["type"] in ["asset", "shot"]]
+        result = self.core.entities.setConnectedEntities(entities, connectedEntities)
+        if not result:
+            return
+
+        entityNames = [self.core.entities.getEntityName(e) for e in entities]
+        connectedNames = [self.core.entities.getEntityName(e) for e in connectedEntities] or ["-"]
+        msg = "Entity-Connections were set successfully:\n\n%s\n\nto:\n\n%s" % ("\n".join(entityNames), "\n".join(connectedNames))
+        self.core.popup(msg, severity="info")
+
+    @err_catcher(name=__name__)
+    def tabChanged(self):
+        self.w_connectedEnities.tb_entities.setCurrentIndex(not bool(self.w_entities.tb_entities.currentIndex()))
+        self.gb_connectedEntities.setTitle("Connected %s" % self.w_connectedEnities.getCurrentPageName())
+        self.selectConnectedEntities()
+        self.refreshEntityInfo()
+        self.refreshConnectedEntityInfo()
+
+    @err_catcher(name=__name__)
+    def onSelectedEntityChanged(self, items=None):
+        self.refreshEntityInfo(items)
+        self.selectConnectedEntities()
+
+    @err_catcher(name=__name__)
+    def selectConnectedEntities(self):
+        entities = self.w_entities.getCurrentData(returnOne=False)
+        connected = []
+        for entity in entities:
+            connected += self.core.entities.getConnectedEntities(entity)
+
+        uentities = self.core.entities.getUniqueEntities(connected)
+        self.w_connectedEnities.navigate(uentities, clear=True)
+
+    @err_catcher(name=__name__)
+    def refreshEntities(self):
+        self.w_assets.refreshEntities()
+        self.w_shots.refreshEntities()
+
+    @err_catcher(name=__name__)
+    def refreshEntityInfo(self, items=None):
+        if items is None:
+            items = self.w_entities.getCurrentPage().tw_tree.selectedItems()
+        elif not isinstance(items, list):
+            items = [items]
+
+        entities = [self.w_entities.getCurrentPage().getDataFromItem(item) for item in items]
+        entities = [entity for entity in entities if entity["type"] in ["asset", "shot"]]
+        if self.w_entities.getCurrentPage().entityType == "asset":
+            if len(entities) == 1:
+                text = "%s Asset selected" % len(entities)
+            else:
+                text = "%s Assets selected" % len(entities)
+        else:
+            if len(entities) == 1:
+                text = "%s Shot selected" % len(entities)
+            else:
+                text = "%s Shots selected" % len(entities)
+
+        self.l_info.setText(text)
+
+    @err_catcher(name=__name__)
+    def refreshConnectedEntityInfo(self, items=None):
+        if items is None:
+            items = self.w_connectedEnities.getCurrentPage().tw_tree.selectedItems()
+        elif not isinstance(items, list):
+            items = [items]
+
+        entities = [self.w_connectedEnities.getCurrentPage().getDataFromItem(item) for item in items]
+        entities = [entity for entity in entities if entity["type"] in ["asset", "shot"]]
+        if self.w_connectedEnities.getCurrentPage().entityType == "asset":
+            if len(entities) == 1:
+                text = "%s Asset selected" % len(entities)
+            else:
+                text = "%s Assets selected" % len(entities)
+        else:
+            if len(entities) == 1:
+                text = "%s Shot selected" % len(entities)
+            else:
+                text = "%s Shots selected" % len(entities)
+
+        self.l_connectedInfo.setText(text)
+
+    @err_catcher(name=__name__)
+    def navigate(self, entities):
+        self.w_entities.navigate(entities)
