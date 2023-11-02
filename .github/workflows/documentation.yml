@@ -30,7 +30,7 @@ jobs:
           sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Nuke Prism/Plugins/Apps/Nuke/Scripts Prism/Plugins/Apps/Nuke/Scripts/*_init* Prism/Plugins/Apps/Nuke/Scripts/*_Variables*
           sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Photoshop Prism/Plugins/Apps/Photoshop/Scripts Prism/Plugins/Apps/Photoshop/Scripts/*_init* Prism/Plugins/Apps/Photoshop/Scripts/*_Variables* Prism/Plugins/Apps/Photoshop/Scripts/*_MenuTools*
           sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/PureRef Prism/Plugins/Apps/PureRef/Scripts Prism/Plugins/Apps/PureRef/Scripts/*_init* Prism/Plugins/Apps/PureRef/Scripts/*_Variables*
-          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Deadline Prism/Plugins/RenderfarmManagers/Deadline/Scripts Prism/Plugins/RenderfarmManagers/Deadline/Scripts/*_init* Prism/Plugins/RenderfarmManagers/Deadline/Scripts/*_Variables*
+          sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Deadline Prism/Plugins/Custom/Deadline/Scripts Prism/Plugins/Custom/Deadline/Scripts/*_init* Prism/Plugins/Custom/Deadline/Scripts/*_Variables*
           sphinx-apidoc --no-toc --module-first -o doc/autodoc/plugins/Standalone Prism/Plugins/Apps/Standalone/Scripts Prism/Plugins/Apps/Standalone/Scripts/*_init* Prism/Plugins/Apps/Standalone/Scripts/*_Variables*
           sphinx-build doc _build -b dirhtml
 
