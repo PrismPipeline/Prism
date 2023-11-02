@@ -54,7 +54,7 @@ sys.path.insert(0, scriptPath)
 scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Apps", "Standalone", "Scripts")
 sys.path.insert(0, scriptPath)
 
-scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "RenderfarmManagers", "Deadline", "Scripts")
+scriptPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Prism", "Plugins", "Custom", "Deadline", "Scripts")
 sys.path.insert(0, scriptPath)
 
 autodoc_default_flags = ['members']

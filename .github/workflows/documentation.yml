@@ -16,7 +16,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install sphinx sphinx_book_theme myst_parser PySide2
+          pip install sphinx sphinx_book_theme myst_parser PySide2 qtpy
 
       - name: Sphinx build
         env:
