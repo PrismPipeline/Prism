@@ -1,0 +1,1283 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>ProjectSettings module &#8212; Prism Pipeline Python API Reference</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../../../_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="../../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="../../../_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autodoc/core/ProjectSettings';</script>
+    <link rel="index" title="Index" href="../../../genindex/" />
+    <link rel="search" title="Search" href="../../../search/" />
+    <link rel="next" title="3ds Max" href="../../../3dsMax/" />
+    <link rel="prev" title="PrismUtils package" href="../PrismUtils/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../search/"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="../../../">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/prism-pipeline-logo.png" class="logo__image only-light" alt="Prism Pipeline Python API Reference - Home"/>
+    <script>document.write(`<img src="../../../_static/prism-pipeline-logo.png" class="logo__image only-dark" alt="Prism Pipeline Python API Reference - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../../">
+                    Overview
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Core:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../PrismCore/">PrismCore module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../PrismInstaller/">PrismInstaller module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../PrismSettings/">PrismSettings module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../PrismTray/">PrismTray module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../PrismUtils/">PrismUtils package</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">ProjectSettings module</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Plugins:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../3dsMax/">3ds Max</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/3dsMax/Prism_3dsMax_Functions/">Prism_3dsMax_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/3dsMax/Prism_3dsMax_Integration/">Prism_3dsMax_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/3dsMax/Prism_3dsMax_externalAccess_Functions/">Prism_3dsMax_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Blender/">Blender</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/Prism_Blender_Functions/">Prism_Blender_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/Prism_Blender_Integration/">Prism_Blender_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/Prism_Blender_externalAccess_Functions/">Prism_Blender_externalAccess_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/widget_import_scenedata/">widget_import_scenedata module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Deadline/">Deadline</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Deadline/DeadlineDependency/">DeadlineDependency module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Deadline/Prism_Deadline_Functions/">Prism_Deadline_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Houdini/">Houdini</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Functions/">Prism_Houdini_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Integration/">Prism_Houdini_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Node_Filecache/">Prism_Houdini_Node_Filecache module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Node_ImportFile/">Prism_Houdini_Node_ImportFile module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_3Delight/">Prism_Houdini_Renderer_3Delight module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Arnold/">Prism_Houdini_Renderer_Arnold module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Mantra/">Prism_Houdini_Renderer_Mantra module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Octane/">Prism_Houdini_Renderer_Octane module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Redshift/">Prism_Houdini_Renderer_Redshift module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Renderman/">Prism_Houdini_Renderer_Renderman module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Vray/">Prism_Houdini_Renderer_Vray module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_externalAccess_Functions/">Prism_Houdini_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Maya/">Maya</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Maya/Prism_Maya_Functions/">Prism_Maya_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Maya/Prism_Maya_Integration/">Prism_Maya_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Maya/Prism_Maya_externalAccess_Functions/">Prism_Maya_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Nuke/">Nuke</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Nuke/Prism_Nuke_Functions/">Prism_Nuke_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Nuke/Prism_Nuke_Integration/">Prism_Nuke_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Nuke/Prism_Nuke_externalAccess_Functions/">Prism_Nuke_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Photoshop/">Photoshop</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Photoshop/Prism_Photoshop_Functions/">Prism_Photoshop_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Photoshop/Prism_Photoshop_Integration/">Prism_Photoshop_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Photoshop/Prism_Photoshop_externalAccess_Functions/">Prism_Photoshop_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../PureRef/">PureRef</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/PureRef/Prism_PureRef_Functions/">Prism_PureRef_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/PureRef/Prism_PureRef_Integration/">Prism_PureRef_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/PureRef/Prism_PureRef_externalAccess_Functions/">Prism_PureRef_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Standalone/">Standalone</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Standalone/Prism_Standalone_Functions/">Prism_Standalone_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Standalone/Prism_Standalone_externalAccess_Functions/">Prism_Standalone_externalAccess_Functions module</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/PrismPipeline/Prism" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../../_sources/autodoc/core/ProjectSettings.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<label class="sidebar-toggle secondary-toggle btn btn-sm" for="__secondary"title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</label>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>ProjectSettings module</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.addPath"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.addPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.browse"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.connectEvents"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.pathAdded"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.pathAdded</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.setupUi"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.validate"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.refreshEnvironment"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.refreshEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.setupUi"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.sizeHint"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.onAcceptClicked"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.onAcceptClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.setupUi"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.sizeHint"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel"><code class="docutils literal notranslate"><span class="pre">HelpLabel</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.enterEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.mouseMoveEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.mouseMoveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.signalEntered"><code class="docutils literal notranslate"><span class="pre">HelpLabel.signalEntered</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">HelpLabel.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings"><code class="docutils literal notranslate"><span class="pre">ProjectSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addAssetDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addAssetDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addExportLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addExportLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addExportPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addExportPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addRenderLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addRenderLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addRenderPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addRenderPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addShotDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addShotDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addTab"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.assetDepartmentDoubleClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.assetDepartmentDoubleClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.assetDepartmentRowMoved"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.assetDepartmentRowMoved()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.assetDepsRightClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.assetDepsRightClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.browse"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.browsePreview"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.browsePreview()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.capturePreview"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.capturePreview()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.connectEvents"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.curPnameEdited"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.curPnameEdited()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.editAssetDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.editAssetDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.editExpression"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.editExpression()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.editShotDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.editShotDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.enterEvent"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getAssetDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getAssetDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getCurrentCategory"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getCurrentCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getEnvironmentVariables"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getEnvironmentVariables()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getExportLocations"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getExportLocations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getFolderStructure"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getFolderStructure()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getRenderLocations"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getRenderLocations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getResolvedPath"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getResolvedPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getShotDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getShotDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.isValidStructure"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.isValidStructure()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.keyPressedDialog"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.keyPressedDialog()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.loadEnvironmant"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.loadEnvironmant()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.loadSettings"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.loadSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.loadUI"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.makePersistent"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.makePersistent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveDownAssetDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveDownAssetDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveDownShotDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveDownShotDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveUpAssetDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveUpAssetDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveUpShotDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveUpShotDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onCategoryChanged"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onCategoryChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onDepartmentCreated"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onDepartmentCreated()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onExportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onExportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onImportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onImportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onRequiredPluginsClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onRequiredPluginsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.pastePreviewFromClipboard"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.pastePreviewFromClipboard()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.pfpsToggled"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.pfpsToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.prjResolutionToggled"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.prjResolutionToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclEnvironment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclExportPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclExportPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclPreview"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclPreview()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclRenderPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclRenderPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclStructureKey"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclStructureKey()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshAssetDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshAssetDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshCategories"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshCategories()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshExportPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshExportPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshRenderPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshRenderPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshShotDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshShotDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.reload"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.reload()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeAssetDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeAssetDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeExportLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeExportLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeExportPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeExportPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeRenderLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeRenderLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeRenderPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeRenderPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeShotDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeShotDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.requirePublishCommentToggled"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.requirePublishCommentToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.resetProjectStructure"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.resetProjectStructure()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.restoreAssetDepsTriggered"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.restoreAssetDepsTriggered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.restoreShotDepsTriggered"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.restoreShotDepsTriggered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.restoreStructurePath"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.restoreStructurePath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.saveAssetDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.saveAssetDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.saveSettings"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.saveSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.saveShotDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.saveShotDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.selectCategory"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.selectCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.shotDepartmentDoubleClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.shotDepartmentDoubleClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.shotDepartmentRowMoved"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.shotDepartmentRowMoved()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.shotDepsRightClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.shotDepsRightClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.showEnvironment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.showEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.signalSaved"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.signalSaved</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.structureItemEntered"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.structureItemEntered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.tabChanged"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.tabChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.toggleRequiredPlugin"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.toggleRequiredPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.validate"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.validate()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.validateFolderWidget"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.validateFolderWidget()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.movePosition"><code class="docutils literal notranslate"><span class="pre">movePosition()</span></code></a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="module-ProjectSettings">
+<span id="projectsettings-module"></span><h1>ProjectSettings module<a class="headerlink" href="#module-ProjectSettings" title="Permalink to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ProjectSettings.</span></span><span class="sig-name descname"><span class="pre">AddProductPathDialog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pathType</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.AddProductPathDialog" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog.addPath">
+<span class="sig-name descname"><span class="pre">addPath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.AddProductPathDialog.addPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog.browse">
+<span class="sig-name descname"><span class="pre">browse</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.AddProductPathDialog.browse" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog.connectEvents">
+<span class="sig-name descname"><span class="pre">connectEvents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.AddProductPathDialog.connectEvents" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog.pathAdded">
+<span class="sig-name descname"><span class="pre">pathAdded</span></span><a class="headerlink" href="#ProjectSettings.AddProductPathDialog.pathAdded" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog.setupUi">
+<span class="sig-name descname"><span class="pre">setupUi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.AddProductPathDialog.setupUi" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#ProjectSettings.AddProductPathDialog.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.AddProductPathDialog.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uiWidget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origText</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.AddProductPathDialog.validate" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="ProjectSettings.EnvironmentWidget">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ProjectSettings.</span></span><span class="sig-name descname"><span class="pre">EnvironmentWidget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.EnvironmentWidget" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.EnvironmentWidget.refreshEnvironment">
+<span class="sig-name descname"><span class="pre">refreshEnvironment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.EnvironmentWidget.refreshEnvironment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.EnvironmentWidget.setupUi">
+<span class="sig-name descname"><span class="pre">setupUi</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.EnvironmentWidget.setupUi" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.EnvironmentWidget.sizeHint">
+<span class="sig-name descname"><span class="pre">sizeHint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">PySide2.QtCore.QSize</span></span></span><a class="headerlink" href="#ProjectSettings.EnvironmentWidget.sizeHint" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.EnvironmentWidget.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#ProjectSettings.EnvironmentWidget.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="ProjectSettings.ExpressionWindow">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ProjectSettings.</span></span><span class="sig-name descname"><span class="pre">ExpressionWindow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ExpressionWindow" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ExpressionWindow.onAcceptClicked">
+<span class="sig-name descname"><span class="pre">onAcceptClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ExpressionWindow.onAcceptClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ExpressionWindow.setupUi">
+<span class="sig-name descname"><span class="pre">setupUi</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ExpressionWindow.setupUi" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ExpressionWindow.sizeHint">
+<span class="sig-name descname"><span class="pre">sizeHint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">PySide2.QtCore.QSize</span></span></span><a class="headerlink" href="#ProjectSettings.ExpressionWindow.sizeHint" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.ExpressionWindow.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#ProjectSettings.ExpressionWindow.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="ProjectSettings.HelpLabel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ProjectSettings.</span></span><span class="sig-name descname"><span class="pre">HelpLabel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.HelpLabel" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QLabel</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.HelpLabel.enterEvent">
+<span class="sig-name descname"><span class="pre">enterEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtCore.QEvent</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#ProjectSettings.HelpLabel.enterEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.HelpLabel.mouseMoveEvent">
+<span class="sig-name descname"><span class="pre">mouseMoveEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ev</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QMouseEvent</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#ProjectSettings.HelpLabel.mouseMoveEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.HelpLabel.signalEntered">
+<span class="sig-name descname"><span class="pre">signalEntered</span></span><a class="headerlink" href="#ProjectSettings.HelpLabel.signalEntered" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.HelpLabel.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#ProjectSettings.HelpLabel.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ProjectSettings.</span></span><span class="sig-name descname"><span class="pre">ProjectSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projectConfig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projectData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Ui_dlg_ProjectSettings</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addAssetDepartmentClicked">
+<span class="sig-name descname"><span class="pre">addAssetDepartmentClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addAssetDepartmentClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addEnvironmentRow">
+<span class="sig-name descname"><span class="pre">addEnvironmentRow</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addEnvironmentRow" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addExportLocation">
+<span class="sig-name descname"><span class="pre">addExportLocation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addExportLocation" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addExportPathClicked">
+<span class="sig-name descname"><span class="pre">addExportPathClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addExportPathClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addRenderLocation">
+<span class="sig-name descname"><span class="pre">addRenderLocation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addRenderLocation" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addRenderPathClicked">
+<span class="sig-name descname"><span class="pre">addRenderPathClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addRenderPathClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addShotDepartmentClicked">
+<span class="sig-name descname"><span class="pre">addShotDepartmentClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addShotDepartmentClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.addTab">
+<span class="sig-name descname"><span class="pre">addTab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">widget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.addTab" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.assetDepartmentDoubleClicked">
+<span class="sig-name descname"><span class="pre">assetDepartmentDoubleClicked</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.assetDepartmentDoubleClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.assetDepartmentRowMoved">
+<span class="sig-name descname"><span class="pre">assetDepartmentRowMoved</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logicalIdx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oldVisualIdx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">newVisualIdx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.assetDepartmentRowMoved" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.assetDepsRightClicked">
+<span class="sig-name descname"><span class="pre">assetDepsRightClicked</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.assetDepsRightClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.browse">
+<span class="sig-name descname"><span class="pre">browse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.browse" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.browsePreview">
+<span class="sig-name descname"><span class="pre">browsePreview</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.browsePreview" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.capturePreview">
+<span class="sig-name descname"><span class="pre">capturePreview</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.capturePreview" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.connectEvents">
+<span class="sig-name descname"><span class="pre">connectEvents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.connectEvents" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.curPnameEdited">
+<span class="sig-name descname"><span class="pre">curPnameEdited</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.curPnameEdited" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.editAssetDepartment">
+<span class="sig-name descname"><span class="pre">editAssetDepartment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.editAssetDepartment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.editExpression">
+<span class="sig-name descname"><span class="pre">editExpression</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">widget</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.editExpression" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.editShotDepartment">
+<span class="sig-name descname"><span class="pre">editShotDepartment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.editShotDepartment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.enterEvent">
+<span class="sig-name descname"><span class="pre">enterEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtCore.QEvent</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#ProjectSettings.ProjectSettings.enterEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getAssetDepartments">
+<span class="sig-name descname"><span class="pre">getAssetDepartments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getAssetDepartments" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getCurrentCategory">
+<span class="sig-name descname"><span class="pre">getCurrentCategory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getCurrentCategory" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getEnvironmentVariables">
+<span class="sig-name descname"><span class="pre">getEnvironmentVariables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getEnvironmentVariables" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getExportLocations">
+<span class="sig-name descname"><span class="pre">getExportLocations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getExportLocations" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getFolderStructure">
+<span class="sig-name descname"><span class="pre">getFolderStructure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getFolderStructure" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getRenderLocations">
+<span class="sig-name descname"><span class="pre">getRenderLocations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getRenderLocations" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getResolvedPath">
+<span class="sig-name descname"><span class="pre">getResolvedPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entityType</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'asset'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileType</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'scene'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getResolvedPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.getShotDepartments">
+<span class="sig-name descname"><span class="pre">getShotDepartments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.getShotDepartments" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.isValidStructure">
+<span class="sig-name descname"><span class="pre">isValidStructure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structure</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.isValidStructure" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.keyPressedDialog">
+<span class="sig-name descname"><span class="pre">keyPressedDialog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">event</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.keyPressedDialog" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.loadEnvironmant">
+<span class="sig-name descname"><span class="pre">loadEnvironmant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variables</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.loadEnvironmant" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.loadSettings">
+<span class="sig-name descname"><span class="pre">loadSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configPath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.loadSettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.loadUI">
+<span class="sig-name descname"><span class="pre">loadUI</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.loadUI" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.makePersistent">
+<span class="sig-name descname"><span class="pre">makePersistent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.makePersistent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.moveDownAssetDepartment">
+<span class="sig-name descname"><span class="pre">moveDownAssetDepartment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.moveDownAssetDepartment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.moveDownShotDepartment">
+<span class="sig-name descname"><span class="pre">moveDownShotDepartment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.moveDownShotDepartment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.moveUpAssetDepartment">
+<span class="sig-name descname"><span class="pre">moveUpAssetDepartment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.moveUpAssetDepartment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.moveUpShotDepartment">
+<span class="sig-name descname"><span class="pre">moveUpShotDepartment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.moveUpShotDepartment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.onCategoryChanged">
+<span class="sig-name descname"><span class="pre">onCategoryChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">current</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prev</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.onCategoryChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.onDepartmentCreated">
+<span class="sig-name descname"><span class="pre">onDepartmentCreated</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.onDepartmentCreated" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.onExportSettingsClicked">
+<span class="sig-name descname"><span class="pre">onExportSettingsClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.onExportSettingsClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.onImportSettingsClicked">
+<span class="sig-name descname"><span class="pre">onImportSettingsClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.onImportSettingsClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.onRequiredPluginsClicked">
+<span class="sig-name descname"><span class="pre">onRequiredPluginsClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.onRequiredPluginsClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.pastePreviewFromClipboard">
+<span class="sig-name descname"><span class="pre">pastePreviewFromClipboard</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.pastePreviewFromClipboard" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.pfpsToggled">
+<span class="sig-name descname"><span class="pre">pfpsToggled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checked</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.pfpsToggled" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.prjResolutionToggled">
+<span class="sig-name descname"><span class="pre">prjResolutionToggled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checked</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.prjResolutionToggled" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.rclEnvironment">
+<span class="sig-name descname"><span class="pre">rclEnvironment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.rclEnvironment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.rclExportPaths">
+<span class="sig-name descname"><span class="pre">rclExportPaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.rclExportPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.rclPreview">
+<span class="sig-name descname"><span class="pre">rclPreview</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.rclPreview" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.rclRenderPaths">
+<span class="sig-name descname"><span class="pre">rclRenderPaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.rclRenderPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.rclStructureKey">
+<span class="sig-name descname"><span class="pre">rclStructureKey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">widget</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.rclStructureKey" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.refreshAssetDepartments">
+<span class="sig-name descname"><span class="pre">refreshAssetDepartments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">departments</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">configData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.refreshAssetDepartments" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.refreshCategories">
+<span class="sig-name descname"><span class="pre">refreshCategories</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.refreshCategories" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.refreshExportPaths">
+<span class="sig-name descname"><span class="pre">refreshExportPaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.refreshExportPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.refreshRenderPaths">
+<span class="sig-name descname"><span class="pre">refreshRenderPaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.refreshRenderPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.refreshShotDepartments">
+<span class="sig-name descname"><span class="pre">refreshShotDepartments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">departments</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">configData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.refreshShotDepartments" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.reload">
+<span class="sig-name descname"><span class="pre">reload</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.reload" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.removeAssetDepartmentClicked">
+<span class="sig-name descname"><span class="pre">removeAssetDepartmentClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.removeAssetDepartmentClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.removeEnvironmentRow">
+<span class="sig-name descname"><span class="pre">removeEnvironmentRow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.removeEnvironmentRow" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.removeExportLocation">
+<span class="sig-name descname"><span class="pre">removeExportLocation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.removeExportLocation" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.removeExportPathClicked">
+<span class="sig-name descname"><span class="pre">removeExportPathClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.removeExportPathClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.removeRenderLocation">
+<span class="sig-name descname"><span class="pre">removeRenderLocation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.removeRenderLocation" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.removeRenderPathClicked">
+<span class="sig-name descname"><span class="pre">removeRenderPathClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.removeRenderPathClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.removeShotDepartmentClicked">
+<span class="sig-name descname"><span class="pre">removeShotDepartmentClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.removeShotDepartmentClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.requirePublishCommentToggled">
+<span class="sig-name descname"><span class="pre">requirePublishCommentToggled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checked</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.requirePublishCommentToggled" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.resetProjectStructure">
+<span class="sig-name descname"><span class="pre">resetProjectStructure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.resetProjectStructure" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.restoreAssetDepsTriggered">
+<span class="sig-name descname"><span class="pre">restoreAssetDepsTriggered</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.restoreAssetDepsTriggered" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.restoreShotDepsTriggered">
+<span class="sig-name descname"><span class="pre">restoreShotDepsTriggered</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.restoreShotDepsTriggered" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.restoreStructurePath">
+<span class="sig-name descname"><span class="pre">restoreStructurePath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">widget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.restoreStructurePath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.saveAssetDepartments">
+<span class="sig-name descname"><span class="pre">saveAssetDepartments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.saveAssetDepartments" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.saveSettings">
+<span class="sig-name descname"><span class="pre">saveSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">changeProject</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">configPath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">export</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.saveSettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.saveShotDepartments">
+<span class="sig-name descname"><span class="pre">saveShotDepartments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.saveShotDepartments" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.selectCategory">
+<span class="sig-name descname"><span class="pre">selectCategory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.selectCategory" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.shotDepartmentDoubleClicked">
+<span class="sig-name descname"><span class="pre">shotDepartmentDoubleClicked</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.shotDepartmentDoubleClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.shotDepartmentRowMoved">
+<span class="sig-name descname"><span class="pre">shotDepartmentRowMoved</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logicalIdx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oldVisualIdx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">newVisualIdx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.shotDepartmentRowMoved" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.shotDepsRightClicked">
+<span class="sig-name descname"><span class="pre">shotDepsRightClicked</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.shotDepsRightClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.showEnvironment">
+<span class="sig-name descname"><span class="pre">showEnvironment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.showEnvironment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.signalSaved">
+<span class="sig-name descname"><span class="pre">signalSaved</span></span><a class="headerlink" href="#ProjectSettings.ProjectSettings.signalSaved" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#ProjectSettings.ProjectSettings.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.structureItemEntered">
+<span class="sig-name descname"><span class="pre">structureItemEntered</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">widget</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.structureItemEntered" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.tabChanged">
+<span class="sig-name descname"><span class="pre">tabChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.tabChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.toggleRequiredPlugin">
+<span class="sig-name descname"><span class="pre">toggleRequiredPlugin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.toggleRequiredPlugin" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uiWidget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origText</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.validate" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ProjectSettings.ProjectSettings.validateFolderWidget">
+<span class="sig-name descname"><span class="pre">validateFolderWidget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">widget</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ProjectSettings.ProjectSettings.validateFolderWidget" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ProjectSettings.movePosition">
+<span class="sig-prename descclassname"><span class="pre">ProjectSettings.</span></span><span class="sig-name descname"><span class="pre">movePosition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QTextCursor.MoveOperation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg__2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QTextCursor.MoveMode</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">PySide2.QtGui.QTextCursor.MoveMode.MoveAnchor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#ProjectSettings.movePosition" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../PrismUtils/"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">PrismUtils package</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../../../3dsMax/"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">3ds Max</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.addPath"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.addPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.browse"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.connectEvents"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.pathAdded"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.pathAdded</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.setupUi"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.AddProductPathDialog.validate"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.refreshEnvironment"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.refreshEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.setupUi"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.sizeHint"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.EnvironmentWidget.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.onAcceptClicked"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.onAcceptClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.setupUi"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.sizeHint"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ExpressionWindow.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">ExpressionWindow.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel"><code class="docutils literal notranslate"><span class="pre">HelpLabel</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.enterEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.mouseMoveEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.mouseMoveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.signalEntered"><code class="docutils literal notranslate"><span class="pre">HelpLabel.signalEntered</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.HelpLabel.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">HelpLabel.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings"><code class="docutils literal notranslate"><span class="pre">ProjectSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addAssetDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addAssetDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addExportLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addExportLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addExportPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addExportPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addRenderLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addRenderLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addRenderPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addRenderPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addShotDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addShotDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.addTab"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.addTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.assetDepartmentDoubleClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.assetDepartmentDoubleClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.assetDepartmentRowMoved"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.assetDepartmentRowMoved()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.assetDepsRightClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.assetDepsRightClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.browse"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.browsePreview"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.browsePreview()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.capturePreview"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.capturePreview()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.connectEvents"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.curPnameEdited"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.curPnameEdited()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.editAssetDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.editAssetDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.editExpression"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.editExpression()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.editShotDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.editShotDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.enterEvent"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getAssetDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getAssetDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getCurrentCategory"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getCurrentCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getEnvironmentVariables"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getEnvironmentVariables()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getExportLocations"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getExportLocations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getFolderStructure"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getFolderStructure()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getRenderLocations"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getRenderLocations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getResolvedPath"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getResolvedPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.getShotDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.getShotDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.isValidStructure"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.isValidStructure()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.keyPressedDialog"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.keyPressedDialog()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.loadEnvironmant"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.loadEnvironmant()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.loadSettings"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.loadSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.loadUI"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.makePersistent"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.makePersistent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveDownAssetDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveDownAssetDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveDownShotDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveDownShotDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveUpAssetDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveUpAssetDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.moveUpShotDepartment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.moveUpShotDepartment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onCategoryChanged"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onCategoryChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onDepartmentCreated"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onDepartmentCreated()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onExportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onExportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onImportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onImportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.onRequiredPluginsClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.onRequiredPluginsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.pastePreviewFromClipboard"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.pastePreviewFromClipboard()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.pfpsToggled"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.pfpsToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.prjResolutionToggled"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.prjResolutionToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclEnvironment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclExportPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclExportPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclPreview"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclPreview()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclRenderPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclRenderPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.rclStructureKey"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.rclStructureKey()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshAssetDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshAssetDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshCategories"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshCategories()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshExportPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshExportPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshRenderPaths"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshRenderPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.refreshShotDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.refreshShotDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.reload"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.reload()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeAssetDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeAssetDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeExportLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeExportLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeExportPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeExportPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeRenderLocation"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeRenderLocation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeRenderPathClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeRenderPathClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.removeShotDepartmentClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.removeShotDepartmentClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.requirePublishCommentToggled"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.requirePublishCommentToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.resetProjectStructure"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.resetProjectStructure()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.restoreAssetDepsTriggered"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.restoreAssetDepsTriggered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.restoreShotDepsTriggered"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.restoreShotDepsTriggered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.restoreStructurePath"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.restoreStructurePath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.saveAssetDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.saveAssetDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.saveSettings"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.saveSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.saveShotDepartments"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.saveShotDepartments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.selectCategory"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.selectCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.shotDepartmentDoubleClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.shotDepartmentDoubleClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.shotDepartmentRowMoved"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.shotDepartmentRowMoved()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.shotDepsRightClicked"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.shotDepsRightClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.showEnvironment"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.showEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.signalSaved"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.signalSaved</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.structureItemEntered"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.structureItemEntered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.tabChanged"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.tabChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.toggleRequiredPlugin"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.toggleRequiredPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.validate"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.validate()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.ProjectSettings.validateFolderWidget"><code class="docutils literal notranslate"><span class="pre">ProjectSettings.validateFolderWidget()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ProjectSettings.movePosition"><code class="docutils literal notranslate"><span class="pre">movePosition()</span></code></a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Richard Frangenberg
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2023, Prism Software GmbH.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="../../../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

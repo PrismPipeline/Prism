@@ -1,0 +1,1126 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Prism_Deadline_Functions module &#8212; Prism Pipeline Python API Reference</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../../../../_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="../../../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../../../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="../../../../_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autodoc/plugins/Deadline/Prism_Deadline_Functions';</script>
+    <link rel="index" title="Index" href="../../../../genindex/" />
+    <link rel="search" title="Search" href="../../../../search/" />
+    <link rel="next" title="Houdini" href="../../../../Houdini/" />
+    <link rel="prev" title="DeadlineDependency module" href="../DeadlineDependency/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search/"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="../../../../">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../_static/prism-pipeline-logo.png" class="logo__image only-light" alt="Prism Pipeline Python API Reference - Home"/>
+    <script>document.write(`<img src="../../../../_static/prism-pipeline-logo.png" class="logo__image only-dark" alt="Prism Pipeline Python API Reference - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../../../">
+                    Overview
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Core:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../core/PrismCore/">PrismCore module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/PrismInstaller/">PrismInstaller module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/PrismSettings/">PrismSettings module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/PrismTray/">PrismTray module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/PrismUtils/">PrismUtils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../core/ProjectSettings/">ProjectSettings module</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Plugins:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../3dsMax/">3ds Max</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../3dsMax/Prism_3dsMax_Functions/">Prism_3dsMax_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../3dsMax/Prism_3dsMax_Integration/">Prism_3dsMax_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../3dsMax/Prism_3dsMax_externalAccess_Functions/">Prism_3dsMax_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../Blender/">Blender</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../Blender/Prism_Blender_Functions/">Prism_Blender_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Blender/Prism_Blender_Integration/">Prism_Blender_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Blender/Prism_Blender_externalAccess_Functions/">Prism_Blender_externalAccess_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Blender/widget_import_scenedata/">widget_import_scenedata module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../Deadline/">Deadline</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../DeadlineDependency/">DeadlineDependency module</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Prism_Deadline_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../Houdini/">Houdini</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Functions/">Prism_Houdini_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Integration/">Prism_Houdini_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Node_Filecache/">Prism_Houdini_Node_Filecache module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Node_ImportFile/">Prism_Houdini_Node_ImportFile module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Renderer_3Delight/">Prism_Houdini_Renderer_3Delight module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Renderer_Arnold/">Prism_Houdini_Renderer_Arnold module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Renderer_Mantra/">Prism_Houdini_Renderer_Mantra module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Renderer_Octane/">Prism_Houdini_Renderer_Octane module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Renderer_Redshift/">Prism_Houdini_Renderer_Redshift module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Renderer_Renderman/">Prism_Houdini_Renderer_Renderman module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_Renderer_Vray/">Prism_Houdini_Renderer_Vray module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Houdini/Prism_Houdini_externalAccess_Functions/">Prism_Houdini_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../Maya/">Maya</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../Maya/Prism_Maya_Functions/">Prism_Maya_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Maya/Prism_Maya_Integration/">Prism_Maya_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Maya/Prism_Maya_externalAccess_Functions/">Prism_Maya_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../Nuke/">Nuke</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../Nuke/Prism_Nuke_Functions/">Prism_Nuke_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Nuke/Prism_Nuke_Integration/">Prism_Nuke_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Nuke/Prism_Nuke_externalAccess_Functions/">Prism_Nuke_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../Photoshop/">Photoshop</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../Photoshop/Prism_Photoshop_Functions/">Prism_Photoshop_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Photoshop/Prism_Photoshop_Integration/">Prism_Photoshop_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Photoshop/Prism_Photoshop_externalAccess_Functions/">Prism_Photoshop_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../PureRef/">PureRef</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../PureRef/Prism_PureRef_Functions/">Prism_PureRef_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../PureRef/Prism_PureRef_Integration/">Prism_PureRef_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../PureRef/Prism_PureRef_externalAccess_Functions/">Prism_PureRef_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../Standalone/">Standalone</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../Standalone/Prism_Standalone_Functions/">Prism_Standalone_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../Standalone/Prism_Standalone_externalAccess_Functions/">Prism_Standalone_externalAccess_Functions module</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/PrismPipeline/Prism" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../../../_sources/autodoc/plugins/Deadline/Prism_Deadline_Functions.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<label class="sidebar-toggle secondary-toggle btn btn-sm" for="__secondary"title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</label>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Prism_Deadline_Functions module</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem"><code class="docutils literal notranslate"><span class="pre">PresetItem</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.group"><code class="docutils literal notranslate"><span class="pre">PresetItem.group()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.loadLayout"><code class="docutils literal notranslate"><span class="pre">PresetItem.loadLayout()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.name"><code class="docutils literal notranslate"><span class="pre">PresetItem.name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.pool"><code class="docutils literal notranslate"><span class="pre">PresetItem.pool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.removed"><code class="docutils literal notranslate"><span class="pre">PresetItem.removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.secondaryPool"><code class="docutils literal notranslate"><span class="pre">PresetItem.secondaryPool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setGroup"><code class="docutils literal notranslate"><span class="pre">PresetItem.setGroup()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setName"><code class="docutils literal notranslate"><span class="pre">PresetItem.setName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setPool"><code class="docutils literal notranslate"><span class="pre">PresetItem.setPool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setSecondaryPool"><code class="docutils literal notranslate"><span class="pre">PresetItem.setSecondaryPool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">PresetItem.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget"><code class="docutils literal notranslate"><span class="pre">PresetWidget</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.addItem"><code class="docutils literal notranslate"><span class="pre">PresetWidget.addItem()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.clearItems"><code class="docutils literal notranslate"><span class="pre">PresetWidget.clearItems()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.connectEvents"><code class="docutils literal notranslate"><span class="pre">PresetWidget.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.getPresetData"><code class="docutils literal notranslate"><span class="pre">PresetWidget.getPresetData()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.loadLayout"><code class="docutils literal notranslate"><span class="pre">PresetWidget.loadLayout()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.loadPresetData"><code class="docutils literal notranslate"><span class="pre">PresetWidget.loadPresetData()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.refresh"><code class="docutils literal notranslate"><span class="pre">PresetWidget.refresh()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.removeItem"><code class="docutils literal notranslate"><span class="pre">PresetWidget.removeItem()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">PresetWidget.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.CallDeadlineCommand"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.CallDeadlineCommand()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.GetDeadlineCommand"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.GetDeadlineCommand()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.addEnvironmentItem"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.addEnvironmentItem()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.addUiToProjectSettings"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.addUiToProjectSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.deadlineSubmitJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.deadlineSubmitJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.get3DelightOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.get3DelightOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getArnoldOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getArnoldOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getCurrentSceneFiles"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getCurrentSceneFiles()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlineGroups"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getDeadlineGroups()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePoolPresets"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getDeadlinePoolPresets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePools"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getDeadlinePools()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getJobIdFromSubmitResult"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getJobIdFromSubmitResult()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getJobName"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getJobName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getMantraOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getMantraOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getPoolPresetData"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getPoolPresetData()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftCleanupScript"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getRedshiftCleanupScript()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getRedshiftOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getSubmittedJobIdsFromState"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getSubmittedJobIdsFromState()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getUseDeadlinePoolPresets"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getUseDeadlinePoolPresets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.handleMaster"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.handleMaster()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.isActive"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.isActive()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onRefreshPoolsClicked"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onRefreshPoolsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateGetSettings"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onStateGetSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateSettingsLoaded"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onStateSettingsLoaded()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateStartup"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onStateStartup()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.postPublish"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.postPublish()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsLoad"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.preProjectSettingsLoad()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsSave"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.preProjectSettingsSave()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.prePublish"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.prePublish()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.presetChanged"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.presetChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.processHoudiniPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.processHoudiniPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.projectSettings_loadUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.projectSettings_loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.refreshGroups"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.refreshGroups()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.refreshPools"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.refreshPools()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.registerSubmittedJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.registerSubmittedJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.showHighPrioJobPresets"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.showHighPrioJobPresets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_execute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dep_execute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dep_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_updateUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dep_updateUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dlGoToNode"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dlGoToNode()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_activated"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houExport_activated()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houExport_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_managerChanged"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houRender_managerChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houRender_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_updateUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houRender_updateUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_managerChanged"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_managerChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_submitJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_submitJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_updateUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_updateUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_updateDlDeps"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_updateDlDeps()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitArnoldJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitArnoldJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitCleanupScript"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitCleanupScript()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitDraftTileAssemblerJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitDraftTileAssemblerJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitMantraJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitMantraJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitPythonJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitPythonJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitRedshiftJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitRedshiftJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescription3Delight"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescription3Delight()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionArnold"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescriptionArnold()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionMantra"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescriptionMantra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionRedshift"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescriptionRedshift()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.unregister"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.unregister()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFileExists"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.updateUiFileExists()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFramesCompleted"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.updateUiFramesCompleted()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiJobCompleted"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.updateUiJobCompleted()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.movePosition"><code class="docutils literal notranslate"><span class="pre">movePosition()</span></code></a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="module-Prism_Deadline_Functions">
+<span id="prism-deadline-functions-module"></span><h1>Prism_Deadline_Functions module<a class="headerlink" href="#module-Prism_Deadline_Functions" title="Permalink to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">Prism_Deadline_Functions.</span></span><span class="sig-name descname"><span class="pre">PresetItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QWidget</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.group">
+<span class="sig-name descname"><span class="pre">group</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.group" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.loadLayout">
+<span class="sig-name descname"><span class="pre">loadLayout</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.loadLayout" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.name">
+<span class="sig-name descname"><span class="pre">name</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.name" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.pool">
+<span class="sig-name descname"><span class="pre">pool</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.pool" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.removed">
+<span class="sig-name descname"><span class="pre">removed</span></span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.removed" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.secondaryPool">
+<span class="sig-name descname"><span class="pre">secondaryPool</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.secondaryPool" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.setGroup">
+<span class="sig-name descname"><span class="pre">setGroup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.setGroup" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.setName">
+<span class="sig-name descname"><span class="pre">setName</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.setName" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.setPool">
+<span class="sig-name descname"><span class="pre">setPool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pool</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.setPool" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.setSecondaryPool">
+<span class="sig-name descname"><span class="pre">setSecondaryPool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">secondaryPool</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.setSecondaryPool" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetItem.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#Prism_Deadline_Functions.PresetItem.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">Prism_Deadline_Functions.</span></span><span class="sig-name descname"><span class="pre">PresetWidget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">presetData</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QGroupBox</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.addItem">
+<span class="sig-name descname"><span class="pre">addItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secondaryPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.addItem" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.clearItems">
+<span class="sig-name descname"><span class="pre">clearItems</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.clearItems" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.connectEvents">
+<span class="sig-name descname"><span class="pre">connectEvents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.connectEvents" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.getPresetData">
+<span class="sig-name descname"><span class="pre">getPresetData</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.getPresetData" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.loadLayout">
+<span class="sig-name descname"><span class="pre">loadLayout</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.loadLayout" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.loadPresetData">
+<span class="sig-name descname"><span class="pre">loadPresetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">presetData</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.loadPresetData" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.refresh">
+<span class="sig-name descname"><span class="pre">refresh</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.refresh" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.removeItem">
+<span class="sig-name descname"><span class="pre">removeItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.removeItem" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.PresetWidget.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#Prism_Deadline_Functions.PresetWidget.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">Prism_Deadline_Functions.</span></span><span class="sig-name descname"><span class="pre">Prism_Deadline_Functions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plugin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.CallDeadlineCommand">
+<span class="sig-name descname"><span class="pre">CallDeadlineCommand</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arguments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hideWindow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">readStdout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.CallDeadlineCommand" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.GetDeadlineCommand">
+<span class="sig-name descname"><span class="pre">GetDeadlineCommand</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.GetDeadlineCommand" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.addEnvironmentItem">
+<span class="sig-name descname"><span class="pre">addEnvironmentItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.addEnvironmentItem" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.addUiToProjectSettings">
+<span class="sig-name descname"><span class="pre">addUiToProjectSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">projectSettings</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.addUiToProjectSettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.deadlineSubmitJob">
+<span class="sig-name descname"><span class="pre">deadlineSubmitJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jobInfos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pluginInfos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arguments</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.deadlineSubmitJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.get3DelightOutputPath">
+<span class="sig-name descname"><span class="pre">get3DelightOutputPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.get3DelightOutputPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getArnoldOutputPath">
+<span class="sig-name descname"><span class="pre">getArnoldOutputPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getArnoldOutputPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getCurrentSceneFiles">
+<span class="sig-name descname"><span class="pre">getCurrentSceneFiles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getCurrentSceneFiles" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlineGroups">
+<span class="sig-name descname"><span class="pre">getDeadlineGroups</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlineGroups" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePoolPresets">
+<span class="sig-name descname"><span class="pre">getDeadlinePoolPresets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePoolPresets" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePools">
+<span class="sig-name descname"><span class="pre">getDeadlinePools</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePools" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getJobIdFromSubmitResult">
+<span class="sig-name descname"><span class="pre">getJobIdFromSubmitResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getJobIdFromSubmitResult" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getJobName">
+<span class="sig-name descname"><span class="pre">getJobName</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">details</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getJobName" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getMantraOutputPath">
+<span class="sig-name descname"><span class="pre">getMantraOutputPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getMantraOutputPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getPoolPresetData">
+<span class="sig-name descname"><span class="pre">getPoolPresetData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">preset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getPoolPresetData" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftCleanupScript">
+<span class="sig-name descname"><span class="pre">getRedshiftCleanupScript</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftCleanupScript" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftOutputPath">
+<span class="sig-name descname"><span class="pre">getRedshiftOutputPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftOutputPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getSubmittedJobIdsFromState">
+<span class="sig-name descname"><span class="pre">getSubmittedJobIdsFromState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stateId</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getSubmittedJobIdsFromState" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.getUseDeadlinePoolPresets">
+<span class="sig-name descname"><span class="pre">getUseDeadlinePoolPresets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getUseDeadlinePoolPresets" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.handleMaster">
+<span class="sig-name descname"><span class="pre">handleMaster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">masterType</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobId</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobName</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.handleMaster" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.isActive">
+<span class="sig-name descname"><span class="pre">isActive</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.isActive" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.onRefreshPoolsClicked">
+<span class="sig-name descname"><span class="pre">onRefreshPoolsClicked</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onRefreshPoolsClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.onStateGetSettings">
+<span class="sig-name descname"><span class="pre">onStateGetSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateGetSettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.onStateSettingsLoaded">
+<span class="sig-name descname"><span class="pre">onStateSettingsLoaded</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateSettingsLoaded" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.onStateStartup">
+<span class="sig-name descname"><span class="pre">onStateStartup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateStartup" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.postPublish">
+<span class="sig-name descname"><span class="pre">postPublish</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pubType</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.postPublish" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsLoad">
+<span class="sig-name descname"><span class="pre">preProjectSettingsLoad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsLoad" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsSave">
+<span class="sig-name descname"><span class="pre">preProjectSettingsSave</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsSave" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.prePublish">
+<span class="sig-name descname"><span class="pre">prePublish</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.prePublish" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.presetChanged">
+<span class="sig-name descname"><span class="pre">presetChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.presetChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.processHoudiniPath">
+<span class="sig-name descname"><span class="pre">processHoudiniPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.processHoudiniPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.projectSettings_loadUI">
+<span class="sig-name descname"><span class="pre">projectSettings_loadUI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.projectSettings_loadUI" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.refreshGroups">
+<span class="sig-name descname"><span class="pre">refreshGroups</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.refreshGroups" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.refreshPools">
+<span class="sig-name descname"><span class="pre">refreshPools</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.refreshPools" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.registerSubmittedJob">
+<span class="sig-name descname"><span class="pre">registerSubmittedJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">submitResult</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.registerSubmittedJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.showHighPrioJobPresets">
+<span class="sig-name descname"><span class="pre">showHighPrioJobPresets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.showHighPrioJobPresets" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_execute">
+<span class="sig-name descname"><span class="pre">sm_dep_execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_execute" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_preExecute">
+<span class="sig-name descname"><span class="pre">sm_dep_preExecute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_preExecute" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_updateUI">
+<span class="sig-name descname"><span class="pre">sm_dep_updateUI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_updateUI" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dlGoToNode">
+<span class="sig-name descname"><span class="pre">sm_dlGoToNode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">column</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dlGoToNode" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_activated">
+<span class="sig-name descname"><span class="pre">sm_houExport_activated</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_activated" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_preExecute">
+<span class="sig-name descname"><span class="pre">sm_houExport_preExecute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_preExecute" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_managerChanged">
+<span class="sig-name descname"><span class="pre">sm_houRender_managerChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_managerChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_preExecute">
+<span class="sig-name descname"><span class="pre">sm_houRender_preExecute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_preExecute" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_updateUI">
+<span class="sig-name descname"><span class="pre">sm_houRender_updateUI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_updateUI" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_managerChanged">
+<span class="sig-name descname"><span class="pre">sm_render_managerChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_managerChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_preExecute">
+<span class="sig-name descname"><span class="pre">sm_render_preExecute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_preExecute" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_submitJob">
+<span class="sig-name descname"><span class="pre">sm_render_submitJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">files</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isSecondJob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handleMaster</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">details</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowCleanup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobnameSuffix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">useBatch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sceneDescription</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skipSubmission</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_submitJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_updateUI">
+<span class="sig-name descname"><span class="pre">sm_render_updateUI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_updateUI" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.sm_updateDlDeps">
+<span class="sig-name descname"><span class="pre">sm_updateDlDeps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">column</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_updateDlDeps" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitArnoldJob">
+<span class="sig-name descname"><span class="pre">submitArnoldJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jobName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutput</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobSndPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobGroup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPrio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobTimeOut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobMachineLimit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobFramesPerTask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobConcurrentTasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobComment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobBatchName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suspended</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archivefile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cleanupScript</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitArnoldJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitCleanupScript">
+<span class="sig-name descname"><span class="pre">submitCleanupScript</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jobName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutput</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobSndPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobGroup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPrio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobTimeOut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobMachineLimit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobComment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobBatchName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suspended</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobDependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cleanupScript</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arguments</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitCleanupScript" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitDraftTileAssemblerJob">
+<span class="sig-name descname"><span class="pre">submitDraftTileAssemblerJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jobName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutput</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobSndPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobGroup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPrio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobTimeOut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobMachineLimit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobFramesPerTask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobConcurrentTasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobComment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobBatchName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suspended</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobDependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rows</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resX</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1920</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resY</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1080</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">startFrame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitDraftTileAssemblerJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitMantraJob">
+<span class="sig-name descname"><span class="pre">submitMantraJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jobName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutput</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobSndPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobGroup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPrio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobTimeOut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobMachineLimit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobFramesPerTask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobConcurrentTasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobComment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobBatchName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suspended</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archivefile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cleanupScript</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitMantraJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitPythonJob">
+<span class="sig-name descname"><span class="pre">submitPythonJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'3.9'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutput</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobSndPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobGroup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPrio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobTimeOut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobMachineLimit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobFramesPerTask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobConcurrentTasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobComment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobBatchName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suspended</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobDependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitPythonJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitRedshiftJob">
+<span class="sig-name descname"><span class="pre">submitRedshiftJob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jobName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutput</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobSndPool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobGroup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobPrio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobTimeOut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobMachineLimit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobFramesPerTask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobConcurrentTasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobComment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobBatchName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suspended</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dependencies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archivefile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpusPerTask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpuDevices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cleanupScript</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitRedshiftJob" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescription3Delight">
+<span class="sig-name descname"><span class="pre">submitSceneDescription3Delight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobId</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFileOrig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowCleanup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobParams</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescription3Delight" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionArnold">
+<span class="sig-name descname"><span class="pre">submitSceneDescriptionArnold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobId</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFileOrig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowCleanup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobParams</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionArnold" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionMantra">
+<span class="sig-name descname"><span class="pre">submitSceneDescriptionMantra</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobId</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFileOrig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowCleanup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobParams</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionMantra" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionRedshift">
+<span class="sig-name descname"><span class="pre">submitSceneDescriptionRedshift</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobId</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFile</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobOutputFileOrig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowCleanup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jobParams</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionRedshift" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.unregister">
+<span class="sig-name descname"><span class="pre">unregister</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.unregister" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFileExists">
+<span class="sig-name descname"><span class="pre">updateUiFileExists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFileExists" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFramesCompleted">
+<span class="sig-name descname"><span class="pre">updateUiFramesCompleted</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFramesCompleted" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiJobCompleted">
+<span class="sig-name descname"><span class="pre">updateUiJobCompleted</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiJobCompleted" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Prism_Deadline_Functions.movePosition">
+<span class="sig-prename descclassname"><span class="pre">Prism_Deadline_Functions.</span></span><span class="sig-name descname"><span class="pre">movePosition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QTextCursor.MoveOperation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg__2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QTextCursor.MoveMode</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">PySide2.QtGui.QTextCursor.MoveMode.MoveAnchor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#Prism_Deadline_Functions.movePosition" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../DeadlineDependency/"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">DeadlineDependency module</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../../../../Houdini/"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Houdini</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem"><code class="docutils literal notranslate"><span class="pre">PresetItem</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.group"><code class="docutils literal notranslate"><span class="pre">PresetItem.group()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.loadLayout"><code class="docutils literal notranslate"><span class="pre">PresetItem.loadLayout()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.name"><code class="docutils literal notranslate"><span class="pre">PresetItem.name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.pool"><code class="docutils literal notranslate"><span class="pre">PresetItem.pool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.removed"><code class="docutils literal notranslate"><span class="pre">PresetItem.removed</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.secondaryPool"><code class="docutils literal notranslate"><span class="pre">PresetItem.secondaryPool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setGroup"><code class="docutils literal notranslate"><span class="pre">PresetItem.setGroup()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setName"><code class="docutils literal notranslate"><span class="pre">PresetItem.setName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setPool"><code class="docutils literal notranslate"><span class="pre">PresetItem.setPool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.setSecondaryPool"><code class="docutils literal notranslate"><span class="pre">PresetItem.setSecondaryPool()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetItem.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">PresetItem.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget"><code class="docutils literal notranslate"><span class="pre">PresetWidget</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.addItem"><code class="docutils literal notranslate"><span class="pre">PresetWidget.addItem()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.clearItems"><code class="docutils literal notranslate"><span class="pre">PresetWidget.clearItems()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.connectEvents"><code class="docutils literal notranslate"><span class="pre">PresetWidget.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.getPresetData"><code class="docutils literal notranslate"><span class="pre">PresetWidget.getPresetData()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.loadLayout"><code class="docutils literal notranslate"><span class="pre">PresetWidget.loadLayout()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.loadPresetData"><code class="docutils literal notranslate"><span class="pre">PresetWidget.loadPresetData()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.refresh"><code class="docutils literal notranslate"><span class="pre">PresetWidget.refresh()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.removeItem"><code class="docutils literal notranslate"><span class="pre">PresetWidget.removeItem()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.PresetWidget.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">PresetWidget.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.CallDeadlineCommand"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.CallDeadlineCommand()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.GetDeadlineCommand"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.GetDeadlineCommand()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.addEnvironmentItem"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.addEnvironmentItem()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.addUiToProjectSettings"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.addUiToProjectSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.deadlineSubmitJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.deadlineSubmitJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.get3DelightOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.get3DelightOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getArnoldOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getArnoldOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getCurrentSceneFiles"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getCurrentSceneFiles()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlineGroups"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getDeadlineGroups()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePoolPresets"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getDeadlinePoolPresets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getDeadlinePools"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getDeadlinePools()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getJobIdFromSubmitResult"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getJobIdFromSubmitResult()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getJobName"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getJobName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getMantraOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getMantraOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getPoolPresetData"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getPoolPresetData()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftCleanupScript"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getRedshiftCleanupScript()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getRedshiftOutputPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getRedshiftOutputPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getSubmittedJobIdsFromState"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getSubmittedJobIdsFromState()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.getUseDeadlinePoolPresets"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.getUseDeadlinePoolPresets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.handleMaster"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.handleMaster()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.isActive"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.isActive()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onRefreshPoolsClicked"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onRefreshPoolsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateGetSettings"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onStateGetSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateSettingsLoaded"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onStateSettingsLoaded()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.onStateStartup"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.onStateStartup()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.postPublish"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.postPublish()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsLoad"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.preProjectSettingsLoad()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.preProjectSettingsSave"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.preProjectSettingsSave()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.prePublish"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.prePublish()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.presetChanged"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.presetChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.processHoudiniPath"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.processHoudiniPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.projectSettings_loadUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.projectSettings_loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.refreshGroups"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.refreshGroups()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.refreshPools"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.refreshPools()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.registerSubmittedJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.registerSubmittedJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.showHighPrioJobPresets"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.showHighPrioJobPresets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_execute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dep_execute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dep_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dep_updateUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dep_updateUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_dlGoToNode"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_dlGoToNode()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_activated"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houExport_activated()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houExport_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houExport_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_managerChanged"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houRender_managerChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houRender_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_houRender_updateUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_houRender_updateUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_managerChanged"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_managerChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_preExecute"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_preExecute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_submitJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_submitJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_render_updateUI"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_render_updateUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.sm_updateDlDeps"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.sm_updateDlDeps()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitArnoldJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitArnoldJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitCleanupScript"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitCleanupScript()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitDraftTileAssemblerJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitDraftTileAssemblerJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitMantraJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitMantraJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitPythonJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitPythonJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitRedshiftJob"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitRedshiftJob()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescription3Delight"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescription3Delight()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionArnold"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescriptionArnold()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionMantra"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescriptionMantra()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.submitSceneDescriptionRedshift"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.submitSceneDescriptionRedshift()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.unregister"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.unregister()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFileExists"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.updateUiFileExists()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiFramesCompleted"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.updateUiFramesCompleted()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.Prism_Deadline_Functions.updateUiJobCompleted"><code class="docutils literal notranslate"><span class="pre">Prism_Deadline_Functions.updateUiJobCompleted()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Prism_Deadline_Functions.movePosition"><code class="docutils literal notranslate"><span class="pre">movePosition()</span></code></a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Richard Frangenberg
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2023, Prism Software GmbH.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

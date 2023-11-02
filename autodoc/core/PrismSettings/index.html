@@ -1,0 +1,1286 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>PrismSettings module &#8212; Prism Pipeline Python API Reference</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../../../_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="../../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="../../../_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autodoc/core/PrismSettings';</script>
+    <link rel="index" title="Index" href="../../../genindex/" />
+    <link rel="search" title="Search" href="../../../search/" />
+    <link rel="next" title="PrismTray module" href="../PrismTray/" />
+    <link rel="prev" title="PrismInstaller module" href="../PrismInstaller/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../search/"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="../../../">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/prism-pipeline-logo.png" class="logo__image only-light" alt="Prism Pipeline Python API Reference - Home"/>
+    <script>document.write(`<img src="../../../_static/prism-pipeline-logo.png" class="logo__image only-dark" alt="Prism Pipeline Python API Reference - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../../">
+                    Overview
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Core:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../PrismCore/">PrismCore module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../PrismInstaller/">PrismInstaller module</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">PrismSettings module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../PrismTray/">PrismTray module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../PrismUtils/">PrismUtils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ProjectSettings/">ProjectSettings module</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Plugins:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../3dsMax/">3ds Max</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/3dsMax/Prism_3dsMax_Functions/">Prism_3dsMax_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/3dsMax/Prism_3dsMax_Integration/">Prism_3dsMax_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/3dsMax/Prism_3dsMax_externalAccess_Functions/">Prism_3dsMax_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Blender/">Blender</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/Prism_Blender_Functions/">Prism_Blender_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/Prism_Blender_Integration/">Prism_Blender_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/Prism_Blender_externalAccess_Functions/">Prism_Blender_externalAccess_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Blender/widget_import_scenedata/">widget_import_scenedata module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Deadline/">Deadline</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Deadline/DeadlineDependency/">DeadlineDependency module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Deadline/Prism_Deadline_Functions/">Prism_Deadline_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Houdini/">Houdini</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Functions/">Prism_Houdini_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Integration/">Prism_Houdini_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Node_Filecache/">Prism_Houdini_Node_Filecache module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Node_ImportFile/">Prism_Houdini_Node_ImportFile module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_3Delight/">Prism_Houdini_Renderer_3Delight module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Arnold/">Prism_Houdini_Renderer_Arnold module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Mantra/">Prism_Houdini_Renderer_Mantra module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Octane/">Prism_Houdini_Renderer_Octane module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Redshift/">Prism_Houdini_Renderer_Redshift module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Renderman/">Prism_Houdini_Renderer_Renderman module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_Renderer_Vray/">Prism_Houdini_Renderer_Vray module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Houdini/Prism_Houdini_externalAccess_Functions/">Prism_Houdini_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Maya/">Maya</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Maya/Prism_Maya_Functions/">Prism_Maya_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Maya/Prism_Maya_Integration/">Prism_Maya_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Maya/Prism_Maya_externalAccess_Functions/">Prism_Maya_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Nuke/">Nuke</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Nuke/Prism_Nuke_Functions/">Prism_Nuke_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Nuke/Prism_Nuke_Integration/">Prism_Nuke_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Nuke/Prism_Nuke_externalAccess_Functions/">Prism_Nuke_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Photoshop/">Photoshop</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Photoshop/Prism_Photoshop_Functions/">Prism_Photoshop_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Photoshop/Prism_Photoshop_Integration/">Prism_Photoshop_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Photoshop/Prism_Photoshop_externalAccess_Functions/">Prism_Photoshop_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../PureRef/">PureRef</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/PureRef/Prism_PureRef_Functions/">Prism_PureRef_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/PureRef/Prism_PureRef_Integration/">Prism_PureRef_Integration module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/PureRef/Prism_PureRef_externalAccess_Functions/">Prism_PureRef_externalAccess_Functions module</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../Standalone/">Standalone</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Standalone/Prism_Standalone_Functions/">Prism_Standalone_Functions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../plugins/Standalone/Prism_Standalone_externalAccess_Functions/">Prism_Standalone_externalAccess_Functions module</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/PrismPipeline/Prism" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../../_sources/autodoc/core/PrismSettings.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<label class="sidebar-toggle secondary-toggle btn btn-sm" for="__secondary"title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</label>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>PrismSettings module</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.addPath"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.addPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.browse"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.connectEvents"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.pathAdded"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.pathAdded</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.setupUi"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.validate"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.browse"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.connectEvents"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.refreshPath"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.refreshPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.setupUi"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.validate"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.refreshEnvironment"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.refreshEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.setupUi"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.sizeHint"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel"><code class="docutils literal notranslate"><span class="pre">HelpLabel</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.enterEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.mouseMoveEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.mouseMoveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.signalEntered"><code class="docutils literal notranslate"><span class="pre">HelpLabel.signalEntered</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">HelpLabel.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.addPluginPath"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.addPluginPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.addPluginSearchpath"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.addPluginSearchpath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.contextMenuPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.contextMenuPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.contextMenuSearchpaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.contextMenuSearchpaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.getPluginPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.getPluginPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.getPluginSearchPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.getPluginSearchPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.refresh"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.refresh()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.removePluginPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.removePluginPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.removePluginSearchpaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.removePluginSearchpaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.setSelectedPathsEnabled"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.setSelectedPathsEnabled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.setSelectedSearchpathsEnabled"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.setSelectedSearchpathsEnabled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.setupUi"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.sizeHint"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings"><code class="docutils literal notranslate"><span class="pre">PrismSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.addTab"><code class="docutils literal notranslate"><span class="pre">PrismSettings.addTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.applySettings"><code class="docutils literal notranslate"><span class="pre">PrismSettings.applySettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.getCurrentCategory"><code class="docutils literal notranslate"><span class="pre">PrismSettings.getCurrentCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.getCurrentSettingsType"><code class="docutils literal notranslate"><span class="pre">PrismSettings.getCurrentSettingsType()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.getTabByName"><code class="docutils literal notranslate"><span class="pre">PrismSettings.getTabByName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.loadUI"><code class="docutils literal notranslate"><span class="pre">PrismSettings.loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.navigate"><code class="docutils literal notranslate"><span class="pre">PrismSettings.navigate()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.saveSettings"><code class="docutils literal notranslate"><span class="pre">PrismSettings.saveSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.sizeHint"><code class="docutils literal notranslate"><span class="pre">PrismSettings.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">PrismSettings.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.tabChanged"><code class="docutils literal notranslate"><span class="pre">PrismSettings.tabChanged()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings"><code class="docutils literal notranslate"><span class="pre">UserSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.addEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">UserSettings.addEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.addPluginSearchpath"><code class="docutils literal notranslate"><span class="pre">UserSettings.addPluginSearchpath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.addTab"><code class="docutils literal notranslate"><span class="pre">UserSettings.addTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.browse"><code class="docutils literal notranslate"><span class="pre">UserSettings.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.changeProject"><code class="docutils literal notranslate"><span class="pre">UserSettings.changeProject()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.connectEvents"><code class="docutils literal notranslate"><span class="pre">UserSettings.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.contextMenuIntegration"><code class="docutils literal notranslate"><span class="pre">UserSettings.contextMenuIntegration()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.createPlugin"><code class="docutils literal notranslate"><span class="pre">UserSettings.createPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.createPluginWindow"><code class="docutils literal notranslate"><span class="pre">UserSettings.createPluginWindow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.enterEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.getCurrentCategory"><code class="docutils literal notranslate"><span class="pre">UserSettings.getCurrentCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.getEnvironmentVariables"><code class="docutils literal notranslate"><span class="pre">UserSettings.getEnvironmentVariables()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.getTabByName"><code class="docutils literal notranslate"><span class="pre">UserSettings.getTabByName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.integrationAdd"><code class="docutils literal notranslate"><span class="pre">UserSettings.integrationAdd()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.integrationRemove"><code class="docutils literal notranslate"><span class="pre">UserSettings.integrationRemove()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.keyPressedDialog"><code class="docutils literal notranslate"><span class="pre">UserSettings.keyPressedDialog()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadEnvironmant"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadEnvironmant()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadExternalPlugin"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadExternalPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadPlugins"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadPlugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadSettings"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadUI"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.makePersistent"><code class="docutils literal notranslate"><span class="pre">UserSettings.makePersistent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.managePluginsDlg"><code class="docutils literal notranslate"><span class="pre">UserSettings.managePluginsDlg()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onCategoryChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.onCategoryChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onExportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">UserSettings.onExportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onImportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">UserSettings.onImportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onStyleSheetChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.onStyleSheetChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onTrayChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.onTrayChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.openPluginFolder"><code class="docutils literal notranslate"><span class="pre">UserSettings.openPluginFolder()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.orToggled"><code class="docutils literal notranslate"><span class="pre">UserSettings.orToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDragEnterEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDragEnterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDragLeaveEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDragLeaveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDragMoveEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDragMoveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDropEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDropEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.rclEnvironment"><code class="docutils literal notranslate"><span class="pre">UserSettings.rclEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.rclLoadPlugin"><code class="docutils literal notranslate"><span class="pre">UserSettings.rclLoadPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.rclPluginList"><code class="docutils literal notranslate"><span class="pre">UserSettings.rclPluginList()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshCategories"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshCategories()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshIcons"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshIcons()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshIntegrations"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshIntegrations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshPlugins"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshPlugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshStyleSheets"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshStyleSheets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.reload"><code class="docutils literal notranslate"><span class="pre">UserSettings.reload()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.reloadPlugins"><code class="docutils literal notranslate"><span class="pre">UserSettings.reloadPlugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.removeEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">UserSettings.removeEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.removeTab"><code class="docutils literal notranslate"><span class="pre">UserSettings.removeTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.saveSettings"><code class="docutils literal notranslate"><span class="pre">UserSettings.saveSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.selectCategory"><code class="docutils literal notranslate"><span class="pre">UserSettings.selectCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.showEnvironment"><code class="docutils literal notranslate"><span class="pre">UserSettings.showEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.startTray"><code class="docutils literal notranslate"><span class="pre">UserSettings.startTray()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">UserSettings.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.tabChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.tabChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.updateTabSize"><code class="docutils literal notranslate"><span class="pre">UserSettings.updateTabSize()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.validate"><code class="docutils literal notranslate"><span class="pre">UserSettings.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.movePosition"><code class="docutils literal notranslate"><span class="pre">movePosition()</span></code></a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="module-PrismSettings">
+<span id="prismsettings-module"></span><h1>PrismSettings module<a class="headerlink" href="#module-PrismSettings" title="Permalink to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">AddProductPathDialog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pathType</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.AddProductPathDialog" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog.addPath">
+<span class="sig-name descname"><span class="pre">addPath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.AddProductPathDialog.addPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog.browse">
+<span class="sig-name descname"><span class="pre">browse</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.AddProductPathDialog.browse" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog.connectEvents">
+<span class="sig-name descname"><span class="pre">connectEvents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.AddProductPathDialog.connectEvents" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog.pathAdded">
+<span class="sig-name descname"><span class="pre">pathAdded</span></span><a class="headerlink" href="#PrismSettings.AddProductPathDialog.pathAdded" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog.setupUi">
+<span class="sig-name descname"><span class="pre">setupUi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.AddProductPathDialog.setupUi" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#PrismSettings.AddProductPathDialog.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.AddProductPathDialog.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uiWidget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origText</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.AddProductPathDialog.validate" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PrismSettings.CreatePluginDialog">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">CreatePluginDialog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.CreatePluginDialog" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.CreatePluginDialog.browse">
+<span class="sig-name descname"><span class="pre">browse</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.CreatePluginDialog.browse" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.CreatePluginDialog.connectEvents">
+<span class="sig-name descname"><span class="pre">connectEvents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.CreatePluginDialog.connectEvents" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.CreatePluginDialog.refreshPath">
+<span class="sig-name descname"><span class="pre">refreshPath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.CreatePluginDialog.refreshPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.CreatePluginDialog.setupUi">
+<span class="sig-name descname"><span class="pre">setupUi</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.CreatePluginDialog.setupUi" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.CreatePluginDialog.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#PrismSettings.CreatePluginDialog.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.CreatePluginDialog.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uiWidget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origText</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.CreatePluginDialog.validate" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PrismSettings.EnvironmentWidget">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">EnvironmentWidget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.EnvironmentWidget" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.EnvironmentWidget.refreshEnvironment">
+<span class="sig-name descname"><span class="pre">refreshEnvironment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.EnvironmentWidget.refreshEnvironment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.EnvironmentWidget.setupUi">
+<span class="sig-name descname"><span class="pre">setupUi</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.EnvironmentWidget.setupUi" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.EnvironmentWidget.sizeHint">
+<span class="sig-name descname"><span class="pre">sizeHint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">PySide2.QtCore.QSize</span></span></span><a class="headerlink" href="#PrismSettings.EnvironmentWidget.sizeHint" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.EnvironmentWidget.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#PrismSettings.EnvironmentWidget.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PrismSettings.HelpLabel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">HelpLabel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.HelpLabel" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QLabel</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.HelpLabel.enterEvent">
+<span class="sig-name descname"><span class="pre">enterEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtCore.QEvent</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#PrismSettings.HelpLabel.enterEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.HelpLabel.mouseMoveEvent">
+<span class="sig-name descname"><span class="pre">mouseMoveEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ev</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QMouseEvent</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#PrismSettings.HelpLabel.mouseMoveEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.HelpLabel.signalEntered">
+<span class="sig-name descname"><span class="pre">signalEntered</span></span><a class="headerlink" href="#PrismSettings.HelpLabel.signalEntered" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.HelpLabel.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#PrismSettings.HelpLabel.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">ManagePluginPaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.addPluginPath">
+<span class="sig-name descname"><span class="pre">addPluginPath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.addPluginPath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.addPluginSearchpath">
+<span class="sig-name descname"><span class="pre">addPluginSearchpath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.addPluginSearchpath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.contextMenuPaths">
+<span class="sig-name descname"><span class="pre">contextMenuPaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.contextMenuPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.contextMenuSearchpaths">
+<span class="sig-name descname"><span class="pre">contextMenuSearchpaths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.contextMenuSearchpaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.getPluginPaths">
+<span class="sig-name descname"><span class="pre">getPluginPaths</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.getPluginPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.getPluginSearchPaths">
+<span class="sig-name descname"><span class="pre">getPluginSearchPaths</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.getPluginSearchPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.refresh">
+<span class="sig-name descname"><span class="pre">refresh</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.refresh" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.removePluginPaths">
+<span class="sig-name descname"><span class="pre">removePluginPaths</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.removePluginPaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.removePluginSearchpaths">
+<span class="sig-name descname"><span class="pre">removePluginSearchpaths</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.removePluginSearchpaths" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.setSelectedPathsEnabled">
+<span class="sig-name descname"><span class="pre">setSelectedPathsEnabled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.setSelectedPathsEnabled" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.setSelectedSearchpathsEnabled">
+<span class="sig-name descname"><span class="pre">setSelectedSearchpathsEnabled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.setSelectedSearchpathsEnabled" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.setupUi">
+<span class="sig-name descname"><span class="pre">setupUi</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.setupUi" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.sizeHint">
+<span class="sig-name descname"><span class="pre">sizeHint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">PySide2.QtCore.QSize</span></span></span><a class="headerlink" href="#PrismSettings.ManagePluginPaths.sizeHint" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.ManagePluginPaths.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#PrismSettings.ManagePluginPaths.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">PrismSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.addTab">
+<span class="sig-name descname"><span class="pre">addTab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">widget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">icon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.addTab" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.applySettings">
+<span class="sig-name descname"><span class="pre">applySettings</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.applySettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.getCurrentCategory">
+<span class="sig-name descname"><span class="pre">getCurrentCategory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.getCurrentCategory" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.getCurrentSettingsType">
+<span class="sig-name descname"><span class="pre">getCurrentSettingsType</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.getCurrentSettingsType" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.getTabByName">
+<span class="sig-name descname"><span class="pre">getTabByName</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.getTabByName" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.loadUI">
+<span class="sig-name descname"><span class="pre">loadUI</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.loadUI" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.navigate">
+<span class="sig-name descname"><span class="pre">navigate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.navigate" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.saveSettings">
+<span class="sig-name descname"><span class="pre">saveSettings</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.saveSettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.sizeHint">
+<span class="sig-name descname"><span class="pre">sizeHint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">PySide2.QtCore.QSize</span></span></span><a class="headerlink" href="#PrismSettings.PrismSettings.sizeHint" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#PrismSettings.PrismSettings.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.PrismSettings.tabChanged">
+<span class="sig-name descname"><span class="pre">tabChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.PrismSettings.tabChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">UserSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">core</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QDialog</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Ui_dlg_UserSettings</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.addEnvironmentRow">
+<span class="sig-name descname"><span class="pre">addEnvironmentRow</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.addEnvironmentRow" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.addPluginSearchpath">
+<span class="sig-name descname"><span class="pre">addPluginSearchpath</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.addPluginSearchpath" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.addTab">
+<span class="sig-name descname"><span class="pre">addTab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">widget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.addTab" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.browse">
+<span class="sig-name descname"><span class="pre">browse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bType</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">getFile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">windowTitle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uiEdit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.browse" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.changeProject">
+<span class="sig-name descname"><span class="pre">changeProject</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.changeProject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.connectEvents">
+<span class="sig-name descname"><span class="pre">connectEvents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.connectEvents" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.contextMenuIntegration">
+<span class="sig-name descname"><span class="pre">contextMenuIntegration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">listwidget</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.contextMenuIntegration" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.createPlugin">
+<span class="sig-name descname"><span class="pre">createPlugin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pluginName</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pluginType</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.createPlugin" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.createPluginWindow">
+<span class="sig-name descname"><span class="pre">createPluginWindow</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.createPluginWindow" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.enterEvent">
+<span class="sig-name descname"><span class="pre">enterEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtCore.QEvent</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#PrismSettings.UserSettings.enterEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.getCurrentCategory">
+<span class="sig-name descname"><span class="pre">getCurrentCategory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.getCurrentCategory" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.getEnvironmentVariables">
+<span class="sig-name descname"><span class="pre">getEnvironmentVariables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.getEnvironmentVariables" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.getTabByName">
+<span class="sig-name descname"><span class="pre">getTabByName</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.getTabByName" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.integrationAdd">
+<span class="sig-name descname"><span class="pre">integrationAdd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prog</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.integrationAdd" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.integrationRemove">
+<span class="sig-name descname"><span class="pre">integrationRemove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prog</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.integrationRemove" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.keyPressedDialog">
+<span class="sig-name descname"><span class="pre">keyPressedDialog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">event</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.keyPressedDialog" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.loadEnvironmant">
+<span class="sig-name descname"><span class="pre">loadEnvironmant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variables</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.loadEnvironmant" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.loadExternalPlugin">
+<span class="sig-name descname"><span class="pre">loadExternalPlugin</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.loadExternalPlugin" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.loadPlugins">
+<span class="sig-name descname"><span class="pre">loadPlugins</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">selected</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unload</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.loadPlugins" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.loadSettings">
+<span class="sig-name descname"><span class="pre">loadSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configPath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.loadSettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.loadUI">
+<span class="sig-name descname"><span class="pre">loadUI</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.loadUI" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.makePersistent">
+<span class="sig-name descname"><span class="pre">makePersistent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.makePersistent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.managePluginsDlg">
+<span class="sig-name descname"><span class="pre">managePluginsDlg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.managePluginsDlg" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.onCategoryChanged">
+<span class="sig-name descname"><span class="pre">onCategoryChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">current</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prev</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.onCategoryChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.onExportSettingsClicked">
+<span class="sig-name descname"><span class="pre">onExportSettingsClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.onExportSettingsClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.onImportSettingsClicked">
+<span class="sig-name descname"><span class="pre">onImportSettingsClicked</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.onImportSettingsClicked" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.onStyleSheetChanged">
+<span class="sig-name descname"><span class="pre">onStyleSheetChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.onStyleSheetChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.onTrayChanged">
+<span class="sig-name descname"><span class="pre">onTrayChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.onTrayChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.openPluginFolder">
+<span class="sig-name descname"><span class="pre">openPluginFolder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.openPluginFolder" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.orToggled">
+<span class="sig-name descname"><span class="pre">orToggled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prog</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.orToggled" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.pluginDragEnterEvent">
+<span class="sig-name descname"><span class="pre">pluginDragEnterEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.pluginDragEnterEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.pluginDragLeaveEvent">
+<span class="sig-name descname"><span class="pre">pluginDragLeaveEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.pluginDragLeaveEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.pluginDragMoveEvent">
+<span class="sig-name descname"><span class="pre">pluginDragMoveEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.pluginDragMoveEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.pluginDropEvent">
+<span class="sig-name descname"><span class="pre">pluginDropEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.pluginDropEvent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.rclEnvironment">
+<span class="sig-name descname"><span class="pre">rclEnvironment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.rclEnvironment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.rclLoadPlugin">
+<span class="sig-name descname"><span class="pre">rclLoadPlugin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.rclLoadPlugin" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.rclPluginList">
+<span class="sig-name descname"><span class="pre">rclPluginList</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.rclPluginList" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.refreshCategories">
+<span class="sig-name descname"><span class="pre">refreshCategories</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.refreshCategories" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.refreshIcons">
+<span class="sig-name descname"><span class="pre">refreshIcons</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.refreshIcons" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.refreshIntegrations">
+<span class="sig-name descname"><span class="pre">refreshIntegrations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.refreshIntegrations" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.refreshPlugins">
+<span class="sig-name descname"><span class="pre">refreshPlugins</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.refreshPlugins" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.refreshStyleSheets">
+<span class="sig-name descname"><span class="pre">refreshStyleSheets</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.refreshStyleSheets" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.reload">
+<span class="sig-name descname"><span class="pre">reload</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.reload" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.reloadPlugins">
+<span class="sig-name descname"><span class="pre">reloadPlugins</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plugins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">selected</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.reloadPlugins" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.removeEnvironmentRow">
+<span class="sig-name descname"><span class="pre">removeEnvironmentRow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.removeEnvironmentRow" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.removeTab">
+<span class="sig-name descname"><span class="pre">removeTab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.removeTab" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.saveSettings">
+<span class="sig-name descname"><span class="pre">saveSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">changeProject</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">configPath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">export</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.saveSettings" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.selectCategory">
+<span class="sig-name descname"><span class="pre">selectCategory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.selectCategory" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.showEnvironment">
+<span class="sig-name descname"><span class="pre">showEnvironment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.showEnvironment" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.startTray">
+<span class="sig-name descname"><span class="pre">startTray</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.startTray" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.staticMetaObject">
+<span class="sig-name descname"><span class="pre">staticMetaObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;PySide2.QtCore.QMetaObject</span> <span class="pre">object&gt;</span></em><a class="headerlink" href="#PrismSettings.UserSettings.staticMetaObject" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.tabChanged">
+<span class="sig-name descname"><span class="pre">tabChanged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.tabChanged" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.updateTabSize">
+<span class="sig-name descname"><span class="pre">updateTabSize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tab</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.updateTabSize" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PrismSettings.UserSettings.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uiWidget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origText</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PrismSettings.UserSettings.validate" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PrismSettings.movePosition">
+<span class="sig-prename descclassname"><span class="pre">PrismSettings.</span></span><span class="sig-name descname"><span class="pre">movePosition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QTextCursor.MoveOperation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg__2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PySide2.QtGui.QTextCursor.MoveMode</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">PySide2.QtGui.QTextCursor.MoveMode.MoveAnchor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#PrismSettings.movePosition" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../PrismInstaller/"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">PrismInstaller module</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../PrismTray/"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">PrismTray module</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.addPath"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.addPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.browse"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.connectEvents"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.pathAdded"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.pathAdded</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.setupUi"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.AddProductPathDialog.validate"><code class="docutils literal notranslate"><span class="pre">AddProductPathDialog.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.browse"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.connectEvents"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.refreshPath"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.refreshPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.setupUi"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.CreatePluginDialog.validate"><code class="docutils literal notranslate"><span class="pre">CreatePluginDialog.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.refreshEnvironment"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.refreshEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.setupUi"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.sizeHint"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.EnvironmentWidget.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">EnvironmentWidget.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel"><code class="docutils literal notranslate"><span class="pre">HelpLabel</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.enterEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.mouseMoveEvent"><code class="docutils literal notranslate"><span class="pre">HelpLabel.mouseMoveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.signalEntered"><code class="docutils literal notranslate"><span class="pre">HelpLabel.signalEntered</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.HelpLabel.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">HelpLabel.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.addPluginPath"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.addPluginPath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.addPluginSearchpath"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.addPluginSearchpath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.contextMenuPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.contextMenuPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.contextMenuSearchpaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.contextMenuSearchpaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.getPluginPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.getPluginPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.getPluginSearchPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.getPluginSearchPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.refresh"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.refresh()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.removePluginPaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.removePluginPaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.removePluginSearchpaths"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.removePluginSearchpaths()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.setSelectedPathsEnabled"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.setSelectedPathsEnabled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.setSelectedSearchpathsEnabled"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.setSelectedSearchpathsEnabled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.setupUi"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.setupUi()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.sizeHint"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.ManagePluginPaths.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">ManagePluginPaths.staticMetaObject</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings"><code class="docutils literal notranslate"><span class="pre">PrismSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.addTab"><code class="docutils literal notranslate"><span class="pre">PrismSettings.addTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.applySettings"><code class="docutils literal notranslate"><span class="pre">PrismSettings.applySettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.getCurrentCategory"><code class="docutils literal notranslate"><span class="pre">PrismSettings.getCurrentCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.getCurrentSettingsType"><code class="docutils literal notranslate"><span class="pre">PrismSettings.getCurrentSettingsType()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.getTabByName"><code class="docutils literal notranslate"><span class="pre">PrismSettings.getTabByName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.loadUI"><code class="docutils literal notranslate"><span class="pre">PrismSettings.loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.navigate"><code class="docutils literal notranslate"><span class="pre">PrismSettings.navigate()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.saveSettings"><code class="docutils literal notranslate"><span class="pre">PrismSettings.saveSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.sizeHint"><code class="docutils literal notranslate"><span class="pre">PrismSettings.sizeHint()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">PrismSettings.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.PrismSettings.tabChanged"><code class="docutils literal notranslate"><span class="pre">PrismSettings.tabChanged()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings"><code class="docutils literal notranslate"><span class="pre">UserSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.addEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">UserSettings.addEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.addPluginSearchpath"><code class="docutils literal notranslate"><span class="pre">UserSettings.addPluginSearchpath()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.addTab"><code class="docutils literal notranslate"><span class="pre">UserSettings.addTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.browse"><code class="docutils literal notranslate"><span class="pre">UserSettings.browse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.changeProject"><code class="docutils literal notranslate"><span class="pre">UserSettings.changeProject()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.connectEvents"><code class="docutils literal notranslate"><span class="pre">UserSettings.connectEvents()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.contextMenuIntegration"><code class="docutils literal notranslate"><span class="pre">UserSettings.contextMenuIntegration()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.createPlugin"><code class="docutils literal notranslate"><span class="pre">UserSettings.createPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.createPluginWindow"><code class="docutils literal notranslate"><span class="pre">UserSettings.createPluginWindow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.enterEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.enterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.getCurrentCategory"><code class="docutils literal notranslate"><span class="pre">UserSettings.getCurrentCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.getEnvironmentVariables"><code class="docutils literal notranslate"><span class="pre">UserSettings.getEnvironmentVariables()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.getTabByName"><code class="docutils literal notranslate"><span class="pre">UserSettings.getTabByName()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.integrationAdd"><code class="docutils literal notranslate"><span class="pre">UserSettings.integrationAdd()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.integrationRemove"><code class="docutils literal notranslate"><span class="pre">UserSettings.integrationRemove()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.keyPressedDialog"><code class="docutils literal notranslate"><span class="pre">UserSettings.keyPressedDialog()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadEnvironmant"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadEnvironmant()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadExternalPlugin"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadExternalPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadPlugins"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadPlugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadSettings"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.loadUI"><code class="docutils literal notranslate"><span class="pre">UserSettings.loadUI()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.makePersistent"><code class="docutils literal notranslate"><span class="pre">UserSettings.makePersistent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.managePluginsDlg"><code class="docutils literal notranslate"><span class="pre">UserSettings.managePluginsDlg()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onCategoryChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.onCategoryChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onExportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">UserSettings.onExportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onImportSettingsClicked"><code class="docutils literal notranslate"><span class="pre">UserSettings.onImportSettingsClicked()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onStyleSheetChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.onStyleSheetChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.onTrayChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.onTrayChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.openPluginFolder"><code class="docutils literal notranslate"><span class="pre">UserSettings.openPluginFolder()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.orToggled"><code class="docutils literal notranslate"><span class="pre">UserSettings.orToggled()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDragEnterEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDragEnterEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDragLeaveEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDragLeaveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDragMoveEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDragMoveEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.pluginDropEvent"><code class="docutils literal notranslate"><span class="pre">UserSettings.pluginDropEvent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.rclEnvironment"><code class="docutils literal notranslate"><span class="pre">UserSettings.rclEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.rclLoadPlugin"><code class="docutils literal notranslate"><span class="pre">UserSettings.rclLoadPlugin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.rclPluginList"><code class="docutils literal notranslate"><span class="pre">UserSettings.rclPluginList()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshCategories"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshCategories()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshIcons"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshIcons()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshIntegrations"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshIntegrations()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshPlugins"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshPlugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.refreshStyleSheets"><code class="docutils literal notranslate"><span class="pre">UserSettings.refreshStyleSheets()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.reload"><code class="docutils literal notranslate"><span class="pre">UserSettings.reload()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.reloadPlugins"><code class="docutils literal notranslate"><span class="pre">UserSettings.reloadPlugins()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.removeEnvironmentRow"><code class="docutils literal notranslate"><span class="pre">UserSettings.removeEnvironmentRow()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.removeTab"><code class="docutils literal notranslate"><span class="pre">UserSettings.removeTab()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.saveSettings"><code class="docutils literal notranslate"><span class="pre">UserSettings.saveSettings()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.selectCategory"><code class="docutils literal notranslate"><span class="pre">UserSettings.selectCategory()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.showEnvironment"><code class="docutils literal notranslate"><span class="pre">UserSettings.showEnvironment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.startTray"><code class="docutils literal notranslate"><span class="pre">UserSettings.startTray()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.staticMetaObject"><code class="docutils literal notranslate"><span class="pre">UserSettings.staticMetaObject</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.tabChanged"><code class="docutils literal notranslate"><span class="pre">UserSettings.tabChanged()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.updateTabSize"><code class="docutils literal notranslate"><span class="pre">UserSettings.updateTabSize()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.UserSettings.validate"><code class="docutils literal notranslate"><span class="pre">UserSettings.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#PrismSettings.movePosition"><code class="docutils literal notranslate"><span class="pre">movePosition()</span></code></a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Richard Frangenberg
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright 2023, Prism Software GmbH.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="../../../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
