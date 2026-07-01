@@ -403,8 +403,8 @@ class Prism_Photoshop_Functions(object):
                 name = self.executeAppleScript(scpt)
                 if name is None:
                     raise
-        except:
-            self.core.popup("There is no active document in Photoshop.")
+        except Exception as e:
+            self.core.popup("There is no active document in Photoshop.\n\nError: %s" % str(e))
             return False
 
         if "fileFormat" in details:

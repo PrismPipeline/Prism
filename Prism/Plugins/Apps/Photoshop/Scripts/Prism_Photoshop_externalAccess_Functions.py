@@ -132,10 +132,23 @@ class Prism_Photoshop_externalAccess_Functions(object):
         """Get path to Adobe UPI installer agent executable.
         
         Returns:
-            Path to UnifiedPluginInstallerAgent.exe
+            Path to UnifiedPluginInstallerAgent executable for the current platform
         """
-        exe = r"C:\Program Files\Common Files\Adobe\Adobe Desktop Common\RemoteComponents\UPI\UnifiedPluginInstallerAgent\UnifiedPluginInstallerAgent.exe"
-        return exe
+        if platform.system() == "Windows":
+            return r"C:\Program Files\Common Files\Adobe\Adobe Desktop Common\RemoteComponents\UPI\UnifiedPluginInstallerAgent\UnifiedPluginInstallerAgent.exe"
+
+        if platform.system() == "Darwin":
+            candidates = [
+                "/Library/Application Support/Adobe/Adobe Desktop Common/RemoteComponents/UPI/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent",
+                os.path.expanduser("~/Library/Application Support/Adobe/Adobe Desktop Common/RemoteComponents/UPI/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent"),
+            ]
+            for candidate in candidates:
+                if os.path.exists(candidate):
+                    return candidate
+
+            return candidates[0]
+
+        return ""
 
     @err_catcher(name=__name__)
     def createSignalBridge(self) -> Any:
@@ -262,6 +275,11 @@ class Prism_Photoshop_externalAccess_Functions(object):
                 app.run(host='127.0.0.1', port=port, debug=False, use_reloader=False)
             except Exception as e:
                 logger.error(f"Error starting server: {str(e)}")
+                msg = "Failed to start Photoshop server on port %s.\n\n%s" % (port, str(e))
+                if getattr(self, "signalBridge", None):
+                    self.signalBridge.executeInMainThread.emit(
+                        lambda m=msg: self.core.popup(m, severity="warning")
+                    )
         
         self.serverThread = threading.Thread(target=run_server, daemon=True)
         self.serverThread.start()
