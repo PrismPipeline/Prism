@@ -167,40 +167,40 @@ class Ui_wg_Export(object):
 
         self.lo_export.addWidget(self.w_range)
 
-        self.f_frameRange_2 = QWidget(self.gb_export)
-        self.f_frameRange_2.setObjectName(u"f_frameRange_2")
-        self.gridLayout = QGridLayout(self.f_frameRange_2)
+        self.w_rangeFrames = QWidget(self.gb_export)
+        self.w_rangeFrames.setObjectName(u"w_rangeFrames")
+        self.gridLayout = QGridLayout(self.w_rangeFrames)
         self.gridLayout.setObjectName(u"gridLayout")
         self.gridLayout.setContentsMargins(9, 0, 9, 0)
-        self.l_rangeEnd = QLabel(self.f_frameRange_2)
+        self.l_rangeEnd = QLabel(self.w_rangeFrames)
         self.l_rangeEnd.setObjectName(u"l_rangeEnd")
         self.l_rangeEnd.setMinimumSize(QSize(30, 0))
         self.l_rangeEnd.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignTrailing|Qt.AlignmentFlag.AlignVCenter)
 
         self.gridLayout.addWidget(self.l_rangeEnd, 1, 5, 1, 1)
 
-        self.sp_rangeEnd = QSpinBox(self.f_frameRange_2)
+        self.sp_rangeEnd = QSpinBox(self.w_rangeFrames)
         self.sp_rangeEnd.setObjectName(u"sp_rangeEnd")
         self.sp_rangeEnd.setMaximum(99999)
         self.sp_rangeEnd.setValue(1100)
 
         self.gridLayout.addWidget(self.sp_rangeEnd, 1, 6, 1, 1)
 
-        self.sp_rangeStart = QSpinBox(self.f_frameRange_2)
+        self.sp_rangeStart = QSpinBox(self.w_rangeFrames)
         self.sp_rangeStart.setObjectName(u"sp_rangeStart")
         self.sp_rangeStart.setMaximum(99999)
         self.sp_rangeStart.setValue(1001)
 
         self.gridLayout.addWidget(self.sp_rangeStart, 0, 6, 1, 1)
 
-        self.l_rangeStart = QLabel(self.f_frameRange_2)
+        self.l_rangeStart = QLabel(self.w_rangeFrames)
         self.l_rangeStart.setObjectName(u"l_rangeStart")
         self.l_rangeStart.setMinimumSize(QSize(30, 0))
         self.l_rangeStart.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignTrailing|Qt.AlignmentFlag.AlignVCenter)
 
         self.gridLayout.addWidget(self.l_rangeStart, 0, 5, 1, 1)
 
-        self.l_rangeStartInfo = QLabel(self.f_frameRange_2)
+        self.l_rangeStartInfo = QLabel(self.w_rangeFrames)
         self.l_rangeStartInfo.setObjectName(u"l_rangeStartInfo")
 
         self.gridLayout.addWidget(self.l_rangeStartInfo, 0, 0, 1, 1)
@@ -209,13 +209,13 @@ class Ui_wg_Export(object):
 
         self.gridLayout.addItem(self.horizontalSpacer_7, 0, 4, 1, 1)
 
-        self.l_rangeEndInfo = QLabel(self.f_frameRange_2)
+        self.l_rangeEndInfo = QLabel(self.w_rangeFrames)
         self.l_rangeEndInfo.setObjectName(u"l_rangeEndInfo")
 
         self.gridLayout.addWidget(self.l_rangeEndInfo, 1, 0, 1, 1)
 
 
-        self.lo_export.addWidget(self.f_frameRange_2)
+        self.lo_export.addWidget(self.w_rangeFrames)
 
         self.w_master = QWidget(self.gb_export)
         self.w_master.setObjectName(u"w_master")

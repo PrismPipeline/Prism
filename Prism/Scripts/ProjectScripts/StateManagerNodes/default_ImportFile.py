@@ -429,6 +429,7 @@ class ImportFileClass(object):
             checked: Whether ignore master is enabled
         """
         self.updateUi()
+        self.stateManager.saveImports()
 
     @err_catcher(name=__name__)
     def autoNameSpaceChanged(self, checked: bool) -> None:
@@ -516,7 +517,7 @@ class ImportFileClass(object):
                 default="Continue",
             )
         else:
-            logger.warning(fString)
+            logger.warning(msgString)
             result = "Continue"
 
         if result == "Cancel":

@@ -69,8 +69,10 @@ class Prism_AfterEffects_Integration(object):
             self.examplePath = os.environ["APPDATA"].replace("\\", "/") + "/Adobe/CEP/extensions"
         elif platform.system() == "Darwin":
             self.examplePath = os.path.expanduser("~/Library/Application Support/Adobe/CEP/extensions")
+        else:
+            self.examplePath = None
 
-        if not os.path.exists(self.examplePath):
+        if self.examplePath and not os.path.exists(self.examplePath):
             try:
                 os.makedirs(self.examplePath)
             except:
@@ -256,17 +258,29 @@ class Prism_AfterEffects_Integration(object):
         """
         try:
             with zipfile.ZipFile(zipPath, "r") as zipRef:
-                for zipInfo in zipRef.infolist():
-                    extractedPath = os.path.join(extractTo, zipInfo.filename)
-                    if zipInfo.is_dir():
-                        os.makedirs(extractedPath, exist_ok=True)
-                    else:
-                        os.makedirs(os.path.dirname(extractedPath), exist_ok=True)
-                        zipRef.extract(zipInfo, extractTo)
+                while True:
+                    try:
+                        for zipInfo in zipRef.infolist():
+                            extractedPath = os.path.join(extractTo, zipInfo.filename)
+                            if zipInfo.is_dir():
+                                os.makedirs(extractedPath, exist_ok=True)
+                            else:
+                                os.makedirs(os.path.dirname(extractedPath), exist_ok=True)
+                                zipRef.extract(zipInfo, extractTo)
 
-                    modTime = zipInfo.date_time
-                    timestamp = time.mktime(modTime + (0, 0, -1))
-                    os.utime(extractedPath, (timestamp, timestamp))
+                            modTime = zipInfo.date_time
+                            timestamp = time.mktime(modTime + (0, 0, -1))
+                            os.utime(extractedPath, (timestamp, timestamp))
+
+                        break
+                    except PermissionError as e:
+                        msg = "Permission error while extracting to:\n\n%s\n\nError: %s" % (extractTo, str(e))
+                        result = self.core.popupQuestion(msg, buttons=["Retry", "Cancel"], default="Cancel", escapeButton="Cancel", icon=QMessageBox.Warning)
+                        if result == "Retry":
+                            continue
+                        else:
+                            return False
+                 
         except Exception as e:
             return str(e)
         else:

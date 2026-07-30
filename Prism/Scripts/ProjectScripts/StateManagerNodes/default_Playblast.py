@@ -143,6 +143,13 @@ class PlayblastClass(object):
         self.cb_cams.showPopupOrig = self.cb_cams.showPopup
         self.cb_cams.showPopup = self.showCameraPopup
 
+        self.cb_rangeType.wheelEvent = lambda event: None
+        self.cb_cams.wheelEvent = lambda event: None
+        self.cb_master.wheelEvent = lambda event: None
+        self.cb_location.wheelEvent = lambda event: None
+        self.cb_formats.wheelEvent = lambda event: None
+        self.cb_manager.wheelEvent = lambda event: None
+
         self.setTaskWarn(True)
         self.updateUi()
         if stateData is not None:

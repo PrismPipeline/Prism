@@ -360,6 +360,32 @@ class Projects(object):
                     logger.debug("disabling plugin %s because it's disabled in this project" % disabledPlugin)
                     self.core.plugins.unloadPlugin(plugin=plug)
 
+            expPrismVersions = self.core.getConfig(
+                "globals",
+                "expectedPrismVersions",
+                dft="",
+                configPath=configPath,
+            )
+            expPrismVersionMode = self.core.getConfig(
+                "globals",
+                "expectedPrismVersionMode",
+                dft="Warn",
+                configPath=configPath,
+            )
+            if expPrismVersions:
+                allowedVersions = [v.strip() for v in expPrismVersions.split(",") if v.strip()]
+                currentVersion = self.core.version
+                if allowedVersions and currentVersion not in allowedVersions:
+                    msg = "The project \"%s\" requires Prism version %s to be opened.\n\nThe currently running Prism version is %s." % (projectName, ", ".join(allowedVersions), currentVersion)
+                    if self.core.appPlugin.pluginName != "Standalone":
+                        msg += "\n\nPlease restart your DCC and open it with the correct Prism version."
+
+                    if expPrismVersionMode == "Enforce":
+                        self.core.popup(msg + "\n\nThe project cannot be opened.")
+                        return
+                    else:
+                        self.core.popup(msg + "\n\nContinuing can have unexpected consequences.")
+
         delModules = []
 
         pipefolder = self.getPipelineFolder()
@@ -502,6 +528,7 @@ class Projects(object):
             dft="",
             configPath=configPath,
         )
+
         if expPath and expPath.strip("\\") != self.core.projectPath.strip("\\") and os.getenv("PRISM_SKIP_PROJECT_PATH_WARNING", "0") != "1":
             msg = "This project should be loaded from the following path:\n\n%s\n\nCurrently it is loaded from this path:\n\n%s\n\nContinuing can have unexpected consequences." % (expPath, self.core.projectPath)
             self.core.popup(msg)
@@ -556,8 +583,10 @@ class Projects(object):
                 self.core.plugins.loadPlugins(directories=[pluginPath], recursive=False, singleFilePlugins=True)
 
         self.setRecentPrj(configPath)
-        self.core.checkCommands()
         self.core.updateProjectEnvironment()
+        if self.getCommandsEnabled():
+            self.core.checkCommands()
+
         self.core.callback(
             name="onProjectChanged",
             args=[self.core],
@@ -574,15 +603,20 @@ class Projects(object):
                 self.core.prismSettings(tab=settingsTab, settingsType=settingsType, reload_module=False)
 
         structure = self.getProjectStructure()
-        result = self.validateFolderStructure(structure)
-        if result is not True:
-            msg = "The project structure is invalid. Please update the project settings."
-            r = self.core.popupQuestion(msg, buttons=["Open Project Settings...", "Close"], default="Open Project Settings...", escapeButton="Close", icon=QMessageBox.Warning)
-            if r == "Open Project Settings...":
-                self.core.prismSettings(tab="Folder Structure", settingsType="Project")
+        if os.getenv("PRISM_ENFORCE_FOLDER_STRUCTURE_RULES", "1") == "1":
+            result = self.validateFolderStructure(structure)
+            if result is not True:
+                msg = "The project structure is invalid. Please update the project settings."
+                r = self.core.popupQuestion(msg, buttons=["Open Project Settings...", "Close"], default="Open Project Settings...", escapeButton="Close", icon=QMessageBox.Warning)
+                if r == "Open Project Settings...":
+                    self.core.prismSettings(tab="Folder Structure", settingsType="Project")
 
         QApplication.setQuitOnLastWindowClosed(quitOnLastWindowClosed)
         return self.core.projectPath
+
+    @err_catcher(name=__name__)
+    def getCommandsEnabled(self):
+        return os.getenv("PRISM_ENABLE_COMMANDS", "1") == "1"
 
     @err_catcher(name=__name__)
     def getUseEpisodes(self) -> bool:
@@ -1121,71 +1155,78 @@ class Projects(object):
                 self.core.popup("The project folder could not be created.\n\n(%s)" % str(e), parent=parent)
                 return
 
-        elif os.listdir(prjPath):
-            msg = "The project folder is not empty:\n\n%s\n\nHow do you want to continue?" % prjPath
-            result = self.core.popupQuestion(
-                msg,
-                icon=QMessageBox.Warning,
-                buttons=[
-                    "Create project in existing folder",
-                    "Clear folder before creating the project",
-                    "Cancel",
-                ],
-                parent=parent
-            )
-            if result == "Cancel":
+        else:
+            try:
+                content = os.listdir(prjPath)
+            except Exception as e:
+                self.core.popup("The project folder could not be accessed.\n\n(%s)" % str(e), parent=parent)
                 return
-            elif result == "Clear folder before creating the project":
-                while self.core.countFilesInFolder(prjPath, maximum=1000) >= 1000:
-                    msg = "There are more than 1000 files in the project folder.\n\n%s\n\nAs a security measurement Prism cannot delete this folder.\nDelete the folder manually in your file explorer to continue." % prjPath
-                    result = self.core.popupQuestion(
-                        msg,
-                        icon=QMessageBox.Warning,
-                        buttons=["Continue", "Cancel"],
-                        parent=parent
-                    )
-                    if result == "Continue":
-                        continue
-                    elif result == "Cancel":
-                        return
 
-                while (self.core.getFolderSize(prjPath)["size"] / 1024.0 / 1024.0) >= 1:
-                    msg = "The project folder size is more than 1 GB.\n\n%s\n\nAs a security measurement Prism cannot delete this folder.\nDelete the folder manually in your file explorer to continue." % prjPath
-                    result = self.core.popupQuestion(
-                        msg,
-                        icon=QMessageBox.Warning,
-                        buttons=["Continue", "Cancel"],
-                        parent=parent
-                    )
-                    if result == "Continue":
-                        continue
-                    elif result == "Cancel":
-                        return
-
-                while os.path.exists(prjPath):
-                    msg = "Are you really sure you want to delete this folder?\n\n%s\n\nThis will PERMANENTLY REMOVE the folder and it's content.\nThis cannot be undone!" % prjPath
-                    result = self.core.popupQuestion(
-                        msg,
-                        icon=QMessageBox.Warning,
-                        buttons=["Yes", "No"],
-                        parent=parent
-                    )
-                    if result != "Yes":
-                        return False
-
-                    try:
-                        shutil.rmtree(prjPath)
-                    except Exception as e:
-                        logger.debug(str(e))
-                        msg = "Failed to remove folder:\n\n%s" % prjPath
+            if content:
+                msg = "The project folder is not empty:\n\n%s\n\nHow do you want to continue?" % prjPath
+                result = self.core.popupQuestion(
+                    msg,
+                    icon=QMessageBox.Warning,
+                    buttons=[
+                        "Create project in existing folder",
+                        "Clear folder before creating the project",
+                        "Cancel",
+                    ],
+                    parent=parent
+                )
+                if result == "Cancel":
+                    return
+                elif result == "Clear folder before creating the project":
+                    while self.core.countFilesInFolder(prjPath, maximum=1000) >= 1000:
+                        msg = "There are more than 1000 files in the project folder.\n\n%s\n\nAs a security measurement Prism cannot delete this folder.\nDelete the folder manually in your file explorer to continue." % prjPath
                         result = self.core.popupQuestion(
                             msg,
-                            buttons=["Retry", "Cancel"],
-                            escapeButton="Cancel",
                             icon=QMessageBox.Warning,
+                            buttons=["Continue", "Cancel"],
+                            parent=parent
                         )
-                        if result == "Cancel":
+                        if result == "Continue":
+                            continue
+                        elif result == "Cancel":
+                            return
+
+                    while (self.core.getFolderSize(prjPath)["size"] / 1024.0 / 1024.0) >= 1:
+                        msg = "The project folder size is more than 1 GB.\n\n%s\n\nAs a security measurement Prism cannot delete this folder.\nDelete the folder manually in your file explorer to continue." % prjPath
+                        result = self.core.popupQuestion(
+                            msg,
+                            icon=QMessageBox.Warning,
+                            buttons=["Continue", "Cancel"],
+                            parent=parent
+                        )
+                        if result == "Continue":
+                            continue
+                        elif result == "Cancel":
+                            return
+
+                    while os.path.exists(prjPath):
+                        msg = "Are you really sure you want to delete this folder?\n\n%s\n\nThis will PERMANENTLY REMOVE the folder and it's content.\nThis cannot be undone!" % prjPath
+                        result = self.core.popupQuestion(
+                            msg,
+                            icon=QMessageBox.Warning,
+                            buttons=["Yes", "No"],
+                            parent=parent
+                        )
+                        if result != "Yes":
                             return False
+
+                        try:
+                            shutil.rmtree(prjPath)
+                        except Exception as e:
+                            logger.debug(str(e))
+                            msg = "Failed to remove folder:\n\n%s" % prjPath
+                            result = self.core.popupQuestion(
+                                msg,
+                                buttons=["Retry", "Cancel"],
+                                escapeButton="Cancel",
+                                icon=QMessageBox.Warning,
+                            )
+                            if result == "Cancel":
+                                return False
 
         if structure:
             result = self.createProjectStructure(prjPath, structure)
@@ -1297,7 +1338,10 @@ class Projects(object):
                 folderPath = os.path.join(path, childEntity["name"])
                 self.createProjectStructure(folderPath, childEntity)
             else:
-                shutil.copy2(childEntity["path"], path)
+                try:
+                    shutil.copy2(childEntity["path"], path)
+                except PermissionError:
+                    shutil.copy(childEntity["path"], path)
 
         return True
 
@@ -2362,7 +2406,7 @@ class Projects(object):
         path = os.path.normpath(path)
         keys = self.getTemplateKeys(template)
         extKey = "@extension@"
-        if template.endswith(extKey):
+        if template.endswith(extKey) and template[:-len(extKey)][-1] != ".":
             template = template[:-len(extKey)]
             path, extension = self.core.paths.splitext(path)
         else:
@@ -2374,7 +2418,7 @@ class Projects(object):
         usedKeys = []
         for key in keys:
             if key in usedKeys:
-                reKey = "__temp__%s_%s" % (key, keys.index(key))
+                reKey = "__temp__%s_%s" % (key, usedKeys.count(key))
             else:
                 if "(" in key and ")" in key:
                     cleanKey = key[key.find("(")+1:key.find(")")]
@@ -2386,7 +2430,16 @@ class Projects(object):
             rePath = rePath.replace(re.escape("@%s@" % key), reval, 1)
             usedKeys.append(key)
 
-        rmatch = re.match(rePath, path, re.IGNORECASE)
+        try:
+            rmatch = re.match(rePath, path, re.IGNORECASE)
+        except re.error as e:
+            duplicates = [k for k in set(keys) if keys.count(k) > 1]
+            logger.warning(
+                "Failed to build regex for path template. "
+                "Duplicate template keys: %s. Template: %s. Path: %s. Error: %s" % (duplicates, template, path, e)
+            )
+            return {}
+
         if not rmatch:
             return {}
 
@@ -2442,7 +2495,7 @@ class Projects(object):
         matches = glob.glob(globPath)
 
         extKey = "@extension@"
-        if template.endswith(extKey):
+        if template.endswith(extKey) and template[:-len(extKey)][-1] != ".":
             template = template[:-len(extKey)]
             hasext = True
         else:
@@ -2518,30 +2571,36 @@ class Projects(object):
         return True
 
     @err_catcher(name=__name__)
-    def addValidVariables(self, variable: str, value: str) -> None:
+    def addValidVariables(self, variable: str, value: Union[str, List[str]]) -> None:
         """Add valid variable patterns for path validation.
         
         Args:
             variable: Variable name to validate
-            value: Pattern that variable value must match to be considered valid
+            value: Pattern or list of patterns that variable value must match to be considered valid
         """
         if variable not in self.validVariables:
             self.validVariables[variable] = []
 
-        self.validVariables[variable].append(value)
+        if isinstance(value, list):
+            self.validVariables[variable].extend(value)
+        else:
+            self.validVariables[variable].append(value)
 
     @err_catcher(name=__name__)
-    def addInvalidVariables(self, variable: str, value: str) -> None:
+    def addInvalidVariables(self, variable: str, value: Union[str, List[str]]) -> None:
         """Add invalid variable patterns for path validation.
         
         Args:
             variable: Variable name to validate
-            value: Pattern that variable value must match to be considered invalid
+            value: Pattern or list of patterns that variable value must match to be considered invalid
         """
         if variable not in self.invalidVariables:
             self.invalidVariables[variable] = []
 
-        self.invalidVariables[variable].append(value)
+        if isinstance(value, list):
+            self.invalidVariables[variable].extend(value)
+        else:
+            self.invalidVariables[variable].append(value)
 
     @err_catcher(name=__name__)
     def getProjectImagePath(
@@ -3273,6 +3332,10 @@ class Projects(object):
             {
                 "name": "Show Message",
                 "code": "pcore.popup(\"Hello World\")"
+            },
+            {
+                "name": "Stop Publish",
+                "code": "#run some checks\npassed = False\nif not passed:\n    pcore.popup(\"Publish checks not passed.\")\n    STOP_PUBLISH = True"
             }
         ]
         return presets

@@ -47,7 +47,6 @@ if sys.version[0] == "3":
 if __name__ == "__main__":
     import PrismCore
 
-import psutil
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
@@ -303,14 +302,14 @@ class PrismTray:
     def restartTray(self) -> None:
         """Restart the Prism tray application.
         
-        Shuts down the listener thread, spawns a new Prism tray process,
-        and exits the current process. The new process ignores the current PID.
+        Shuts down the listener thread (releasing port 7571), spawns a new
+        Prism tray process, and exits the current process.
         """
-        self.listenerThread.shutDown()
+        self.listenerThread.shutDown()  # release port 7571 so the new process can acquire it
 
         pythonPath = self.core.getPythonPath(executable="Prism")
         filepath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
-        cmd = """start "" "%s" "%s" showSplash ignore_pid=%s""" % (pythonPath, filepath, os.getpid())
+        cmd = """start "" "%s" "%s" showSplash""" % (pythonPath, filepath)
         subprocess.Popen(cmd, cwd=self.core.prismRoot, shell=True, env=self.core.startEnv)
         sys.exit(0)
 
@@ -362,7 +361,7 @@ class ListenerThread(QThread):
         try:
             from multiprocessing.connection import Listener
 
-            port = 7571
+            port = _ipc_port()
             address = ('localhost', port)
             try:
                 self.listener = Listener(address)
@@ -395,6 +394,13 @@ class ListenerThread(QThread):
                         data = self.conn.recv()
                     except Exception as e:
                         break
+
+                    if data == "getPid":
+                        try:
+                            self.conn.send((os.getpid(), sys.executable))
+                        except Exception:
+                            pass
+                        continue
 
                     self.dataReceived.emit(data)
 
@@ -440,7 +446,7 @@ class SenderThread(QThread):
         Establishes a client connection to the Prism listener on localhost:7571.
         """
         from multiprocessing.connection import Client
-        port = 7571
+        port = _ipc_port()
         address = ('localhost', port)
         self.conn = Client(address)
 
@@ -463,76 +469,70 @@ class SenderThread(QThread):
         self.conn.send(data)
 
 
+def _ipc_port() -> int:
+    """Return the IPC listener port, overrideable via PRISM_IPC_PORT env var."""
+    import os as _os
+    return int(_os.environ.get('PRISM_IPC_PORT', 7571))
+
+
 def isAlreadyRunning() -> bool:
-    """Check if Prism tray is already running.
-    
-    Scans running processes for Prism.exe instances belonging to the same
-    user, excluding PIDs specified in command line arguments.
+    """Check if Prism tray is already running by probing the IPC listener port.
+
+    Attempts a TCP connection to the listener port (7571). If the connection
+    succeeds, another instance already owns the port and is listening for
+    commands. Works regardless of which Python executable or shell launched
+    Prism, and produces no stale state on crash.
 
     Returns:
-        True if another Prism instance is found, False otherwise
+        True if another Prism tray instance is running, False otherwise
     """
-    if platform.system() == "Windows":
-        coreProc = []
-        ignoredPids = [os.getpid()]
-        for arg in sys.argv:
-            if arg.startswith("ignore_pid="):
-                pid = int(arg.split("=")[-1])
-                ignoredPids.append(pid)
+    import socket as _socket
+    sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    sock.settimeout(1)
+    try:
+        sock.connect(('127.0.0.1', _ipc_port()))
+        return True
+    except OSError:
+        return False
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
 
-        for proc in psutil.process_iter():
-            try:
-                if (
-                    proc.pid not in ignoredPids
-                    and os.path.basename(proc.exe()) == "Prism.exe"
-                    and proc.username() == psutil.Process(os.getpid()).username()
-                ):
-                    coreProc.append(proc.pid)
-                    return True
-            except:
-                pass
 
-    return False
+def queryPrismProcess() -> Optional[tuple]:
+    """Query the running Prism tray instance for its PID and executable path.
+
+    Sends a 'getPid' request over the IPC port and waits for the reply.
+    Returns a (pid, exe) tuple, or None if no instance is reachable.
+    """
+    from multiprocessing.connection import Client
+    try:
+        conn = Client(('localhost', _ipc_port()))
+        conn.send('getPid')
+        result = conn.recv()
+        conn.close()
+        return result
+    except Exception:
+        return None
 
 
 def findPrismProcesses() -> List[str]:
-    """Find running Prism processes.
-    
-    Searches for all Prism.exe processes running on the system,
-    excluding the current process and any PIDs to ignore.
+    """Find the running Prism tray process.
+
+    Queries the existing Prism instance over IPC to obtain its PID and
+    executable path. Works regardless of which Python executable or shell
+    launched Prism.
 
     Returns:
         List of process descriptions in format "path (pid)"
     """
-    procs = []
-    exes = [
-        "Prism.exe",
-    ]
-    try:
-        import psutil
-    except Exception as e:
-        pass
-    else:
-        ignoredPids = [os.getpid()]
-        for arg in sys.argv:
-            if arg.startswith("ignore_pid="):
-                pid = int(arg.split("=")[-1])
-                ignoredPids.append(pid)
-
-        for proc in psutil.process_iter():
-            try:
-                if proc.pid in ignoredPids:
-                    continue
-
-                try:
-                    if os.path.basename(proc.exe()) in exes:
-                        procs.append("%s (%s)" % (proc.exe(), proc.pid))
-                except:
-                    continue
-            except:
-                pass
-
-    return procs
+    info = queryPrismProcess()
+    if info is None:
+        return []
+    pid, exe = info
+    return ["%s (%s)" % (exe, pid)]
 
 
 def showDetailPopup(msgTxt: str, parent: Any) -> str:
@@ -641,31 +641,22 @@ def popupQuestion(text: str, buttons: List[str]) -> str:
 
 
 def closePrismProcesses() -> None:
-    """Close all running Prism processes except the current one.
-    
-    Iterates through all processes, finds Prism.exe instances, and kills
-    them (excluding system processes and the current process).
-    """
-    try:
-        import psutil
-    except Exception as e:
-        pass
-    else:
-        PROCNAMES = ["Prism.exe"]
-        for proc in psutil.process_iter():
-            if proc.name() in PROCNAMES:
-                p = psutil.Process(proc.pid)
-                if proc.pid == os.getpid():
-                    continue
+    """Close the running Prism tray process.
 
-                try:
-                    if "SYSTEM" not in p.username():
-                        try:
-                            proc.kill()
-                        except Exception as e:
-                            logger.warning("error while killing process: %s" % str(e))
-                except Exception as e:
-                    logger.warning("failed to kill process: %s" % str(e))
+    Queries the existing instance over IPC for its PID, then terminates it
+    using os.kill. Skips if the resolved PID matches the current process.
+    """
+    import signal
+    info = queryPrismProcess()
+    if info is None:
+        return
+    pid, _ = info
+    if pid == os.getpid():
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except Exception as e:
+        logger.warning("error while killing process: %s" % str(e))
 
 
 def sendCommandToPrismProcess(command: str) -> bool:

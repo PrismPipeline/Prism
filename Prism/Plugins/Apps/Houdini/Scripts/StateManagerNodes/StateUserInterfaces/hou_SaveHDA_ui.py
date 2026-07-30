@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'hou_SaveHDA.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.3
+## Created by: Qt User Interface Compiler version 6.9.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -16,7 +16,7 @@ class Ui_wg_SaveHDA(object):
     def setupUi(self, wg_SaveHDA):
         if not wg_SaveHDA.objectName():
             wg_SaveHDA.setObjectName(u"wg_SaveHDA")
-        wg_SaveHDA.resize(340, 406)
+        wg_SaveHDA.resize(340, 421)
         self.verticalLayout = QVBoxLayout(wg_SaveHDA)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -264,19 +264,19 @@ class Ui_wg_SaveHDA(object):
 
         self.verticalLayout.addWidget(self.groupBox_2)
 
-        self.groupBox = QGroupBox(wg_SaveHDA)
-        self.groupBox.setObjectName(u"groupBox")
-        self.groupBox.setCheckable(False)
-        self.groupBox.setChecked(False)
-        self.horizontalLayout = QHBoxLayout(self.groupBox)
+        self.gb_previous = QGroupBox(wg_SaveHDA)
+        self.gb_previous.setObjectName(u"gb_previous")
+        self.gb_previous.setCheckable(False)
+        self.gb_previous.setChecked(False)
+        self.horizontalLayout = QHBoxLayout(self.gb_previous)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(18, -1, 18, -1)
-        self.scrollArea = QScrollArea(self.groupBox)
+        self.scrollArea = QScrollArea(self.gb_previous)
         self.scrollArea.setObjectName(u"scrollArea")
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 271, 54))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 271, 69))
         self.horizontalLayout_5 = QHBoxLayout(self.scrollAreaWidgetContents)
         self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
         self.l_pathLast = QLabel(self.scrollAreaWidgetContents)
@@ -288,7 +288,7 @@ class Ui_wg_SaveHDA(object):
 
         self.horizontalLayout.addWidget(self.scrollArea)
 
-        self.b_pathLast = QToolButton(self.groupBox)
+        self.b_pathLast = QToolButton(self.gb_previous)
         self.b_pathLast.setObjectName(u"b_pathLast")
         self.b_pathLast.setEnabled(True)
         self.b_pathLast.setArrowType(Qt.ArrowType.DownArrow)
@@ -296,7 +296,7 @@ class Ui_wg_SaveHDA(object):
         self.horizontalLayout.addWidget(self.b_pathLast)
 
 
-        self.verticalLayout.addWidget(self.groupBox)
+        self.verticalLayout.addWidget(self.gb_previous)
 
         QWidget.setTabOrder(self.e_name, self.cb_outPath)
         QWidget.setTabOrder(self.cb_outPath, self.chb_projectHDA)
@@ -332,7 +332,7 @@ class Ui_wg_SaveHDA(object):
         self.l_status.setText(QCoreApplication.translate("wg_SaveHDA", u"Not connected", None))
         self.b_goTo.setText(QCoreApplication.translate("wg_SaveHDA", u"Go to Node", None))
         self.b_connect.setText(QCoreApplication.translate("wg_SaveHDA", u"Connect with selected Node", None))
-        self.groupBox.setTitle(QCoreApplication.translate("wg_SaveHDA", u"Last export", None))
+        self.gb_previous.setTitle(QCoreApplication.translate("wg_SaveHDA", u"Last export", None))
         self.l_pathLast.setText(QCoreApplication.translate("wg_SaveHDA", u"None", None))
         self.b_pathLast.setText(QCoreApplication.translate("wg_SaveHDA", u"...", None))
     # retranslateUi

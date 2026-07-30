@@ -277,7 +277,8 @@ class CodeClass(object):
             return {"result": "error", "error": traceback.format_exc(), "val": redirected_output.getvalue()}
 
         sys.stdout = old_stdout
-        return {"result": "success", "val": redirected_output.getvalue(), "showPopup": _locals["showPopup"]}
+        cancel = _locals.get("STOP_PUBLISH", False)
+        return {"result": "success", "val": redirected_output.getvalue(), "showPopup": _locals["showPopup"], "cancel": cancel}
 
     @err_catcher(name=__name__)
     def preExecuteState(self) -> List[Any]:
@@ -308,7 +309,11 @@ class CodeClass(object):
         """
         result = self.executeCode()
         if result["result"] == "success":
-            return [self.state.text(0) + " - success"]
+            if result.get("cancel", False):
+                return [self.state.text(0) + " - publish canceled"]
+            else:
+                return [self.state.text(0) + " - success"]
+
         else:
             return [
                 self.state.text(0)

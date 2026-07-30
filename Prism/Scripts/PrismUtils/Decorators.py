@@ -38,7 +38,7 @@ import time
 import logging
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, TypeVar, ParamSpec
+from typing import Any, Callable, TypeVar
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -47,11 +47,10 @@ from qtpy.QtWidgets import *
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec('P')
 T = TypeVar('T')
 
 
-def err_handler(func: Callable[P, T], name: str = "", plugin: bool = False) -> Callable[P, T]:
+def err_handler(func: Callable[..., T], name: str = "", plugin: bool = False) -> Callable[..., T]:
     """Wrap a function with error handling and logging capabilities.
     
     Creates a wrapper that catches exceptions and logs them through the Prism
@@ -135,7 +134,7 @@ def err_handler(func: Callable[P, T], name: str = "", plugin: bool = False) -> C
     return func_wrapper
 
 
-def err_catcher(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def err_catcher(name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator factory for standard error catching.
     
     Creates an error catching decorator with the specified name identifier.
@@ -149,7 +148,7 @@ def err_catcher(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
     return lambda x, y=name, z=False: err_handler(x, name=y, plugin=z)
 
 
-def err_catcher_plugin(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def err_catcher_plugin(name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator factory for plugin error catching.
     
     Creates an error catching decorator specifically for plugin functions.
@@ -163,7 +162,7 @@ def err_catcher_plugin(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
     return lambda x, y=name, z=True: err_handler(x, name=y, plugin=z)
 
 
-def err_catcher_standalone(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def err_catcher_standalone(name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator factory for standalone error catching without core dependency.
     
     Creates an error catching decorator for standalone scripts that don't have
@@ -176,7 +175,7 @@ def err_catcher_standalone(name: str) -> Callable[[Callable[P, T]], Callable[P, 
     Returns:
         Decorator function that wraps standalone functions with error handling
     """
-    def err_decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def err_decorator(func: Callable[..., T]) -> Callable[..., T]:
         """Inner decorator that wraps the target function.
         
         Args:
@@ -214,7 +213,7 @@ def err_catcher_standalone(name: str) -> Callable[[Callable[P, T]], Callable[P, 
     return err_decorator
 
 
-def timmer(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def timmer(name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator factory for timing function execution.
     
     Creates a decorator that logs the start time, end time, and total duration
@@ -226,7 +225,7 @@ def timmer(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
     Returns:
         Decorator function that wraps functions with execution timing
     """
-    def timer_decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def timer_decorator(func: Callable[..., T]) -> Callable[..., T]:
         """Inner decorator that wraps the target function.
         
         Args:

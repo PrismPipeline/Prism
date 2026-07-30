@@ -249,7 +249,7 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
         else:
             self.sceneLayoutItemsToggled(False, refresh=False)
 
-        if self.projectBrowser.act_rememberWidgetSizes.isChecked():
+        if self.projectBrowser and self.projectBrowser.act_rememberWidgetSizes.isChecked():
             if "scenefileSplitter1" in brsData:
                 self.splitter1.setSizes(brsData["scenefileSplitter1"])
 
@@ -1845,7 +1845,8 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             for scenefile in scenefiles:
                 data = self.core.getScenefileData(scenefile, preview=True)
                 publicFile = (
-                    len(self.projectBrowser.locations) > 1
+                    self.projectBrowser
+                    and len(self.projectBrowser.locations) > 1
                     and self.core.paths.getLocationFromPath(os.path.normpath(scenefile)) == "global"
                 )
                 icon = self.core.getIconForFileType(data["extension"])
@@ -2801,6 +2802,9 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
 
         validDeps = []
         for dep in deps:
+            if not dep.get("abbreviation"):
+                continue
+
             for entity in entities:
                 basePath = self.core.getEntityPath(reqEntity="step", entity=entity)
                 if not os.path.exists(os.path.join(basePath, dep["abbreviation"])):
@@ -3407,7 +3411,7 @@ class ScenefileItem(QWidget):
         self.lo_main.addLayout(self.lo_description)
         self.lo_main.addStretch(1000)
         self.locationLabels = {}
-        if len(self.browser.projectBrowser.locations) > 1:
+        if self.browser.projectBrowser and len(self.browser.projectBrowser.locations) > 1:
             self.spacer7 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
             self.spacer8 = QSpacerItem(0, 20, QSizePolicy.Fixed, QSizePolicy.Fixed)
             self.lo_location = QVBoxLayout()
@@ -3603,7 +3607,7 @@ class ScenefileItem(QWidget):
         if self.data.get("icon", ""):
             return self.data["icon"]
         else:
-            return self.data["color"]
+            return self.data.get("color", [128, 128, 128])
 
     @err_catcher(name=__name__)
     def applyStyle(self, styleType: str) -> None:

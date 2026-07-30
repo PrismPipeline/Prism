@@ -161,7 +161,7 @@ class SanityChecks(object):
             self.core.setConfig("globals", "check_import_versions", True)
             checkImpVersions = True
 
-        if not checkImpVersions:
+        if not checkImpVersions and not settings.get("showSuccess", False):
             return
 
         if not getattr(self.core, "projectPath", None) or not os.path.exists(
@@ -171,15 +171,17 @@ class SanityChecks(object):
 
         paths = getattr(self.core.appPlugin, "getImportPaths", lambda x: None)(
             self.core
-        )
-        if not paths:
+        ) or []
+        if not paths and not settings.get("showSuccess", False):
             return
 
-        paths = eval(paths.replace("\\", "/"))
+        if isinstance(paths, str):
+            paths = eval(paths.replace("\\", "/"))
+
         paths = [
-            [self.core.fixPath(str(x[0])), self.core.fixPath(str(x[1]))] for x in paths
+            [self.core.fixPath(str(x[0])), self.core.fixPath(str(x[1])), x[2] if len(x) > 2 else False] for x in paths
         ]
-        if len(paths) == 0:
+        if len(paths) == 0 and not settings.get("showSuccess", False):
             return
 
         msgString = "For the following imports there is a newer version available:\n\n"
@@ -197,7 +199,9 @@ class SanityChecks(object):
             if not curVersion or "version" not in curVersion:
                 continue
 
-            latestVersion = self.core.products.getLatestVersionFromPath(path, includeMaster=self.core.products.getUseMaster())
+            ignoreMaster = pathData[2] if len(pathData) > 2 else False
+            includeMaster = self.core.products.getUseMaster() and not ignoreMaster
+            latestVersion = self.core.products.getLatestVersionFromPath(path, includeMaster=includeMaster)
 
             if not latestVersion or curVersion["version"] == latestVersion["version"]:
                 continue
@@ -226,6 +230,8 @@ class SanityChecks(object):
                 if not self.core.isStr(msg):
                     msg.buttonClicked.connect(self.onImportVersionsClicked)
                     msg.show()
+        elif settings.get("showSuccess", False):
+            self.core.popup("All imports are up to date.", title="No updates available", severity="info")
 
     @err_catcher(name=__name__)
     def onImportVersionsClicked(self, button: Union[str, Any]) -> None:

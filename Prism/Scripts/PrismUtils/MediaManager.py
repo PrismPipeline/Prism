@@ -500,6 +500,7 @@ class MediaManager(object):
                 import OpenImageIO as oiio
 
             oiio.ImageBuf
+            oiio.ImageInput
         except:
             logger.debug("loading oiio failed: %s" % traceback.format_exc())
             self.checkMSVC()
@@ -1067,7 +1068,7 @@ class MediaManager(object):
         if not os.path.exists(os.path.dirname(outputPath)):
             while True:
                 try:
-                    os.makedirs(os.path.dirname(outputPath))
+                    os.makedirs(os.path.dirname(outputPath), exist_ok=True)
                     break
                 except FileExistsError:
                     pass
@@ -1100,19 +1101,19 @@ class MediaManager(object):
         args.append(outputPath)
         logger.debug("starting FFMPEG with these args:\n\n%s" % args)
         env = self.core.startEnv.copy()
-        flags = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else None
+        popenKwargs = {
+            "env": env,
+            "text": True,
+            "bufsize": 1,
+        }
+        if platform.system() == "Windows":
+            popenKwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
         # Use a local variable so concurrent calls from multiple thumbnail workers
         # don't overwrite each other's process reference via self.ffmpegProc.
         # _FFMPEG_LOCK serialises Popen+communicate so CPython's subprocess._wait
         # internal state is never entered by more than one thread at a time.
         with _FFMPEG_LOCK:
-            ffmpegProc = subprocess.Popen(
-                args,
-                env=env,
-                text=True,
-                bufsize=1,
-                creationflags=flags,
-            )
+            ffmpegProc = subprocess.Popen(args, **popenKwargs)
             ffmpegProc.communicate()
 
         for idx in range(30):
@@ -1274,6 +1275,10 @@ nuke.execute(write, %s, %s)
         return pmap
 
     @err_catcher(name=__name__)
+    def getIsNumpyAvailable(self):
+        return bool("numpy" in globals())
+
+    @err_catcher(name=__name__)
     def getPixmapFromExrPath(self, path: str, width: Optional[int] = None, height: Optional[int] = None,
                               channel: Optional[str] = None, allowThumb: bool = True,
                               regenerateThumb: bool = False) -> Optional[QPixmap]:
@@ -1357,7 +1362,8 @@ nuke.execute(write, %s, %s)
         path = str(path)  # for python 2
         imgInput = oiio.ImageInput.open(path)
         if not imgInput:
-            logger.debug("failed to read media file: %s" % path)
+            error = oiio.geterror()
+            logger.debug("failed to read media file: %s - %s" % (path, error))
             return
 
         chbegin = 0
@@ -1405,14 +1411,13 @@ nuke.execute(write, %s, %s)
         )
         imgInput.close()
 
-        if "numpy" in globals():
+        if self.getIsNumpyAvailable():
             rgbImgSrc.set_pixels(imgInput.spec().roi, numpy.array(pixels))
         else:
             for h in range(height):
                 for w in range(width):
                     color = [pixels[h][w][0], pixels[h][w][1], pixels[h][w][2]]
                     rgbImgSrc.setpixel(w, h, 0, color)
-
         # slow when many channels are in the exr file
         # imgSrc = oiio.ImageBuf(path)
         # rgbImgSrc = oiio.ImageBuf()
@@ -1446,24 +1451,30 @@ nuke.execute(write, %s, %s)
         )
         oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
         oiio.ImageBufAlgo.paste(bckImg, xOffset, yOffset, 0, 0, sRGBimg)
-        qimg = QImage(int(newImgWidth), int(newImgHeight), QImage.Format_RGB32)
-        for i in range(int(newImgWidth)):
-            for k in range(int(newImgHeight)):
-                if numChannels == 3:
-                    rgb = qRgb(
-                        bckImg.getpixel(i, k)[0] * 255,
-                        bckImg.getpixel(i, k)[1] * 255,
-                        bckImg.getpixel(i, k)[2] * 255,
-                    )
-                else:
-                    rgb = qRgb(
-                        bckImg.getpixel(i, k)[0] * 255,
-                        bckImg.getpixel(i, k)[0] * 255,
-                        bckImg.getpixel(i, k)[0] * 255,
-                    )
-
-                qimg.setPixel(i, k, rgb)
-
+        if self.getIsNumpyAvailable():
+            arr = numpy.array(bckImg.get_pixels(oiio.UINT8), dtype=numpy.uint8)
+            if numChannels == 1:
+                arr = numpy.repeat(arr, 3, axis=2)
+            arr = numpy.ascontiguousarray(arr)
+            imgH, imgW = arr.shape[:2]
+            qimg = QImage(arr.data, imgW, imgH, imgW * 3, QImage.Format_RGB888).copy()
+        else:
+            qimg = QImage(int(newImgWidth), int(newImgHeight), QImage.Format_RGB32)
+            for i in range(int(newImgWidth)):
+                for k in range(int(newImgHeight)):
+                    if numChannels == 3:
+                        rgb = qRgb(
+                            bckImg.getpixel(i, k)[0] * 255,
+                            bckImg.getpixel(i, k)[1] * 255,
+                            bckImg.getpixel(i, k)[2] * 255,
+                        )
+                    else:
+                        rgb = qRgb(
+                            bckImg.getpixel(i, k)[0] * 255,
+                            bckImg.getpixel(i, k)[0] * 255,
+                            bckImg.getpixel(i, k)[0] * 255,
+                        )
+                    qimg.setPixel(i, k, rgb)
         if thumbEnabled and allowThumb:
             thumbPath = self.getThumbnailPath(path)
             self.saveQImage(qimg, thumbPath)
@@ -1732,7 +1743,11 @@ nuke.execute(write, %s, %s)
             if os.path.exists(thumbPath):
                 return self.getPixmapFromPath(thumbPath, width=width, height=height)
 
-        from PySide6.QtPdf import QPdfDocument
+        try:
+            from PySide6.QtPdf import QPdfDocument
+        except ImportError:
+            logger.warning("PySide6.QtPdf is not available. Cannot render PDF.")
+            return None
         doc = QPdfDocument()
         doc.load(path)
         page_index = 0
@@ -1893,6 +1908,24 @@ nuke.execute(write, %s, %s)
         image.loadFromData(data)
         pmap = QPixmap(image)
         return pmap
+
+    @err_catcher(name=__name__)
+    def getQImageFromUrl(self, url: str, headers: Optional[Dict] = None) -> QImage:
+        """Download an image from a URL and return it as a QImage.
+        
+        Args:
+            url: The URL to download the image from.
+            headers: Optional HTTP headers to include in the request.
+            
+        Returns:
+            QImage: The downloaded image as a QImage.
+        """
+        import requests
+        logger.debug("getting image from url: %s" % url)
+        data = requests.get(url, headers=headers).content
+        image = QImage()
+        image.loadFromData(data)
+        return image
 
     @err_catcher(name=__name__)
     def getPixmapFromClipboard(self) -> QPixmap:
@@ -2081,12 +2114,16 @@ nuke.execute(write, %s, %s)
                     pheight = size.height()
         
         elif ext in [".pdf"]:
-            from PySide6.QtPdf import QPdfDocument
-            doc = QPdfDocument()
-            doc.load(path)
-            page_size = doc.pagePointSize(0)
-            pwidth = int(page_size.width())
-            pheight = int(page_size.height())
+            try:
+                from PySide6.QtPdf import QPdfDocument
+            except ImportError:
+                logger.warning("PySide6.QtPdf is not available. Cannot get PDF resolution.")
+            else:
+                doc = QPdfDocument()
+                doc.load(path)
+                page_size = doc.pagePointSize(0)
+                pwidth = int(page_size.width())
+                pheight = int(page_size.height())
         elif ext in self.videoFormats:
             if videoReader is None:
                 videoReader = self.getVideoReader(path)
@@ -2288,7 +2325,7 @@ nuke.execute(write, %s, %s)
             try:
                 subprocess.Popen(comd, stdin=subprocess.PIPE, stdout=f, stderr=f)
             except:
-                comd = "%s %s" % (comd[0], comd[1])
+                comd = "%s \"%s\"" % (comd[0], comd[1])
                 try:
                     subprocess.Popen(
                         comd, stdin=subprocess.PIPE, stdout=f, stderr=f, shell=True
@@ -2362,6 +2399,113 @@ nuke.execute(write, %s, %s)
             qimg = QImage()
 
         return qimg
+
+    @err_catcher(name=__name__)
+    def buildOtioTimeline(self, shots: List[Dict], fps: float = 24, mediaIdentifier: Optional[str] = None) -> Any:
+        """Build an OTIO timeline from a list of shot entity dicts.
+
+        Args:
+            shots: List of shot entity dicts (each with 'sequence', 'shot', etc.).
+            fps: Frames per second for the timeline. Defaults to 24.
+            mediaIdentifier: Optional identifier name used to resolve media references for each shot.
+
+        Returns:
+            opentimelineio.schema.Timeline, or None if opentimelineio is unavailable.
+        """
+        try:
+            import opentimelineio as otio
+        except ImportError:
+            self.core.popup("opentimelineio is not installed. Cannot build OTIO timeline.")
+            return None
+
+        timeline = otio.schema.Timeline(name="Timeline")
+        track = otio.schema.Track(name="Video", kind=otio.schema.TrackKind.Video)
+        timeline.tracks.append(track)
+
+        for shot in shots:
+            shotName = self.core.entities.getShotName(shot) or ""
+            shotRange = self.core.entities.getShotRange(shot)
+            startFrame = shotRange[0] if shotRange else 0
+            endFrame = shotRange[1] if shotRange else startFrame
+            duration = max(1, endFrame - startFrame + 1)
+
+            media_reference = otio.schema.MissingReference()
+            if mediaIdentifier:
+                idfs = self.core.mediaProducts.getIdentifiersByType(shot)
+                found = False
+                for mtype in idfs.values():
+                    if found:
+                        break
+                    for idf in mtype:
+                        if idf.get("identifier") == mediaIdentifier:
+                            versions = self.core.mediaProducts.getVersionsFromIdentifier(idf)
+                            latestVersion = self.core.mediaProducts.getLatestVersionFromVersions(versions)
+                            if latestVersion:
+                                filepath = self.core.mediaProducts.getFileFromVersion(latestVersion, findExisting=True)
+                                if filepath:
+                                    media_reference = otio.schema.ExternalReference(
+                                        target_url=filepath.replace("\\", "/")
+                                    )
+                            found = True
+                            break
+
+            clip = otio.schema.Clip(
+                name=shotName,
+                media_reference=media_reference,
+                source_range=otio.opentime.TimeRange(
+                    start_time=otio.opentime.RationalTime(startFrame, fps),
+                    duration=otio.opentime.RationalTime(duration, fps),
+                ),
+            )
+            track.append(clip)
+
+        return timeline
+
+    @err_catcher(name=__name__)
+    def saveOtioAsProduct(self, shots: List[Dict], entity: Dict, product: str, fps: Optional[float] = None, mediaIdentifier: Optional[str] = None, location: str = "global", comment: str = "") -> Optional[Dict]:
+        """Build an OTIO timeline from shots and save it as a product version.
+
+        Args:
+            shots: List of shot entity dicts.
+            entity: Target entity dict for the product.
+            product: Product name.
+            fps: Frames per second. Uses the project FPS setting if None.
+            mediaIdentifier: Optional media identifier to resolve clip sources.
+            location: Storage location name. Defaults to 'global'.
+            comment: Optional comment for the product version.
+        Returns:
+            Dict with 'createdFiles' and 'versionPath' keys, or None on failure.
+        """
+        try:
+            import opentimelineio as otio
+        except ImportError:
+            self.core.popup("opentimelineio is not installed. Cannot save OTIO timeline.")
+            return None
+
+        if fps is None:
+            fps = self.core.projects.getFps() or 24
+
+        timeline = self.buildOtioTimeline(shots, fps=fps, mediaIdentifier=mediaIdentifier)
+        if timeline is None:
+            return None
+
+        import tempfile
+        tmpDir = tempfile.mkdtemp()
+        otioPath = os.path.join(tmpDir, product + ".otio")
+        try:
+            otio.adapters.write_to_file(timeline, otioPath)
+        except Exception as e:
+            self.core.popup("Failed to write OTIO file:\n%s" % str(e))
+            return None
+
+        result = self.core.products.ingestProductVersion(
+            files=[otioPath],
+            entity=entity,
+            product=product,
+            location=location,
+            comment=comment,
+        )
+        return result
 
     @property
     @err_catcher(name=__name__)

@@ -101,6 +101,7 @@ class ExportClass(object):
         self.core = core
         self.stateManager = stateManager
         self.canSetVersion = True
+        self.customEntity = None
 
         self.e_name.setText(state.text(0) + " - {product} ({node})")
 
@@ -1024,6 +1025,18 @@ class ExportClass(object):
                 not in ["pixar::usdrop", "usd", "wedge", "prism::Filecache::1.0"]
             ) and createMissing:
                 self.createNode()
+        elif idx == ".otio":
+            self.f_cam.setVisible(False)
+            self.w_sCamShot.setVisible(False)
+            self.f_taskName.setVisible(True)
+            self.f_status.setVisible(False)
+            self.f_connect.setVisible(False)
+            self.f_frameRange.setVisible(False)
+            self.w_frameRangeValues.setVisible(False)
+            self.connectNode(None)
+            if self.cb_manager.count() > 0:
+                self.gb_submit.setVisible(False)
+ 
         elif idx == ".rs":
             self.f_cam.setVisible(False)
             self.w_sCamShot.setVisible(False)
@@ -1422,7 +1435,8 @@ class ExportClass(object):
             if not self.getProductname(expanded=True):
                 warnings.append(["No productname is given.", "", 3])
 
-            if not self.isNodeValid():
+            isOtio = self.getOutputType() == ".otio"
+            if not self.isNodeValid() and not isOtio:
                 warnings.append(["Node is invalid.", "", 3])
 
         if self.getCurrentWedgeIndex() is not None and "wedge" not in self.core.projects.getTemplatePath("productVersions"):
@@ -1555,6 +1569,9 @@ class ExportClass(object):
             fileName = self.core.getCurrentFileName()
             entityData = self.core.getScenefileData(fileName)
 
+        if self.customEntity:
+            entityData = self.customEntity
+
         if not entityData:
             return {}
 
@@ -1609,17 +1626,20 @@ class ExportClass(object):
         else:
             rangeType = self.cb_rangeType.currentText()
             isFilecache = self.isPrismFilecacheNode(self.node)
+            isOtio = self.getOutputType() == ".otio"
             if isFilecache:
                 if self.core.appPlugin.filecache.isSingleFrame(self.node):
                     rangeType = "Single Frame"
 
             if rangeType == "Single Frame":
                 framePadding = ""
+            elif isOtio:
+                framePadding = ""
             else:
                 if isFilecache:
                     incr = self.node.parm("f3").eval() / self.node.parm("substeps").eval()
                 else:
-                    incr = self.node.parm("f3").eval()
+                    incr = self.node.parm("f3").eval() if self.node.parm("f3") else 1
 
                 if incr < 1:
                     framePadding = f"`pythonexprs('\"%0{self.core.framePadding}d.%03d\" % (int(hou.timeToFrame(hou.time())), int(round(hou.timeToFrame(hou.time()), 3) * 1000) % 1000)')`"
@@ -1668,9 +1688,10 @@ class ExportClass(object):
         
         Returns:
             List of result messages."""
+        isOtio = self.getOutputType() == ".otio"
         rangeType = self.cb_rangeType.currentText()
         startFrame, endFrame = self.getFrameRange(rangeType)
-        if startFrame is None:
+        if not isOtio and startFrame is None:
             return [self.state.text(0) + ": error - Framerange is invalid"]
 
         if rangeType == "Single Frame":
@@ -1854,19 +1875,19 @@ class ExportClass(object):
                     + ": error - No productname is given. Skipped the activation of this state."
                 ]
 
-            if not self.isNodeValid():
+            if not self.isNodeValid() and not isOtio:
                 return [
                     self.state.text(0)
                     + ": error - Node is invalid. Skipped the activation of this state."
                 ]
 
-            if self.node.isInsideLockedHDA() and not self.node.isEditableInsideLockedHDA():
+            if not isOtio and self.node.isInsideLockedHDA() and not self.node.isEditableInsideLockedHDA():
                 return [
                     self.state.text(0)
                     + ": error - Node is locked. Skipped the activation of this state."
                 ]
 
-            if self.node.type().name() == "wedge":
+            if not isOtio and self.node.type().name() == "wedge":
                 ropNode = self.getWedgeROP(self.node)
                 if not ropNode:
                     return [
@@ -1904,7 +1925,7 @@ class ExportClass(object):
                     if isFilecache:
                         incr = self.node.parm("f3").eval() / self.node.parm("substeps").eval()
                     else:
-                        incr = self.node.parm("f3").eval()
+                        incr = self.node.parm("f3").eval() if self.node.parm("f3") else 1
 
                     if incr < 1:
                         framePadding = f"`pythonexprs('\"%0{self.core.framePadding}d.%03d\" % (int(hou.timeToFrame(hou.time())), int(round(hou.timeToFrame(hou.time()), 3) * 1000) % 1000)')`"
@@ -1913,30 +1934,31 @@ class ExportClass(object):
 
                     outputName = outputName.replace(framePadding, "")
 
-            api = self.core.appPlugin.getApiFromNode(self.node)
-            isStart = ropNode.parm("f1").eval() == startFrame
-            isEnd = ropNode.parm("f2").eval() == endFrame
+            if not isOtio:
+                api = self.core.appPlugin.getApiFromNode(self.node)
+                isStart = ropNode.parm("f1").eval() == startFrame
+                isEnd = ropNode.parm("f2").eval() == endFrame
 
-            if not api:
-                if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
-                    return [self.state.text(0) + ": error - Publish canceled"]
+                if not api:
+                    if not self.core.appPlugin.setNodeParm(ropNode, "trange", val=1):
+                        return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not (api and isStart):
-                if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
-                    return [self.state.text(0) + ": error - Publish canceled"]
+                if not (api and isStart):
+                    if not self.core.appPlugin.setNodeParm(ropNode, "f1", clear=True):
+                        return [self.state.text(0) + ": error - Publish canceled"]
 
-                if not self.core.appPlugin.setNodeParm(ropNode, "f1", val=startFrame):
-                    return [self.state.text(0) + ": error - Publish canceled"]
+                    if not self.core.appPlugin.setNodeParm(ropNode, "f1", val=startFrame):
+                        return [self.state.text(0) + ": error - Publish canceled"]
 
-            if not (api and isEnd):
-                if not self.core.appPlugin.setNodeParm(ropNode, "f2", clear=True):
-                    return [self.state.text(0) + ": error - Publish canceled"]
+                if not (api and isEnd):
+                    if not self.core.appPlugin.setNodeParm(ropNode, "f2", clear=True):
+                        return [self.state.text(0) + ": error - Publish canceled"]
 
-                if not self.core.appPlugin.setNodeParm(ropNode, "f2", val=endFrame):
-                    return [self.state.text(0) + ": error - Publish canceled"]
+                    if not self.core.appPlugin.setNodeParm(ropNode, "f2", val=endFrame):
+                        return [self.state.text(0) + ": error - Publish canceled"]
 
             if (
-                ropNode.type().name()
+                ropNode and ropNode.type().name()
                 in [
                     "rop_geometry",
                     "rop_alembic",
@@ -1952,11 +1974,11 @@ class ExportClass(object):
                 if not self.core.appPlugin.setNodeParm(ropNode, "initsim", val=True):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
-            if ropNode.type().name() in ["vellumio::2.0"]:
+            if ropNode and ropNode.type().name() in ["vellumio::2.0"]:
                 if not self.core.appPlugin.setNodeParm(ropNode, "filemethod", val=1):
                     return [self.state.text(0) + ": error - Publish canceled"]
 
-            if self.chb_useTake.isChecked() and ropNode.parm("take"):
+            if self.chb_useTake.isChecked() and ropNode and ropNode.parm("take"):
                 pTake = self.cb_take.currentText()
                 takeLabels = [x.strip() for x in ropNode.parm("take").menuLabels()]
                 if pTake in takeLabels:
@@ -1975,7 +1997,7 @@ class ExportClass(object):
 
             expandedOutputPath = hou.text.expandString(outputPath)
             expandedOutputName = hou.text.expandString(outputName)
-            isWedging = self.isPrismFilecacheNode(self.node) and self.node.parm("useWedging").eval()
+            isWedging = (not isOtio) and self.isPrismFilecacheNode(self.node) and self.node.parm("useWedging").eval()
             if not isWedging and not os.path.exists(expandedOutputPath):
                 os.makedirs(expandedOutputPath)
 
@@ -2048,7 +2070,7 @@ class ExportClass(object):
                 expandedOutputName = hou.text.expandString(outputName)
                 parmName = False
 
-                if ropNode.type().name() in self.nodeTypes:
+                if ropNode and ropNode.type().name() in self.nodeTypes:
                     parmName = self.nodeTypes[ropNode.type().name()]["outputparm"]
 
                 if parmName is not False:
@@ -2086,7 +2108,11 @@ class ExportClass(object):
                     updateMaster = False
                 else:
                     try:
-                        result = self.executeNode()
+                        if isOtio:
+                            result = self.exportOtio(expandedOutputName)
+                        else:
+                            result = self.executeNode()
+    
                         if result in [True, "background", "wedges"]:
                             if result == "background":
                                 updateMaster = False
@@ -2173,6 +2199,10 @@ class ExportClass(object):
             result = "Execute failed: " + errs
 
         return result
+    
+    @err_catcher(name=__name__)
+    def exportOtio(self, outputPath):
+        return hou.anim.saveBookmarks(outputPath)
 
     @err_catcher(name=__name__)
     def isUsingMasterVersion(self):

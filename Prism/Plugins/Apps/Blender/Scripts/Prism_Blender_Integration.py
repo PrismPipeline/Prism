@@ -79,13 +79,13 @@ class Prism_Blender_Integration(object):
         self.useUserPrefs = True
         if platform.system() == "Windows":
             if self.useUserPrefs:
-                self.examplePath = os.path.normpath(os.environ["appdata"] + "\\Blender Foundation\\Blender\\5.1")
+                self.examplePath = os.path.normpath(os.environ["appdata"] + "\\Blender Foundation\\Blender\\5.2")
             else:
-                self.examplePath = self.getBlenderPath() or "C:/Program Files/Blender Foundation/Blender 5.1"
+                self.examplePath = self.getBlenderPath() or "C:/Program Files/Blender Foundation/Blender 5.2"
         elif platform.system() == "Linux":
-            self.examplePath = "/usr/local/blender-5.1-linux-glibc219-x86_64/5.1"
+            self.examplePath = "/usr/local/blender-5.2-linux-glibc219-x86_64/5.2"
         elif platform.system() == "Darwin":
-            self.examplePath = os.path.expanduser("~/Library/Application Support/Blender/5.1")
+            self.examplePath = os.path.expanduser("~/Library/Application Support/Blender/5.2")
 
     @err_catcher(name=__name__)
     def getExecutable(self) -> str:
@@ -120,7 +120,7 @@ class Prism_Blender_Integration(object):
                 (_winreg.QueryValueEx(key, ""))[0].split(' "%1"')[0].replace('"', "")
             )
 
-            vpath = os.path.join(os.path.dirname(blenderPath), "5.1")
+            vpath = os.path.join(os.path.dirname(blenderPath), "5.2")
 
             if os.path.exists(vpath):
                 return vpath

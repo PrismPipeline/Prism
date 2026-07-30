@@ -959,6 +959,29 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
                     state.cb_tileJob.activated.connect(lambda s: state.stateManager.saveStatesToScene())
                     lo.addWidget(state.w_tileJob)
 
+                if self.core.appPlugin.pluginName == "Maya":
+                    state.w_vrscene = QWidget()
+                    state.lo_vrscene = QHBoxLayout(state.w_vrscene)
+                    state.lo_vrscene.setContentsMargins(9, 0, 9, 0)
+                    state.l_vrscene = QLabel("Render .vrscene files:")
+                    state.chb_vrscene = QCheckBox()
+                    state.lo_vrscene.addWidget(state.l_vrscene)
+                    state.lo_vrscene.addStretch()
+                    state.lo_vrscene.addWidget(state.chb_vrscene)
+                    state.chb_vrscene.toggled.connect(state.stateManager.saveStatesToScene)
+                    lo.addWidget(state.w_vrscene)
+
+                    state.w_exportSceneLocally = QWidget()
+                    state.lo_exportSceneLocally = QHBoxLayout(state.w_exportSceneLocally)
+                    state.lo_exportSceneLocally.setContentsMargins(9, 0, 9, 0)
+                    state.l_exportSceneLocally = QLabel("Export scene description locally:")
+                    state.chb_exportSceneLocally = QCheckBox()
+                    state.lo_exportSceneLocally.addWidget(state.l_exportSceneLocally)
+                    state.lo_exportSceneLocally.addStretch()
+                    state.lo_exportSceneLocally.addWidget(state.chb_exportSceneLocally)
+                    state.chb_exportSceneLocally.toggled.connect(state.stateManager.saveStatesToScene)
+                    lo.addWidget(state.w_exportSceneLocally)
+
                 state.w_machineLimit = QWidget()
                 state.lo_machineLimit = QHBoxLayout()
                 state.lo_machineLimit.setContentsMargins(9, 0, 9, 0)
@@ -1130,6 +1153,16 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
             state.gb_prioJob.setParent(None)
             state.gb_prioJob.deleteLater()
 
+        if hasattr(state, "w_vrscene"):
+            state.w_vrscene.setHidden(True)
+            state.w_vrscene.setParent(None)
+            state.w_vrscene.deleteLater()
+
+        if hasattr(state, "w_exportSceneLocally"):
+            state.w_exportSceneLocally.setHidden(True)
+            state.w_exportSceneLocally.setParent(None)
+            state.w_exportSceneLocally.deleteLater()
+
     @err_catcher(name=__name__)
     def presetChanged(self, state: Any) -> None:
         """Apply pool preset settings when preset selection changes.
@@ -1209,6 +1242,10 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
                 settings["useTiles"] = state.chb_tileJob.isChecked()
                 settings["tileCount"] = state.cb_tileJob.currentText()
 
+            if hasattr(state, "w_vrscene"):
+                settings["rjRendervrscene"] = state.chb_vrscene.isChecked()
+                settings["exportSceneLocally"] = state.chb_exportSceneLocally.isChecked()
+
     @err_catcher(name=__name__)
     def onStateSettingsLoaded(self, state: Any, settings: Dict[str, Any]) -> None:
         """Load Deadline settings from dictionary into state UI controls.
@@ -1263,6 +1300,12 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
                     idx = state.cb_tileJob.findText(settings["tileCount"])
                     if idx != -1:
                         state.cb_tileJob.setCurrentIndex(idx)
+
+            if hasattr(state, "w_vrscene"):
+                if "rjRendervrscene" in settings:
+                    state.chb_vrscene.setChecked(settings["rjRendervrscene"])
+                if "exportSceneLocally" in settings:
+                    state.chb_exportSceneLocally.setChecked(settings["exportSceneLocally"])
 
     @err_catcher(name=__name__)
     def sm_houExport_activated(self, origin: Any) -> None:
@@ -1402,6 +1445,11 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
         if hasattr(origin, "w_redshift"):
             isRs = self.core.appPlugin.getCurrentRenderer(origin) == "Redshift_Renderer"
             origin.w_redshift.setHidden(not isRs)
+
+        if hasattr(origin, "w_vrscene"):
+            isVray = getattr(self.core.appPlugin, "getCurrentRenderer", lambda x: "")(origin) == "vray"
+            origin.w_vrscene.setHidden(not isVray)
+            origin.w_exportSceneLocally.setHidden(not isVray)
 
     @err_catcher(name=__name__)
     def sm_render_managerChanged(self, origin: Any) -> None:
@@ -2408,7 +2456,7 @@ path = r\"%s\"
         if self.core.getConfig(
             "render", "VrayCleanupJob", dft=True, config="project"
         ) and allowCleanup:
-            cleanupScript = origin.curRenderer.getCleanupScript()
+            cleanupScript = self.getVrayCleanupScript()
         else:
             cleanupScript = None
 
@@ -2450,6 +2498,33 @@ path = r\"%s\"
             state=origin,
         )
         return result
+
+    @err_catcher(name=__name__)
+    def getVrayCleanupScript(self) -> str:
+        """Get cleanup script for V-Ray.
+    
+        Returns:
+            Cleanup script as a string.
+        """
+        script = """
+import os
+import sys
+import shutil
+
+vrsceneOutput = sys.argv[-1]
+
+delDir = os.path.dirname(vrsceneOutput)
+if os.path.basename(delDir) != "_vrscene":
+    raise RuntimeError("invalid vrscene directory: %s" % (delDir))
+
+if os.path.exists(delDir):
+    shutil.rmtree(delDir)
+    print("task completed successfully")
+else:
+    print("directory doesn't exist")
+
+"""
+        return script
 
     @err_catcher(name=__name__)
     def getMantraOutputPath(self, origin: Any, jobOutputFile: str) -> str:
@@ -3678,10 +3753,17 @@ path = r\"%s\"
 
         startFrame = frames.split("-")[0].split(",")[0]
         paddedStartFrame = str(startFrame).zfill(self.core.framePadding)
-        pluginInfos["InputFilename"] = archivefile.replace(
-            "#" * self.core.framePadding, paddedStartFrame
-        )
-        pluginInfos["SeparateFilesPerFrame"] = True
+        if self.core.appPlugin.pluginName == "Maya":
+            pluginInfos["InputFilename"] = archivefile.replace(
+                "." + "#" * self.core.framePadding, "_" + paddedStartFrame
+            )
+        else:
+            pluginInfos["InputFilename"] = archivefile.replace(
+                "#" * self.core.framePadding, paddedStartFrame
+            )
+
+        pluginInfos["SeparateFilesPerFrame"] = "#" in archivefile
+        pluginInfos["OutputFilename"] = jobOutput.replace("#" * self.core.framePadding, "#")
 
         dlParams = {
             "jobInfos": jobInfos,

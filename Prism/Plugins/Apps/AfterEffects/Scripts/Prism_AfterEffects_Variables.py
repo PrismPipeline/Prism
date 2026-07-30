@@ -47,7 +47,7 @@ class Prism_AfterEffects_Variables(object):
             core: Prism core instance
             plugin: Plugin instance (self reference)
         """
-        self.version = "v2.1.2.1"
+        self.version = "v2.1.3"
         self.pluginName = "AfterEffects"
         self.pluginType = "App"
         self.appShortName = "AfterEffects"

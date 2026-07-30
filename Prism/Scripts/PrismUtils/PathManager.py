@@ -840,9 +840,15 @@ class PathManager(object):
 
         if configData:
             customPaths = configData.get("render_paths", [])
+            prjName = configData.get("project_name", "")
         else:
-            if not configPath:
+            if configPath:
+                prjName = self.core.getConfig(
+                    "project_name", configPath=configPath, dft=[]
+                )
+            else:
                 configPath = self.core.prismIni
+                prjName = self.core.projectName
 
             customPaths = self.core.getConfig(
                 "render_paths", configPath=configPath, dft=[]
@@ -852,7 +858,7 @@ class PathManager(object):
             render_paths[cp] = customPaths[cp]
 
         for path in render_paths:
-            render_paths[path] = os.path.normpath(render_paths[path])
+            render_paths[path] = os.path.normpath(render_paths[path].replace("@project_name@", prjName))
 
         return render_paths
 

@@ -1139,6 +1139,8 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         cData["globals"]["capture_viewport_products"] = self.chb_captureViewportProduct.isChecked()
         cData["globals"]["send_error_reports"] = self.chb_errorReports.isChecked()
         cData["globals"]["debug_mode"] = self.chb_debug.isChecked()
+        if not os.getenv("PRISM_DELAYED_LOAD_PLUGINS"):
+            cData["globals"]["deferred_plugins"] = self.e_deferredPlugins.text()
         cData["globals"]["standalone_stylesheet"] = self.cb_styleSheet.currentData().get("name", "")
         cData["environmentVariables"] = self.getEnvironmentVariables()
 
@@ -1364,6 +1366,17 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
             if "environmentVariables" in configData and configData["environmentVariables"]:
                 self.loadEnvironmant(configData["environmentVariables"])
 
+            envOverride = os.getenv("PRISM_DELAYED_LOAD_PLUGINS")
+            if envOverride:
+                self.e_deferredPlugins.setText(envOverride)
+                self.e_deferredPlugins.setEnabled(False)
+                self.e_deferredPlugins.setToolTip("Controlled by PRISM_DELAYED_LOAD_PLUGINS environment variable")
+            else:
+                deferredPlugins = gblData.get("deferred_plugins", "")
+                self.e_deferredPlugins.setText(deferredPlugins)
+                self.e_deferredPlugins.setEnabled(True)
+                self.e_deferredPlugins.setToolTip("")
+
         if not os.path.exists(self.core.prismIni):
             self.l_localPath.setEnabled(False)
 
@@ -1478,7 +1491,10 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         integrations = self.core.integration.getIntegrations()
 
         for app in self.integrationPlugins:
-            self.integrationPlugins[app]["lw"].clear()
+            try:
+                self.integrationPlugins[app]["lw"].clear()
+            except:
+                continue
 
             if app in integrations:
                 for path in integrations[app]:
@@ -2701,7 +2717,8 @@ class ManagePluginPaths(QDialog):
         self.core.ps.activateWindow()
         self.core.ps.raise_()
         self.core.ps.w_user.managePluginsDlg()
-        self.close()
+        if self.core.isObjectValid(self):
+            self.close()
 
     @err_catcher(name=__name__)
     def removePluginSearchpaths(self) -> None:

@@ -151,6 +151,8 @@ class RenderSettingsClass(object):
         self.stateManager = stateManager
 
         self.cb_addSetting.lineEdit().setPlaceholderText("Select setting to add")
+        self.cb_addSetting.wheelEvent = lambda event: None
+        self.cb_presetOption.wheelEvent = lambda event: None
 
         getattr(self.core.appPlugin, "sm_renderSettings_startup", lambda x: None)(self)
         if state:

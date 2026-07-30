@@ -46,7 +46,7 @@ class Prism_Photoshop_Variables(object):
             core: Prism core instance
             plugin: Plugin instance (self)
         """
-        self.version = "v2.1.2.1"
+        self.version = "v2.1.3"
         self.pluginName = "Photoshop"
         self.pluginType = "App"
         self.appShortName = "Photoshop"

@@ -253,12 +253,12 @@ class Ui_wg_Export(object):
 
         self.verticalLayout_3.addWidget(self.widget_6)
 
-        self.widget_7 = QWidget(self.gb_general)
-        self.widget_7.setObjectName(u"widget_7")
-        self.horizontalLayout_9 = QHBoxLayout(self.widget_7)
+        self.w_takes = QWidget(self.gb_general)
+        self.w_takes.setObjectName(u"w_takes")
+        self.horizontalLayout_9 = QHBoxLayout(self.w_takes)
         self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
         self.horizontalLayout_9.setContentsMargins(-1, 0, -1, 0)
-        self.label_6 = QLabel(self.widget_7)
+        self.label_6 = QLabel(self.w_takes)
         self.label_6.setObjectName(u"label_6")
 
         self.horizontalLayout_9.addWidget(self.label_6)
@@ -267,12 +267,12 @@ class Ui_wg_Export(object):
 
         self.horizontalLayout_9.addItem(self.horizontalSpacer_4)
 
-        self.chb_useTake = QCheckBox(self.widget_7)
+        self.chb_useTake = QCheckBox(self.w_takes)
         self.chb_useTake.setObjectName(u"chb_useTake")
 
         self.horizontalLayout_9.addWidget(self.chb_useTake)
 
-        self.cb_take = QComboBox(self.widget_7)
+        self.cb_take = QComboBox(self.w_takes)
         self.cb_take.setObjectName(u"cb_take")
         self.cb_take.setEnabled(False)
         self.cb_take.setMinimumSize(QSize(124, 0))
@@ -280,7 +280,7 @@ class Ui_wg_Export(object):
         self.horizontalLayout_9.addWidget(self.cb_take)
 
 
-        self.verticalLayout_3.addWidget(self.widget_7)
+        self.verticalLayout_3.addWidget(self.w_takes)
 
         self.f_cam = QWidget(self.gb_general)
         self.f_cam.setObjectName(u"f_cam")

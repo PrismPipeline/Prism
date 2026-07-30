@@ -79,7 +79,7 @@ class Prism_Houdini_Integration(object):
         if prefPaths:
             self.examplePath = prefPaths[-1]
         else:
-            self.examplePath = self.getPreferencesBasePath() + "19.5"
+            self.examplePath = self.getPreferencesBasePath() + "22.0"
 
     @err_catcher(name=__name__)
     def getExecutable(self) -> str:

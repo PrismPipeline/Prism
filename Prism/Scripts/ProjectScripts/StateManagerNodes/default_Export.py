@@ -149,7 +149,14 @@ class ExportClass(object):
         if hasattr(self, "gb_submit"):
             self.gb_submit.setVisible(False)
             self.cb_manager.addItems([p.pluginName for p in self.core.plugins.getRenderfarmPlugins()])
+            self.cb_manager.wheelEvent = lambda event: None
 
+        self.cb_context.wheelEvent = lambda event: None
+        self.cb_rangeType.wheelEvent = lambda event: None
+        self.cb_cam.wheelEvent = lambda event: None
+        self.cb_sCamShot.wheelEvent = lambda event: None
+        self.cb_outPath.wheelEvent = lambda event: None
+        self.cb_outType.wheelEvent = lambda event: None
         getattr(self.core.appPlugin, "sm_export_startup", lambda x: None)(self)
         self.nameChanged(state.text(0))
         self.connectEvents()
@@ -608,7 +615,7 @@ class ExportClass(object):
         if self.getOutputType() == "ShotCam":
             productName = "_ShotCam"
         else:
-            productName = self.l_taskName.text()
+            productName = self.l_taskName.text().strip()
 
         return productName
 
@@ -631,13 +638,16 @@ class ExportClass(object):
         Returns:
             The final product name after any plugin modifications
         """
+        newProductName = productname.strip()
         prevProductName = self.getProductname()
-        default_func = lambda x1, x2, newTaskName: productname
+        default_func = lambda x1, x2, newTaskName: newProductName
         productname = getattr(self.core.appPlugin, "sm_export_setTaskText", default_func)(
-            self, prevProductName, productname
+            self, prevProductName, newProductName
         )
         self.l_taskName.setText(productname)
-        self.updateUi()
+        if not self.stateManager.loading:
+            self.updateUi()
+
         return productname
 
     @err_catcher(name=__name__)
@@ -1134,6 +1144,7 @@ class ExportClass(object):
             idx: New export type string
         """
         isSCam = idx == "ShotCam"
+        isOtio = idx == ".otio"
         self.w_cam.setVisible(isSCam)
         self.w_sCamShot.setVisible(isSCam)
         self.w_selectCam.setVisible(isSCam)
@@ -1141,11 +1152,12 @@ class ExportClass(object):
         getattr(self.core.appPlugin, "sm_export_typeChanged", lambda x, y: None)(
             self, idx
         )
-        self.w_wholeScene.setVisible(not isSCam)
-        self.gb_objects.setVisible(not isSCam)
+        self.w_wholeScene.setVisible(not isSCam and not isOtio)
+        self.gb_objects.setVisible(not isSCam and not isOtio)
 
-        self.updateUi()
-        self.stateManager.saveStatesToScene()
+        if not self.stateManager.loading:
+            self.updateUi()
+            self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def setCam(self, index: int) -> None:
@@ -1261,7 +1273,7 @@ class ExportClass(object):
             if not self.getProductname():
                 warnings.append(["No productname is given.", "", 3])
 
-            if not self.chb_wholeScene.isChecked() and len(self.nodes) == 0:
+            if not self.chb_wholeScene.isChecked() and len(self.nodes) == 0 and self.getOutputType() not in [".otio"]:
                 warnings.append(["No objects are selected for export.", "", 3])
 
         if startFrame is None:
@@ -1521,6 +1533,7 @@ class ExportClass(object):
                     [x for x in self.nodes if self.core.appPlugin.isNodeValid(self, x)]
                 )
                 == 0
+                and self.getOutputType() not in [".otio"]
             ):
                 return [
                     self.state.text(0)

@@ -68,7 +68,7 @@ class Prism_Houdini_Variables(object):
             core: PrismCore instance.
             plugin: Plugin instance.
         """
-        self.version = "v2.1.2"
+        self.version = "v2.1.3.1"
         self.pluginName = "Houdini"
         self.pluginType = "App"
         self.appShortName = "Hou"
@@ -84,6 +84,7 @@ class Prism_Houdini_Variables(object):
             ".usdc",
             ".fbx",
             ".obj",
+            ".otio",
             "ShotCam",
             "other",
         ]

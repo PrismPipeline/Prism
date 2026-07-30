@@ -315,6 +315,8 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         lo_presetScenes.addStretch()
         self.addTab(self.w_presetScenes, "Preset Scenes")
 
+        self.cb_expectedPrismVersion.addItems(["Warn", "Enforce"])
+
         self.core.callback(name="projectSettings_loadUI", args=[self])
 
     @err_catcher(name=__name__)
@@ -1379,6 +1381,8 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         cData["globals"]["required_plugins"] = [x.strip() for x in self.e_reqPlugins.text().split(",") if x]
         cData["globals"]["disabled_plugins"] = [x.strip() for x in self.e_disabledPlugins.text().split(",") if x]
         cData["globals"]["expectedPrjPath"] = self.e_expectedPrjPath.text()
+        cData["globals"]["expectedPrismVersions"] = self.e_expectedPrismVersion.text()
+        cData["globals"]["expectedPrismVersionMode"] = self.cb_expectedPrismVersion.currentText()
         cData["globals"]["defaultImportStateName"] = self.e_defaultImportStateName.text()
         cData["changeProject"] = changeProject
         structure = self.getFolderStructure()
@@ -1675,6 +1679,12 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
             self.e_disabledPlugins.setText(", ".join(gblData["disabled_plugins"]))
         if "expectedPrjPath" in gblData:
             self.e_expectedPrjPath.setText(gblData["expectedPrjPath"])
+        if "expectedPrismVersions" in gblData:
+            self.e_expectedPrismVersion.setText(gblData["expectedPrismVersions"])
+        if "expectedPrismVersionMode" in gblData:
+            idx = self.cb_expectedPrismVersion.findText(gblData["expectedPrismVersionMode"])
+            if idx >= 0:
+                self.cb_expectedPrismVersion.setCurrentIndex(idx)
         if "defaultImportStateName" in gblData:
             self.e_defaultImportStateName.setText(gblData["defaultImportStateName"])
         if "allowAdditionalTasks" in gblData:
@@ -2805,7 +2815,7 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         if not result:
             return
 
-        hookName = dlg_ec.e_item.text()
+        hookName = dlg_ec.e_item.text().strip()
         content = """# def main(*args, **kwargs):
 #     print(args)
 #     print(kwargs)"""

@@ -37,6 +37,7 @@ import sys
 import shutil
 import platform
 import logging
+import threading
 import traceback
 from typing import Any, Optional, List, Dict, Tuple, Union, Callable
 
@@ -47,6 +48,23 @@ from qtpy.QtWidgets import *
 from PrismUtils.Decorators import err_catcher
 
 logger = logging.getLogger(__name__)
+
+
+class DelayedPluginLoader(QThread):
+    """Background thread that imports delayed plugins without blocking the main thread."""
+
+    allImportsDone = Signal()
+
+    def __init__(self, pluginManager, pluginPaths):
+        super(DelayedPluginLoader, self).__init__()
+        self.pluginManager = pluginManager
+        self.pluginPaths = pluginPaths
+
+    def run(self):
+        logger.debug("loading %d delayed plugin(s)..." % len(self.pluginPaths))
+        for pluginPath in self.pluginPaths:
+            self.pluginManager.loadPlugin(pluginPath, force=False)
+        self.allImportsDone.emit()
 
 
 class PluginManager(object):
@@ -62,6 +80,9 @@ class PluginManager(object):
         self.core = core
         self.monkeyPatchedFunctions = {}
         self.ignoreAutoLoadPlugins = [name.strip() for name in os.getenv("PRISM_IGNORE_AUTOLOAD_PLUGINS", "").split(",")]
+        self._delayedPluginPaths = []
+        self._delayedLoader = None
+        self._delayedExcludePlugins = set()
 
     @err_catcher(name=__name__)
     def initializePlugins(self, appPlugin: str) -> None:
@@ -98,15 +119,25 @@ class PluginManager(object):
             self.core.popup(msg)
             return
 
+        _envDelayed = os.getenv("PRISM_DELAYED_LOAD_PLUGINS")
+        if _envDelayed is not None:
+            _rawDelayedStr = _envDelayed
+        else:
+            _rawDelayedStr = self.core.getConfig("globals", "deferred_plugins", config="user", dft="")
+
+        delayedLoad, _excludes = self.getDelayedLoadPlugins()
+        self._delayedExcludePlugins = _excludes if delayedLoad else set()
         self.loadPlugins(
             pluginPaths=pluginDirs["pluginPaths"],
             directories=pluginDirs["searchPaths"],
             force=False,
             ignore=[appPlugs[0]["name"]],
+            delayedPlugins=delayedLoad,
         )
-        self.core.callback("onPluginsLoaded")
-        if self.core.splashScreen:
-            self.core.splashScreen.setStatus("plugins loaded...")
+        if not self._delayedPluginPaths:
+            self.core.callback("onPluginsLoaded")
+            if self.core.splashScreen:
+                self.core.splashScreen.setStatus("plugins loaded...")
 
         if self.core.appPlugin and self.core.appPlugin.pluginName != "Standalone":
             # self.core.maxwait = 120
@@ -118,6 +149,53 @@ class PluginManager(object):
                 self.core.timer.start(1000)
         else:
             self.core.startup()
+
+        if self._delayedPluginPaths:
+            self._startDelayedLoader()
+
+    @err_catcher(name=__name__)
+    def getDelayedLoadPlugins(self) -> Tuple[Optional[Union[List[str], str]], set]:
+        """Get the list of plugins that are set to be loaded in a delayed manner.
+        
+        Returns:
+            Tuple containing the list of delayed load plugins and the set of excluded plugins.
+        """
+        _envDelayed = os.getenv("PRISM_DELAYED_LOAD_PLUGINS")
+        if _envDelayed is not None:
+            _rawDelayedStr = _envDelayed
+        else:
+            _rawDelayedStr = self.core.getConfig("globals", "deferred_plugins", config="user", dft="")
+
+        _rawDelayed = [n.strip() for n in _rawDelayedStr.split(",") if n.strip()]
+        _excludes = {n[1:] for n in _rawDelayed if n.startswith("^")}
+        _includes = [n for n in _rawDelayed if not n.startswith("^")]
+        delayedLoad = "*" if "*" in _includes else _includes
+        return delayedLoad, _excludes
+
+    @err_catcher(name=__name__)
+    def _startDelayedLoader(self) -> None:
+        """Start the background thread to load delayed plugins."""
+        paths = list(self._delayedPluginPaths)
+        self._delayedPluginPaths = []
+        logger.debug("starting delayed load of %d plugin(s)..." % len(paths))
+        self._delayedLoader = DelayedPluginLoader(self, paths)
+        self._delayedLoader.allImportsDone.connect(self._onAllDelayedPluginsLoaded)
+        self._delayedLoader.start()
+
+    @err_catcher(name=__name__)
+    def _onAllDelayedPluginsLoaded(self) -> None:
+        """Callback when all delayed plugins have been loaded."""
+        logger.debug("all delayed plugins loaded")
+        if self.core.pb:
+            self.core.pb.sceneBrowser.refreshAppFilters()
+        self.core.callback("onPluginsLoaded")
+        if self.core.splashScreen:
+            self.core.splashScreen.setStatus("plugins loaded...")
+        self._delayedLoader = None
+        if self.core.status == "waitingForDelayedPlugins":
+            self.core.status = "postInitializing"
+            self.core.callback(name="postInitialize")
+            self.core.status = "loaded"
 
     @err_catcher(name=__name__)
     def getPluginDirs(self, includeDefaults: bool = True, includeEnv: bool = True, includeConfig: bool = True, enabledOnly: bool = True) ->  Dict[str, List[str]]:
@@ -145,7 +223,7 @@ class PluginManager(object):
             if envPluginSearchDirs[0]:
                 result["searchPaths"] += envPluginSearchDirs
 
-        if includeConfig:
+        if includeConfig and os.getenv("PRISM_USE_PLUGIN_CONFIG", "1") == "1":
             userPluginDirs = self.core.getConfig(config="PluginPaths") or {}
             if userPluginDirs.get("plugins"):
                 if enabledOnly:
@@ -288,7 +366,10 @@ class PluginManager(object):
         if not path:
             path = self.core.getConfig("globals", "defaultPluginPath", config="user")
             if not path:
-                path = self.getComputerPluginPath()
+                if platform.system() == "Windows":
+                    path = self.getComputerPluginPath()
+                else:
+                    path = self.getPluginPath(location="root", pluginType="Custom")
 
         return path
 
@@ -398,6 +479,7 @@ class PluginManager(object):
         force: bool = True,
         ignore: Optional[List[str]] = None,
         singleFilePlugins: bool = False,
+        delayedPlugins: Optional[Union[List[str], str]] = None,
     ) -> List[Any]:
         """Load plugins from specified paths or directories.
         
@@ -409,6 +491,7 @@ class PluginManager(object):
             force: Force reload even if already loaded
             ignore: List of plugin names to skip
             singleFilePlugins: Load single-file .py plugins
+            delayedPlugins: Plugin names to defer to background thread ('*' for all)
             
         Returns:
             List of loaded plugin instances
@@ -490,6 +573,12 @@ class PluginManager(object):
 
                 if self.isPluginLoaded(pluginName):
                     continue
+
+                if delayedPlugins is not None:
+                    if delayedPlugins == "*" or pluginName in delayedPlugins:
+                        if pluginName not in self._delayedExcludePlugins:
+                            self._delayedPluginPaths.append(pluginPath)
+                            continue
 
             result.append(self.loadPlugin(pluginPath, force=force))
 
@@ -635,6 +724,8 @@ class PluginManager(object):
         else:
             location = "custom"
 
+        _qapp = QApplication.instance()
+        isGuiThread = bool(_qapp and _qapp.thread() == QThread.currentThread())
         notAutoLoadedPlugins = self.getNotAutoLoadPlugins()
 
         if path.endswith(".py"):
@@ -643,7 +734,7 @@ class PluginManager(object):
                 sys.path.append(dirpath)
 
             pluginName = os.path.basename(os.path.splitext(path)[0]).replace("Prism_Plugin_", "")
-            if self.core.splashScreen:
+            if self.core.splashScreen and isGuiThread:
                 self.core.splashScreen.setStatus("loading plugin %s..." % pluginName)
 
             initPath = path
@@ -656,7 +747,7 @@ class PluginManager(object):
             if pluginName == "PluginEmpty":
                 return
 
-            if self.core.splashScreen:
+            if self.core.splashScreen and isGuiThread:
                 self.core.splashScreen.setStatus("loading plugin %s..." % pluginName)
 
             if pluginName == "LoadExternalPlugins":
@@ -827,7 +918,7 @@ class PluginManager(object):
             if not hasattr(pPlug, "pluginType") or pPlug.pluginType in ["Custom"]:
                 self.core.customPlugins[pPlug.pluginName] = pPlug
 
-        if self.core.pb:
+        if self.core.pb and isGuiThread:
             self.core.pb.sceneBrowser.refreshAppFilters()
 
         self.core.callback("pluginLoaded", args=[pPlug])
@@ -2075,7 +2166,7 @@ class PLUGINNAME:
             try:
                 shutil.copytree(pluginPath, bkpPathSub)
             except Exception as e:
-                result = self.popupQuestion(f"Failed to backup folder: {e}", buttons=["Retry", "Skip"], default="Skip", escapeButton="Skip", icon=QMessageBox.Warning)
+                result = self.core.popupQuestion(f"Failed to backup folder: {e}", buttons=["Retry", "Skip"], default="Skip", escapeButton="Skip", icon=QMessageBox.Warning)
                 if result != "Retry":
                     break
             else:
@@ -2164,11 +2255,6 @@ class PLUGINNAME:
 
         if self.core.ps:
             self.core.ps.w_user.refreshPlugins()
-
-        if self.core.pb:
-            self.core.pb.close()
-            self.core.pb = None
-            self.core.projectBrowser()
 
         return True
 

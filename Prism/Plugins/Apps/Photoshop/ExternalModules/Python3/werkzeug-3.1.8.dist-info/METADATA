@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Werkzeug
-Version: 3.1.5
+Version: 3.1.8
 Summary: The comprehensive WSGI web application library.
 Maintainer-email: Pallets <contact@palletsprojects.com>
 Requires-Python: >=3.9

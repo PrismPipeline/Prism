@@ -96,8 +96,15 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
         executingStates: List of states currently being executed
     """
     
-    def __init__(self, core: Any, stateDataPath: Optional[str] = None, 
-                 forceStates: Optional[List[str]] = None, standalone: bool = False) -> None:
+    def __init__(
+        self,
+        core: Any,
+        stateDataPath: Optional[str] = None,
+        forceStates: Optional[List[str]] = None,
+        standalone: bool = False,
+        saveEnabled: bool = True,
+
+    ) -> None:
         """Initialize the State Manager.
         
         Args:
@@ -166,7 +173,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
 
         foldercont = ["", "", ""]
 
-        self.saveEnabled = True
+        self.saveEnabled = saveEnabled
         self.loading = False
         self.shotcamFileType = ".abc"
         self.publishPaused = False
@@ -222,7 +229,7 @@ class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
         self.loadStates()
         self.gb_import.setChecked(False)
         self.setListActive(self.tw_export)
-        self.showState()
+        # self.showState()
         self.activeList.setFocus()
         self.stateListToggled(self.gb_export, True)
         self.commentChanged(self.e_comment.text())
@@ -462,6 +469,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.actionImportConnectedAssets = QAction("Import Connected Assets", self)
         self.actionImportConnectedAssets.triggered.connect(self.core.products.importConnectedAssets)
         self.menuAbout.addAction(self.actionImportConnectedAssets)
+
+        self.actionCheckImportVersions = QAction("Check for Available Import Updates", self)
+        self.actionCheckImportVersions.triggered.connect(lambda: self.core.sanities.checkImportVersions(settings={"showSuccess": True}))
+        self.menuAbout.addAction(self.actionCheckImportVersions)
 
         self.ImportDelegate = ImportDelegate(self)
         self.tw_import.setItemDelegate(self.ImportDelegate)
@@ -1386,6 +1397,8 @@ QGroupBox::indicator:checked {
             logger.debug("available state types: %s" % self.stateTypes)
             return False
 
+        prevSaveEnabled = self.saveEnabled
+        self.saveEnabled = False
         item = QTreeWidgetItem([statetype])
         item.ui = self.stateTypes[statetype]()
         self.stateUis.append(item.ui)
@@ -1474,6 +1487,7 @@ QGroupBox::indicator:checked {
         self.selectState(item)
         self.updateForeground()
 
+        self.saveEnabled = prevSaveEnabled
         if statetype != "Folder" and self.stateTypes[statetype].listType == "Import":
             self.saveImports()
 
@@ -2000,6 +2014,7 @@ QGroupBox::indicator:checked {
         if self.standalone and not stateText:
             return False
 
+        prevSaveEnabled = self.saveEnabled
         self.saveEnabled = False
         self.loading = True
         if stateText is None:
@@ -2047,7 +2062,7 @@ QGroupBox::indicator:checked {
 
         self.inactiveList.clearSelection()
         self.loading = False
-        self.saveEnabled = True
+        self.saveEnabled = prevSaveEnabled
         self.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -2223,7 +2238,9 @@ QGroupBox::indicator:checked {
             and item.ui.className != "Folder"
             and item.ui.listType == "Import"
         ):
-            paths.append([item.ui.getImportPath(), item.text(0)])
+            ignoreMasterWidget = getattr(item.ui, "chb_ignoreMaster", None)
+            ignoreMaster = ignoreMasterWidget.isChecked() if ignoreMasterWidget else False
+            paths.append([item.ui.getImportPath(), item.text(0), ignoreMaster])
         for i in range(item.childCount()):
             paths = self.getFilePaths(item.child(i), paths)
 
@@ -2804,6 +2821,10 @@ QGroupBox::indicator:checked {
                                 if "publish paused" in k["result"][0]:
                                     self.publishPaused = True
                                     return
+
+                                if "publish canceled" in k["result"][0]:
+                                    return
+
                         else:
                             self.publishResult.append(
                                 {"state": curUi, "result": result}
@@ -2811,6 +2832,9 @@ QGroupBox::indicator:checked {
 
                             if "publish paused" in result[0]:
                                 self.publishPaused = True
+                                return
+
+                            if result and "publish canceled" in result[0]:
                                 return
 
         else:
@@ -2835,6 +2859,10 @@ QGroupBox::indicator:checked {
                                 if "publish paused" in k["result"][0]:
                                     self.publishPaused = True
                                     return
+
+                                if "publish canceled" in k["result"][0]:
+                                    return
+
                         else:
                             self.publishResult.append(
                                 {"state": curUi, "result": exResult}
@@ -2842,6 +2870,9 @@ QGroupBox::indicator:checked {
 
                             if exResult and "publish paused" in exResult[0]:
                                 self.publishPaused = True
+                                return
+
+                            if exResult and "publish canceled" in exResult[0]:
                                 return
 
         getattr(self.core.appPlugin, "sm_postExecute", lambda x: None)(self)

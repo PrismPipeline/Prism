@@ -32,6 +32,7 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import json
 import os
 import sys
 import socket
@@ -147,7 +148,11 @@ class Prism_AfterEffects_Functions(object):
             # Receive data in chunks until complete
             received_data = b""
             while True:
-                chunk = s.recv(4096)
+                try:
+                    chunk = s.recv(4096)
+                except (ConnectionAbortedError, ConnectionResetError):
+                    break
+
                 if not chunk:
                     break
 
@@ -306,8 +311,7 @@ class Prism_AfterEffects_Functions(object):
 
         // Example usage
         var compositions = getAllCompositions();
-        var compositionNames = compositions.join(",");
-        "{\\"result\\": True, \\"compositions\\": \\"" + compositionNames + "\\"}";"""
+        JSON.stringify({"result": true, "compositions": compositions});"""
 
         result = self.sendCmd(cmd)
         if not result:
@@ -317,8 +321,8 @@ class Prism_AfterEffects_Functions(object):
         if result == "null":
             return
 
-        result = eval(result)
-        return [x for x in result["compositions"].split(",") if x]
+        result = json.loads(result)
+        return [x for x in result.get("compositions", []) if x]
 
     @err_catcher(name=__name__)
     def getFrameRange(self, origin: Any) -> List[Optional[float]]:
@@ -484,6 +488,7 @@ class Prism_AfterEffects_Functions(object):
         """
         cmd = "app.open(File(\"%s\"));" % filepath
         self.sendCmd(cmd)
+        self.core.sceneOpen()
         return True
 
     @err_catcher(name=__name__)
@@ -725,20 +730,25 @@ class Prism_AfterEffects_Functions(object):
         else:
             addToCompCmd = ""
 
+        if filepaths[0].lower().endswith(".psd"):
+            importType = "ImportAsType.COMP"
+        else:
+            importType = "ImportAsType.FOOTAGE"
+
         cmd = """
 if (app.project) {
     var activeItem = app.project.activeItem;
     var importOptions = new ImportOptions(File("%s"));
     importOptions.sequence = %s;
-    if (importOptions.canImportAs(ImportAsType.FOOTAGE)) {
-        importOptions.importAs = ImportAsType.FOOTAGE;
+    if (importOptions.canImportAs(%s)) {
+        importOptions.importAs = %s;
     }
     var importedFile = app.project.importFile(importOptions);
     %s
     "{\\"result\\": True, \\"fileName\\": \\"" + importedFile.name + "\\"}";
 } else {
     "{\\"result\\": False, \\"details\\": \\"No project found.\\"}";
-}""" % (filepaths[0].replace("\\", "/"), "true" if len(filepaths) > 1 else "false", addToCompCmd)
+}""" % (filepaths[0].replace("\\", "/"), "true" if len(filepaths) > 1 else "false", importType, importType, addToCompCmd)
 
         result = self.sendCmd(cmd)
         return result
@@ -1049,7 +1059,7 @@ if (app.project && app.project.activeItem && app.project.activeItem instanceof C
         elif template in ["Multi-Machine Sequence", "Photoshop"]:
             doSetOutput = True
             extension = ".psd"
-        elif template in ["H.264 - Match Render Settings - 5 Mbps", "H.264 - Match Render Settings - 15 Mbps" , "H.264 - Match Render Settings - 40 Mbps"]:
+        elif template and "H.264 - Match Render Settings" in template:
             doSetOutput = False
             extension = ".mp4"
         elif template in ["High Quality", "High Quality with Alpha"]:
@@ -1062,7 +1072,7 @@ if (app.project && app.project.activeItem && app.project.activeItem instanceof C
             doSetOutput = False
             extension = ".aif"
         else:
-            doSetOutput = False
+            doSetOutput = True
             extension = ".jpg"
 
         if self.core.getConfig("globals", "productTasks", config="project"):
@@ -1072,9 +1082,7 @@ if (app.project && app.project.activeItem && app.project.activeItem instanceof C
             entity["task"] = os.getenv("PRISM_AE_TASK", context.get("task", "Conform"))
 
         if not outputPath:
-            framePadding = (
-                "[" + "#" * self.core.framePadding + "]"
-            )
+            framePadding = "[" + "#" * self.core.framePadding + "]" if extension not in [".mp4", ".mov", ".avi", ".aif"] else ""
             outputPath = self.core.mediaProducts.generateMediaProductPath(
                 entity=entity,
                 task=identifier,
@@ -1206,8 +1214,12 @@ class RenderDlg(QDialog):
         self.setupUi()
         self.loadSettings()
         curEntity = self.core.getCurrentScenefileData()
-        if curEntity and curEntity.get("type"):
-            self.setEntity(curEntity)
+        if curEntity:
+            if curEntity.get("type"):
+                self.setEntity(curEntity)
+
+            if curEntity.get("task"):
+                self.e_identifier.setText(curEntity.get("task"))
 
         self.core.callback(
             "onAfterEffectsRenderDlgCreated", args=[self]
@@ -1476,7 +1488,7 @@ class RenderDlg(QDialog):
             entityName = ""
 
         self.l_entityName.setText(entityName)
-        self.identifiers = self.core.getTaskNames(taskType="2d", context=copy.deepcopy(self.entity), addDepartments=False)
+        self.identifiers = self.core.getTaskNames(taskType="2d", context=copy.deepcopy(self.entity), addDepartments=True)
         self.b_identifier.setVisible(bool(self.identifiers))
         if self.identifiers:
             self.lo_widgets.addWidget(self.e_identifier, 1, 1, 1, 2)
@@ -1695,6 +1707,7 @@ class ImportMediaDlg(QDialog):
         self.identifiers = []
         self.shots = None
         self.setupUi()
+        self.setShots(self.core.getCurrentScenefileData())
 
     @err_catcher(name=__name__)
     def setupUi(self) -> None:
@@ -1783,8 +1796,9 @@ class ImportMediaDlg(QDialog):
         if not isinstance(shots, list):
             shots = [shots]
 
-        self.shots = shots
-        self.b_entity.setStyleSheet("")
+        self.shots = [shot for shot in shots if self.core.entities.getShotName(shot)]
+        if self.shots:
+            self.b_entity.setStyleSheet("")
 
         shotNames = []
         self.identifiers = []
@@ -1889,6 +1903,48 @@ class ImportMediaDlg(QDialog):
         return True
 
     @err_catcher(name=__name__)
+    def createPreviewTable(self, versions: List[dict]) -> QTableWidget:
+        """Create a table with media versions for the preview popup.
+        
+        Args:
+            versions: List of media version dictionaries
+        
+        Returns:
+            QTableWidget: Configured table widget
+        """
+        table = QTableWidget(len(versions), 2)
+        table.setHorizontalHeaderLabels(["Shot", "Media path"])
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        table.setSelectionMode(QAbstractItemView.SingleSelection)
+        table.setAlternatingRowColors(True)
+        table.setShowGrid(False)
+        table.setWordWrap(False)
+
+        for row, version in enumerate(versions):
+            shotName = self.core.entities.getShotName(version)
+            pattern = self.core.media.getSequenceFromFilename(version["filepaths"][0])
+
+            shotItem = QTableWidgetItem(shotName)
+            pathItem = QTableWidgetItem(pattern)
+            shotItem.setToolTip(shotName)
+            pathItem.setToolTip(pattern)
+            table.setItem(row, 0, shotItem)
+            table.setItem(row, 1, pathItem)
+
+        header = table.horizontalHeader()
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+
+        rowHeight = table.verticalHeader().defaultSectionSize()
+        tableHeight = 80 + (min(len(versions), 10) * rowHeight)
+        table.setMinimumSize(700, tableHeight)
+        table.resizeRowsToContents()
+        return table
+
+    @err_catcher(name=__name__)
     def buttonClicked(self, button: Any) -> None:
         """Handle dialog button clicks.
         
@@ -1917,18 +1973,19 @@ class ImportMediaDlg(QDialog):
             for identifier in identifiers:
                 versions += self.plugin.getMediaFromEntities(entities=self.shots, identifier=identifier)
 
+            if not versions:
+                msg = "No media was found for the selected shots and identifiers."
+                self.core.popup(msg, parent=self, severity="info")
+                return
+
             if self.chb_addToComp.isChecked():
-                msg = "The following media will be added to the current composition:\n\n"
+                target = "current composition"
             else:
-                msg = "The following media will be added as sources to the current project:\n\n"
+                target = "current project as sources"
 
-            for version in versions:
-                shotName = self.core.entities.getShotName(version)
-                pattern = self.core.media.getSequenceFromFilename(version["filepaths"][0])
-                line = "Shot: %s\nPath: %s\n" % (shotName, pattern)
-                msg += line
-
-            self.core.popup(msg, parent=self, severity="info")
+            msg = "%s media version(s) will be added to the %s." % (len(versions), target)
+            table = self.createPreviewTable(versions)
+            self.core.popup(msg, title="Import Media Preview", parent=self, severity="info", widget=table)
         else:
             self.close()
 

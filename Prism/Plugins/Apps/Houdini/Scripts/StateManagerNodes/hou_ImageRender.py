@@ -1905,8 +1905,14 @@ class ImageRenderClass(object):
                     self.core.version,
                     result,
                 )
-                if not result.startswith("Execute Canceled") and "Failed to establish connection to" not in result:
+                if (
+                    not result.startswith("Execute Canceled") and 
+                    "Failed to establish connection to" not in result and
+                    "does not exist or is not accessible from this computer" not in result and
+                    "No connection could be made because the target machine actively refused it." not in result
+                ):
                     self.core.writeErrorLog(erStr)
+
                 return [self.state.text(0) + " - error - " + result]
         else:
             if len(os.listdir(outputPath)) > 0:

@@ -1534,7 +1534,7 @@ class EntityPage(QWidget):
             self.tw_tree.mousePrEvent(event)
 
             if event.button() == Qt.LeftButton:
-                if item and item.childCount() and wasExpanded == item.isExpanded():
+                if item and self.core.isObjectValid(item) and item.childCount() and wasExpanded == item.isExpanded():
                     item.setExpanded(not item.isExpanded())
 
     @err_catcher(name=__name__)
@@ -2201,6 +2201,9 @@ class EntityPage(QWidget):
                     showOmittedAct.setChecked(showOmitted)
                     showOmittedAct.toggled.connect(self.toggleShowOmitted)
                     omitMenu.addAction(showOmittedAct)
+                    listOmittedAct = QAction("List Omitted Assets...", self)
+                    listOmittedAct.triggered.connect(self.listOmittedEntitiesDlg)
+                    omitMenu.addAction(listOmittedAct)
 
             elif self.entityType == "shot":
                 if item.childCount() == 0 and data:
@@ -2224,8 +2227,17 @@ class EntityPage(QWidget):
                     showOmittedAct.setChecked(showOmitted)
                     showOmittedAct.toggled.connect(self.toggleShowOmitted)
                     omitMenu.addAction(showOmittedAct)
+                    listOmittedAct = QAction("List Omitted Shots...", self)
+                    listOmittedAct.triggered.connect(self.listOmittedEntitiesDlg)
+                    omitMenu.addAction(listOmittedAct)
                 elif data:
                     path = self.core.paths.getEntityPath(data)
+
+                selectedItems = self.tw_tree.selectedItems()
+                if (item.childCount() > 0 and data) or len(selectedItems) > 1:
+                    createOtioAct = QAction("Create OTIO...", self)
+                    createOtioAct.triggered.connect(lambda: self.openCreateOtioDlg())
+                    rcmenu.addAction(createOtioAct)
 
             if (
                 not os.path.exists(path)
@@ -2298,6 +2310,9 @@ class EntityPage(QWidget):
             showOmittedAct.setChecked(showOmitted)
             showOmittedAct.toggled.connect(self.toggleShowOmitted)
             rcmenu.addAction(showOmittedAct)
+            listOmittedAct = QAction("List Omitted %ss..." % self.entityType.capitalize(), self)
+            listOmittedAct.triggered.connect(self.listOmittedEntitiesDlg)
+            rcmenu.addAction(listOmittedAct)
 
         expAct = QAction("Expand all", self)
         expAct.triggered.connect(self.setWidgetItemsExpanded)
@@ -2333,6 +2348,53 @@ class EntityPage(QWidget):
         action["function"](entities=data, parent=self.window())
 
     @err_catcher(name=__name__)
+    def openCreateOtioDlg(self) -> None:
+        """Collect shots from the current tree selection and open CreateOtioDlg.
+
+        Sequences and episodes are expanded to their child shot items.
+        The dialog is opened only when at least one shot is resolved.
+        """
+        shots = []
+        for item in self.tw_tree.selectedItems():
+            itemData = item.data(0, Qt.UserRole)
+            if not isinstance(itemData, dict):
+                continue
+
+            itemType = itemData.get("itemType")
+            if itemType == "shot":
+                shots.append(itemData)
+            elif itemType == "sequence":
+                sequence = itemData.get("sequence")
+                if os.getenv("PRISM_USE_SEQUENCE_FOLDERS") == "1":
+                    sequence = itemData.get("hierarchy", sequence).replace("/", "__")
+                seqShots = self.core.entities.getShots(
+                    episode=itemData.get("episode"),
+                    sequence=sequence,
+                )
+                shots.extend(seqShots)
+            elif itemType == "episode":
+                sequences = self.core.entities.getSequences(episode=itemData.get("episode"))
+                for seq in sequences:
+                    seqShots = self.core.entities.getShots(
+                        episode=itemData.get("episode"),
+                        sequence=seq.get("sequence"),
+                    )
+                    shots.extend(seqShots)
+
+        if not shots:
+            self.core.popup("No shots found in the current selection.")
+            return
+
+        initialEntity = {}
+        selectedItems = self.tw_tree.selectedItems()
+        if selectedItems:
+            initialEntity = self.getDataFromItem(selectedItems[0])
+
+        from PrismUtils.ProjectWidgets import CreateOtioDlg
+        dlg = CreateOtioDlg(self.core, shots=shots, entity=initialEntity, parent=self)
+        dlg.exec_()
+
+    @err_catcher(name=__name__)
     def openConnectEntitiesDlg(self) -> None:
         """Open dialog to connect entities (assets to shots or vice versa).
         
@@ -2344,3 +2406,46 @@ class EntityPage(QWidget):
             self.entityWidget.parent().parent().parent().navigate(data)
         else:
             self.core.entities.connectEntityDlg(entities=data, parent=self)
+
+    @err_catcher(name=__name__)
+    def listOmittedEntitiesDlg(self) -> None:
+        """Show a dialog listing all omitted entities of the current type."""
+        self.core.entities.refreshOmittedEntities()
+        if self.entityType == "asset":
+            title = "Omitted Assets"
+            omitted = self.core.entities.omittedEntities.get("asset", [])
+            entries = sorted(omitted)
+        else:
+            title = "Omitted Shots"
+            omitted = self.core.entities.omittedEntities.get("shot", {})
+            entries = []
+            for seq, shots in sorted(omitted.items()):
+                for shot in sorted(shots):
+                    entries.append("%s / %s" % (seq, shot))
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(title)
+        dlg.resize(400, 300)
+
+        lo_dlg = QVBoxLayout(dlg)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        w_content = QWidget()
+        lo_content = QVBoxLayout(w_content)
+        lo_content.setAlignment(Qt.AlignTop)
+
+        if entries:
+            for entry in entries:
+                lo_content.addWidget(QLabel(entry))
+        else:
+            lo_content.addWidget(QLabel("No omitted %ss found." % self.entityType))
+
+        scroll.setWidget(w_content)
+        lo_dlg.addWidget(scroll)
+
+        btn_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        btn_box.accepted.connect(dlg.accept)
+        lo_dlg.addWidget(btn_box)
+
+        dlg.exec_()

@@ -5,7 +5,7 @@ fname = "SaveComment"
 fname = "ChangeUser"
 fname = "CreateProject"
 fname = "UserSettings"
-fname = "ProjectSettings"
+# fname = "ProjectSettings"
 # fname = "PrismInstaller"
 
 code = """

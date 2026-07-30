@@ -157,13 +157,31 @@ class Ingegration(object):
                 break
 
         if filepath:
-            with open(filepath, "w") as f:
-                f.write(content)
+            while True:
+                try:
+                    with open(filepath, "w") as f:
+                        f.write(content)
+                    break
+                except Exception as e:
+                    result = self.core.popupQuestion(
+                        "Failed to write file:\n\n%s" % e,
+                        buttons=["Retry", "Skip"],
+                        escapeButton="Skip",
+                        default="Skip",
+                        icon=QMessageBox.Warning,
+                    )
+                    if result == "Retry":
+                        continue
+
+                    break
 
             if deleteEmpty:
                 otherChars = [x for x in content if x not in [" ", "\n"]]
                 if not otherChars:
-                    os.remove(filepath)
+                    try:
+                        os.remove(filepath)
+                    except Exception as e:
+                        logger.warning("Failed to delete empty file: %s - %s" % (filepath, e))
 
         return content
 

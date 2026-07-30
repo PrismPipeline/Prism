@@ -279,13 +279,10 @@ class Prism_3dsMax_Functions(object):
             endFrame: End frame number.
         """
         if startFrame == endFrame:
-            QMessageBox.warning(
-                self.core.messageParent,
-                "Warning",
-                "The startframe and the endframe cannot be the same in 3dsMax.",
-            )
+            msg = "The startframe and the endframe cannot be the same in 3dsMax."
+            self.core.popup(msg, title="Warning")
             return
-            
+
         rt.animationRange = rt.Interval(startFrame, endFrame)
 
     @err_catcher(name=__name__)
@@ -982,27 +979,17 @@ class Prism_3dsMax_Functions(object):
         if ext == ".max":
             validNodeHandles = [x for x in origin.nodes if self.isNodeValid(origin, x)]
             if not update or len(validNodeHandles) == 0:
-                msg = QMessageBox(
-                    QMessageBox.Question,
-                    "Create Reference",
-                    "Do you want to create a reference?",
-                    QMessageBox.No,
-                )
-                msg.addButton("Yes", QMessageBox.YesRole)
-                msg.setParent(self.core.messageParent, Qt.Window)
-                action = msg.exec_()
+                msg = "Do you want to create a reference?"
+                createRef = self.core.popupQuestion(msg, title="Create Reference")
             else:
-                action = 1 - int(
-                    rt.execute("""
+                cmd = """
 (
 	item = objXRefMgr.IsNodeXRefed (maxOps.getNodeByHandle %s)
 	item != undefined
-)"""
-                        % validNodeHandles[0],
-                    )
-                )
+)""" % validNodeHandles[0]
+                createRef = "Yes" if bool(rt.execute(cmd)) else "No"
 
-            if action == 0:
+            if createRef == "Yes":
                 createNewXref = True
 
                 if len(validNodeHandles) > 0:
@@ -1011,7 +998,7 @@ class Prism_3dsMax_Functions(object):
 	item = objXRefMgr.IsNodeXRefed (maxOps.getNodeByHandle %s)
 	item != undefined
 )"""
-                        % validNodeHandles[0],
+                        % validNodeHandles[0]
                     )
 
                     if isXref:
@@ -1035,7 +1022,7 @@ class Prism_3dsMax_Functions(object):
 		True
 	)
 )"""
-                            % (validNodeHandles[0], impFileName.replace("\\", "\\\\")),
+                            % (validNodeHandles[0], impFileName.replace("\\", "\\\\"))
                         )
                     else:
                         origin.preDelete(
@@ -1043,20 +1030,19 @@ class Prism_3dsMax_Functions(object):
                         )
 
                 if createNewXref:
-                    result = rt.execute('(\n\
+                    cmd = '(\n\
 clearselection()\n\
 record = objXRefMgr.AddXRefItemsFromFile "%s" xrefOptions:#(#mergeModifiers,#selectNodes,#localControllers)\n\
 record != undefined\n\
-)'
-                        % impFileName.replace("\\", "\\\\"),
-                    )
+)' % impFileName.replace("\\", "\\\\")
+                    result = rt.execute(cmd)
 
             else:
                 origin.preDelete(
                     baseText="Do you want to delete the currently connected objects?\n\n"
                 )
 
-                rt.mergeMaxFile(impFileName, rt.Name("select"))
+                result = rt.mergeMaxFile(impFileName, rt.Name("select"))
         #endregion
 
         else:
@@ -1334,7 +1320,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
             outputName.replace("\\", "\\\\"),
             jobFrames[0],
             jobFrames[1],
-            outputName.replace("\\", "\\\\"),
+            outputName.replace("\\", "\\\\")
         )
         try:
             rt.execute(cmd)
@@ -1629,7 +1615,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
                         "beauty", passName
                     ).replace(
                         "Beauty", passName
-                    ),
+                    )
                 )
                 try:
                     os.makedirs(os.path.dirname(passOutputName))
@@ -1708,7 +1694,7 @@ animationrange = interval tmpanimrange.x tmpanimrange.y
             erStr = "%s ERROR - sm_default_imageRender %s:\n%s" % (
                 time.strftime("%d/%m/%y %X"),
                 origin.core.version,
-                traceback.format_exc(),
+                traceback.format_exc()
             )
             self.core.writeErrorLog(erStr)
             return "Execute Canceled: unknown error (view console for more information)"

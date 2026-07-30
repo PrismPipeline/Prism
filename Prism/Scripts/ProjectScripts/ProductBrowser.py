@@ -188,6 +188,15 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
 
         self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=False, mode="products")
         self.splitter1.insertWidget(0, self.w_entities)
+        if os.getenv("PRISM_PRODUCT_BROWSER_ADD_GL_DUMMY", "1") == "1":
+            try:
+                from PySide6.QtOpenGLWidgets import QOpenGLWidget
+            except ImportError:
+                logger.warning("PySide6.QtOpenGLWidgets is not available. Cannot add OpenGL widget.")
+            else:
+                self.gl_dummy = QOpenGLWidget()
+                self.gl_dummy.setHidden(True)
+                self.lo_main.addWidget(self.gl_dummy)
 
         self.b_custom = QPushButton("Import custom files")
         self.w_entities.layout().addWidget(self.b_custom)
@@ -1797,7 +1806,7 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         item.setTextAlignment(Qt.AlignCenter)
         self.tw_versions.setItem(row, self.versionLabels.index("User"), item)
 
-        if self.core.getConfig("globals", "showFileSizes", config="user"):
+        if self.core.getConfig("globals", "showFileSizes", config="user") and "Size" in self.versionLabels:
             if "size" in data:
                 size = data["size"]
             elif filepath and os.path.exists(filepath):

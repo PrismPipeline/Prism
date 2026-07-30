@@ -38,6 +38,7 @@ import platform
 import logging
 import time
 import errno
+import textwrap
 from typing import Any, Optional, List, Dict, Tuple, Union
 
 from collections import OrderedDict
@@ -90,6 +91,22 @@ class ConfigManager:
         dprConfig = os.path.splitext(self.core.userini)[0] + ".ini"
         if not os.path.exists(self.core.userini) and os.path.exists(dprConfig):
             self.convertDeprecatedConfig(dprConfig)
+
+    @err_catcher(name=__name__)
+    def formatPathForPopup(self, path: Any, width: int = 150) -> str:
+        """Format long paths for popup dialogs to avoid clipping."""
+        path = str(path or "")
+        if len(path) <= width:
+            return path
+
+        return "\n".join(
+            textwrap.wrap(
+                path,
+                width=width,
+                break_long_words=True,
+                break_on_hyphens=False,
+            )
+        )
 
     @err_catcher(name=__name__)
     def addConfigItem(self, key: str, path: str) -> bool:
@@ -727,9 +744,10 @@ class ConfigManager:
             try:
                 lf.waitUntilReady()
             except Lockfile.LockfileException:
+                displayPath = self.formatPathForPopup(path)
                 msg = (
                     "The following file is locked. It might be used by another process:\n\n%s\n\nReading from this file in a locked state can result in data loss."
-                    % path
+                    % displayPath
                 )
                 result = self.core.popupQuestion(
                     msg,
@@ -743,9 +761,10 @@ class ConfigManager:
                     try:
                         lf.forceRelease()
                     except:
+                        lockPath = self.formatPathForPopup(lf.lockPath)
                         msg = (
                             "Prism can't unlock the file. Make sure no other processes are using this file. You can manually unlock it by deleting the lockfile:\n\n%s\n\nCanceling to read from the file."
-                            % lf.lockPath
+                            % lockPath
                         )
                         self.core.popup(msg)
                         return
@@ -763,17 +782,19 @@ class ConfigManager:
                             path=path, data=data, stream=stream, retry=False
                         )
                     else:
+                        displayPath = self.formatPathForPopup(path)
                         if os.path.exists(path):
                             msg = (
                                 "Cannot read the content of this file:\n\n%s\n\nThe file exists, but the content is not in a valid yaml format."
-                                % path
+                                % displayPath
                             )
                         else:
                             msg = (
                                 "Cannot read the content of this file because the file can't be accessed:\n\n%s"
-                                % path
+                                % displayPath
                             )
 
+                        logger.warning(msg)
                         result = self.core.popupQuestion(
                             msg,
                             icon=QMessageBox.Warning,
@@ -921,9 +942,10 @@ class ConfigManager:
             try:
                 lf.waitUntilReady()
             except Lockfile.LockfileException:
+                displayPath = self.formatPathForPopup(path)
                 msg = (
                     "The following file is locked. It might be used by another process:\n\n%s\n\nReading from this file in a locked state can result in data loss."
-                    % path
+                    % displayPath
                 )
                 result = self.core.popupQuestion(
                     msg,
@@ -937,9 +959,10 @@ class ConfigManager:
                     try:
                         lf.forceRelease()
                     except:
+                        lockPath = self.formatPathForPopup(lf.lockPath)
                         msg = (
                             "Prism can't unlock the file. Make sure no other processes are using this file. You can manually unlock it by deleting the lockfile:\n\n%s\n\nCanceling to read from the file."
-                            % lf.lockPath
+                            % lockPath
                         )
                         self.core.popup(msg)
                         return
@@ -957,9 +980,10 @@ class ConfigManager:
                     )
                 else:
                     if not ignoreErrors:
+                        displayPath = self.formatPathForPopup(path)
                         msg = (
                             "Cannot open the following file:\n\n%s\n\nThe file may be unavailable due to a network or sync issue (e.g. Dropbox Smart Sync / cloud-only placeholder)."
-                            % path
+                            % displayPath
                         )
                         msg += "\n\n%s" % str(e)
                         result = self.core.popupQuestion(
@@ -985,19 +1009,20 @@ class ConfigManager:
                         )
                     else:
                         if not ignoreErrors:
+                            displayPath = self.formatPathForPopup(path)
                             if os.path.exists(path):
                                 msg = (
                                     "Cannot read the content of this file:\n\n%s\n\nThe file exists, but the content is not in a valid json format."
-                                    % path
+                                    % displayPath
                                 )
                             else:
                                 msg = (
                                     "Cannot read the content of this file because the file can't be accessed:\n\n%s"
-                                    % path
+                                    % displayPath
                                 )
 
                             msg += "\n\n%s" % str(e)
-
+                            logger.warning(msg)
                             result = self.core.popupQuestion(
                                 msg,
                                 icon=QMessageBox.Warning,
@@ -1072,7 +1097,7 @@ class ConfigManager:
         if path:
             if not os.path.exists(os.path.dirname(path)):
                 try:
-                    os.makedirs(os.path.dirname(path))
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
                 except:
                     if quiet:
                         return

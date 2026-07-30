@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>406</height>
+    <height>421</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -470,7 +470,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="groupBox">
+    <widget class="QGroupBox" name="gb_previous">
      <property name="title">
       <string>Last export</string>
      </property>
@@ -498,7 +498,7 @@
            <x>0</x>
            <y>0</y>
            <width>271</width>
-           <height>54</height>
+           <height>69</height>
           </rect>
          </property>
          <layout class="QHBoxLayout" name="horizontalLayout_5">

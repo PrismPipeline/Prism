@@ -39,6 +39,7 @@ import shutil
 import time
 import re
 import datetime
+import copy
 from typing import Any, Optional, List, Dict, Tuple, Union
 
 from qtpy.QtCore import *
@@ -888,7 +889,8 @@ class ProjectEntities(object):
             ".ini",
             ".lock",
             ".old",
-            ".db"
+            ".db",
+            ".usda"
         ]:
             return False
 
@@ -1169,7 +1171,10 @@ class ProjectEntities(object):
         for f in self.entityFolders["asset"]:
             aFolder = os.path.join(fullAssetPath, f)
             if not os.path.exists(aFolder):
-                os.makedirs(aFolder)
+                try:
+                    os.makedirs(aFolder, exist_ok=True)
+                except Exception as e:
+                    return {"error": "Failed to create folder:\n\n%s\n\nError: %s" % (aFolder, str(e))}
 
         assetDep = self.core.projects.getResolvedProjectStructurePath(
             "departments", context=entity
@@ -1197,7 +1202,7 @@ class ProjectEntities(object):
         for assetFolder in assetFolders:
             if not os.path.exists(assetFolder):
                 try:
-                    os.makedirs(assetFolder)
+                    os.makedirs(assetFolder, exist_ok=True)
                 except Exception as e:
                     return {"error": "Failed to create folder:\n\n%s\n\nError: %s" % (assetFolder, str(e))}
 
@@ -2592,7 +2597,11 @@ class ProjectEntities(object):
             return
 
         if content is None:
-            content = os.listdir(path)
+            try:
+                content = os.listdir(path)
+            except Exception as e:
+                logger.warning("Error reading directory content for asset detection: %s" % str(e))
+                return
 
         subfolders = self.getAssetSubFolders()
 
@@ -3187,7 +3196,7 @@ class ProjectEntities(object):
         if addDepartments:
             taskList += departmentNames
 
-        taskList = list(set(taskList))
+        taskList = sorted(list(set(taskList)), key=lambda x: x.lower())
         return taskList
 
     @err_catcher(name=__name__)
@@ -3437,6 +3446,7 @@ class ProjectEntities(object):
             details["version"] = kwargs["version"]
             details["comment"] = kwargs["comment"]
             details["extension"] = kwargs["extension"]
+            details["date"] = int(datetime.datetime.now().timestamp())
             self.core.saveSceneInfo(targetPath, details=details)
             createdFiles.append(targetPath)
             logger.debug("ingested scenefile: %s" % targetPath)
@@ -4419,7 +4429,7 @@ class ProjectEntities(object):
             if entityName not in data["assets"]:
                 return centities
 
-            centities = data["assets"][entityName].get("connectedEntities", {})
+            centities = copy.deepcopy(data["assets"][entityName].get("connectedEntities", {}))
 
         elif entity.get("type") == "shot" and "sequence" in entity:
             data = self.core.getConfig(config="shotinfo") or {}
@@ -4432,7 +4442,7 @@ class ProjectEntities(object):
             if entity["shot"] not in data["shots"][entity["sequence"]]:
                 return centities
 
-            centities = data["shots"][entity["sequence"]][entity["shot"]].get("connectedEntities", {})
+            centities = copy.deepcopy(data["shots"][entity["sequence"]][entity["shot"]].get("connectedEntities", {}))
 
         return centities
 
@@ -4492,7 +4502,8 @@ class ProjectEntities(object):
 
                 centities = [self.getCleanEntity(e) for e in newEntities]
             else:
-                centities += [self.getCleanEntity(e) for e in connectedEntities]
+                to_add = [self.getCleanEntity(e) for e in connectedEntities]
+                centities += to_add
 
             if not remove:
                 centityNames = [self.getEntityName(e) for e in centities]
@@ -4508,7 +4519,24 @@ class ProjectEntities(object):
             entityInfo["connectedEntities"] = centities
 
         if setReverse:
-            self.setConnectedEntities(connectedEntities, entities, add=True, setReverse=False)
+            # Build a map of unique connected entities and their occurrence counts,
+            # then do a remove-then-add to set the exact count in the reverse direction.
+            # This avoids accumulation on repeated Apply clicks while preserving count.
+            count_map = {}
+            for e in connectedEntities:
+                name = self.getEntityName(e)
+                if name not in count_map:
+                    count_map[name] = [e, 0]
+                count_map[name][1] += 1
+
+            for entity_name, (connected_entity, count) in count_map.items():
+                # Remove existing reverse connections for `entities`, then add
+                # back exactly `count` copies to match the forward count.
+                self.setConnectedEntities([connected_entity], entities, remove=True, setReverse=False)
+                reverse_entities = []
+                for fwd_entity in entities:
+                    reverse_entities.extend([fwd_entity] * count)
+                self.setConnectedEntities([connected_entity], reverse_entities, add=True, setReverse=False)
         
         if assetInfo:
             self.core.setConfig(data=assetInfo, config="assetinfo", updateNestedData=False)
@@ -4669,9 +4697,101 @@ class EntityDlg(QDialog):
         """Get recommended dialog size.
         
         Returns:
-            QSize(400, 400)
+            QSize(600, 700)
         """
-        return QSize(400, 400)
+        return QSize(600, 700)
+
+
+class ConnectedListWidget(QTreeWidget):
+    """A QTreeWidget for displaying connected entities with preview images, similar to EntityWidget."""
+
+    def __init__(self, dlg):
+        super(ConnectedListWidget, self).__init__()
+        self.dlg = dlg
+        self.setAcceptDrops(True)
+        self.setDragEnabled(True)
+        self.setDragDropMode(QAbstractItemView.DragDrop)
+        self.setDefaultDropAction(Qt.CopyAction)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.dlg.showConnectedListContextMenu)
+        
+        # Configure tree widget appearance
+        self.setColumnCount(1)
+        self.setHeaderHidden(True)
+        self.setUniformRowHeights(False)
+        self.itemDoubleClicked.connect(self._onItemDoubleClicked)
+        
+        # Preview dimensions (matching EntityWidget)
+        self.entityPreviewWidth = 107
+        self.entityPreviewHeight = 60
+
+    def _onItemDoubleClicked(self, item, column):
+        """Handle double-click to remove item."""
+        self.dlg.removeSelectedFromConnected(item)
+    
+    def setItemPreview(self, item: QTreeWidgetItem, entity: Dict, name: str, count: int) -> None:
+        """Set the preview image and text for a tree item.
+        
+        Creates a custom widget with preview image and label text, matching EntityWidget style.
+        """
+        w_entity = QWidget()
+        w_entity.setStyleSheet("background-color: transparent;")
+        lo_entity = QHBoxLayout()
+        lo_entity.setContentsMargins(0, 0, 0, 0)
+        w_entity.setLayout(lo_entity)
+        
+        # Preview image label
+        l_preview = QLabel()
+        # Display name with count suffix
+        l_label = QLabel(self._formatDisplayName(name, count))
+        
+        lo_entity.addWidget(l_preview)
+        lo_entity.addWidget(l_label)
+        lo_entity.addStretch()
+        
+        # Load and scale preview
+        pm = self.dlg.core.entities.getEntityPreview(entity)
+        if not pm:
+            pm = self.dlg.core.media.emptyPrvPixmap
+        
+        if pm:
+            pmap = self.dlg.core.media.scalePixmap(pm, self.entityPreviewWidth, self.entityPreviewHeight, fitIntoBounds=False, crop=True)
+            l_preview.setPixmap(pmap)
+        
+        # Set the custom widget as the item display
+        self.setItemWidget(item, 0, w_entity)
+        item.setText(0, "")  # Clear text since we're using custom widget
+    
+    def _formatDisplayName(self, name: str, count: int) -> str:
+        """Format entity name with count suffix if count > 1."""
+        if count > 1:
+            return "%s x%s" % (name, count)
+        return name
+
+    def dragEnterEvent(self, event):
+        if isinstance(event.source(), QTreeWidget) or event.source() is self:
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if isinstance(event.source(), QTreeWidget) or event.source() is self:
+            if event.source() is self:
+                event.setDropAction(Qt.MoveAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.source() is self:
+            event.setDropAction(Qt.MoveAction)
+            super(ConnectedListWidget, self).dropEvent(event)
+        elif isinstance(event.source(), QTreeWidget):
+            self.dlg.addSelectedEntitiesToConnected()
+            event.accept()
+        else:
+            event.ignore()
 
 
 class ConnectEntitiesDlg(QDialog):
@@ -4694,6 +4814,8 @@ class ConnectEntitiesDlg(QDialog):
         super(ConnectEntitiesDlg, self).__init__()
         self.parentDlg = parent
         self.core = core
+        self._hasPendingChanges = False
+        self._connectedSourceEntities = []
 
         self.setupUi()
 
@@ -4701,54 +4823,91 @@ class ConnectEntitiesDlg(QDialog):
     def setupUi(self) -> None:
         """Set up the connect entities dialog UI.
         
-        Creates two entity widgets for connecting entities to each other.
+        Creates three panels: left entity selector, middle connected list, right available entities.
         """
         title = "Connect Entities"
         self.setWindowTitle(title)
         self.core.parentWindow(self, parent=self.parentDlg)
 
-        self.w_entitiesParent = QWidget()
-        self.lo_entitiesParent = QHBoxLayout()
-        self.w_entitiesParent.setLayout(self.lo_entitiesParent)
+        self.w_entitiesParent = QSplitter(Qt.Horizontal)
 
+        # Left panel — entity to connect from
         self.w_selEntities = QWidget()
         self.w_selEntities.setObjectName("w_selEntities")
+
+        # Middle panel — connected entities list
         self.gb_connectedEntities = QGroupBox("Connected Entities")
         self.gb_connectedEntities.setObjectName("gb_connectedEntities")
 
-        self.lo_entitiesParent.addWidget(self.w_selEntities)
-        self.lo_entitiesParent.addWidget(self.gb_connectedEntities)
+        # Right panel — available entities to connect to
+        self.gb_availableEntities = QGroupBox()
+        self.gb_availableEntities.setObjectName("gb_availableEntities")
+
+        self.w_entitiesParent.addWidget(self.w_selEntities)
+        self.w_entitiesParent.addWidget(self.gb_connectedEntities)
+        self.w_entitiesParent.addWidget(self.gb_availableEntities)
+        self.w_entitiesParent.setStretchFactor(0, 1)
+        self.w_entitiesParent.setStretchFactor(1, 1)
+        self.w_entitiesParent.setStretchFactor(2, 1)
 
         import EntityWidget
-        self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=True)
-        self.w_connectedEnities = EntityWidget.EntityWidget(core=self.core, refresh=False)
-        self.w_connectedEnities.getPage("Assets").useCounter = True
-        self.w_connectedEnities.refreshEntities()
-        self.w_connectedEnities.tb_entities.setVisible(False)
-        self.w_entities.tabChanged.connect(self.tabChanged)
 
+        # Left entity widget
+        self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=True)
+        self.w_entities.tabChanged.connect(self.tabChanged)
         self.w_entities.getPage("Assets").itemChanged.connect(self.onSelectedEntityChanged)
         self.w_entities.getPage("Shots").itemChanged.connect(self.onSelectedEntityChanged)
         self.w_entities.getPage("Assets").setSearchVisible(False)
         self.w_entities.getPage("Shots").setSearchVisible(False)
 
-        self.w_connectedEnities.getPage("Assets").itemChanged.connect(self.refreshConnectedEntityInfo)
-        self.w_connectedEnities.getPage("Shots").itemChanged.connect(self.refreshConnectedEntityInfo)
-        self.w_connectedEnities.getPage("Assets").setSearchVisible(False)
-        self.w_connectedEnities.getPage("Shots").setSearchVisible(False)
-
         self.l_info = QLabel()
+
+        self.lo_selEntities = QVBoxLayout()
+        self.w_selEntities.setLayout(self.lo_selEntities)
+        self.lo_selEntities.addWidget(self.w_entities)
+        self.lo_selEntities.addWidget(self.l_info)
+
+        # Middle connected list
+        self.lw_connected = ConnectedListWidget(self)
+
         self.l_connectedInfo = QLabel()
 
-        self.lo_assets = QVBoxLayout()
-        self.w_selEntities.setLayout(self.lo_assets)
-        self.lo_assets.addWidget(self.w_entities)
-        self.lo_assets.addWidget(self.l_info)
+        self.lo_connectedBtns = QHBoxLayout()
+        self.b_removeConnected = QPushButton("Disconnect Selected")
+        self.lo_connectedBtns.addWidget(self.b_removeConnected)
 
-        self.lo_shots = QVBoxLayout()
-        self.gb_connectedEntities.setLayout(self.lo_shots)
-        self.lo_shots.addWidget(self.w_connectedEnities)
-        self.lo_shots.addWidget(self.l_connectedInfo)
+        self.b_removeConnected.clicked.connect(self.removeSelectedFromConnected)
+
+        self.lo_connected = QVBoxLayout()
+        self.gb_connectedEntities.setLayout(self.lo_connected)
+        self.lo_connected.addWidget(self.lw_connected)
+        self.lo_connected.addWidget(self.l_connectedInfo)
+        self.lo_connected.addLayout(self.lo_connectedBtns)
+
+        # Right available entity widget (opposite type, tab hidden)
+        self.w_availableEntities = EntityWidget.EntityWidget(core=self.core, refresh=False)
+        self.w_availableEntities.getPage("Assets").useCounter = True
+        self.w_availableEntities.refreshEntities()
+        self.w_availableEntities.tb_entities.setVisible(False)
+        self.w_availableEntities.getPage("Assets").setSearchVisible(False)
+        self.w_availableEntities.getPage("Shots").setSearchVisible(False)
+
+        for pageName in ("Assets", "Shots"):
+            page = self.w_availableEntities.getPage(pageName)
+            page.tw_tree.setDragEnabled(True)
+            page.tw_tree.itemDoubleClicked.connect(self.addSelectedEntitiesToConnected)
+            page.tw_tree.setContextMenuPolicy(Qt.CustomContextMenu)
+            page.tw_tree.customContextMenuRequested.connect(self.showAvailableEntityContextMenu)
+
+        self.lo_availableBtns = QHBoxLayout()
+        self.b_addConnected = QPushButton("Connect Selected")
+        self.b_addConnected.clicked.connect(self.addSelectedEntitiesToConnected)
+        self.lo_availableBtns.addWidget(self.b_addConnected)
+
+        self.lo_available = QVBoxLayout()
+        self.gb_availableEntities.setLayout(self.lo_available)
+        self.lo_available.addWidget(self.w_availableEntities)
+        self.lo_available.addLayout(self.lo_availableBtns)
 
         self.refreshEntityInfo()
         self.refreshConnectedEntityInfo()
@@ -4773,9 +4932,238 @@ class ConnectEntitiesDlg(QDialog):
         """Get recommended dialog size.
         
         Returns:
-            QSize(800, 700)
+            QSize(1400, 700)
         """
-        return QSize(800, 700)
+        return QSize(1400, 700)
+
+    @err_catcher(name=__name__)
+    def _getEntityKey(self, entity: Dict) -> str:
+        """Get a unique key for an entity based on its type and path."""
+        entity_type = entity.get("type")
+        if entity_type == "asset":
+            return ("asset", entity.get("asset_path"))
+        elif entity_type == "shot":
+            return ("shot", entity.get("sequence"), entity.get("shot"))
+        return None
+
+    @err_catcher(name=__name__)
+    def _formatEntityDisplayName(self, name: str, count: int) -> str:
+        """Format entity name with count suffix if count > 1."""
+        if count > 1:
+            return "%s x%s" % (name, count)
+        return name
+
+    @err_catcher(name=__name__)
+    def _findConnectedListItem(self, entity: Dict) -> Optional[QTreeWidgetItem]:
+        """Find an item in lw_connected with the same entity key."""
+        key = self._getEntityKey(entity)
+        for i in range(self.lw_connected.topLevelItemCount()):
+            item = self.lw_connected.topLevelItem(i)
+            stored_entity = item.data(0, Qt.UserRole)
+            if self._getEntityKey(stored_entity) == key:
+                return item
+        return None
+
+    @err_catcher(name=__name__)
+    def _getValidEntities(self, entities: List[Dict]) -> List[Dict]:
+        """Filter and return valid asset/shot entities."""
+        return [
+            e
+            for e in entities
+            if e.get("type") in ["asset", "shot"] and ("asset_path" in e or "shot" in e)
+        ]
+
+    @err_catcher(name=__name__)
+    def _promptPendingChanges(self, actionLabel: str) -> bool:
+        """Prompt to apply or ignore unsaved connection changes."""
+        if not self._hasPendingChanges:
+            return True
+
+        msg = (
+            "You have unsaved connection changes.\n\n"
+            "Apply them before %s?\n\n"
+            "Choose \"Ignore\" to discard these pending changes."
+        ) % actionLabel
+        action = self.core.popupQuestion(
+            msg,
+            buttons=["Apply", "Ignore"],
+            icon=QMessageBox.Warning,
+            parent=self,
+            escapeButton="Ignore",
+        )
+
+        if action == "Apply":
+            source_entities = list(self._connectedSourceEntities)
+            if not self._applyConnections(sourceEntities=source_entities, showConfirmation=False):
+                return False
+        else:
+            self._hasPendingChanges = False
+
+        return True
+
+    @err_catcher(name=__name__)
+    def _handlePendingChangesBeforeContextSwitch(self) -> bool:
+        """Prompt to apply or ignore unsaved connection changes before switching context."""
+        return self._promptPendingChanges("switching the selection")
+
+    @err_catcher(name=__name__)
+    def _handlePendingChangesBeforeClose(self) -> bool:
+        """Prompt to apply or ignore unsaved connection changes before closing."""
+        return self._promptPendingChanges("closing this window")
+
+    @err_catcher(name=__name__)
+    def _applyConnections(self, sourceEntities: Optional[List[Dict]] = None, showConfirmation: bool = True) -> bool:
+        """Apply the current connected-list state to the selected source entities."""
+        if sourceEntities is None:
+            sourceEntities = self.w_entities.getCurrentData(returnOne=False)
+
+        entities = self._getValidEntities(sourceEntities or [])
+        if not entities:
+            msg = "No valid entity selected."
+            self.core.popup(msg)
+            return False
+
+        connectedEntities = []
+        connectedNames = []
+        for i in range(self.lw_connected.topLevelItemCount()):
+            item = self.lw_connected.topLevelItem(i)
+            entity = item.data(0, Qt.UserRole)
+            count = item.data(0, Qt.UserRole + 1) or 1
+            if entity and entity.get("type") in ["asset", "shot"] and (entity.get("asset_path") or entity.get("shot")):
+                for _ in range(count):
+                    connectedEntities.append(entity)
+
+                name = self.core.entities.getEntityName(entity)
+                if count > 1:
+                    name = "%s x%s" % (name, count)
+                connectedNames.append(name)
+
+        result = self.core.entities.setConnectedEntities(entities, connectedEntities)
+        if not result:
+            return False
+
+        self._hasPendingChanges = False
+
+        if showConfirmation:
+            entityNames = [self.core.entities.getEntityName(e) for e in entities]
+            connectedNames = connectedNames or ["-"]
+
+            sourceList = "\n  • ".join(entityNames) if entityNames else "-"
+            targetList = "\n  • ".join(connectedNames)
+            msg = "Entity Connections were set successfully:\n\n\nSource:\n  • %s\n\n\nConnected to:\n  • %s" % (sourceList, targetList)
+            self.core.popup(msg, severity="info", parent=self)
+
+        return True
+
+    @err_catcher(name=__name__)
+    def addSelectedEntitiesToConnected(self, item=None, column=None) -> None:
+        """Add the currently selected available entities to the connected list.
+        
+        Groups duplicates with count suffix (e.g., "AssetName x3").
+        Uses the useCounter value to add multiple copies when the counter is > 1.
+        """
+        page = self.w_availableEntities.getCurrentPage()
+        items = page.tw_tree.selectedItems()
+        changed = False
+        for treeItem in items:
+            entity = page.getDataFromItem(treeItem)
+            if not entity or entity.get("type") not in ["asset", "shot"]:
+                continue
+            if not (entity.get("asset_path") or entity.get("shot")):
+                continue
+            count = page.getCount(treeItem) if page.useCounter else 1
+            if count < 1:
+                continue
+            
+            # Find if this entity already exists in the list
+            existing = self._findConnectedListItem(entity)
+            if existing is not None:
+                # Increment count on existing item
+                existing_count = existing.data(0, Qt.UserRole + 1) or 1
+                new_count = existing_count + count
+                existing.setData(0, Qt.UserRole + 1, new_count)
+                name = self.core.entities.getEntityName(entity)
+                # Update the preview widget with new count
+                self.lw_connected.setItemPreview(existing, entity, name, new_count)
+                changed = True
+            else:
+                # Add new item with count and preview
+                name = self.core.entities.getEntityName(entity)
+                lwItem = QTreeWidgetItem()
+                lwItem.setData(0, Qt.UserRole, entity)
+                lwItem.setData(0, Qt.UserRole + 1, count)
+                self.lw_connected.addTopLevelItem(lwItem)
+                # Set the preview widget
+                self.lw_connected.setItemPreview(lwItem, entity, name, count)
+                changed = True
+            
+            if page.useCounter:
+                page.setCount(treeItem, 0)
+
+        if changed:
+            self._hasPendingChanges = True
+        self.refreshConnectedEntityInfo()
+
+    @err_catcher(name=__name__)
+    def removeSelectedFromConnected(self, item=None) -> None:
+        """Remove items from the connected list.
+        
+        If item is provided (from itemDoubleClicked), removes that item or decrements its count.
+        Otherwise removes all currently selected items.
+        """
+        if item is not None:
+            items = [item]
+        else:
+            items = self.lw_connected.selectedItems()
+
+        changed = False
+        
+        for lwItem in items:
+            current_count = lwItem.data(0, Qt.UserRole + 1) or 1
+            if current_count > 1:
+                # Decrement count
+                new_count = current_count - 1
+                lwItem.setData(0, Qt.UserRole + 1, new_count)
+                entity = lwItem.data(0, Qt.UserRole)
+                name = self.core.entities.getEntityName(entity)
+                # Update the preview widget with decremented count
+                self.lw_connected.setItemPreview(lwItem, entity, name, new_count)
+                changed = True
+            else:
+                # Remove completely
+                index = self.lw_connected.indexOfTopLevelItem(lwItem)
+                self.lw_connected.takeTopLevelItem(index)
+                changed = True
+
+        if changed:
+            self._hasPendingChanges = True
+        self.refreshConnectedEntityInfo()
+
+    @err_catcher(name=__name__)
+    def clearConnected(self) -> None:
+        """Clear all items from the connected entities list."""
+        if self.lw_connected.topLevelItemCount() > 0:
+            self._hasPendingChanges = True
+        self.lw_connected.clear()
+        self.refreshConnectedEntityInfo()
+
+    @err_catcher(name=__name__)
+    def showConnectedListContextMenu(self, pos) -> None:
+        """Show context menu for the connected entities list."""
+        menu = QMenu(self)
+        menu.addAction("Add Selected Available", self.addSelectedEntitiesToConnected)
+        menu.addSeparator()
+        menu.addAction("Remove Selected", self.removeSelectedFromConnected)
+        menu.addAction("Clear All", self.clearConnected)
+        menu.exec_(self.lw_connected.mapToGlobal(pos))
+
+    @err_catcher(name=__name__)
+    def showAvailableEntityContextMenu(self, pos) -> None:
+        """Show context menu for the available entities tree."""
+        sender = self.sender()
+        menu = QMenu(self)
+        menu.addAction("Add to Connected", self.addSelectedEntitiesToConnected)
+        menu.exec_(sender.mapToGlobal(pos))
 
     @err_catcher(name=__name__)
     def onAccepted(self) -> None:
@@ -4783,43 +5171,27 @@ class ConnectEntitiesDlg(QDialog):
         
         Sets the entity connections and shows confirmation message.
         """
-        entities = self.w_entities.getCurrentData(returnOne=False)
-        entities = [e for e in entities if e["type"] in ["asset", "shot"] and ("asset_path" in e or "shot" in e)]
-        if not entities:
-            msg = "No valid entity selected."
-            self.core.popup(msg)
+        self._applyConnections(showConfirmation=True)
+
+    @err_catcher(name=__name__)
+    def reject(self) -> None:
+        """Handle dialog close requests and guard against losing unsaved changes."""
+        if not self._handlePendingChangesBeforeClose():
             return
 
-        page = self.w_connectedEnities.getCurrentPage()
-        if page.useCounter:
-            connectedEntities = []
-            items = page.tw_tree.selectedItems()
-            for item in items:
-                entity = page.getDataFromItem(item)
-                if entity["type"] in ["asset", "shot"] and (entity.get("asset_path") or entity.get("shot")):
-                    for idx in range(page.getCount(item)):
-                        connectedEntities.append(entity)
-        else:
-            connectedEntities = self.w_connectedEnities.getCurrentData(returnOne=False)
-            connectedEntities = [e for e in connectedEntities if (e["type"] in ["asset", "shot"] and (e.get("asset_path") or e.get("shot")))]
-
-        result = self.core.entities.setConnectedEntities(entities, connectedEntities)
-        if not result:
-            return
-
-        entityNames = [self.core.entities.getEntityName(e) for e in entities]
-        connectedNames = [self.core.entities.getEntityName(e) for e in connectedEntities] or ["-"]
-        msg = "Entity-Connections were set successfully:\n\n%s\n\nto:\n\n%s" % ("\n".join(entityNames), "\n".join(connectedNames))
-        self.core.popup(msg, severity="info", parent=self)
+        super(ConnectEntitiesDlg, self).reject()
 
     @err_catcher(name=__name__)
     def tabChanged(self) -> None:
         """Handle tab change between Assets and Shots.
         
-        Updates the connected entities widget to show the opposite type.
+        Updates the available entities widget to show the opposite type.
         """
-        self.w_connectedEnities.tb_entities.setCurrentIndex(not bool(self.w_entities.tb_entities.currentIndex()))
-        self.gb_connectedEntities.setTitle("Connected %s" % self.w_connectedEnities.getCurrentPageName())
+        if not self._handlePendingChangesBeforeContextSwitch():
+            return
+
+        self.w_availableEntities.tb_entities.setCurrentIndex(not bool(self.w_entities.tb_entities.currentIndex()))
+        self.gb_availableEntities.setTitle("Available %s" % self.w_availableEntities.getCurrentPageName())
         self.selectConnectedEntities()
         self.refreshEntityInfo()
         self.refreshConnectedEntityInfo()
@@ -4832,23 +5204,55 @@ class ConnectEntitiesDlg(QDialog):
             items: Selected items
         """
         self.refreshEntityInfo(items)
+        if not self._handlePendingChangesBeforeContextSwitch():
+            return
+
         self.selectConnectedEntities()
 
     @err_catcher(name=__name__)
     def selectConnectedEntities(self) -> None:
-        """Select entities connected to currently selected entities."""
-        entities = self.w_entities.getCurrentData(returnOne=False)
+        """Populate the connected list with entities connected to the current selection."""
+        all_entities = self.w_entities.getCurrentData(returnOne=False)
+        self._connectedSourceEntities = self._getValidEntities(all_entities or [])
+
+        entities = list(self._connectedSourceEntities)
+        # Only use the first selected entity to avoid duplicate counts
+        entities = entities[:1] if entities else []
         connected = []
         for entity in entities:
             connected += self.core.entities.getConnectedEntities(entity)
 
-        self.w_connectedEnities.navigate(connected, clear=True)
+        self.lw_connected.clear()
+        
+        # Group entities by key and count occurrences
+        entity_map = {}
+        for entity in connected:
+            key = self._getEntityKey(entity)
+            if key not in entity_map:
+                entity_map[key] = (entity, 0)
+            entity_obj, count = entity_map[key]
+            entity_map[key] = (entity_obj, count + 1)
+
+        # Add to list with counts and preview images
+        for (entity_obj, count) in entity_map.values():
+            name = self.core.entities.getEntityName(entity_obj)
+            if not name:
+                continue
+            lwItem = QTreeWidgetItem()
+            lwItem.setData(0, Qt.UserRole, entity_obj)
+            lwItem.setData(0, Qt.UserRole + 1, count)
+            self.lw_connected.addTopLevelItem(lwItem)
+            # Set the preview widget
+            self.lw_connected.setItemPreview(lwItem, entity_obj, name, count)
+
+        self._hasPendingChanges = False
+        self.refreshConnectedEntityInfo()
 
     @err_catcher(name=__name__)
     def refreshEntities(self) -> None:
-        """Refresh both asset and shot entity lists."""
-        self.w_assets.refreshEntities()
-        self.w_shots.refreshEntities()
+        """Refresh both entity widgets."""
+        self.w_entities.refreshEntities()
+        self.w_availableEntities.refreshEntities()
 
     @err_catcher(name=__name__)
     def refreshEntityInfo(self, items: Optional[Any] = None) -> None:
@@ -4890,40 +5294,12 @@ class ConnectEntitiesDlg(QDialog):
 
     @err_catcher(name=__name__)
     def refreshConnectedEntityInfo(self, items: Optional[Any] = None) -> None:
-        """Update the connected entity info label.
-        
-        Args:
-            items: Items to show info for (defaults to selected items)
-        """
-        page = self.w_connectedEnities.getCurrentPage()
-        if items is None:
-            items = page.tw_tree.selectedItems()
-        elif not isinstance(items, list):
-            items = [items]
-
-        if page.useCounter:
-            entities = []
-            for item in items:
-                entity = page.getDataFromItem(item)
-                if entity["type"] in ["asset", "shot"]:
-                    for idx in range(page.getCount(item)):
-                        entities.append(entity)
-
+        """Update the connected entities count label."""
+        count = self.lw_connected.topLevelItemCount()
+        if count == 1:
+            text = "1 Entity connected"
         else:
-            entities = [page.getDataFromItem(item) for item in items]
-            entities = [entity for entity in entities if entity["type"] in ["asset", "shot"]]
-
-        if page.entityType == "asset":
-            if len(entities) == 1:
-                text = "%s Asset selected" % len(entities)
-            else:
-                text = "%s Assets selected" % len(entities)
-        else:
-            if len(entities) == 1:
-                text = "%s Shot selected" % len(entities)
-            else:
-                text = "%s Shots selected" % len(entities)
-
+            text = "%s Entities connected" % count
         self.l_connectedInfo.setText(text)
 
     @err_catcher(name=__name__)

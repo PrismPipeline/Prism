@@ -1229,7 +1229,15 @@ class Products(object):
             self.core.createSymlink(masterInfoPath, infoPath)
         else:
             if os.path.exists(infoPath):
-                shutil.copy2(infoPath, masterInfoPath)
+                masterInfoDir = os.path.dirname(masterInfoPath)
+                if not os.path.exists(masterInfoDir):
+                    try:
+                        os.makedirs(masterInfoDir, exist_ok=True)
+                    except Exception as e:
+                        logger.warning("Failed to create master info directory: %s - %s" % (masterInfoDir, e))
+
+                if os.path.exists(masterInfoDir):
+                    shutil.copy2(infoPath, masterInfoPath)
 
         infoData = self.core.getConfig(configPath=infoPath)
         if infoData and "preferredFile" in infoData:

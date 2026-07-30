@@ -41,6 +41,8 @@ import glob
 import errno
 import time
 import copy
+import datetime
+import fnmatch
 from typing import Any, Optional, List, Dict, Tuple, Union
 
 from qtpy.QtCore import *
@@ -230,6 +232,9 @@ class MediaProducts(object):
                 productData = self.core.projects.getMatchingPaths(template)
                 validData = []
                 for data in productData:
+                    if "identifier" not in data:
+                        continue
+
                     if "." in data["identifier"]:
                         if os.path.isfile(data["path"]):
                             continue
@@ -616,12 +621,14 @@ class MediaProducts(object):
             return []
 
         key = "aovs"
+        ctx = version.copy()
+        if "aov" in ctx:
+            del ctx["aov"]
 
         aovData = []
         if version.get("locations"):
             locations = self.core.paths.getRenderProductBasePaths()
             for loc in version["locations"]:
-                ctx = version.copy()
                 if loc not in locations:
                     continue
 
@@ -633,7 +640,7 @@ class MediaProducts(object):
 
         else:
             template = self.core.projects.getResolvedProjectStructurePath(
-                key, context=version
+                key, context=ctx
             )
             aovData = self.core.projects.getMatchingPaths(template)
 
@@ -1652,11 +1659,27 @@ class MediaProducts(object):
             masterFile = os.path.join(os.path.dirname(masterFile), masterFilename)
 
             if not os.path.exists(os.path.dirname(masterFile)):
-                try:
-                    os.makedirs(os.path.dirname(masterFile))
-                except Exception as e:
-                    if e.errno != errno.EEXIST:
-                        raise
+                while True:
+                    try:
+                        os.makedirs(os.path.dirname(masterFile), exist_ok=True)
+                    except Exception as e:
+                        if e.errno == errno.EEXIST:
+                            break
+
+                        logger.warning(e)
+                        msg = "Couldn't create master version folder:\n\n%s\n\n%s" % (str(e), os.path.dirname(masterFile))
+                        result = self.core.popupQuestion(
+                            msg,
+                            buttons=["Retry", "Skip"],
+                            escapeButton="Skip",
+                            default="Skip",
+                        )
+                        if result == "Retry":
+                            continue
+
+                        break
+
+                    break
 
             useHL = os.getenv("PRISM_USE_HARDLINK_MASTER", None)
             if platform.system() == "Windows" and drive == masterDrive and useHL:
@@ -1672,6 +1695,7 @@ class MediaProducts(object):
                             msg,
                             buttons=["Retry", "Skip file"],
                             escapeButton="Skip file",
+                            default="Skip file",
                         )
                         if result == "Retry":
                             continue
@@ -2090,11 +2114,11 @@ class MediaProducts(object):
         return path
 
     @err_catcher(name=__name__)
-    def ingestMedia(self, files: List[str], entity: Dict, identifier: str, version: Optional[str] = None, aov: Optional[str] = None, mediaType: str = "3drenders", filenameTemplate: Optional[str] = None, location: str = "global") -> Dict:
+    def ingestMedia(self, files: List[str], entity: Dict, identifier: str, version: Optional[str] = None, aov: Optional[str] = None, mediaType: str = "3drenders", filenameTemplate: Optional[str] = None, location: str = "global", rename: bool = True) -> Dict:
         """Ingest external media files into the project structure.
         
         Copies files into proper version folders with progress tracking.
-        
+
         Args:
             files: List of file paths to ingest.
             entity: Entity dict containing type and other entity data.
@@ -2104,6 +2128,8 @@ class MediaProducts(object):
             mediaType: Type of media. Defaults to '3drenders'.
             filenameTemplate: Optional template for renaming files.
             location: Storage location. Defaults to 'global'.
+            rename: When True (default), files are renamed to match the project naming
+                convention (frame-padded sequence). When False, original filenames are kept.
             
         Returns:
             Dict: Result dict with 'result' (list of ingested paths), 'versionAdded' (bool), 'versionPath' (str).
@@ -2138,67 +2164,188 @@ class MediaProducts(object):
                     startFrame = 1001
 
         with self.copyMsg as copyMsg:
+            # Pre-compute all (source, destination) path pairs up front so we can
+            # choose the most efficient copy strategy before touching the filesystem.
+            pairs = []
             for idx, file in enumerate(files):
-                if self.ingestCanceled:
-                    return
-
-                kwargs["extension"] = os.path.splitext(file)[1]
-                if len(files) > 1:
-                    kwargs["framePadding"] = ("%%0%sd" % self.core.framePadding) % (idx + startFrame)
-
-                if kwargs.get("mediaType") == "playblasts":
-                    pbkwargs = kwargs.copy()
-                    del pbkwargs["aov"]
-                    del pbkwargs["mediaType"]
-                    targetPath = self.generatePlayblastPath(**pbkwargs)
+                kw = kwargs.copy()
+                kw["extension"] = os.path.splitext(file)[1]
+                if rename and len(files) > 1:
+                    kw["framePadding"] = ("%%0%sd" % self.core.framePadding) % (idx + startFrame)
+                if kw.get("mediaType") == "playblasts":
+                    pbkw = kw.copy()
+                    del pbkw["aov"]
+                    del pbkw["mediaType"]
+                    tp = self.generatePlayblastPath(**pbkw)
                 else:
-                    targetPath = self.generateMediaProductPath(**kwargs)
+                    tp = self.generateMediaProductPath(**kw)
+                if not rename:
+                    # Keep the original filename; only use the generated path for its directory.
+                    tp = os.path.join(os.path.dirname(tp), os.path.basename(file))
+                pairs.append((file, tp.replace("\\", "/")))
 
-                if idx == 0:
-                    if not os.path.exists(os.path.dirname(targetPath)):
-                        try:
-                            os.makedirs(os.path.dirname(targetPath))
-                        except:
-                            msg = "The directory could not be created"
-                            self.core.popup(msg)
-                            return {"result": msg}
+            # Preserve final-file kwargs so saveVersionInfo below is correct.
+            kwargs["extension"] = os.path.splitext(files[-1])[1]
+            if len(files) > 1:
+                kwargs["framePadding"] = ("%%0%sd" % self.core.framePadding) % (len(files) - 1 + startFrame)
 
-                    elif os.listdir(os.path.dirname(targetPath)):
-                        msg = "The targetfolder contains files already.\nContinuing may overwrite existing files."
-                        result = self.core.popupQuestion(msg, buttons=["Continue", "Add new version", "Cancel"], icon=QMessageBox.Warning)
-                        if result == "Cancel":
-                            return {"result": "canceled"}
-                        elif result == "Add new version":
-                            context = kwargs["entity"].copy()
-                            context["identifier"] = identifier
-                            context["mediaType"] = mediaType
-                            version = self.getHighestMediaVersion(context)
-                            self.createVersion(
-                                entity=kwargs["entity"],
-                                identifier=kwargs["task"],
-                                identifierType=kwargs["mediaType"],
-                                version=version
-                            )
+            if self.ingestCanceled:
+                return
 
-                            if kwargs["mediaType"] == "3drenders":
-                                self.createAov(entity=kwargs["entity"], identifier=kwargs["task"], version=version, aov="rgb")
+            targetPath = pairs[-1][1]
+            dst_dir = os.path.dirname(pairs[0][1])
 
-                            result = self.ingestMedia(files, entity, identifier, version, aov, mediaType) or {}
-                            return {"result": result.get("result"), "versionAdded": True}
+            if not os.path.exists(dst_dir):
+                try:
+                    os.makedirs(dst_dir)
+                except:
+                    msg = "The directory could not be created"
+                    self.core.popup(msg)
+                    return {"result": msg}
 
-                    self.copyMsg.show()
-                    if copyMsg.msg:
-                        b_cnl = copyMsg.msg.buttons()[0]
-                        b_cnl.setVisible(True)
-                        b_cnl.clicked.connect(self.onIngestCanceled)
+            elif os.listdir(dst_dir):
+                msg = "The targetfolder contains files already.\nContinuing may overwrite existing files."
+                result = self.core.popupQuestion(msg, buttons=["Continue", "Add new version", "Cancel"], icon=QMessageBox.Warning)
+                if result == "Cancel":
+                    return {"result": "canceled"}
+                elif result == "Add new version":
+                    context = kwargs["entity"].copy()
+                    context["identifier"] = identifier
+                    context["mediaType"] = mediaType
+                    version = self.getHighestMediaVersion(context)
+                    self.createVersion(
+                        entity=kwargs["entity"],
+                        identifier=kwargs["task"],
+                        identifierType=kwargs["mediaType"],
+                        version=version
+                    )
 
-                    QApplication.processEvents()
+                    if kwargs["mediaType"] == "3drenders":
+                        self.createAov(entity=kwargs["entity"], identifier=kwargs["task"], version=version, aov="rgb")
 
-                targetPath = targetPath.replace("\\", "/")
-                copyThread = self.core.copyWithProgress(file, targetPath, popup=False, start=False)
-                self.ingestThreads.append(copyThread)
-                copyThread.finished.connect(lambda t=copyThread, tp=targetPath: self.onMediaFileIngested(t, tp, len(files)))
-                copyThread.start()
+                    result = self.ingestMedia(files, entity, identifier, version, aov, mediaType) or {}
+                    return {"result": result.get("result"), "versionAdded": True}
+
+            self.copyMsg.show()
+            if copyMsg.msg:
+                b_cnl = copyMsg.msg.buttons()[0]
+                b_cnl.setVisible(True)
+                b_cnl.clicked.connect(self.onIngestCanceled)
+
+            QApplication.processEvents()
+
+            # --- Copy strategy selection ---
+            # Batch robocopy: one subprocess for all files when all sources share
+            # the same directory. robocopy's /MT gives parallel I/O within that
+            # single process, so this is both faster and avoids the OS thread/handle
+            # exhaustion that occurred when spawning one subprocess per file.
+            src_dirs = set(os.path.dirname(src) for src, _ in pairs)
+            use_batch = (
+                platform.system() == "Windows"
+                and os.getenv("PRISM_USE_ROBOCOPY", "1") == "1"
+                and len(src_dirs) == 1
+                and len(pairs) > 1
+            )
+
+            if use_batch:
+                src_dir_rb = next(iter(src_dirs))
+                filenames = [os.path.basename(src) for src, _ in pairs]
+                cmd = (
+                    ["robocopy", src_dir_rb, dst_dir]
+                    + filenames
+                    + ["/COPY:DAT", "/R:3", "/W:5", "/MT:8", "/NP", "/NDL"]
+                )
+                logger.debug("Batch robocopy: %s" % " ".join(cmd))
+                try:
+                    import subprocess as _sp
+                    proc = _sp.Popen(
+                        cmd,
+                        stdout=_sp.PIPE,
+                        stderr=_sp.STDOUT,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        creationflags=_sp.CREATE_NO_WINDOW,
+                    )
+                    stdout_lines = []
+                    while proc.poll() is None:
+                        # Drain stdout to prevent the pipe buffer from filling up and
+                        # blocking robocopy. With 200+ files the buffer fills quickly.
+                        line = proc.stdout.readline()
+                        if line:
+                            line = line.rstrip()
+                            stdout_lines.append(line)
+                            logger.debug("robocopy: %s" % line)
+                        QApplication.processEvents()
+                        if self.ingestCanceled:
+                            proc.terminate()
+                            return
+
+                    # Drain any remaining output after process exits
+                    for line in proc.stdout:
+                        line = line.rstrip()
+                        stdout_lines.append(line)
+                        logger.debug("robocopy: %s" % line)
+
+                    logger.debug("Batch robocopy finished with return code %s" % proc.returncode)
+                    files_in_dst = os.listdir(dst_dir) if os.path.exists(dst_dir) else []
+                    logger.debug("Files in dst_dir after copy (%s): %s" % (len(files_in_dst), dst_dir))
+
+                    if proc.returncode not in (0, 1, 2, 3):
+                        logger.warning(
+                            "Batch robocopy failed (rc=%s), falling back to sequential copy.\nOutput:\n%s"
+                            % (proc.returncode, "\n".join(stdout_lines))
+                        )
+                        use_batch = False
+
+                except Exception as e:
+                    logger.warning("Batch robocopy error: %s — falling back to sequential copy." % e)
+                    use_batch = False
+
+                if use_batch:
+                    # Rename files whose destination name differs from the source name
+                    # (frame-padded targets). Files that already have the right name
+                    # in the destination are left as-is.
+                    logger.debug("%s phase for %s pairs" % ("Rename" if rename else "Progress-tracking", len(pairs)))
+                    for src, dst in pairs:
+                        src_name = os.path.basename(src)
+                        dst_name = os.path.basename(dst)
+                        if src_name != dst_name:
+                            src_in_dst = os.path.join(dst_dir, src_name)
+                            if os.path.exists(src_in_dst):
+                                try:
+                                    os.rename(src_in_dst, dst)
+                                    logger.debug("Renamed %s → %s" % (src_name, dst_name))
+                                except Exception as e:
+                                    logger.warning("Failed to rename %s → %s: %s" % (src_in_dst, dst, e))
+                            else:
+                                logger.warning("Expected file not found after copy: %s" % src_in_dst)
+
+                        self.ingestedFiles.append(dst)
+                        updatedText = "Copying file - please wait..\n\n%s/%s" % (len(self.ingestedFiles), len(pairs))
+                        self.copyMsg.text = updatedText
+                        if copyMsg.msg:
+                            copyMsg.msg.setText(updatedText)
+                            QApplication.processEvents()
+
+                    logger.debug("Rename phase complete. Ingested: %s" % len(self.ingestedFiles))
+                    self.copyMsg.close()
+
+            if not use_batch:
+                # Sequential copy: one thread at a time to avoid spawning hundreds of
+                # robocopy subprocesses simultaneously.
+                for src, dst in pairs:
+                    if self.ingestCanceled:
+                        break
+                    copyThread = self.core.copyWithProgress(src, dst, popup=False, start=False)
+                    self.ingestThreads.append(copyThread)
+                    copyThread.finished.connect(lambda t=copyThread, tp=dst: self.onMediaFileIngested(t, tp, len(pairs)))
+                    copyThread.start()
+                    while copyThread.isRunning():
+                        time.sleep(0.05)
+                        QApplication.processEvents()
+                        if self.ingestCanceled:
+                            break
 
             details = entity.copy()
             details["identifier"] = identifier
@@ -2207,12 +2354,10 @@ class MediaProducts(object):
             details["comment"] = kwargs.get("comment", "")
             details["extension"] = kwargs["extension"]
             details["mediaType"] = kwargs["mediaType"]
+            details["date"] = int(datetime.datetime.now().timestamp())
 
             infoPath = self.getMediaVersionInfoPathFromFilepath(targetPath, mediaType=mediaType)
             self.core.saveVersionInfo(filepath=os.path.dirname(infoPath), details=details)
-            while (len(self.ingestedFiles) != len(files)) and not self.ingestCanceled:
-                time.sleep(0.1)
-                QApplication.processEvents()
 
         return {"result": self.ingestedFiles, "versionAdded": False, "versionPath": targetPath}
 
@@ -2311,6 +2456,13 @@ class MediaProducts(object):
         identifierPath = self.getIdentifierPathFromEntity(identifier)
         cfgPath = os.path.join(identifierPath, "identifiers" + self.core.configs.getProjectExtension())
         group = self.core.getConfig(identifier.get("displayName"), "group", configPath=cfgPath)
+        if not group:
+            groups = self.core.getConfig("media_identifiers", "groups", config="project") or {}
+            for identifierName, groupName in groups.items():
+                if identifier.get("displayName") == identifierName or fnmatch.fnmatch(identifier.get("displayName"), identifierName):
+                    group = groupName
+                    break
+
         return group
 
     @err_catcher(name=__name__)
@@ -2332,3 +2484,4 @@ class MediaProducts(object):
             data[identifier.get("displayName")]["group"] = group
 
         self.core.setConfig(data=data, configPath=cfgPath)
+        return True

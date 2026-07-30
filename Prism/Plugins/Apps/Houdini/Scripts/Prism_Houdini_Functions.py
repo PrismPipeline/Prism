@@ -204,6 +204,9 @@ class Prism_Houdini_Functions(object):
             "onStateManagerOpen", self.onStateManagerOpen, plugin=self.plugin
         )
         self.core.registerCallback(
+            "onStateManagerShow", self.onStateManagerShow, plugin=self.plugin
+        )
+        self.core.registerCallback(
             "onProjectChanged", self.onProjectChanged, plugin=self.plugin
         )
         self.core.registerCallback(
@@ -239,6 +242,9 @@ class Prism_Houdini_Functions(object):
         Returns:
             False if GUI not ready or unavailable, otherwise None
         """
+        if platform.system() == "Darwin":
+            QApplication.setAttribute(Qt.AA_DontUseNativeMenuBar)
+
         if self.core.uiAvailable:
             if not hou.isUIAvailable():
                 return False
@@ -826,7 +832,12 @@ class Prism_Houdini_Functions(object):
                     )
 
                 if convertNode:
-                    node.changeNodeType(typeName)
+                    defs = hou.hda.definitionsInFile(outputPath)
+                    changeTypeName = defs[0].nodeTypeName() if defs else typeName
+                    try:
+                        node.changeNodeType(changeTypeName)
+                    except hou.OperationFailed as e:
+                        logger.warning("Failed to change node type to %s: %s" % (changeTypeName, e))
 
         return True
     
@@ -919,6 +930,71 @@ class Prism_Houdini_Functions(object):
         except Exception as e:
             self.core.popup("Failed to save tool recipe:\n\n%s" % e)
             return False
+        
+    @err_catcher(name=__name__)
+    def loadToolRecipeHDA(self, parentNode: Any, hdaPath: str) -> dict:
+        """Load a tool recipe HDA and create nodes under the specified parent node.
+        
+        Args:
+            parentNode: Houdini node to create the tool recipe nodes under
+            hdaPath: Path to the HDA file to load
+        """
+        hou.hda.installFile(hdaPath, force_use_assets=True)
+        from hrecipes import storage
+        storage.recipeStorage().rescan()
+
+        defs = hou.hda.definitionsInFile(hdaPath)
+        if len(defs) > 0:
+            if parentNode.childTypeCategory() == hou.objNodeTypeCategory() and defs[0].nodeType().category() == hou.sopNodeTypeCategory():
+                typeNameData = defs[0].nodeTypeName().split("::")
+                if len(typeNameData) > 2:
+                    name = typeNameData[-2] + "_container"
+                else:
+                    name = typeNameData[-1] + "_container"
+
+                parentNode = parentNode.createNode("geo", name)
+            elif parentNode.childTypeCategory() == hou.lopNodeTypeCategory() and defs[0].nodeType().category() == hou.sopNodeTypeCategory():
+                typeNameData = defs[0].nodeTypeName().split("::")
+                if len(typeNameData) > 2:
+                    name = typeNameData[-2] + "_sopcreate"
+                else:
+                    name = typeNameData[-1] + "_sopcreate"
+
+                sopcreate = parentNode.createNode("sopcreate", name)
+                parentNode = sopcreate.node("sopnet/create")
+
+            tname = defs[0].nodeTypeName()
+            isToolRecipe = self.isToolRecipe(tname)
+            print("isToolRecipe", isToolRecipe, tname)
+            if isToolRecipe or True:  # new installed HDAs are sometimes not immediately recognized as tool recipes
+                result = hou.data.applyTabToolRecipe(
+                    name=tname,
+                    parent=parentNode,
+                    click_to_place=False,
+                    skip_notes=False
+                )
+                print("applyTabToolRecipe result", result)
+                return result
+    @err_catcher(name=__name__)
+    def isToolRecipe(self, typeName: str) -> bool:
+        """Check if HDA type is a tool recipe.
+        
+        Determines if the given HDA type name corresponds to a tool recipe
+        by checking for the "prism_tool_recipe" substring.
+        
+        Args:
+            typeName: HDA type name to check.
+            
+        Returns:
+            True if it's a tool recipe, False otherwise.
+        """
+        try:
+            import recipeutils as ru
+        except Exception as e:
+            return False
+
+        isToolRecipe = bool(ru.recipeNames(ru.RecipeCategory.tool, name_pattern=typeName))
+        return isToolRecipe
 
     @err_catcher(name=__name__)
     def getHighestHDAVersion(self, libraryFilePath: str, typeName: str) -> int:
@@ -1037,6 +1113,7 @@ class Prism_Houdini_Functions(object):
         location: str = "global",
         saveToExistingHDA: bool = False,
         projectHDA: bool = False,
+        entity: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Generate output path for HDA publication.
         
@@ -1052,12 +1129,14 @@ class Prism_Houdini_Functions(object):
             location: "global" or "local" for path generation
             saveToExistingHDA: Save to node's existing HDA file
             projectHDA: Save to project HDA folder
+            entity: Optional entity dict for product path generation (if not provided, uses current scene data)
             
         Returns:
             Dict with "outputPath", "outputFolder", "version" keys, or None if invalid
         """
-        fileName = self.core.getCurrentFileName()
-        fnameData = self.core.getScenefileData(fileName)
+        if not entity:
+            fileName = self.core.getCurrentFileName()
+            entity = self.core.getScenefileData(fileName)
 
         if node and isinstance(node, hou.Node) and node.type().definition() and saveToExistingHDA:
             outputPath = node.type().definition().libraryFilePath()
@@ -1074,7 +1153,7 @@ class Prism_Houdini_Functions(object):
         else:
             version = version if version != "next" else None  # type: ignore[assignment]
 
-            if "type" not in fnameData:
+            if "type" not in entity:
                 return
 
             if not task:
@@ -1082,11 +1161,11 @@ class Prism_Houdini_Functions(object):
 
             extension = ".hda"
             outputPathData = self.core.products.generateProductPath(
-                entity=fnameData,
+                entity=entity,
                 task=task,
                 extension=extension,
                 framePadding="",
-                comment=fnameData.get("comment", ""),
+                comment=entity.get("comment", ""),
                 version=version,
                 location=location,
                 returnDetails=True,
@@ -1283,8 +1362,6 @@ class Prism_Houdini_Functions(object):
         Args:
             origin: Prism Project Browser instance
         """
-        if platform.system() == "Darwin":
-            origin.menubar.setNativeMenuBar(False)
         origin.checkColor = "rgb(185, 134, 32)"
         origin.sceneBrowser.lo_entityDetails.setContentsMargins(9, 18, 9, 9)
         origin.sceneBrowser.setStyleSheet(origin.sceneBrowser.styleSheet() + " QToolButton{ border-width: 0px; background-color: transparent} QToolButton::checked{background-color: rgba(200, 200, 200, 100)}")
@@ -1360,7 +1437,12 @@ class Prism_Houdini_Functions(object):
         if self.core.getConfig("houdini", "openInManual") or mods == Qt.AltModifier:
             hou.setUpdateMode(hou.updateMode.Manual)
 
-        hou.hipFile.load(file_name=filepath)
+        if hou.isUIAvailable():
+            import hdefereval
+            hdefereval.executeDeferred(lambda: hou.hipFile.load(file_name=filepath))
+        else:
+            hou.hipFile.load(file_name=filepath)
+
         return True
 
     @err_catcher(name=__name__)
@@ -1815,6 +1897,9 @@ class Prism_Houdini_Functions(object):
         Args:
             widget: Qt widget to apply stylesheet to.
         """
+        if hou.applicationVersion()[0] >= 22:
+            return
+
         root = os.path.dirname(self.pluginPath).replace("\\", "/")
         ssheet = ""
         ssheet += (
@@ -2005,7 +2090,11 @@ class Prism_Houdini_Functions(object):
 
         state = self.getStateFromNode(kwargs, create=False)
         if not state or state.ui.className != stateType:
-            state = sm.createState(stateType, node=kwargs["node"])
+            node = kwargs["node"]
+            if stateType == "Save HDA":
+                node = list(hou.selectedNodes()) or node
+
+            state = sm.createState(stateType, node=node)
 
         dlg = PublishDialog(self, state)
         dlg.show()
@@ -2025,6 +2114,16 @@ class Prism_Houdini_Functions(object):
             nwPane.setPref("backgroundimageediting", "1")
 
     @err_catcher(name=__name__)
+    def onStateManagerShow(self, origin: Any) -> None:
+        """Handle State Manager dialog show event.
+        
+        Args:
+            origin: State Manager instance
+        """
+        if self.core.uiAvailable and hou.applicationVersion()[0] >= 22:
+            origin.splitter.setStyleSheet("")
+
+    @err_catcher(name=__name__)
     def onStateManagerOpen(self, origin: Any) -> None:
         """Handle State Manager dialog open event.
         
@@ -2033,9 +2132,6 @@ class Prism_Houdini_Functions(object):
         Args:
             origin: State Manager instance
         """
-        if platform.system() == "Darwin":
-            origin.menubar.setNativeMenuBar(False)
-
         if self.core.uiAvailable:
             origin.enabledCol = QBrush(QColor(204, 204, 204))
 
@@ -2046,7 +2142,13 @@ class Prism_Houdini_Functions(object):
 
         origin.f_import.setStyleSheet("QFrame { border: 0px; }")
         origin.f_export.setStyleSheet("QFrame { border: 0px; }")
-        origin.sa_stateSettings.setStyleSheet("QScrollArea { border: 0px; }")
+        if hou.applicationVersion()[0] < 22:
+            origin.sa_stateSettings.setStyleSheet("QScrollArea { border: 0px; }")
+            origin.b_createExport.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+            origin.b_createRender.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+            origin.b_createPlayblast.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+            origin.b_showImportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
+            origin.b_showExportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
 
         root = os.path.dirname(self.pluginPath).replace("\\", "/")
         ssheet = ""
@@ -2063,13 +2165,6 @@ class Prism_Houdini_Functions(object):
         origin.tw_export.setStyleSheet(ssheet)
 
         origin.layout().setContentsMargins(0, 0, 0, 0)
-
-        origin.b_createExport.setStyleSheet("padding-left: 1px;padding-right: 1px;")
-        origin.b_createRender.setStyleSheet("padding-left: 1px;padding-right: 1px;")
-        origin.b_createPlayblast.setStyleSheet("padding-left: 1px;padding-right: 1px;")
-        origin.b_showImportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
-        origin.b_showExportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
-
         origin.b_createImport.setMinimumWidth(70 * self.core.uiScaleFactor)
         origin.b_createImport.setMaximumWidth(70 * self.core.uiScaleFactor)
         origin.b_createExport.setMinimumWidth(70 * self.core.uiScaleFactor)
@@ -2252,6 +2347,89 @@ class Prism_Houdini_Functions(object):
             extFilesSource.append(x[0])
 
         return [extFiles, extFilesSource]
+
+    @err_catcher(name=__name__)
+    def onPlayblastMenuClicked(self, showDlg: bool = False) -> None:
+        """Handle Playblast menu click.
+        
+        Args:
+            showDlg: True to show the dialog
+        """
+        sm = self.core.getStateManager()
+        if not sm:
+            return
+
+        if not self.core.fileInPipeline():
+            self.core.showFileNotInProjectWarning(title="Warning")
+            return False
+
+        for state in sm.states:
+            if state.ui.className == "Playblast" and state.ui.e_name.text() == "Default Playblast ({identifier})":
+                state.ui.updateUi()
+                break
+        else:
+            parent = self.getDftStateParent()
+            state = sm.createState("Playblast", stateData={"stateName": "Default Playblast ({identifier})"}, parent=parent, applyDefaults=True)
+            if not state:
+                msg = "Failed to create playblast state. Please contact the support."
+                self.core.popup(msg)
+                return
+
+            entity = state.ui.getOutputEntity()
+            if entity.get("type") == "asset":
+                state.ui.setRangeType("Single Frame")
+            elif entity.get("type") == "shot":
+                state.ui.setRangeType("Shot")
+            else:
+                state.ui.setRangeType("Scene")
+
+            if entity.get("task"):
+                state.ui.setIdentifier(entity.get("task"))
+
+        if hasattr(self, "dlg_playblast"):
+            self.dlg_playblast.showSm = False
+            self.dlg_playblast.close()
+
+        self.dlg_playblast = PlayblastDlg(self, state)
+        if not showDlg:
+            self.dlg_playblast.submit(openOnFail=False)
+        else:
+            state.ui.w_name.setVisible(False)
+            state.ui.gb_previous.setVisible(False)
+            self.dlg_playblast.show()
+
+    @err_catcher(name=__name__)
+    def getDftStateParent(self, create: bool = True) -> Optional[str]:
+        """Get default state parent group.
+        
+        Args:
+            create: Create group if missing
+            
+        Returns:
+            Group name or None
+        """
+        sm = self.core.getStateManager()
+        if not sm:
+            return
+
+        for state in sm.states:
+            if state.ui.listType != "Export" or state.ui.className != "Folder":
+                continue
+
+            if state.ui.e_name.text() != "Default States":
+                continue
+
+            return state
+
+        if create:
+            stateData = {
+                "statename": "Default States",
+                "listtype": "Export",
+                "stateenabled": 2,
+                "stateexpanded": False,
+            }
+            state = sm.createState("Folder", stateData=stateData)
+            return state
     
     @err_catcher(name=__name__)
     def postBuildScene(self, **kwargs: Any) -> None:
@@ -3428,3 +3606,112 @@ class PublishDialog(QDialog):
             states=[self.state],
         )
         self.close()
+
+
+class PlayblastDlg(QDialog):
+    def __init__(self, origin: Any, state: Any) -> None:
+        """Initialize playblast farm submitter.
+        
+        Args:
+            origin: Parent instance
+            state: Playblast state
+        """
+        super(PlayblastDlg, self).__init__()
+        self.origin = origin
+        self.plugin = self.origin.plugin
+        self.core = self.plugin.core
+        self.core.parentWindow(self)
+        self.state = state
+        self.showSm = False
+        if self.core.sm.isVisible():
+            self.core.sm.setHidden(True)
+            self.showSm = True
+
+        self.setupUi()
+
+    @err_catcher(name=__name__)
+    def sizeHint(self) -> Any:
+        """Get preferred dialog size.
+        
+        Returns:
+            QSize with extra width
+        """
+        hint = super(PlayblastDlg, self).sizeHint()
+        hint += QSize(100, 0)
+        return hint
+
+    @err_catcher(name=__name__)
+    def setupUi(self) -> None:
+        """Setup playblast dialog UI with state widget and comment field."""
+        self.setWindowTitle("Prism - Playblast")
+        self.lo_main = QVBoxLayout()
+        self.setLayout(self.lo_main)
+        self.lo_main.addWidget(self.state.ui)
+
+        self.e_comment = QLineEdit()
+        self.e_comment.setPlaceholderText("Comment...")
+        self.lo_main.addWidget(self.e_comment)
+
+        self.b_submit = QPushButton("Playblast")
+        self.lo_main.addWidget(self.b_submit)
+        self.b_submit.clicked.connect(self.submit)
+
+    @err_catcher(name=__name__)
+    def closeEvent(self, event: Any) -> None:
+        """Handle dialog close event.
+        
+        Restores State Manager visibility and shows current state.
+        
+        Args:
+            event: Qt close event
+        """
+        curItem = self.core.sm.getCurrentItem(self.core.sm.activeList)
+        if self.state and curItem and id(self.state) == id(curItem):
+            self.core.sm.showState()
+
+        if self.showSm:
+            self.core.sm.setHidden(False)
+
+        event.accept()
+
+    @err_catcher(name=__name__)
+    def submit(self, openOnFail: bool = True) -> None:
+        """Triggers playblast.
+        
+        Args:
+            openOnFail: Open output folder on failure
+        """
+        self.hide()
+
+        sm = self.core.getStateManager()
+        sanityChecks = True
+        version = None
+        saveScene = None
+        incrementScene = sm.actionVersionUp.isChecked()
+        sm.e_comment.setText(self.e_comment.text())
+
+        result = sm.publish(
+            successPopup=False,
+            executeState=True,
+            states=[self.state],
+            useVersion=version,
+            saveScene=saveScene,
+            incrementScene=incrementScene,
+            sanityChecks=sanityChecks,
+            versionWarning=False,
+        )
+        if result:
+            msg = "Playblast completed successfully."
+            result = self.core.popupQuestion(msg, buttons=["Open in Media Browser", "Open in Explorer", "Close"], icon=QMessageBox.Information)
+            path = self.state.ui.l_pathLast.text()
+            if result == "Open in Media Browser":
+                self.core.projectBrowser()
+                self.core.pb.showTab("Media")
+                data = self.core.paths.getPlayblastProductData(path)
+                self.core.pb.mediaBrowser.showRender(entity=data, identifier=data.get("identifier") + " (playblast)", version=data.get("version"))
+            elif result == "Open in Explorer":
+                self.core.openFolder(path)
+
+            self.close()
+        elif openOnFail:
+            self.show()

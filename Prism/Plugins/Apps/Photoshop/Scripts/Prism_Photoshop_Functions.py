@@ -69,6 +69,14 @@ class Prism_Photoshop_Functions(object):
         self.core = core
         self.plugin = plugin
         self.win = platform.system() == "Windows"
+        self.core.registerCallback("postInitialize", self.postInitialize, plugin=self.plugin)
+
+    @err_catcher(name=__name__)
+    def postInitialize(self):
+        """Post-initialization callback to set up UI and connections."""
+        if self.core.pb:
+            self.onProjectBrowserStartup(self.core.pb)
+
         self.core.registerCallback(
             "onSaveExtendedOpen", self.onSaveExtendedOpen, plugin=self.plugin
         )
@@ -1106,7 +1114,12 @@ class Prism_Photoshop_Functions(object):
             return False
 
         msg = str(err).lower()
-        return "rpc server is unavailable" in msg or "-2147023174" in msg
+        return (
+            "rpc server is unavailable" in msg
+            or "-2147023174" in msg
+            or "application is busy" in msg
+            or "-2147417846" in msg
+        )
 
     @err_catcher(name=__name__)
     def _reconnectPhotoshop(self) -> bool:
@@ -1139,6 +1152,7 @@ class Prism_Photoshop_Functions(object):
                 if not self._isRpcUnavailableError(e):
                     raise
 
+                isBusy = "application is busy" in str(e).lower() or "-2147417846" in str(e)
                 logger.warning("Photoshop COM connection lost while querying bit depth. Trying reconnect...")
                 self.psApp = None
                 try:
@@ -1150,10 +1164,12 @@ class Prism_Photoshop_Functions(object):
                     bdepth = None
 
                 if bdepth is None:
-                    self.core.popup(
-                        "Lost connection to Photoshop. Please make sure Photoshop is running and a document is open, then retry.",
-                        title="Prism",
-                    )
+                    if isBusy:
+                        msg = "Photoshop is busy. Please wait until Photoshop has finished its current operation and try again."
+                    else:
+                        msg = "Lost connection to Photoshop. Please make sure Photoshop is running and a document is open, then retry."
+
+                    self.core.popup(msg, title="Prism")
                     return
         else:
             scpt = (
@@ -1218,16 +1234,16 @@ class Prism_Photoshop_Functions(object):
                     self.psApp.Application.ActiveDocument.bitsPerChannel = 16
 
                 if ext in [".jpg", ".jpeg"]:
-                    options = win32com.client.dynamic.Dispatch(
+                    options = win32com.client.Dispatch(
                         "Photoshop.JPEGSaveOptions" + self.dispatchSuffix
                     )
                     options.quality = 10
                 elif ext in [".png"]:
-                    options = win32com.client.dynamic.Dispatch(
+                    options = win32com.client.Dispatch(
                         "Photoshop.PNGSaveOptions" + self.dispatchSuffix
                     )
                 elif ext in [".tif", ".tiff"]:
-                    options = win32com.client.dynamic.Dispatch(
+                    options = win32com.client.Dispatch(
                         "Photoshop.TiffSaveOptions" + self.dispatchSuffix
                     )
 

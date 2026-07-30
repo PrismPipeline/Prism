@@ -16,26 +16,26 @@ class Ui_wg_Playblast(object):
     def setupUi(self, wg_Playblast):
         if not wg_Playblast.objectName():
             wg_Playblast.setObjectName(u"wg_Playblast")
-        wg_Playblast.resize(389, 479)
+        wg_Playblast.resize(389, 482)
         self.verticalLayout = QVBoxLayout(wg_Playblast)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.widget_4 = QWidget(wg_Playblast)
-        self.widget_4.setObjectName(u"widget_4")
-        self.horizontalLayout_4 = QHBoxLayout(self.widget_4)
+        self.w_name = QWidget(wg_Playblast)
+        self.w_name.setObjectName(u"w_name")
+        self.horizontalLayout_4 = QHBoxLayout(self.w_name)
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
         self.horizontalLayout_4.setContentsMargins(-1, 0, 18, 0)
-        self.l_name = QLabel(self.widget_4)
+        self.l_name = QLabel(self.w_name)
         self.l_name.setObjectName(u"l_name")
 
         self.horizontalLayout_4.addWidget(self.l_name)
 
-        self.e_name = QLineEdit(self.widget_4)
+        self.e_name = QLineEdit(self.w_name)
         self.e_name.setObjectName(u"e_name")
 
         self.horizontalLayout_4.addWidget(self.e_name)
 
-        self.l_class = QLabel(self.widget_4)
+        self.l_class = QLabel(self.w_name)
         self.l_class.setObjectName(u"l_class")
         font = QFont()
         font.setBold(True)
@@ -44,7 +44,7 @@ class Ui_wg_Playblast(object):
         self.horizontalLayout_4.addWidget(self.l_class)
 
 
-        self.verticalLayout.addWidget(self.widget_4)
+        self.verticalLayout.addWidget(self.w_name)
 
         self.gb_playblast = QGroupBox(wg_Playblast)
         self.gb_playblast.setObjectName(u"gb_playblast")
@@ -350,19 +350,19 @@ class Ui_wg_Playblast(object):
 
         self.verticalLayout.addWidget(self.gb_playblast)
 
-        self.groupBox_3 = QGroupBox(wg_Playblast)
-        self.groupBox_3.setObjectName(u"groupBox_3")
-        self.groupBox_3.setCheckable(False)
-        self.groupBox_3.setChecked(False)
-        self.horizontalLayout_3 = QHBoxLayout(self.groupBox_3)
+        self.gb_previous = QGroupBox(wg_Playblast)
+        self.gb_previous.setObjectName(u"gb_previous")
+        self.gb_previous.setCheckable(False)
+        self.gb_previous.setChecked(False)
+        self.horizontalLayout_3 = QHBoxLayout(self.gb_previous)
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.horizontalLayout_3.setContentsMargins(18, -1, 18, -1)
-        self.scrollArea = QScrollArea(self.groupBox_3)
+        self.scrollArea = QScrollArea(self.gb_previous)
         self.scrollArea.setObjectName(u"scrollArea")
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 320, 54))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 320, 69))
         self.horizontalLayout_6 = QHBoxLayout(self.scrollAreaWidgetContents)
         self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
         self.l_pathLast = QLabel(self.scrollAreaWidgetContents)
@@ -374,7 +374,7 @@ class Ui_wg_Playblast(object):
 
         self.horizontalLayout_3.addWidget(self.scrollArea)
 
-        self.b_pathLast = QToolButton(self.groupBox_3)
+        self.b_pathLast = QToolButton(self.gb_previous)
         self.b_pathLast.setObjectName(u"b_pathLast")
         self.b_pathLast.setEnabled(True)
         self.b_pathLast.setArrowType(Qt.ArrowType.DownArrow)
@@ -382,7 +382,7 @@ class Ui_wg_Playblast(object):
         self.horizontalLayout_3.addWidget(self.b_pathLast)
 
 
-        self.verticalLayout.addWidget(self.groupBox_3)
+        self.verticalLayout.addWidget(self.gb_previous)
 
         QWidget.setTabOrder(self.e_name, self.cb_rangeType)
         QWidget.setTabOrder(self.cb_rangeType, self.sp_rangeStart)
@@ -426,7 +426,7 @@ class Ui_wg_Playblast(object):
         self.l_master.setText(QCoreApplication.translate("wg_Playblast", u"Master Version:", None))
         self.l_location.setText(QCoreApplication.translate("wg_Playblast", u"Location:", None))
         self.label_5.setText(QCoreApplication.translate("wg_Playblast", u"Format:", None))
-        self.groupBox_3.setTitle(QCoreApplication.translate("wg_Playblast", u"Last playblast", None))
+        self.gb_previous.setTitle(QCoreApplication.translate("wg_Playblast", u"Last playblast", None))
         self.l_pathLast.setText(QCoreApplication.translate("wg_Playblast", u"None", None))
         self.b_pathLast.setText(QCoreApplication.translate("wg_Playblast", u"...", None))
     # retranslateUi

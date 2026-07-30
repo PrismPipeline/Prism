@@ -119,10 +119,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.core.parentWindow(self)
 
-        self.setWindowTitle(
-            "Prism %s - %s - %s"
-            % (self.core.version, self.core.tr("Project Browser"), self.core.projectName)
-        )
+        title = "Prism %s - %s - %s" % (self.core.version, self.core.tr("Project Browser"), self.core.projectName)
+        if self.core.status in ["starting", "waitingForDelayedPlugins"]:
+            if self.core.status != "starting" or self.core.plugins._delayedPluginPaths or self.core.plugins._delayedLoader:
+                title += " (loading plugins...)"
+                self.core.registerCallback("onPluginsLoaded", self.onPluginsLoaded)
+
+        self.setWindowTitle(title)
         self.tabs = []
         self.previousTab = None
         self.locations = [{"name": "global"}]
@@ -216,6 +219,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         """
         if e.key() == Qt.Key_F5:
             self.refreshUiTriggered()
+
+    @err_catcher(name=__name__)
+    def onPluginsLoaded(self):
+        """Handle plugins loaded event."""
+        self.setWindowTitle(self.windowTitle().replace(" (loading plugins...)", ""))
 
     @err_catcher(name=__name__)
     def loadLayout(self) -> None:
@@ -534,9 +542,13 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             position: Tab position index, -1 for append.
         """
         widget.setProperty("tabType", name)
-        widget.setAutoFillBackground(True)
+        widget.setAutoFillBackground(False)
         self.tbw_project.insertTab(position, widget, name)
         self.tabs.append(widget)
+        curIdx = self.tbw_project.currentIndex()
+        if curIdx != position and (position != -1 or curIdx != (self.tbw_project.count() - 1)):
+            QApplication.processEvents()
+            widget.hide()
 
     @err_catcher(name=__name__)
     def closeEvent(self, event: Any) -> None:
@@ -556,7 +568,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         curW = self.tbw_project.widget(self.tbw_project.currentIndex())
         if curW:
             currentType = curW.property("tabType")
-            selContext = curW.getSelectedContext()
+            selContext = curW.getSelectedContext() if curW and hasattr(curW, "getSelectedContext") else None
         else:
             currentType = ""
             selContext = None
@@ -665,9 +677,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             prev = None
 
-        self.tbw_project.currentWidget().entered(prevTab=prev, navData=navData)
-        if getattr(self.tbw_project.currentWidget(), "refreshStatus", "valid") == "invalid":
-            self.tbw_project.currentWidget().refreshUI()
+        curW = self.tbw_project.currentWidget()
+        if curW and hasattr(curW, "entered"):
+            curW.entered(prevTab=prev, navData=navData)
+
+        if getattr(curW, "refreshStatus", "valid") == "invalid":
+            curW.refreshUI()
 
         self.updateTabSize(tab)
         self.previousTab = tab

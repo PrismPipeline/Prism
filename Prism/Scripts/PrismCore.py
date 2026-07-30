@@ -226,7 +226,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v2.1.2"
+            self.version = "v2.1.3"
             self.requiredLibraries = "v2.0.0"
             self.core = self
             self.preferredExtension = os.getenv("PRISM_CONFIG_EXTENSION", ".json")
@@ -255,7 +255,7 @@ class PrismCore:
 
             self.startEnv = startEnv
             self.uiAvailable = False if "noUI" in self.prismArgs else True
-
+            sys.modules[__name__]._active_instance = self
             self.stateData = []
             self.prjHDAs = []
             self.uiScaleFactor = 1
@@ -701,11 +701,14 @@ class PrismCore:
             if not curPrj and os.getenv("PRISM_PROJECT_FALLBACK") and os.path.exists(os.getenv("PRISM_PROJECT_FALLBACK")):
                 curPrj = os.getenv("PRISM_PROJECT_FALLBACK")
 
+        failedToSetProject = False
         if curPrj:
             if self.splashScreen:
                 self.splashScreen.setStatus("loading project...")
 
-            self.changeProject(curPrj)
+            result = self.changeProject(curPrj)
+            if result is None:
+                failedToSetProject = True
 
         if (
             "silent" not in self.prismArgs
@@ -713,6 +716,7 @@ class PrismCore:
             and (self.getConfig("globals", "showonstartup") is not False or self.appPlugin.pluginName == "Standalone")
             and self.uiAvailable
             and os.getenv("PRISM_NO_PROJECT_BROWSER") != "1"
+            and not failedToSetProject
         ):
             if self.splashScreen:
                 self.splashScreen.setStatus("opening Project Browser...")
@@ -722,8 +726,12 @@ class PrismCore:
         if self.getCurrentFileName() != "":
             self.sceneOpen()
 
-        self.callback(name="postInitialize")
-        self.status = "loaded"
+        if not self.plugins._delayedPluginPaths and not self.plugins._delayedLoader:
+            self.status = "postInitializing"
+            self.callback(name="postInitialize")
+            self.status = "loaded"
+        else:
+            self.status = "waitingForDelayedPlugins"
 
     @err_catcher(name=__name__)
     def shouldAutosaveTimerRun(self) -> bool:
@@ -1036,7 +1044,7 @@ class PrismCore:
         Args:
             command (List[Any], optional): Command list with action and parameters.
         """
-        if command is None or type(command) != list:
+        if not command or not isinstance(command, list):
             return
 
         if command[0] == "deleteShot":
@@ -1082,6 +1090,10 @@ class PrismCore:
             includeCurrent (bool, optional): If True, also executes on current
                 machine. Defaults to False.
         """
+        if not self.projects.getCommandsEnabled():
+            self.handleCmd(cmd)
+            return
+
         if not os.path.exists(self.prismIni):
             return
 
@@ -1605,7 +1617,7 @@ License: GNU LGPL-3.0-or-later<br>
                 self.popup(msgString)
                 return
 
-            sm = StateManager.StateManager(core=self, stateDataPath=stateDataPath, standalone=standalone)
+            sm = StateManager.StateManager(core=self, stateDataPath=stateDataPath, standalone=standalone, saveEnabled=False)
             self.stateManagerInCreation = None
             if not new_instance:
                 self.sm = sm
@@ -1620,6 +1632,7 @@ License: GNU LGPL-3.0-or-later<br>
             if sm.isMinimized():
                 sm.showNormal()
 
+        sm.saveEnabled = True
         sm.saveStatesToScene()
         return sm
 
@@ -1819,6 +1832,7 @@ License: GNU LGPL-3.0-or-later<br>
             if self.core.appPlugin.pluginName != "Standalone":
                 msg = "Unable to load PrismInstaller module in current environment.\n\nPlease try again in Prism standalone."
                 self.core.popup(msg)
+                return
             else:
                 raise
 
@@ -2297,13 +2311,12 @@ License: GNU LGPL-3.0-or-later<br>
                 return False
 
         filepath = self.fixPath(filepath)
-        filepath = filepath.lower()
-
         validName = False
         if validateFilename:
             fileNameData = self.getScenefileData(filepath)
             validName = fileNameData.get("type") in ["asset", "shot"]
 
+        filepath = filepath.lower()
         useEpisodes = self.core.getConfig(
             "globals",
             "useEpisodes",
@@ -2365,6 +2378,9 @@ License: GNU LGPL-3.0-or-later<br>
         for sibling in siblings:
             if r.match(os.path.basename(sibling)):
                 seqFiles.append(sibling)
+
+        if not seqFiles:
+            logger.debug("No sequence files detected for pattern: %s - %s - %d siblings" % (path, regName, len(siblings)))
 
         return seqFiles
 
@@ -2696,7 +2712,7 @@ License: GNU LGPL-3.0-or-later<br>
             msg (str, optional): Warning message. Defaults to None.
             currentFilepath (str, optional): Current file path. Defaults to None.
         """
-        logger.debug("currentfilepath: %s, projectpath: %s" % (currentFilepath, self.projectPath))
+        logger.debug("currentfilepath: %s, projectpath: %s" % (currentFilepath, getattr(self, "projectPath", None)))
         title = title or "Could not save the file"
         msg = msg or "The current scenefile is not saved in the current Prism project.\nUse the Project Browser to save your scene in the project."
         buttons = ["Open Project Browser", "Close"]
@@ -2718,7 +2734,7 @@ License: GNU LGPL-3.0-or-later<br>
         if mods == Qt.ControlModifier:
             curFile = self.getCurrentFileName()
             localProjectPath = self.localProjectPath if self.useLocalFiles else ""
-            msg = "Project Path: %s\nScenefile Path: %s\nLocal Project Enabled: %s\nLocal Project Path: %s\nFile in Project: %s\nPrism Version: %s" % (self.core.projectPath, curFile, self.useLocalFiles, localProjectPath, self.fileInPipeline(curFile), self.version)
+            msg = "Project Path: %s\nScenefile Path: %s\nLocal Project Enabled: %s\nLocal Project Path: %s\nFile in Project: %s\nPrism Version: %s" % (getattr(self.core, "projectPath", None), curFile, self.useLocalFiles, localProjectPath, self.fileInPipeline(curFile), self.version)
             self.core.popup(msg)
 
     @err_catcher(name=__name__)
@@ -3345,6 +3361,23 @@ License: GNU LGPL-3.0-or-later<br>
         return cdate
 
     @err_catcher(name=__name__)
+    def getDatetimeFromFormattedDate(self, dateStr: str, dateFormat: Optional[str] = None) -> datetime:
+        """Convert formatted date string to datetime object.
+        
+        Args:
+            dateStr (str): Formatted date string.
+            dateFormat (str, optional): Format string. Defaults to None.
+            
+        Returns:
+            datetime: Datetime object.
+        """
+        fmt = dateFormat or "%d.%m.%y,  %H:%M:%S"
+        if os.getenv("PRISM_DATE_FORMAT"):
+            fmt = os.getenv("PRISM_DATE_FORMAT")
+
+        return datetime.strptime(dateStr, fmt)
+
+    @err_catcher(name=__name__)
     def openFolder(self, path: str) -> None:
         """Open folder in system file explorer.
         
@@ -3694,8 +3727,7 @@ License: GNU LGPL-3.0-or-later<br>
             return
 
         return dst
-    
-    @err_catcher(name=__name__)
+
     def copyfile_robocopy(self, src: str, dst: str, thread: Optional[Any] = None) -> bool:
         """Copy single file using Windows robocopy.
         
@@ -3812,8 +3844,7 @@ License: GNU LGPL-3.0-or-later<br>
             
             # Wait for process to complete
             process.wait()
-            
-            if process.returncode in [0, 1, 2, 3]:  # Robocopy success codes
+            if process.returncode in [0, 1, 2, 3, 8, 9, 10, 11]:  # Robocopy success/partial codes (dir failures are non-critical for file copies)
                 msg = f"Robocopy file copy completed successfully. Return code: {process.returncode}"
                 logger.debug(msg)
                 if filename != dst_filename:
@@ -3824,11 +3855,11 @@ License: GNU LGPL-3.0-or-later<br>
                         try:
                             os.rename(curpath, newpath)
                         except Exception as e:
-                            result = self.popupQuestion(f"Failed to rename file: {e}", buttons=["Retry", "Skip"], escapeButton="Skip", icon=QMessageBox.Warning)
-                            if result == "Skip":
-                                break
-                        else:
-                            break
+                            result = self.popupQuestion(f"Failed to rename file: {e}", buttons=["Retry", "Skip"], escapeButton="Skip", default="Skip", icon=QMessageBox.Warning)
+                            if result == "Retry":
+                                continue
+
+                        break
 
                 return dst
             else:
@@ -3842,7 +3873,7 @@ License: GNU LGPL-3.0-or-later<br>
             error_msg = f"Robocopy file copy failed: {str(e)}"
             logger.warning(f"ERROR: {error_msg}")
             if thread:
-                thread.warningSent.emit(f"Robocopy failed, falling back to shutil: {str(e)}")
+                thread.warningSent.emit(f"Robocopy failed, falling back to shutil:\n\n{str(e)}")
 
             # Re-raise the exception to trigger fallback to shutil method
             raise
@@ -3903,9 +3934,12 @@ License: GNU LGPL-3.0-or-later<br>
                     robocopy = os.getenv("PRISM_USE_ROBOCOPY", "1") == "1"
 
                 if platform.system() == "Windows" and robocopy is not False:
-                    result = self.copyfile_robocopy(src, dst, thread=thread)
-                    if result:
-                        return result
+                    try:
+                        result = self.copyfile_robocopy(src, dst, thread=thread)
+                        if result:
+                            return result
+                    except Exception as e:
+                        logger.warning("Robocopy file copy failed, falling back to shutil: %s" % e)
 
                 size = size or os.stat(src).st_size
                 # thread.updated.emit("Getting source hash")
@@ -4420,7 +4454,7 @@ License: GNU LGPL-3.0-or-later<br>
 
         path = os.path.join(base, "Prism")
         if not os.path.exists(path):
-            os.makedirs(path)
+            os.makedirs(path, exist_ok=True)
 
         if filename:
             if filenamebase:
@@ -5464,6 +5498,7 @@ License: GNU LGPL-3.0-or-later<br>
 
                 self.msg.show()
                 QCoreApplication.processEvents()
+                QCoreApplication.processEvents()
 
         def exec_(self) -> None:
             """Execute popup dialog modally."""
@@ -5522,39 +5557,38 @@ License: GNU LGPL-3.0-or-later<br>
                 raiseError = True
 
             if getattr(self, "prismIni", None) and getattr(self, "user", None):
-                prjErPath = os.path.join(
-                    os.path.dirname(self.prismIni), "ErrorLog_%s.txt" % self.user
-                )
-                try:
-                    open(prjErPath, "a").close()
-                except:
-                    pass
+                prjErDir = os.getenv("PRISM_PROJECT_ERROR_LOGS") or os.path.dirname(self.prismIni)
+                if prjErDir != "0":
+                    prjErPath = os.path.join(prjErDir, "ErrorLog_%s.txt" % self.user)
+                    try:
+                        open(prjErPath, "a").close()
+                    except:
+                        pass
 
-                if os.path.exists(prjErPath):
-                    with open(prjErPath, "a") as erLog:
-                        erLog.write(text)
+                    if os.path.exists(prjErPath):
+                        with open(prjErPath, "a") as erLog:
+                            erLog.write(text)
 
             if getattr(self, "userini", None):
-                userErPath = os.path.join(
-                    os.path.dirname(self.userini),
-                    "ErrorLog_%s.txt" % socket.gethostname(),
-                )
+                userErDir = os.getenv("PRISM_USER_ERROR_LOGS") or os.path.dirname(self.userini)
+                if userErDir != "0":
+                    userErPath = os.path.join(userErDir, "ErrorLog_%s.txt" % socket.gethostname())
 
-                try:
-                    open(userErPath, "a").close()
-                except:
-                    pass
+                    try:
+                        open(userErPath, "a").close()
+                    except:
+                        pass
 
-                if platform.system() in ["Linux", "Darwin"]:
+                    if platform.system() in ["Linux", "Darwin"]:
+                        if os.path.exists(userErPath):
+                            try:
+                                os.chmod(userErPath, 0o777)
+                            except:
+                                pass
+
                     if os.path.exists(userErPath):
-                        try:
-                            os.chmod(userErPath, 0o777)
-                        except:
-                            pass
-
-                if os.path.exists(userErPath):
-                    with open(userErPath, "a") as erLog:
-                        erLog.write(text)
+                        with open(userErPath, "a") as erLog:
+                            erLog.write(text)
 
                 self.lastErrorTime = time.time()
 
@@ -6340,7 +6374,12 @@ If this plugin is an official Prism plugin, please submit this error to the supp
         logger.debug("starting server (%s)" % port)
         address = ("localhost", port)
 
-        listener = Listener(address, authkey=key)
+        try:
+            listener = Listener(address, authkey=key)
+        except OSError as e:
+            logger.warning("failed to start server on port %s: %s" % (port, e))
+            return None
+
         return listener
 
     @err_catcher(name=__name__)
@@ -7042,6 +7081,8 @@ def create(app: str = "Standalone", prismArgs: Optional[List[str]] = None) -> 'P
     )
     appIcon = QIcon(iconPath)
     qapp.setWindowIcon(appIcon)
+    qapp.setApplicationName("PrismPipeline")
+    qapp.setDesktopFileName("PrismPipeline")
     if (app == "Standalone" or "splash" in prismArgs) and "noSplash" not in prismArgs and "noUI" not in prismArgs:
         splash = SplashScreen()
         splash.show()

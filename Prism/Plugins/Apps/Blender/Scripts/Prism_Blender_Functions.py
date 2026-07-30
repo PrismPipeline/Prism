@@ -129,6 +129,7 @@ class Prism_Blender_Functions(object):
             ".glb": {"exportFunction": self.exportGLB},
             ".blend": {"exportFunction": self.exportBlend},
         }
+        os.environ["PRISM_PRODUCT_BROWSER_ADD_GL_DUMMY"] = "0"
 
     @err_catcher(name=__name__)
     def startup(self, origin: Any) -> Optional[bool]:
@@ -1871,6 +1872,9 @@ class Prism_Blender_Functions(object):
                     "OPEN_EXR_MULTILAYER": ".exr",
                     "OPEN_EXR": ".exr",
                     "TIFF": ".tif",
+                    "AVIF": ".avif",
+                    "WEBP": ".webp",
+                    "DPX": ".dpx",
                 }
                 nodeExt = extensions[m.format.file_format]
                 if m.format.file_format == "OPEN_EXR_MULTILAYER":
@@ -2057,11 +2061,20 @@ class Prism_Blender_Functions(object):
                     )
                 else:
                     with bpy.context.temp_override(**ctx):
-                        bpy.ops.render.render(
-                            "INVOKE_DEFAULT",
-                            animation=not singleFrame,
-                            write_still=singleFrame,
-                        )
+                        try:
+                            bpy.ops.render.render(
+                                "INVOKE_DEFAULT",
+                                animation=not singleFrame,
+                                write_still=singleFrame,
+                            )
+                        except RuntimeError as e:
+                            if "No Group Output or File Output nodes in scene" in str(e):
+                                if hasattr(origin, "waitmsg") and origin.waitmsg.isVisible():
+                                    origin.waitmsg.close()
+
+                                return "Execute Canceled: %s" % str(e)
+                            else:
+                                raise e
                 
                 origin.renderingStarted = True
                 origin.LastRSettings = rSettings
@@ -2101,7 +2114,7 @@ class Prism_Blender_Functions(object):
         Args:
             origin: Render state instance.
         """
-        if not bpy.context.scene["PrismIsRendering"]:
+        if not bpy.context.scene.get("PrismIsRendering"):
             origin.stateManager.publish(continuePublish=True)
             return
 
@@ -2163,7 +2176,7 @@ class Prism_Blender_Functions(object):
         #         except:
         #             pass
 
-        bDir = os.path.dirname(rSettings["origOutputName"])
+        bDir = os.path.dirname(rSettings.get("origOutputName", ""))
         if os.path.exists(bDir) and len(os.listdir(bDir)) == 0:
             try:
                 shutil.rmtree(bDir)

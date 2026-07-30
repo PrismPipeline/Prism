@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'UserSettings.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.0
+## Created by: Qt User Interface Compiler version 6.8.3
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -33,7 +33,7 @@ class Ui_dlg_UserSettings(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 639, 738))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 637, 734))
         self.horizontalLayout_9 = QHBoxLayout(self.scrollAreaWidgetContents)
         self.horizontalLayout_9.setSpacing(20)
         self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
@@ -431,6 +431,24 @@ class Ui_dlg_UserSettings(object):
 
         self.lo_miscellaneous.addWidget(self.chb_debug)
 
+        self.w_deferredPlugins = QWidget(self.gb_miscellaneous)
+        self.w_deferredPlugins.setObjectName(u"w_deferredPlugins")
+        self.horizontalLayout_3 = QHBoxLayout(self.w_deferredPlugins)
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.l_deferredPlugins = QLabel(self.w_deferredPlugins)
+        self.l_deferredPlugins.setObjectName(u"l_deferredPlugins")
+
+        self.horizontalLayout_3.addWidget(self.l_deferredPlugins)
+
+        self.e_deferredPlugins = QLineEdit(self.w_deferredPlugins)
+        self.e_deferredPlugins.setObjectName(u"e_deferredPlugins")
+
+        self.horizontalLayout_3.addWidget(self.e_deferredPlugins)
+
+
+        self.lo_miscellaneous.addWidget(self.w_deferredPlugins)
+
         self.w_protocolHandler = QWidget(self.gb_miscellaneous)
         self.w_protocolHandler.setObjectName(u"w_protocolHandler")
         self.layout_16 = QHBoxLayout(self.w_protocolHandler)
@@ -591,6 +609,7 @@ class Ui_dlg_UserSettings(object):
         self.b_startTray.setText(QCoreApplication.translate("dlg_UserSettings", u"Start Prism tray now", None))
         self.chb_errorReports.setText(QCoreApplication.translate("dlg_UserSettings", u"Send anonymous error reports", None))
         self.chb_debug.setText(QCoreApplication.translate("dlg_UserSettings", u"Debug mode", None))
+        self.l_deferredPlugins.setText(QCoreApplication.translate("dlg_UserSettings", u"Deferred loaded Plugins:", None))
         self.b_protocolHandler.setText(QCoreApplication.translate("dlg_UserSettings", u"Install Prism Url Protocol Handler", None))
         self.l_styleSheet.setText(QCoreApplication.translate("dlg_UserSettings", u"Standalone Style Sheet:", None))
 #if QT_CONFIG(tooltip)

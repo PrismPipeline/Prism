@@ -42,7 +42,7 @@ class Prism_Deadline_Variables(object):
             core: Prism core instance
             plugin: Plugin instance reference
         """
-        self.version = "v2.1.2"
+        self.version = "v2.1.3"
         self.pluginName = "Deadline"
         self.pluginType = "Custom"
         self.canOutputLocal = True

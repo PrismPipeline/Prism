@@ -88,6 +88,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.core = core
         self.stateManager = stateManager
         self.canSetVersion = True
+        self.customEntity = None
 
         self.node = None
         self.nodes = []
@@ -107,7 +108,11 @@ class SaveHDAClass(hou_Export.ExportClass):
             if stateData is None:
                 self.connectNodes()
         else:
-            self.connectNodes([node])
+            if isinstance(node, list):
+                self.chb_recipe.setChecked(True)
+                self.connectNodes(node)
+            else:
+                self.connectNodes([node])
 
         self.nameChanged(self.e_name.text())
         self.connectEvents()
@@ -382,7 +387,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             self.l_status.setStyleSheet("QLabel { background-color : rgb(150,0,0); }")
 
         self.w_blackboxHDA.setEnabled(
-            not self.isNodeValid() or (isinstance(self.nodes[0], hou.Node) and self.nodes[0].type().areContentsViewable())
+            (not self.isNodeValid() or (isinstance(self.nodes[0], hou.Node) and self.nodes[0].type().areContentsViewable())) and not self.chb_recipe.isChecked()
         )
 
         self.w_externalReferences.setEnabled(
@@ -586,6 +591,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             version=version,
             location=self.cb_outPath.currentText(),
             projectHDA=self.chb_projectHDA.isChecked(),
+            entity=self.getOutputEntity(),
         )
 
         if not result:
@@ -642,8 +648,12 @@ class SaveHDAClass(hou_Export.ExportClass):
                 hVersion = res["version"]
 
         details = entity.copy()
-        del details["filename"]
-        del details["extension"]
+        if "filename" in details:
+            del details["filename"]
+
+        if "extension" in details:
+            del details["extension"]
+
         details["version"] = hVersion
         details["sourceScene"] = fileName
         details["product"] = self.getProductname()

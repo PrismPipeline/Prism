@@ -425,7 +425,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
             pm = self.core.media.getPixmapFromPath(imgPath)
             if not pm or pm.width() == 0:
                 warnStr = "Cannot read image: %s" % imgPath
-                self.core.popup(warnStr)
+                self.core.popup(warnStr, parent=self)
                 return
 
             pmsmall = self.core.media.scalePixmap(pm, curGeo.width(), curGeo.height())
@@ -479,6 +479,11 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
         if source == "Default" or not self.projectSettings:
             self.settingsApplied(self.core.projects.getDefaultProjectSettings())
             preset = self.core.projects.getPreset("Default")
+            if not preset:
+                msg = "Default project preset not found. Please reinstall Prism."
+                self.core.popup(msg)
+                return
+
             self.projectStructure = self.core.projects.getFolderStructureFromPath(preset["path"])
 
         self.refreshStructureTree()
@@ -1823,7 +1828,7 @@ class CreateAssetDlg(PrismWidgets.CreateItem):
             )
         else:
             pm = self.core.media.getPixmapFromPath(imgPath)
-            if pm.width() == 0:
+            if not pm or pm.width() == 0:
                 warnStr = "Cannot read image: %s" % imgPath
                 self.core.popup(warnStr, parent=self)
                 return
@@ -2822,6 +2827,18 @@ class IngestMediaDlg(QDialog):
         self.lo_settings.addWidget(self.l_aov, row, 0)
         self.lo_settings.addWidget(self.e_aov, row, 1)
         self.lo_settings.addWidget(self.b_aov, row, 2)
+        row += 1
+
+        self.l_rename = QLabel("Rename files:")
+        self.chb_rename = QCheckBox()
+        self.chb_rename.setChecked(True)
+        self.chb_rename.setToolTip(
+            "When enabled, ingested files are renamed to match the project naming convention "
+            "(e.g. frame-padded sequence names).\n"
+            "Uncheck to keep the original file names."
+        )
+        self.lo_settings.addWidget(self.l_rename, row, 0)
+        self.lo_settings.addWidget(self.chb_rename, row, 1)
         row += 1
 
         self.w_mediaPath = QWidget()
@@ -4159,6 +4176,10 @@ class PresetItem(QWidget):
 
         windowTitle = "State Preset - %s" % self.name()
         self.smPreset = self.core.stateManager(openUi=False, new_instance=True, standalone=True)
+        if not self.smPreset:
+            self.core.popup("Unable to open State Manager. Check logs for details.")
+            return
+
         self.smPreset.setWindowTitle(windowTitle)
         self.smPreset.gb_publish.setHidden(True)
         self.smPreset.bb_main = QDialogButtonBox()
@@ -5773,3 +5794,251 @@ class ProductTagsDlg(QDialog):
             Preferred size of 600x400 pixels.
         """
         return QSize(600, 400)
+
+
+class CreateOtioDlg(QDialog):
+    """Dialog for creating an OTIO timeline product from a collection of shots.
+
+    Lets the user pick a target entity, a product name, the timeline FPS,
+    and optionally a media identifier whose latest version is used as the
+    clip source for each shot.  On acceptance the timeline is built and
+    saved as a new product version via MediaManager.saveOtioAsProduct.
+
+    Attributes:
+        core: PrismCore instance.
+        shots (List[Dict]): Shot entity dicts to include in the timeline.
+        entity (Dict): Target entity for saving the product.
+    """
+
+    def __init__(self, core: Any, shots: Optional[List] = None, entity: Optional[Dict] = None, parent: Optional[QWidget] = None) -> None:
+        """Initialize CreateOtioDlg.
+
+        Args:
+            core: PrismCore instance.
+            shots: Shot entity dicts to include. Defaults to empty list.
+            entity: Initial target entity. Defaults to None.
+            parent: Parent widget. Defaults to None.
+        """
+        QDialog.__init__(self)
+        self.core = core
+        self.shots = shots or []
+        self.entity = {}
+        self.core.parentWindow(self, parent=parent)
+        self.setupUi()
+        self.connectEvents()
+        if entity:
+            self.setEntity(entity)
+
+    @err_catcher(name=__name__)
+    def sizeHint(self) -> QSize:
+        """Provide preferred dialog size.
+
+        Returns:
+            QSize of 500x250.
+        """
+        return QSize(500, 250)
+
+    @err_catcher(name=__name__)
+    def setupUi(self) -> None:
+        """Build the dialog UI."""
+        self.setWindowTitle("Create OTIO...")
+
+        self.lo_main = QVBoxLayout(self)
+        self.w_settings = QWidget()
+        self.lo_settings = QGridLayout(self.w_settings)
+
+        row = 0
+
+        # Target entity selector
+        self.l_entity = QLabel("Target Entity:")
+        self.w_entity = QWidget()
+        self.lo_entity = QHBoxLayout(self.w_entity)
+        self.lo_entity.setContentsMargins(0, 0, 0, 0)
+        self.w_entity.setCursor(Qt.PointingHandCursor)
+        self.w_entity.mouseReleaseEvent = self.entityMouseClickEvent
+        self.l_entityPreview = QLabel()
+        self.l_entityName = QLabel("< Click to select entity >")
+        self.lo_entity.addWidget(self.l_entityPreview)
+        self.lo_entity.addWidget(self.l_entityName)
+        self.lo_entity.addStretch()
+        self.lo_settings.addWidget(self.l_entity, row, 0)
+        self.lo_settings.addWidget(self.w_entity, row, 1)
+        row += 1
+
+        # Product name
+        self.l_product = QLabel("Product Name:")
+        self.e_product = QLineEdit("edit")
+        self.lo_settings.addWidget(self.l_product, row, 0)
+        self.lo_settings.addWidget(self.e_product, row, 1)
+        row += 1
+
+        # Comment
+        self.l_comment = QLabel("Comment:")
+        self.e_comment = QLineEdit()
+        self.e_comment.setPlaceholderText("Optional comment")
+        self.lo_settings.addWidget(self.l_comment, row, 0)
+        self.lo_settings.addWidget(self.e_comment, row, 1)
+        row += 1
+
+        # Add media checkbox
+        self.l_addMedia = QLabel("Add Media:")
+        self.chk_addMedia = QCheckBox()
+        self.lo_settings.addWidget(self.l_addMedia, row, 0)
+        self.lo_settings.addWidget(self.chk_addMedia, row, 1)
+        row += 1
+
+        # Media identifier (hidden until checkbox is checked)
+        self.l_mediaIdentifier = QLabel("Media Identifier:")
+        self.cb_mediaIdentifier = QComboBox()
+        self.lo_settings.addWidget(self.l_mediaIdentifier, row, 0)
+        self.lo_settings.addWidget(self.cb_mediaIdentifier, row, 1)
+        self.l_mediaIdentifier.setVisible(False)
+        self.cb_mediaIdentifier.setVisible(False)
+        row += 1
+
+        # Storage location
+        self.l_location = QLabel("Location:")
+        self.cb_location = QComboBox()
+        locs = self.core.paths.getExportProductBasePaths()
+        for loc in list(locs.keys()):
+            self.cb_location.addItem(loc)
+        self.lo_settings.addWidget(self.l_location, row, 0)
+        self.lo_settings.addWidget(self.cb_location, row, 1)
+        if len(locs) < 2:
+            self.l_location.setVisible(False)
+            self.cb_location.setVisible(False)
+        row += 1
+
+        self.bb_main = QDialogButtonBox()
+        self.b_create = self.bb_main.addButton("Create", QDialogButtonBox.AcceptRole)
+        self.bb_main.addButton("Cancel", QDialogButtonBox.RejectRole)
+        self.bb_main.accepted.connect(self.createClicked)
+        self.bb_main.rejected.connect(self.reject)
+
+        self.lo_main.addWidget(self.w_settings)
+        self.lo_main.addStretch()
+        self.lo_main.addWidget(self.bb_main)
+
+    @err_catcher(name=__name__)
+    def connectEvents(self) -> None:
+        """Connect widget signals to slots."""
+        self.chk_addMedia.toggled.connect(self.onAddMediaToggled)
+
+    @err_catcher(name=__name__)
+    def onAddMediaToggled(self, checked: bool) -> None:
+        """Show or hide the media identifier selector when the checkbox changes.
+
+        Args:
+            checked: Whether the checkbox is now checked.
+        """
+        self.l_mediaIdentifier.setVisible(checked)
+        self.cb_mediaIdentifier.setVisible(checked)
+        if checked:
+            self.populateMediaIdentifiers()
+
+    @err_catcher(name=__name__)
+    def populateMediaIdentifiers(self) -> None:
+        """Populate the media identifier combobox from all selected shots."""
+        self.cb_mediaIdentifier.clear()
+        identifierNames = set()
+        for shot in self.shots:
+            idfs = self.core.mediaProducts.getIdentifiersByType(shot)
+            for mtype in idfs.values():
+                for idf in mtype:
+                    name = idf.get("identifier", "")
+                    if name:
+                        identifierNames.add(name)
+
+        for name in sorted(identifierNames):
+            self.cb_mediaIdentifier.addItem(name)
+
+    @err_catcher(name=__name__)
+    def entityMouseClickEvent(self, event: QMouseEvent) -> None:
+        """Open the entity selection dialog on left-click.
+
+        Args:
+            event: Mouse event.
+        """
+        if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+            if getattr(self, "dlg_entity", None):
+                self.dlg_entity.close()
+            self.dlg_entity = self.core.getStateManager().entityDlg(self, parent=self)
+            self.dlg_entity.w_entities.editEntitiesOnDclick = False
+            self.dlg_entity.w_entities.navigate(self.entity)
+            self.dlg_entity.entitySelected.connect(lambda x: self.setEntity(x))
+            self.dlg_entity.show()
+
+    @err_catcher(name=__name__)
+    def setEntity(self, entity: Dict) -> None:
+        """Update the displayed entity after the user makes a selection.
+
+        Args:
+            entity: Entity dict with at least 'type' key.
+        """
+        self.entity = entity
+        pmap = self.core.entities.getEntityPreview(entity)
+        if not pmap:
+            pmap = self.core.media.emptyPrvPixmap
+        pmap = self.core.media.scalePixmap(pmap, 107, 60, fitIntoBounds=False, crop=True)
+        self.l_entityPreview.setPixmap(pmap)
+        entityName = self.core.entities.getEntityName(entity)
+        entityType = self.entity.get("type", "")
+        if "_episode" in entityName:
+            enityType = "episode"
+        elif "_sequence" in entityName:
+            entityType = "sequence"
+
+        entityName = entityName.replace("-_sequence", "").replace("-_episode", "")
+        entityName = "%s - %s" % (
+            entityType.capitalize(),
+            entityName,
+        )
+        self.l_entityName.setText(entityName)
+
+    @err_catcher(name=__name__)
+    def createClicked(self) -> None:
+        """Validate inputs and trigger OTIO creation on Accept."""
+        if not self.entity.get("type"):
+            self.core.popup("Please select a target entity.")
+            return
+
+        product = self.e_product.text().strip()
+        if not product:
+            self.core.popup("Please enter a product name.")
+            return
+
+        mediaIdentifier = None
+        if self.chk_addMedia.isChecked():
+            mediaIdentifier = self.cb_mediaIdentifier.currentText() or None
+
+        location = self.cb_location.currentText()
+
+        comment = self.e_comment.text().strip()
+
+        result = self.core.media.saveOtioAsProduct(
+            shots=self.shots,
+            entity=self.entity,
+            product=product,
+            mediaIdentifier=mediaIdentifier,
+            location=location,
+            comment=comment,
+        )
+
+        if result:
+            versionPath = result.get("versionPath", "")
+            answer = self.core.popupQuestion("OTIO timeline saved successfully.", "Export", buttons=["Open in Product Browser", "Open in Explorer", "Close"], icon=QMessageBox.Information, escapeButton="Close")
+            if answer == "Open in Product Browser":
+                if self.core.pb and self.core.pb.isVisible():
+                    self.core.pb.refreshUI()
+                    self.core.pb.raise_()
+                    self.core.pb.activateWindow()
+                else:
+                    self.core.projectBrowser()
+
+                self.core.pb.showTab("Products")
+                data = self.core.paths.getCachePathData(versionPath)
+                self.core.pb.productBrowser.navigateToVersion(version=data["version"], product=data["product"], entity=data)
+            elif answer == "Open in Explorer":
+                self.core.openFolder(versionPath)
+
+            self.accept()

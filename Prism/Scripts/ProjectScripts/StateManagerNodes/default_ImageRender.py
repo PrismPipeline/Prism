@@ -182,6 +182,16 @@ class ImageRenderClass(object):
         self.managerChanged(True)
         self.onVersionOverrideChanged(self.chb_version.isChecked())
 
+        self.cb_context.wheelEvent = lambda event: None
+        self.cb_rangeType.wheelEvent = lambda event: None
+        self.cb_cam.wheelEvent = lambda event: None
+        self.cb_renderPreset.wheelEvent = lambda event: None
+        self.cb_master.wheelEvent = lambda event: None
+        self.cb_outPath.wheelEvent = lambda event: None
+        self.cb_renderLayer.wheelEvent = lambda event: None
+        self.cb_format.wheelEvent = lambda event: None
+        self.cb_manager.wheelEvent = lambda event: None
+
         if stateData is not None:
             self.loadData(stateData)
         else:
@@ -1573,6 +1583,9 @@ class ImageRenderClass(object):
             if idfs is None:
                 idfs = [self.getIdentifier()]
 
+            if not idfs:
+                return [self.state.text(0) + ": error - no identifiers to render."]
+
             layerFunc = getattr(self.core.appPlugin, "sm_render_getLayers", None)
             if layerFunc:
                 layers = layerFunc(self)
@@ -1649,7 +1662,12 @@ class ImageRenderClass(object):
                         msg = "No files were created during the rendering. If you think this is a Prism bug please report it on our Discord server:\nwww.prism-pipeline.com/discord\nor write a mail to contact@prism-pipeline.com"
                         self.core.popup(msg)
                     else:
-                        if not result or ("Could not connect to any of the specified Mongo DB servers defined in" not in result and "ConcurrentTasks must be a value between 1 and 16 inclusive" not in result):
+                        if not result or (
+                            "Could not connect to any of the specified Mongo DB servers defined in" not in result
+                            and "ConcurrentTasks must be a value between 1 and 16 inclusive" not in result
+                            and "does not exist or is not accessible from this computer" not in result
+                            and "System.OutOfMemoryException" not in result
+                        ):
                             self.core.writeErrorLog(erStr)
 
                 return [self.state.text(0) + " - error - " + result]
@@ -1811,7 +1829,7 @@ class ImageRenderClass(object):
 
         if self.stateManager.actionSaveDuringPub.isChecked():
             self.core.saveScene(versionUp=False, prismReq=False)
-
+        
         if self.core.getConfig("globals", "backupScenesOnPublish", config="project"):
             self.core.entities.backupScenefile(self.expandvars(os.path.dirname(rSettings["outputName"])), bufferMinutes=0)
 
@@ -1821,8 +1839,21 @@ class ImageRenderClass(object):
             plugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
             if hasattr(self, "chb_redshift") and self.chb_redshift.isChecked() and not self.w_redshift.isHidden():
                 sceneDescription = "redshift"
+            elif hasattr(self, "chb_vrscene") and self.chb_vrscene.isChecked() and not self.w_vrscene.isHidden():
+                sceneDescription = "vray"
             else:
                 sceneDescription = None
+
+            submitExport = True
+            if sceneDescription == "vray" and hasattr(self, "chb_exportSceneLocally") and self.chb_exportSceneLocally.isChecked():
+                localResult = self.core.appPlugin.sm_render_startLocalRender(self, rSettings["outputName"], rSettings)
+                vrsceneDir = os.path.join(os.path.dirname(rSettings["outputName"]), "_vrscene")
+                vrsceneExported = os.path.exists(vrsceneDir) and bool(os.listdir(vrsceneDir))
+                if localResult != "Result=Success" and not vrsceneExported:
+                    resultData = {"result": localResult, "updateMaster": updateMaster, "rSettings": rSettings, "outputName": rSettings["outputName"], "details": details}
+                    return resultData
+
+                submitExport = False
 
             result = plugin.sm_render_submitJob(
                 self,
@@ -1830,7 +1861,8 @@ class ImageRenderClass(object):
                 parent,
                 handleMaster=handleMaster,
                 details=details,
-                sceneDescription=sceneDescription
+                sceneDescription=sceneDescription,
+                skipSubmission=not submitExport,
             )
             updateMaster = False
         else:

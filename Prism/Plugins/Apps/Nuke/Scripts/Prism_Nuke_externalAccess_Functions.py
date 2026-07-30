@@ -113,6 +113,10 @@ class Prism_Nuke_externalAccess_Functions(object):
         origin.chb_nukeUseWritePrism.setChecked(False)
         tab.layout().addWidget(origin.chb_nukeUseWritePrism)
 
+        origin.chb_nukeLoadOIIO = QCheckBox("Load OIIO")
+        origin.chb_nukeLoadOIIO.setChecked(False)
+        tab.layout().addWidget(origin.chb_nukeLoadOIIO)
+
     @err_catcher(name=__name__)
     def userSettings_saveSettings(self, origin: Any, settings: Dict[str, Any]) -> None:
         """Save Nuke user settings.
@@ -123,6 +127,9 @@ class Prism_Nuke_externalAccess_Functions(object):
             origin: The user settings dialog instance
             settings: Dictionary to save settings to
         """
+        if not hasattr(origin, "cb_nukeVersion"):
+            return
+
         if "nuke" not in settings:
             settings["nuke"] = {}
 
@@ -130,6 +137,7 @@ class Prism_Nuke_externalAccess_Functions(object):
         settings["nuke"]["useRelativePaths"] = origin.chb_nukeRelativePaths.isChecked()
         settings["nuke"]["useReadPrism"] = origin.chb_nukeUseReadPrism.isChecked()
         settings["nuke"]["useWritePrism"] = origin.chb_nukeUseWritePrism.isChecked()
+        settings["nuke"]["loadOIIO"] = origin.chb_nukeLoadOIIO.isChecked()
 
     @err_catcher(name=__name__)
     def userSettings_loadSettings(self, origin: Any, settings: Dict[str, Any]) -> None:
@@ -150,6 +158,8 @@ class Prism_Nuke_externalAccess_Functions(object):
                 origin.chb_nukeUseReadPrism.setChecked(settings["nuke"]["useReadPrism"])
             if "useWritePrism" in settings["nuke"]:
                 origin.chb_nukeUseWritePrism.setChecked(settings["nuke"]["useWritePrism"])
+            if "loadOIIO" in settings["nuke"]:
+                origin.chb_nukeLoadOIIO.setChecked(settings["nuke"]["loadOIIO"])
 
     @err_catcher(name=__name__)
     def getAutobackPath(self, origin: Any) -> Tuple[str, str]:
@@ -233,7 +243,7 @@ class Prism_Nuke_externalAccess_Functions(object):
                 self.core.callback(name="preLaunchApp", args=[args, dccEnv])
 
                 try:
-                    subprocess.Popen(args, env=self.core.startEnv)
+                    subprocess.Popen(args, env=dccEnv)
                 except:
                     mods = QApplication.keyboardModifiers()
                     if mods == Qt.ControlModifier:
@@ -243,7 +253,7 @@ class Prism_Nuke_externalAccess_Functions(object):
                             msg = "Executable doesn't exist:\n\n%s\n\nCheck your executable override in the Prism User Settings." % args[0]
                         self.core.popup(msg)
                     else:
-                        subprocess.Popen(" ".join(args), env=self.core.startEnv, shell=True)
+                        subprocess.Popen(" ".join(args), env=dccEnv, shell=True)
                         fileStarted = True
                 else:
                     fileStarted = True
@@ -314,7 +324,7 @@ class Prism_Nuke_externalAccess_Functions(object):
         """
         projectSettings.sb_nuke = projectSettings.addSceneBuildingApp("Nuke", iconPath=self.appIcon)
         dftSteps = self.getAvailableSceneBuildingSteps()
-        dftSteps = [s for s in dftSteps["results"] if s["name"] not in ["importProducts", "importShotcam", "runCode"]]
+        dftSteps = [s for s in dftSteps["results"] if s["name"] not in ["importProducts", "importShotcam", "runCode", "multishotSetup"]]
         projectSettings.sb_nuke.addSteps(dftSteps)
 
     @err_catcher(name=__name__)
@@ -346,6 +356,16 @@ class Prism_Nuke_externalAccess_Functions(object):
                 ]
             }
         ]
+        if os.getenv("PRISM_NUKE_ENABLE_MULTISHOT", "0") == "1":
+            nukeSteps.append(
+                {
+                    "name": "multishotSetup",
+                    "label": "Multishot Setup",
+                    "function": "self.core.appPlugin.buildSceneMultishotSetup",
+                    "settings": []
+                }
+            )
+
         steps += nukeSteps
         result = {"combine": True, "results": steps}
         return result

@@ -463,7 +463,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="widget_7" native="true">
+       <widget class="QWidget" name="w_takes" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_9">
          <property name="topMargin">
           <number>0</number>

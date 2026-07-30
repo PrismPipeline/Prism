@@ -47,7 +47,7 @@ class Ui_dlg_ProjectSettings(object):
         self.sa_general.setWidgetResizable(True)
         self.w_saGeneralContent = QWidget()
         self.w_saGeneralContent.setObjectName(u"w_saGeneralContent")
-        self.w_saGeneralContent.setGeometry(QRect(0, -183, 644, 849))
+        self.w_saGeneralContent.setGeometry(QRect(0, -183, 644, 879))
         self.verticalLayout_8 = QVBoxLayout(self.w_saGeneralContent)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
@@ -608,6 +608,34 @@ class Ui_dlg_ProjectSettings(object):
 
         self.verticalLayout_9.addWidget(self.w_expectedPrjPath)
 
+        self.w_expectedPrismVersion = QWidget(self.w_prjSettings)
+        self.w_expectedPrismVersion.setObjectName(u"w_expectedPrismVersion")
+        self.gridLayout_7 = QGridLayout(self.w_expectedPrismVersion)
+        self.gridLayout_7.setObjectName(u"gridLayout_7")
+        self.gridLayout_7.setContentsMargins(0, 0, 0, 0)
+        self.l_expectedPrismVersion = QLabel(self.w_expectedPrismVersion)
+        self.l_expectedPrismVersion.setObjectName(u"l_expectedPrismVersion")
+
+        self.gridLayout_7.addWidget(self.l_expectedPrismVersion, 0, 0, 1, 1)
+
+        self.e_expectedPrismVersion = QLineEdit(self.w_expectedPrismVersion)
+        self.e_expectedPrismVersion.setObjectName(u"e_expectedPrismVersion")
+        self.e_expectedPrismVersion.setMinimumSize(QSize(300, 0))
+
+        self.gridLayout_7.addWidget(self.e_expectedPrismVersion, 0, 2, 1, 1)
+
+        self.cb_expectedPrismVersion = QComboBox(self.w_expectedPrismVersion)
+        self.cb_expectedPrismVersion.setObjectName(u"cb_expectedPrismVersion")
+
+        self.gridLayout_7.addWidget(self.cb_expectedPrismVersion, 0, 3, 1, 1)
+
+        self.horizontalSpacer_29 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.gridLayout_7.addItem(self.horizontalSpacer_29, 0, 1, 1, 1)
+
+
+        self.verticalLayout_9.addWidget(self.w_expectedPrismVersion)
+
         self.w_defaultImportStateName = QWidget(self.w_prjSettings)
         self.w_defaultImportStateName.setObjectName(u"w_defaultImportStateName")
         self.gridLayout_defaultImportStateName = QGridLayout(self.w_defaultImportStateName)
@@ -1035,7 +1063,7 @@ class Ui_dlg_ProjectSettings(object):
         self.sa_structure.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 98, 28))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 656, 628))
         self.lo_structure = QGridLayout(self.scrollAreaWidgetContents)
         self.lo_structure.setObjectName(u"lo_structure")
         self.sa_structure.setWidget(self.scrollAreaWidgetContents)
@@ -1246,6 +1274,7 @@ class Ui_dlg_ProjectSettings(object):
         self.l_disabledPlugins.setText(QCoreApplication.translate("dlg_ProjectSettings", u"Disabled Plugins:", None))
         self.b_expectedPrjPath.setText(QCoreApplication.translate("dlg_ProjectSettings", u"...", None))
         self.l_expectedPrjPath.setText(QCoreApplication.translate("dlg_ProjectSettings", u"Expected Project Path:", None))
+        self.l_expectedPrismVersion.setText(QCoreApplication.translate("dlg_ProjectSettings", u"Expected Prism Version(s):", None))
         self.l_defaultImportStateName.setText(QCoreApplication.translate("dlg_ProjectSettings", u"Import State Name Template:", None))
         self.l_manageProductTags.setText(QCoreApplication.translate("dlg_ProjectSettings", u"Product Tags:", None))
         self.b_manageProductTags.setText(QCoreApplication.translate("dlg_ProjectSettings", u"Manage Product Tags", None))

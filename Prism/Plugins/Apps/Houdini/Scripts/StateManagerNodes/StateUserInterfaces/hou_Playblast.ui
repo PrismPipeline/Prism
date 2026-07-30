@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>389</width>
-    <height>479</height>
+    <height>482</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -27,7 +27,7 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="QWidget" name="widget_4" native="true">
+    <widget class="QWidget" name="w_name" native="true">
      <layout class="QHBoxLayout" name="horizontalLayout_4">
       <property name="topMargin">
        <number>0</number>
@@ -666,7 +666,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="groupBox_3">
+    <widget class="QGroupBox" name="gb_previous">
      <property name="title">
       <string>Last playblast</string>
      </property>
@@ -694,7 +694,7 @@
            <x>0</x>
            <y>0</y>
            <width>320</width>
-           <height>54</height>
+           <height>69</height>
           </rect>
          </property>
          <layout class="QHBoxLayout" name="horizontalLayout_6">

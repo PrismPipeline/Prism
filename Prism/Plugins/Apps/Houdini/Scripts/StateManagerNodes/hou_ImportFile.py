@@ -1023,6 +1023,8 @@ class ImportFileClass(object):
 
         if extension == ".hda":
             self.importHDA(impFileName)
+        elif extension == ".otio":
+            hou.anim.loadBookmarks(impFileNameExpanded)
         elif doImport:
             if not self.isPrismImportNode(self.node):
                 self.createImportNodes(impFileName, cacheData)

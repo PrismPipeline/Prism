@@ -114,6 +114,7 @@ class Prism_Nuke_Functions(object):
         """
         self.core = core
         self.plugin = plugin
+        self.outputEntityOverride = None
 
         self.isRendering = {}
         self.core.registerCallback(
@@ -138,11 +139,51 @@ class Prism_Nuke_Functions(object):
         if "OCIO" in [item["key"] for item in self.core.users.getUserEnvironment()]:
             self.refreshOcio()
 
+        self.core.registerCallback(
+            "postInitialize", self.postInitialize, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onSceneOpen", self.onSceneOpen, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "sceneSaved", self.sceneSaved, plugin=self.plugin
+        )
         nuke.addOnUserCreate(self.refreshOcio, nodeClass="Root")
         self.isRenderingFlipbook = False
 
-        if os.getenv("PRISM_NUKE_LOAD_OIIO", "0") == "0":  # OIIO seems to crash Nuke
-            self.core.plugins.monkeyPatch(self.core.media.getOIIO, lambda: None, self.plugin)
+        self.core.plugins.monkeyPatch(self.core.media.getOIIO, self.getOIIO, self.plugin)
+        if self.core.status not in ["starting", "waitingForDelayedPlugins"]:
+            self.addCallbacks()
+
+    @err_catcher(name=__name__)
+    def getOIIO(self) -> Any:
+        """Get OpenImageIO module if loading is enabled in config.
+
+        Returns:
+            OIIO module if loadOIIO is True, None otherwise
+        """
+        if not self.getLoadOIIO():
+            return None
+
+        return self.core.plugins.callUnpatchedFunction(self.core.media.getOIIO)
+
+    @err_catcher(name=__name__)
+    def getLoadOIIO(self) -> bool:
+        """Check if OIIO loading is enabled in config.
+        
+        Returns:
+            True if OIIO should be loaded, False otherwise
+        """
+        return self.core.getConfig("nuke", "loadOIIO", dft=False, config="user")
+
+    @err_catcher(name=__name__)
+    def setLoadOIIO(self, value: bool) -> None:
+        """Set OIIO loading preference in config.
+        
+        Args:
+            value: True to enable OIIO loading, False to disable
+        """
+        self.core.setConfig("nuke", "loadOIIO", value, config="user")
 
     @err_catcher(name=__name__)
     def startup(self, origin: Any) -> None:
@@ -228,14 +269,93 @@ class Prism_Nuke_Functions(object):
             toolbar.addCommand("Prism/WritePrism", lambda: nuke.createNode("WritePrism"), "w", shortcutContext=2)
 
     @err_catcher(name=__name__)
+    def postInitialize(self):
+        self.refreshNukeShotMenu()
+
+    @err_catcher(name=__name__)
+    def unregister(self):
+        nuke.removeOnScriptLoad(self.core.sceneOpen)
+        nuke.removeFilenameFilter(self.expandEnvVarsInFilepath)
+        nuke.removeOnScriptSave(self.core.scenefileSaved)
+        nuke.removeOnUserCreate(self.onUserNodeCreated)
+        nuke.removeOnScriptClose(self.onScriptClosed)
+        if self.getMultiShotEnabled():
+            nuke.removeAfterUserSetGsvValue(self.onAfterUserSetGsvValue)
+
+    @err_catcher(name=__name__)
+    def onSceneOpen(self, filepath):
+        if not self.getMultiShotEnabled():
+            return
+
+        self.refreshNukeShotMenu()
+        shotname = None
+        if not os.getenv("prism_source_scene"):
+            data = self.core.getScenefileData(filepath)
+            if data and data.get("shot") == "_sequence":
+                shotNames = self.getShotnamesForMenu()
+                if shotNames:
+                    shotname = shotNames[0]
+            else:
+                shotname = self.core.entities.getShotName(data) or ""
+
+        elif os.getenv("PRISM_GSV_SHOT"):
+            shotname = os.getenv("PRISM_GSV_SHOT")
+
+        if shotname is not None:
+            self.setShot(shotname)
+
+    @err_catcher(name=__name__)
+    def sceneSaved(self):
+        self.refreshNukeShotMenu()
+
+    @err_catcher(name=__name__)
+    def onScriptClosed(self):
+        self.refreshNukeShotMenu(clear=True)
+
+    @err_catcher(name=__name__)
+    def refreshNukeShotMenu(self, clear=False):
+        if not self.getMultiShotEnabled():
+            return
+
+        if getattr(self, "nukeShotMenu", None):
+            nuke.menu("Nuke").removeItem(self.nukeShotMenu.name())
+
+        if clear:
+            shotName = "-"
+        else:
+            gsv_knob = nuke.root()["gsv"]
+            shotName = gsv_knob.getGsvValue("prism.shot") or "-"
+
+        self.nukeShotMenu = nuke.menu("Nuke").addMenu("Shot: " + shotName)
+        shotNames = self.getShotnamesForMenu()
+        for shot in shotNames:
+            if shot == shotName:
+                shot += "  ✓"
+
+            self.nukeShotMenu.addCommand(shot, lambda s=shot: self.setShot(s))
+
+    @err_catcher(name=__name__)
+    def setShot(self, shotName):
+        gsv_knob = nuke.root()["gsv"]
+        if shotName != gsv_knob.getGsvValue("prism.shot"):
+            gsv_knob.setGsvValue("prism.shot", shotName)
+            logger.debug("set context option: shot - %s" % shotName)
+
+    @err_catcher(name=__name__)
+    def getShotnamesForMenu(self):
+        shotNames = self.getShotsFromScene()
+        shotNames = sorted([s for s in shotNames], key=lambda x: x.lower())
+        return shotNames
+
+    @err_catcher(name=__name__)
     def addCallbacks(self) -> None:
         """Register Nuke callbacks for script events and file operations."""
         nuke.addOnScriptLoad(self.core.sceneOpen)
         nuke.addFilenameFilter(self.expandEnvVarsInFilepath)
         nuke.addOnScriptSave(self.core.scenefileSaved)
         nuke.addOnUserCreate(self.onUserNodeCreated)
+        nuke.addOnScriptClose(self.onScriptClosed)
         if self.getMultiShotEnabled():
-            nuke.addKnobChanged(self.onRootKnobChanged, node=nuke.Root())
             nuke.addAfterUserSetGsvValue(self.onAfterUserSetGsvValue)
 
         import nukescripts
@@ -536,6 +656,15 @@ class Prism_Nuke_Functions(object):
         return currentFrame
 
     @err_catcher(name=__name__)
+    def setCurrentFrame(self, frame: Union[int, float]) -> None:
+        """Set current frame number.
+        
+        Args:
+            frame: Frame number to set
+        """
+        nuke.root().knob("frame").setValue(float(frame))
+
+    @err_catcher(name=__name__)
     def setFrameRange(self, origin: Any, startFrame: Union[int, float], endFrame: Union[int, float]) -> None:
         """Set frame range in Nuke script.
         
@@ -819,7 +948,12 @@ class Prism_Nuke_Functions(object):
         Returns:
             Comment string
         """
-        return node.knob("comment").value()
+        try:
+            comment = node.knob("comment").value()
+        except Exception:
+            comment = ""
+
+        return comment
 
     @err_catcher(name=__name__)
     def sm_render_fixOutputPath(self, origin: Any, outputName: str, singleFrame: bool = False, state: Optional[Any] = None) -> str:
@@ -857,7 +991,7 @@ class Prism_Nuke_Functions(object):
         return version
 
     @err_catcher(name=__name__)
-    def getOutputPath(self, node: Any, group: Optional[Any] = None, render: bool = False, updateValues: bool = True, force: bool = False) -> str:
+    def getOutputPath(self, node: Any, group: Optional[Any] = None, render: bool = False, updateValues: bool = True, force: bool = False, entity: Optional[Any] = None) -> str:
         """Get output path for a Write node.
         
         Generates output filepath based on task, file type, version, and location.
@@ -868,7 +1002,8 @@ class Prism_Nuke_Functions(object):
             render: Whether this is for an actual render
             updateValues: Whether to update node knob values
             force: Force path calculation even in non-GUI mode
-            
+            entity: Optional entity to use for path calculation
+
         Returns:
             Output file path
         """
@@ -897,6 +1032,9 @@ class Prism_Nuke_Functions(object):
         if not bool(location.strip()):
             location = "global"
 
+        if not entity and self.outputEntityOverride:
+            entity = self.outputEntityOverride
+
         version = self.getRenderVersionFromWriteNode(group)
         outputName = self.core.getCompositingOut(
             taskName,
@@ -906,6 +1044,7 @@ class Prism_Nuke_Functions(object):
             location,
             comment=comment,
             node=node,
+            entity=entity,
         )
 
         isNukeAssist = "--nukeassist" in nuke.rawArgs
@@ -916,7 +1055,18 @@ class Prism_Nuke_Functions(object):
         return outputName
 
     @err_catcher(name=__name__)
-    def startRender(self, node: Any, group: Optional[Any] = None, start: Optional[int] = None, end: Optional[int] = None, dependencies: Optional[List[Any]] = None, submit: Optional[bool] = None) -> Optional[bool]:
+    def startRender(
+        self,
+        node: Any,
+        group: Optional[Any] = None,
+        start: Optional[int] = None,
+        end: Optional[int] = None,
+        dependencies: Optional[List[Any]] = None,
+        submit: Optional[bool] = None,
+        _skipMultiShot: bool = False,
+        entity: Optional[Any] = None,
+        showSubmitUi: bool = True,
+    ) -> Optional[bool]:
         """Start rendering a Write node.
         
         Either submits to render farm or renders locally.
@@ -928,6 +1078,8 @@ class Prism_Nuke_Functions(object):
             end: End frame
             dependencies: List of dependency nodes 
             submit: Whether to submit to farm (overrides node knob)
+            _skipMultiShot: Internal flag to bypass multi-shot dialog (used by NukeMultiShotRenderer)
+            entity: Optional entity to use for path calculation
             
         Returns:
             True if render started successfully, None/False otherwise
@@ -935,9 +1087,19 @@ class Prism_Nuke_Functions(object):
         if not group:
             group = node
 
+        if not _skipMultiShot and self.getMultiShotEnabled():
+            shots = self.getShotsFromScene()
+            if shots:
+                dlg = NukeMultiShotRenderer(self, node, group, start, end, dependencies, submit)
+                dlg.exec_()
+                return
+            
+        if entity:
+            self.outputEntityOverride = entity
+
         submit = submit if submit is not None else group.knob("submitJob").value()
         if submit:
-            return self.openFarmSubmitter(node, group, dependencies=dependencies)
+            return self.openFarmSubmitter(node, group, dependencies=dependencies, entity=entity, showSubmitUi=showSubmitUi)
 
         taskName = self.getIdentifierFromNode(group)
         if not taskName:
@@ -960,6 +1122,7 @@ class Prism_Nuke_Functions(object):
             "start": start,
             "end": end,
             "identifier": taskName,
+            "entity": entity,
         }
         scenefile = self.core.getCurrentFileName()
         kwargs = {
@@ -981,6 +1144,7 @@ class Prism_Nuke_Functions(object):
         else:
             nuke.execute(node, start, end)
 
+        self.outputEntityOverride = None
         self.getOutputPath(node, group)
         kwargs = {
             "state": self,
@@ -989,6 +1153,7 @@ class Prism_Nuke_Functions(object):
         }
 
         self.core.callback("postRender", **kwargs)
+        return True
 
     @err_catcher(name=__name__)
     def showPrevVersions(self, node: Any, group: Optional[Any] = None) -> None:
@@ -1030,10 +1195,10 @@ class Prism_Nuke_Functions(object):
 
         prevKnob = group.knob("prevFileName")
         if prevKnob:
-            prevKnob.setValue(outputPath)
+            prevKnob.setValue(outputPath.replace("\\", "/"))
             prevKnobE = group.knob("prevFileNameEdit")
             if prevKnobE:
-                prevKnobE.setValue(outputPath)
+                prevKnobE.setValue(outputPath.replace("\\", "/"))
 
     @err_catcher(name=__name__)
     def isNodeRendering(self, node: Any) -> bool:
@@ -1884,6 +2049,22 @@ class Prism_Nuke_Functions(object):
         self.loadMediaForEntity(context, matchingIdfs)
 
     @err_catcher(name=__name__)
+    def buildSceneMultishotSetup(self, step: Dict[str, Any], context: Dict[str, Any]) -> None:
+        """
+        Scene building step function to set up multishot for a sequence.
+        
+        Args:
+            step: Step settings dict.
+            context: Current scene building context dict with entity, department, task info.
+        """
+        entity = self.core.getCurrentScenefileData()
+        if entity.get("type") != "shot":
+            return
+
+        shots = self.core.entities.getShots(sequence=entity.get("sequence"))
+        self.loadShotsIntoNuke(shots)
+
+    @err_catcher(name=__name__)
     def loadMediaForEntity(self, entity: Dict[str, Any], identifiers: list[str]) -> None:
         """Load media files for an entity based on specified identifiers.
         
@@ -1948,17 +2129,21 @@ class Prism_Nuke_Functions(object):
                     node.knob("refresh").execute()
 
     @err_catcher(name=__name__)
-    def onUserNodeCreated(self) -> None:
+    def onUserNodeCreated(self, node: nuke.Node=None) -> None:
         """Callback when user creates a node.
         
         Adds Prism UI elements to Write and Read nodes automatically.
+
+        Args:
+            node: The node that was created (optional, will attempt to get from context if not provided)
         """
-        try:
-            node = nuke.thisNode()
-            bool(node)
-        except Exception:
-            # Node not properly attached in callback context
-            return
+        if not node:
+            try:
+                node = nuke.thisNode()
+                bool(node)
+            except Exception:
+                # Node not properly attached in callback context
+                return
 
         if not node:
             return
@@ -1999,34 +2184,41 @@ class Prism_Nuke_Functions(object):
             cmd = "try:\n\tpcore.getPlugin(\"Nuke\").updateNodeUI(\"read\", nuke.toNode(nuke.thisNode().fullName().rsplit(\".\", 1)[0]))\nexcept:\n\tpass"
             node.knob("knobChanged").setValue(cmd)
 
+        elif nodeClass == "VariableSwitch" and os.getenv("PRISM_NUKE_VAR_SWITCH_ADD_KNOBS", "1") == "1":
+            if not node.knob("tab_prism"):
+                self.addUiToVariableSwitchNode(node)
+
+            self.updateNodeUI("read", node)
+
         kwargs = {"origin": self, "node": node}
         self.core.callback("onNukeNodeCreated", **kwargs)
 
-    @err_catcher(name=__name__)
-    def onRootKnobChanged(self) -> None:
-        """Callback when root node knob changes.
+    # @err_catcher(name=__name__)
+    # def onRootKnobChanged(self) -> None:
+    #     """Callback when root node knob changes.
         
-        Refreshes GSVs when multi-shot GSV knob is modified.
-        """
-        try:
-            knob = nuke.thisKnob()
-        except (ValueError, RuntimeError):
-            return
+    #     Refreshes GSVs when multi-shot GSV knob is modified.
+    #     """
+    #     try:
+    #         knob = nuke.thisKnob()
+    #     except (ValueError, RuntimeError):
+    #         return
 
-        if not knob or knob.name() != "gsv":
-            return
+    #     if not knob or knob.name() != "gsv":
+    #         return
 
-        self.refreshGSVs()
+    #     self.refreshGSVs()
 
     @err_catcher(name=__name__)
-    def onAfterUserSetGsvValue(self, gsv: Any) -> None:
+    def onAfterUserSetGsvValue(self, gsv: str) -> None:
         """Callback after GSV value is set.
         
         Args:
             gsv: The GSV that was modified
         """
-        pass
-        # self.core.popup(gsv)
+        if gsv == "root.prism.shot":
+            self.refreshNukeShotMenu()
+            self.refreshGSVs()
 
     @err_catcher(name=__name__)
     def addUiToWriteNode(self, node: Any) -> None:
@@ -2035,7 +2227,7 @@ class Prism_Nuke_Functions(object):
         Args:
             node: The Write node
         """
-        knobs = ["identifier", "comment", "location", "fileName", "refresh", "startRender", "showPrevVersions", "submitJob", "prevFileName", "openDir"]
+        knobs = ["identifier", "comment", "location", "fileName", "refresh", "startRender", "showPrevVersions", "submitJob", "prevFileName", "openDir", "farmSubmissionSettings"]
         for knob in knobs:
             k = node.knob(knob)
             if k:
@@ -2055,8 +2247,8 @@ class Prism_Nuke_Functions(object):
         node.addKnob(knobVersion)
         knobVersion.setEnabled(False)
         knobAutoVersion = nuke.Boolean_Knob("autoversion", "auto")
+        knobAutoVersion.setValue(True)
         node.addKnob(knobAutoVersion)
-        knobAutoVersion.setValue(1)
         knobPrevVersions = nuke.PyScript_Knob("showPrevVersions", "Show Previous Versions...", "pcore.appPlugin.showPrevVersions(nuke.thisNode())")
         node.addKnob(knobPrevVersions)
         knobLoc = nuke.Enumeration_Knob("location", "location", ["                              "])
@@ -2082,6 +2274,9 @@ class Prism_Nuke_Functions(object):
         node.addKnob(knobOpen)
         knobOpen = nuke.PyScript_Knob("createRead", "Create Read", "pcore.appPlugin.createRead(nuke.thisNode())")
         node.addKnob(knobOpen)
+        knobFarmSettings = nuke.String_Knob("farmSubmissionSettings", "Farm Submission Settings")
+        knobFarmSettings.setVisible(False)
+        node.addKnob(knobFarmSettings)
 
         node.knob("create_directories").setValue(True)
         node.knob("file").setValue("[value fileName]")
@@ -2114,6 +2309,203 @@ class Prism_Nuke_Functions(object):
         node.addKnob(knobBrowse)
         knobExplorer = nuke.PyScript_Knob("openExplorer", "Open In Explorer...", "pcore.appPlugin.readNode_onOpenInClicked(nuke.thisNode())")
         node.addKnob(knobExplorer)
+        self.ensureReadNodeMediaVersionExclusionKnob(node)
+
+    @err_catcher(name=__name__)
+    def ensureReadNodeMediaVersionExclusionKnob(self, node: Any) -> None:
+        """Add the media version exclusion checkbox to Prism Read node UI."""
+        if not node.knob("tab_prism"):
+            return
+
+        if node.knob("excludeFromMediaVersionUpdates"):
+            return
+
+        knobExclude = nuke.Boolean_Knob(
+            "excludeFromMediaVersionUpdates",
+            "Exclude from Manage Media Versions",
+        )
+        node.addKnob(knobExclude)
+
+    @err_catcher(name=__name__)
+    def isReadNodeExcludedFromMediaVersions(self, node: Any) -> bool:
+        """Check whether a Read node should be ignored by Manage Media Versions."""
+        knob = node.knob("excludeFromMediaVersionUpdates")
+        if not knob:
+            return False
+
+        return bool(knob.value())
+
+    @err_catcher(name=__name__)
+    def addUiToVariableSwitchNode(self, node: Any) -> None:
+        """Add Prism UI elements (knobs) to a VariableSwitch node.
+        
+        Args:
+            node: The VariableSwitch node
+        """
+        knobs = ["addShot"]
+        for knob in knobs:
+            k = node.knob(knob)
+            if k:
+                node.removeKnob(k)
+
+        tab = node.knob("tab_prism")
+        if not tab:
+            tab = nuke.Tab_Knob('tab_prism', 'Prism')
+            node.addKnob(tab)
+
+        knobAdd = nuke.PyScript_Knob("addShot", "Add Shot...", "pcore.appPlugin.variableSwitch_onAddShotClicked(nuke.thisNode())")
+        knobAdd.setFlag(nuke.STARTLINE)
+        node.addKnob(knobAdd)
+
+    @err_catcher(name=__name__)
+    def variableSwitch_onAddShotClicked(self, node: Any) -> None:
+        """Handle Add Shot button click on VariableSwitch node.
+        
+        Opens media browser dialog to select media files.
+        
+        Args:
+            node: The VariableSwitch node
+        """
+        if not getattr(self.core, "projectPath", None):
+            self.core.popup("There is no active project in Prism.")
+            return
+        
+        callback = lambda x, insert=False: self.addShotsToVariableSwitchSelected(node, x, insert=insert)
+        dlg = ShotListDlg(self)
+        dlg.entitiesAdded.connect(callback)
+        dlg.entitiesInserted.connect(lambda x: callback(x, insert=True))
+        dlg.exec_()
+
+    @err_catcher(name=__name__)
+    def addShotsToVariableSwitchSelected(self, node, data, insert=False):
+        DOT_SPACING = 200
+        DOT_END_Y_OFFSET = 50   # pixels above the switch
+        DOT_START_Y_OFFSET = 200  # pixels above the switch (higher than _end)
+
+        with self.core.waitPopup(self.core, "Loading Shots. Please wait..."):
+            gsv_knob = nuke.root()["gsv"]
+            if gsv_knob.getGsvValue("prism.shot") is None:
+                gsv_knob.setGsvValue("prism.shot", "")
+
+            if gsv_knob.getDataType("prism.shot") != nuke.gsv.DataType.List:
+                gsv_knob.setDataType("prism.shot", nuke.gsv.DataType.List)
+
+            node.knob("variable").setValue("prism.shot")
+            shots = [shot for shot in data if shot.get("type") == "shot"]
+            # input 0 is reserved as the free default; shots start at index 1
+            existing_input_count = 1
+            while node.input(existing_input_count) is not None:
+                existing_input_count += 1
+
+            switch_x = node.xpos()
+            switch_y = node.ypos()
+            dot_end_y = switch_y - DOT_END_Y_OFFSET
+            dot_start_y = switch_y - DOT_START_Y_OFFSET
+
+            # Whatever is currently wired into switch input 0 becomes the source
+            # for all new _start dots
+            input0_node = node.input(0)
+
+            cur_shots = list(self.getShotsFromScene())
+
+            for i, shot in enumerate(shots):
+                shot_name = self.core.entities.getShotName(shot)
+                input_idx = existing_input_count + i
+
+                dot_x = switch_x + 200 + (input_idx - 1) * DOT_SPACING
+
+                dot_start = nuke.nodes.Dot(
+                    xpos=dot_x,
+                    ypos=dot_start_y,
+                    label=shot_name,
+                    name="shot_%s_start" % shot_name,
+                )
+                if input0_node is not None:
+                    dot_start.connectInput(0, input0_node)
+
+                dot_end = nuke.nodes.Dot(
+                    xpos=dot_x,
+                    ypos=dot_end_y,
+                    label=shot_name,
+                    name="shot_%s_end" % shot_name,
+                )
+                dot_end.connectInput(0, dot_start)
+
+                node.connectInput(input_idx, dot_end)
+                iknob = node.knob("i%d" % input_idx)
+                if iknob is not None:
+                    iknob.setValue(shot_name)
+
+                if shot_name not in cur_shots:
+                    cur_shots.append(shot_name)
+
+            gsv_knob.setListOptions("prism.shot", sorted(cur_shots))
+
+
+
+    # @err_catcher(name=__name__)
+    # def addShotToVariableSwitch(self, node, entity, insert=False):
+    #     shotName = self.core.entities.getShotName(entity)
+    #     shotInName = "shot_switch_start"
+    #     shotIn = node.parent().item(shotInName)
+    #     if not shotIn:
+    #         self.core.popup("Can't find node \"%s\"." % shotInName)
+    #         return
+
+    #     curShotNames = self.getShotsFromVariableSwitch(node)
+    #     if shotName in curShotNames:
+    #         self.core.popup("Shot %s exists already in %s" % (shotName, node.path()))
+    #         return
+
+    #     if insert:
+    #         shotIdx = 0
+    #         for idx, curShotName in enumerate(curShotNames):
+    #             if shotName > curShotName:
+    #                 shotIdx = idx + 1
+
+    #         for idx, curShotName in enumerate(curShotNames):
+    #             if idx >= shotIdx:
+    #                 self.houdini_moveShot(node, idx, x=7)
+
+    #     else:
+    #         shotIdx = len(curShotNames)
+
+    #     NODE_HALF_W   = 34
+    #     COLUMN_WIDTH  = 820
+    #     input_idx    = existing_input_count + i
+    #     col_center_x = base_col_x + shotIdx * COLUMN_WIDTH
+
+    #     shotInNode = node.parent().createNode("null", "shot_in_%s_%s" % (depName, shotName))
+    #     shotInNode.setInput(0, shotIn)
+    #     shotInNode.setPosition(hou.Vector2(node.position().x() + (shotIdx * 7), shotIn.position().y() - 2))
+    #     shotOutNode = node.parent().createNode("null", "shot_out_%s_%s" % (depName, shotName))
+
+    #     shotOutNode.setPosition(hou.Vector2(node.position().x() + (shotIdx * 7), node.position().y() + 2))
+    #     shotIpointNode = node.parent().createNode("insertionpoint", "insertion_point_%s_%s" % (depName, shotName))
+    #     shotIpointNode.parm("descriptor").set("$OS")
+    #     shotOutNode.setInput(0, shotIpointNode)
+
+    #     shotIpointNode.setInput(0, shotInNode)
+    #     shotIpointNode.setPosition(hou.Vector2(shotOutNode.position().x(), shotOutNode.position().y() + 1))
+
+    #     vgroup = nuke.nodes.VariableGroup(
+    #         xpos=col_center_x - NODE_HALF_W,
+    #         ypos=Y_VGROUP,
+    #     )
+    #     vgroup.begin()
+    #     _grp_in  = nuke.nodes.Input(xpos=0, ypos=0)
+    #     _grp_out = nuke.nodes.Output(xpos=0, ypos=200)
+    #     _grp_out.connectInput(0, _grp_in)
+    #     vgroup.end()
+    #     vgroup.connectInput(0, shotInNode)
+
+    #     if not curShotNames and node.inputs():
+    #         node.setInput(0, None)
+
+    #     node.connectInput(shotIdx, shotOutNode)
+    #     iknob = node.knob("i%d" % shotIdx)
+    #     if iknob is not None:
+    #         iknob.setValue(shotName)
 
     @err_catcher(name=__name__)
     def readGizmoCreated(self) -> None:
@@ -2147,7 +2539,7 @@ class Prism_Nuke_Functions(object):
             if knobe:
                 vale = knobe.value()
                 if vale and vale != val:
-                    group.knob("prevFileName").setValue(vale)
+                    group.knob("prevFileName").setValue(vale.replace("\\", "/"))
 
         kwargs = {"origin": self, "node": nuke.thisNode()}
         self.core.callback("onWriteGizmoCreated", **kwargs)
@@ -2195,6 +2587,7 @@ class Prism_Nuke_Functions(object):
                 nuke.thisNode().knob("renderversion").setEnabled(not knob.value())
 
         elif nodeType in ["read"]:
+            self.ensureReadNodeMediaVersionExclusionKnob(node)
             try:
                 if node.knob("file"):
                     node.knob("fileName").setValue(node.knob("file").value())
@@ -2312,16 +2705,18 @@ class Prism_Nuke_Functions(object):
         dlParams["pluginInfos"]["WriteNode"] = origin.node.fullName()
 
     @err_catcher(name=__name__)
-    def openFarmSubmitter(self, node: Any, group: Optional[Any] = None, dependencies: Optional[List[Any]] = None) -> Optional[Any]:
+    def openFarmSubmitter(self, node: Any, group: Optional[Any] = None, dependencies: Optional[List[Any]] = None, entity: Optional[Any] = None, showSubmitUi: bool = True) -> Optional[Any]:
         """Open farm submission dialog for Write node rendering.
         
         Args:
             node: The Write node
             group: The node group
             dependencies: List of dependency jobs
+            entity: Optional entity to use for path calculation
+            showSubmitUi: Whether to show the submit UI
             
         Returns:
-            Error list if failed, None otherwise
+            Error list if failed, True otherwise
         """
         if not group:
             group = node
@@ -2331,7 +2726,7 @@ class Prism_Nuke_Functions(object):
             self.core.popup("Please choose an identifier")
             return
 
-        fileName = self.getOutputPath(node, group, force=True)
+        fileName = self.getOutputPath(node, group, force=True, entity=entity)
         if fileName == "FileNotInPipeline":
             self.core.showFileNotInProjectWarning(title="Warning")
             return
@@ -2375,6 +2770,14 @@ class Prism_Nuke_Functions(object):
         state.ui.group = group
         self.submitter = Farm_Submitter(self, state, dependencies=dependencies)
         self.submitter.loadSettings()
+        if entity:
+            state.ui.allowCustomContext = True
+            state.ui.setContextType("Custom")
+            state.ui.setCustomContext(context=entity)
+            name = "Submit Renderjob - %s - %s" % (self.core.entities.getEntityName(entity), taskName)
+            state.ui.e_name.setText(name)
+            state.ui.nameChanged()
+            
         state.ui.chb_version.setChecked(False)
         state.ui.setTaskname(self.getIdentifierFromNode(group))
         fmt = "." + group.knob("file_type").value()
@@ -2382,10 +2785,17 @@ class Prism_Nuke_Functions(object):
             state.ui.cb_format.addItem(fmt)
 
         state.ui.setFormat(fmt)
-        if self.core.uiAvailable:
-            self.submitter.show()
+        if self.core.uiAvailable and showSubmitUi:
+            if entity:
+                self.submitter.quiet = True
+                self.submitter.exec_()
+            else:
+                self.submitter.show()
+
         else:
-            self.submitter.submit()
+            self.submitter.submit(quiet=not showSubmitUi)
+
+        return True
 
     @err_catcher(name=__name__)
     def openInClicked(self, node: Any, group: Optional[Any] = None) -> None:
@@ -2525,10 +2935,10 @@ class Prism_Nuke_Functions(object):
                             found['others'].add(resolved)
 
         # existence checking
-        found['absolute'] = {p for p in found['all'] if os.path.isabs(p)}
-        # found['relative'] = {p for p in found['all'] if not os.path.isabs(p)}
-        # found['exists'] = {p for p in found['all'] if os.path.exists(p)}
-        # found['missing'] = found['all'] - found['exists']
+        found['absolute'] = [p for p in found['all'] if os.path.isabs(p)]
+        # found['relative'] = [p for p in found['all'] if not os.path.isabs(p)]
+        # found['exists'] = [p for p in found['all'] if os.path.exists(p)]
+        # found['missing'] = [p for p in found['all'] if not os.path.exists(p)]
         [n.setSelected(False) for n in nuke.selectedNodes()]
         [n.setSelected(True) for n in prevSelectedNodes]
         return [found['absolute'], []]
@@ -2599,6 +3009,7 @@ class Prism_Nuke_Functions(object):
         names = factory.getNames()
         flipbook = factory.getApplication(names[0])
 
+        prevFrame = self.getCurrentFrame()
         fb = PrismRenderedFlipbook(dlg, flipbook)
         self.isRenderingFlipbook = True
         fb.doFlipbook(path.replace("\\", "/"), self.getCurrentFrame())
@@ -2611,6 +3022,10 @@ class Prism_Nuke_Functions(object):
 
         [n.setSelected(False) for n in nuke.selectedNodes()]
         [n.setSelected(True) for n in prevSelectedNodes]
+        curFrame = self.getCurrentFrame()
+        if curFrame != prevFrame:  # the flipbook resets the current frame to the first frame in some cases
+            self.setCurrentFrame(prevFrame)
+
         return pm
 
     @err_catcher(name=__name__)
@@ -2626,27 +3041,38 @@ class Prism_Nuke_Functions(object):
         dlg.exec_()
 
     @err_catcher(name=__name__)
-    def loadShotsIntoNuke(self, data: List[Dict[str, Any]], origin: Optional[Any] = None, insert: bool = False) -> None:
+    def loadShotsIntoNuke(self, data: List[Dict[str, Any]], insert: bool = False, node: Optional[Any] = None) -> None:
         """Load shots into Nuke sequencer (multi-shot workflow).
-        
+
+        For each new shot creates an input Dot (connected to Shot_Read), a
+        VariableGroup, and an output Dot (connected to Shot_Switch). All three
+        are covered by a labelled BackdropNode. If a Shot_Switch already exists
+        in the script the new shots are appended to it; otherwise the full
+        Shot_Read / Shot_Switch / Shot_Write setup is created first.
+
         Args:
             data: List of shot data dictionaries
-            origin: The calling instance
             insert: Insert mode flag
+            node: The VariableSwitch node to add shots to
         """
-        node_read = nuke.nodes.Read(name="Shot_Read", xpos=0, ypos=0, file="%{prism.multishot_read}")
-        node_switch = nuke.nodes.VariableSwitch(name="Shot_Switch", xpos=0, ypos=400)
-        node_switch.connectInput(0, node_read)
-        node_write = nuke.nodes.Write(name="Shot_Write", xpos=0, ypos=600, file="%{prism.multishot_write}")
-        node_write.connectInput(0, node_switch)
+        COLUMN_WIDTH  = 820
+        DOT_HALF_W    = 0
+        NODE_HALF_W   = 34
+        BDROP_PAD_X   = 200
+        BDROP_PAD_TOP = 100
+        BDROP_PAD_BOT = 50
+        Y_READ        = -900
+        Y_SWITCH_START = -500
+        Y_INPUT_DOT   = -300
+        Y_VGROUP      = 50
+        Y_OUTPUT_DOT  = 250
+        Y_SWITCH      = 540
+        Y_WRITE       = 740
 
         gsv_knob = nuke.root()["gsv"]
-
         curShots = self.getShotsFromScene()
         newShotNames = [self.core.entities.getShotName(d) for d in data]
-        for newShotName in newShotNames:
-            if newShotName not in curShots:
-                curShots.append(newShotName)
+        newShotNames = [s for s in newShotNames if s not in curShots]
 
         if gsv_knob.getGsvValue("prism.shot") is None:
             gsv_knob.setGsvValue("prism.shot", "")
@@ -2654,8 +3080,227 @@ class Prism_Nuke_Functions(object):
         if gsv_knob.getDataType("prism.shot") != nuke.gsv.DataType.List:
             gsv_knob.setDataType("prism.shot", nuke.gsv.DataType.List)
 
+        if not newShotNames:
+            self.refreshGSVs()
+            self.refreshNukeShotMenu()
+            return
+
+        total_new = len(newShotNames)
+
+        # ---- find or create the shared Read / Switch / Write nodes ----
+        if node and node.Class() == "VariableSwitch":
+            existing_switch = node
+        else:
+            existing_switch = next(
+                (n for n in nuke.allNodes("VariableSwitch") if n.name() == "Shot_Switch"),
+                None,
+            )
+
+        if existing_switch:
+            node_switch = existing_switch
+            node_read = next(
+                (n for n in nuke.allNodes("Read") if n.name() == "Shot_Read"), None
+            )
+            dot_switch_start = next(
+                (n for n in nuke.allNodes("Dot") if n.name() == "shot_switch_start"), None
+            )
+            # count currently wired inputs
+            existing_input_count = 0
+            while node_switch.input(existing_input_count) is not None:
+                existing_input_count += 1
+            base_col_x = existing_input_count * COLUMN_WIDTH
+        else:
+            switch_center_x = int((total_new - 1) / 2.0 * COLUMN_WIDTH)
+            identifiers = [idf.strip() for idf in os.getenv("PRISM_NUKE_MULTISHOT_IDENTIFIERS", "Plate").split(",")]
+            READ_SPACING = 200
+            read_nodes = []
+            read_start_x = switch_center_x - (len(identifiers) - 1) * READ_SPACING // 2
+            # Store sanitized-name → original-identifier map as a JSON string in a flat GSV entry
+            import json as _json
+            idf_map_dict = {}
+            read_node_global_idx = 0
+
+            for r_idx, identifier in enumerate(identifiers):
+                shot_entity = data[0] if data else None
+                version = self.core.mediaProducts.getVersion(
+                    shot_entity, identifier, mediaType="3drenders"
+                )
+                aovs_raw = self.core.mediaProducts.getAOVsFromVersion(version) if version else []
+                aovs_to_create = aovs_raw if aovs_raw else [None]
+                for aov in aovs_to_create:
+                    aov_name = aov["aov"] if aov else ""
+                    idf_with_aov = "%s_%s" % (identifier, aov_name) if aov_name else identifier
+                    sanitized = idf_with_aov.replace(" ", "_").replace("(", "").replace(")", "")
+                    idf_map_dict[sanitized] = {"identifier": identifier, "aov": aov_name}
+                    varname = "prism.multishot_read_%s" % sanitized
+
+                    r_xpos = read_start_x + read_node_global_idx * READ_SPACING - NODE_HALF_W
+                    read_node_global_idx += 1
+
+                    node_read = nuke.nodes.Read(
+                        name="Shot_Read_%s" % sanitized if read_nodes else "Shot_Read",
+                        xpos=r_xpos,
+                        ypos=Y_READ,
+                        file="%%{%s}" % varname,
+                        first=1001,
+                        last=1100,
+                    )
+                    self.addUiToReadNode(node_read)
+                    read_nodes.append(node_read)
+                    if gsv_knob.getGsvValue(varname) is None:
+                        gsv_knob.setGsvValue(varname, "")
+
+            if gsv_knob.getGsvValue("prism.multishot_identifier_map") is None:
+                gsv_knob.setGsvValue("prism.multishot_identifier_map", "")
+            gsv_knob.setGsvValue("prism.multishot_identifier_map", _json.dumps(idf_map_dict))
+
+            # Backdrop behind all read nodes
+            if read_nodes:
+                bd_pad = 60
+                bd_rx = min(n.xpos() for n in read_nodes) - bd_pad
+                bd_ry = Y_READ - bd_pad
+                bd_rw = max(n.xpos() + n.screenWidth() for n in read_nodes) - bd_rx + bd_pad
+                bd_rh = read_nodes[0].screenHeight() + bd_pad * 2
+                nuke.nodes.BackdropNode(
+                    xpos=bd_rx,
+                    bdwidth=bd_rw,
+                    ypos=bd_ry,
+                    bdheight=bd_rh,
+                    tile_color=int("2a2a4aff", 16),
+                    note_font_color=4278190079,
+                    note_font_size=24,
+                    label="<b>Shot Reads</b>",
+                )
+
+            dot_switch_start = nuke.nodes.Dot(
+                xpos=switch_center_x - DOT_HALF_W,
+                ypos=Y_SWITCH_START,
+                label="Shot Switch Start",
+                name="shot_switch_start",
+            )
+            node_switch = nuke.nodes.VariableSwitch(
+                name="Shot_Switch",
+                xpos=switch_center_x - NODE_HALF_W,
+                ypos=Y_SWITCH,
+                variable="prism.shot",
+            )
+            self.addUiToVariableSwitchNode(node_switch)
+            node_write = nuke.nodes.Write(
+                name="Shot_Write",
+                xpos=switch_center_x - NODE_HALF_W,
+                ypos=Y_WRITE,
+                file="%{prism.multishot_write}",
+            )
+            self.onUserNodeCreated(node_write)
+
+            # Backdrop behind the write node
+            wr_pad = 60
+            nuke.nodes.BackdropNode(
+                xpos=node_write.xpos() - wr_pad,
+                bdwidth=node_write.screenWidth() + wr_pad * 2,
+                ypos=node_write.ypos() - wr_pad,
+                bdheight=node_write.screenHeight() + wr_pad * 2,
+                tile_color=int("4a2a2aff", 16),
+                note_font_color=4278190079,
+                note_font_size=24,
+                label="<b>Shot Write</b>",
+            )
+
+            # Only the first read node feeds the switch start dot
+            dot_switch_start.connectInput(0, read_nodes[0])
+            node_write.connectInput(0, node_switch)
+            node_read = read_nodes[0]
+            existing_input_count = 0
+            base_col_x = 0
+
+        # ---- per-shot nodes ----
+        for i, shot_name in enumerate(newShotNames):
+            input_idx    = existing_input_count + i
+            col_center_x = base_col_x + i * COLUMN_WIDTH
+
+            # input dot — sits above the VariableGroup, connected to the Read
+            dot_input = nuke.nodes.Dot(
+                xpos=col_center_x - DOT_HALF_W,
+                ypos=Y_INPUT_DOT,
+                label=shot_name,
+                name="shot_in_%s" % shot_name,
+            )
+            if dot_switch_start is not None:
+                dot_input.connectInput(0, dot_switch_start)
+
+            # VariableGroup — between the two dots with space above.
+            # Must enter the group and create Input/Output nodes inside it first;
+            # nuke.nodes.VariableGroup() does NOT do this automatically, so without
+            # these the node has no connection ports in the graph.
+            vgroup = nuke.nodes.VariableGroup(
+                xpos=col_center_x - NODE_HALF_W,
+                ypos=Y_VGROUP,
+            )
+            vgroup.begin()
+            _grp_in  = nuke.nodes.Input(xpos=0, ypos=0)
+            _grp_out = nuke.nodes.Output(xpos=0, ypos=200)
+            _grp_out.connectInput(0, _grp_in)
+            vgroup.end()
+            vgroup.connectInput(0, dot_input)
+
+            # output dot — feeds into the VariableSwitch
+            dot_output = nuke.nodes.Dot(
+                xpos=col_center_x - DOT_HALF_W,
+                ypos=Y_OUTPUT_DOT,
+                label=shot_name,
+                name="shot_out_%s" % shot_name,
+            )
+            dot_output.connectInput(0, vgroup)
+
+            # wire output dot into the switch and label its input knob
+            node_switch.connectInput(input_idx, dot_output)
+            iknob = node_switch.knob("i%d" % input_idx)
+            if iknob is not None:
+                iknob.setValue(shot_name)
+
+            # backdrop covering dot_input, vgroup and dot_output
+            bd_left   = col_center_x - NODE_HALF_W - BDROP_PAD_X
+            bd_top    = Y_INPUT_DOT  - BDROP_PAD_TOP
+            bd_right  = col_center_x + NODE_HALF_W + BDROP_PAD_X
+            bd_bottom = Y_OUTPUT_DOT + 12 + BDROP_PAD_BOT  # 12 ≈ Dot height
+
+            hex_colour = int("1a2a3aff", 16)  # consistent dark slate-blue for all shot backdrops
+            nuke.nodes.BackdropNode(
+                xpos=bd_left,
+                bdwidth=bd_right - bd_left,
+                ypos=bd_top,
+                bdheight=bd_bottom - bd_top,
+                tile_color=hex_colour,
+                note_font_color=4278190079,  # opaque white
+                note_font_size=24,
+                label="<b>%s</b>" % shot_name,
+            )
+
+            curShots.append(shot_name)
+
+        # ---- update GSVs ----
         gsv_knob.setListOptions("prism.shot", sorted(curShots))
+        
+        # Select and frame all created nodes
+        allCreatedNodes = []
+        for node in nuke.allNodes():
+            # Find nodes that were just created (have shot names in them)
+            try:
+                nodeName = node.name()
+                if any(name in nodeName for name in newShotNames):
+                    allCreatedNodes.append(node)
+                elif node.name() in ["Shot_Read", "shot_switch_start", "Shot_Switch", "Shot_Write"]:
+                    allCreatedNodes.append(node)
+            except:
+                pass
+        
+        # Select all created nodes
+        for node in allCreatedNodes:
+            node.setSelected(True)
+        
         self.refreshGSVs()
+        self.refreshNukeShotMenu()
+        self.setShot(shotName=newShotNames[0] if newShotNames else "")
 
     @err_catcher(name=__name__)
     def refreshGSVs(self) -> None:
@@ -2675,53 +3320,104 @@ class Prism_Nuke_Functions(object):
         if "shot" not in val["prism"]:
             val["prism"]["shot"] = ""
 
-        if "identifier" not in val["prism"]:
-            val["prism"]["identifier"] = ""
-
-        if "version" not in val["prism"]:
-            val["prism"]["version"] = ""
-
-        if "aov" not in val["prism"]:
-            val["prism"]["aov"] = ""
-
-        shotData = val["prism"]["shot"].split("-")
-        if len(shotData) != 2:
-            identifiers = []
+        # Refresh multishot_read_* GSVs for the current shot
+        shotName = gsv_knob.getGsvValue("prism.shot") or ""
+        shotData = shotName.split("-")
+        if len(shotData) == 2:
+            shot_entity = {"type": "shot", "sequence": shotData[0], "shot": shotData[1]}
+            idfs_from_entity = self.core.mediaProducts.getIdentifiersFromEntity(shot_entity)
+            idf_map = {idf["identifier"].lower(): idf for idf in idfs_from_entity}
         else:
-            entity = {"type": "shot", "sequence": shotData[0], "shot": shotData[1]}
-            identifiers = self.core.mediaProducts.getIdentifierNames(entity)
+            shot_entity = None
+            idf_map = {}
 
-        if identifiers:
-            ctx = entity.copy()
-            ctx["identifier"] = val["prism"]["identifier"]
-            versions = sorted([version["version"] for version in self.core.mediaProducts.getVersionsFromContext(ctx)], reverse=True)
-        else:
-            versions = []
+        import json as _json
+        _idf_map_raw = gsv_knob.getGsvValue("prism.multishot_identifier_map") or ""
+        try:
+            idf_name_map = _json.loads(_idf_map_raw) if _idf_map_raw else {}
+            if not isinstance(idf_name_map, dict):
+                idf_name_map = {}
+        except (ValueError, TypeError):
+            logger.warning("Failed to parse prism.multishot_identifier_map GSV. Expected JSON string of dict, got: %s" % _idf_map_raw)
+            idf_name_map = {}
 
-        if versions:
-            ctx["version"] = val["prism"]["version"]
-            if ctx["version"] == "latest":
-                ctx["version"] = versions[0]
+        for key in list(val.get("prism", {}).keys()):
+            if not key.startswith("multishot_read_"):
+                continue
+            sanitized = key[len("multishot_read_"):]
+            varname = "prism.%s" % key
+            readpath = ""
+            entry = idf_name_map.get(sanitized)
+            # Support new dict format {"identifier": ..., "aov": ...} and legacy str format
+            if isinstance(entry, dict):
+                original_identifier = entry.get("identifier", sanitized)
+                aov_name = entry.get("aov") or None
+            else:
+                original_identifier = entry if isinstance(entry, str) else sanitized
+                aov_name = None
 
-            aovs = [aov["aov"] for aov in self.core.mediaProducts.getAOVsFromVersion(ctx)]
-        else:
-            aovs = []
+            matched_idf = idf_map.get(original_identifier.lower())
+            if matched_idf and shot_entity:
+                version = self.core.mediaProducts.getVersion(
+                    shot_entity, matched_idf["identifier"], mediaType=matched_idf.get("mediaType")
+                )
+                if version:
+                    readpath = self.core.mediaProducts.getFileFromVersion(version, aov=aov_name, findExisting=True) or ""
+                    readpath = readpath.replace("\\", "/")
 
-        readpath = ""
-        if versions:
-            ctx["aov"] = val["prism"]["aov"]
-            mediaFiles = self.core.mediaProducts.getFilesFromContext(ctx)
-            validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
-            if validFiles:
-                validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
-                seqFiles = self.core.media.detectSequences(validFiles)
-                if seqFiles:
-                    readpath = list(seqFiles)[0].replace("\\", "/")
+            if not readpath:
+                logger.warning("No media file found for shot '%s' with identifier '%s' and AOV '%s'. Setting empty path." % (shotName, original_identifier, aov_name))
 
-        writepath = self.core.projectPath + "test_write.exr"
+            if gsv_knob.getGsvValue(varname) != readpath:
+                gsv_knob.setGsvValue(varname, readpath)
 
-        val["prism"]["multishot_read"] = readpath
-        val["prism"]["multishot_write"] = writepath
+        # if "identifier" not in val["prism"]:
+        #     val["prism"]["identifier"] = ""
+
+        # if "version" not in val["prism"]:
+        #     val["prism"]["version"] = ""
+
+        # if "aov" not in val["prism"]:
+        #     val["prism"]["aov"] = ""
+
+        # shotData = val["prism"]["shot"].split("-")
+        # if len(shotData) != 2:
+        #     identifiers = []
+        # else:
+        #     entity = {"type": "shot", "sequence": shotData[0], "shot": shotData[1]}
+        #     identifiers = self.core.mediaProducts.getIdentifierNames(entity)
+
+        # if identifiers:
+        #     ctx = entity.copy()
+        #     ctx["identifier"] = val["prism"]["identifier"]
+        #     versions = sorted([version["version"] for version in self.core.mediaProducts.getVersionsFromContext(ctx)], reverse=True)
+        # else:
+        #     versions = []
+
+        # if versions:
+        #     ctx["version"] = val["prism"]["version"]
+        #     if ctx["version"] == "latest":
+        #         ctx["version"] = versions[0]
+
+        #     aovs = [aov["aov"] for aov in self.core.mediaProducts.getAOVsFromVersion(ctx)]
+        # else:
+        #     aovs = []
+
+        # readpath = ""
+        # if versions:
+        #     ctx["aov"] = val["prism"]["aov"]
+        #     mediaFiles = self.core.mediaProducts.getFilesFromContext(ctx)
+        #     validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
+        #     if validFiles:
+        #         validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
+        #         seqFiles = self.core.media.detectSequences(validFiles)
+        #         if seqFiles:
+        #             readpath = list(seqFiles)[0].replace("\\", "/")
+
+        # writepath = self.core.projectPath + "test_write.exr"
+
+        # val["prism"]["multishot_read"] = readpath
+        # val["prism"]["multishot_write"] = writepath
         if val != origVal:
             gsv_knob.setValue(val)
 
@@ -2734,29 +3430,29 @@ class Prism_Nuke_Functions(object):
             gsv_knob.setListOptions("prism.shot", curShots)
             changed = True
 
-        if gsv_knob.getDataType("prism.identifier") != nuke.gsv.DataType.List:
-            gsv_knob.setDataType("prism.identifier", nuke.gsv.DataType.List)
-            gsv_knob.setFavorite("prism.identifier", True)
+        # if gsv_knob.getDataType("prism.identifier") != nuke.gsv.DataType.List:
+        #     gsv_knob.setDataType("prism.identifier", nuke.gsv.DataType.List)
+        #     gsv_knob.setFavorite("prism.identifier", True)
 
-        if gsv_knob.getListOptions("prism.identifier") != sorted(identifiers):
-            gsv_knob.setListOptions("prism.identifier", sorted(identifiers))
-            changed = True
+        # if gsv_knob.getListOptions("prism.identifier") != sorted(identifiers):
+        #     gsv_knob.setListOptions("prism.identifier", sorted(identifiers))
+        #     changed = True
 
-        if gsv_knob.getDataType("prism.version") != nuke.gsv.DataType.List:
-            gsv_knob.setDataType("prism.version", nuke.gsv.DataType.List)
-            gsv_knob.setFavorite("prism.version", True)
+        # if gsv_knob.getDataType("prism.version") != nuke.gsv.DataType.List:
+        #     gsv_knob.setDataType("prism.version", nuke.gsv.DataType.List)
+        #     gsv_knob.setFavorite("prism.version", True)
 
-        if gsv_knob.getListOptions("prism.version") != ["latest"] + sorted(versions):
-            gsv_knob.setListOptions("prism.version", ["latest"] + sorted(versions))
-            changed = True
+        # if gsv_knob.getListOptions("prism.version") != ["latest"] + sorted(versions):
+        #     gsv_knob.setListOptions("prism.version", ["latest"] + sorted(versions))
+        #     changed = True
 
-        if gsv_knob.getDataType("prism.aov") != nuke.gsv.DataType.List:
-            gsv_knob.setDataType("prism.aov", nuke.gsv.DataType.List)
-            gsv_knob.setFavorite("prism.aov", True)
+        # if gsv_knob.getDataType("prism.aov") != nuke.gsv.DataType.List:
+        #     gsv_knob.setDataType("prism.aov", nuke.gsv.DataType.List)
+        #     gsv_knob.setFavorite("prism.aov", True)
 
-        if gsv_knob.getListOptions("prism.aov") != sorted(aovs):
-            gsv_knob.setListOptions("prism.aov", sorted(aovs))
-            changed = True
+        # if gsv_knob.getListOptions("prism.aov") != sorted(aovs):
+        #     gsv_knob.setListOptions("prism.aov", sorted(aovs))
+        #     changed = True
 
         if changed:
             self.refreshGSVs()
@@ -2989,8 +3685,282 @@ class Prism_Nuke_Functions(object):
         if hasattr(self, "dlg_mediaVersions") and self.core.isObjectValid(self.dlg_mediaVersions) and self.dlg_mediaVersions.isVisible():
             self.dlg_mediaVersions.close()
 
-        self.dlg_mediaVersions = MediaVersionsDialog(self)
+        self.dlg_mediaVersions = MediaVersionsDialog(self, useSelectedReadNodes=True)
         self.dlg_mediaVersions.show()
+
+
+class NukeMultiShotRenderer(QDialog):
+    """Dialog for rendering or submitting all shots in a multi-shot Nuke script."""
+
+    def __init__(self, plugin: Any, node: Any, group: Optional[Any] = None, start: Optional[int] = None, end: Optional[int] = None, dependencies: Optional[List[Any]] = None, submit: Optional[bool] = None) -> None:
+        """Initialize multi-shot renderer dialog.
+
+        Args:
+            plugin: The Nuke plugin instance
+            node: The Write node
+            group: The node group (WritePrism gizmo)
+            start: Start frame
+            end: End frame
+            dependencies: List of dependency jobs
+            submit: Whether to submit to farm (overrides node knob)
+        """
+        super(NukeMultiShotRenderer, self).__init__()
+        self.plugin = plugin
+        self.core = plugin.core
+        self.node = node
+        self.group = group if group is not None else node
+        self.start = start
+        self.end = end
+        self.dependencies = dependencies
+        self.submit = submit if submit is not None else self.group.knob("submitJob").value()
+        self.core.parentWindow(self)
+        self.setupUi()
+        self.loadShots()
+
+    @err_catcher(name=__name__)
+    def sizeHint(self) -> QSize:
+        return QSize(1000, 500)
+
+    @err_catcher(name=__name__)
+    def setupUi(self) -> None:
+        """Build the dialog UI."""
+        actionText = "Submit Jobs" if self.submit else "Render Locally"
+        self.setWindowTitle("Prism - %s - All Shots" % actionText)
+        self.lo_main = QVBoxLayout()
+        self.setLayout(self.lo_main)
+
+        # Top toolbar
+        self.lo_top = QHBoxLayout()
+        self.lo_top.addStretch()
+
+        self.btn_checkAll = QToolButton()
+        self.btn_checkAll.setFocusPolicy(Qt.NoFocus)
+        self.btn_checkAll.setText("All")
+        self.btn_checkAll.setToolTip("Check All Shots")
+        self.btn_checkAll.clicked.connect(self.checkAll)
+        self.lo_top.addWidget(self.btn_checkAll)
+
+        self.btn_uncheckAll = QToolButton()
+        self.btn_uncheckAll.setFocusPolicy(Qt.NoFocus)
+        self.btn_uncheckAll.setText("None")
+        self.btn_uncheckAll.setToolTip("Uncheck All Shots")
+        self.btn_uncheckAll.clicked.connect(self.uncheckAll)
+        self.lo_top.addWidget(self.btn_uncheckAll)
+
+        self.btn_refresh = QToolButton()
+        self.btn_refresh.setFocusPolicy(Qt.NoFocus)
+        refreshIconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png")
+        self.btn_refresh.setIcon(self.core.media.getColoredIcon(refreshIconPath))
+        self.btn_refresh.setToolTip("Refresh Shots")
+        self.btn_refresh.clicked.connect(self.loadShots)
+        self.lo_top.addWidget(self.btn_refresh)
+
+        self.lo_main.addLayout(self.lo_top)
+
+        # Shot list
+        self.tw_shots = QTreeWidget()
+        self.tw_shots.setHeaderLabels(["Enabled", "Shot", "Start", "End"])
+        self.tw_shots.setAlternatingRowColors(True)
+        self.tw_shots.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.tw_shots.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tw_shots.customContextMenuRequested.connect(self.onContextMenu)
+        self.tw_shots.itemChanged.connect(self.onItemChanged)
+        self.tw_shots.setIconSize(QSize(100, 56))
+        self.lo_main.addWidget(self.tw_shots)
+
+        # Bottom buttons
+        self.bb_main = QDialogButtonBox()
+        self.btn_render = self.bb_main.addButton(actionText, QDialogButtonBox.AcceptRole)
+        self.btn_cancel = self.bb_main.addButton("Cancel", QDialogButtonBox.RejectRole)
+        self.bb_main.accepted.connect(self.onRenderClicked)
+        self.bb_main.rejected.connect(self.reject)
+        self.lo_main.addWidget(self.bb_main)
+
+    @err_catcher(name=__name__)
+    def loadShots(self) -> None:
+        """Load shots from scene and populate tree widget."""
+        self.tw_shots.blockSignals(True)
+        self.tw_shots.clear()
+
+        shots = self.plugin.getShotsFromScene()
+        scriptStart = int(nuke.root().knob("first_frame").value())
+        scriptEnd = int(nuke.root().knob("last_frame").value())
+
+        for shotName in shots:
+            item = QTreeWidgetItem(self.tw_shots)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.Checked)
+            item.setText(1, shotName)
+
+            preview = self.getShotPreview(shotName)
+            if preview:
+                item.setIcon(1, QIcon(preview))
+
+            start, end = self.getShotFrameRange(shotName, scriptStart, scriptEnd)
+
+            sb_start = QSpinBox()
+            sb_start.setRange(-99999, 99999)
+            sb_start.setValue(start)
+            sb_start.setButtonSymbols(QAbstractSpinBox.NoButtons)
+            self.tw_shots.setItemWidget(item, 2, sb_start)
+
+            sb_end = QSpinBox()
+            sb_end.setRange(-99999, 99999)
+            sb_end.setValue(end)
+            sb_end.setButtonSymbols(QAbstractSpinBox.NoButtons)
+            self.tw_shots.setItemWidget(item, 3, sb_end)
+
+        self.tw_shots.resizeColumnToContents(0)
+        self.tw_shots.setColumnWidth(0, self.tw_shots.columnWidth(0) + 20)
+        self.tw_shots.resizeColumnToContents(1)
+        self.tw_shots.resizeColumnToContents(2)
+        self.tw_shots.setColumnWidth(2, max(self.tw_shots.columnWidth(2) + 20, 70))
+        self.tw_shots.resizeColumnToContents(3)
+        self.tw_shots.setColumnWidth(3, max(self.tw_shots.columnWidth(3) + 20, 70))
+        self.tw_shots.blockSignals(False)
+
+    @err_catcher(name=__name__)
+    def getShotFrameRange(self, shotName: str, fallbackStart: Optional[int] = None, fallbackEnd: Optional[int] = None) -> tuple:
+        """Get start/end frame range for a shot from Prism entities.
+
+        Args:
+            shotName: Shot name string
+            fallbackStart: Start frame to use if shot range not found
+            fallbackEnd: End frame to use if shot range not found
+
+        Returns:
+            Tuple of (start, end) as ints
+        """
+        shot = {"type": "shot", "shot": shotName.split("-")[1], "sequence": shotName.split("-")[0]}
+        frameRange = self.core.entities.getShotRange(shot, handles=True)
+        if frameRange:
+            return frameRange
+
+        if fallbackStart is not None and fallbackEnd is not None:
+            return fallbackStart, fallbackEnd
+
+        return (
+            int(nuke.root().knob("first_frame").value()),
+            int(nuke.root().knob("last_frame").value()),
+        )
+
+    @err_catcher(name=__name__)
+    def getShotPreview(self, shotName: str) -> Optional[Any]:
+        """Get scaled preview pixmap for a shot.
+
+        Args:
+            shotName: Shot name string
+
+        Returns:
+            Scaled QPixmap or None
+        """
+        try:
+            shots = self.core.entities.getShots()
+            shot = next((s for s in shots if self.core.entities.getEntityName(s) == shotName), None)
+            if not shot:
+                return None
+
+            preview = self.core.entities.getEntityPreview(shot)
+            if preview:
+                return preview.scaled(100, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        except Exception:
+            pass
+
+        return None
+
+    @err_catcher(name=__name__)
+    def onItemChanged(self, item: Any, column: int) -> None:
+        """Gray out unchecked shots."""
+        if column == 0:
+            enabled = item.checkState(0) == Qt.Checked
+            color = self.tw_shots.palette().color(QPalette.Text) if enabled else QColor(Qt.gray)
+            for col in range(self.tw_shots.columnCount()):
+                item.setForeground(col, color)
+
+    @err_catcher(name=__name__)
+    def onContextMenu(self, pos: Any) -> None:
+        """Show check/uncheck context menu."""
+        menu = QMenu(self)
+        act_checkAll = QAction("Check All", self)
+        act_checkAll.triggered.connect(self.checkAll)
+        menu.addAction(act_checkAll)
+        act_uncheckAll = QAction("Uncheck All", self)
+        act_uncheckAll.triggered.connect(self.uncheckAll)
+        menu.addAction(act_uncheckAll)
+        menu.exec_(self.tw_shots.viewport().mapToGlobal(pos))
+
+    @err_catcher(name=__name__)
+    def checkAll(self) -> None:
+        """Check all shots."""
+        for i in range(self.tw_shots.topLevelItemCount()):
+            self.tw_shots.topLevelItem(i).setCheckState(0, Qt.Checked)
+
+    @err_catcher(name=__name__)
+    def uncheckAll(self) -> None:
+        """Uncheck all shots."""
+        for i in range(self.tw_shots.topLevelItemCount()):
+            self.tw_shots.topLevelItem(i).setCheckState(0, Qt.Unchecked)
+
+    @err_catcher(name=__name__)
+    def getEnabledShots(self) -> List[str]:
+        """Return list of checked shot names."""
+        shots = []
+        for i in range(self.tw_shots.topLevelItemCount()):
+            item = self.tw_shots.topLevelItem(i)
+            if item.checkState(0) == Qt.Checked:
+                shots.append(item.text(1))
+        return shots
+
+    @err_catcher(name=__name__)
+    def onRenderClicked(self) -> None:
+        """Render or submit each enabled shot sequentially."""
+        if not self.getEnabledShots():
+            self.core.popup("No shots selected.")
+            return
+
+        self.accept()
+
+        # Remember original shot to restore after all renders
+        currentShot = nuke.root()["gsv"].getGsvValue("prism.shot") or ""
+        success = True
+        for i in range(self.tw_shots.topLevelItemCount()):
+            item = self.tw_shots.topLevelItem(i)
+            if item.checkState(0) != Qt.Checked:
+                continue
+            shotName = item.text(1)
+            sb_start = self.tw_shots.itemWidget(item, 2)
+            sb_end = self.tw_shots.itemWidget(item, 3)
+            shotStart = sb_start.value() if sb_start else self.start
+            shotEnd = sb_end.value() if sb_end else self.end
+            self.plugin.setShot(shotName)
+            entity = {"type": "shot", "sequence": shotName.split("-")[0], "shot": shotName.split("-")[1]}
+            mods = QApplication.keyboardModifiers()
+            showSubmitUi = self.submit and i == 0 and mods != Qt.ControlModifier  # Show submit UI only for the first shot
+            result = self.plugin.startRender(
+                self.node,
+                self.group,
+                start=shotStart,
+                end=shotEnd,
+                dependencies=self.dependencies,
+                submit=self.submit,
+                _skipMultiShot=True,
+                entity=entity,
+                showSubmitUi=showSubmitUi,
+            )
+            if not result:
+                logger.debug("Render failed or cancelled for shot %s, stopping further renders.", shotName)
+                success = False
+                break
+
+        # Restore the original shot context
+        self.plugin.setShot(currentShot)
+        if success:
+            if self.submit:
+                msg = "Render jobs submitted for %d shot(s)." % len(self.getEnabledShots())
+            else:
+                msg = "Rendering completed for %d shot(s)." % len(self.getEnabledShots())
+
+            self.core.popup(msg, severity="info")
 
 
 if nuke.env.get("gui") and "fnFlipbookRenderer" in globals():
@@ -3066,6 +4036,7 @@ class Farm_Submitter(QDialog):
         self.core = self.plugin.core
         self.core.parentWindow(self)
         self.state = state
+        self.quiet = False
         self.dependencies = dependencies
         self.setupUi()
 
@@ -3107,23 +4078,49 @@ class Farm_Submitter(QDialog):
 
     @err_catcher(name=__name__)
     def saveCurrentSettings(self) -> None:
-        """Save current farm submission settings to user config."""
+        """Save current farm submission settings to user config and node knob."""
+        import json
         settings = self.state.ui.getStateProps()
-        self.core.setConfig("nuke", "renderSubmissionSettings", val=settings, config="user")
+        group = getattr(self.state.ui, "group", None)
+        if group:
+            knob = group.knob("farmSubmissionSettings")
+            if knob:
+                try:
+                    knob.setValue(json.dumps(settings))
+                except Exception:
+                    pass
 
     @err_catcher(name=__name__)
     def loadSettings(self, settings: Optional[Dict[str, Any]] = None) -> None:
         """Load farm submission settings.
+
+        Loads from the node's farmSubmissionSettings knob if present,
+        otherwise falls back to user config.
         
         Args:
-            settings: Settings dictionary, or None to load from config
+            settings: Settings dictionary, or None to load from node knob / config
         """
-        settings = settings or self.core.getConfig("nuke", "renderSubmissionSettings") or {}
-        self.state.ui.loadData(settings)
+        if settings is None:
+            import json
+            group = getattr(self.state.ui, "group", None)
+            if group:
+                knob = group.knob("farmSubmissionSettings")
+                if knob and knob.getText():
+                    try:
+                        settings = json.loads(knob.getText())
+                    except Exception:
+                        pass
+
+        if settings:
+            self.state.ui.loadData(settings)
 
     @err_catcher(name=__name__)
-    def submit(self) -> None:
-        """Submit render job to farm."""
+    def submit(self, quiet=False) -> None:
+        """Submit render job to farm.
+        
+        Args:
+            quiet: If True, suppress success popup
+        """
         self.hide()
         self.state.ui.gb_submit.setCheckable(True)
         self.state.ui.gb_submit.setChecked(True)
@@ -3147,16 +4144,19 @@ class Farm_Submitter(QDialog):
         prevKnob = self.state.ui.group.knob("prevFileName")
         if prevKnob:
             path = self.state.ui.l_pathLast.text() or "-"
-            prevKnob.setValue(path)
+            prevKnob.setValue(path.replace("\\", "/"))
             prevKnobE = self.state.ui.group.knob("prevFileNameEdit")
             if prevKnobE:
-                prevKnobE.setValue(path)
+                prevKnobE.setValue(path.replace("\\", "/"))
 
         sm.deleteState(self.state)
         self.plugin.getOutputPath(self.state.ui.node, self.state.ui.group)
         if result:
             msg = "Job submitted successfully."
-            self.core.popup(msg, severity="info")
+            if quiet or self.quiet:
+                logger.info(msg)
+            else:
+                self.core.popup(msg, severity="info")
 
         self.close()
 
@@ -3624,17 +4624,27 @@ class ReadMediaDialog(QDialog):
 class MediaVersionsDialog(QDialog):
     """Non-modal dialog for managing media versions in Read nodes"""
     
-    def __init__(self, plugin: Any) -> None:
+    def __init__(self, plugin: Any, useSelectedReadNodes: bool = False) -> None:
         """Initialize media versions management dialog.
         
         Args:
             plugin: The Nuke plugin instance
+            useSelectedReadNodes: Use selected Read nodes when available
         """
         super(MediaVersionsDialog, self).__init__()
         self.plugin = plugin
         self.core = plugin.core
+        self.useSelectedReadNodes = useSelectedReadNodes
         self.groupByShot = False
         self.nodeItems = []
+        self.shotContextPlaceholderText = "Switch Shot..."
+        self.noReadNodeSelectedPlaceholderText = "No Read Node Selected"
+        self.shotContextComboPopulated = False
+        self.shotContextComboShots = []
+        self.syncingShotContextCombo = False
+        self.suspendNukeSelectionSync = False
+        self.readNodesForRefreshOverride = None
+        self.shotContextComboShowsShots = False
         
         self.setupUi()
         self.connectEvents()
@@ -3658,6 +4668,14 @@ class MediaVersionsDialog(QDialog):
         self.btn_refresh = QPushButton("Refresh")
         self.btn_refresh.setToolTip("Refresh the list of Read nodes")
         toolbar.addWidget(self.btn_refresh)
+
+        self.l_shotContext = QLabel("Shot:")
+        toolbar.addWidget(self.l_shotContext)
+        self.cb_shotContext = QComboBox()
+        self.cb_shotContext.setMinimumWidth(180)
+        self.cb_shotContext.setToolTip("Switch managed Read nodes to another shot")
+        self.cb_shotContext.addItem(self.noReadNodeSelectedPlaceholderText, None)
+        toolbar.addWidget(self.cb_shotContext)
         toolbar.addStretch()
         
         layout.addLayout(toolbar)
@@ -3698,9 +4716,73 @@ class MediaVersionsDialog(QDialog):
     def connectEvents(self) -> None:
         """Connect UI events to handler methods."""
         self.btn_refresh.clicked.connect(self.refreshNodes)
+        self.cb_shotContext.activated.connect(self.onShotContextChanged)
         self.tree.customContextMenuRequested.connect(self.showContextMenu)
         self.tree.itemSelectionChanged.connect(self.onSelectionChanged)
         self.tree.itemDoubleClicked.connect(self.onItemDoubleClicked)
+
+    @err_catcher(name=__name__)
+    def showEvent(self, event: Any) -> None:
+        """Populate the shot switch combo only when the dialog is shown."""
+        super(MediaVersionsDialog, self).showEvent(event)
+        if not self.shotContextComboPopulated:
+            self.populateShotContextCombo()
+
+        self.syncShotContextComboToSelection()
+
+    @err_catcher(name=__name__)
+    def populateShotContextCombo(self) -> None:
+        """Load available shots into the shot switch combo."""
+        currentText = self.cb_shotContext.currentText()
+        self.syncingShotContextCombo = True
+        try:
+            shots = self.core.entities.getShots()
+            self.shotContextComboShots = sorted(shots, key=lambda shot: (self.core.entities.getShotName(shot) or "").lower())
+            self.shotContextComboPopulated = True
+            self.rebuildShotContextCombo(showShots=self.hasSelectedReadNodeItem())
+            idx = self.cb_shotContext.findText(currentText)
+            if idx != -1:
+                self.cb_shotContext.setCurrentIndex(idx)
+
+        finally:
+            self.syncingShotContextCombo = False
+
+    @err_catcher(name=__name__)
+    def rebuildShotContextCombo(self, showShots: bool) -> None:
+        """Switch shot combo contents between no-selection placeholder and shot list."""
+        if self.shotContextComboShowsShots == showShots and self.cb_shotContext.count():
+            return
+
+        self.cb_shotContext.clear()
+        if not showShots:
+            self.cb_shotContext.addItem(self.noReadNodeSelectedPlaceholderText, None)
+            self.shotContextComboShowsShots = False
+            return
+
+        self.cb_shotContext.addItem(self.shotContextPlaceholderText, None)
+        for shot in getattr(self, "shotContextComboShots", []):
+            shotName = self.core.entities.getShotName(shot)
+            if not shotName:
+                continue
+
+            self.cb_shotContext.addItem(shotName, shot)
+
+        self.shotContextComboShowsShots = True
+
+    @err_catcher(name=__name__)
+    def hasSelectedReadNodeItem(self) -> bool:
+        """Check whether the dialog tree has a selected managed Read row."""
+        for item in self.tree.selectedItems():
+            try:
+                data = item.data(0, Qt.UserRole) or {}
+            except Exception:
+                continue
+
+            node = data.get("node") if isinstance(data, dict) else None
+            if node:
+                return True
+
+        return False
 
     @err_catcher(name=__name__)
     def getOutdatedMedia(self) -> List[Any]:
@@ -3720,18 +4802,51 @@ class MediaVersionsDialog(QDialog):
     @err_catcher(name=__name__)
     def refreshNodes(self) -> None:
         """Scan all Read nodes and populate the tree widget."""
-        self.tree.clear()
-        self.nodeItems = []
+        selectedNodeNames = self.getSelectedNodeNames()
+        wasSuspended = self.suspendNukeSelectionSync
+        self.suspendNukeSelectionSync = True
+        try:
+            self.tree.clear()
+            self.nodeItems = []
+        finally:
+            self.suspendNukeSelectionSync = wasSuspended
         
         # Get all Read nodes in the script
-        readNodes = [node for node in nuke.allNodes(recurseGroups=True) if node.Class() in ["Read", "DeepRead"]]
+        allReadNodes = [node for node in nuke.allNodes(recurseGroups=True) if node.Class() in ["Read", "DeepRead"]]
+        usingSelectedReadNodes = False
+        if self.readNodesForRefreshOverride is not None:
+            readNodes = []
+            for node in self.readNodesForRefreshOverride:
+                try:
+                    if node.Class() in ["Read", "DeepRead"]:
+                        readNodes.append(node)
+                except Exception:
+                    pass
+
+            usingSelectedReadNodes = self.useSelectedReadNodes
+
+        else:
+            readNodes = allReadNodes
+
+        if self.readNodesForRefreshOverride is None and self.useSelectedReadNodes:
+            selectedReadNodes = [node for node in allReadNodes if node.isSelected()]
+            if selectedReadNodes:
+                readNodes = selectedReadNodes
+                usingSelectedReadNodes = True
         
-        if not readNodes:
+        if not allReadNodes:
             self.statusLabel.setText("No Read nodes found in script")
+            self.syncShotContextComboToSelection()
             return
             
         items = []
         for node in readNodes:
+            if node.Class() == "Read" and node.knob("tab_prism"):
+                self.plugin.ensureReadNodeMediaVersionExclusionKnob(node)
+
+            if self.plugin.isReadNodeExcludedFromMediaVersions(node):
+                continue
+
             item = self.createTreeItem(node)
             if item:
                 items.append(item)
@@ -3747,7 +4862,11 @@ class MediaVersionsDialog(QDialog):
             self.createVersionComboBox(item)
 
         self.nodeItems = items
-        self.statusLabel.setText(f"Found {len(items)} Read nodes")
+        if usingSelectedReadNodes:
+            self.statusLabel.setText(f"Found {len(items)} selected managed Read nodes")
+        else:
+            self.statusLabel.setText(f"Found {len(items)} managed Read nodes")
+
         self.tree.expandAll()
         self.tree.resizeColumnToContents(0)
         self.tree.setColumnWidth(0, self.tree.columnWidth(0) + 20)
@@ -3757,6 +4876,50 @@ class MediaVersionsDialog(QDialog):
         self.tree.setColumnWidth(2, self.tree.columnWidth(2) + 20)
         self.tree.resizeColumnToContents(3)
         self.tree.setColumnWidth(3, self.tree.columnWidth(3) + 20)
+        self.restoreSelectedNodeNames(selectedNodeNames)
+        self.syncShotContextComboToSelection()
+
+    @err_catcher(name=__name__)
+    def getSelectedNodeNames(self) -> List[str]:
+        """Return full node names selected in the dialog tree."""
+        nodeNames = []
+        for item in self.tree.selectedItems():
+            try:
+                data = item.data(0, Qt.UserRole) or {}
+            except Exception:
+                continue
+
+            node = data.get("node") if isinstance(data, dict) else None
+            if not node:
+                continue
+
+            try:
+                nodeNames.append(node.fullName())
+            except Exception:
+                pass
+
+        return nodeNames
+
+    @err_catcher(name=__name__)
+    def restoreSelectedNodeNames(self, nodeNames: List[str]) -> None:
+        """Restore dialog tree selection by full node name after refresh."""
+        if not nodeNames:
+            return
+
+        nodeNames = set(nodeNames)
+        wasSuspended = self.suspendNukeSelectionSync
+        self.suspendNukeSelectionSync = True
+        try:
+            for item in self.nodeItems:
+                try:
+                    data = item.data(0, Qt.UserRole) or {}
+                    node = data.get("node") if isinstance(data, dict) else None
+                    if node and node.fullName() in nodeNames:
+                        item.setSelected(True)
+                except Exception:
+                    pass
+        finally:
+            self.suspendNukeSelectionSync = wasSuspended
 
     @err_catcher(name=__name__)
     def createTreeItem(self, node: Any) -> Optional[Any]:
@@ -3869,6 +5032,9 @@ class MediaVersionsDialog(QDialog):
                 - ('update available', '#AF571C') if newer version exists
                 - ('unknown', '#636363') if status cannot be determined
         """
+        if filepath and "Prism_missing_media" in filepath.replace("\\", "/"):
+            return "error", "#8A1F1F"
+
         if not filepath or not currentVersion:
             return "unknown", "#636363"  # Gray background
         
@@ -3968,7 +5134,303 @@ class MediaVersionsDialog(QDialog):
         
         # Sort versions (latest first)
         return sorted(versionNames, reverse=True)
-    
+
+    @err_catcher(name=__name__)
+    def syncShotContextComboToSelection(self) -> None:
+        """Select the current shot of the selected Read node in the shot combo."""
+        if self.syncingShotContextCombo:
+            return
+
+        shotName = ""
+        selectedItems = self.tree.selectedItems()
+        hasSelectedReadNode = False
+        for item in selectedItems:
+            try:
+                data = item.data(0, Qt.UserRole) or {}
+            except Exception:
+                continue
+
+            node = data.get("node") if isinstance(data, dict) else None
+            if not node:
+                continue
+
+            hasSelectedReadNode = True
+            pathData = self.getShotContextFromReadNode(node)
+            if not pathData:
+                continue
+
+            shotName = self.core.entities.getShotName(pathData) or ""
+            if shotName:
+                break
+
+        self.syncingShotContextCombo = True
+        try:
+            if self.shotContextComboPopulated:
+                self.rebuildShotContextCombo(showShots=hasSelectedReadNode)
+
+            idx = 0
+            if shotName and hasSelectedReadNode and self.shotContextComboPopulated:
+                idx = self.cb_shotContext.findText(shotName)
+                if idx == -1:
+                    idx = 0
+
+            self.cb_shotContext.setCurrentIndex(idx)
+        finally:
+            self.syncingShotContextCombo = False
+
+    @err_catcher(name=__name__)
+    def getShotContextFromReadNode(self, node: Any) -> Optional[Dict[str, Any]]:
+        """Get shot media context from a Read node file path."""
+        filepath = node.knob("file").value() or ""
+        if not filepath:
+            return None
+
+        filepath = self.plugin.expandEnvVarsInFilepath(filepath)
+        mediaType = self.core.mediaProducts.getMediaTypeFromPath(filepath) or "2drenders"
+        pathData = self.core.paths.getMediaProductData(filepath, mediaType=mediaType)
+        if not pathData:
+            pathData = self.getContextFromFilepath(filepath)
+
+        if not pathData or pathData.get("type") != "shot":
+            return None
+
+        if not pathData.get("sequence") or not pathData.get("shot"):
+            return None
+
+        return pathData
+
+    @err_catcher(name=__name__)
+    def onShotContextChanged(self, index: int) -> None:
+        """Switch managed Read nodes to the shot selected in the toolbar combo."""
+        if self.syncingShotContextCombo:
+            return
+
+        if not isinstance(index, int):
+            index = self.cb_shotContext.findText(index)
+
+        targetShot = self.cb_shotContext.itemData(index)
+        if not targetShot:
+            return
+
+        targetShotName = self.core.entities.getShotName(targetShot) or self.cb_shotContext.itemText(index)
+        self.statusLabel.setText("Switching managed Read nodes to %s..." % targetShotName)
+
+        selectedReadNodes = self.getSelectedReadNodesFromTree()
+        nodesToSwitch = selectedReadNodes or self.getVisibleReadNodes()
+        if not nodesToSwitch:
+            self.statusLabel.setText("No managed Read nodes selected")
+            return
+
+        if selectedReadNodes:
+            self.statusLabel.setText(
+                "Switching %s selected Read node(s) to %s..." % (len(selectedReadNodes), targetShotName)
+            )
+
+        visibleReadNodes = []
+        for item in self.nodeItems:
+            try:
+                data = item.data(0, Qt.UserRole) or {}
+                node = data.get("node") if isinstance(data, dict) else None
+            except Exception:
+                node = None
+
+            if node:
+                visibleReadNodes.append(node)
+
+        selectedNodes = nuke.selectedNodes() or []
+        updatedCount, missingCount, skippedCount = self.switchManagedReadNodesToShot(targetShot, readNodes=nodesToSwitch)
+        self.suspendNukeSelectionSync = True
+        self.readNodesForRefreshOverride = visibleReadNodes
+        try:
+            self.refreshNodes()
+        finally:
+            self.readNodesForRefreshOverride = None
+            for node in nuke.selectedNodes():
+                node.setSelected(False)
+
+            for node in selectedNodes:
+                try:
+                    node.setSelected(True)
+                except Exception:
+                    pass
+
+            self.suspendNukeSelectionSync = False
+
+        self.statusLabel.setText(
+            "Switched %s Read nodes to %s, %s missing, %s skipped"
+            % (updatedCount, targetShotName, missingCount, skippedCount)
+        )
+        self.syncShotContextComboToSelection()
+
+    @err_catcher(name=__name__)
+    def getSelectedReadNodesFromTree(self) -> List[Any]:
+        """Return Read nodes selected in the dialog tree."""
+        nodes = []
+        seen = set()
+        for item in self.tree.selectedItems():
+            try:
+                data = item.data(0, Qt.UserRole) or {}
+            except Exception:
+                continue
+
+            node = data.get("node") if isinstance(data, dict) else None
+            if not node:
+                continue
+
+            try:
+                nodeName = node.fullName()
+            except Exception:
+                continue
+
+            if nodeName in seen:
+                continue
+
+            seen.add(nodeName)
+            nodes.append(node)
+
+        return nodes
+
+    @err_catcher(name=__name__)
+    def getVisibleReadNodes(self) -> List[Any]:
+        """Return all currently visible managed Read nodes from the tree."""
+        nodes = []
+        seen = set()
+        for item in self.nodeItems:
+            try:
+                data = item.data(0, Qt.UserRole) or {}
+            except Exception:
+                continue
+
+            node = data.get("node") if isinstance(data, dict) else None
+            if not node:
+                continue
+
+            try:
+                nodeName = node.fullName()
+            except Exception:
+                continue
+
+            if nodeName in seen:
+                continue
+
+            seen.add(nodeName)
+            nodes.append(node)
+
+        return nodes
+
+    @err_catcher(name=__name__)
+    def switchManagedReadNodesToShot(self, targetShot: Dict[str, Any], readNodes: Optional[List[Any]] = None) -> Tuple[int, int, int]:
+        """Rewrite visible managed Read node paths to matching media in target shot."""
+        updatedCount = 0
+        missingCount = 0
+        skippedCount = 0
+        targetShotName = self.core.entities.getShotName(targetShot) or "shot"
+
+        if readNodes is None:
+            readNodes = self.getVisibleReadNodes()
+
+        nodeDataByName = {}
+        for item in self.nodeItems:
+            try:
+                data = item.data(0, Qt.UserRole) or {}
+                node = data.get("node")
+            except Exception:
+                node = None
+
+            if not node:
+                continue
+
+            try:
+                nodeDataByName[node.fullName()] = data
+            except Exception:
+                pass
+
+        for node in readNodes:
+            data = {}
+            try:
+                data = nodeDataByName.get(node.fullName(), {})
+            except Exception:
+                pass
+
+            if not node or not node.knob("file"):
+                skippedCount += 1
+                continue
+
+            currentPath = node.knob("file").value() or ""
+            if not currentPath:
+                skippedCount += 1
+                continue
+
+            currentPath = self.plugin.expandEnvVarsInFilepath(currentPath)
+            mediaType = self.core.mediaProducts.getMediaTypeFromPath(currentPath) or "2drenders"
+            pathData = self.core.paths.getMediaProductData(currentPath, mediaType=mediaType)
+            if not pathData:
+                pathData = data.get("context") or self.getContextFromFilepath(currentPath)
+
+            if not pathData or pathData.get("type") != "shot":
+                skippedCount += 1
+                continue
+
+            identifier = pathData.get("identifier")
+            if not identifier:
+                skippedCount += 1
+                continue
+
+            targetContext = pathData.copy()
+            targetContext.update(targetShot)
+            targetContext["type"] = "shot"
+            targetContext["entityType"] = "shot"
+            targetContext["identifier"] = identifier
+            targetContext["mediaType"] = mediaType
+
+            newPath = self.resolvePathForTargetShot(targetContext, pathData, mediaType)
+            logger.debug(f"Switching Read node {node.fullName()} from {currentPath} to {newPath} for shot {targetShotName}")
+            if newPath:
+                node.knob("file").fromUserText(newPath)
+                updatedCount += 1
+                continue
+
+            missingCount += 1
+
+        return updatedCount, missingCount, skippedCount
+
+    @err_catcher(name=__name__)
+    def resolvePathForTargetShot(self, targetContext: Dict[str, Any], sourceContext: Dict[str, Any], mediaType: str) -> Optional[str]:
+        """Resolve latest matching target-shot media and format it for a Nuke Read knob."""
+        version = self.core.mediaProducts.getVersion(
+            targetContext,
+            targetContext["identifier"],
+            mediaType=mediaType,
+        )
+        if not version:
+            return None
+
+        if "aov" in version:
+            del version["aov"]
+
+        aovs = self.core.mediaProducts.getAOVsFromVersion(version)
+        if aovs:
+            aovNames = [aov["aov"] for aov in aovs]
+            aov = sourceContext.get("aov") if sourceContext.get("aov") in aovNames else aovNames[0]
+        else:
+            aov = None
+
+        newPath = self.core.mediaProducts.getFileFromVersion(version, aov=aov, findExisting=True)
+        if not newPath:
+            return None
+
+        useRel = self.core.getConfig("nuke", "useRelativePaths", dft=False, config="user")
+        if useRel:
+            newPath = self.plugin.makePathRelative(newPath)
+
+        if "#" in newPath:
+            files = self.core.media.getFilesFromSequence(newPath)
+            start, end = self.core.media.getFrameRangeFromSequence(files)
+            if start and end and start != "?" and end != "?":
+                newPath += " %s-%s" % (start, end)
+
+        return newPath
+
     @err_catcher(name=__name__)
     def onVersionChanged(self, node: Any, version: str) -> bool:
         """Handle version change in combo box.
@@ -4201,6 +5663,9 @@ class MediaVersionsDialog(QDialog):
         Synchronizes tree selection with Nuke's node graph selection.
         """
         try:
+            if self.suspendNukeSelectionSync:
+                return
+
             # Get selected tree items
             selectedItems = self.tree.selectedItems()
             
@@ -4210,13 +5675,16 @@ class MediaVersionsDialog(QDialog):
             
             # Select corresponding nodes in Nuke
             for item in selectedItems:
-                node = item.data(0, Qt.UserRole)["node"]
+                data = item.data(0, Qt.UserRole) or {}
+                node = data.get("node") if isinstance(data, dict) else None
                 if node and hasattr(node, 'setSelected'):
                     try:
                         node.setSelected(True)
                     except:
                         # Node might have been deleted
                         pass
+
+            self.syncShotContextComboToSelection()
                         
         except Exception as e:
             logger.warning(f"Failed to sync selection: {str(e)}")

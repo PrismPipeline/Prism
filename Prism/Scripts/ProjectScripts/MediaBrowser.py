@@ -175,6 +175,12 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         cData = self.core.getConfig()
         brsData = cData.get("browser", {})
 
+        doGroup = os.getenv("PRISM_MEDIA_GROUP_BY_TYPE")
+        if doGroup is not None:
+            self.groupByType = bool(doGroup.lower() == "1")
+        else:
+            self.groupByType = brsData.get("groupIdentifiersByType", True)
+
         if "autoUpdateRenders" in brsData:
             self.chb_autoUpdate.setChecked(brsData["autoUpdateRenders"])
 
@@ -311,6 +317,7 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         data["browser"]["autoUpdateRenders"] = self.chb_autoUpdate.isChecked()
         data["browser"]["previewDisabled"] = self.w_preview.mediaPlayer.state == "disabled"
         data["browser"]["mediaSplitter1"] = self.splitter1.sizes()
+        data["browser"]["groupIdentifiersByType"] = self.groupByType
 
     @err_catcher(name=__name__)
     def updateChanged(self, state: int) -> None:
@@ -424,7 +431,7 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             Single identifier dict, list of identifier dicts, or None
         """
         items = self.tw_identifier.selectedItems()
-        items = [item for item in items if not (item.data(0, Qt.UserRole) or {}).get("isGroup")]
+        items = [item for item in items if not (item.data(0, Qt.UserRole) or {}).get("isGroup") and not (item.data(0, Qt.UserRole) or {}).get("isTypeGroup")]
         if not items:
             return
 
@@ -526,6 +533,55 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         return mediaTasks
 
     @err_catcher(name=__name__)
+    def findIdentifierItemByDisplayName(self, displayName: str) -> Optional[Any]:
+        """DFS search for the first tree item whose identifier displayName matches.
+
+        Skips group items and type-group items. Returns None if not found.
+
+        Args:
+            displayName: The identifier displayName to search for
+
+        Returns:
+            Matching QTreeWidgetItem, or None
+        """
+        stack = [self.tw_identifier.invisibleRootItem()]
+        while stack:
+            node = stack.pop()
+            data = node.data(0, Qt.UserRole)
+            if data and not data.get("isGroup") and not data.get("isTypeGroup"):
+                if data.get("displayName") == displayName:
+                    return node
+            for i in range(node.childCount()):
+                stack.append(node.child(i))
+        return None
+
+    @err_catcher(name=__name__)
+    def getFirstIdentifierItem(self) -> Optional[Any]:
+        """DFS search for the first tree item that holds actual identifier data.
+
+        Skips group and type-group items. Returns None if the tree is empty.
+
+        Returns:
+            First identifier QTreeWidgetItem, or None
+        """
+        stack = [self.tw_identifier.invisibleRootItem()]
+        while stack:
+            node = stack.pop(0)
+            data = node.data(0, Qt.UserRole)
+            if data and not data.get("isGroup") and not data.get("isTypeGroup"):
+                return node
+            for i in range(node.childCount()):
+                stack.insert(i, node.child(i))
+        return None
+
+    @err_catcher(name=__name__)
+    def toggleGroupByType(self) -> None:
+        """Toggle the 'organize by type' grouping mode and refresh the task list."""
+        self.groupByType = not self.groupByType
+        self.core.setConfig("browser", "groupIdentifiersByType", self.groupByType)
+        self.updateTasks(restoreSelection=True)
+
+    @err_catcher(name=__name__)
     def updateTasks(self, restoreSelection: bool = False) -> None:
         """Update the identifier/task tree widget with available media tasks.
         
@@ -549,12 +605,12 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
         mediaTasks = self.getMediaTasks()
         if mediaTasks:
-            groups, groupItems = self.createGroupItems(mediaTasks)
             useTasks = self.core.mediaProducts.getLinkedToTasks()
             if useTasks:
+                groups, groupItems = self.createGroupItems(mediaTasks)
                 items = {}
                 for pType in ["3d", "2d", "playblast", "external"]:
-                    for task in sorted(mediaTasks[pType], key=lambda x: x["displayName"]):
+                    for task in sorted(mediaTasks[pType], key=lambda x: x["displayName"].lower()):
                         useDep = os.getenv("PRISM_USE_DEPARTMENTS_FOR_PRODUCTS", "1") == "1"
                         if useDep:
                             dep = task.get("department") or "unknown"
@@ -592,10 +648,40 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
                         item = QTreeWidgetItem([task["displayName"]])
                         item.setData(0, Qt.UserRole, task)
                         parent.addChild(item)
+            elif getattr(self, "groupByType", True):
+                typeLabels = {"3d": "3D", "2d": "2D", "playblast": "Playblast", "external": "External"}
+                for pType in ["3d", "2d", "playblast", "external"]:
+                    typeTasks = mediaTasks.get(pType, [])
+                    if not typeTasks:
+                        continue
+
+                    typeItem = QTreeWidgetItem([typeLabels[pType]])
+                    typeItem.setData(0, Qt.UserRole, {"isTypeGroup": True})
+                    self.tw_identifier.invisibleRootItem().addChild(typeItem)
+
+                    typeGroups, typeGroupItems = self.createGroupItems({pType: typeTasks}, rootItem=typeItem)
+                    addedItems = []
+                    for task in sorted(typeTasks, key=lambda x: x["identifier"].lower()):
+                        if task["displayName"] in addedItems:
+                            continue
+
+                        addedItems.append(task["displayName"])
+                        itemLabel = task["identifier"]
+                        item = QTreeWidgetItem([itemLabel])
+                        item.setData(0, Qt.UserRole, task)
+                        if task["displayName"] in typeGroups:
+                            parent = typeGroupItems[typeGroups[task["displayName"]]]
+                        else:
+                            parent = typeItem
+
+                        parent.addChild(item)
+
+                    typeItem.setExpanded(True)
             else:
+                groups, groupItems = self.createGroupItems(mediaTasks)
                 addedItems = []
                 for pType in ["3d", "2d", "playblast", "external"]:
-                    for task in sorted(mediaTasks[pType], key=lambda x: x["displayName"]):
+                    for task in sorted(mediaTasks[pType], key=lambda x: x["displayName"].lower()):
                         if task["displayName"] in addedItems:
                             continue
 
@@ -612,28 +698,32 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         if self.tw_identifier.topLevelItemCount() > 0:
             selectFirst = True
             if restoreSelection and curTask:
-                items = self.tw_identifier.findItems(curTask, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive))
-                if items:
-                    self.tw_identifier.setCurrentItem(items[0])
+                match = self.findIdentifierItemByDisplayName(curTask)
+                if match:
+                    self.tw_identifier.setCurrentItem(match)
                     selectFirst = False
 
             if selectFirst:
-                mIdx = self.tw_identifier.findItems("main", Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive))
-                if len(mIdx) > 0:
-                    self.tw_identifier.setCurrentItem(mIdx[0])
+                mainMatch = self.findIdentifierItemByDisplayName("main")
+                if mainMatch:
+                    self.tw_identifier.setCurrentItem(mainMatch)
                 else:
-                    self.tw_identifier.setCurrentItem(self.tw_identifier.topLevelItem(0))
+                    firstItem = self.getFirstIdentifierItem()
+                    if firstItem:
+                        self.tw_identifier.setCurrentItem(firstItem)
 
         if not wasBlocked:
             self.tw_identifier.blockSignals(False)
             self.updateVersions(restoreSelection=True)
 
     @err_catcher(name=__name__)
-    def createGroupItems(self, identifiers: Dict[str, List[Dict[str, Any]]]) -> Tuple[Dict[str, str], Dict[str, Any]]:
+    def createGroupItems(self, identifiers: Dict[str, List[Dict[str, Any]]], rootItem: Optional[Any] = None) -> Tuple[Dict[str, str], Dict[str, Any]]:
         """Create tree items for identifier groups/folders.
         
         Args:
             identifiers: Dictionary of identifier lists by type
+            rootItem: Parent item to attach top-level folder groups to.
+                      Defaults to the tree's invisible root item.
         
         Returns:
             Tuple of (groups dict mapping identifier names to group paths,
@@ -681,7 +771,7 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
                 if curPath and curPath in groupItems:
                     parent = groupItems[curPath]
                 else:
-                    parent = self.tw_identifier.invisibleRootItem()
+                    parent = rootItem if rootItem is not None else self.tw_identifier.invisibleRootItem()
 
                 parent.addChild(item)
                 curPath = newPath
@@ -1124,9 +1214,8 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
             return
 
-        matches = self.tw_identifier.findItems(
-            identifier, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive)
-        )
+        match = self.findIdentifierItemByDisplayName(identifier)
+        matches = [match] if match else []
         if not matches:
             self.tw_identifier.blockSignals(False)
             if prevIdf != self.getCurrentIdentifier() or not self.initialized:
@@ -1320,6 +1409,16 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         act_refresh.triggered.connect(lambda: refresh(restoreSelection=True))
         rcmenu.addAction(act_refresh)
 
+        if lw == self.tw_identifier:
+            useTasks = self.core.mediaProducts.getLinkedToTasks()
+            if not useTasks:
+                rcmenu.addSeparator()
+                act_groupByType = QAction("Organize by Type", self)
+                act_groupByType.setCheckable(True)
+                act_groupByType.setChecked(getattr(self, "groupByType", True))
+                act_groupByType.triggered.connect(self.toggleGroupByType)
+                rcmenu.addAction(act_groupByType)
+
         if os.path.exists(path):
             opAct = QAction("Open in Explorer", self)
             opAct.triggered.connect(lambda: self.core.openFolder(path))
@@ -1494,11 +1593,10 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
         self.updateTasks()
         if itemName is not None:
-            matches = self.tw_identifier.findItems(
-                itemName + suffix, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive)
-            )
-            if matches:
-                self.tw_identifier.setCurrentItem(matches[0])
+            displayName = self.core.mediaProducts.getDisplayNameForIdentifier(itemName, mediaType)
+            match = self.findIdentifierItemByDisplayName(displayName)
+            if match:
+                self.tw_identifier.setCurrentItem(match)
 
     @err_catcher(name=__name__)
     def createVersionDlg(self) -> None:
@@ -1553,6 +1651,10 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
     def groupIdentifiersDlg(self) -> None:
         """Show dialog to group selected identifiers into a folder."""
         identifiers = self.getCurrentIdentifier(allowMultiple=True)
+        if not identifiers:
+            self.core.popup("Select at least one identifier to group.")
+            return
+
         groups = [self.core.mediaProducts.getGroupFromIdentifier(identifier) for identifier in identifiers]
         if len(list(set(groups))) == 1:
             startText = groups[0]
@@ -1748,7 +1850,9 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
                 os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()
             ]
             self.ingestMediaDlg(filepath="\n".join(sorted(fname)))
-            self.ep.sp_version.setFocus()
+            if hasattr(self, "ep") and self.ep.isVisible():
+                self.ep.sp_version.setFocus()
+
         else:
             e.ignore()
 
@@ -1874,7 +1978,8 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
                 os.pathsep.join(files), entity, identifier, versionName, action=action, location=location
             )
         else:
-            self.core.mediaProducts.ingestMedia(files, entity, identifier, versionName, aov, mediaType=mediaType, location=location)
+            rename = self.ep.chb_rename.isChecked()
+            self.core.mediaProducts.ingestMedia(files, entity, identifier, versionName, aov, mediaType=mediaType, location=location, rename=rename)
 
         self.updateTasks()
         displayName = self.core.mediaProducts.getDisplayNameForIdentifier(identifier, mediaType)
@@ -2046,6 +2151,8 @@ class MediaVersionPlayer(QWidget):
         self.cb_layer.setContextMenuPolicy(Qt.CustomContextMenu)
         self.cb_layer.customContextMenuRequested.connect(self.rclLayer)
         self.cb_source.currentIndexChanged.connect(self.sourceChanged)
+        self.cb_source.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.cb_source.customContextMenuRequested.connect(self.rclSource)
         self.cb_filelayer.currentIndexChanged.connect(self.filelayerChanged)
 
     @err_catcher(name=__name__)
@@ -2410,6 +2517,41 @@ class MediaVersionPlayer(QWidget):
             return True
 
     @err_catcher(name=__name__)
+    def rclSource(self, pos: Any) -> None:
+        """Show context menu for source dropdown.
+
+        Args:
+            pos: Mouse position for the context menu
+        """
+        if self.cb_source.count() < 2:
+            return
+
+        cpos = QCursor.pos()
+        rcmenu = QMenu(self)
+
+        act_compare = QAction("Compare...", self)
+        act_compare.triggered.connect(self.compareAllSources)
+        rcmenu.addAction(act_compare)
+
+        rcmenu.exec_(cpos)
+
+    @err_catcher(name=__name__)
+    def compareAllSources(self) -> None:
+        """Collect all source paths from cb_source and pass them to the media player's compare function."""
+        paths = []
+        for idx in range(self.cb_source.count()):
+            source = self.cb_source.itemData(idx, Qt.UserRole)
+            if not source:
+                continue
+            mediaFiles = self.core.mediaProducts.getFilesFromContext(source)
+            validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
+            if validFiles:
+                paths.append(validFiles[0])
+
+        if paths:
+            self.mediaPlayer.compare(paths=paths)
+
+    @err_catcher(name=__name__)
     def rclLayer(self, pos: Any) -> None:
         """Show context menu for AOV layer dropdown.
         
@@ -2564,6 +2706,8 @@ class MediaPlayer(QWidget):
         self.pstart = 0
         self.pend = 0
         self.openMediaPlayer = False
+        self.thumbnailInfoText = ""
+        self.isLoadingImage = False
         self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
         self.previewTooltip = "Left mouse drag to drag media files.\nCtrl+Left mouse drag to drag media folder."
         self.previewEnabled = True
@@ -2596,7 +2740,12 @@ class MediaPlayer(QWidget):
         self.l_preview.setText("")
         self.l_preview.setAlignment(Qt.AlignCenter)
         self.l_preview.setObjectName("l_preview")
+        self.l_thumbnailInfo = QLabel(self)
+        self.l_thumbnailInfo.setAlignment(Qt.AlignCenter)
+        self.l_thumbnailInfo.setHidden(True)
+        self.l_thumbnailInfo.setStyleSheet("color: rgb(200, 100, 100);")
         self.lo_main.addWidget(self.l_preview)
+        self.lo_main.addWidget(self.l_thumbnailInfo)
 
         self.l_loading = QLabel(self)
         self.l_loading.setAlignment(Qt.AlignCenter)
@@ -2796,7 +2945,10 @@ class MediaPlayer(QWidget):
         if time == self.timeline.duration():
             time -= 1
 
+        self.timeline.blockSignals(True)
         self.timeline.setCurrentTime(time)
+        self.timeline.blockSignals(False)
+        self.changeImage_threaded(self.getCurrentFrame())
 
     @err_catcher(name=__name__)
     def onCurrentChanged(self, value: int) -> None:
@@ -2952,6 +3104,11 @@ class MediaPlayer(QWidget):
         self.sl_preview.setEnabled(False)
         self.l_start.setText("")
         self.l_end.setText("")
+        if self.thumbnailInfoText:
+            self.thumbnailInfoText = ""
+            self.l_thumbnailInfo.setText("")
+            self.l_thumbnailInfo.setHidden(True)
+
         self.w_playerCtrls.setEnabled(False)
         self.sp_current.setEnabled(False)
         if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
@@ -3140,7 +3297,17 @@ class MediaPlayer(QWidget):
         ext = os.path.splitext(prvFile)[1].lower()
         self.pformat = "*" + ext
 
-        pdate = self.core.getFileModificationDate(prvFile)
+        pdate = ""
+        contexts = self.getSelectedContexts()
+        if contexts and len(contexts) == 1:
+            context = contexts[0]
+            if "date" in context:
+                pdate = context["date"]
+                if isinstance(pdate, int):
+                    pdate = self.core.getFormattedDate(pdate) if pdate else ""
+
+        if not pdate:
+            pdate = self.core.getFileModificationDate(prvFile)
         self.sl_preview.setEnabled(True)
         start, end = self.getStartEnd(ext)
         self.pstart = int(start)
@@ -3428,6 +3595,26 @@ class MediaPlayer(QWidget):
         return int(self.timeline.currentTime() / self.timeline.updateInterval())
 
     @err_catcher(name=__name__)
+    def getCurrentFilepath(self, curFrame=None) -> Optional[str]:
+        """Get current file path based on current frame.
+        
+        Returns:
+            Current file path or None if not available
+        """
+        if curFrame is None:
+            curFrame = self.getCurrentFrame()
+            if not self.seq or curFrame >= len(self.seq):
+                return None
+
+        isVideo = os.path.splitext(self.seq[0])[1].lower() in self.core.media.videoFormats
+        if len(self.seq) == 1 and isVideo or curFrame >= len(self.seq):
+            fileName = self.seq[0]
+        else:
+            fileName = self.seq[curFrame] if curFrame < len(self.seq) else self.seq[-1]
+
+        return fileName
+
+    @err_catcher(name=__name__)
     def changeImg(self, frame: int = 0, seq: Optional[List[str]] = None, 
                   thread: Optional[Any] = None, regenerateThumb: bool = False) -> None:
         """Load and display an image/frame from the sequence.
@@ -3446,6 +3633,10 @@ class MediaPlayer(QWidget):
         if thread and thread.isInterruptionRequested():
             return
 
+        if self.thumbnailInfoText:
+            self.thumbnailInfoText = ""
+            self.l_thumbnailInfo.setText("")
+
         if not self.seq:
             return
 
@@ -3454,14 +3645,10 @@ class MediaPlayer(QWidget):
             return
 
         pmsmall = QPixmap()
-        isVideo = os.path.splitext(self.seq[0])[1].lower() in self.core.media.videoFormats
-        if len(self.seq) == 1 and isVideo or curFrame >= len(self.seq):
-            fileName = self.seq[0]
-        else:
-            fileName = self.seq[curFrame]
-
+        fileName = self.getCurrentFilepath(curFrame)
         _, ext = os.path.splitext(fileName)
         ext = ext.lower()
+        self.isLoadingImage = True
         if self.state == "disabled":
             pmsmall = self.core.media.scalePixmap(self.emptypmap, self.getThumbnailWidth(), self.getThumbnailHeight())
         else:
@@ -3645,6 +3832,77 @@ class MediaPlayer(QWidget):
             self.sp_current.blockSignals(True)
             self.sp_current.setValue((self.pstart + curFrame))
             self.sp_current.blockSignals(False)
+
+        infoTxt = self.thumbnailInfoText
+        self.l_thumbnailInfo.setHidden(bool(not infoTxt))
+        self.l_thumbnailInfo.setToolTip(infoTxt or "")
+        wrappedInfo = self.wrapTextForLabel(
+            infoTxt,
+            self.l_preview.width() - 20,
+            self.l_thumbnailInfo,
+        )
+        if wrappedInfo != self.l_thumbnailInfo.text():
+            self.l_thumbnailInfo.setText(wrappedInfo)
+
+        self.isLoadingImage = True
+
+    @err_catcher(name=__name__)
+    def wrapTextForLabel(self, text: str, maxWidth: int, label: QLabel) -> str:
+        """Wrap text into multiple lines based on pixel width for a label.
+
+        Args:
+            text: Source text to wrap
+            maxWidth: Maximum width in pixels
+            label: Label whose font metrics should be used
+
+        Returns:
+            Wrapped text suitable for display without growing panel width
+        """
+        if not text:
+            return ""
+
+        maxWidth = max(80, int(maxWidth))
+        metrics = QFontMetrics(label.font())
+        wrappedLines = []
+
+        for rawLine in str(text).splitlines() or [""]:
+            if not rawLine:
+                wrappedLines.append("")
+                continue
+
+            line = rawLine
+            start = 0
+            while start < len(line):
+                low = start + 1
+                high = len(line)
+                best = start + 1
+
+                # Find the longest chunk that fits into maxWidth.
+                while low <= high:
+                    mid = (low + high) // 2
+                    chunk = line[start:mid]
+                    if metrics.horizontalAdvance(chunk) <= maxWidth:
+                        best = mid
+                        low = mid + 1
+                    else:
+                        high = mid - 1
+
+                split = best
+                if split < len(line):
+                    for idx in range(best, start, -1):
+                        if line[idx - 1] in " /\\_-.,;:":
+                            split = idx
+                            break
+
+                segment = line[start:split].rstrip()
+                if segment:
+                    wrappedLines.append(segment)
+
+                start = max(split, start + 1)
+                while start < len(line) and line[start] == " ":
+                    start += 1
+
+        return "\n".join(wrappedLines)
 
     @err_catcher(name=__name__)
     def setTimelinePaused(self, state: bool) -> None:
@@ -4043,11 +4301,12 @@ class MediaPlayer(QWidget):
             e.ignore()
 
     @err_catcher(name=__name__)
-    def compare(self, prog: str = "") -> None:
+    def compare(self, prog: str = "", paths: Optional[List[str]] = None) -> None:
         """Open media comparison in external tool.
         
         Args:
             prog: External program name (RV, DJV, etc.)
+            paths: Additional file paths to pass as arguments to the media player
         """
         if (
             self.timeline
@@ -4089,7 +4348,19 @@ class MediaPlayer(QWidget):
                         if mediaPlayer and mediaPlayer.get("framePattern"):
                             filePath = self.core.media.getSequenceFromFilename(filePath)
 
-                        comd = [progPath, filePath]
+                        comd = [progPath]
+                        if paths:
+                            for extra in paths:
+                                if mediaPlayer and mediaPlayer.get("framePattern"):
+                                    extra = self.core.media.getSequenceFromFilename(extra)
+
+                                comd.append(extra)
+
+                            if len(paths) > 1 and "rv" in os.path.basename(progPath).lower():
+                                comd += ["-view", "defaultLayout"]
+
+                        else:
+                            comd.append(filePath)
 
         if comd:
             mpEnv = self.core.startEnv.copy()

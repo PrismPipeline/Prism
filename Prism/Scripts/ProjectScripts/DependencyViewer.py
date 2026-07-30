@@ -280,10 +280,13 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             iFont = item.font(0)
             iFont.setBold(True)
             item.setFont(0, iFont)
-            depInfo = os.path.join(
-                os.path.dirname(i), "versioninfo" + self.core.configs.getProjectExtension()
-            )
+            depInfo = self.core.getVersioninfoPath(i)
             self.core.configs.findDeprecatedConfig(depInfo)
+            if not os.path.exists(depInfo):
+                depInfo = os.path.join(
+                    os.path.dirname(i), "versioninfo" + self.core.configs.getProjectExtension()
+                )
+                self.core.configs.findDeprecatedConfig(depInfo)
             if not os.path.exists(depInfo):
                 depInfo = os.path.join(
                     os.path.dirname(os.path.dirname(i)),
@@ -292,7 +295,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
                 self.core.configs.findDeprecatedConfig(depInfo)
 
             if os.path.exists(depInfo):
-                self.updateDependencies(curID, depInfo, ignore=ignore)
+                self.updateDependencies(curID, depInfo, ignore=ignore[:])
 
         for i in extFiles:
             if i in deps:
@@ -317,6 +320,23 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
 
             curID = str(len(self.dependencies) + 1)
             self.dependencies[curID] = [i, item, depID]
+
+            depInfo = self.core.getVersioninfoPath(i)
+            self.core.configs.findDeprecatedConfig(depInfo)
+            if not os.path.exists(depInfo):
+                depInfo = os.path.join(
+                    os.path.dirname(i), "versioninfo" + self.core.configs.getProjectExtension()
+                )
+                self.core.configs.findDeprecatedConfig(depInfo)
+            if not os.path.exists(depInfo):
+                depInfo = os.path.join(
+                    os.path.dirname(os.path.dirname(i)),
+                    "versioninfo" + self.core.configs.getProjectExtension(),
+                )
+                self.core.configs.findDeprecatedConfig(depInfo)
+
+            if os.path.exists(depInfo):
+                self.updateDependencies(curID, depInfo, ignore=ignore[:])
 
     @err_catcher(name=__name__)
     def filterDeps(self, filterStr: str) -> None:

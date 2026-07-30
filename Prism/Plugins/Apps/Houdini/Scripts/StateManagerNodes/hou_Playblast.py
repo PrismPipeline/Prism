@@ -1111,6 +1111,7 @@ class PlayblastClass(object):
                     ]
 
                 self.updateLastPath(videoOutput)
+                outputName = videoOutput
 
             self.handleMasterVersion(outputName)
             kwargs = {

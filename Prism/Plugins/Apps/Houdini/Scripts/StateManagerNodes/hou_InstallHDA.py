@@ -375,7 +375,8 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         if mNode is None:
             return
 
-        mNode.setDisplayFlag(True)
+        if hasattr(mNode, "setDisplayFlag"):
+            mNode.setDisplayFlag(True)
         if hasattr(mNode, "setRenderFlag"):
             mNode.setRenderFlag(True)
 

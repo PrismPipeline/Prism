@@ -310,7 +310,7 @@ class Users(object):
         usrVars = self.getUserEnvironment()
         for envVar in usrVars:
             envVars.append(envVar)
-            os.environ[envVar["key"]] = envVar["value"]
+            os.environ[envVar["key"].strip()] = envVar["value"]
 
         self.core.callback(name="updatedEnvironmentVars", args=["refreshUser", envVars])
 
