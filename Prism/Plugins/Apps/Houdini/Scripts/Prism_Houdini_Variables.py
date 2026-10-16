@@ -68,7 +68,7 @@ class Prism_Houdini_Variables(object):
             core: PrismCore instance.
             plugin: Plugin instance.
         """
-        self.version = "v2.1.3.1"
+        self.version = "v2.1.4"
         self.pluginName = "Houdini"
         self.pluginType = "App"
         self.appShortName = "Hou"

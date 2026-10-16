@@ -931,6 +931,12 @@ if (app.project) {
         
         Creates and shows ImportMediaDlg for importing media from project browser.
         """
+        if not self.core.projects.ensureProject():
+            return False
+
+        if not self.core.users.ensureUser():
+            return False
+
         self.dlg_importMedia = ImportMediaDlg(self)
         self.dlg_importMedia.show()
 
@@ -941,6 +947,12 @@ if (app.project) {
         Compares project footage against latest versions in media browser and
         prompts to update if outdated versions found.
         """
+        if not self.core.projects.ensureProject():
+            return False
+
+        if not self.core.users.ensureUser():
+            return False
+
         items = self.getFootageFromProject() or []
         outdatedItems = []
         for item in items:
@@ -977,6 +989,12 @@ if (app.project) {
         Returns:
             RenderDlg instance
         """
+        if not self.core.projects.ensureProject():
+            return False
+
+        if not self.core.users.ensureUser():
+            return False
+
         if hasattr(self, "dlg_render"):
             self.dlg_render.close()
 
@@ -1311,6 +1329,15 @@ class RenderDlg(QDialog):
 
             row += 1
 
+        self.l_updateMaster = QLabel("Update master version:")
+        self.chb_updateMaster = QCheckBox()
+        self.chb_updateMaster.setChecked(True)
+        self.lo_widgets.addWidget(self.l_updateMaster, row, 0)
+        self.lo_widgets.addWidget(self.chb_updateMaster, row, 1, 1, 3)
+        useMaster = self.core.mediaProducts.getUseMaster()
+        self.l_updateMaster.setVisible(useMaster)
+        self.chb_updateMaster.setVisible(useMaster)
+
         self.lo_main.addLayout(self.lo_widgets)
 
         self.bb_main = QDialogButtonBox()
@@ -1384,6 +1411,9 @@ class RenderDlg(QDialog):
             if idx != -1:
                 self.cb_template.setCurrentIndex(idx)
 
+        if "render_update_master" in settings:
+            self.chb_updateMaster.setChecked(settings["render_update_master"])
+
     @err_catcher(name=__name__)
     def sizeHint(self) -> QSize:
         """Suggest preferred size for render dialog.
@@ -1421,6 +1451,8 @@ class RenderDlg(QDialog):
 
         if hasattr(self, "cb_template"):
             data["afterEffects"]["render_template"] = self.cb_template.currentText()
+
+        data["afterEffects"]["render_update_master"] = self.chb_updateMaster.isChecked()
 
         self.core.setConfig(data=data, config="user", updateNestedData={"exclude": ["render_entity"]})
 
@@ -1576,6 +1608,7 @@ class RenderDlg(QDialog):
         details["identifier"] = identifier
         details["comment"] = comment
         details["version"] = version
+        details["mediaType"] = "2drenders"
         infopath = outputpath
 
         self.core.saveVersionInfo(
@@ -1671,9 +1704,12 @@ class RenderDlg(QDialog):
 
             self.core.callback("postRender", **kwargs)
             base, ext = os.path.splitext(outputpath)
-            globPath = base.strip("#") + "*"
+            globPath = base.strip("[]#") + "*"
             files = glob.glob(globPath)
             if files:
+                if self.core.mediaProducts.getUseMaster() and self.chb_updateMaster.isChecked():
+                    self.core.mediaProducts.updateMasterVersion(files[0], mediaType="2drenders")
+
                 msg = "Finished rendering successfully."
                 result = self.core.popupQuestion(msg, buttons=["Open in Project Browser", "Open in Explorer", "Close"], icon=QMessageBox.Information, parent=self)
                 if result == "Open in Project Browser":

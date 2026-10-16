@@ -247,7 +247,7 @@ class DependencyClass(object):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -261,7 +261,7 @@ class DependencyClass(object):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 

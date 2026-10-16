@@ -92,7 +92,7 @@ class ExportClass(object):
         self.stateManager = stateManager
         self.canSetVersion = True
         self.customContext = None
-        self.allowCustomContext = False
+        self.allowCustomContext = True
         self.shotCamsInitialized = False
 
         self.e_name.setText(state.text(0) + " ({product})")
@@ -167,8 +167,6 @@ class ExportClass(object):
 
         if stateData is not None:
             self.loadData(stateData)
-        else:
-            self.initializeContextBasedSettings()
 
         self.typeChanged(self.getOutputType())
 
@@ -302,7 +300,7 @@ class ExportClass(object):
         )
         self.lw_objects.customContextMenuRequested.connect(self.rcObjects)
         self.cb_cam.activated.connect(self.setCam)
-        self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
+        self.cb_sCamShot.activated.connect(self.onShotCamShotChanged)
         self.b_selectCam.clicked.connect(lambda: self.core.appPlugin.selectCam(self))
         self.gb_submit.toggled.connect(self.rjToggled)
         self.cb_manager.activated.connect(self.managerChanged)
@@ -344,8 +342,8 @@ class ExportClass(object):
         else:
             self.setRangeType("Scene")
 
-        if context.get("task"):
-            self.setProductname(context.get("task"))
+        productName = context.get("task") or "export"
+        self.setProductname(productName)
 
         getattr(self.core.appPlugin, "sm_export_updateObjects", lambda x: None)(
             self
@@ -489,7 +487,7 @@ class ExportClass(object):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -503,7 +501,7 @@ class ExportClass(object):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 
@@ -613,7 +611,7 @@ class ExportClass(object):
             Product name string
         """
         if self.getOutputType() == "ShotCam":
-            productName = "_ShotCam"
+            productName = self.core.products.getShotcamProductName()
         else:
             productName = self.l_taskName.text().strip()
 
@@ -961,13 +959,19 @@ class ExportClass(object):
         
         Updates the context label with current entity information.
         """
-        context = self.getCurrentContext()
-        contextStr = self.getContextStrFromEntity(context)
-        self.l_context.setText(contextStr)
-        if contextStr:
-            self.b_context.setPalette(self.oldPalette)
+        if self.getContextType() == "Custom":
+            context = self.getCurrentContext()
+            contextStr = self.getContextStrFromEntity(context)
+            self.l_context.setHidden(False)
+            self.b_context.setHidden(False)
+            self.l_context.setText(contextStr)
+            if contextStr:
+                self.b_context.setPalette(self.oldPalette)
+            else:
+                self.b_context.setPalette(self.warnPalette)
         else:
-            self.b_context.setPalette(self.warnPalette)
+            self.l_context.setHidden(True)
+            self.b_context.setHidden(True)
 
     @err_catcher(name=__name__)
     def getCurrentContext(self) -> Dict[str, Any]:
@@ -1152,8 +1156,11 @@ class ExportClass(object):
         getattr(self.core.appPlugin, "sm_export_typeChanged", lambda x, y: None)(
             self, idx
         )
-        self.w_wholeScene.setVisible(not isSCam and not isOtio)
-        self.gb_objects.setVisible(not isSCam and not isOtio)
+        if not self.w_wholeScene.isHidden():
+            self.w_wholeScene.setVisible(not isSCam and not isOtio)
+
+        if not self.gb_objects.isHidden():
+            self.gb_objects.setVisible(not isSCam and not isOtio)
 
         if not self.stateManager.loading:
             self.updateUi()
@@ -1188,6 +1195,14 @@ class ExportClass(object):
         """
         if self.sp_rangeEnd.value() < self.sp_rangeStart.value():
             self.sp_rangeStart.setValue(self.sp_rangeEnd.value())
+        self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
+    def onShotCamShotChanged(self, idx: int) -> None:
+        """Handle shot camera shot combobox change."""
+        if self.getRangeType() == "Shot":
+            self.updateRange()
+
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -1273,7 +1288,7 @@ class ExportClass(object):
             if not self.getProductname():
                 warnings.append(["No productname is given.", "", 3])
 
-            if not self.chb_wholeScene.isChecked() and len(self.nodes) == 0 and self.getOutputType() not in [".otio"]:
+            if not self.chb_wholeScene.isChecked() and len(self.nodes) == 0 and self.getOutputType() not in [".otio", "Render Setup"]:
                 warnings.append(["No objects are selected for export.", "", 3])
 
         if startFrame is None:
@@ -1316,7 +1331,8 @@ class ExportClass(object):
             framePadding = None
         else:
             rangeType = self.cb_rangeType.currentText()
-            extension = self.getOutputType()
+            outputType = self.getOutputType()
+            extension = getattr(self.core.appPlugin, "getFormatForOutputType", lambda x: outputType)(outputType)
 
             if rangeType == "Single Frame" or extension != ".obj":
                 framePadding = ""
@@ -1462,7 +1478,7 @@ class ExportClass(object):
             details["version"] = hVersion
             details["sourceScene"] = fileName
             details["product"] = self.getProductname()
-            details["resolution"] = self.core.appPlugin.getResolution()
+            details["resolution"] = getattr(self.core.appPlugin, "getResolution", lambda: None)()
             details["comment"] = self.getComment()
 
             details.update(self.cb_sCamShot.currentData())
@@ -1533,7 +1549,7 @@ class ExportClass(object):
                     [x for x in self.nodes if self.core.appPlugin.isNodeValid(self, x)]
                 )
                 == 0
-                and self.getOutputType() not in [".otio"]
+                and self.getOutputType() not in [".otio", "Render Setup"]
             ):
                 return [
                     self.state.text(0)
@@ -1664,8 +1680,20 @@ class ExportClass(object):
                     if res and "validateOutput" in res:
                         validateOutput = res["validateOutput"]
 
-            if not self.gb_submit.isHidden() and self.gb_submit.isChecked() and "Result=Success" in submitResult:
-                return [self.state.text(0) + " - success"]
+            if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
+                if "Result=Success" in submitResult:
+                    return [self.state.text(0) + " - success"]
+                elif not submitResult or (not submitResult.startswith(
+                    "Execute Canceled"
+                ) and not submitResult.startswith("Execute failed")):
+                    erStr = "%s ERROR - houExportPublish %s:\n%s" % (
+                        time.strftime("%d/%m/%y %X"),
+                        self.core.version,
+                        submitResult,
+                    )
+                    self.core.writeErrorLog(erStr)
+
+                return [self.state.text(0) + " - error - " + submitResult]
             elif os.path.exists(outputName) or self.core.media.getFilesFromSequence(outputName) or not validateOutput:
                 return [self.state.text(0) + " - success"]
             else:

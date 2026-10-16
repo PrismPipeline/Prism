@@ -1,0 +1,149 @@
+The Prism core application as well as the following Prism plugins are licensed under GNU LGPL-3.0-or-later unless otherwise stated in the provided version of the software: 3dsMax, Blender, Deadline, Houdini, Maya, Nuke, Photoshop, PureRef.
+
+The following license agreement applies to the Prism installer and all Prism plugins developed and distributed by "Prism Software GmbH", which are not licensed under GNU LGPL-3.0-or-later and unless the Prism plugin is explicitly licensed under different terms.
+
+The list of Prism plugins licensed under the following license agreement include, but is not limited to: FTrack, Hub, Kitsu, Launcher, Libraries, MediaExtension, OpenRV, PrismInternals, ProjectManagement, Resolve, Shotgrid, Studio, SubstancePainter, Unreal, USD, ZBrush.
+
+The Prism installer and all Prism plugins licensed under the following license agreement are referred to as "Prism Pipeline Plugin" in the following license agreement.
+
+
+EULA – End User License Agreement
+
+
+PLEASE READ THIS DOCUMENT CAREFULLY. IT SIGNIFICANTLY ALTERS YOUR LEGAL RIGHTS AND REMEDIES. BY PURCHASING, DOWNLOADING OR USING “Prism Pipeline Plugin” (THE “DIGITAL PRODUCT” TO WHICH THIS EULA RELATES) FROM PRISM SOFTWARE GMBH YOU ACCEPT ALL OF THIS EULA’S TERMS, INCLUDING THE DISCLAIMERS OF WARRANTIES AND LIMITATIONS ON DAMAGES, USE AND TRANSFERABILITY. IF YOU DO NOT ACCEPT THIS EULA’S TERMS, DO NOT PURCHASE, DOWNLOAD, INSTALL OR USE THE DIGITAL PRODUCT.
+
+This end-user license agreement (“EULA”) is a legally binding agreement between you, the licensee (“you” or “your”), and the provider (“Prism Software GmbH” or its subsidiaries, affiliates and suppliers, collectively “Prism Software GmbH”) of the digital products that you acquire (“Products”) regarding your rights and obligations regarding those Products.
+
+1. Your Status
+
+In this EULA, “you” means the person or entity acquiring rights in the Products. That may be a natural person, or a corporate or business entity or organization.
+
+(a) If you are a natural person then you must be, and you confirm that you are, at least 13 years old. If you are between 13 years and the age of majority in your jurisdiction of residence, you confirm that your parent or legal guardian has reviewed and agrees to this EULA and is happy for you to access and use the Product.
+
+(b) If you are a corporate entity then: (i) the rights granted under this EULA are granted to that entity; (ii) you represent and warrant that the individual completing and accepting this EULA is your authorized representative and has the authority to legally bind you to the EULA; and (iii) to the extent that one or more of your employees are granted any rights in the Product under this EULA, you will ensure that your employees comply with this EULA and you will be responsible and liable for any breach of this EULA by any employee.
+
+2. License
+
+Subject to this EULA’s terms and conditions, Prism Software GmbH hereby grants you a limited, non-exclusive, worldwide, non-transferable right and license to (which will be temporary until the license terminates as set out in this EULA): (a) download the Product; and (b) use the Product. Prism Software GmbH reserves all rights not expressly granted to you under this EULA.
+
+3. License Scope and Restrictions
+
+You may use as many Plus/Pro Licenses for the Product as there are assigned to your Prism Account by "Prism Software GmbH". "Prism Software GmbH" reserves the right to assign or remove any number of Plus/Pro licenses to/from your Prism account for any reason without notifying the account holder.
+
+A "Plus/Pro License" allows you to install the Product on a single computer for use by unlimited authorized users within your company and across it’s branches. 
+
+A "Plus/Pro License" is valid exclusively upon payment unless otherwise agreed upon by Prism Software GmbH.
+
+Provided that you comply with the restrictions on users set out above, you may use the Product on an unlimited number of personal or commercial projects.
+
+4. Additional Restrictions
+
+Except as expressly permitted under this EULA, you will not:
+
+(a) make any copy of the Product except for archival or backup purposes;
+
+(b) circumvent or disable any access control technology, security device, procedure, protocol, or technological protection mechanism that may be included or established in or as part of the Product;
+
+(c) publish, sell, distribute or otherwise make the Product available to others to use, download or copy;
+
+(d) transfer or sub-license the Product or any rights under this EULA to any third party, whether voluntarily or by operation of law;
+
+(e) use the Product for any purpose that may be defamatory, threatening, abusive, harmful or invasive of anyone’s privacy, or that may otherwise violate any law or give rise to civil or other liability;
+
+(f) misrepresent yourself as the creator or owner of the Property;
+
+(g) remove or modify any proprietary notice, symbol or label in or on the Product;
+
+(h) directly or indirectly assist, facilitate or encourage any third party to carry on any activity prohibited by this EULA.
+
+(i) decompile or reverse engineer the software, for any purpose or under any circumstance.
+
+(j) bypass, modify or remove the licensing mechanism of the Product.
+
+5. Proprietary Rights
+
+The Product is protected by copyright laws and international copyright treaties, as well as other intellectual property laws and treaties. You are licensing the Product and the right to access, install and use the Product in accordance with this EULA, not buying the Product. As between you and Prism Software GmbH, Prism Software GmbH owns all rights, intellectual property, source code, titles and interests in and to the Product, and you are not acquiring any ownership of or rights in the Product except the limited rights granted under this EULA.
+
+6. Interruptions and Errors.
+
+Your use of the Product might be interrupted and might not be free of errors.
+
+7. Disclaimer
+
+THE PRODUCT IS PROVIDED ON AN “AS IS” AND “AS AVAILABLE” BASIS, WITHOUT ANY REPRESENTATIONS, WARRANTIES OR CONDITIONS OF ANY KIND.
+
+TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW PRISM SOFTWARE GMBH DISCLAIMS, AND YOU WAIVE (WITH REGARD TO PRISM SOFTWARE GMBH), ALL TERMS, CONDITIONS, GUARANTEES, REPRESENTATIONS AND WARRANTIES (EXPRESS, IMPLIED, STATUTORY AND OTHERWISE), IN RESPECT OF THE PRODUCT, INCLUDING THOSE OF MERCHANTABILITY, NON-INFRINGEMENT, TITLE, QUALITY AND FITNESS FOR A PARTICULAR PURPOSE.
+
+PRISM SOFTWARE GMBH DOESN’T REPRESENT OR WARRANT THAT: (A) THE PRODUCT IS ACCURATE, COMPLETE, RELIABLE, CURRENT OR ERROR-FREE; (B) THE PRODUCT WILL MEET YOUR REQUIREMENTS OR EXPECTATIONS; (C) THE PRODUCT IS FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS; OR (D) ANY DEFECTS IN THE PRODUCT WILL BE CORRECTED.
+
+8. Exclusion and Limitation of Liability
+
+(a) YOU DOWNLOAD, INSTALL AND OTHERWISE USE THE PRODUCT AT YOUR OWN RISK. YOU AGREE TO, AND HEREBY DO:
+
+(i) WAIVE ANY CLAIMS THAT YOU MAY HAVE AGAINST PRISM SOFTWARE GMBH OR IT’S RESPECTIVE DIRECTORS, OFFICERS, EMPLOYEES,AGENTS, REPRESENTATIVES, LICENSORS, SUCCESSORS AND ASSIGNS (COLLECTIVELY “PRISM SOFTWARE GMBH”) ARISING FROM OR RELATING TO THE PRODUCT, AND
+
+(ii) RELEASE PRISM SOFTWARE GMBH FROM ANY LIABILITY FOR ANY LOSS, DAMAGE, EXPENSE OR INJURY ARISING FROM OR RELATING TO YOUR USE OF THE PRODUCT, WHETHER ARISING IN TORT (INCLUDING NEGLIGENCE), CONTRACT OR OTHERWISE, EVEN IF PRISM SOFTWARE GMBH IS EXPRESSLY ADVISED OF THE POSSIBILITY OF SUCH LOSS, INJURY OR DAMAGE AND EVEN IF THAT LOSS, INJURY OR DAMAGE IS FORESEEABLE.
+
+(b) PRISM SOFTWARE GMBH WON’T BE LIABLE FOR ANY LOSSES, DAMAGES, CLAIMS OR EXPENSES THAT CONSTITUTE: (I) LOSS OF INTEREST, PROFIT, BUSINESS, CUSTOMERS OR REVENUE; (II) BUSINESS INTERRUPTIONS; (III) COST OF REPLACEMENT PRODUCTS OR SERVICES; OR (IV) LOSS OF OR DAMAGE TO REPUTATION OR GOODWILL.
+
+(c) PRISM SOFTWARE GMBH WON’T BE LIABLE FOR ANY LOSSES, DAMAGES, CLAIMS OR EXPENSES THAT CONSTITUTE INCIDENTAL, CONSEQUENTIAL, SPECIAL, PUNITIVE, EXEMPLARY, MULTIPLE OR INDIRECT DAMAGES, EVEN IF PRISM SOFTWARE GMBH HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH LOSSES, DAMAGES, CLAIMS OR EXPENSES.
+
+(d) MAXIMUM LIABILITY: IF, DESPITE THE LIMITATIONS SET OUT ABOVE, PRISM SOFTWARE GMBH BECOMES LIABLE TO YOU IN RESPECT OF THE PRODUCT OR OTHERWISE UNDER THIS EULA, THE ENTIRE CUMULATIVE LIABILITY OF PRISM SOFTWARE GMBH, AND YOUR EXCLUSIVE AND CUMULATIVE REMEDY, FOR ANY DAMAGES (REGARDLESS OF THE CAUSE OR FORM OR ACTION), WILL BE LIMITED TO 1 EUR.
+
+9. Indemnity
+
+As a condition of your use of the Product, you agree to hold harmless and indemnify Prism Software GmbH from any liability for any loss or damage to you and any third party resulting from your access to, installation or use of the Product.
+
+10. Provisioning
+
+The product is provided as a download as is and "Prism Software GmbH" is not obliged to provide source code, additional files or support of any type unless agreed upon by both parties.
+
+11. Updates
+
+Prism Software GmbH has no obligation to update the Product.
+
+12. Changes
+
+Prism Software GmbH reserves the right at any time to alter prices, features, specifications, capabilities, functions, licensing terms, release dates, general availability or other characteristics of the Product.
+
+13. Term and Termination
+
+This EULA is effective until terminated. Your rights under this EULA will terminate automatically without notice if: (a) you breach any terms of this EULA; or (b) your Prism Plus/Pro licenses expire or become invalidated. Upon this EULA’s termination, you will cease all use of the Product, uninstall the Product and destroy all copies, full or partial, of the Product in your possession. Sections 7, 8, 9 and 13 through 22 will survive the termination of this EULA.
+
+14. Compliance with Laws
+
+You will comply with all applicable laws when using the Product (including intellectual property and export control laws).
+
+15. Entire Agreement
+
+This EULA supersedes all prior agreements of the parties regarding the Product, and constitutes the whole agreement with respect to the Product.
+
+16. Disputes
+
+If you have any concerns about the Product, please contact Prism Software GmbH and Prism Software GmbH will work with you to try to resolve the issue.
+
+17. Persons Bound
+
+This EULA will enure to the benefit of and be binding upon the parties and their heirs, executors, administrators, legal representatives, lawful successors and permitted assigns.
+
+18. Assignment
+
+Prism Software GmbH may assign this EULA without notice to you. You may not assign this EULA or any of your rights under it without Prism Software GmbH’s prior written consent, which Prism Software GmbH will not withhold unreasonably.
+
+19. Waiver
+
+No waiver, delay, or failure to act by Prism Software GmbH regarding any particular default or omission will prejudice or impair any of Prism Software GmbH’s rights or remedies regarding that or any subsequent default or omission that are not expressly waived in writing.
+
+20. Applicable Law and Jurisdiction
+
+The laws of Hesse, Germany (including the laws of Germany applicable in Hesse), without giving effect to its conflict of law principles, govern your use of the Product, this EULA and all proceedings arising out of it. You attorn to the exclusive jurisdiction of the Hesse courts for any proceeding arising out of or relating to the Product or this EULA. The United Nations Convention on Contracts for the International Sale of Goods will not apply to this EULA. Your use of the Product may also be subject to other local, state or provincial, national, or international laws.
+
+21. Legal Effect
+
+This EULA describes certain legal rights. You may have other rights under the laws of your country. This EULA does not change your rights under the laws of your country if the laws of your country do not permit it to do so.
+
+22. If any provision of this License Agreement is unenforceable, invalid, or violates applicable law, such provision shall be deemed stricken and shall not affect the enforceability of any other provision of this License Agreement.
+
+23. Interpretation
+
+In this EULA, “Prism Software GmbH” refers to the licensor of the Product alone and never refer to the combination of you and that licensor (that combination is referred to as “the parties”).

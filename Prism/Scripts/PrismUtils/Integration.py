@@ -133,7 +133,7 @@ class Ingegration(object):
                 return True
 
             try:
-                with open(filepath, "r") as f:
+                with open(filepath, "r", encoding="utf-8") as f:
                     content = f.read()
             except Exception as e:
                 logger.warning(e)
@@ -159,7 +159,7 @@ class Ingegration(object):
         if filepath:
             while True:
                 try:
-                    with open(filepath, "w") as f:
+                    with open(filepath, "w", encoding="utf-8") as f:
                         f.write(content)
                     break
                 except Exception as e:
@@ -197,7 +197,7 @@ class Ingegration(object):
             as values. Returns empty dict if registry doesn't exist.
         """
         integrations = self.core.configs.readJson(path=self.installLocPath, ignoreErrors=True) or {}
-        if not integrations:
+        if not integrations and os.path.exists(self.installLocPath):
             ymlIntegrations = self.core.readYaml(path=self.installLocPath) or {}
             if ymlIntegrations:
                 self.core.configs.writeJson(path=self.installLocPath, data=ymlIntegrations)

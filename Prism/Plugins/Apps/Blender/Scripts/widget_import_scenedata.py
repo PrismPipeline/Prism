@@ -193,13 +193,21 @@ class Import_SceneData(QDialog):
         
         Loads collections and objects from scene file and populates tree.
         """
-        with bpy.data.libraries.load(self.scenepath, link=False) as (
-            data_from,
-            data_to,
-        ):
-            pass
-
         self.tw_scenedata.clear()
+        try:
+            with bpy.data.libraries.load(self.scenepath, link=False) as (
+                data_from,
+                data_to,
+            ):
+                pass
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            msgStr = (
+                "Errors occurred during the loading of the scene data.\n\n%s\n%s\n%s"
+                % (str(e), exc_type, exc_tb.tb_lineno)
+            )
+            self.core.popup(msgStr)
+            return
 
         cats = ["Collections", "Objects"]
 
@@ -244,17 +252,18 @@ class Import_SceneData(QDialog):
         """
         updated = False
         libs = []
+        libraryPath = self.plugin.getPathRelativeToScene(self.scenepath)
         if validNodes:
             for i in validNodes:
                 obj = self.plugin.getObject(i)
                 if obj.library and obj.library not in libs:
                     updated = True
                     oldLib = obj.library.filepath
-                    obj.library.filepath = self.scenepath
+                    obj.library.filepath = libraryPath
                     libs.append(obj.library)
                     for node in self.state.nodes:
                         if node["library"] == oldLib:
-                            node["library"] = self.scenepath
+                            node["library"] = libraryPath
 
                 elif obj.override_library and obj.override_library.reference:
                     lib = obj.override_library.reference.library
@@ -262,10 +271,10 @@ class Import_SceneData(QDialog):
                         updated = True
                         oldLib = lib.filepath
                         libs.append(lib)
-                        lib.filepath = self.scenepath
+                        lib.filepath = libraryPath
                         for node in self.state.nodes:
                             if node["library"] == oldLib:
-                                node["library"] = self.scenepath
+                                node["library"] = libraryPath
 
             for lib in libs:
                 lib.reload()
@@ -301,7 +310,7 @@ class Import_SceneData(QDialog):
         # bpy.context.collection.children.link creates collections, which can't have library overrides so we have to use bpy.ops
         if link:
             if data["collections"]:
-                with bpy.data.libraries.load(self.scenepath, link=True) as (data_from, data_to):
+                with bpy.data.libraries.load(self.plugin.getPathRelativeToScene(self.scenepath), link=True) as (data_from, data_to):
                     colNames = [c["name"] for c in data["collections"]]
                     data_to.collections = [c for c in data_from.collections if c in colNames]
 
@@ -328,7 +337,7 @@ class Import_SceneData(QDialog):
                     importedNodes.append(col)
 
             if data["objects"]:
-                with bpy.data.libraries.load(self.scenepath, link=True) as (data_from, data_to):
+                with bpy.data.libraries.load(self.plugin.getPathRelativeToScene(self.scenepath), link=True) as (data_from, data_to):
                     objNames = [c["name"] for c in data["objects"]]
                     data_to.objects = [c for c in data_from.objects if c in objNames]
 

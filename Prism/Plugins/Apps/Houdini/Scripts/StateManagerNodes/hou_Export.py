@@ -109,6 +109,7 @@ class ExportClass(object):
         self.curCam = None
         self.initsim = True
         self.shotCamsInitialized = False
+        self.camlist = []
         self.chb_master.setChecked(os.getenv("PRISM_ENABLE_MASTER_DFT", "1") == "1")
 
         self.setProductname("")
@@ -487,7 +488,7 @@ class ExportClass(object):
         self.e_osSlaves.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_osSlaves.clicked.connect(self.openSlaves)
         self.cb_cam.activated.connect(self.setCam)
-        self.cb_sCamShot.activated.connect(self.stateManager.saveStatesToScene)
+        self.cb_sCamShot.activated.connect(self.onShotCamShotChanged)
         self.b_pathLast.clicked.connect(lambda: self.stateManager.showLastPathMenu(self))
 
         if not self.stateManager.standalone:
@@ -570,7 +571,7 @@ class ExportClass(object):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -584,7 +585,7 @@ class ExportClass(object):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 
@@ -672,7 +673,7 @@ class ExportClass(object):
             return usdPlug.api.usdExport.getProductName(self.node)
 
         if self.getOutputType() == "ShotCam":
-            productName = "_ShotCam"
+            productName = self.core.products.getShotcamProductName()
         else:
             productName = self.l_taskName.text()
             if expanded:
@@ -744,6 +745,14 @@ class ExportClass(object):
         return False
 
     @err_catcher(name=__name__)
+    def onShotCamShotChanged(self, idx):
+        """Handle shot camera shot combobox change."""
+        if self.getRangeType() == "Shot":
+            self.updateRange()
+
+        self.stateManager.saveStatesToScene()
+
+    @err_catcher(name=__name__)
     def onUpdateMasterChanged(self, master):
         """Handle update master version checkbox change."""
         if self.isPrismFilecacheNode(self.node):
@@ -793,14 +802,33 @@ class ExportClass(object):
         return False
 
     @err_catcher(name=__name__)
-    def setCam(self, index):
+    def setCam(self, index=None, name=None, node=None):
         """Set the camera for shot camera export.
         
         Args:
-            index: Camera combobox index."""
-        self.curCam = self.camlist[index]
-        self.nameChanged(self.e_name.text())
+            index: Camera combobox index.
+            name: Camera name string.
+            node: Camera node."""
+        if index is not None:
+            self.curCam = self.camlist[index]
+        elif name is not None:
+            for idx, cam in enumerate(self.camlist):
+                if cam.name() == name:
+                    self.curCam = cam
+                    self.cb_cam.blockSignals(True)
+                    self.cb_cam.setCurrentIndex(idx)
+                    self.cb_cam.blockSignals(False)
+                    break
+        elif node is not None:
+            self.curCam = node
+            for idx, cam in enumerate(self.camlist):
+                if cam == node:
+                    self.cb_cam.blockSignals(True)
+                    self.cb_cam.setCurrentIndex(idx)
+                    self.cb_cam.blockSignals(False)
+                    break
 
+        self.nameChanged(self.e_name.text())
         self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
@@ -895,8 +923,8 @@ class ExportClass(object):
             self.stateManager.saveStatesToScene()
 
         if not self.shotCamsInitialized:
-            self.shotCamsInitialized = True
             context = self.getOutputEntity()
+            self.shotCamsInitialized = True
             if (
                 context.get("type") == "shot"
                 and "sequence" in context
@@ -1189,7 +1217,8 @@ class ExportClass(object):
             "Redshift_Proxy_Output",
             "prism::Filecache::1.0",
             "vellumio",
-            "vellumio::2.0"
+            "vellumio::2.0",
+            "cam",
         ] or cat == "Driver" and typeName in ["geometry", "alembic", "wedge"]
         return validType
 
@@ -1262,6 +1291,9 @@ class ExportClass(object):
                 )[1]
             else:
                 extension = ".bgeo.sc"
+        elif typeName in ["cam"]:
+            extension = "ShotCam"
+            self.setCam(node=node)
 
         if self.cb_outType.findText(extension) != -1:
             self.cb_outType.setCurrentIndex(self.cb_outType.findText(extension))
@@ -1559,7 +1591,7 @@ class ExportClass(object):
                 if contextSource == "From USD stage meta data" and not entityData:
                     self.core.appPlugin.filecache.setCustomContext({"node": self.node}, entityData)
 
-        elif self.getOutputType() == "ShotCam":
+        elif self.getOutputType() == "ShotCam" and self.shotCamsInitialized:
             entityData = self.cb_sCamShot.currentData()
             if self.core.getConfig("globals", "productTasks", config="project"):
                 entityData["department"] = os.getenv("PRISM_SHOTCAM_DEPARTMENT", "Layout")
@@ -1631,22 +1663,23 @@ class ExportClass(object):
                 if self.core.appPlugin.filecache.isSingleFrame(self.node):
                     rangeType = "Single Frame"
 
-            if rangeType == "Single Frame":
+            extension = self.getOutputType()
+            if rangeType == "Single Frame" or (not isFilecache or (not self.node.parm("writeFileSequence").eval() and extension in [".abc", ".fbx", ".usd", ".usda", ".usdc"])):
                 framePadding = ""
             elif isOtio:
                 framePadding = ""
             else:
                 if isFilecache:
                     incr = self.node.parm("f3").eval() / self.node.parm("substeps").eval()
-                else:
+                elif self.isNodeValid():
                     incr = self.node.parm("f3").eval() if self.node.parm("f3") else 1
+                else:
+                    incr = 1
 
                 if incr < 1:
                     framePadding = f"`pythonexprs('\"%0{self.core.framePadding}d.%03d\" % (int(hou.timeToFrame(hou.time())), int(round(hou.timeToFrame(hou.time()), 3) * 1000) % 1000)')`"
                 else:
                     framePadding = "$F" + str(self.core.framePadding)
-
-            extension = self.getOutputType()
 
         wedge = self.getCurrentWedgeIndex()
         outputPathData = self.core.products.generateProductPath(
@@ -1660,7 +1693,6 @@ class ExportClass(object):
             returnDetails=True,
             wedge=wedge
         )
-
         if not outputPathData:
             return
 
@@ -1681,6 +1713,31 @@ class ExportClass(object):
             comment = self.stateManager.publishComment
 
         return comment
+
+    @err_catcher(name=__name__)
+    def setTakeOnNode(self, node):
+        if self.chb_useTake.isChecked():
+            pTake = self.cb_take.currentText()
+            takeLabels = [
+                x.strip() for x in node.parm("take").menuLabels()
+            ]
+            if pTake in takeLabels:
+                idx = takeLabels.index(pTake)
+                if idx != -1:
+                    token = node.parm("take").menuItems()[idx]
+                    if not self.core.appPlugin.setNodeParm(
+                        node, "take", val=token
+                    ):
+                        return [
+                            self.state.text(0) + ": error - Publish canceled"
+                        ]
+            else:
+                return [
+                    self.state.text(0)
+                    + ": error - take '%s' doesn't exist." % pTake
+                ]
+
+        return True
 
     @err_catcher(name=__name__)
     def executeState(self, parent, useVersion="next"):
@@ -1795,55 +1852,44 @@ class ExportClass(object):
                 if preview:
                     self.core.products.setProductPreview(os.path.dirname(outputName), preview)
 
-            abc_rop = self.core.appPlugin.createRop("alembic")
+            shotcamFormats = self.core.products.getShotcamFormats()
+            if ".abc" in shotcamFormats:
+                abc_rop = self.core.appPlugin.createRop("alembic")
 
-            abc_rop.parm("trange").set(1)
-            abc_rop.parm("f1").set(startFrame)
-            abc_rop.parm("f2").set(endFrame)
-            abc_rop.parm("filename").set(os.path.splitext(outputName)[0] + ".abc")
-            abc_rop.parm("root").set("/" + self.curCam.path().split("/", 2)[1])
-            abc_rop.parm("objects").set(self.curCam.path().split("/", 2)[-1])
+                abc_rop.parm("trange").set(1)
+                abc_rop.parm("f1").set(startFrame)
+                abc_rop.parm("f2").set(endFrame)
+                abc_rop.parm("filename").set(os.path.splitext(outputName)[0] + ".abc")
+                abc_rop.parm("root").set("/" + self.curCam.path().split("/", 2)[1])
+                abc_rop.parm("objects").set(self.curCam.path().split("/", 2)[-1])
+                takeResult = self.setTakeOnNode(abc_rop)
+                if takeResult is not True:
+                    return takeResult
 
-            fbx_rop = self.core.appPlugin.createRop("filmboxfbx")
-            fbx_rop.parm("sopoutput").set(os.path.splitext(outputName)[0] + ".fbx")
-            fbx_rop.parm("startnode").set(self.curCam.path())
-
-            for node in [abc_rop, fbx_rop]:
-                if self.chb_useTake.isChecked():
-                    pTake = self.cb_take.currentText()
-                    takeLabels = [
-                        x.strip() for x in self.node.parm("take").menuLabels()
-                    ]
-                    if pTake in takeLabels:
-                        idx = takeLabels.index(pTake)
-                        if idx != -1:
-                            token = self.node.parm("take").menuItems()[idx]
-                            if not self.core.appPlugin.setNodeParm(
-                                self.node, "take", val=token
-                            ):
-                                return [
-                                    self.state.text(0) + ": error - Publish canceled"
-                                ]
+                try:
+                    abc_rop.render()
+                except Exception as e:
+                    if "Alembic export is only supported in Houdini" in str(e):
+                        logger.debug("Alembic export is not available with the current Houdini license.")
                     else:
-                        return [
-                            self.state.text(0)
-                            + ": error - take '%s' doesn't exist." % pTake
-                        ]
+                        raise
 
-            try:
-                abc_rop.render()
-            except Exception as e:
-                if "Alembic export is only supported in Houdini" in str(e):
-                    logger.debug("Alembic export is not available with the current Houdini license.")
-                else:
-                    raise
+                abc_rop.destroy()
+                outputName = os.path.splitext(outputName)[0] + ".abc"
 
-            fbx_rop.render(frame_range=(startFrame, endFrame))
+            if ".fbx" in shotcamFormats:
+                fbx_rop = self.core.appPlugin.createRop("filmboxfbx")
+                fbx_rop.parm("sopoutput").set(os.path.splitext(outputName)[0] + ".fbx")
+                fbx_rop.parm("startnode").set(self.curCam.path())
+                takeResult = self.setTakeOnNode(fbx_rop)
+                if takeResult is not True:
+                    return takeResult
 
-            abc_rop.destroy()
-            fbx_rop.destroy()
+                fbx_rop.render(frame_range=(startFrame, endFrame))
+                fbx_rop.destroy()
+                if ".abc" not in shotcamFormats:
+                    outputName = os.path.splitext(outputName)[0] + ".fbx"
 
-            outputName = os.path.splitext(outputName)[0] + ".abc"
             self.l_pathLast.setText(outputName)
             self.l_pathLast.setToolTip(outputName)
 

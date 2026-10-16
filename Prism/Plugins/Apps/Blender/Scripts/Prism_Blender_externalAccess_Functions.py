@@ -212,6 +212,9 @@ class Prism_Blender_externalAccess_Functions(object):
             settings: Settings dictionary to load from.
         """
         if settings:
+            if hasattr(origin, "chb_blenderRelative") and "useRelativePaths" in settings.get("blender", {}):
+                origin.chb_blenderRelative.setChecked(settings["blender"]["useRelativePaths"])
+
             if hasattr(origin, "sb_blender"):
                 sbData = settings.get("sceneBuilding", {})
                 savedSteps = sbData.get("blender_steps") or []
@@ -227,6 +230,9 @@ class Prism_Blender_externalAccess_Functions(object):
             origin: Project settings dialog.
             settings: Settings dictionary to update.
         """
+        if hasattr(origin, "chb_blenderRelative"):
+            settings.setdefault("blender", {})["useRelativePaths"] = origin.chb_blenderRelative.isChecked()
+
         if hasattr(origin, "sb_blender"):
             if "sceneBuilding" not in settings:
                 settings["sceneBuilding"] = {}
@@ -251,6 +257,20 @@ class Prism_Blender_externalAccess_Functions(object):
         Args:
             projectSettings: Project settings dialog.
         """
+        projectSettings.w_blender = QGroupBox("Blender")
+        lo_blender = QGridLayout()
+        projectSettings.w_blender.setLayout(lo_blender)
+
+        label = QLabel("Use relative paths:")
+        tooltip = "Store imported file references relative to the saved Blender scene."
+        label.setToolTip(tooltip)
+        projectSettings.chb_blenderRelative = QCheckBox()
+        projectSettings.chb_blenderRelative.setToolTip(tooltip)
+        lo_blender.addWidget(label, 0, 0)
+        lo_blender.addWidget(projectSettings.chb_blenderRelative, 0, 2)
+        lo_blender.setColumnStretch(1, 1)
+        projectSettings.w_prjSettings.layout().addWidget(projectSettings.w_blender)
+
         projectSettings.sb_blender = projectSettings.addSceneBuildingApp("Blender", iconPath=self.appIcon)
         dftSteps = self.getAvailableSceneBuildingSteps()
         dftSteps = [s for s in dftSteps["results"] if s["name"] not in ["runCode"]]

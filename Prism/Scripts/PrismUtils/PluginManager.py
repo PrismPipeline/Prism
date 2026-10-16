@@ -63,6 +63,8 @@ class DelayedPluginLoader(QThread):
     def run(self):
         logger.debug("loading %d delayed plugin(s)..." % len(self.pluginPaths))
         for pluginPath in self.pluginPaths:
+            if self.isInterruptionRequested():
+                break
             self.pluginManager.loadPlugin(pluginPath, force=False)
         self.allImportsDone.emit()
 
@@ -83,6 +85,7 @@ class PluginManager(object):
         self._delayedPluginPaths = []
         self._delayedLoader = None
         self._delayedExcludePlugins = set()
+        self._shuttingDown = False
 
     @err_catcher(name=__name__)
     def initializePlugins(self, appPlugin: str) -> None:
@@ -175,23 +178,45 @@ class PluginManager(object):
     @err_catcher(name=__name__)
     def _startDelayedLoader(self) -> None:
         """Start the background thread to load delayed plugins."""
+        if self._shuttingDown:
+            return
         paths = list(self._delayedPluginPaths)
         self._delayedPluginPaths = []
         logger.debug("starting delayed load of %d plugin(s)..." % len(paths))
         self._delayedLoader = DelayedPluginLoader(self, paths)
-        self._delayedLoader.allImportsDone.connect(self._onAllDelayedPluginsLoaded)
+        self._delayedLoader.finished.connect(self._onAllDelayedPluginsLoaded)
         self._delayedLoader.start()
+
+    @err_catcher(name=__name__)
+    def shutdownDelayedLoader(self) -> None:
+        """Stop queued plugin loading and wait for the current import to finish."""
+        self._shuttingDown = True
+        self._delayedPluginPaths = []
+        loader = self._delayedLoader
+        if loader is not None:
+            loader.requestInterruption()
+            loader.wait()
+            self._delayedLoader = None
 
     @err_catcher(name=__name__)
     def _onAllDelayedPluginsLoaded(self) -> None:
         """Callback when all delayed plugins have been loaded."""
+        self._delayedLoader = None
+        if getattr(self, "_shuttingDown", False):
+            return
         logger.debug("all delayed plugins loaded")
-        if self.core.pb:
+        self.core.projects.retryPendingProjectChange()
+        if self.core.pb and hasattr(self.core.pb, "sceneBrowser"):
             self.core.pb.sceneBrowser.refreshAppFilters()
+
+        if getattr(self.core, "ps", None) and self.core.ps.isVisible():
+            self.core.ps.w_user.refreshDccPluginSettings()
+            self.core.ps.w_user.refreshPlugins()
+
         self.core.callback("onPluginsLoaded")
         if self.core.splashScreen:
             self.core.splashScreen.setStatus("plugins loaded...")
-        self._delayedLoader = None
+
         if self.core.status == "waitingForDelayedPlugins":
             self.core.status = "postInitializing"
             self.core.callback(name="postInitialize")
@@ -350,7 +375,7 @@ class PluginManager(object):
         Returns:
             str: Computer plugin directory path.
         """
-        pluginPath = os.path.join(self.core.getPrismDataDir(), "plugins")
+        pluginPath = os.path.join(self.core.getPrismDataDir(), "plugins", self.core.version)
         return pluginPath
 
     @err_catcher(name=__name__)
@@ -918,7 +943,7 @@ class PluginManager(object):
             if not hasattr(pPlug, "pluginType") or pPlug.pluginType in ["Custom"]:
                 self.core.customPlugins[pPlug.pluginName] = pPlug
 
-        if self.core.pb and isGuiThread:
+        if self.core.pb and hasattr(self.core.pb, "sceneBrowser") and isGuiThread:
             self.core.pb.sceneBrowser.refreshAppFilters()
 
         self.core.callback("pluginLoaded", args=[pPlug])
@@ -1757,7 +1782,7 @@ class PLUGINNAME:
         return info
 
     @err_catcher(name=__name__)
-    def monkeyPatch(self, orig: Callable, new: Callable, plugin: Any, quiet: bool = False, force: bool = False) -> None:
+    def monkeyPatch(self, orig: Callable, new: Callable, plugin: Any = None, quiet: bool = False, force: bool = False) -> None:
         """Replace a function with a plugin override (monkey patch).
         
         Args:
@@ -1782,10 +1807,9 @@ class PLUGINNAME:
                 logger.debug("replacing existing monkeypatch for %s" % functionId)
             else:
                 if not quiet:
-                    self.core.popup(
-                        "Function %s is already monkeypatched and cannot get monkeypatched again by plugin %s."
-                        % (functionId, plugin.pluginName)
-                    )
+                    msg = "Function %s is already monkeypatched and cannot get monkeypatched again by plugin %s." % (functionId.replace("<lambda>", "lambda"), plugin.pluginName if plugin else "Unknown")
+                    logger.warning(msg)
+                    self.core.popup(msg)
                 return
 
         setattr(origClass, orig.__name__, new)
@@ -1947,6 +1971,10 @@ class PLUGINNAME:
 
             if setPermissions:
                 self.core.grantRwToAllUsers(dataDir)
+
+            intPlug = self.core.getPlugin("PrismInternals")
+            if intPlug:
+                intPlug.internals.getActiveLicense()
 
     @err_catcher(name=__name__)
     def downloadPlugin(self, plugin: str) -> Optional[str]:
@@ -2259,22 +2287,36 @@ class PLUGINNAME:
         return True
 
     @err_catcher(name=__name__)
-    def setupIntegrations(self, plugin: str, parent: Any = None) -> None:
+    def setupIntegrations(self, plugin: str, parent: Any = None, singlePathDialog: bool = False) -> None:
         """Open installer dialog to setup DCC integrations for a plugin.
         
         Args:
             plugin: Plugin name
             parent: Parent widget for dialog. Defaults to None.
+            singlePathDialog: Use a path dialog for single-folder integrations.
         """
         installer = self.core.getInstaller([plugin], parent=parent)
+        if not installer:
+            return
+
         installer.installShortcuts = False
-        dccItem = installer.tw_components.topLevelItem(0).child(0)
+        dccItem = installer.tw_components.topLevelItem(0)
+        if dccItem is None:
+            return
+
+        if singlePathDialog and dccItem.childCount() == 0:
+            path = installer.requestIntegrationPath(plugin, dccItem.text(1))
+            if path:
+                self.core.integration.addIntegration(plugin, path=path)
+
+            return
+
         dccItem.setCheckState(0, Qt.Checked)
         if dccItem.childCount() == 1:
             dccItem.child(0).setCheckState(0, Qt.Checked)
 
         installer.CompItemClicked(dccItem, 0)
-        installer.resize(680, 300)
+        installer.resize(1000, 300)
         installer.exec_()
 
 

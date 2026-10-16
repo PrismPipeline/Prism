@@ -294,13 +294,16 @@ class ImportFileClass(object):
             if shotName:
                 cacheData["entity"] = shotName
 
+        if cacheData.get("product") == "_ShotCam":
+            cacheData["product"] = "ShotCam"
+
         num = 0
         self.core.callback("onGenerateStateNameContext", self, cacheData)
         try:
             if "{#}" in text:
                 while True:
                     cacheData["#"] = num or ""
-                    name = text.format(**cacheData)
+                    name = text.format_map(self.core.safeFormatDict(cacheData))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Import":
                             continue
@@ -314,7 +317,7 @@ class ImportFileClass(object):
                     else:
                         break
             else:
-                name = text.format(**cacheData)
+                name = text.format_map(self.core.safeFormatDict(cacheData))
 
         except Exception as e:
             name = text
@@ -327,6 +330,15 @@ class ImportFileClass(object):
         
         Returns:
             Product name from cache data, used for sorting
+        """
+        return self.getProduct()
+
+    @err_catcher(name=__name__)
+    def getProduct(self) -> str:
+        """Get the product name for this state.
+        
+        Returns:
+            Product name from cache data
         """
         cacheData = self.core.paths.getCachePathData(self.getImportPath())
         return cacheData.get("product")
@@ -401,7 +413,7 @@ class ImportFileClass(object):
         """
         if not path:
             path = self.getImportPath()
-        return path.endswith(".abc") and "/_ShotCam/" in path
+        return path.endswith(".abc") and f"/{self.core.products.getShotcamProductName()}/" in path
 
     @err_catcher(name=__name__)
     def autoUpdateChanged(self, checked: bool) -> None:
@@ -430,6 +442,7 @@ class ImportFileClass(object):
         """
         self.updateUi()
         self.stateManager.saveImports()
+        self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def autoNameSpaceChanged(self, checked: bool) -> None:
@@ -680,6 +693,11 @@ class ImportFileClass(object):
         """
         path = self.getImportPath()
         curVersionName = self.core.products.getVersionFromFilepath(path) or ""
+        if not curVersionName:
+            curVersionName = self.core.paths.getCachePathData(path).get("version")
+            if curVersionName and os.path.basename(os.path.dirname(path)) == "master":
+                curVersionName = "master"
+
         curVersionData = {"version": curVersionName, "path": path}
         includeMaster = not self.chb_ignoreMaster.isChecked()
         latestVersion = self.core.products.getLatestVersionFromPath(path, includeMaster=includeMaster)
@@ -703,6 +721,8 @@ class ImportFileClass(object):
             statusColor = QColor(200, 100, 0)
         elif status == "error":
             statusColor = QColor(130, 0, 0)
+        elif status == "unknown":
+            statusColor = QColor(128, 128, 128)
         else:
             statusColor = QColor(0, 0, 0, 0)
 
@@ -741,7 +761,9 @@ class ImportFileClass(object):
             if curVersionName and latestVersionName and curVersionName != latestVersionName:
                 self.importLatest(refreshUi=False)
 
-            if latestVersionName:
+            if not curVersionName:
+                status = "unknown"
+            elif latestVersionName:
                 status = "ok"
         else:
             useSS = getattr(self.core.appPlugin, "colorButtonWithStyleSheet", False)
@@ -750,6 +772,7 @@ class ImportFileClass(object):
                 and latestVersionName
                 and curVersionName != latestVersionName
                 and not curVersionName.startswith("master")
+                and not (latestVersionName.startswith("master") and curVersionName == self.core.products.getMasterVersionNumber(latestVersion["path"]))
             ):
                 status = "warning"
                 if useSS:
@@ -761,6 +784,8 @@ class ImportFileClass(object):
             else:
                 if curVersionName and latestVersionName:
                     status = "ok"
+                elif not curVersionName:
+                    status = "unknown"
                 elif self.nodes:
                     status = "ok"
 
@@ -874,13 +899,13 @@ class ImportFileClass(object):
         """
         connectedNodes = []
         if self.chb_trackObjects.isChecked():
-            for i in range(self.lw_objects.count()):
-                connectedNodes.append([self.lw_objects.item(i).text(), self.nodes[i]])
+            for idx in range(self.lw_objects.count()):
+                connectedNodes.append([self.lw_objects.item(idx).text(), self.nodes[idx]])
 
         return {
             "statename": self.e_name.text(),
             "statemode": self.stateMode,
-            "filepath": self.getImportPath(),
+            "filepath": getattr(self.core.appPlugin, "sm_import_getStoredImportPath", lambda path: path)(self.getImportPath()),
             "autoUpdate": str(self.chb_autoUpdate.isChecked()),
             "ignoreMaster": self.chb_ignoreMaster.isChecked(),
             "keepedits": str(self.chb_keepRefEdits.isChecked()),

@@ -315,12 +315,15 @@ class EntityWidget(QWidget):
         return self.getCurrentPage().getLocations()
 
     @err_catcher(name=__name__)
-    def navigate(self, data: Any, clear: bool = False) -> Optional[bool]:
+    def navigate(
+        self, data: Any, clear: bool = False, deferSelection: bool = False
+    ) -> Optional[bool]:
         """Navigate to and select specific entities.
         
         Args:
             data: Entity data dictionary or list of dictionaries to navigate to
             clear: Whether to clear selection if navigation fails
+            deferSelection: Whether to wait for lazy tree items before selecting
             
         Returns:
             False on failure, None on success
@@ -348,7 +351,7 @@ class EntityWidget(QWidget):
 
         self.sw_tabs.setCurrentWidget(page)
         self.tb_entities.setCurrentIndex(self.sw_tabs.currentIndex())
-        page.navigate(data)
+        return page.navigate(data, deferSelection=deferSelection)
 
     @err_catcher(name=__name__)
     def syncFromWidget(self, widget: Any, navData: Optional[Any] = None) -> None:
@@ -360,7 +363,8 @@ class EntityWidget(QWidget):
         """
         data = navData or widget.getCurrentData()
         if data:
-            self.navigate(data)
+            if not self.navigate(data, deferSelection=True):
+                self.getCurrentPage().pendingRestoreData = data
         else:
             self.tb_entities.setCurrentIndex(widget.tb_entities.currentIndex())
 
@@ -433,6 +437,13 @@ class EntityPage(QWidget):
         self.itemWidgets = []
         self.dirty = True
         self.useCounter = False
+        self.entityRefreshId = 0
+        self.entityLoadingCount = 0
+        self.entityWorkers = []
+        self.entityWorkerCallbacks = {}
+        self.pendingRestoreData = None
+        self.assetHierarchyLoading = False
+        self.shotHierarchyLoading = False
         self.setObjectName(self.pageName)
         if pageName == self.core.tr("Assets"):
             self.entityType = "asset"
@@ -441,6 +452,7 @@ class EntityPage(QWidget):
 
         self.setupUi()
         self.connectEvents()
+        self.initEntityLoadingWidget()
 
         if refresh:
             self.refreshEntities()
@@ -453,27 +465,16 @@ class EntityPage(QWidget):
             restoreSelection: Restore previous selection after refresh. Defaults to False.
             defaultSelection: Select first item by default. Defaults to True.
         """
+        if not self.entityLoadingCount:
+            self.expandedItems = self.getExpandedItems()
+
         prevData = self.getCurrentData()
         self.itemWidgets = []
 
-        wasBlocked = self.tw_tree.signalsBlocked()
-        if not wasBlocked:
-            self.tw_tree.blockSignals(True)
-            self.tw_tree.selectionModel().blockSignals(True)
-
         if self.entityType == "asset":
-            self.refreshAssetHierarchy(defaultSelection=defaultSelection)
+            self.refreshAssetHierarchy(defaultSelection=defaultSelection, restoreData=prevData if restoreSelection else None)
         elif self.entityType == "shot":
-            self.refreshShots(defaultSelection=defaultSelection)
-
-        if restoreSelection:
-            self.navigate(prevData)
-
-        if not wasBlocked:
-            self.tw_tree.blockSignals(False)
-            self.tw_tree.selectionModel().blockSignals(False)
-            if self.getCurrentData() != prevData:
-                self.onItemChanged()
+            self.refreshShots(defaultSelection=defaultSelection, restoreData=prevData if restoreSelection else None)
 
         self.dirty = False
 
@@ -628,7 +629,122 @@ class EntityPage(QWidget):
         self.refreshEntities(restoreSelection=True)
 
     @err_catcher(name=__name__)
-    def refreshAssetHierarchy(self, defaultSelection: bool = True) -> None:
+    def initEntityLoadingWidget(self) -> None:
+        """Create the loading overlay displayed while entity data is read."""
+        viewport = self.tw_tree.viewport()
+        self.w_entitiesLoading = QWidget(viewport)
+        self.w_entitiesLoading.setObjectName("entitywidget_loading")
+        self.w_entitiesLoading.setStyleSheet(
+            "#entitywidget_loading {background-color: rgba(0, 0, 0, 50)}"
+        )
+        self.w_entitiesLoading.setAttribute(Qt.WA_StyledBackground, True)
+        self.w_entitiesLoading.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.w_entitiesLoading.setHidden(True)
+        layout = QHBoxLayout(self.w_entitiesLoading)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.l_entitiesLoading = QLabel(self.w_entitiesLoading)
+        self.l_entitiesLoading.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.l_entitiesLoading)
+
+        path = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "loading.gif"
+        )
+        self.entitiesLoadingGif = QMovie(path, QByteArray(), self.w_entitiesLoading)
+        self.entitiesLoadingGif.setCacheMode(QMovie.CacheAll)
+        self.entitiesLoadingGif.setScaledSize(QSize(108, 60))
+        self.l_entitiesLoading.setMovie(self.entitiesLoadingGif)
+        viewport.installEventFilter(self)
+
+    @err_catcher(name=__name__)
+    def eventFilter(self, obj: Any, event: Any) -> bool:
+        if (
+            obj == self.tw_tree.viewport()
+            and event.type() == QEvent.Resize
+            and hasattr(self, "w_entitiesLoading")
+        ):
+            self.w_entitiesLoading.setGeometry(obj.rect())
+
+        return QWidget.eventFilter(self, obj, event)
+
+    @err_catcher(name=__name__)
+    def showEntitiesLoading(self, clearTree: bool = False) -> None:
+        self.entityLoadingCount += 1
+        if clearTree:
+            treeBlocked = self.tw_tree.signalsBlocked()
+            selectionModel = self.tw_tree.selectionModel()
+            selectionBlocked = selectionModel.signalsBlocked()
+            self.tw_tree.blockSignals(True)
+            selectionModel.blockSignals(True)
+            self.tw_tree.clear()
+            selectionModel.blockSignals(selectionBlocked)
+            self.tw_tree.blockSignals(treeBlocked)
+
+        self.w_entitiesLoading.setGeometry(self.tw_tree.viewport().rect())
+        self.w_entitiesLoading.show()
+        self.w_entitiesLoading.raise_()
+        self.entitiesLoadingGif.start()
+
+    @err_catcher(name=__name__)
+    def hideEntitiesLoading(self) -> None:
+        self.entityLoadingCount = max(0, self.entityLoadingCount - 1)
+        if self.entityLoadingCount == 0:
+            self.w_entitiesLoading.hide()
+            self.entitiesLoadingGif.stop()
+
+    @err_catcher(name=__name__)
+    def runEntityWorker(self, function: Any, callback: Any, clearTree: bool = False) -> None:
+        """Run entity discovery in a worker and apply its result in the GUI thread."""
+        worker = self.core.worker(self.core)
+        self.entityWorkers.append(worker)
+        self.entityWorkerCallbacks[worker] = callback
+        self.showEntitiesLoading(clearTree=clearTree)
+
+        def sendData() -> None:
+            worker.dataSent.emit({"worker": worker, "result": function()})
+
+        worker.function = sendData
+        worker.errored.connect(self.core.writeErrorLog)
+        worker.dataSent.connect(self.onEntityWorkerData)
+        worker.finished.connect(self.onEntityWorkerFinished)
+        worker.start()
+
+    @err_catcher(name=__name__)
+    def onEntityWorkerData(self, data: Dict[str, Any]) -> None:
+        callback = self.entityWorkerCallbacks.get(data["worker"])
+        if callback:
+            callback(data["result"])
+
+    @err_catcher(name=__name__)
+    def onEntityWorkerFinished(self) -> None:
+        worker = self.sender()
+        if worker in self.entityWorkers:
+            self.entityWorkers.remove(worker)
+        self.entityWorkerCallbacks.pop(worker, None)
+        self.hideEntitiesLoading()
+        worker.deleteLater()
+
+    @err_catcher(name=__name__)
+    def restoreSelectionWhenReady(self, data: Optional[Dict[str, Any]]) -> None:
+        """Restore a selection after all required lazy tree items exist."""
+        if not data:
+            return
+
+        entityType = data.get("type")
+        if (
+            entityType == "asset" and not data.get("asset_path")
+        ) or (
+            entityType in ["shot", "sequence"] and not data.get("sequence")
+        ):
+            self.pendingRestoreData = None
+            return
+
+        self.pendingRestoreData = data
+        restored = self.navigate(data, deferSelection=True)
+        if restored:
+            self.pendingRestoreData = None
+
+    @err_catcher(name=__name__)
+    def refreshAssetHierarchy(self, defaultSelection: bool = True, restoreData: Optional[Dict[str, Any]] = None) -> None:
         """Refresh the asset tree hierarchy with filtering support.
         
         Rebuilds the entire asset tree widget, applying search filters if active.
@@ -637,45 +753,56 @@ class EntityPage(QWidget):
         Args:
             defaultSelection: Whether to select the first item if no current selection exists
         """
-        wasBlocked = self.tw_tree.signalsBlocked()
-        if not wasBlocked:
-            self.tw_tree.blockSignals(True)
-            self.tw_tree.selectionModel().blockSignals(True)
+        self.entityRefreshId += 1
+        refreshId = self.entityRefreshId
+        self.assetHierarchyLoading = True
+        searchFilter = self.e_search.text() if self.e_search.isVisible() else ""
+        showOmitted = self.core.getConfig(
+            "browser", "showOmittedEntities", config="user", dft=False
+        )
 
-        self.tw_tree.clear()
-        self.addedAssetItems = {}
-        self.filteredAssets = []
-        if self.e_search.isVisible() and self.e_search.text():
-            showOmitted = self.core.getConfig("browser", "showOmittedEntities", config="user", dft=False)
-            assets, folders = self.core.entities.getAssetPaths(
-                returnFolders=True, depth=0, includeOmitted=showOmitted
-            )
-            filterStr = self.e_search.text()
-            self.filteredAssets += self.core.entities.filterAssets(assets, filterStr)
-            assetFolders = []
-            for fasset in self.filteredAssets:
-                fasset = os.path.dirname(fasset)
-                while fasset != self.core.assetPath:
-                    assetFolders.append(fasset)
-                    fasset = os.path.dirname(fasset)
+        def loadAssets() -> Dict[str, Any]:
+            filteredAssets = None
+            if searchFilter:
+                assets, folders = self.core.entities.getAssetPaths(
+                    returnFolders=True, depth=0, includeOmitted=showOmitted
+                )
+                filteredAssets = self.core.entities.filterAssets(assets, searchFilter)
+                assetFolders = []
+                for asset in filteredAssets:
+                    asset = os.path.dirname(asset)
+                    while asset != self.core.assetPath:
+                        assetFolders.append(asset)
+                        asset = os.path.dirname(asset)
 
-            self.filteredAssets += assetFolders
-            self.filteredAssets += self.core.entities.filterAssets(folders, filterStr)
+                filteredAssets += assetFolders
+                filteredAssets += self.core.entities.filterAssets(folders, searchFilter)
 
-        self.hasAssetPreview = False
-        self.refreshAssets()
-        self.tw_tree.resizeColumnToContents(0)
+            return {"filteredAssets": filteredAssets}
 
-        if defaultSelection and self.tw_tree.topLevelItemCount() > 0 and not self.e_search.isVisible():
-            self.tw_tree.setCurrentItem(self.tw_tree.topLevelItem(0))
+        def applyAssets(data: Dict[str, Any]) -> None:
+            if refreshId != self.entityRefreshId:
+                return
 
-        if not wasBlocked:
-            self.tw_tree.blockSignals(False)
-            self.tw_tree.selectionModel().blockSignals(False)
-            self.itemChanged.emit(self.tw_tree.currentItem())
+            wasBlocked = self.tw_tree.signalsBlocked()
+            if not wasBlocked:
+                self.tw_tree.blockSignals(True)
+                self.tw_tree.selectionModel().blockSignals(True)
+
+            self.tw_tree.clear()
+            self.addedAssetItems = {}
+            self.filteredAssets = data["filteredAssets"]
+            self.hasAssetPreview = False
+            self.refreshAssets(defaultSelection=defaultSelection, refreshId=refreshId, restoreData=restoreData)
+
+            if not wasBlocked:
+                self.tw_tree.blockSignals(False)
+                self.tw_tree.selectionModel().blockSignals(False)
+
+        self.runEntityWorker(loadAssets, applyAssets, clearTree=True)
 
     @err_catcher(name=__name__)
-    def refreshAssets(self, path: Optional[str] = None, parent: Optional[Any] = None, refreshChildren: bool = True) -> None:
+    def refreshAssets(self, path: Optional[str] = None, parent: Optional[Any] = None, refreshChildren: bool = True, defaultSelection: bool = False, refreshId: Optional[int] = None, restoreData: Optional[Dict[str, Any]] = None) -> None:
         """Refresh assets and folders at a specific path in the hierarchy.
         
         Loads assets and asset folders from the file system, applying location
@@ -699,62 +826,50 @@ class EntityPage(QWidget):
         else:
             locations = [location]
 
-        assets = {}
-        folders = {}
         showOmitted = self.core.getConfig("browser", "showOmittedEntities", config="user", dft=False)
-        for location in locations:
-            basePath = self.getLocations()[location]
-            path = self.core.convertPath(path, location)
-            assetPaths, folderPaths = self.core.entities.getAssetPaths(
-                path=path, returnFolders=True, depth=1, includeOmitted=showOmitted
+        filteredAssets = None if self.filteredAssets is None else list(self.filteredAssets)
+        refreshId = self.entityRefreshId if refreshId is None else refreshId
+
+        def loadAssets() -> List[Dict[str, str]]:
+            itemPaths = []
+            for location in locations:
+                targetPath = self.core.convertPath(path, location)
+                assetPaths, folderPaths = self.core.entities.getAssetPaths(
+                    path=targetPath, returnFolders=True, depth=1, includeOmitted=showOmitted
+                )
+                itemPaths += [{"path": assetPath, "type": "asset"} for assetPath in assetPaths]
+                itemPaths += [{"path": folderPath, "type": "assetFolder"} for folderPath in folderPaths]
+
+            if filteredAssets is not None:
+                itemPaths = [item for item in itemPaths if item["path"] in filteredAssets]
+
+            return sorted(
+                itemPaths,
+                key=lambda item: self.core.entities.getAssetRelPathFromPath(item["path"]).lower(),
             )
-            for assetPath in assetPaths:
-                if basePath not in assets:
-                    assets[basePath] = []
 
-                assets[basePath].append(assetPath)
+        def applyAssets(itemPaths: List[Dict[str, str]]) -> None:
+            if refreshId != self.entityRefreshId:
+                return
 
-            for folderPath in folderPaths:
-                if basePath not in folders:
-                    folders[basePath] = []
+            for itemPath in itemPaths:
+                self.addAssetItem(
+                    itemPath["path"], itemType=itemPath["type"], parent=parent,
+                    refreshItem=refreshChildren,
+                )
 
-                folders[basePath].append(folderPath)
+            if parent is None:
+                self.assetHierarchyLoading = False
+            self.tw_tree.resizeColumnToContents(0)
+            if self.pendingRestoreData:
+                self.restoreSelectionWhenReady(self.pendingRestoreData)
+            elif restoreData:
+                self.restoreSelectionWhenReady(restoreData)
+            elif defaultSelection and self.tw_tree.topLevelItemCount() > 0 and not self.e_search.isVisible():
+                self.tw_tree.setCurrentItem(self.tw_tree.topLevelItem(0))
+            self.onItemChanged()
 
-        if self.e_search.isVisible() and self.e_search.text():
-            filteredAssets = {}
-            for location in assets:
-                filteredAssets[location] = [a for a in assets[location] if a in self.filteredAssets]
-
-            assets = filteredAssets
-
-            filteredFolders = {}
-            for location in folders:
-                filteredFolders[location] = [f for f in folders[location] if f in self.filteredAssets]
-
-            folders = filteredFolders
-
-        itemPaths = []
-
-        for location in assets:
-            for path in assets[location]:
-                data = {"path": path, "type": "asset"}
-                itemPaths.append(data)
-
-        for location in folders:
-            for path in folders[location]:
-                data = {"path": path, "type": "assetFolder"}
-                itemPaths.append(data)
-
-        for itemPath in sorted(
-            itemPaths,
-            key=lambda x: self.core.entities.getAssetRelPathFromPath(x["path"]).lower(),
-        ):
-            self.addAssetItem(
-                itemPath["path"],
-                itemType=itemPath["type"],
-                parent=parent,
-                refreshItem=refreshChildren,
-            )
+        self.runEntityWorker(loadAssets, applyAssets)
 
     @err_catcher(name=__name__)
     def addAssetItem(self, path: str, itemType: str, parent: Optional[Any] = None, refreshItem: bool = True) -> None:
@@ -789,6 +904,9 @@ class EntityPage(QWidget):
                 entity,
             )
             self.addedAssetItems[relPath] = item
+
+        if parent and parent.isExpanded():
+            refreshItem = True
 
         if parent:
             parent.addChild(item)
@@ -922,7 +1040,7 @@ class EntityPage(QWidget):
             self.setItemChildrenExpanded(item, expanded=False)
 
     @err_catcher(name=__name__)
-    def refreshShots(self, defaultSelection: bool = True) -> None:
+    def refreshShots(self, defaultSelection: bool = True, restoreData: Optional[Dict[str, Any]] = None) -> None:
         """Refresh the shot tree hierarchy.
         
         Rebuilds the entire shot tree widget with episodes (if enabled), sequences,
@@ -931,13 +1049,6 @@ class EntityPage(QWidget):
         Args:
             defaultSelection: Whether to select the first item if no current selection exists
         """
-        wasBlocked = self.tw_tree.signalsBlocked()
-        if not wasBlocked:
-            self.tw_tree.blockSignals(True)
-            self.tw_tree.selectionModel().blockSignals(True)
-
-        self.tw_tree.clear()
-
         location = self.getCurrentLocation()
         if location == "all":
             locations = list(self.getLocations().keys())
@@ -954,45 +1065,79 @@ class EntityPage(QWidget):
             "useEpisodes",
             config="project",
         ) or False
-        if useEpisodes:
-            episodes = self.core.entities.getEpisodes(locations=locations, searchFilter=searchFilter, includeOmitted=showOmitted)
-            parent = self.tw_tree.invisibleRootItem()
-            for episode in episodes:
-                item = self.addEpisodeItem(episode, parent=parent)
+        self.entityRefreshId += 1
+        refreshId = self.entityRefreshId
+        self.shotHierarchyLoading = True
 
-        else:
-            sequences = self.core.entities.getSequences(locations=locations, searchFilter=searchFilter, includeOmitted=showOmitted)
-            seqItems = {}
-            for sequence in sequences:
+        def loadShotHierarchy() -> List[Dict[str, Any]]:
+            if useEpisodes:
+                return self.core.entities.getEpisodes(
+                    locations=locations, searchFilter=searchFilter,
+                    includeOmitted=showOmitted,
+                )
+            return self.core.entities.getSequences(
+                locations=locations, searchFilter=searchFilter,
+                includeOmitted=showOmitted,
+            )
+
+        def applyShotHierarchy(entities: List[Dict[str, Any]]) -> None:
+            if refreshId != self.entityRefreshId:
+                return
+
+            wasBlocked = self.tw_tree.signalsBlocked()
+            if not wasBlocked:
+                self.tw_tree.blockSignals(True)
+                self.tw_tree.selectionModel().blockSignals(True)
+
+            self.tw_tree.clear()
+            if useEpisodes:
                 parent = self.tw_tree.invisibleRootItem()
-                seqName = ""
-                seqParts = sequence["sequence"].split("__") if os.getenv("PRISM_USE_SEQUENCE_FOLDERS") == "1" else [sequence["sequence"]]
-                for idx, seqPart in enumerate(seqParts):
-                    seqName = (seqName + "/" + seqPart).strip("/")
-                    if seqName in seqItems:
-                        item = seqItems[seqName]
-                    else:
-                        icon = self.seqIcon if idx == (len(seqParts) - 1) else self.folderIcon
-                        data = {"sequence": seqPart}
-                        if len(seqParts) > 1:
-                            data["children"] = seqParts[idx+1:]
-
-                        item = self.addSequenceItem(data, parent=parent, icon=icon, hierarchy=seqName)
-                        seqItems[seqName] = item
-
-                    parent = item
-
-        self.tw_tree.resizeColumnToContents(0)
-        if defaultSelection and self.tw_tree.topLevelItemCount() > 0:
-            if self.tw_tree.topLevelItem(0).isExpanded():
-                self.tw_tree.setCurrentItem(self.tw_tree.topLevelItem(0).child(0))
+                for episode in entities:
+                    self.addEpisodeItem(episode, parent=parent)
             else:
-                self.tw_tree.setCurrentItem(self.tw_tree.topLevelItem(0))
+                self.addShotSequences(entities)
 
-        if not wasBlocked:
-            self.tw_tree.blockSignals(False)
-            self.tw_tree.selectionModel().blockSignals(False)
-            self.itemChanged.emit(self.tw_tree.currentItem())
+            self.shotHierarchyLoading = False
+            self.tw_tree.resizeColumnToContents(0)
+            if self.pendingRestoreData:
+                self.restoreSelectionWhenReady(self.pendingRestoreData)
+            elif restoreData:
+                self.restoreSelectionWhenReady(restoreData)
+            elif defaultSelection and self.tw_tree.topLevelItemCount() > 0:
+                if self.tw_tree.topLevelItem(0).isExpanded():
+                    self.tw_tree.setCurrentItem(self.tw_tree.topLevelItem(0).child(0))
+                else:
+                    self.tw_tree.setCurrentItem(self.tw_tree.topLevelItem(0))
+
+            if not wasBlocked:
+                self.tw_tree.blockSignals(False)
+                self.tw_tree.selectionModel().blockSignals(False)
+            self.onItemChanged()
+
+        self.runEntityWorker(loadShotHierarchy, applyShotHierarchy, clearTree=True)
+
+    @err_catcher(name=__name__)
+    def addShotSequences(self, sequences: List[Dict[str, Any]]) -> None:
+        """Add a flat list of sequences as the configured folder hierarchy."""
+        seqItems = {}
+        for sequence in sequences:
+            parent = self.tw_tree.invisibleRootItem()
+            seqName = ""
+            seqParts = sequence["sequence"].split("__") if os.getenv("PRISM_USE_SEQUENCE_FOLDERS") == "1" else [sequence["sequence"]]
+            for idx, seqPart in enumerate(seqParts):
+                seqName = (seqName + "/" + seqPart).strip("/")
+                if seqName in seqItems:
+                    item = seqItems[seqName]
+                else:
+                    icon = self.seqIcon if idx == (len(seqParts) - 1) else self.folderIcon
+                    data = {"sequence": seqPart}
+                    if len(seqParts) > 1:
+                        data["children"] = seqParts[idx+1:]
+
+                    item = self.addSequenceItem(data, parent=parent, icon=icon, hierarchy=seqName)
+                    seqItems[seqName] = item
+
+                parent = item
 
     @err_catcher(name=__name__)
     def addEpisodeItem(self, episode: Dict[str, Any], parent: Any) -> Any:
@@ -1014,8 +1159,10 @@ class EntityPage(QWidget):
         epItem.setData(0, Qt.UserRole, data)
         epItem.setIcon(0, self.episodeIcon)
         parent.addChild(epItem)
-        if epName in self.expandedItems:
+        if self.core.entities.getShotName(data) in self.expandedItems:
             epItem.setExpanded(True)
+            if epItem.data(0, Qt.UserRole).get("loaded") is False:
+                self.refreshShotItemChildren(epItem)
         else:
             placeHolder = QTreeWidgetItem(["__placeholder__"])
             placeHolder.setData(0, Qt.UserRole, "placeholder")
@@ -1053,11 +1200,11 @@ class EntityPage(QWidget):
         seqItem.setIcon(0, icon)
         parent.addChild(seqItem)
         if data.get("children"):
-            if seqName in self.expandedItems:
+            if self.core.entities.getShotName(data) in self.expandedItems:
                 seqItem.setExpanded(True)
 
         else:
-            if seqName in self.expandedItems:
+            if self.core.entities.getShotName(data) in self.expandedItems:
                 seqItem.setExpanded(True)
                 self.refreshShotItemChildren(seqItem)
             else:
@@ -1149,8 +1296,8 @@ class EntityPage(QWidget):
         """
         data = item.data(0, Qt.UserRole)
         if data.get("loaded") is False:
-            data["loaded"] = True
-        elif data.get("loaded") is True:
+            data["loaded"] = "loading"
+        else:
             return
 
         item.takeChildren()
@@ -1166,19 +1313,56 @@ class EntityPage(QWidget):
             locations = [location]
 
         showOmitted = self.core.getConfig("browser", "showOmittedEntities", config="user", dft=False)
-        if data["itemType"] == "episode":
-            sequences = self.core.entities.getSequences(episode=data["episode"], searchFilter=searchFilter, locations=locations, includeOmitted=showOmitted)
-            for sequence in sequences:
-                self.addSequenceItem(sequence, item, self.seqIcon, "%s/%s" % (data["episode"], sequence["sequence"]))
-        elif data["itemType"] == "sequence":
+        refreshId = self.entityRefreshId
+        itemType = data["itemType"]
+        if itemType == "sequence":
             sequence = data["sequence"]
             if os.getenv("PRISM_USE_SEQUENCE_FOLDERS") == "1":
                 sequence = data["hierarchy"].replace("/", "__")
 
-            shots = self.core.entities.getShots(episode=data.get("episode", None), sequence=sequence, searchFilter=searchFilter, locations=locations, includeOmitted=showOmitted)
-            showThumb = self.core.getConfig("browser", "showEntityPreviews", config="user", dft=True)
-            for shot in shots:
-                self.addShotItem(shot, item, "%s/%s" % (data["hierarchy"], shot["shot"]), showThumb=showThumb)
+        def loadChildren() -> List[Dict[str, Any]]:
+            if itemType == "episode":
+                return self.core.entities.getSequences(
+                    episode=data["episode"], searchFilter=searchFilter,
+                    locations=locations, includeOmitted=showOmitted,
+                )
+            return self.core.entities.getShots(
+                episode=data.get("episode"), sequence=sequence,
+                searchFilter=searchFilter, locations=locations,
+                includeOmitted=showOmitted,
+            )
+
+        def applyChildren(entities: List[Dict[str, Any]]) -> None:
+            if refreshId != self.entityRefreshId:
+                return
+
+            if not self.core.isObjectValid(item) or item.treeWidget() != self.tw_tree:
+                return
+
+            itemData = item.data(0, Qt.UserRole)
+            itemData["loaded"] = True
+            item.setData(0, Qt.UserRole, itemData)
+            if itemType == "episode":
+                for sequenceData in entities:
+                    self.addSequenceItem(
+                        sequenceData, item, self.seqIcon,
+                        "%s/%s" % (data["episode"], sequenceData["sequence"]),
+                    )
+            else:
+                showThumb = self.core.getConfig(
+                    "browser", "showEntityPreviews", config="user", dft=True
+                )
+                for shot in entities:
+                    self.addShotItem(
+                        shot, item, "%s/%s" % (data["hierarchy"], shot["shot"]),
+                        showThumb=showThumb,
+                    )
+
+            self.tw_tree.resizeColumnToContents(0)
+            if self.pendingRestoreData:
+                self.restoreSelectionWhenReady(self.pendingRestoreData)
+
+        self.runEntityWorker(loadChildren, applyChildren)
 
     @err_catcher(name=__name__)
     def toggleShowOmitted(self, state: bool) -> None:
@@ -1738,7 +1922,7 @@ class EntityPage(QWidget):
                     self.core.entities.createTasksFromPreset(data, self.newItem.cb_taskPreset.currentData())
 
             self.refreshEntities()
-            self.navigate(data=data)
+            self.restoreSelectionWhenReady(data)
             if not result or not result.get("entity", "") or result.get("existed", ""):
                 return
 
@@ -1795,7 +1979,7 @@ class EntityPage(QWidget):
                     self.core.entities.createTasksFromPreset(data, self.newItem.cb_taskPreset.currentData())
 
             self.refreshEntities()
-            self.navigate(data=data)
+            self.restoreSelectionWhenReady(data)
             if not result or not result.get("entity", "") or result.get("existed", ""):
                 return
 
@@ -1824,12 +2008,14 @@ class EntityPage(QWidget):
         Args:
             shotData: Dictionary containing the created shot's data
         """
-        self.refreshShots()
-
         seqName = shotData["sequence"]
         shotName = shotData["shot"]
-
-        self.navigate({"type": "shot", "sequence": seqName, "shot": shotName})
+        self.pendingRestoreData = {
+            "type": "shot",
+            "sequence": seqName,
+            "shot": shotName,
+        }
+        self.refreshShots(defaultSelection=False)
         self.entityCreated.emit(shotData)
 
     @err_catcher(name=__name__)
@@ -1971,7 +2157,7 @@ class EntityPage(QWidget):
         return names
 
     @err_catcher(name=__name__)
-    def navigate(self, data: Any) -> Optional[bool]:
+    def navigate(self, data: Any, deferSelection: bool = False) -> Optional[bool]:
         """Navigate to and select specific entities in the tree.
         
         Expands the tree hierarchy as needed and selects the specified entities.
@@ -1983,6 +2169,12 @@ class EntityPage(QWidget):
         Returns:
             False if navigation failed, None otherwise
         """
+        if self.entityType == "asset" and deferSelection and self.assetHierarchyLoading:
+            return False
+
+        if self.entityType == "shot" and deferSelection and self.shotHierarchyLoading:
+            return False
+
         prevData = self.getCurrentData(returnOne=False)
         wasBlocked = self.tw_tree.signalsBlocked()
         if not wasBlocked:
@@ -1995,6 +2187,7 @@ class EntityPage(QWidget):
                 data = [data]
 
             hItem = None
+            complete = True
             for asset in data:
                 if self.core.isStr(asset):
                     continue
@@ -2006,14 +2199,16 @@ class EntityPage(QWidget):
                     continue
 
                 hItem = self.tw_tree.invisibleRootItem()
-                for idx, i in enumerate((hierarchy)):
+                for idx, i in enumerate(hierarchy):
                     for k in range(hItem.childCount() - 1, -1, -1):
                         itemName = os.path.basename(hItem.child(k).data(0, Qt.UserRole)["asset_path"])
                         if itemName == i:
                             hItem = hItem.child(k)
                             if len(hierarchy) > (idx + 1):
+                                wasExpanded = hItem.isExpanded()
                                 hItem.setExpanded(True)
-                                self.itemExpanded(hItem)
+                                if not wasExpanded:
+                                    self.itemExpanded(hItem)
                                 if (
                                     hItem.data(0, Qt.UserRole)["asset_path"]
                                     not in self.expandedItems
@@ -2023,7 +2218,11 @@ class EntityPage(QWidget):
                                     )
                             break
                     else:
+                        complete = False
                         break            
+
+                if deferSelection and not complete:
+                    continue
 
                 if hItem.isSelected() and self.useCounter:
                     curCount = self.getCount(hItem)
@@ -2054,6 +2253,7 @@ class EntityPage(QWidget):
                 config="project",
             ) or False
             sItem = None
+            complete = True
             for shot in data:
                 if useEpisodes:
                     seqParts = [shot.get("episode"), shot.get("sequence")]
@@ -2095,26 +2295,45 @@ class EntityPage(QWidget):
                             if len(seqParts) > (sidx + 1):
                                 hItem.setExpanded(True)
                                 self.itemExpanded(hItem)
+                                expandedName = self.core.entities.getShotName(
+                                    hItem.data(0, Qt.UserRole)
+                                )
+                                if expandedName not in self.expandedItems:
+                                    self.expandedItems.append(expandedName)
 
-                            if self.core.isObjectValid(hItem):
-                                hItem.setSelected(True)
-                            else:
+                            if not self.core.isObjectValid(hItem):
                                 hItem = False
 
                             sItem = hItem
                             break
                     else:
+                        complete = False
                         break
 
+                if deferSelection and not complete:
+                    continue
+
             if sItem:
+                parent = sItem.parent()
+                while parent:
+                    parent.setExpanded(True)
+                    parent = parent.parent()
+
                 self.tw_tree.setCurrentItem(sItem)
                 self.tw_tree.scrollTo(self.tw_tree.indexFromItem(sItem))
+                if self.core.isObjectValid(sItem):
+                    sItem.setSelected(True)
+                else:
+                    sItem = False
 
         if not wasBlocked:
             self.tw_tree.blockSignals(False)
             self.tw_tree.selectionModel().blockSignals(False)
             if self.getCurrentData(returnOne=False) != prevData:
                 self.onItemChanged()
+
+        if deferSelection:
+            return bool(hItem if self.entityType == "asset" else sItem) and complete
 
     @err_catcher(name=__name__)
     def contextMenuTree(self, pos: Any) -> None:
@@ -2419,9 +2638,14 @@ class EntityPage(QWidget):
             title = "Omitted Shots"
             omitted = self.core.entities.omittedEntities.get("shot", {})
             entries = []
-            for seq, shots in sorted(omitted.items()):
-                for shot in sorted(shots):
-                    entries.append("%s / %s" % (seq, shot))
+            for name, shots in sorted(omitted.items()):
+                if isinstance(shots, dict):
+                    for seq, seqShots in sorted(shots.items()):
+                        for shot in sorted(seqShots):
+                            entries.append("%s / %s / %s" % (name, seq, shot))
+                else:
+                    for shot in sorted(shots):
+                        entries.append("%s / %s" % (name, shot))
 
         dlg = QDialog(self)
         dlg.setWindowTitle(title)

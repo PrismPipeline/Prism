@@ -341,7 +341,7 @@ class PlayblastClass(object):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -355,7 +355,7 @@ class PlayblastClass(object):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 
@@ -1033,7 +1033,7 @@ class PlayblastClass(object):
                 height = self.sp_resHeight.value()
                 psettings.resolution((int(width), int(height)))
             else:
-                if self.curCam:
+                if self.curCam and not self.core.isStr(self.curCam):
                     width = self.curCam.parm("resx").eval()
                     height = self.curCam.parm("resy").eval()
                     psettings.useResolution(True)

@@ -84,6 +84,10 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         self.tw_dependencies.header().setSectionResizeMode(1, QHeaderView.Fixed)
 
         self.dependencies = {}
+        self.dependencyData = []
+        self.loadRequestId = 0
+        self.loadWorkers = []
+        self.initLoadingIndicator()
         self.connectEvents()
         self.setRoot(depRoot)
 
@@ -96,34 +100,133 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         self.core.callback(name="onDependencyViewerOpen", args=[self])
 
     @err_catcher(name=__name__)
-    def setRoot(self, root: str) -> None:
-        """Set the root version info file and update the dependency tree.
-        
-        Args:
-            root: Path to the version info file to set as the root
-            
-        This method:
-        1. Determines the display name from the version info
-        2. Clears the existing dependency tree
-        3. Updates dependencies starting from the new root
-        """
+    def setRoot(self, root: str, allowCache: bool = True) -> None:
+        """Load the root dependency tree without blocking the dialog."""
         self.depRoot = root
-
-        if os.path.basename(self.depRoot).startswith("versioninfo"):
-            rootName = self.core.getConfig("version", configPath=self.depRoot)
-        elif os.path.splitext(os.path.basename(self.depRoot))[0].endswith("versioninfo"):
-            filenames = glob.glob(os.path.splitext(self.depRoot)[0][:-(len("versionInfo"))] + ".*")
-            for filename in sorted(filenames):
-                if os.path.splitext(filename)[1] != self.core.configs.getProjectExtension():
-                    rootName = os.path.basename(filename)
-                    break
-        else:
-            rootName = self.core.getConfig("filename", configPath=self.depRoot)
-
-        self.l_root.setText(rootName)
-        self.clearItem(self.tw_dependencies.invisibleRootItem())
+        self.loadRequestId += 1
+        requestId = self.loadRequestId
+        self.tw_dependencies.clear()
         self.dependencies = {}
-        self.updateDependencies("0", self.depRoot)
+        self.dependencyData = []
+        self.l_root.setText("")
+        self.e_search.setEnabled(False)
+        self.showLoadingIndicator()
+
+        worker = self.core.worker(self.core)
+        self.loadWorkers.append(worker)
+
+        def load():
+            name = self.getRootName(root, allowCache=allowCache)
+            data = self.collectDependencies(root, allowCache=allowCache)
+            worker.dataSent.emit((requestId, name, data))
+
+        worker.function = load
+        worker.dataSent.connect(self.onDependenciesLoaded)
+        worker.errored.connect(lambda error, request=requestId: self.onDependencyLoadError(request, error))
+        worker.finished.connect(self.onDependencyWorkerFinished)
+        worker.start()
+
+    def getRootName(self, root: str, allowCache: bool = True) -> str:
+        if os.path.basename(root).startswith("versioninfo"):
+            return self.core.getConfig("version", configPath=root, allowCache=allowCache)
+        if os.path.splitext(os.path.basename(root))[0].endswith("versioninfo"):
+            filenames = glob.glob(os.path.splitext(root)[0][:-(len("versionInfo"))] + ".*")
+            for filename in sorted(filenames):
+                if os.path.splitext(filename)[1] != self.core.configs.getProjectExtension() or not filename.endswith("info.json"):
+                    return os.path.basename(filename)
+            return os.path.basename(root)
+
+        return self.core.getConfig("filename", configPath=root, allowCache=allowCache)
+
+    def initLoadingIndicator(self) -> None:
+        viewport = self.tw_dependencies.viewport()
+        self.w_loading = QWidget(viewport)
+        self.w_loading.setObjectName("dependency_loading")
+        self.w_loading.setStyleSheet("#dependency_loading {background-color: rgba(0, 0, 0, 50);}")
+        self.w_loading.setAttribute(Qt.WA_StyledBackground, True)
+        layout = QVBoxLayout(self.w_loading)
+        layout.setAlignment(Qt.AlignCenter)
+        self.l_loadingGif = QLabel(self.w_loading)
+        self.l_loadingGif.setAlignment(Qt.AlignCenter)
+        self.l_loadingGif.setFixedSize(60, 60)
+        gifPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "prism-loading-dark.gif")
+        self.loadingMovie = QMovie(gifPath, QByteArray(), self.w_loading)
+        self.loadingMovie.frameChanged.connect(self.updateLoadingFrame)
+        layout.addWidget(self.l_loadingGif, alignment=Qt.AlignHCenter)
+        layout.addWidget(QLabel("Loading dependencies...", self.w_loading), alignment=Qt.AlignCenter)
+        self.w_loading.hide()
+        viewport.installEventFilter(self)
+
+    def updateLoadingFrame(self, frameNumber: int) -> None:
+        pixmap = self.loadingMovie.currentPixmap()
+        if not pixmap.isNull():
+            self.l_loadingGif.setPixmap(pixmap.scaled(self.l_loadingGif.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def eventFilter(self, obj: Any, event: Any) -> bool:
+        if obj is self.tw_dependencies.viewport() and event.type() == QEvent.Resize:
+            self.w_loading.setGeometry(obj.rect())
+        return super(DependencyViewer, self).eventFilter(obj, event)
+
+    def showLoadingIndicator(self) -> None:
+        self.w_loading.setGeometry(self.tw_dependencies.viewport().rect())
+        self.w_loading.show()
+        self.w_loading.raise_()
+        self.loadingMovie.start()
+
+    def hideLoadingIndicator(self) -> None:
+        self.loadingMovie.stop()
+        self.w_loading.hide()
+
+    @err_catcher(name=__name__)
+    def onDependenciesLoaded(self, result: Tuple[int, str, List[Dict[str, Any]]]) -> None:
+        requestId, rootName, data = result
+        if requestId != self.loadRequestId:
+            return
+
+        self.l_root.setText(rootName or "")
+        self.dependencyData = data
+        self.populateDependencies()
+        self.hideLoadingIndicator()
+        self.e_search.setEnabled(True)
+        if self.e_search.text():
+            self.filterDeps(self.e_search.text())
+
+    @err_catcher(name=__name__)
+    def onDependencyLoadError(self, requestId: int, error: Any) -> None:
+        if requestId != self.loadRequestId:
+            return
+
+        self.hideLoadingIndicator()
+        self.e_search.setEnabled(True)
+        self.core.popup("Failed to load dependencies: %s" % error)
+
+    def onDependencyWorkerFinished(self) -> None:
+        worker = self.sender()
+        if worker in self.loadWorkers:
+            self.loadWorkers.remove(worker)
+        worker.deleteLater()
+
+    def populateDependencies(self) -> None:
+        self.tw_dependencies.clear()
+        self.dependencies = {}
+
+        def addItems(entries, parent, parentId):
+            for entry in entries:
+                item = QTreeWidgetItem([
+                    os.path.basename(entry["path"]), "█", entry["type"],
+                    entry["date"], entry["path"].replace("\\", "/"),
+                ])
+                item.setForeground(1, QColor(0, 255, 0) if entry["exists"] else QColor(255, 0, 0))
+                parent.addChild(item)
+                curId = str(len(self.dependencies) + 1)
+                self.dependencies[curId] = [entry["path"], item, parentId]
+                if entry["type"] != "File":
+                    font = item.font(0)
+                    font.setBold(True)
+                    item.setFont(0, font)
+                addItems(entry["children"], item, curId)
+
+        addItems(self.dependencyData, self.tw_dependencies.invisibleRootItem(), "0")
 
     @err_catcher(name=__name__)
     def connectEvents(self) -> None:
@@ -172,6 +275,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
             pos: Position where the context menu should appear
             
         Provides options to:
+        - Refresh the dependency tree
         - Open the dependency file location in Explorer
         - Copy the file path to clipboard
         """
@@ -182,28 +286,88 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         else:
             return
 
+        refresh = QAction("Refresh", self)
+        refresh.triggered.connect(lambda: self.setRoot(self.depRoot, allowCache=False))
+        rcmenu.addAction(refresh)
+
         index = lw.indexAt(pos)
         iname = index.data()
-        if iname is None:
-            return
+        if iname is not None:
+            item = lw.itemFromIndex(index)
+            dirPath = item.data(4, Qt.DisplayRole)
 
-        item = lw.itemFromIndex(index)
-        dirPath = item.data(4, Qt.DisplayRole)
-
-        openex = QAction("Open in Explorer", self)
-        openex.triggered.connect(lambda: self.core.openFolder(dirPath))
-        rcmenu.addAction(openex)
-        copAct = QAction("Copy path", self)
-        copAct.triggered.connect(lambda: self.core.copyToClipboard(dirPath))
-        rcmenu.addAction(copAct)
-
-        if rcmenu.isEmpty():
-            return False
+            openex = QAction("Open in Explorer", self)
+            openex.triggered.connect(lambda: self.core.openFolder(dirPath))
+            rcmenu.addAction(openex)
+            copAct = QAction("Copy path", self)
+            copAct.triggered.connect(lambda: self.core.copyToClipboard(dirPath))
+            rcmenu.addAction(copAct)
 
         rcmenu.exec_(QCursor.pos())
 
+    def collectDependencies(self, versionInfo: str, ignore: Optional[List[str]] = None, visitedVersionInfos: Optional[set] = None, allowCache: bool = True) -> List[Dict[str, Any]]:
+        """Read a dependency tree as plain data, without accessing Qt widgets."""
+        ignore = ignore or []
+        visitedVersionInfos = visitedVersionInfos or set()
+        infoKey = os.path.normcase(os.path.abspath(versionInfo))
+        if infoKey in visitedVersionInfos:
+            return []
+
+        visitedVersionInfos = visitedVersionInfos | {infoKey}
+        source = self.core.getConfig("source scene", configPath=versionInfo, allowCache=allowCache)
+        if not source:
+            source = self.core.getConfig("sourceScene", configPath=versionInfo, allowCache=allowCache)
+
+        deps = list(self.core.getConfig("dependencies", configPath=versionInfo, allowCache=allowCache) or [])
+        extFiles = self.core.getConfig("externalFiles", configPath=versionInfo, allowCache=allowCache) or []
+        if source is not None:
+            deps.append(source)
+
+        results = []
+        for path in deps + [path for path in extFiles if path not in deps]:
+            isExternal = path not in deps
+            if not isExternal:
+                if path in ignore:
+                    continue
+                ignore.append(path)
+
+            checkPath = path
+            if not isExternal and not os.path.exists(path):
+                depDir = os.path.dirname(path)
+                if os.path.exists(depDir) and os.listdir(depDir):
+                    checkPath = depDir
+
+            exists = os.path.exists(checkPath)
+            date = ""
+            if exists:
+                cdate = datetime.datetime.fromtimestamp(os.path.getmtime(checkPath))
+                date = cdate.replace(microsecond=0).strftime("%d.%m.%y,  %X")
+
+            depInfo = self.core.getVersioninfoPath(path)
+            self.core.configs.findDeprecatedConfig(depInfo)
+            if not os.path.exists(depInfo):
+                depInfo = os.path.join(os.path.dirname(path), "versioninfo" + self.core.configs.getProjectExtension())
+                self.core.configs.findDeprecatedConfig(depInfo)
+            if not os.path.exists(depInfo):
+                depInfo = os.path.join(os.path.dirname(os.path.dirname(path)), "versioninfo" + self.core.configs.getProjectExtension())
+                self.core.configs.findDeprecatedConfig(depInfo)
+
+            children = []
+            if os.path.exists(depInfo):
+                children = self.collectDependencies(depInfo, ignore=ignore[:], visitedVersionInfos=visitedVersionInfos, allowCache=allowCache)
+
+            results.append({
+                "path": path,
+                "type": "File" if isExternal else "Source Scene" if path == source else "Export",
+                "date": date,
+                "exists": exists,
+                "children": children,
+            })
+
+        return results
+
     @err_catcher(name=__name__)
-    def updateDependencies(self, depID: str, versionInfo: str, ignore: Optional[List[str]] = None) -> None:
+    def updateDependencies(self, depID: str, versionInfo: str, ignore: Optional[List[str]] = None, visitedVersionInfos: Optional[set] = None) -> None:
         """Recursively update the dependency tree from a version info file.
         
         Args:
@@ -218,6 +382,12 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         4. Recursively processes dependencies of dependencies
         """
         ignore = ignore or []
+        visitedVersionInfos = visitedVersionInfos or set()
+        infoKey = os.path.normcase(os.path.abspath(versionInfo))
+        if infoKey in visitedVersionInfos:
+            return
+
+        visitedVersionInfos = visitedVersionInfos | {infoKey}
         source = self.core.getConfig("source scene", configPath=versionInfo)
         if not source:
             source = self.core.getConfig("sourceScene", configPath=versionInfo)
@@ -295,7 +465,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
                 self.core.configs.findDeprecatedConfig(depInfo)
 
             if os.path.exists(depInfo):
-                self.updateDependencies(curID, depInfo, ignore=ignore[:])
+                self.updateDependencies(curID, depInfo, ignore=ignore[:], visitedVersionInfos=visitedVersionInfos)
 
         for i in extFiles:
             if i in deps:
@@ -336,7 +506,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
                 self.core.configs.findDeprecatedConfig(depInfo)
 
             if os.path.exists(depInfo):
-                self.updateDependencies(curID, depInfo, ignore=ignore[:])
+                self.updateDependencies(curID, depInfo, ignore=ignore[:], visitedVersionInfos=visitedVersionInfos)
 
     @err_catcher(name=__name__)
     def filterDeps(self, filterStr: str) -> None:
@@ -352,8 +522,7 @@ class DependencyViewer(QDialog, DependencyViewer_ui.Ui_dlg_DependencyViewer):
         self.clearItem(self.tw_dependencies.invisibleRootItem())
 
         if filterStr == "":
-            self.dependencies = {}
-            self.updateDependencies("0", self.depRoot)
+            self.populateDependencies()
         else:
             for i in self.dependencies:
                 if filterStr.lower() in self.dependencies[i][0].lower():

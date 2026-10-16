@@ -37,6 +37,7 @@ import subprocess
 import time
 import logging
 import importlib
+import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from qtpy.QtCore import *
@@ -102,6 +103,7 @@ class Prism_Deadline_Functions(object):
         )
         self.core.registerCallback("prePublish", self.prePublish, plugin=self.plugin)
         self.core.registerCallback("postPublish", self.postPublish, plugin=self.plugin)
+        self.core.registerCallback("postInitialize", self.postInitialize, plugin=self.plugin)
         dft = """[expression,#  available variables:
 #  "core" - PrismCore
 #  "context" - dict
@@ -127,6 +129,22 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
             return True  # len(self.getDeadlineGroups()) > 0
         except:
             return False
+
+    @err_catcher(name=__name__)
+    def postInitialize(self) -> None:
+        """Add and populate Deadline controls in an existing Project Settings UI."""
+        projectSettings = getattr(getattr(self.core, "ps", None), "w_project", None)
+        if not projectSettings:
+            return
+
+        if not hasattr(projectSettings, "w_deadline"):
+            self.addUiToProjectSettings(projectSettings)
+
+        settings = projectSettings.projectData
+        if not settings and projectSettings.projectConfig:
+            settings = self.core.getConfig(configPath=projectSettings.projectConfig)
+
+        self.preProjectSettingsLoad(projectSettings, settings)
 
     @err_catcher(name=__name__)
     def unregister(self) -> None:
@@ -210,7 +228,44 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
         if sys.version_info[0] > 2 and type(output) == bytes:
             output = output.decode('utf-8', errors='replace')
 
+        # On first Deadline launch this command can prepend info lines before the path.
+        if len(arguments) > 1 and arguments[1] == "-GetCurrentUserHomeDirectory":
+            output = self._sanitizeDeadlineHomeDirOutput(output)
+
         return output
+
+    def _sanitizeDeadlineHomeDirOutput(self, output: str) -> str:
+        """Extract the home directory path from Deadline command output.
+
+        The first invocation of deadlinecommand can emit setup messages in stdout,
+        so callers expecting only a path need a sanitized value.
+        """
+        if not output:
+            return output
+
+        lines = [line.strip().strip('"') for line in output.replace("\r", "\n").split("\n") if line.strip()]
+        if not lines:
+            return output
+
+        for line in reversed(lines):
+            if os.path.isdir(line):
+                return line
+
+        for line in reversed(lines):
+            if "Creating default config file:" in line:
+                createdPath = line.split("Creating default config file:", 1)[-1].strip().strip('"')
+                if createdPath:
+                    candidate = os.path.dirname(createdPath)
+                    if os.path.isdir(candidate):
+                        return candidate
+
+                    iniPos = createdPath.lower().rfind(".ini")
+                    if iniPos != -1:
+                        trailing = createdPath[iniPos + 4 :].strip().strip('"')
+                        if trailing:
+                            return trailing
+
+        return lines[-1]
 
     @err_catcher(name=__name__)
     def refreshPools(self) -> List[str]:
@@ -357,7 +412,7 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
         Args:
             settings: Project settings dialog instance
         """
-        if hasattr(self, "dlg_pythonJob") and self.dlg_pythonJob.isVisible():
+        if hasattr(self, "dlg_pythonJob") and self.core.isObjectValid(self.dlg_pythonJob) and self.dlg_pythonJob.isVisible():
             self.dlg_pythonJob.close()
 
         self.dlg_pythonJob = SubmitPythonJobDlg(self, parent=settings)
@@ -1232,9 +1287,11 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
             settings["curdlpool"] = state.cb_dlPool.currentText()
             settings["dl_sndPool"] = state.cb_sndPool.currentText()
             settings["curdlgroup"] = state.cb_dlGroup.currentText()
-            settings["dl_useSecondJob"] = state.gb_prioJob.isChecked()
-            settings["dl_secondJobPrio"] = state.sp_highPrio.value()
-            settings["dl_secondJobFrames"] = state.e_highPrioFrames.text()
+            if hasattr(state, "gb_prioJob"):
+                settings["dl_useSecondJob"] = state.gb_prioJob.isChecked()
+                settings["dl_secondJobPrio"] = state.sp_highPrio.value()
+                settings["dl_secondJobFrames"] = state.e_highPrioFrames.text()
+
             if hasattr(state, "w_redshift"):
                 settings["rjRenderRS"] = state.chb_redshift.isChecked()
 
@@ -2015,7 +2072,9 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
     def addEnvironmentItem(self, data: Dict[str, Any], key: str, value: str) -> Dict[str, Any]:
         """Add environment variable to Deadline job submission data.
         
-        Finds next available EnvironmentKeyValue slot and adds key=value pair.
+        Finds the next available EnvironmentKeyValue slot and adds a key=value pair.
+        Newlines are encoded with Deadline's EOL token so the job info file remains
+        line-oriented and Deadline can restore the multiline value.
         
         Args:
             data: Job submission dictionary
@@ -2025,6 +2084,9 @@ template = base + "_@product@@identifier@_@version@@_(layer)@@_(comment)@"]"""
         Returns:
             Updated data dictionary
         """
+        value = str(value).replace("\r\n", "\n").replace("\r", "\n")
+        value = value.replace("\n", "\\n")
+
         idx = 0
         while True:
             k = "EnvironmentKeyValue" + str(idx)
@@ -2262,7 +2324,7 @@ path = r\"%s\"
             cleanupScript = None
 
         if cleanupScript:
-            arguments = [args[0]]
+            arguments = ["\"%s\"" % args[0]]
             depId = self.getJobIdFromSubmitResult(result)
             if depId:
                 cleanupDep = [depId]
@@ -2686,7 +2748,7 @@ else:
             ].strip("_")
 
         scriptFile = os.path.join(
-            homeDir, "temp", "%s_%s.py" % (jobName.replace(":", "_").split("/")[-1].split("\\")[-1], int(time.time()))
+            homeDir, "temp", "%s_%s.py" % (uuid.uuid4().hex, int(time.time()))
         )
         with open(scriptFile, "w", encoding='utf-8') as f:
             f.write(code)
@@ -2908,7 +2970,7 @@ else:
         cfgFiles = []
         for idx, assembly in enumerate(assemblies):
             cfgFile = os.path.join(
-                homeDir, "temp", "%s%s_%s.txt" % (jobName, assembly["key"], int(time.time()))
+                homeDir, "temp", "%s_%s_%s.txt" % (uuid.uuid4().hex, assembly["key"], int(time.time()))
             )
             aout = assembly["path"]
             cfgData = {
@@ -3210,7 +3272,7 @@ else:
 
         if cleanupScript:
             jobName = jobName.rsplit("_", 1)[0]
-            arguments = [args[0]]
+            arguments = ["\"%s\"" % args[0]]
             depId = self.getJobIdFromSubmitResult(result)
             if depId:
                 cleanupDep = [depId]
@@ -3408,7 +3470,7 @@ else:
 
         if cleanupScript:
             jobName = jobName.rsplit("_", 1)[0]
-            arguments = [args[0]]
+            arguments = ["\"%s\"" % args[0]]
             depId = self.getJobIdFromSubmitResult(result)
             if depId:
                 cleanupDep = [depId]
@@ -3599,7 +3661,7 @@ else:
 
         if cleanupScript:
             jobName = jobName.rsplit("_", 1)[0]
-            arguments = [args[0]]
+            arguments = ["\"%s\"" % args[0]]
             depId = self.getJobIdFromSubmitResult(result)
             if depId:
                 cleanupDep = [depId]
@@ -3798,7 +3860,7 @@ else:
 
         if cleanupScript:
             jobName = jobName.rsplit("_", 1)[0]
-            arguments = [args[0]]
+            arguments = ["\"%s\"" % args[0]]
             depId = self.getJobIdFromSubmitResult(result)
             if depId:
                 cleanupDep = [depId]
@@ -4684,7 +4746,7 @@ else:
 
         if cleanupScript:
             jobName = jobName.rsplit("_", 1)[0]
-            arguments = [args[0]]
+            arguments = ["\"%s\"" % args[0]]
             depId = self.getJobIdFromSubmitResult(result)
             if depId:
                 cleanupDep = [depId]
@@ -4710,6 +4772,22 @@ else:
             )
 
         return result
+
+    @err_catcher(name=__name__)
+    def isKnownSubmissionError(self, response: Optional[str]) -> bool:
+        """Identify expected submission failures that should not be reported as Prism bugs."""
+        if not isinstance(response, str):
+            return False
+
+        knownErrors = (
+            "Could not connect to any of the specified Mongo DB servers defined in",
+            "ConcurrentTasks must be a value between 1 and 16 inclusive",
+            "does not exist or is not accessible from this computer",
+            "System.OutOfMemoryException",
+            "One or more auxiliary files for the job were not successully copied during submission",
+            "is not part of a User Group that has permissions to submit jobs",
+        )
+        return any(error in response for error in knownErrors)
 
     @err_catcher(name=__name__)
     def deadlineSubmitJob(

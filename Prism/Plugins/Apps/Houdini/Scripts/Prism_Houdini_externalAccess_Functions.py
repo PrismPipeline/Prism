@@ -245,7 +245,7 @@ class Prism_Houdini_externalAccess_Functions(object):
             settings: Settings dictionary to load from.
         """
         if settings:
-            if "houdini" in settings:
+            if "houdini" in settings and hasattr(origin, "chb_houdiniRelative"):
                 if "useRelativePaths" in settings["houdini"]:
                     origin.chb_houdiniRelative.setChecked(settings["houdini"]["useRelativePaths"])
 
@@ -264,11 +264,12 @@ class Prism_Houdini_externalAccess_Functions(object):
             origin: Project settings dialog.
             settings: Settings dictionary to update.
         """
-        if "houdini" not in settings:
-            settings["houdini"] = {}
+        if hasattr(origin, "chb_houdiniRelative"):
+            if "houdini" not in settings:
+                settings["houdini"] = {}
 
-        rel = origin.chb_houdiniRelative.isChecked()
-        settings["houdini"]["useRelativePaths"] = rel
+            rel = origin.chb_houdiniRelative.isChecked()
+            settings["houdini"]["useRelativePaths"] = rel
 
         if hasattr(origin, "sb_houdini"):
             if "sceneBuilding" not in settings:
@@ -384,6 +385,8 @@ class Prism_Houdini_externalAccess_Functions(object):
                 "name": "apply_abc_caches",
                 "label": "Apply Alembic Caches",
                 "function": "self.core.appPlugin.buildSceneApplyAbcCaches",
+                "get_update_data": "self.core.appPlugin.buildSceneGetApplyAbcCachesUpdateData",
+                "description": "Create or update source/cache import states for tagged Alembic cache products.",
             }
         ]
         steps += houdiniSteps

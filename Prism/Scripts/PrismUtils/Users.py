@@ -110,8 +110,8 @@ class Users(object):
             )
             return
 
-        if hasattr(self.core, "user"):
-            del self.core.user
+        if getattr(self.core, "user", ""):
+            self.core.user = ""
 
         cu = ChangeUser(core=self.core)
         result = cu.exec_()

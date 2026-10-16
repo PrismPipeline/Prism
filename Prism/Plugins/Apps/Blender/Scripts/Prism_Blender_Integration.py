@@ -36,6 +36,7 @@ import os
 import sys
 import platform
 import glob
+import re
 from typing import Any, List, Optional, Union
 
 from qtpy.QtCore import *
@@ -142,17 +143,19 @@ class Prism_Blender_Integration(object):
         blenderPaths = []
         basepath = os.path.dirname(self.examplePath)
 
-        for path in glob.glob(basepath + "/Blender*"):
+        pattern = "*" if self.useUserPrefs else "Blender*"
+        for path in glob.glob(os.path.join(basepath, pattern)):
             if self.useUserPrefs:
-                if os.path.exists(path + "/config"):
+                if os.path.isdir(os.path.join(path, "config")):
                     blenderPaths.append(os.path.normpath(path))
             else:
                 if os.path.exists(path + "/blender.exe"):
                     blenderPaths.append(os.path.normpath(path))
 
-        regPath = self.getBlenderPath()
-        if regPath and os.path.exists(regPath) and regPath not in blenderPaths:
-            blenderPaths.append(regPath)
+        if not self.useUserPrefs:
+            regPath = self.getBlenderPath()
+            if regPath and os.path.exists(regPath) and regPath not in blenderPaths:
+                blenderPaths.append(regPath)
 
         return blenderPaths
 
@@ -356,6 +359,61 @@ class Prism_Blender_Integration(object):
 
             QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
             return False
+
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Compare Prism startup scripts and optional menu blocks without executing them."""
+        if not os.path.exists(os.path.join(path, "scripts", "startup")) and os.path.isdir(path):
+            for folder in sorted(os.listdir(path), reverse=True):
+                try:
+                    float(folder)
+                except ValueError:
+                    continue
+                path = os.path.join(path, folder)
+                break
+
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        startupPath = os.path.join(path, "scripts", "startup")
+        foundIntegration = False
+        currentIntegration = True
+        for filename in ["PrismInit.py", "PrismAutoSaveRender.py"]:
+            installedFile = os.path.join(startupPath, filename)
+            if not os.path.isfile(installedFile):
+                currentIntegration = False
+                continue
+
+            foundIntegration = True
+            with open(installedFile, "r") as stream:
+                installed = stream.read()
+            with open(os.path.join(integrationBase, filename), "r") as stream:
+                expected = stream.read()
+            if filename == "PrismInit.py":
+                pluginRoot = os.path.dirname(self.pluginPath).replace("\\", "/")
+                prismRoot = self.core.prismRoot.replace("\\", "/")
+                expected = expected.replace("PLUGINROOT", f'"{pluginRoot}"')
+                expected = expected.replace("PRISMROOT", f'"{prismRoot}"')
+            if installed != expected:
+                currentIntegration = False
+
+        topbarPath = os.path.join(startupPath, "bl_ui", "space_topbar.py")
+        if not os.path.isfile(topbarPath):
+            topbarPath = os.path.join(startupPath, "bl_ui", "space_info.py")
+        if os.path.isfile(topbarPath):
+            with open(topbarPath, "r") as stream:
+                installed = stream.read()
+            if ">>>PrismStart" in installed or "TOPBAR_MT_prism" in installed:
+                foundIntegration = True
+            blockPattern = re.compile(r"#\s*>>>PrismStart.*?#\s*<<<PrismEnd", re.DOTALL)
+            expectedBlocks = []
+            for filename in ["space_topbar1.py", "space_topbar2.py"]:
+                with open(os.path.join(integrationBase, filename), "r") as stream:
+                    expectedBlocks.extend(blockPattern.findall(stream.read()))
+            if blockPattern.findall(installed) != expectedBlocks or "\n    TOPBAR_MT_prism," not in installed:
+                currentIntegration = False
+
+        if not foundIntegration:
+            return "not added"
+        return "added" if currentIntegration else "update needed"
 
     def removeIntegration(self, installPath: str) -> bool:
         """Remove Prism integration from Blender.

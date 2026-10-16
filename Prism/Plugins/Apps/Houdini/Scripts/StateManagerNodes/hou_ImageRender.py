@@ -766,7 +766,7 @@ class ImageRenderClass(object):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -780,7 +780,7 @@ class ImageRenderClass(object):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 
@@ -1909,13 +1909,14 @@ class ImageRenderClass(object):
                     not result.startswith("Execute Canceled") and 
                     "Failed to establish connection to" not in result and
                     "does not exist or is not accessible from this computer" not in result and
-                    "No connection could be made because the target machine actively refused it." not in result
+                    "No connection could be made because the target machine actively refused it." not in result and
+                    "is not part of a User Group that has permissions to submit jobs" not in result
                 ):
                     self.core.writeErrorLog(erStr)
 
                 return [self.state.text(0) + " - error - " + result]
         else:
-            if len(os.listdir(outputPath)) > 0:
+            if os.path.exists(outputPath) and len(os.listdir(outputPath)) > 0:
                 return [self.state.text(0) + " - success"]
             else:
                 result = self.state.text(0) + " - unknown error (files do not exist)"

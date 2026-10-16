@@ -44,18 +44,70 @@ from qtpy.QtWidgets import *
 from PrismUtils.Decorators import err_catcher
 
 
+class ScreenShotOverlay(QWidget):
+    """A transparent selection overlay constrained to one physical screen."""
+
+    def __init__(self, screenshot: "ScreenShot", screen: QScreen) -> None:
+        super(ScreenShotOverlay, self).__init__()
+        self.screenshot = screenshot
+        self.screen = screen
+
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setCursor(Qt.CrossCursor)
+        self.setGeometry(screen.geometry())
+        self.setWindowFlags(
+            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.SplashScreen
+        )
+        self.setMouseTracking(True)
+
+    def mousePressEvent(self, event: Any) -> None:
+        self.screenshot.beginSelection(self.mapToGlobal(event.pos()))
+
+    def mouseMoveEvent(self, event: Any) -> None:
+        if self.screenshot.origin is not None:
+            self.screenshot.updateSelection(self.mapToGlobal(event.pos()))
+
+    def mouseReleaseEvent(self, event: Any) -> None:
+        if self.screenshot.origin is not None:
+            self.screenshot.captureSelection(self.mapToGlobal(event.pos()))
+
+    def keyPressEvent(self, event: Any) -> None:
+        if event.key() == Qt.Key_Escape:
+            self.screenshot.close()
+        else:
+            QWidget.keyPressEvent(self, event)
+
+    def paintEvent(self, event: Any) -> None:
+        painter = QPainter(self)
+        painter.setBrush(QColor(0, 0, 0, 100))
+        painter.setPen(Qt.NoPen)
+        painter.drawRect(event.rect())
+
+        if self.screenshot.selection is not None:
+            rect = QRect(
+                self.mapFromGlobal(self.screenshot.selection.topLeft()),
+                self.mapFromGlobal(self.screenshot.selection.bottomRight()),
+            ).normalized()
+            painter.setCompositionMode(QPainter.CompositionMode_Clear)
+            painter.drawRect(rect)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+            painter.setPen(QPen(QColor(200, 150, 0, 255), 1))
+            painter.drawRect(rect)
+
+
 class ScreenShot(QDialog):
     """Provides screen capture functionality for Prism.
     
-    This class creates a transparent overlay window that allows users to
-    select a rectangular area of the screen to capture. Used for capturing
-    project previews, asset thumbnails, and other screenshots.
+    This class creates one transparent overlay window per screen, allowing
+    users to select a rectangular area without mixed-DPI geometry errors.
+    Used for capturing project previews, asset thumbnails, and screenshots.
     
     Attributes:
         core: PrismCore instance
         imgmap: Captured image pixmap
-        origin (QPoint): Start point of selection rectangle
-        rubberband (QRubberBand): Visual selection rectangle
+        origin (QPoint): Global start point of the selection rectangle
+        selection (QRect): Global selection rectangle
+        overlays (list[ScreenShotOverlay]): Per-screen overlay windows
     """
 
     def __init__(self, core: Any) -> None:
@@ -70,101 +122,64 @@ class ScreenShot(QDialog):
         self.imgmap = None
         self.origin = None
 
-        uRect = QRect()
-        for i in range(len(QApplication.screens())):
-            uRect = uRect.united(QApplication.screens()[i].geometry())
-
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setCursor(Qt.CrossCursor)
-        self.setGeometry(uRect)
-
-        self.setWindowFlags(
-            Qt.FramelessWindowHint  # hides the window controls
-            | Qt.WindowStaysOnTopHint  # forces window to top... maybe
-            | Qt.SplashScreen  # this one hides it from the task bar!
-        )
-
-        self.rubberband = QRubberBand(QRubberBand.Rectangle, self)
-        self.rubberband.setWindowOpacity(0)
-
-        self.setMouseTracking(True)
+        self.selection = None
+        self.eventLoop = None
+        self.overlays = [
+            ScreenShotOverlay(self, screen) for screen in QApplication.screens()
+        ]
 
     @err_catcher(name=__name__)
-    def mousePressEvent(self, event: Any) -> None:
-        """Handle mouse press to start selection.
-        
-        Args:
-            event: Mouse event
-        """
-        self.origin = event.pos()
-        self.rubberband.setGeometry(QRect(self.origin, QSize()))
-        QWidget.mousePressEvent(self, event)
+    def beginSelection(self, position: QPoint) -> None:
+        self.origin = position
+        self.selection = QRect(position, QSize())
 
     @err_catcher(name=__name__)
-    def mouseMoveEvent(self, event: Any) -> None:
-        """Handle mouse move to update selection rectangle.
-        
-        Args:
-            event: Mouse event
-        """
-        if self.origin is not None:
-            rect = QRect(self.origin, event.pos()).normalized()
-            self.rubberband.setGeometry(rect)
-
-        self.repaint()
-        QWidget.mouseMoveEvent(self, event)
+    def updateSelection(self, position: QPoint) -> None:
+        self.selection = QRect(self.origin, position).normalized()
+        for overlay in self.overlays:
+            overlay.update()
 
     @err_catcher(name=__name__)
-    def paintEvent(self, event: Any) -> None:
-        """Paint the overlay with semi-transparent background.
-        
-        Args:
-            event: Paint event
-        """
-        painter = QPainter(self)
+    def captureSelection(self, position: QPoint) -> None:
+        self.updateSelection(position)
+        if self.selection is not None:
+            for overlay in self.overlays:
+                overlay.hide()
 
-        painter.setBrush(QColor(0, 0, 0, 100))
-        painter.setPen(Qt.NoPen)
-        painter.drawRect(event.rect())
+            selection = self.selection
+            self.imgmap = QPixmap(selection.size())
+            self.imgmap.fill(Qt.transparent)
 
-        if self.origin is not None:
-            rect = QRect(self.origin, self.mapFromGlobal(QCursor.pos()))
-            painter.setCompositionMode(QPainter.CompositionMode_Clear)
-            painter.drawRect(rect)
-            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+            painter = QPainter(self.imgmap)
+            for screen in QApplication.screens():
+                screen_rect = screen.geometry()
+                capture_rect = selection.intersected(screen_rect)
+                if capture_rect.isEmpty():
+                    continue
 
-            pen = QPen(QColor(200, 150, 0, 255), 1)
-            painter.setPen(pen)
-            painter.drawLine(rect.left(), rect.top(), rect.right(), rect.top())
-            painter.drawLine(rect.left(), rect.top(), rect.left(), rect.bottom())
-            painter.drawLine(rect.right(), rect.top(), rect.right(), rect.bottom())
-            painter.drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom())
-
-        QWidget.paintEvent(self, event)
-
-    @err_catcher(name=__name__)
-    def mouseReleaseEvent(self, event: Any) -> None:
-        """Handle mouse release to capture selected area.
-        
-        Args:
-            event: Mouse event
-        """
-        if self.origin is not None:
-            self.rubberband.hide()
-            self.hide()
-            rect = self.rubberband.geometry()
-            if hasattr(QApplication, "primaryScreen"):
-                screen = QApplication.primaryScreen()
-            else:
-                screen = QPixmap
-
-            pos = self.mapToGlobal(rect.topLeft())
-            self.imgmap = screen.grabWindow(
-                0, pos.x(), pos.y(), rect.width(), rect.height()
-            )
+                pixmap = screen.grabWindow(
+                    0,
+                    capture_rect.x() - screen_rect.x(),
+                    capture_rect.y() - screen_rect.y(),
+                    capture_rect.width(),
+                    capture_rect.height(),
+                )
+                painter.drawPixmap(capture_rect.topLeft() - selection.topLeft(), pixmap)
+            painter.end()
             self.close()
 
-        QWidget.mouseReleaseEvent(self, event)
+    def exec_(self) -> int:
+        self.eventLoop = QEventLoop()
+        for overlay in self.overlays:
+            overlay.show()
+        return self.eventLoop.exec_()
+
+    def close(self) -> bool:
+        for overlay in self.overlays:
+            overlay.close()
+        if self.eventLoop is not None:
+            self.eventLoop.quit()
+        return super(ScreenShot, self).close()
 
 
 def grabScreenArea(core: Any) -> Optional[QPixmap]:

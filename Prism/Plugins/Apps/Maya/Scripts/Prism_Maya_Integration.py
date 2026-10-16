@@ -222,6 +222,33 @@ class Prism_Maya_Integration(object):
             QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
             return False
 
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Compare the installed Prism module with the current integration template."""
+        installedFile = os.path.join(path, "modules", "Prism.mod")
+        if not os.path.isfile(installedFile):
+            legacyFiles = [
+                os.path.join(path, "scripts", "PrismInit.py"),
+                os.path.join(path, "scripts", "PrismInit.pyc"),
+                os.path.join(path, "prefs", "shelves", "shelf_Prism.mel"),
+            ]
+            if any(os.path.isfile(filename) for filename in legacyFiles):
+                return "update needed"
+            userSetup = os.path.join(path, "scripts", "userSetup.py")
+            if os.path.isfile(userSetup):
+                with open(userSetup, "r") as stream:
+                    if ">>>PrismStart" in stream.read():
+                        return "update needed"
+            return "not added"
+
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        with open(os.path.join(integrationBase, "Prism.mod"), "r") as stream:
+            expected = stream.read().replace("PRISMROOT", self.core.prismRoot.replace("\\", "/"))
+        expected = expected.replace("PLUGINROOT", os.path.dirname(self.pluginPath).replace("\\", "/"))
+        with open(installedFile, "r") as stream:
+            installed = stream.read()
+        return "added" if installed == expected else "update needed"
+
     def removeIntegration(self, installPath: str) -> bool:
         """Remove Prism integration from Maya installation.
         

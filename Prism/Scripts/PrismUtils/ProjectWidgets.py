@@ -34,10 +34,12 @@
 
 from __future__ import annotations
 
+import ast
 import os
 import sys
 import copy
 import re
+import time
 from typing import Optional, Dict, List, Any, Union
 
 from qtpy.QtCore import *
@@ -87,6 +89,7 @@ class CreateProject(QDialog, CreateProject_ui.Ui_dlg_createProject):
         self.core = core
         self.prevName = ""
         self.projectSettings = {}
+        self.projectStructure = {}
         self.enforcedSettings = enforcedSettings
         if self.core.uiAvailable:
             self.loadLayout()
@@ -1165,7 +1168,6 @@ class ProjectCreated(QDialog):
         self.b_browser.clicked.connect(self.core.projectBrowser)
         self.b_browser.clicked.connect(self.accept)
         self.b_explorer.clicked.connect(lambda: self.core.openFolder(self.core.projectPath))
-        self.b_explorer.clicked.connect(self.accept)
 
 
 class SetProject(QDialog):
@@ -1312,11 +1314,63 @@ class SetProjectClass(QDialog):
 
     @err_catcher(name=__name__)
     def preCreate(self) -> None:
-        """Open create project dialog and close current dialogs."""
-        self.core.projects.createProjectDialog()
-        self.pdialog.close()
-        if getattr(self.core, "pb", None) and self.core.pb.isVisible():
-            self.core.pb.close()
+        """Choose a project type and restore the previous windows on cancellation."""
+        def onSelected(dialog):
+            browser = getattr(self.core, "pb", None)
+            browser = browser if browser and browser.isVisible() else None
+            settings = getattr(self.core, "ps", None)
+            settings = settings if settings and settings.isVisible() else None
+            if isinstance(dialog, QDialog) and dialog.isVisible():
+                self._createProjectDialog = dialog
+                self._createProjectBrowser = browser
+                self._createProjectSettings = settings
+                dialog.installEventFilter(self)
+                self.pdialog.hide()
+                if browser and browser is not self.pdialog:
+                    browser.hide()
+                if settings and settings is not self.pdialog and settings is not browser:
+                    settings.hide()
+            else:
+                self.pdialog.close()
+                if browser and browser is not self.pdialog:
+                    browser.close()
+                if settings and settings is not self.pdialog and settings is not browser:
+                    settings.close()
+
+        self.core.projects.showCreateProjectOptions(parent=self.pdialog, onSelected=onSelected)
+
+    def eventFilter(self, watched: Any, event: QEvent) -> bool:
+        if watched is getattr(self, "_createProjectDialog", None) and event.type() == QEvent.Hide:
+            watched.removeEventFilter(self)
+            nextDialog = getattr(watched, "nextDialog", None)
+            if isinstance(nextDialog, QDialog) and nextDialog.isVisible():
+                self._createProjectDialog = nextDialog
+                nextDialog.installEventFilter(self)
+                return super().eventFilter(watched, event)
+
+            self._createProjectDialog = None
+            browser = self._createProjectBrowser
+            self._createProjectBrowser = None
+            settings = self._createProjectSettings
+            self._createProjectSettings = None
+            completed = (not watched.w_complete.isHidden()) if hasattr(watched, "w_complete") else watched.result() == QDialog.Accepted
+            if not completed:
+                if browser and getattr(self.core, "pb", None) is browser and browser is not self.pdialog:
+                    browser.show()
+                if settings and getattr(self.core, "ps", None) is settings and settings is not self.pdialog and settings is not browser:
+                    settings.show()
+
+                self.pdialog.show()
+                self.pdialog.raise_()
+                self.pdialog.activateWindow()
+            else:
+                self.pdialog.close()
+                if browser and getattr(self.core, "pb", None) is browser and browser is not self.pdialog:
+                    browser.close()
+                if settings and getattr(self.core, "ps", None) is settings and settings is not self.pdialog and settings is not browser:
+                    settings.close()
+
+        return super().eventFilter(watched, event)
 
     @err_catcher(name=__name__)
     def openProject(self, widget: Any) -> None:
@@ -3626,6 +3680,7 @@ class StateDefaultItem(QWidget):
         self.l_typeName.setToolTip("State Type")
         self.l_default = QLabel("Default for:")
         self.l_defaultEntity = QLabel()
+        self.l_defaultEntity.setWordWrap(True)
         self.b_editDft = QToolButton()
         self.b_editDft.clicked.connect(self.editDefaultsClicked)
         self.b_editDft.setToolTip("Select for which tasks this state settings will be used as a default...")
@@ -3696,13 +3751,7 @@ class StateDefaultItem(QWidget):
 
     @err_catcher(name=__name__)
     def configureStates(self) -> None:
-        """Open state manager to configure preset states.
-        
-        Launches a standalone state manager instance allowing users to configure
-        which states should be included in this preset. Any existing state manager
-        window for this preset is closed first. Loads existing states if available.
-        """
-        stateType = self.name()
+        """Open the selective default-state settings dialog."""
         if self.core.appPlugin.pluginName == "Standalone":
             showPopup = self.core.getConfig("globals", "showStandaloneStateDefaultsPopup", config="user")
             if showPopup is not False:
@@ -3711,30 +3760,9 @@ class StateDefaultItem(QWidget):
                 if result and result.get("notShowAgain"):
                     self.core.setConfig("globals", "showStandaloneStateDefaultsPopup", val=False, config="user")
 
-        import StateManager
-        settings = self.stateData()
-        dlg = StateManager.getStateWindow(self.core, stateType, settings=settings, connectBBox=False, parent=self)
-        if not dlg:
-            self.core.popup("Failed to create state. Check logs for details.")
-            return
-
-        dlg.setWindowTitle("Default State Settings - %s" % stateType)
-        dlg.bb_settings.buttons()[0].setText("Save")
-        dlg.adjustSize()
-        dlg.resize(dlg.width(), dlg.height() + 20)
-        dlg.bb_settings.accepted.connect(lambda d=dlg: self.onStateSaveClicked(d))
-        dlg.bb_settings.rejected.connect(dlg.reject)
-        dlg.show()
-
-    @err_catcher(name=__name__)
-    def onStateSaveClicked(self, dlg: Any) -> None:
-        """Handle state settings save - update state data and close dialog.
-        
-        Args:
-            dlg: State settings dialog
-        """
-        self.setStateData(dlg.stateItem.ui.getStateProps())
-        dlg.close()
+        self.dlg_stateDefaults = DefaultStateSettingsWindow(self)
+        self.dlg_stateDefaults.signalSaved.connect(self.setStateData)
+        self.dlg_stateDefaults.show()
 
     @err_catcher(name=__name__)
     def name(self) -> str:
@@ -3771,21 +3799,9 @@ class StateDefaultItem(QWidget):
             tasks: Dictionary with entities, departments, tasks, useExpression, expression keys
         """
         self._dftTasks = tasks
-        entities = ", ".join(self._dftTasks["entities"])
-        departments = ", ".join(self._dftTasks["departments"])
-        tasks = ", ".join(self._dftTasks["tasks"])
-        if len(self._dftTasks["entities"]) > 1:
-            dataStr = "%s\n%s\n%s" % (entities, departments, tasks)
-        else:
-            dataStr = "%s - %s - %s" % (entities, departments, tasks)
-
-        if dataStr == " -  - ":
-            dataStr = "-"
-
-        if self._dftTasks.get("useExpression") and self._dftTasks.get("expression"):
-            dataStr += " + expression"
-
-        self.l_defaultEntity.setText(dataStr)
+        display_data = self.core.projects._get_default_task_scope_display(self._dftTasks)
+        self.l_defaultEntity.setText(display_data["label"])
+        self.l_defaultEntity.setToolTip(display_data["tooltip"])
 
     @err_catcher(name=__name__)
     def stateData(self) -> Optional[Dict[str, Any]]:
@@ -3844,6 +3860,193 @@ class StateDefaultItem(QWidget):
             self.raise_()
 
         super(StateDefaultItem, self).mousePressEvent(event)
+
+
+class DefaultStateSettingsWindow(QDialog):
+    """Dialog for selecting the individual settings saved as state defaults."""
+
+    signalSaved = Signal(object)
+
+    def __init__(self, origin: StateDefaultItem) -> None:
+        super(DefaultStateSettingsWindow, self).__init__()
+        self.origin = origin
+        self.core = origin.core
+        self.stateType = origin.name()
+        self.settingWidgets = {}
+        self.factorySettings = self.getStateProperties({})
+        self.setupUi()
+        self.updateSettings(origin.stateData() or {})
+
+    @err_catcher(name=__name__)
+    def getStateProperties(self, settings: Dict[str, Any]) -> Dict[str, Any]:
+        """Return settings exposed by a temporary state UI."""
+        import StateManager
+
+        dlg = StateManager.getStateWindow(
+            self.core,
+            self.stateType,
+            settings=settings,
+            connectBBox=False,
+            parent=self,
+        )
+        if not dlg:
+            return {}
+
+        properties = dlg.stateItem.ui.getStateProps()
+        dlg.close()
+        dlg.deleteLater()
+        return properties
+
+    @err_catcher(name=__name__)
+    def setupUi(self) -> None:
+        """Build one selectable value row for every factory state setting."""
+        self.setWindowTitle("Default State Settings - %s" % self.stateType)
+        self.core.parentWindow(self, parent=self.origin)
+        self.resize(560, 520)
+        self.lo_main = QVBoxLayout(self)
+        self.sa_settings = QScrollArea()
+        self.sa_settings.setWidgetResizable(True)
+        self.w_settings = QWidget()
+        self.lo_settings = QVBoxLayout(self.w_settings)
+        self.lo_settings.setContentsMargins(0, 0, 0, 0)
+        self.lo_settings.setSpacing(4)
+        self.w_settings.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.w_settings.customContextMenuRequested.connect(self.showSettingsMenu)
+        self.sa_settings.setWidget(self.w_settings)
+        self.lo_main.addWidget(self.sa_settings)
+
+        for name in sorted(self.factorySettings):
+            self.addSetting(name, self.factorySettings[name])
+
+        self.b_getSettings = QPushButton("Get Settings from State UI")
+        self.b_getSettings.clicked.connect(self.openStateUi)
+        self.lo_main.addWidget(self.b_getSettings)
+
+        self.bb_main = QDialogButtonBox()
+        self.bb_main.addButton("Save", QDialogButtonBox.AcceptRole)
+        self.bb_main.addButton("Cancel", QDialogButtonBox.RejectRole)
+        self.bb_main.accepted.connect(self.saveSettings)
+        self.bb_main.rejected.connect(self.reject)
+        self.lo_main.addWidget(self.bb_main)
+
+    @err_catcher(name=__name__)
+    def addSetting(self, name: str, value: Any) -> None:
+        """Add a selectable state setting row."""
+        if name in self.settingWidgets:
+            return
+
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        checkbox = QCheckBox(name)
+        valueField = QLineEdit(self.formatValue(value))
+        valueField.setEnabled(False)
+        checkbox.toggled.connect(valueField.setEnabled)
+        layout.addWidget(checkbox)
+        layout.addWidget(valueField, 1)
+        self.lo_settings.addWidget(row)
+        self.settingWidgets[name] = (checkbox, valueField)
+
+    @err_catcher(name=__name__)
+    def showSettingsMenu(self, pos: QPoint) -> None:
+        """Show actions for selecting or clearing all setting overrides."""
+        menu = QMenu(self)
+        checkAll = menu.addAction("Check All")
+        checkAll.triggered.connect(lambda: self.setAllSettingsChecked(True))
+        uncheckAll = menu.addAction("Uncheck All")
+        uncheckAll.triggered.connect(lambda: self.setAllSettingsChecked(False))
+        menu.exec_(self.w_settings.mapToGlobal(pos))
+
+    @err_catcher(name=__name__)
+    def setAllSettingsChecked(self, checked: bool) -> None:
+        """Set the checked state for every setting override row."""
+        for checkbox, valueField in self.settingWidgets.values():
+            checkbox.setChecked(checked)
+
+    @err_catcher(name=__name__)
+    def formatValue(self, value: Any) -> str:
+        """Format values so typed non-string settings can be edited safely."""
+        return value if isinstance(value, str) else repr(value)
+
+    @err_catcher(name=__name__)
+    def updateSettings(self, settings: Dict[str, Any], selectSettings: bool = True) -> None:
+        """Populate rows and optionally select settings from saved overrides."""
+        for name, value in settings.items():
+            if name not in self.settingWidgets:
+                self.addSetting(name, value)
+            checkbox, valueField = self.settingWidgets[name]
+            if selectSettings:
+                checkbox.setChecked(True)
+            valueField.setText(self.formatValue(value))
+
+    @err_catcher(name=__name__)
+    def openStateUi(self) -> None:
+        """Open the full state UI and capture all of its resulting settings."""
+        import StateManager
+
+        self.dlg_state = StateManager.getStateWindow(
+            self.core,
+            self.stateType,
+            settings=self.origin.stateData(),
+            connectBBox=False,
+            parent=self,
+        )
+        if not self.dlg_state:
+            self.core.popup("Failed to create state. Check logs for details.")
+            return
+
+        self.dlg_state.setWindowTitle("Default State Settings - %s" % self.stateType)
+        self.dlg_state.bb_settings.buttons()[0].setText("Apply")
+        self.dlg_state.bb_settings.accepted.connect(self.captureStateUiSettings)
+        self.dlg_state.bb_settings.rejected.connect(self.dlg_state.reject)
+        self.dlg_state.show()
+
+    @err_catcher(name=__name__)
+    def captureStateUiSettings(self) -> None:
+        """Copy state UI values while preserving selected setting overrides."""
+        self.updateSettings(
+            self.dlg_state.stateItem.ui.getStateProps(), selectSettings=False
+        )
+        self.dlg_state.close()
+
+    def castValue(self, name: str, value: str) -> Any:
+        """Cast edited text to the type used by the factory state setting."""
+        factoryValue = self.factorySettings.get(name)
+        if isinstance(factoryValue, str):
+            return value
+        if isinstance(factoryValue, bool):
+            if value.strip().lower() in ("true", "1", "yes", "on"):
+                return True
+            if value.strip().lower() in ("false", "0", "no", "off"):
+                return False
+            raise ValueError("Expected True or False")
+        if factoryValue is None:
+            return None if value.strip() == "None" else value
+        if isinstance(factoryValue, int):
+            return int(value)
+        if isinstance(factoryValue, float):
+            return float(value)
+        if isinstance(factoryValue, (list, tuple, dict, set)):
+            parsed = ast.literal_eval(value)
+            if not isinstance(parsed, type(factoryValue)):
+                raise ValueError("Expected %s" % type(factoryValue).__name__)
+            return parsed
+        return value
+
+    @err_catcher(name=__name__)
+    def saveSettings(self) -> None:
+        """Save only settings whose checkboxes are selected."""
+        settings = {}
+        try:
+            for name, (checkbox, valueField) in self.settingWidgets.items():
+                if checkbox.isChecked():
+                    settings[name] = self.castValue(name, valueField.text())
+        except (ValueError, SyntaxError) as error:
+            self.core.popup('Invalid value for "%s": %s' % (name, error), parent=self)
+            return
+
+        self.signalSaved.emit(settings)
+        self.accept()
 
 
 class StatePresets(QGroupBox):
@@ -4092,6 +4295,7 @@ class PresetItem(QWidget):
         self.e_name.setToolTip("Name")
         self.l_default = QLabel("Default for:")
         self.l_defaultEntity = QLabel()
+        self.l_defaultEntity.setWordWrap(True)
         self.b_editDft = QToolButton()
         self.b_editDft.clicked.connect(self.editDefaultsClicked)
         self.b_editDft.setToolTip("Select for which tasks this preset will be used as a default...")
@@ -4244,21 +4448,9 @@ class PresetItem(QWidget):
                 and optional 'useExpression' and 'expression' fields.
         """
         self._dftTasks = tasks
-        entities = ", ".join(self._dftTasks["entities"])
-        departments = ", ".join(self._dftTasks["departments"])
-        tasks = ", ".join(self._dftTasks["tasks"])
-        if len(self._dftTasks["entities"]) > 1:
-            dataStr = "%s\n%s\n%s" % (entities, departments, tasks)
-        else:
-            dataStr = "%s - %s - %s" % (entities, departments, tasks)
-
-        if dataStr == " -  - ":
-            dataStr = "-"
-
-        if self._dftTasks.get("useExpression") and self._dftTasks.get("expression"):
-            dataStr += " + expression"
-
-        self.l_defaultEntity.setText(dataStr)
+        display_data = self.core.projects._get_default_task_scope_display(self._dftTasks)
+        self.l_defaultEntity.setText(display_data["label"])
+        self.l_defaultEntity.setToolTip(display_data["tooltip"])
 
     @err_catcher(name=__name__)
     def states(self) -> Optional[Dict]:
@@ -4581,6 +4773,7 @@ class DefaultPresetScenesItem(QWidget):
         self.e_name.setToolTip("Preset Scenefile")
         self.l_default = QLabel("Default for:")
         self.l_defaultEntity = QLabel()
+        self.l_defaultEntity.setWordWrap(True)
         self.b_editDft = QToolButton()
         self.b_editDft.clicked.connect(self.editDefaultsClicked)
         self.b_editDft.setToolTip("Select for which tasks this preset will be used as a default...")
@@ -4716,21 +4909,9 @@ class DefaultPresetScenesItem(QWidget):
                 and optional 'useExpression' and 'expression' fields.
         """
         self._dftTasks = tasks
-        entities = ", ".join(self._dftTasks["entities"])
-        departments = ", ".join(self._dftTasks["departments"])
-        tasks = ", ".join(self._dftTasks["tasks"])
-        if len(self._dftTasks["entities"]) > 1:
-            dataStr = "%s\n%s\n%s" % (entities, departments, tasks)
-        else:
-            dataStr = "%s - %s - %s" % (entities, departments, tasks)
-
-        if dataStr == " -  - ":
-            dataStr = "-"
-
-        if self._dftTasks.get("useExpression") and self._dftTasks.get("expression"):
-            dataStr += " + expression"
-
-        self.l_defaultEntity.setText(dataStr)
+        display_data = self.core.projects._get_default_task_scope_display(self._dftTasks)
+        self.l_defaultEntity.setText(display_data["label"])
+        self.l_defaultEntity.setToolTip(display_data["tooltip"])
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Handle mouse move for drag operation.
@@ -5019,8 +5200,17 @@ class DefaultTasksWindow(QDialog):
         """
         validEntities = self.getValidEntities()
         departments = []
-        for entity in validEntities:
-            departments += self.core.entities.getSteps(entity)
+        startTime = time.monotonic()
+        with self.core.waitPopup(self.core, "Loading departments...", allowCancel=True, hidden=True, parent=self) as popup:
+            for entity in validEntities:
+                departments += self.core.entities.getSteps(entity)
+                if time.monotonic() - startTime > 2 and not popup.isVisible():
+                    popup.show()
+
+                if popup.isVisible():
+                    QCoreApplication.processEvents()
+                if popup.isCanceled:
+                    break
 
         departments = sorted(set(departments))
         return departments
@@ -5101,9 +5291,21 @@ class DefaultTasksWindow(QDialog):
         validEntities = self.getValidEntities()
         departments = self.getValidDepartments()
         tasks = []
-        for entity in validEntities:
-            for department in departments:
-                tasks += self.core.entities.getCategories(entity, step=department)
+        startTime = time.monotonic()
+        with self.core.waitPopup(self.core, "Loading tasks...", allowCancel=True, hidden=True, parent=self) as popup:
+            for entity in validEntities:
+                for department in departments:
+                    tasks += self.core.entities.getCategories(entity, step=department)
+                    if time.monotonic() - startTime > 2 and not popup.isVisible():
+                        popup.show()
+
+                    if popup.isVisible():
+                        QCoreApplication.processEvents()
+                    if popup.isCanceled:
+                        break
+
+                if popup.isCanceled:
+                    break
 
         tasks = sorted(set(tasks))
         return tasks
@@ -5378,6 +5580,7 @@ class DefaultSettingItem(QWidget):
         """
         self.l_default = QLabel("Apply to tasks:")
         self.l_defaultEntity = QLabel()
+        self.l_defaultEntity.setWordWrap(True)
         self.b_editDft = QToolButton()
         self.b_editDft.clicked.connect(self.editDefaultsClicked)
         self.b_editDft.setToolTip("Select for which tasks this preset will be used as a default...")
@@ -5452,26 +5655,15 @@ class DefaultSettingItem(QWidget):
         newDftTasks.update(tasks or {})
 
         self._dftTasks = newDftTasks
-        entities = ", ".join(self._dftTasks["entities"])
-        departments = ", ".join(self._dftTasks["departments"])
-        tasks = ", ".join(self._dftTasks["tasks"])
-        if len(self._dftTasks["entities"]) > 1:
-            dataStr = "%s\n%s\n%s" % (entities, departments, tasks)
-        else:
-            dataStr = "%s - %s - %s" % (entities, departments, tasks)
-
-        if dataStr == " -  - ":
-            dataStr = "-"
-
-        if self._dftTasks.get("useExpression") and self._dftTasks.get("expression"):
-            dataStr += " + expression"
-
-        self.l_defaultEntity.setText(dataStr)
+        display_data = self.core.projects._get_default_task_scope_display(self._dftTasks)
+        self.l_defaultEntity.setText(display_data["label"])
+        self.l_defaultEntity.setToolTip(display_data["tooltip"])
 
 
 class ProductTagItem(QWidget):
 
     removed = Signal(object)
+    signalItemDropped = Signal(object)
 
     def __init__(self, core: Any) -> None:
         """Initialize ProductTagItem.
@@ -5481,6 +5673,7 @@ class ProductTagItem(QWidget):
         """
         super(ProductTagItem, self).__init__()
         self.core = core
+        self.drag_start_pos = None
         self.loadLayout()
 
     @err_catcher(name=__name__)
@@ -5600,6 +5793,30 @@ class ProductTagItem(QWidget):
         """
         self.e_tags.setText(tags)
 
+    def mouseMoveEvent(self, event: Any) -> None:
+        if self.drag_start_pos is not None:
+            self.move(self.pos() + event.pos() - self.drag_start_pos)
+        super(ProductTagItem, self).mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: Any) -> None:
+        if self.drag_start_pos is None:
+            return
+
+        self.setCursor(Qt.ArrowCursor)
+        super(ProductTagItem, self).mouseReleaseEvent(event)
+        if (self.pos() + self.drag_start_pos) != QCursor.pos():
+            self.signalItemDropped.emit(self)
+        self.drag_start_pos = None
+
+    @err_catcher(name=__name__)
+    def mousePressEvent(self, event: Any) -> None:
+        if event.button() == Qt.LeftButton:
+            self.setCursor(Qt.ClosedHandCursor)
+            self.drag_start_pos = event.pos()
+            self.raise_()
+
+        super(ProductTagItem, self).mousePressEvent(event)
+
 
 class ProductTagsDlg(QDialog):
     """Dialog for managing project-wide product tags.
@@ -5682,13 +5899,14 @@ class ProductTagsDlg(QDialog):
         self.lo_main.addWidget(self.bb_main)
 
     @err_catcher(name=__name__)
-    def loadTags(self) -> None:
+    def loadTags(self, tags: Optional[Dict[str, List[str]]] = None) -> None:
         """Load and display project product tags.
         
         Retrieves product tags from core and creates ProductTagItem
         widgets for each product-tag combination.
         """
-        tags = self.core.products.getProjectProductTags()
+        if tags is None:
+            tags = self.core.products.getProjectProductTags()
         self.clearItems()
         if tags:
             for product, tagList in tags.items():
@@ -5711,6 +5929,7 @@ class ProductTagsDlg(QDialog):
         item = ProductTagItem(self.core)
         self.items.append(item)
         item.removed.connect(self.removeItem)
+        item.signalItemDropped.connect(self.itemDropped)
         
         if product:
             item.setProduct(product)
@@ -5720,6 +5939,38 @@ class ProductTagsDlg(QDialog):
         
         self.lo_items.addWidget(item)
         return item
+
+    @err_catcher(name=__name__)
+    def itemDropped(self, item: ProductTagItem) -> None:
+        pos = QCursor.pos()
+        targetItem = None
+        for tagItem in self.items:
+            if tagItem == item:
+                continue
+
+            rect = tagItem.geometry()
+            itemPos = tagItem.parent().mapFromGlobal(pos)
+            if rect.contains(itemPos):
+                targetItem = tagItem
+
+        if targetItem:
+            itemIdx = self.lo_items.indexOf(item)
+            targetIdx = self.lo_items.indexOf(targetItem)
+            entries = list(self.getTags().items())
+            movedItem = entries.pop(itemIdx)
+            entries.insert(targetIdx, movedItem)
+            self.loadTags(dict(entries))
+        else:
+            widgets = [
+                self.lo_items.itemAt(idx).widget()
+                for idx in range(self.lo_items.count())
+                if self.lo_items.itemAt(idx).widget()
+            ]
+            for idx, widget in enumerate(
+                sorted(widgets, key=lambda current: current.pos().y())
+            ):
+                self.lo_items.takeAt(self.lo_items.indexOf(widget))
+                self.lo_items.insertWidget(idx, widget)
 
     @err_catcher(name=__name__)
     def removeItem(self, item: Any) -> None:
@@ -5763,7 +6014,11 @@ class ProductTagsDlg(QDialog):
             Dictionary mapping product names to lists of tag strings.
         """
         tagsDict = {}
-        for item in self.items:
+        for idx in range(self.lo_items.count()):
+            item = self.lo_items.itemAt(idx).widget()
+            if not isinstance(item, ProductTagItem):
+                continue
+
             product = item.getProduct()
             tags = item.getTags()
             if product:
@@ -6042,3 +6297,211 @@ class CreateOtioDlg(QDialog):
                 self.core.openFolder(versionPath)
 
             self.accept()
+
+
+class SanityNotificationsDialog(QDialog):
+    """Display multiple sanity notifications in a single stacked dialog.
+
+    Shows one notification at a time and allows users to process each item
+    sequentially without spawning multiple overlapping popup windows.
+    """
+
+    def __init__(
+        self,
+        core: Any,
+        notifications: Optional[List[Dict[str, Any]]] = None,
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        """Initialize the dialog.
+
+        Args:
+            core: PrismCore instance.
+            notifications: Notification descriptors to display.
+            parent: Optional parent widget.
+        """
+        super(SanityNotificationsDialog, self).__init__()
+        self.core = core
+        self.notifications = []
+        self.core.parentWindow(self, parent=parent)
+        self.setupUi()
+        self.setNotifications(notifications or [])
+
+    @err_catcher(name=__name__)
+    def sizeHint(self) -> QSize:
+        """Provide preferred dialog size.
+
+        Returns:
+            Preferred size of 650x360 pixels.
+        """
+        return QSize(650, 360)
+
+    @err_catcher(name=__name__)
+    def setupUi(self) -> None:
+        """Build the stacked notification UI."""
+        self.setWindowTitle("Prism Scene Notifications")
+        icon = self.style().standardIcon(QStyle.SP_MessageBoxInformation)
+
+        self.lo_main = QVBoxLayout(self)
+
+        self.w_header = QWidget()
+        self.lo_header = QHBoxLayout(self.w_header)
+        self.l_icon = QLabel()
+        self.l_icon.setPixmap(icon.pixmap(25, 25))
+        self.l_title = QLabel("")
+        font = self.l_title.font()
+        font.setBold(True)
+        font.setPointSize(12)
+        self.l_title.setFont(font)
+        self.l_title.setWordWrap(True)
+        self.l_count = QLabel("")
+        self.l_count.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.lo_header.addWidget(self.l_icon)
+        self.lo_header.addWidget(self.l_title, 1)
+
+        self.sw_notifications = QStackedWidget()
+
+        self.w_footer = QWidget()
+        self.lo_footer = QHBoxLayout(self.w_footer)
+        self.lo_footer.setContentsMargins(0, 10, 0, 0)
+        self.lo_pageButtons = QHBoxLayout()
+        self.lo_footer.addLayout(self.lo_pageButtons)
+        self.lo_footer.addStretch()
+        self.lo_footer.addWidget(self.l_count)
+        self.b_skipAll = QPushButton("Skip all")
+        self.b_skipAll.clicked.connect(self.reject)
+        self.lo_footer.addWidget(self.b_skipAll)
+
+        self.lo_main.addWidget(self.w_header)
+        self.lo_main.addWidget(self.sw_notifications)
+        self.lo_main.addWidget(self.w_footer)
+
+    @err_catcher(name=__name__)
+    def setNotifications(self, notifications: List[Dict[str, Any]]) -> None:
+        """Load notifications into the stacked widget.
+
+        Args:
+            notifications: Notification descriptors.
+        """
+        self.notifications = notifications or []
+        self.clearNotifications()
+
+        for notification in self.notifications:
+            page = self.createNotificationPage(notification)
+            self.sw_notifications.addWidget(page)
+
+        if not self.notifications:
+            self.close()
+            return
+
+        self.b_skipAll.setVisible(len(self.notifications) > 1)
+        self.sw_notifications.setCurrentIndex(0)
+        self.updateCurrentNotification()
+
+    @err_catcher(name=__name__)
+    def clearNotifications(self) -> None:
+        """Remove all existing pages from the stacked widget."""
+        while self.sw_notifications.count():
+            page = self.sw_notifications.widget(0)
+            self.sw_notifications.removeWidget(page)
+            if page:
+                page.deleteLater()
+
+    @err_catcher(name=__name__)
+    def createNotificationPage(self, notification: Dict[str, Any]) -> QWidget:
+        """Create a single notification page.
+
+        Args:
+            notification: Notification descriptor.
+
+        Returns:
+            QWidget page.
+        """
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        textWidget = QLabel()
+        textWidget.setWordWrap(True)
+        textWidget.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        textWidget.setOpenExternalLinks(True)
+        textWidget.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
+
+        text = str(notification.get("text", ""))
+        if "<a href=" in text or "<br>" in text:
+            textWidget.setTextFormat(Qt.RichText)
+            textWidget.setText(text)
+        else:
+            textWidget.setTextFormat(Qt.PlainText)
+            textWidget.setText(text)
+
+        textScrollArea = QScrollArea()
+        textScrollArea.setWidgetResizable(True)
+        textScrollArea.setFrameShape(QFrame.NoFrame)
+        textScrollArea.setWidget(textWidget)
+        textHeight = textWidget.heightForWidth(self.sizeHint().width())
+        textScrollArea.setFixedHeight(min(textHeight, 180))
+
+        layout.addWidget(textScrollArea)
+
+        widget = notification.get("widget")
+        if widget:
+            widget.setParent(page)
+            layout.addWidget(widget)
+
+        layout.addStretch()
+
+        return page
+
+    @err_catcher(name=__name__)
+    def clearPageButtons(self) -> None:
+        """Remove all page-specific buttons."""
+        while self.lo_pageButtons.count():
+            item = self.lo_pageButtons.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+    @err_catcher(name=__name__)
+    def updateCurrentNotification(self) -> None:
+        """Refresh title, count indicator, and action buttons."""
+        if not self.notifications:
+            return
+
+        idx = self.sw_notifications.currentIndex()
+        total = len(self.notifications)
+        notification = self.notifications[idx]
+
+        self.l_title.setText(str(notification.get("title", "Prism")))
+        self.l_count.setVisible(total > 1)
+        if total > 1:
+            self.l_count.setText("%s/%s" % (idx + 1, total))
+
+        self.clearPageButtons()
+        buttons = notification.get("buttons") or ["Continue"]
+        default = notification.get("default")
+        for buttonText in buttons:
+            btn = QPushButton(str(buttonText))
+            btn.clicked.connect(lambda _checked=False, x=str(buttonText): self.onPageButtonClicked(x))
+            if default == buttonText:
+                btn.setDefault(True)
+                btn.setAutoDefault(True)
+
+            self.lo_pageButtons.addWidget(btn)
+
+    @err_catcher(name=__name__)
+    def onPageButtonClicked(self, result: str) -> None:
+        """Handle page action and move to the next notification.
+
+        Args:
+            result: Clicked button text.
+        """
+        idx = self.sw_notifications.currentIndex()
+        notification = self.notifications[idx]
+        callback = notification.get("callback")
+        if callback:
+            callback(result)
+
+        if idx < len(self.notifications) - 1:
+            self.sw_notifications.setCurrentIndex(idx + 1)
+            self.updateCurrentNotification()
+        else:
+            self.accept()
+

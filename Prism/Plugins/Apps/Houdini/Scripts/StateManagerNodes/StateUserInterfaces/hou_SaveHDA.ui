@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>421</height>
+    <height>506</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -238,6 +238,48 @@
        </widget>
       </item>
       <item>
+       <widget class="QWidget" name="w_master" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_22">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_master">
+           <property name="text">
+            <string>Update Master Version:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_29">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>113</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_master">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <widget class="QWidget" name="w_projectHDA" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_19">
          <property name="topMargin">
@@ -394,6 +436,45 @@
        </widget>
       </item>
       <item>
+       <widget class="QWidget" name="w_nodeName" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_23">
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="l_nodeName">
+           <property name="text">
+            <string>Use node name as type name:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_15">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chb_nodeName">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <widget class="QWidget" name="f_status" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_4">
          <property name="topMargin">
@@ -497,8 +578,8 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>271</width>
-           <height>69</height>
+           <width>264</width>
+           <height>54</height>
           </rect>
          </property>
          <layout class="QHBoxLayout" name="horizontalLayout_5">

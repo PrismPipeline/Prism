@@ -381,7 +381,7 @@ class Prism_Houdini_Filecache(object):
         self.core.projectBrowser()
         self.core.pb.showTab("Products")
         data = self.core.paths.getCachePathData(path)
-        self.core.pb.productBrowser.navigateToProduct(data["product"], entity=data)
+        self.core.pb.productBrowser.navigateToProduct(data.get("product", ""), entity=data)
 
     @err_catcher(name=__name__)
     def openInLOPs(self, kwargs, path):
@@ -543,6 +543,9 @@ class Prism_Houdini_Filecache(object):
 
         else:
             if self.executeBackground:
+                if hou.hipFile.hasUnsavedChanges():
+                    hou.hipFile.save()
+
                 parmName = "executebackground"
             else:
                 parmName = "execute"

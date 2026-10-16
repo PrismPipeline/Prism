@@ -319,7 +319,7 @@ class ImportFileClass(object):
             if "{#}" in text:
                 while True:
                     cacheData["#"] = num or ""
-                    name = text.format(**cacheData)
+                    name = text.format_map(self.core.safeFormatDict(cacheData))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Import":
                             continue
@@ -333,8 +333,9 @@ class ImportFileClass(object):
                     else:
                         break
             else:
-                name = text.format(**cacheData)
-        except Exception:
+                name = text.format_map(self.core.safeFormatDict(cacheData))
+        except Exception as e:
+            logger.debug("Error formatting name: %s, text: %s", e, text)
             name = text
 
         self.state.setText(0, name)
@@ -364,7 +365,8 @@ class ImportFileClass(object):
             if not path:
                 return False
 
-        return path.endswith(".abc") and "/_ShotCam/" in path
+        camProduct = self.core.products.getShotcamProductName()
+        return path.endswith(".abc") and f"/{camProduct}/" in path
 
     @err_catcher(name=__name__)
     def isPrismImportNode(self, node: Any) -> bool:
@@ -440,7 +442,9 @@ class ImportFileClass(object):
         if self.node.type().name() == "alembicarchive":
             self.node.setCurrent(True, clear_all_selected=True)
         else:
-            self.node.children()[0].setCurrent(True, clear_all_selected=True)
+            children = self.node.children()
+            if children:
+                children[0].setCurrent(True, clear_all_selected=True)
 
         paneTab = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
         if paneTab is not None:
@@ -470,13 +474,13 @@ class ImportFileClass(object):
         Returns:
             Import file path string.
         """
-        path = getattr(self, "importPath", "")
+        path = getattr(self, "importPath", "") or ""
         if path:
             path = path.replace("\\", "/")
 
         if expand:
             try:
-                path = hou.text.expandString(path)
+                path = hou.text.expandString(path) or ""
             except:
                 pass
 
@@ -490,7 +494,7 @@ class ImportFileClass(object):
             path: File path to import from.
         """
         path = self.core.appPlugin.getPathRelativeToProject(path) if self.core.appPlugin.getUseRelativePath() else path
-        self.importPath = path
+        self.importPath = path or ""
         self.w_currentVersion.setToolTip(path)
         self.stateManager.saveImports()
         self.updateUi()
@@ -644,7 +648,17 @@ class ImportFileClass(object):
             tlSettings = [hou.frame()]
             tlSettings += hou.playbar.playbackRange()
 
-            node = hou.hipFile.importFBX(importPath)[0]
+            try:
+                result = hou.hipFile.importFBX(importPath)
+            except Exception as e:
+                msg = "FBX import failed: %s" % str(e)
+                logger.warning(msg)
+                self.core.popup(msg)
+                self.updateUi()
+                self.stateManager.saveStatesToScene()
+                return
+
+            node = result[0]
             self.setNode(node)
             self.node.moveToGoodPosition()
             self.addNodeToImportNetworkBox(self.node)
@@ -694,6 +708,7 @@ class ImportFileClass(object):
 
             mergeGeo.layoutChildren()
             self.node.layoutChildren()
+            return True
 
     @err_catcher(name=__name__)
     def importRedshiftProxy(self, importPath: str, taskName: str) -> bool:
@@ -876,7 +891,8 @@ class ImportFileClass(object):
             outNode.setInput(0, self.fileNode)
             outNode.moveToGoodPosition()
             outNode.setDisplayFlag(True)
-            outNode.setRenderFlag(True)
+            if hasattr(outNode, "setRenderFlag"):
+                outNode.setRenderFlag(True)
 
         if self.chb_autoNameSpaces.isChecked():
             self.removeNameSpaces()
@@ -1153,6 +1169,7 @@ class ImportFileClass(object):
         mNode.setDisplayFlag(True)
         if hasattr(mNode, "setRenderFlag"):
             mNode.setRenderFlag(True)
+    
         mNode.setPosition(paneTab.visibleBounds().center())
         mNode.setCurrent(True, clear_all_selected=True)
 
@@ -1165,6 +1182,11 @@ class ImportFileClass(object):
         """
         path = self.getImportPath()
         curVersionName = self.core.products.getVersionFromFilepath(path) or ""
+        if not curVersionName:
+            curVersionName = self.core.paths.getCachePathData(path).get("version")
+            if curVersionName and os.path.basename(os.path.dirname(path)) == "master":
+                curVersionName = "master"
+
         curVersionData = {"version": curVersionName, "path": path}
         latestVersion = self.core.products.getLatestVersionFromPath(path)
         if latestVersion:
@@ -1187,6 +1209,8 @@ class ImportFileClass(object):
             statusColor = QColor(150, 80, 0)
         elif status == "error":
             statusColor = QColor(130, 0, 0)
+        elif status == "unknown":
+            statusColor = QColor(128, 128, 128)
         else:
             statusColor = QColor(0, 0, 0, 0)
 
@@ -1260,7 +1284,9 @@ class ImportFileClass(object):
         self.l_curVersion.setText(curVersionName or "-")
         self.l_latestVersion.setText(latestVersionName or "-")
 
-        if self.chb_autoUpdate.isChecked():
+        if not curVersionName:
+            status = "unknown"
+        elif self.chb_autoUpdate.isChecked():
             if curVersionName and latestVersionName and curVersionName != latestVersionName:
                 self.importLatest(refreshUi=False)
         else:

@@ -36,6 +36,7 @@ import os
 import sys
 import shutil
 import logging
+import json
 from typing import Any, Optional, List, Dict, Tuple
 
 from qtpy.QtCore import *
@@ -104,6 +105,15 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         self.versionLabels = ["Version", "Comment", "Type", "User", "Date", "Path"]
         self.initialized = False
         self.prevDelIdx = None
+        self.identifierRefreshId = 0
+        self.versionRefreshId = 0
+        self.productListWorkers = []
+        self.productListWorkerCallbacks = {}
+        self.productListWorkerWidgets = {}
+        self.identifierToSelect = None
+        self.versionToSelect = None
+        self.pendingNavigationData = None
+        self.pendingNavigationScenefile = False
 
         self.loadLayout()
         self.connectEvents()
@@ -146,14 +156,17 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
             self.w_entities.getPage("Shots").blockSignals(True)
             self.w_entities.tb_entities.blockSignals(True)
             self.w_entities.blockSignals(True)
-            self.w_entities.navigate(navData)
+            if navData and not self.w_entities.navigate(
+                navData, deferSelection=True
+            ):
+                self.w_entities.getCurrentPage().pendingRestoreData = navData
+            self.pendingNavigationData = navData
+            self.pendingNavigationScenefile = isScenefile
             self.w_entities.refreshEntities(defaultSelection=False)
             self.w_entities.getPage("Assets").blockSignals(False)
             self.w_entities.getPage("Shots").blockSignals(False)
             self.w_entities.tb_entities.blockSignals(False)
             self.w_entities.blockSignals(False)
-            if navData:
-                self.navigateToFile(data=navData, identifier=navData.get("product"), version=navData.get("version"), scenefile=isScenefile)
 
             self.initialized = True
 
@@ -188,7 +201,7 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
 
         self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=False, mode="products")
         self.splitter1.insertWidget(0, self.w_entities)
-        if os.getenv("PRISM_PRODUCT_BROWSER_ADD_GL_DUMMY", "1") == "1":
+        if os.getenv("PRISM_PRODUCT_BROWSER_ADD_GL_DUMMY", "0") == "1":
             try:
                 from PySide6.QtOpenGLWidgets import QOpenGLWidget
             except ImportError:
@@ -243,6 +256,7 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
             self.tw_versions.viewport().setMouseTracking(True)
 
         self.tw_versions.setDragEnabled(True)
+        self.initProductListLoadingWidgets()
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
         self.updateSizeColumn()
         self.tw_versions.sortByColumn(0, Qt.DescendingOrder)
@@ -260,14 +274,108 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         Returns:
             True if event was handled, False otherwise.
         """
-        if event.type() == QEvent.MouseMove:
+        if source == self.tw_versions.viewport() and event.type() == QEvent.MouseMove:
             self.tableMoveEvent(event)   # call your existing handler
-        elif event.type() == QEvent.Leave:
+        elif source == self.tw_versions.viewport() and event.type() == QEvent.Leave:
             self.tableLeaveEvent(event)  # custom leave handler
-        elif event.type() == QEvent.FocusOut:
+        elif source == self.tw_versions.viewport() and event.type() == QEvent.FocusOut:
             self.tableFocusOutEvent(event)  # custom focus out handler
 
+        if event.type() == QEvent.Resize:
+            for widget, loadingData in getattr(
+                self, "productListLoadingWidgets", {}
+            ).items():
+                if source == widget.viewport():
+                    loadingData[0].setGeometry(source.rect())
+                    break
+
         return super().eventFilter(source, event)
+
+    @err_catcher(name=__name__)
+    def initProductListLoadingWidgets(self) -> None:
+        """Create loading overlays for the product and version viewports."""
+        self.productListLoadingWidgets = {}
+        gifPath = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "loading.gif"
+        )
+
+        for widget in [self.tw_identifier, self.tw_versions]:
+            viewport = widget.viewport()
+            overlay = QWidget(viewport)
+            overlay.setObjectName("productlist_loading")
+            overlay.setStyleSheet(
+                "#productlist_loading {background-color: rgba(0, 0, 0, 50)}"
+            )
+            overlay.setAttribute(Qt.WA_StyledBackground, True)
+            overlay.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            overlay.hide()
+
+            layout = QHBoxLayout(overlay)
+            layout.setContentsMargins(0, 0, 0, 0)
+            label = QLabel(overlay)
+            label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(label)
+
+            movie = QMovie(gifPath, QByteArray(), overlay)
+            movie.setCacheMode(QMovie.CacheAll)
+            movie.setScaledSize(QSize(108, 60))
+            label.setMovie(movie)
+            self.productListLoadingWidgets[widget] = (overlay, movie)
+            viewport.installEventFilter(self)
+
+    @err_catcher(name=__name__)
+    def showProductListLoading(self, widget: Any) -> None:
+        overlay, movie = self.productListLoadingWidgets[widget]
+        overlay.setGeometry(widget.viewport().rect())
+        overlay.show()
+        overlay.raise_()
+        movie.start()
+
+    @err_catcher(name=__name__)
+    def hideProductListLoading(self, widget: Any) -> None:
+        if widget in self.productListWorkerWidgets.values():
+            return
+
+        overlay, movie = self.productListLoadingWidgets[widget]
+        overlay.hide()
+        movie.stop()
+
+    @err_catcher(name=__name__)
+    def runProductListWorker(self, function: Any, callback: Any, widget: Any) -> None:
+        """Run a product list query without blocking the browser UI."""
+        worker = self.core.worker(self.core)
+        self.productListWorkers.append(worker)
+        self.productListWorkerCallbacks[worker] = callback
+        self.productListWorkerWidgets[worker] = widget
+        self.showProductListLoading(widget)
+
+        def sendData() -> None:
+            worker.dataSent.emit({"worker": worker, "result": function()})
+
+        worker.function = sendData
+        worker.errored.connect(self.core.writeErrorLog)
+        worker.dataSent.connect(self.onProductListWorkerData)
+        worker.finished.connect(self.onProductListWorkerFinished)
+        worker.start()
+
+    @err_catcher(name=__name__)
+    def onProductListWorkerData(self, data: Dict[str, Any]) -> None:
+        callback = self.productListWorkerCallbacks.get(data["worker"])
+        if callback:
+            callback(data["result"])
+
+    @err_catcher(name=__name__)
+    def onProductListWorkerFinished(self) -> None:
+        worker = self.sender()
+        if worker in self.productListWorkers:
+            self.productListWorkers.remove(worker)
+
+        self.productListWorkerCallbacks.pop(worker, None)
+        widget = self.productListWorkerWidgets.pop(worker, None)
+        if widget is not None:
+            self.hideProductListLoading(widget)
+
+        worker.deleteLater()
 
     @err_catcher(name=__name__)
     def refreshLocations(self) -> None:
@@ -922,6 +1030,10 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
                     pass
 
         act_refresh = QAction("Refresh", self)
+        iconPath = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png"
+        )
+        act_refresh.setIcon(self.core.media.getColoredIcon(iconPath))
         act_refresh.triggered.connect(lambda: refresh(restoreSelection=True))
         rcmenu.addAction(act_refresh)
 
@@ -1144,10 +1256,8 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
             context["product"] = itemName
             self.core.products.setProductsGroup([context], group=group)
 
-        self.updateIdentifiers()
-        items = self.tw_identifier.findItems(itemName, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive))
-        if items:
-            self.tw_identifier.setCurrentItem(items[0])
+        self.identifierToSelect = itemName
+        self.updateIdentifiers(restoreSelection=True)
 
     @err_catcher(name=__name__)
     def createVersionDlg(self) -> None:
@@ -1192,9 +1302,8 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
             version=versionName,
             location=location,
         )
-        self.updateVersions()
-        if versionName is not None:
-            self.navigateToVersion(versionName)
+        self.versionToSelect = versionName
+        self.updateVersions(restoreSelection=True)
 
     @err_catcher(name=__name__)
     def moveToGlobal(self, localPath: str) -> None:
@@ -1288,13 +1397,11 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
 
     @err_catcher(name=__name__)
     def showVersionInfo(self, path: str) -> None:
-        """Display version information in a dialog.
+        """Display and edit version information in a dialog.
         
         Args:
             path: Path to version file.
         """
-        vInfo = "No information is saved with this version."
-
         infoFolder = self.core.products.getVersionInfoPathFromProductFilepath(
             path
         )
@@ -1302,52 +1409,92 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         infoPath = self.core.getVersioninfoPath(infoFolder)
         context = self.core.getConfig(configPath=infoPath) or {}
 
-        if context:
-            vInfo = []
-            for key in context:
-                label = key[0].upper() + key[1:]
-                vInfo.append([label, context[key]])
-
-        if type(vInfo) == str or len(vInfo) == 0:
-            self.core.popup(vInfo, severity="info")
-            return
-
         infoDlg = QDialog()
-        lay_info = QGridLayout()
-
         infoDlg.setWindowTitle(
             "Versioninfo %s %s:" % (context.get("product", ""), context.get("version", ""))
         )
 
-        for idx, val in enumerate(vInfo):
-            l_infoName = QLabel(val[0] + ":\t")
-            l_info = QLabel(str(val[1]))
-            lay_info.addWidget(l_infoName)
-            lay_info.addWidget(l_info, idx, 1)
+        table = QTableWidget(0, 2, infoDlg)
+        table.setHorizontalHeaderLabels(["Key", "Value"])
+        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setHighlightSections(False)
+        table.verticalHeader().hide()
+        table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        )
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
-        )
+        def addRow(key="", value="", original=None):
+            row = table.rowCount()
+            table.insertRow(row)
+            table.setItem(row, 0, QTableWidgetItem(key))
+            valueItem = QTableWidgetItem(value)
+            valueItem.setData(Qt.UserRole, original)
+            valueItem.setData(Qt.UserRole + 1, bool(key))
+            table.setItem(row, 1, valueItem)
+            return row
 
-        sa_info = QScrollArea()
+        for key, value in context.items():
+            text = value if isinstance(value, str) else json.dumps(value)
+            addRow(key, text, value)
 
-        lay_info.setContentsMargins(10, 10, 10, 10)
-        w_info = QWidget()
-        w_info.setLayout(lay_info)
-        sa_info.setWidget(w_info)
-        sa_info.setWidgetResizable(True)
+        table.resizeColumnToContents(0)
+
+        def showTableMenu(pos):
+            menu = QMenu(table)
+            addAction = menu.addAction("Add row")
+            removeAction = None
+            row = table.rowAt(pos.y())
+            if row >= 0:
+                removeAction = menu.addAction("Remove")
+
+            action = menu.exec_(table.viewport().mapToGlobal(pos))
+            if action == addAction:
+                row = addRow()
+                table.setCurrentCell(row, 0)
+                table.editItem(table.item(row, 0))
+            elif action == removeAction and row >= 0:
+                table.removeRow(row)
+
+        table.customContextMenuRequested.connect(showTableMenu)
 
         bb_info = QDialogButtonBox()
+        bb_info.addButton("Save", QDialogButtonBox.AcceptRole)
+        bb_info.addButton("Cancel", QDialogButtonBox.RejectRole)
 
-        bb_info.addButton("Ok", QDialogButtonBox.AcceptRole)
+        def saveInfo():
+            table.setFocus()
+            data = {}
+            for row in range(table.rowCount()):
+                key = table.item(row, 0).text().strip()
+                if not key or key in data:
+                    self.core.popup("Version info keys must be unique and not empty.")
+                    return
 
-        bb_info.accepted.connect(infoDlg.accept)
+                item = table.item(row, 1)
+                text = item.text()
+                original = item.data(Qt.UserRole)
+                if item.data(Qt.UserRole + 1) and text == (original if isinstance(original, str) else json.dumps(original)):
+                    value = original
+                elif isinstance(original, str) or original is None:
+                    value = text
+                else:
+                    try:
+                        value = json.loads(text)
+                    except ValueError:
+                        self.core.popup("Enter valid JSON for the value of '%s'." % key)
+                        return
+
+                data[key] = value
+
+            self.core.setConfig(data=data, configPath=infoPath, updateNestedData=False)
+            infoDlg.accept()
+
+        bb_info.accepted.connect(saveInfo)
+        bb_info.rejected.connect(infoDlg.reject)
 
         bLayout = QVBoxLayout()
-        bLayout.addWidget(sa_info)
+        bLayout.addWidget(table)
         bLayout.addWidget(bb_info)
         infoDlg.setLayout(bLayout)
         infoDlg.setParent(self.core.messageParent, Qt.Window)
@@ -1436,6 +1583,59 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         if entityType and entityType != self.w_entities.getCurrentPage().entityType:
             return
 
+        if self.pendingNavigationData:
+            navData = self.pendingNavigationData
+            currentEntity = self.getCurrentEntity() or {}
+            pendingType = navData.get("type")
+            if pendingType in ["asset", "assetFolder"]:
+                matchesPendingEntity = (
+                    currentEntity.get("type") in ["asset", "assetFolder"]
+                    and currentEntity.get("asset_path") == navData.get("asset_path")
+                )
+                isTransitionalEntity = (
+                    not currentEntity
+                    or (
+                        currentEntity.get("type") in ["asset", "assetFolder"]
+                        and not currentEntity.get("asset_path")
+                    )
+                )
+            elif pendingType in ["shot", "sequence", "episode"]:
+                matchesPendingEntity = (
+                    currentEntity.get("sequence") == navData.get("sequence")
+                    and currentEntity.get("shot") == navData.get("shot")
+                    and currentEntity.get("episode") == navData.get("episode")
+                )
+                isTransitionalEntity = (
+                    not currentEntity
+                    or (
+                        currentEntity.get("type") == "shot"
+                        and currentEntity.get("shot") == "_sequence"
+                        and currentEntity.get("loaded") == "loading"
+                        and (
+                            currentEntity.get("sequence") == navData.get("sequence")
+                            or (
+                                navData.get("episode")
+                                and currentEntity.get("sequence") == "_episode"
+                                and currentEntity.get("episode") == navData.get("episode")
+                            )
+                        )
+                    )
+                )
+            else:
+                matchesPendingEntity = False
+                isTransitionalEntity = not currentEntity
+
+            if isTransitionalEntity:
+                return
+
+            self.pendingNavigationData = None
+            self.pendingNavigationScenefile = False
+            if matchesPendingEntity:
+                self.identifierToSelect = navData.get("product") or None
+                self.versionToSelect = navData.get("version") or None
+                self.updateIdentifiers(restoreSelection=True)
+                return
+
         self.updateIdentifiers(restoreSelection=True)
 
     @err_catcher(name=__name__)
@@ -1464,13 +1664,49 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         return identifiers
 
     @err_catcher(name=__name__)
-    def updateIdentifiers(self, item: Optional[Any] = None, restoreSelection: bool = False) -> None:
+    def updateIdentifiers(
+        self,
+        item: Optional[Any] = None,
+        restoreSelection: bool = False,
+        identifiers: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> None:
         """Update the product identifier tree.
         
         Args:
             item: Optional tree item to update.
             restoreSelection: Whether to restore previous selection.
+            identifiers: Optional dictionary of identifiers to use instead of fetching them.
         """
+        if identifiers is None:
+            self.identifierRefreshId += 1
+            refreshId = self.identifierRefreshId
+            curEntities = self.getCurrentEntities()
+            if len(curEntities) != 1 or curEntities[0]["type"] not in ["asset", "shot"]:
+                identifiers = {}
+            else:
+                entity = curEntities[0].copy()
+                location = self.w_entities.getCurrentLocation()
+
+                def loadIdentifiers() -> Dict[str, Dict[str, Any]]:
+                    return self.core.products.getProductNamesFromEntity(
+                        entity, locations=[location]
+                    )
+
+                def applyIdentifiers(data: Dict[str, Dict[str, Any]]) -> None:
+                    if refreshId != self.identifierRefreshId:
+                        return
+
+                    self.updateIdentifiers(
+                        item=item,
+                        restoreSelection=restoreSelection,
+                        identifiers=data,
+                    )
+
+                self.runProductListWorker(
+                    loadIdentifiers, applyIdentifiers, self.tw_identifier
+                )
+                return
+
         if restoreSelection:
             curId = self.getCurrentProductName() or ""
 
@@ -1480,7 +1716,6 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
 
         self.tw_identifier.clear()
 
-        identifiers = self.getIdentifiers()
         identifierNames = sorted(identifiers.keys(), key=lambda s: s.lower())
         groups, groupItems = self.createGroupItems(identifiers)
         useTasks = self.core.products.getLinkedToTasks()
@@ -1534,11 +1769,17 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
 
         if self.tw_identifier.topLevelItemCount() > 0:
             selectFirst = True
-            if restoreSelection and curId:
-                items = self.tw_identifier.findItems(curId, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive))
+            targetIdentifier = self.identifierToSelect or (curId if restoreSelection else "")
+            if targetIdentifier:
+                if targetIdentifier == "_ShotCam":
+                    targetIdentifier = "ShotCam"
+
+                
+                items = self.tw_identifier.findItems(targetIdentifier, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive))
                 if items:
                     self.tw_identifier.setCurrentItem(items[0])
                     selectFirst = False
+                    self.identifierToSelect = None
 
             if selectFirst:
                 self.tw_identifier.setCurrentItem(self.tw_identifier.topLevelItem(0))
@@ -1601,12 +1842,44 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         return groups, groupItems
 
     @err_catcher(name=__name__)
-    def updateVersions(self, restoreSelection: bool = False) -> None:
+    def updateVersions(
+        self,
+        restoreSelection: bool = False,
+        versions: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
         """Update the versions table for the selected product.
         
         Args:
             restoreSelection: Whether to restore previous version selection.
         """
+        if versions is None:
+            self.versionRefreshId += 1
+            refreshId = self.versionRefreshId
+            identifierData = self.getCurrentProduct()
+            if not identifierData:
+                versions = []
+            else:
+                product = identifierData.copy()
+                location = self.w_entities.getCurrentLocation()
+
+                def loadVersions() -> List[Dict[str, Any]]:
+                    return self.core.products.getVersionsFromContext(
+                        product, locations=[location]
+                    )
+
+                def applyVersions(data: List[Dict[str, Any]]) -> None:
+                    if refreshId != self.versionRefreshId:
+                        return
+
+                    self.updateVersions(
+                        restoreSelection=restoreSelection, versions=data
+                    )
+
+                self.runProductListWorker(
+                    loadVersions, applyVersions, self.tw_versions
+                )
+                return
+
         curVersion = None
         indexes = self.tw_versions.selectionModel().selectedIndexes()
         if indexes:
@@ -1624,11 +1897,7 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
             self.tw_versions.horizontalHeader().sortIndicatorOrder(),
         ]
         self.tw_versions.setSortingEnabled(False)
-        identifierData = self.getCurrentProduct()
-
-        if identifierData:
-            location = self.w_entities.getCurrentLocation()
-            versions = self.core.products.getVersionsFromContext(identifierData, locations=[location])
+        if versions:
             for version in versions:
                 if version["version"] == "master":
                     location = list(version.get("locations", [None]))[0]
@@ -1677,7 +1946,15 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
 
         if self.tw_versions.model().rowCount() > 0:
             selectFirst = True
-            if restoreSelection and curVersion:
+            targetVersion = self.versionToSelect
+            if targetVersion:
+                for versionNum in range(self.tw_versions.model().rowCount()):
+                    if self.tw_versions.model().index(versionNum, 0).data() == targetVersion:
+                        self.tw_versions.selectRow(versionNum)
+                        selectFirst = False
+
+                self.versionToSelect = None
+            elif restoreSelection and curVersion:
                 for versionNum in range(self.tw_versions.model().rowCount()):
                     if self.tw_versions.model().index(versionNum, 0).data() == curVersion["version"]:
                         self.tw_versions.selectRow(versionNum)
@@ -2158,7 +2435,20 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
         self.tw_versions.blockSignals(True)
 
         if entity:
-            self.navigateToEntity(entity)
+            if not self.w_entities.navigate(entity, deferSelection=True):
+                self.w_entities.getCurrentPage().pendingRestoreData = entity
+                self.pendingNavigationData = entity.copy()
+                self.pendingNavigationData["product"] = product
+                self.pendingNavigationData["version"] = version
+                self.pendingNavigationScenefile = False
+                self.tw_versions.blockSignals(False)
+                return False
+
+            self.identifierToSelect = product
+            self.versionToSelect = version
+            self.tw_versions.blockSignals(False)
+            self.updateIdentifiers(restoreSelection=True)
+            return True
 
         if product:
             result = self.navigateToProduct(product)
@@ -2287,6 +2577,8 @@ class EditTagsDlg(QDialog):
         self.bb_main = QDialogButtonBox()
         self.bb_main.addButton("Save", QDialogButtonBox.AcceptRole)
         self.bb_main.addButton("Apply", QDialogButtonBox.AcceptRole)
+        clearButton = self.bb_main.addButton("Clear", QDialogButtonBox.ActionRole)
+        clearButton.setToolTip("Remove all tags directly assigned to this product so project-wide tags apply again.")
         self.bb_main.addButton("Close", QDialogButtonBox.RejectRole)
 
         self.bb_main.clicked.connect(self.onButtonClicked)
@@ -2362,6 +2654,9 @@ class EditTagsDlg(QDialog):
             self.accept()
         elif button.text() == "Apply":
             self.saveTags()
+        elif button.text() == "Clear":
+            self.core.products.clearProductTags(self.productData)
+            self.accept()
         elif button.text() == "Close":
             self.close()
 

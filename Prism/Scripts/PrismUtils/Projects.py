@@ -91,6 +91,8 @@ class Projects(object):
         super(Projects, self).__init__()
         self.core = core
         self.dlg_settings = None
+        self.pendingProjectChange = None
+        self.pendingProjectChangePopup = None
         self.extraStructureItems = OrderedDict([])
         self.environmentVariables = []
         self.validVariables = {}
@@ -269,8 +271,12 @@ class Projects(object):
             writeToConfig: Whether to write to config. Defaults to None.
             
         Returns:
-            Project path if successful, None otherwise
+            Project path if successful, None if deferred or unsuccessful
         """
+        if self.pendingProjectChangePopup:
+            self.pendingProjectChangePopup.close()
+            self.pendingProjectChangePopup = None
+        self.pendingProjectChange = None
         if not unset:
             if configPath is None:
                 return
@@ -327,6 +333,27 @@ class Projects(object):
                 or []
             )
 
+            if reqPlugins and (
+                getattr(self.core.plugins, "_delayedPluginPaths", [])
+                or getattr(self.core.plugins, "_delayedLoader", None) is not None
+            ) and any(plugin and not self.core.getPlugin(plugin) for plugin in reqPlugins):
+                self.pendingProjectChange = {
+                    "configPath": configPath,
+                    "openUi": openUi,
+                    "settingsTab": settingsTab,
+                    "settingsType": settingsType,
+                    "writeToConfig": writeToConfig,
+                }
+                if self.core.uiAvailable:
+                    self.pendingProjectChangePopup = self.core.waitPopup(
+                        self.core, "Waiting for plugins to load. Please wait..."
+                    )
+                    self.pendingProjectChangePopup.createPopup()
+                    if self.pendingProjectChangePopup.msg:
+                        self.pendingProjectChangePopup.msg.setAttribute(Qt.WA_QuitOnClose, False)
+                    self.pendingProjectChangePopup.show()
+                return
+
             missing = []
             for reqPlugin in reqPlugins:
                 if not reqPlugin:
@@ -350,16 +377,6 @@ class Projects(object):
                 self.core.popup(msg)
                 return
 
-            disabledPlugins = self.core.getConfig("globals", "disabled_plugins", configPath=configPath) or []
-            for disabledPlugin in disabledPlugins:
-                if not disabledPlugin:
-                    continue
-
-                plug = self.core.getPlugin(disabledPlugin)
-                if plug:
-                    logger.debug("disabling plugin %s because it's disabled in this project" % disabledPlugin)
-                    self.core.plugins.unloadPlugin(plugin=plug)
-
             expPrismVersions = self.core.getConfig(
                 "globals",
                 "expectedPrismVersions",
@@ -375,7 +392,16 @@ class Projects(object):
             if expPrismVersions:
                 allowedVersions = [v.strip() for v in expPrismVersions.split(",") if v.strip()]
                 currentVersion = self.core.version
-                if allowedVersions and currentVersion not in allowedVersions:
+                versionAllowed = any(
+                    currentVersion == version or (
+                        version.endswith("+")
+                        and version[:-1].strip()
+                        and self.core.compareVersions(currentVersion, version[:-1].strip())
+                        in ["equal", "higher"]
+                    )
+                    for version in allowedVersions
+                )
+                if allowedVersions and not versionAllowed:
                     msg = "The project \"%s\" requires Prism version %s to be opened.\n\nThe currently running Prism version is %s." % (projectName, ", ".join(allowedVersions), currentVersion)
                     if self.core.appPlugin.pluginName != "Standalone":
                         msg += "\n\nPlease restart your DCC and open it with the correct Prism version."
@@ -386,11 +412,27 @@ class Projects(object):
                     else:
                         self.core.popup(msg + "\n\nContinuing can have unexpected consequences.")
 
+        self.core.callback(
+            name="onPreProjectChange",
+            args=[self.core],
+        )
+
+        if not unset:
+            disabledPlugins = self.core.getConfig("globals", "disabled_plugins", configPath=configPath) or []
+            for disabledPlugin in disabledPlugins:
+                if not disabledPlugin:
+                    continue
+
+                plug = self.core.getPlugin(disabledPlugin)
+                if plug:
+                    logger.debug("disabling plugin %s because it's disabled in this project" % disabledPlugin)
+                    self.core.plugins.unloadPlugin(plugin=plug)
+
         delModules = []
 
         pipefolder = self.getPipelineFolder()
         for path in sys.path:
-            if pipefolder and pipefolder in path:
+            if pipefolder and pipefolder in str(path):
                 delModules.append(path)
 
         for modulePath in delModules:
@@ -593,7 +635,10 @@ class Projects(object):
         )
 
         if self.core.uiAvailable:
-            if openPb or openUi == "projectBrowser":
+            onboarding = getattr(self.core, "onboarding", None)
+            onboardingDialog = getattr(onboarding, "dialog", None)
+            onboardingVisible = onboardingDialog is not None and onboardingDialog.isVisible()
+            if (openPb or openUi == "projectBrowser") and not onboardingVisible:
                 self.core.projectBrowser()
 
             if openSm or openUi == "stateManager":
@@ -613,6 +658,17 @@ class Projects(object):
 
         QApplication.setQuitOnLastWindowClosed(quitOnLastWindowClosed)
         return self.core.projectPath
+
+    @err_catcher(name=__name__)
+    def retryPendingProjectChange(self) -> Optional[str]:
+        """Retry the latest project change after deferred plugin loading completes."""
+        pending = self.pendingProjectChange
+        self.pendingProjectChange = None
+        if self.pendingProjectChangePopup:
+            self.pendingProjectChangePopup.close()
+            self.pendingProjectChangePopup = None
+        if pending:
+            return self.changeProject(**pending)
 
     @err_catcher(name=__name__)
     def getCommandsEnabled(self):
@@ -1001,6 +1057,227 @@ class Projects(object):
         return self.cp
 
     @err_catcher(name=__name__)
+    def getCreateProjectOptions(self) -> List[Dict[str, Any]]:
+        """Collect creation actions with optional icon and backgroundImage paths."""
+        options = [{
+            "id": "empty",
+            "title": "Empty Project",
+            "description": "Start a new project from the default template.",
+            "backgroundImage": os.path.join(
+                self.core.prismRoot, "Presets", "Projects", "Default", "00_Pipeline", "Fallbacks", "noFileBig.jpg"
+            ),
+            "icon": self.core.media.getColoredIcon(
+                os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "create.png")
+            ),
+            "callback": self.createProjectDialog,
+        }]
+        self.core.callback(name="onGetCreateProjectOptions", args=[options])
+        valid = []
+        seen = set()
+        for option in options:
+            if not isinstance(option, dict):
+                continue
+            optionId = option.get("id")
+            if (not isinstance(optionId, str) or not optionId or optionId in seen
+                    or not isinstance(option.get("title"), str)
+                    or not callable(option.get("callback"))):
+                continue
+            seen.add(optionId)
+            valid.append(option)
+
+        return valid
+
+    @err_catcher(name=__name__)
+    def showCreateProjectOptions(self, parent: Optional[QWidget] = None, onSelected: Any = None) -> None:
+        """Launch the only action directly, or let the user choose among several."""
+        options = self.getCreateProjectOptions()
+        if not options:
+            return
+
+        if len(options) == 1:
+            selected = options[0]
+        else:
+            chooser = Projects.CreateProjectChooser(options, parent=parent, core=self.core)
+            if chooser.exec_() != QDialog.Accepted:
+                return
+            selected = chooser.selectedOption
+
+        dialog = selected["callback"]()
+        if onSelected:
+            onSelected(dialog)
+
+    class CreateProjectChooser(QDialog):
+        class TileBorder(QWidget):
+            def __init__(self, parent: QWidget) -> None:
+                super().__init__(parent)
+                self.setAttribute(Qt.WA_TransparentForMouseEvents)
+                self.setAttribute(Qt.WA_NoSystemBackground)
+
+            def paintEvent(self, event: Any) -> None:
+                painter = QPainter(self)
+                painter.setRenderHint(QPainter.Antialiasing)
+                painter.setPen(QPen(self.parentWidget().palette().color(QPalette.Mid), 1))
+                painter.setBrush(Qt.NoBrush)
+                painter.drawRoundedRect(QRectF(0.5, 0.5, self.width() - 1, self.height() - 1), 6, 6)
+
+        class TileButton(QPushButton):
+            def __init__(self) -> None:
+                super().__init__()
+                self.borderOverlay = Projects.CreateProjectChooser.TileBorder(self)
+
+            def resizeEvent(self, event: Any) -> None:
+                super().resizeEvent(event)
+                self.borderOverlay.setGeometry(self.rect())
+                self.borderOverlay.raise_()
+
+        class TileImage(QLabel):
+            def __init__(self, pixmap: QPixmap, parent: QWidget, icon: Optional[QIcon] = None) -> None:
+                super().__init__(parent)
+                self.background = pixmap
+                if isinstance(icon, QIcon):
+                    iconSize = 64 if pixmap.isNull() else 32
+                    pixelSize = QSize(round(iconSize * self.devicePixelRatioF()), round(iconSize * self.devicePixelRatioF()))
+                    iconPixmap = icon.pixmap(iconSize, iconSize)
+                    if not iconPixmap.isNull() and iconPixmap.size() != pixelSize:
+                        iconPixmap = iconPixmap.scaled(pixelSize, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    iconPixmap.setDevicePixelRatio(self.devicePixelRatioF())
+                    self.setPixmap(iconPixmap)
+                self.setFixedHeight(120)
+                self.setMinimumWidth(0)
+                self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+                self.setAttribute(Qt.WA_TransparentForMouseEvents)
+
+            def paintEvent(self, event: Any) -> None:
+                painter = QPainter(self)
+                painter.setRenderHint(QPainter.Antialiasing)
+                clip = QPainterPath()
+                clip.addRoundedRect(QRectF(0, 0, self.width(), self.height() + 4), 4, 4)
+                painter.setClipPath(clip)
+                painter.fillRect(self.rect(), QColor(0, 0, 0, 95))
+                if not self.background.isNull():
+                    pixelSize = self.size() * self.devicePixelRatioF()
+                    pixmap = self.background.scaled(pixelSize, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                    pixmap.setDevicePixelRatio(self.devicePixelRatioF())
+                    width = pixmap.width() / pixmap.devicePixelRatioF()
+                    height = pixmap.height() / pixmap.devicePixelRatioF()
+                    painter.drawPixmap(QPointF((self.width() - width) / 2, (self.height() - height) / 2), pixmap)
+                iconPixmap = self.pixmap()
+                if iconPixmap and not iconPixmap.isNull():
+                    width = iconPixmap.width() / iconPixmap.devicePixelRatioF()
+                    height = iconPixmap.height() / iconPixmap.devicePixelRatioF()
+                    if self.background.isNull():
+                        position = QPointF((self.width() - width) / 2, (self.height() - height) / 2)
+                    else:
+                        gradient = QLinearGradient(
+                            QPointF(self.width(), self.height()),
+                            QPointF(self.width() - 80, self.height() - 80),
+                        )
+                        gradient.setColorAt(0, QColor(0, 0, 0, 235))
+                        gradient.setColorAt(0.55, QColor(0, 0, 0, 100))
+                        gradient.setColorAt(1, QColor(0, 0, 0, 0))
+                        painter.fillRect(self.rect(), gradient)
+                        position = QPointF(self.width() - width - 10, self.height() - height - 10)
+                    painter.drawPixmap(position, iconPixmap)
+
+        def __init__(self, options: List[Dict[str, Any]], parent: Optional[QWidget] = None, core: Any = None) -> None:
+            super(Projects.CreateProjectChooser, self).__init__(parent)
+            self.selectedOption = None
+            self.setWindowTitle("Create a new Project")
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(18, 18, 18, 18)
+            layout.setSpacing(16)
+
+            tiles = QWidget()
+            tileLayout = QHBoxLayout(tiles)
+            tileLayout.setContentsMargins(0, 0, 0, 0)
+            tileLayout.setSpacing(12)
+            firstTile = None
+            for option in options:
+                background = QPixmap(option.get("backgroundImage") or "")
+                tile = Projects.CreateProjectChooser.TileButton()
+                tile.setObjectName("createProjectTile")
+                tile.setMinimumWidth(205)
+                tile.setFixedHeight(240)
+                tile.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                tile.setAccessibleName(option["title"])
+                tile.setToolTip(option.get("description", ""))
+                tile.setStyleSheet("""
+                    QPushButton#createProjectTile {
+                        background-color: rgba(255, 255, 255, 12);
+                        border: none;
+                        border-radius: 6px;
+                        text-align: left;
+                    }
+                    QPushButton#createProjectTile:hover {
+                        background-color: rgba(255, 255, 255, 24);
+                    }
+                    QPushButton#createProjectTile QLabel {
+                        background: transparent;
+                    }
+                """)
+                content = QVBoxLayout(tile)
+                content.setContentsMargins(2, 2, 2, 2)
+                content.setSpacing(0)
+                content.addWidget(Projects.CreateProjectChooser.TileImage(background, tile, option.get("icon")))
+                textContent = QVBoxLayout()
+                textContent.setContentsMargins(16, 12, 16, 14)
+                textContent.setSpacing(7)
+                content.addLayout(textContent)
+                content = textContent
+                title = QLabel(option["title"])
+                title.setWordWrap(True)
+                title.setAttribute(Qt.WA_TransparentForMouseEvents)
+                titleFont = title.font()
+                titleFont.setBold(True)
+                title.setFont(titleFont)
+                content.addWidget(title)
+                description = QLabel(option.get("description", ""))
+                description.setWordWrap(True)
+                description.setAttribute(Qt.WA_TransparentForMouseEvents)
+                content.addWidget(description)
+                content.addStretch(1)
+                tile.clicked.connect(lambda checked=False, action=option: self.choose(action))
+                tileLayout.addWidget(tile)
+                if firstTile is None:
+                    firstTile = tile
+
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.NoFrame)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            scroll.setWidget(tiles)
+            scroll.setMinimumHeight(tiles.sizeHint().height() + 2)
+            layout.addWidget(scroll)
+
+            buttons = QHBoxLayout()
+            buttons.addStretch()
+            self.cancelButton = QPushButton("Cancel")
+            self.cancelButton.setObjectName("cancelCreateProject")
+            self.cancelButton.setToolTip("Cancel")
+            self.cancelButton.setAccessibleName("Cancel")
+            self.cancelButton.setAutoDefault(False)
+            if core is not None:
+                iconPath = os.path.join(core.prismRoot, "Scripts", "UserInterfacesPrism", "delete.png")
+                icon = core.media.getColoredIcon(iconPath)
+            else:
+                iconPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "UserInterfacesPrism", "delete.png")
+                icon = QIcon(iconPath)
+            self.cancelButton.setIcon(icon)
+            self.cancelButton.clicked.connect(self.reject)
+            buttons.addWidget(self.cancelButton)
+            layout.addLayout(buttons)
+
+            self.resize(min(760, max(510, len(options) * 235 + 36)), self.sizeHint().height())
+            if firstTile:
+                firstTile.setFocus()
+
+        def choose(self, option: Dict[str, Any]) -> None:
+            self.selectedOption = option
+            self.accept()
+
+    @err_catcher(name=__name__)
     def getDefaultProjectSettings(self) -> OrderedDict:
         """Get default project settings with standard structure and configuration.
         
@@ -1118,7 +1395,20 @@ class Projects(object):
         settings = settings or {}
 
         if preset:
-            preset = self.getPreset(name=preset)
+            presetName = preset
+            if os.path.isdir(preset):
+                preset = self.getPreset(path=preset)
+            else:
+                preset = self.getPreset(name=preset)
+
+            if preset is None:
+                self.core.popup(
+                    f'The project preset "{presetName}" could not be found or loaded.\n\n'
+                    "Check that the preset exists and its project configuration is accessible, then select it again.",
+                    parent=parent,
+                )
+                return
+
             projectSettings = preset["settings"]
         else:
             projectSettings = {}
@@ -1284,6 +1574,8 @@ class Projects(object):
                     continue
 
                 parent = entities[root]
+                folders[:] = sorted(folders, key=lambda x: x.lower())
+                files[:] = sorted(files, key=lambda x: x.lower())
                 for folder in folders:
                     path = os.path.join(root, folder)
                     entity = {
@@ -1341,6 +1633,9 @@ class Projects(object):
                 try:
                     shutil.copy2(childEntity["path"], path)
                 except PermissionError:
+                    if os.path.normpath(childEntity["path"]) == os.path.normpath(path):
+                        continue
+
                     shutil.copy(childEntity["path"], path)
 
         return True
@@ -1359,6 +1654,11 @@ class Projects(object):
             self.core.prismIni
         ):
             return True
+
+        if self.pendingProjectChange:
+            if openUi:
+                self.pendingProjectChange["openUi"] = openUi
+            return False
 
         if "prism_project" in os.environ and os.path.exists(
             os.environ["prism_project"]
@@ -1606,6 +1906,18 @@ class Projects(object):
             Path to presets folder
         """
         return os.path.join(self.getPipelineFolder(), "Presets")
+
+    @err_catcher(name=__name__)
+    def getAttachmentsFolder(self) -> str:
+        """Get the project attachments folder path.
+        
+        Returns:
+            Path to attachments folder
+        """
+        if os.getenv("PRISM_PROJECT_ATTACHMENTS_FOLDER"):
+            return os.getenv("PRISM_PROJECT_ATTACHMENTS_FOLDER")
+
+        return os.path.join(self.getPipelineFolder(), "Attachments")
 
     @err_catcher(name=__name__)
     def getDefaultProjectStructure(self) -> OrderedDict:
@@ -2540,6 +2852,7 @@ class Projects(object):
             if self.validateMatchedData(data):
                 pathData.append(data)
 
+        pathData.sort(key=lambda x: x["path"].lower())
         return pathData
 
     @err_catcher(name=__name__)
@@ -2937,7 +3250,7 @@ class Projects(object):
             deps = []
 
         if not deps:
-            deps = self.getProjectDepartments()
+            deps = self.getProjectDepartments() or []
             if deps:
                 deps = [{"name": d[1], "abbreviation": d[0], "defaultTasks": [d[1]]} for d in list(deps.items())]
                 self.setDepartments("asset", deps, configData)
@@ -2967,7 +3280,7 @@ class Projects(object):
             deps = []
 
         if not deps:
-            deps = self.getProjectDepartments()
+            deps = self.getProjectDepartments() or []
             if deps:
                 deps = [{"name": d[1], "abbreviation": d[0], "defaultTasks": [d[1]]} for d in list(deps.items())]
                 self.setDepartments("shot", deps, configData)
@@ -3413,6 +3726,52 @@ class Projects(object):
         pFps = self.core.getConfig("globals", "fps", config="project")
         return pFps
 
+    @err_catcher(name=__name__)
+    def _get_default_task_scope_display(self, task_data: Dict[str, Any], max_items: int = 5) -> Dict[str, str]:
+        """Build compact and full display strings for default task scopes."""
+
+        def _clean_values(values: Any) -> List[str]:
+            return [str(value).strip() for value in (values or []) if str(value).strip()]
+
+        def _compact_values(values: List[str]) -> str:
+            if not values:
+                return "-"
+
+            if len(values) <= max_items:
+                return ", ".join(values)
+
+            return "%s, +%d more" % (", ".join(values[:max_items]), len(values) - max_items)
+
+        entities = _clean_values(task_data.get("entities"))
+        departments = _clean_values(task_data.get("departments"))
+        task_names = _clean_values(task_data.get("tasks"))
+
+        compact_entities = _compact_values(entities)
+        compact_departments = _compact_values(departments)
+        compact_tasks = _compact_values(task_names)
+
+        full_entities = ", ".join(entities) if entities else "-"
+        full_departments = ", ".join(departments) if departments else "-"
+        full_tasks = ", ".join(task_names) if task_names else "-"
+
+        multiline = len(entities) > 1
+        if multiline:
+            label_text = "%s\n%s\n%s" % (compact_entities, compact_departments, compact_tasks)
+            tooltip_text = "%s\n%s\n%s" % (full_entities, full_departments, full_tasks)
+        else:
+            label_text = "%s - %s - %s" % (compact_entities, compact_departments, compact_tasks)
+            tooltip_text = "%s - %s - %s" % (full_entities, full_departments, full_tasks)
+
+        if compact_entities == "-" and compact_departments == "-" and compact_tasks == "-":
+            label_text = "-"
+            tooltip_text = "-"
+
+        if task_data.get("useExpression") and task_data.get("expression"):
+            label_text += " + expression"
+            tooltip_text += "\n+ expression enabled"
+
+        return {"label": label_text, "tooltip": tooltip_text}
+
     class ProjectListWidget(QDialog):
         """Dialog widget for displaying and selecting from available projects.
         
@@ -3432,6 +3791,7 @@ class Projects(object):
         """
 
         signalShowing = Signal()
+        signalSizeChanged = Signal()
 
         def __init__(self, origin: Any) -> None:
             """Initialize ProjectListWidget.
@@ -3447,6 +3807,11 @@ class Projects(object):
             self.allowDeselect = True
             self.allowMultiSelection = True
             self.dirty = False
+            self.projects = []
+            self.projectImages = {}
+            self.projectLoadId = 0
+            self.projectWorkers = []
+            self.preferredHeight = 230
             self.core.parentWindow(self, parent=origin)
             self.setupUi()
             self.refreshUi()
@@ -3487,6 +3852,33 @@ class Projects(object):
             Returns:
                 Whether event was handled
             """
+            if watched is getattr(self, "_createProjectDialog", None) and event.type() == QEvent.Hide:
+                watched.removeEventFilter(self)
+                nextDialog = getattr(watched, "nextDialog", None)
+                if isinstance(nextDialog, QDialog) and nextDialog.isVisible():
+                    self._createProjectDialog = nextDialog
+                    nextDialog.installEventFilter(self)
+                    return super().eventFilter(watched, event)
+
+                self._createProjectDialog = None
+                browser = self._createProjectBrowser
+                self._createProjectBrowser = None
+                settings = self._createProjectSettings
+                self._createProjectSettings = None
+                completed = (not watched.w_complete.isHidden()) if hasattr(watched, "w_complete") else watched.result() == QDialog.Accepted
+                if browser and getattr(self.core, "pb", None) is browser:
+                    if not completed:
+                        browser.show()
+                        browser.raise_()
+                        browser.activateWindow()
+                    else:
+                        browser.close()
+                if settings and getattr(self.core, "ps", None) is settings and settings is not browser:
+                    if completed:
+                        settings.close()
+                    else:
+                        settings.show()
+
             if event.type() == QEvent.FocusOut:
                 new_focus = QApplication.focusWidget()
                 if not (new_focus and self.isAncestorOf(new_focus)):
@@ -3514,9 +3906,20 @@ class Projects(object):
                 self.dirty = False
 
             self.show()
-            QApplication.processEvents()
             self.e_search.setFocus()
-            self.resize(self.w_projects.width() + self.lo_projects.contentsMargins().left() * 2, self.height())        
+            self.resize(max(self.width(), self.minimumWidth()), self.height())
+
+        @err_catcher(name=__name__)
+        def invalidateProjects(self) -> None:
+            """Discard cached projects and reload them the next time the picker opens."""
+            self.projectLoadId += 1
+            self.projects = []
+            self.projectImages = {}
+            self.dirty = True
+            self.loadingMovie.stop()
+            self.l_loading.hide()
+            self.populateProjects()
+            self.close()
 
         @err_catcher(name=__name__)
         def setupUi(self) -> None:
@@ -3533,7 +3936,7 @@ class Projects(object):
             self.e_search.setPlaceholderText("Search Projects...")
             self.e_search.setClearButtonEnabled(True)
             self.e_search.installEventFilter(self)
-            self.e_search.textChanged.connect(lambda text: self.refreshUi())
+            self.e_search.textChanged.connect(lambda text: self.refreshUi(reload=False))
             self.b_create = QPushButton()
             path = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "create.png")
             icon = self.core.media.getColoredIcon(path)
@@ -3559,6 +3962,9 @@ class Projects(object):
             self.lo_header.setContentsMargins(9, 5, 9, 0)
 
             self.w_projects = QWidget()
+            self.setMinimumWidth(510)
+            self.setMinimumHeight(230)
+            self.w_projects.setMinimumWidth(490)
             self.w_projects.setFocusProxy(self)
             self.lo_projects = QGridLayout()
             self.lo_projects.setSpacing(10)
@@ -3576,19 +3982,93 @@ class Projects(object):
             self.sa_projects.setFocusProxy(self)
             self.sa_projects.setWidgetResizable(True)
             self.sa_projects.setWidget(self.w_projects)
-            self.sa_projects.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            self.sa_projects.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
             self.w_scrollParent.setLayout(self.lo_scrollParent)
             self.lo_scrollParent.addWidget(self.sa_projects)
             self.lo_main.addWidget(self.w_header)
             self.lo_main.addWidget(self.w_scrollParent)
 
+            self.l_loading = QLabel(self)
+            self.l_loading.setAlignment(Qt.AlignCenter)
+            loadingPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "loading.gif")
+            self.loadingMovie = QMovie(loadingPath, QByteArray(), self.l_loading)
+            self.loadingMovie.setScaledSize(QSize(108, 60))
+            self.l_loading.setMovie(self.loadingMovie)
+            self.lo_main.insertWidget(1, self.l_loading)
+            self.l_loading.hide()
+
         @err_catcher(name=__name__)
-        def refreshUi(self) -> None:
-            """Refresh project list UI with current projects and search filter.
-            
-            Clears existing widgets, loads available projects, applies search filter,
-            creates project widgets in grid layout, and triggers callback.
-            """
+        def refreshUi(self, reload: bool = True) -> None:
+            """Load project data in the background or filter already loaded projects."""
+            if reload:
+                self.projectLoadId += 1
+                loadId = self.projectLoadId
+                self.l_loading.show()
+                self.loadingMovie.start()
+
+                worker = self.core.worker(self.core)
+                self.projectWorkers.append(worker)
+
+                def loadProjects():
+                    projects = self.core.projects.getAvailableProjects(includeCurrent=True) or []
+                    fallback = os.path.join(
+                        self.core.prismRoot,
+                        "Presets/Projects/Default/00_Pipeline/Fallbacks/noFileBig.jpg",
+                    )
+                    loaded = []
+                    for project in projects:
+                        data = project.copy()
+                        image = None
+                        iconImage = None
+                        if self.core.isStr(data.get("icon")):
+                            iconImage = self.core.media.getQImageFromPath(data["icon"]) or QImage()
+
+                        if "icon" not in data and data.get("configPath"):
+                            imagePath = self.core.projects.getProjectImage(projectConfig=data["configPath"]) or fallback
+                            image = self.core.media.getQImageFromPath(imagePath)
+                            if not image or image.isNull():
+                                image = self.core.media.getQImageFromPath(fallback)
+
+                        loaded.append((data, image, iconImage))
+
+                    worker.dataSent.emit({"id": loadId, "projects": loaded})
+
+                worker.function = loadProjects
+                worker.dataSent.connect(self.onProjectsLoaded)
+                worker.errored.connect(self.core.writeErrorLog)
+                worker.finished.connect(lambda: self.onProjectsWorkerFinished(worker, loadId))
+                worker.start()
+                return
+
+            self.populateProjects()
+
+        @err_catcher(name=__name__)
+        def onProjectsLoaded(self, data: Dict[str, Any]) -> None:
+            """Populate project cards with data and QImages prepared by the worker."""
+            if data["id"] != self.projectLoadId:
+                return
+
+            self.projects = [project for project, image, iconImage in data["projects"]]
+            self.projectImages = {id(project): (image, iconImage) for project, image, iconImage in data["projects"]}
+            self.preferredHeight = 460 if sum(project.get("source") == "recent" for project in self.projects) > 6 else 230
+            self.setMinimumHeight(self.preferredHeight)
+            self.populateProjects()
+            self.resize(510, self.preferredHeight)
+            if self.isVisible():
+                self.signalSizeChanged.emit()
+
+        @err_catcher(name=__name__)
+        def onProjectsWorkerFinished(self, worker: Any, loadId: int) -> None:
+            """Release a completed worker and stop the loading indicator."""
+            self.projectWorkers.remove(worker)
+            worker.deleteLater()
+            if loadId == self.projectLoadId:
+                self.loadingMovie.stop()
+                self.l_loading.hide()
+
+        @err_catcher(name=__name__)
+        def populateProjects(self) -> None:
+            """Filter cached projects and create their widgets on the GUI thread."""
             self.projectWidgets = []
             for idx in reversed(range(self.lo_projects.count())):
                 item = self.lo_projects.takeAt(idx)
@@ -3597,13 +4077,13 @@ class Projects(object):
                     w.setParent(None)
                     w.deleteLater()
 
-            self.projects = self.core.projects.getAvailableProjects(includeCurrent=True)
             searchFilter = self.e_search.text().lower()
-            if searchFilter:
-                self.projects = [p for p in self.projects if searchFilter in (p.get("name") or "").lower()]
+            projects = [project for project in self.projects if searchFilter in (project.get("name") or "").lower()]
 
-            for project in self.projects:
-                w_prj = Projects.ProjectWidget(self, project.copy(), minHeight=1, previewScale=0.5)
+            for project in projects:
+                previewImage, iconImage = self.projectImages.get(id(project), (None, None))
+                w_prj = Projects.ProjectWidget(self, project.copy(), minHeight=1, previewScale=0.7, previewImage=previewImage, iconImage=iconImage)
+                w_prj.setMinimumWidth(150)
                 w_prj.setFocusProxy(self)
                 w_prj.signalDoubleClicked.connect(self.openProject)
                 w_prj.signalRemoved.connect(self.refreshUi)
@@ -3624,13 +4104,37 @@ class Projects(object):
             sizePolicy.setVerticalStretch(100)
             self.w_spacer.setSizePolicy(sizePolicy)
             self.lo_projects.addWidget(self.w_spacer, self.lo_projects.rowCount(), 0)
+            for widget in self.projectWidgets:
+                if widget.data.get("configPath") == self.core.prismIni:
+                    widget.select()
 
         @err_catcher(name=__name__)
         def preCreate(self) -> None:
-            """Open project creation dialog and close project browser if visible."""
-            self.core.projects.createProjectDialog()
-            if getattr(self.core, "pb", None) and self.core.pb.isVisible():
-                self.core.pb.close()
+            """Open project creation and restore the browser if empty creation is cancelled."""
+            def closeBrowser(dialog):
+                browser = getattr(self.core, "pb", None)
+                browser = browser if browser and browser.isVisible() else None
+                settings = getattr(self.core, "ps", None)
+                settings = settings if settings and settings.isVisible() else None
+                if not browser and not settings:
+                    return
+
+                if isinstance(dialog, QDialog) and dialog.isVisible():
+                    self._createProjectDialog = dialog
+                    self._createProjectBrowser = browser
+                    self._createProjectSettings = settings
+                    dialog.installEventFilter(self)
+                    if browser:
+                        browser.hide()
+                    if settings and settings is not browser:
+                        settings.hide()
+                else:
+                    if browser:
+                        browser.close()
+                    if settings and settings is not browser:
+                        settings.close()
+
+            self.core.projects.showCreateProjectOptions(parent=self.origin, onSelected=closeBrowser)
 
         @err_catcher(name=__name__)
         def itemSelected(self, item: Any, event: Optional[Any] = None) -> None:
@@ -3750,7 +4254,9 @@ class Projects(object):
             minHeight: int = 200,
             allowRemove: bool = True,
             previewScale: float = 1,
-            useWidgetWidth: bool = False
+            useWidgetWidth: bool = False,
+            previewImage: Optional[QImage] = None,
+            iconImage: Optional[QImage] = None,
         ) -> None:
             """Initialize ProjectWidget.
             
@@ -3770,6 +4276,8 @@ class Projects(object):
             self.minHeight = minHeight
             self.allowRemove = allowRemove
             self.previewScale = previewScale
+            self.previewImage = previewImage
+            self.iconImage = iconImage
             self.useWidgetWidth = useWidgetWidth
             self.previewWidth = int(200 * previewScale)
             self.previewHeight = int((200 * previewScale) / (16/9.0))
@@ -3821,6 +4329,7 @@ class Projects(object):
             font.setPointSizeF(10)
             self.l_name.setFont(font)
             self.l_name.setAlignment(Qt.AlignHCenter)
+            self.l_name.setWordWrap(True)
             self.l_fav = QLabel()
             iconPath = os.path.join(
                 self.core.prismRoot, "Scripts", "UserInterfacesPrism", "favorite.png"
@@ -3919,6 +4428,9 @@ class Projects(object):
             if not qimg or qimg.isNull():
                 return
 
+            self.previewImage = qimg
+            if hasattr(self, "loadingGif"):
+                self.loadingGif.stop()
             pixmap = QPixmap.fromImage(qimg)
             self.validPreview = pixmap
             ppixmap = self.core.media.scalePixmap(
@@ -3943,14 +4455,18 @@ class Projects(object):
             if icon:
                 self.l_icon.setPixmap(icon)
             else:
-                self.setLoadingPreview()
-                if self._parent.isVisible():
-                    self.updatePreview_threaded()
+                if self.previewImage is not None:
+                    self.onPreviewImageLoaded(self.previewImage)
                 else:
-                    self._parent.signalShowing.connect(self.updatePreview_threaded)
+                    self.setLoadingPreview()
+                    if self._parent.isVisible():
+                        self.updatePreview_threaded()
+                    else:
+                        self._parent.signalShowing.connect(self.updatePreview_threaded)
 
             name = self.getDisplayName()
             self.l_name.setText(name)
+            self.l_name.setToolTip(name)
             self.l_fav.setVisible(self.data.get("favorite", False))
 
         @err_catcher(name=__name__)
@@ -3963,7 +4479,12 @@ class Projects(object):
             if hasattr(self, "loadingGif"):
                 self.loadingGif.setScaledSize(QSize(self.l_preview.width(), int(self.l_preview.width() / (300/169.0))))
 
-            ppixmap = self.getPreviewImage(load=load)
+            if load and not getattr(self, "validPreview", None):
+                self.setLoadingPreview()
+                self.updatePreview_threaded()
+                return
+
+            ppixmap = self.getPreviewImage(load=False)
             if not ppixmap or ppixmap == "loading":
                 return
 
@@ -3972,16 +4493,15 @@ class Projects(object):
         @err_catcher(name=__name__)
         def setLoadingPreview(self) -> None:
             """Display animated loading indicator in preview label."""
-            if hasattr(self, "loadingGif"):
-                return
+            if not hasattr(self, "loadingGif"):
+                path = os.path.join(
+                    self.core.prismRoot, "Scripts", "UserInterfacesPrism", "loading.gif"
+                )
+                self.loadingGif = QMovie(path, QByteArray(), self)
+                self.loadingGif.setCacheMode(QMovie.CacheAll)
+                self.loadingGif.setSpeed(100)
+                self.loadingGif.setScaledSize(QSize(self.l_preview.width(), int(self.l_preview.width() / (300/169.0))))
 
-            path = os.path.join(
-                self.core.prismRoot, "Scripts", "UserInterfacesPrism", "loading.gif"
-            )
-            self.loadingGif = QMovie(path, QByteArray(), self) 
-            self.loadingGif.setCacheMode(QMovie.CacheAll) 
-            self.loadingGif.setSpeed(100) 
-            self.loadingGif.setScaledSize(QSize(self.l_preview.width(), int(self.l_preview.width() / (300/169.0))))
             self.l_preview.setMovie(self.loadingGif)
             self.loadingGif.start()
 
@@ -4034,7 +4554,17 @@ class Projects(object):
                 return
 
             if self.core.isStr(self.data["icon"]):
-                icon = self.core.media.getColoredIcon(self.data["icon"], force=True)
+                if self.iconImage is not None:
+                    if self.iconImage.isNull():
+                        return
+
+                    image = QImage(self.iconImage)
+                    tinted = QImage(image)
+                    tinted.fill(QColor(150, 210, 240))
+                    tinted.setAlphaChannel(image.convertToFormat(QImage.Format_Alpha8))
+                    icon = QIcon(QPixmap.fromImage(tinted))
+                else:
+                    icon = self.core.media.getColoredIcon(self.data["icon"], force=True)
             else:
                 icon = self.data["icon"]
 

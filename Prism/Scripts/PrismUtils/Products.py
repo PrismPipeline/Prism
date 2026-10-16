@@ -39,6 +39,7 @@ import platform
 import errno
 import copy
 import time
+import fnmatch
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from qtpy.QtCore import *
@@ -268,6 +269,11 @@ class Products(object):
             locPaths = self.core.paths.getExportProductBasePaths()
         elif locations == "project_path":
             locPaths = {"_other": entity["project_path"]}
+        else:
+            allPaths = self.core.paths.getExportProductBasePaths()
+            locPaths = {
+                loc: allPaths[loc] for loc in locations if loc in allPaths
+            }
 
         versions = []
         for loc in locPaths:
@@ -747,6 +753,34 @@ class Products(object):
         self.core.media.savePixmap(preview, prvPath)
 
     @err_catcher(name=__name__)
+    def getShotcamProductName(self) -> str:
+        """Get the standard product name for shotcam products.
+        
+        Returns:
+            str: Shotcam product name.
+        """
+        return os.getenv("PRISM_SHOTCAM_PRODUCT", "_ShotCam")
+
+    @err_catcher(name=__name__)
+    def getShotcamAssetName(self) -> str:
+        """Get the standard asset name for shotcam assets.
+        
+        Returns:
+            str: Shotcam asset name.
+        """
+        return os.getenv("PRISM_SHOTCAM_ASSET", "ShotCam")
+
+    @err_catcher(name=__name__)
+    def getShotcamFormats(self) -> List[str]:
+        """Get the list of preferred shotcam export formats.
+        
+        Returns:
+            List[str]: List of file format extensions (e.g., [".abc", ".fbx"]).
+        """
+        fmts = os.getenv("PRISM_SHOTCAM_FORMATS", ".abc,.fbx")
+        return [fmt.strip() for fmt in fmts.split(",") if fmt.strip()]
+
+    @err_catcher(name=__name__)
     def getPreferredFileFromVersion(self, version: Dict[str, Any], location: Optional[str] = None) -> str:
         """Get the preferred file path from a version.
         
@@ -826,13 +860,21 @@ class Products(object):
                 filepath
             )
             shotCamFormat = getattr(self.core.appPlugin, "shotcamFormat", ".abc")
+            camProduct = self.getShotcamProductName()
             if (
                 shotCamFormat == ".fbx"
-                and version["product"] == "_ShotCam"
+                and version["product"] == camProduct
                 and filepath.endswith(".abc")
                 and os.path.exists(filepath[:-3] + "fbx")
             ):
                 filepath = filepath[:-3] + "fbx"
+            elif (
+                shotCamFormat == ".abc"
+                and version["product"] == camProduct
+                and filepath.endswith(".fbx")
+                and os.path.exists(filepath[:-3] + "abc")
+            ):
+                filepath = filepath[:-3] + "abc"
 
             objPath = filepath[:-3] + "obj"
             if (filepath.endswith(".mtl") or filepath.endswith(".bmp")) and os.path.exists(objPath):
@@ -1009,11 +1051,15 @@ class Products(object):
         if wedge == "" and "/@wedge@" in self.core.projects.getTemplatePath("productVersions"):
             wedge = "0"
 
-        basePath = self.core.paths.getExportProductBasePaths()[location]
+        basePaths = self.core.paths.getExportProductBasePaths()
+        if location in basePaths:
+            basePath = basePaths[location]
+        else:
+            basePath = None
+
         context = entity.copy()
         context.update(
             {
-                "project_path": basePath,
                 "product": task,
                 "comment": comment,
                 "version": version,
@@ -1023,6 +1069,8 @@ class Products(object):
                 "wedge": wedge,
             }
         )
+        if basePath is not None:
+            context["project_path"] = basePath
 
         if self.core.prism1Compatibility:
             context["unit"] = "meter"
@@ -1140,11 +1188,20 @@ class Products(object):
             self.core.popup(msg)
             return
 
+        ext = data.get("extension", "")
+        if not ext:
+            ext = self.core.paths.splitext(path)[1]
+
+        ignoredMasterExts = [ext.strip() for ext in os.getenv("PRISM_IGNORED_MASTER_EXTS", "").split(",") if ext.strip()]
+        if ext and ext in ignoredMasterExts:
+            logger.debug("Extension '%s' is ignored for master version update." % ext)
+            return
+
         data["type"] = self.core.paths.getEntityTypeFromPath(path)
         masterPath = self.generateProductPath(
             entity=data,
             task=data.get("product"),
-            extension=data.get("extension", ""),
+            extension=ext,
             version="master",
             location=location,
         )
@@ -1162,11 +1219,24 @@ class Products(object):
             return
 
         if not os.path.exists(os.path.dirname(masterPath)):
-            try:
-                os.makedirs(os.path.dirname(masterPath))
-            except Exception as e:
-                if e.errno != errno.EEXIST:
-                    raise
+            while True:
+                try:
+                    os.makedirs(os.path.dirname(masterPath), exist_ok=True)
+                except Exception as e:
+                    logger.warning(e)
+                    msg = "Couldn't create directory for master version:\n\nError: %s\n\nTarget Path: %s" % (str(e), os.path.dirname(masterPath))
+                    result = self.core.popupQuestion(
+                        msg,
+                        buttons=["Retry", "Cancel"],
+                        escapeButton="Cancel",
+                        default="Cancel",
+                    )
+                    if result == "Retry":
+                        continue
+                    else:
+                        return
+
+                break
 
         masterDrive = os.path.splitdrive(masterPath)[0]
         drive = os.path.splitdrive(path)[0]
@@ -1237,7 +1307,22 @@ class Products(object):
                         logger.warning("Failed to create master info directory: %s - %s" % (masterInfoDir, e))
 
                 if os.path.exists(masterInfoDir):
-                    shutil.copy2(infoPath, masterInfoPath)
+                    while True:
+                        try:
+                            shutil.copy2(infoPath, masterInfoPath)
+                        except Exception as e:
+                            logger.warning(e)
+                            msg = "Couldn't copy version info to master version:\n\nError: %s\n\nSource Path: %s\n\nTarget Path: %s" % (str(e), infoPath, masterInfoPath)
+                            result = self.core.popupQuestion(
+                                msg,
+                                buttons=["Retry", "Skip file"],
+                                escapeButton="Skip file",
+                                default="Skip file",
+                            )
+                            if result == "Retry":
+                                continue
+
+                        break
 
         infoData = self.core.getConfig(configPath=infoPath)
         if infoData and "preferredFile" in infoData:
@@ -1254,7 +1339,7 @@ class Products(object):
 
             filepath = os.path.join(os.path.dirname(path), file)
             fileTargetName = os.path.basename(filepath)
-            if data["product"] == "_ShotCam" and not os.path.isdir(filepath) and origVersion in fileTargetName:
+            if data["product"] == self.getShotcamProductName() and not os.path.isdir(filepath) and origVersion in fileTargetName:
                 fileTargetName = fileTargetName.replace(origVersion, "master")
 
             fileTargetPath = os.path.join(os.path.dirname(masterPathPadded), fileTargetName)
@@ -1697,7 +1782,7 @@ class Products(object):
         tags = self.core.getConfig(product.get("product"), "tags", configPath=cfgPath)
         if tags is None:
             tags = []
-            prjTags = self.getProjectTagsFromProduct(product["product"])
+            prjTags = self.getProjectTagsFromProduct(product)
             for prjTag in prjTags:
                 if prjTag not in tags:
                     tags.append(prjTag)
@@ -1720,21 +1805,56 @@ class Products(object):
         return tags
     
     @err_catcher(name=__name__)
-    def getProjectTagsFromProduct(self, product: str) -> List[str]:
-        """Get project-wide tags for a specific product name.
+    def getProjectTagsFromProduct(self, product: Union[str, Dict[str, Any]]) -> List[str]:
+        """Get project-wide tags matching a product name and optional context.
         
         Args:
-            product: Product name.
+            product: Product name or product context containing department and task.
             
         Returns:
             List[str]: List of project tag strings for this product.
         """
         tagData = self.getProjectProductTags() or {}
-        if product not in list(tagData.keys()):
-            return []
+        productData = product if isinstance(product, dict) else {"product": product}
+        productName = productData.get("product") or ""
+        tags = []
+        for rule, ruleTags in tagData.items():
+            if not self._doesProjectProductTagRuleMatch(rule, productData, productName):
+                continue
 
-        tags = tagData[product] or []
+            for tag in ruleTags or []:
+                if tag not in tags:
+                    tags.append(tag)
+
         return tags
+
+    @err_catcher(name=__name__)
+    def _doesProjectProductTagRuleMatch(
+        self,
+        rule: str,
+        productData: Dict[str, Any],
+        productName: str,
+    ) -> bool:
+        ruleParts = [part.strip() for part in str(rule).split(":") if part.strip()]
+        if not ruleParts:
+            return False
+
+        productPattern = ruleParts[-1]
+        if not fnmatch.fnmatchcase(productName.lower(), productPattern.lower()):
+            return False
+
+        for rulePart in ruleParts[:-1]:
+            key, separator, pattern = rulePart.partition("=")
+            key = key.strip().lower()
+            pattern = pattern.strip()
+            if separator != "=" or key not in ["department", "task"] or not pattern:
+                return False
+
+            value = str(productData.get(key) or "")
+            if not fnmatch.fnmatchcase(value.lower(), pattern.lower()):
+                return False
+
+        return True
 
     @err_catcher(name=__name__)
     def getProjectProductTags(self) -> Dict[str, List[str]]:
@@ -1769,6 +1889,13 @@ class Products(object):
         productPath = self.getProductPathFromEntity(product, includeProduct=False)
         cfgPath = os.path.join(productPath, "products" + self.core.configs.getProjectExtension())
         self.core.setConfig(product.get("product"), "tags", val=tags, configPath=cfgPath)
+
+    @err_catcher(name=__name__)
+    def clearProductTags(self, product: Dict[str, Any]) -> None:
+        """Remove product-specific tags so project-wide tags apply again."""
+        productPath = self.getProductPathFromEntity(product, includeProduct=False)
+        cfgPath = os.path.join(productPath, "products" + self.core.configs.getProjectExtension())
+        self.core.setConfig(product.get("product"), "tags", delete=True, configPath=cfgPath)
 
     @err_catcher(name=__name__)
     def getProductsByTags(self, entity: Dict[str, Any], tags: List[str]) -> List[Dict[str, Any]]:
@@ -1881,6 +2008,9 @@ class Products(object):
 
             return
 
+        entityNames = [self.core.entities.getEntityName(e) for e in entities]
+        logger.debug("found connected entities: %s" % entityNames)
+
         tags = [x.strip() for x in os.getenv("PRISM_AUTO_IMPORT_TAGS", "").split(",") if x]
         if not tags:
             tags = ["main"]
@@ -1907,6 +2037,10 @@ class Products(object):
         if not productsToImport:
             msg = "No products to import.\n(checking for tags: \"%s\")" % "\", \"".join(tags)
             logger.debug(msg)
+            for centity in entities:
+                products = [p.get("product", "-") for p in self.getProductsFromEntity(centity)]
+                logger.debug("connected entity: %s, products: %s" % (centity, products))
+
             if not quietCheck:
                 self.core.popup(msg)
 
@@ -1925,6 +2059,7 @@ class Products(object):
             if not productPath:
                 continue
 
+            logger.debug("importing product: %s" % (productPath))
             sm.importFile(productPath, settings=settings)
             logger.debug("added product to shot: %s - %s" % (self.core.entities.getShotName(entity), productPath))
             importedProducts.append(productPath)

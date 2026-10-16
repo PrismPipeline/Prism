@@ -36,6 +36,7 @@ import sys
 import platform
 import shutil
 import glob
+import json
 from typing import Any, List, Optional, Union
 
 from qtpy.QtCore import *
@@ -246,6 +247,38 @@ class Prism_Houdini_Integration(object):
 
             QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
             return False
+
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Compare the installed Prism package with the current JSON configuration."""
+        installedFile = os.path.join(path, "packages", "Prism.json")
+        if not os.path.isfile(installedFile):
+            legacyFiles = [
+                os.path.join(base, folder, filename)
+                for base in [path, os.path.join(path, "houdini")]
+                for folder, filename in [
+                    ("python2.7libs", "PrismInit.py"),
+                    ("python2.7libs", "PrismInit.pyc"),
+                    ("toolbar", "Prism.shelf"),
+                    ("packages", "Prism.json"),
+                ]
+            ]
+            return "update needed" if any(os.path.isfile(filename) for filename in legacyFiles) else "not added"
+
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        with open(os.path.join(integrationBase, "Prism.json"), "r") as stream:
+            expected = stream.read().replace("PLUGINROOT", os.path.dirname(self.pluginPath).replace("\\", "/"))
+        expected = json.loads(expected.replace("PRISMROOT", self.core.prismRoot.replace("\\", "/")))
+        try:
+            with open(installedFile, "r") as stream:
+                installed = json.load(stream)
+        except ValueError:
+            return "update needed"
+        if isinstance(installed, dict):
+            installedPaths = installed.get("path")
+            if isinstance(installedPaths, list) and expected["path"] in installedPaths:
+                installed["path"] = expected["path"]
+        return "added" if installed == expected else "update needed"
 
     def removeIntegration(self, installPath: str) -> bool:
         """Remove Prism integration from Houdini.

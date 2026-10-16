@@ -194,8 +194,6 @@ class ImageRenderClass(object):
 
         if stateData is not None:
             self.loadData(stateData)
-        else:
-            self.initializeContextBasedSettings()
 
     @err_catcher(name=__name__)
     def loadData(self, data: Dict[str, Any]) -> None:
@@ -669,7 +667,7 @@ class ImageRenderClass(object):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -683,7 +681,7 @@ class ImageRenderClass(object):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 
@@ -699,7 +697,7 @@ class ImageRenderClass(object):
         Returns:
             Current output format string
         """
-        self.cb_format.currentText()
+        return self.cb_format.currentText()
 
     @err_catcher(name=__name__)
     def setFormat(self, fmt: str) -> bool:
@@ -1573,7 +1571,7 @@ class ImageRenderClass(object):
         updateMaster = True
         fileName = self.core.getCurrentFileName()
         context = self.getCurrentContext()
-        if not self.renderingStarted:
+        if not self.renderingStarted and not getattr(self, "_pendingRenderLayers", None):
             idfFunc = getattr(self.core.appPlugin, "sm_render_getIdentifiers", None)
             if idfFunc:
                 idfs = idfFunc(self)
@@ -1597,46 +1595,46 @@ class ImageRenderClass(object):
             if layers is None:
                 layers = [""]
 
-            if useVersion == "next" and len(idfs) > 1 and os.getenv("PRISM_RENDER_LAYERS_ALIGN_VERSIONS", "1") == "1":
+            alignIdentifiers = len(idfs) > 1 and os.getenv("PRISM_RENDER_LAYERS_ALIGN_VERSIONS", "1") == "1"
+            if useVersion == "next" and (alignIdentifiers or (len(idfs) == 1 and len(layers) > 1)):
                 for idf in idfs:
                     for layer in layers:
                         outputName, outputPath, hVersion = self.getOutputName(useVersion="next", identifier=idf, layer=layer)
                         useVersion = hVersion if useVersion == "next" or (self.core.compareVersions(hVersion, useVersion) == "higher") else useVersion
 
-            for idf in idfs:
-                for layer in layers:
-                    result = self.executeIdentifier(
-                        idf,
-                        useVersion,
-                        context,
-                        fileName,
-                        startFrame,
-                        endFrame,
-                        frames,
-                        rangeType,
-                        parent,
-                        layer,
-                    )
-                    if not isinstance(result, dict):
-                        return result
+            self._pendingRenderLayers = [(idf, layer) for idf in idfs for layer in layers]
+            self._renderLayerVersion = useVersion
 
-                    if not self.renderingStarted:
-                        self.core.appPlugin.sm_render_undoRenderSettings(self, result["rSettings"])
+        while self._pendingRenderLayers or self.renderingStarted:
+            if self.renderingStarted:
+                rSettings = self.LastRSettings
+                result = self.core.appPlugin.sm_render_startLocalRender(
+                    self, rSettings["outputName"], rSettings
+                )
+                updateMaster = self._renderLayerUpdateMaster
+                outputName = rSettings["outputName"]
+            else:
+                idf, layer = self._pendingRenderLayers.pop(0)
+                renderData = self.executeIdentifier(
+                    idf, self._renderLayerVersion, context, fileName,
+                    startFrame, endFrame, frames, rangeType, parent, layer,
+                )
+                if not isinstance(renderData, dict):
+                    self._pendingRenderLayers = []
+                    return renderData
 
-            updateMaster = result["updateMaster"]
-            rSettings = result["rSettings"]
-            outputName = result["outputName"]
-            result = result["result"]
-        else:
-            rSettings = self.LastRSettings
-            result = self.core.appPlugin.sm_render_startLocalRender(
-                self, rSettings["outputName"], rSettings
-            )
+                updateMaster = renderData["updateMaster"]
+                rSettings = renderData["rSettings"]
+                outputName = renderData["outputName"]
+                result = renderData["result"]
+                if self.renderingStarted:
+                    self._renderLayerUpdateMaster = updateMaster
+
+            if result == "publish paused":
+                return [self.state.text(0) + " - publish paused"]
+
+            self.core.appPlugin.sm_render_undoRenderSettings(self, rSettings)
             outputName = rSettings["outputName"]
-
-        if result == "publish paused":
-            return [self.state.text(0) + " - publish paused"]
-        else:
             if updateMaster:
                 self.handleMasterVersion(self.expandvars(outputName))
 
@@ -1650,8 +1648,9 @@ class ImageRenderClass(object):
             self.core.callback("postRender", **kwargs)
 
             if result and "Result=Success" in result:
-                return [self.state.text(0) + " - success"]
+                continue
             else:
+                self._pendingRenderLayers = []
                 erStr = "%s ERROR - sm_default_imageRenderPublish %s:\n%s" % (
                     time.strftime("%d/%m/%y %X"),
                     self.core.version,
@@ -1660,17 +1659,21 @@ class ImageRenderClass(object):
                 if not result or not result.startswith("Execute Canceled: "):
                     if result == "unknown error (files do not exist)":
                         msg = "No files were created during the rendering. If you think this is a Prism bug please report it on our Discord server:\nwww.prism-pipeline.com/discord\nor write a mail to contact@prism-pipeline.com"
-                        self.core.popup(msg)
+                        self.core.popup(msg, parent=self.stateManager)
                     else:
-                        if not result or (
-                            "Could not connect to any of the specified Mongo DB servers defined in" not in result
-                            and "ConcurrentTasks must be a value between 1 and 16 inclusive" not in result
-                            and "does not exist or is not accessible from this computer" not in result
-                            and "System.OutOfMemoryException" not in result
-                        ):
+                        renderfarmPlugin = None
+                        if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
+                            renderfarmPlugin = self.core.plugins.getRenderfarmPlugin(self.cb_manager.currentText())
+
+                        knownError = renderfarmPlugin and getattr(
+                            renderfarmPlugin, "isKnownSubmissionError", lambda response: False
+                        )(result)
+                        if not knownError:
                             self.core.writeErrorLog(erStr)
 
                 return [self.state.text(0) + " - error - " + result]
+
+        return [self.state.text(0) + " - success"]
 
     @err_catcher(name=__name__)
     def expandvars(self, path: str) -> str:
@@ -1750,7 +1753,7 @@ class ImageRenderClass(object):
             ]
 
         if not os.path.exists(os.path.dirname(expandedOutputPath)):
-            os.makedirs(os.path.dirname(expandedOutputPath))
+            os.makedirs(os.path.dirname(expandedOutputPath), exist_ok=True)
 
         details = context.copy()
         if "filename" in details:
@@ -1763,8 +1766,12 @@ class ImageRenderClass(object):
         details["sourceScene"] = fileName
         details["identifier"] = identifier
         details["comment"] = self.getComment()
-        details["startframe"] = startFrame
-        details["endframe"] = endFrame
+        if startFrame is not None:
+            details["startframe"] = startFrame
+
+        if endFrame is not None:
+            details["endframe"] = endFrame
+
         if layer:
             details["layer"] = layer
 
@@ -1803,7 +1810,13 @@ class ImageRenderClass(object):
                 self.core, self.renderPresets[self.cb_renderPreset.currentText()]
             )
 
-        self.core.appPlugin.sm_render_preSubmit(self, rSettings)
+        result = self.core.appPlugin.sm_render_preSubmit(self, rSettings)
+        if result is False:
+            return [
+                self.state.text(0)
+                + " - error - Presubmit check canceled"
+            ]
+
         self.l_pathLast.setText(rSettings["outputName"])
         self.l_pathLast.setToolTip(rSettings["outputName"])
 

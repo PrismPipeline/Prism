@@ -39,6 +39,7 @@ automatically create node instances after installation.
 """
 
 import os
+import logging
 from typing import Any, Optional, Dict, Union
 
 from qtpy.QtCore import *
@@ -49,6 +50,9 @@ import hou
 import hou_ImportFile
 
 from PrismUtils.Decorators import err_catcher as err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class InstallHDAClass(hou_ImportFile.ImportFileClass):
@@ -193,6 +197,52 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
             self.b_createNode.clicked.connect(self.createNode)
 
     @err_catcher(name=__name__)
+    def importLatest(self, refreshUi: bool = True, selectedStates: bool = True) -> None:
+        """Import the latest version of the file.
+        
+        Args:
+            refreshUi: Whether to refresh UI after import.
+            selectedStates: Whether to only update selected states.
+        """
+        if refreshUi:
+            self.updateUi()
+
+        latestVersion = self.core.products.getLatestVersionFromPath(
+            self.getImportPath()
+        )
+        filepath = self.core.products.getPreferredFileFromVersion(latestVersion)
+        if not filepath:
+            if not self.chb_autoUpdate.isChecked():
+                self.core.popup("Couldn't get latest version.")
+            return
+
+        filepath = getattr(self.core.appPlugin, "fixImportPath", lambda x: x)(filepath)
+        prevState = self.stateManager.applyChangesToSelection
+        self.stateManager.applyChangesToSelection = False
+        self.setImportPath(filepath)
+        self.importObject(createNode=False)
+        if selectedStates:
+            selStates = self.stateManager.getSelectedStates()
+            for state in selStates:
+                if state.__hash__() == self.state.__hash__():
+                    continue
+
+                if hasattr(state.ui, "importLatest"):
+                    state.ui.importLatest(refreshUi=refreshUi, selectedStates=False)
+
+        self.stateManager.applyChangesToSelection = prevState
+
+    @err_catcher(name=__name__)
+    def browse(self) -> None:
+        """Open Products Browser to select import file."""
+        importPaths = self.requestImportPaths()
+        if importPaths:
+            importPath = importPaths[-1]
+            self.setImportPath(importPath)
+            self.importObject(createNode=False)
+            self.updateUi()
+
+    @err_catcher(name=__name__)
     def importObject(self, taskName: Optional[str] = None, createNode: Optional[bool] = None) -> bool:
         """Install HDA file into Houdini session.
         
@@ -235,9 +285,10 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
             return
 
         hou.hda.installFile(impFileName, force_use_assets=True)
-        defs = hou.hda.definitionsInFile(impFileName)
-        for definition in defs:
-            self.changeAssetDefinitionVersions(definition)
+        if os.getenv("PRISM_HOUDINI_AUTO_UPDATE_NODE_HDA_DEFINITIONS", "1") == "1":
+            defs = hou.hda.definitionsInFile(impFileName)
+            for definition in defs:
+                self.changeAssetDefinitionVersions(definition)
 
         self.stateManager.saveImports()
         self.updateUi()
@@ -282,7 +333,7 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
 
             nodeType = hou.nodeType(definition.nodeTypeCategory(), namespace)
             for instance in nodeType.instances():
-                instance.changeNodeType(definition.nodeType().name())
+                instance.changeNodeType(definition.nodeType().name(), keep_network_contents=not instance.matchesCurrentDefinition())
 
     @err_catcher(name=__name__)
     def validateFilepath(self, path: str) -> Union[str, bool]:
@@ -335,8 +386,9 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
             return
 
         mNode = None
-        if os.path.exists(self.getImportPath()):
-            defs = hou.hda.definitionsInFile(self.getImportPath())
+        importPath = self.getImportPath()
+        if os.path.exists(importPath):
+            defs = hou.hda.definitionsInFile(importPath)
             if len(defs) > 0:
                 if parentNode.childTypeCategory() == hou.objNodeTypeCategory() and defs[0].nodeType().category() == hou.sopNodeTypeCategory():
                     typeNameData = defs[0].nodeTypeName().split("::")
@@ -359,18 +411,31 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
                 tname = defs[0].nodeTypeName()
                 isToolRecipe = self.isToolRecipe(tname)
                 if isToolRecipe:
-                    hou.data.applyTabToolRecipe(
-                        name=tname,
-                        parent=parentNode,
-                        click_to_place=True,
-                        skip_notes=False
-                    )
+                    try:
+                        hou.data.applyTabToolRecipe(
+                            name=tname,
+                            parent=parentNode,
+                            click_to_place=True,
+                            skip_notes=False
+                        )
+                    except Exception as e:
+                        msg = "Failed to apply tab tool recipe: %s" % str(e)
+                        logger.warning(msg)
+                        self.core.popup(msg)
                 else:
                     try:
                         mNode = parentNode.createNode(tname)
                         mNode.moveToGoodPosition()
                     except:
                         return
+
+                    productData = self.core.paths.getCachePathData(importPath)
+                    useNodeName = productData.get("useNodeName")
+                    if useNodeName:
+                        try:
+                            mNode.setName(mNode.type().description())
+                        except:
+                            pass
 
         if mNode is None:
             return
@@ -408,6 +473,28 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         return isToolRecipe
 
     @err_catcher(name=__name__)
+    def getIsInstalled(self) -> bool:
+        """Check if the HDA is installed.
+        
+        Returns:
+            True if the HDA is installed, False otherwise.
+        """
+        path = self.getImportPath()
+        if not os.path.exists(path):
+            return False
+
+        try:
+            defs = hou.hda.definitionsInFile(path)
+        except Exception as e:
+            logger.warning("Failed to get HDA definitions from file: %s, path: %s", e, path)
+            return False
+
+        if len(defs) > 0 and defs[0].isInstalled():
+            return True
+
+        return False
+    
+    @err_catcher(name=__name__)
     def updateUi(self) -> None:
         """Update UI to reflect current HDA installation status.
         
@@ -417,8 +504,14 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         self.l_status.setText("not installed")
         self.l_status.setStyleSheet("QLabel { background-color : rgb(130,0,0); }")
         status = "error"
-        if os.path.exists(self.getImportPath()):
-            defs = hou.hda.definitionsInFile(self.getImportPath())
+        path = self.getImportPath()
+        if os.path.exists(path):
+            try:
+                defs = hou.hda.definitionsInFile(path)
+            except Exception as e:
+                logger.warning("Failed to get HDA definitions from file: %s, path: %s", e, path)
+                defs = []
+
             if len(defs) > 0:
                 if defs[0].isInstalled():
                     self.l_status.setText("installed")
@@ -472,6 +565,6 @@ class InstallHDAClass(hou_ImportFile.ImportFileClass):
         """
         return {
             "statename": self.e_name.text(),
-            "filepath": self.getImportPath(),
+            "filepath": self.getImportPath(expand=False),
             "autoUpdate": str(self.chb_autoUpdate.isChecked()),
         }

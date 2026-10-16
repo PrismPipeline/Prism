@@ -49,9 +49,6 @@ if __name__ == "__main__":
     import PrismCore
 
 if platform.system() == "Windows":
-    from win32comext.shell import shellcon
-    import win32comext.shell.shell as shell
-    import win32con, win32event, win32process
     if sys.version[0] == "3":
         import winreg as _winreg
     else:
@@ -69,6 +66,35 @@ from UserInterfacesPrism import PrismInstaller_ui
 
 
 logger = logging.getLogger(__name__)
+
+_WIN32_SHELL_MODULES = None
+_WIN32_SHELL_IMPORT_ERROR = None
+
+
+def getWin32ShellModules() -> Tuple[Optional[Any], Optional[Any], Optional[Any], Optional[Any], Optional[Any]]:
+    """Get pywin32 shell modules lazily to avoid import-time crashes."""
+    global _WIN32_SHELL_MODULES, _WIN32_SHELL_IMPORT_ERROR
+
+    if _WIN32_SHELL_MODULES is not None:
+        return _WIN32_SHELL_MODULES
+
+    if platform.system() != "Windows":
+        _WIN32_SHELL_MODULES = (None, None, None, None, None)
+        return _WIN32_SHELL_MODULES
+
+    try:
+        from win32comext.shell import shellcon
+        import win32comext.shell.shell as shell
+        import win32con
+        import win32event
+        import win32process
+    except Exception as e:
+        _WIN32_SHELL_IMPORT_ERROR = e
+        _WIN32_SHELL_MODULES = (None, None, None, None, None)
+    else:
+        _WIN32_SHELL_MODULES = (shellcon, shell, win32con, win32event, win32process)
+
+    return _WIN32_SHELL_MODULES
 
 
 class PrismSetup(QDialog):
@@ -485,21 +511,100 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
         self.setupUi(self)
         try:
             if platform.system() == "Windows":
-                self.documents = shell.SHGetFolderPath(
-                    0, shellcon.CSIDL_PERSONAL, None, 0
-                )
+                shellconMod, shellMod, _, _, _ = getWin32ShellModules()
+                if shellconMod and shellMod:
+                    self.documents = shellMod.SHGetFolderPath(
+                        0, shellconMod.CSIDL_PERSONAL, None, 0
+                    )
+                else:
+                    self.documents = os.path.join(os.path.expanduser("~"), "Documents")
+                    if _WIN32_SHELL_IMPORT_ERROR:
+                        logger.warning(
+                            "Failed to load pywin32 shell modules, using fallback documents path: %s"
+                            % _WIN32_SHELL_IMPORT_ERROR
+                        )
 
             self.tw_components.header().resizeSection(0, 200)
             self.tw_components.itemDoubleClicked.connect(self.openBrowse)
+            self.tw_components.itemClicked.connect(self.CompItemClicked)
+            self.tw_components.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.tw_components.customContextMenuRequested.connect(self.contextMenuIntegrations)
 
             self.refreshUI()
+            self.resize(1000, self.height())
 
-            self.buttonBox.button(QDialogButtonBox.Ok).setText("Install")
+            self.setWindowTitle("Add Prism integrations")
+            self.label.setText("Please select the integrations you want to add:")
+            iconDir = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
+            self.buttonBox.button(QDialogButtonBox.Ok).setText("Add")
+            self.buttonBox.button(QDialogButtonBox.Ok).setIcon(
+                self.core.media.getColoredIcon(os.path.join(iconDir, "add.png"))
+            )
+            self.buttonBox.button(QDialogButtonBox.Cancel).setIcon(
+                self.core.media.getColoredIcon(os.path.join(iconDir, "delete.png"))
+            )
             self.buttonBox.accepted.connect(self.install)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             msg = "Errors occurred during the installation.\n\n%s\n%s\n%s" % (str(e), exc_type, exc_tb.tb_lineno)
             self.core.popup(msg, parent=self)
+
+    def requestIntegrationPath(self, plugin: str, detectedPath: str) -> str:
+        """Choose a destination for a single-folder integration."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add %s Integration" % plugin)
+        layout = QVBoxLayout(dialog)
+        pathLayout = QHBoxLayout()
+        pathEdit = QLineEdit()
+        if os.path.isdir(detectedPath):
+            pathEdit.setText(detectedPath)
+        else:
+            pathEdit.setText(self.core.getPluginData(plugin, "examplePath") or "")
+
+        iconDir = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
+        browseButton = QPushButton()
+        browseButton.setIcon(self.core.media.getColoredIcon(os.path.join(iconDir, "browse.png")))
+        browseButton.setToolTip("Browse for integration folder")
+        browseButton.setContextMenuPolicy(Qt.CustomContextMenu)
+        browseButton.customContextMenuRequested.connect(
+            lambda position: self.core.openFolder(pathEdit.text().strip())
+        )
+        browseButton.setAutoDefault(False)
+        pathLayout.addWidget(QLabel("Integration folder:"))
+        pathLayout.addWidget(pathEdit)
+        pathLayout.addWidget(browseButton)
+        layout.addLayout(pathLayout)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText("Add")
+        buttons.button(QDialogButtonBox.Ok).setIcon(
+            self.core.media.getColoredIcon(os.path.join(iconDir, "add.png"))
+        )
+        buttons.button(QDialogButtonBox.Cancel).setIcon(
+            self.core.media.getColoredIcon(os.path.join(iconDir, "delete.png"))
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        def browsePath() -> None:
+            path = self.core.paths.requestPath(
+                title="Select %s folder" % plugin,
+                startPath=pathEdit.text(),
+                parent=dialog,
+            )
+            if path:
+                pathEdit.setText(os.path.normpath(path))
+
+        browseButton.clicked.connect(browsePath)
+        dialog.resize(680, dialog.sizeHint().height())
+        while dialog.exec_() == QDialog.Accepted:
+            path = pathEdit.text().strip()
+            if path and os.path.isdir(path):
+                return os.path.normpath(path)
+
+            self.core.popup("Please select an existing integration folder.", parent=dialog)
+
+        return ""
 
     def openBrowse(self, item: Any, column: int) -> None:
         """Open folder browser for custom integration paths.
@@ -510,26 +615,54 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
         """
         if (
             item.parent() is not None
-            and item.parent().text(0) != "DCC integrations"
             and item.text(0) not in ["Custom"]
             or item.childCount() > 0
         ):
             return
 
-        startPath = item.text(column)
+        startPath = item.text(1)
         if not os.path.exists(startPath):
-            ttPath = item.toolTip(column).replace("e.g. ", "").strip("\"")
+            ttPath = item.toolTip(1).replace("e.g. ", "").strip("\"")
             if os.path.exists(ttPath):
                 startPath = ttPath
 
-        path = QFileDialog.getExistingDirectory(
-            self, "Select destination folder", startPath
+        path = self.core.paths.requestPath(
+            title="Select destination folder", startPath=startPath, parent=self
         )
-        if path != "":
+        if path:
             path = os.path.normpath(path)
             item.setText(1, path)
             item.setToolTip(1, path)
             item.setCheckState(0, Qt.Checked)
+            self.refreshIntegrationStatuses()
+
+    def refreshIntegrationStatuses(self) -> None:
+        """Refresh path statuses supplied by optional plugin hooks."""
+        statusColors = {
+            "added": QColor(100, 200, 100),
+            "not added": QColor(220, 80, 80),
+            "update needed": QColor(230, 160, 60),
+        }
+        for index in range(self.tw_components.topLevelItemCount()):
+            rootItem = self.tw_components.topLevelItem(index)
+            plugin = self.plugins.get(rootItem.text(0))
+            getStatus = getattr(plugin, "getIntegrationStatus", None)
+            items = [rootItem.child(childIndex) for childIndex in range(rootItem.childCount())]
+            rootItem.setText(2, "")
+            rootItem.setData(2, Qt.ForegroundRole, None)
+            for item in items or [rootItem]:
+                item.setText(2, "")
+                item.setData(2, Qt.ForegroundRole, None)
+                if callable(getStatus) and os.path.isdir(item.text(1)):
+                    try:
+                        status = getStatus(item.text(1))
+                        if isinstance(status, str):
+                            item.setText(2, status)
+                            color = statusColors.get(status.strip().lower())
+                            if color is not None:
+                                item.setForeground(2, QBrush(color))
+                    except Exception:
+                        logger.exception("Failed to check integration status for %s", rootItem.text(0))
 
     def CompItemClicked(self, item: Any, column: int) -> None:
         """Handle tree item click to enable/disable child items.
@@ -538,7 +671,7 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
             item (Any): Tree widget item clicked.
             column (int): Column index.
         """
-        if item.text(0) in ["DCC integrations"] or item.childCount == 0:
+        if item.childCount() == 0:
             return
 
         isEnabled = item.checkState(0) == Qt.Checked
@@ -549,9 +682,48 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
             else:
                 item.child(i).setFlags(item.child(i).flags() & ~Qt.ItemIsEnabled)
 
+    def contextMenuIntegrations(self, position: QPoint) -> None:
+        """Show path actions for the clicked item and tree-wide integration actions."""
+        menu = QMenu(self)
+        item = self.tw_components.itemAt(position)
+        path = item.text(1).strip() if item else ""
+        if path and os.path.isabs(path):
+            menu.addAction("Copy Path", lambda: self.core.copyToClipboard(path))
+            menu.addAction("Open in Explorer", lambda: self.core.openFolder(path))
+            menu.addSeparator()
+        menu.addAction("Refresh", self.refreshUI)
+        menu.addSeparator()
+        menu.addAction("Expand All", self.tw_components.expandAll)
+        menu.addAction("Collapse All", self.tw_components.collapseAll)
+        menu.addSeparator()
+        menu.addAction("Check All", lambda: self.setIntegrationsChecked(True))
+        menu.addAction("Uncheck All", lambda: self.setIntegrationsChecked(False))
+        menu.exec_(self.tw_components.viewport().mapToGlobal(position))
+
+    def setIntegrationsChecked(self, checked: bool) -> None:
+        """Set integration checkboxes and update child availability."""
+        state = Qt.Checked if checked else Qt.Unchecked
+        for index in range(self.tw_components.topLevelItemCount()):
+            item = self.tw_components.topLevelItem(index)
+            if checked and not item.flags() & Qt.ItemIsEnabled:
+                continue
+
+            item.setCheckState(0, state)
+            self.CompItemClicked(item, 0)
+            for childIndex in range(item.childCount()):
+                child = item.child(childIndex)
+                if not checked or child.flags() & Qt.ItemIsEnabled:
+                    child.setCheckState(0, state)
+
     def refreshUI(self) -> None:
         """Refresh UI with available plugins and integration paths."""
         try:
+            self.tw_components.setColumnCount(3)
+            self.tw_components.setHeaderLabels(["DCC", "Path", "Status"])
+            self.tw_components.header().setVisible(True)
+            self.tw_components.header().setStretchLastSection(False)
+            self.tw_components.header().setSectionResizeMode(1, QHeaderView.Stretch)
+            self.tw_components.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
             if platform.system() == "Windows":
                 userFolders = {
                     "LocalAppdata": os.environ["localappdata"],
@@ -563,17 +735,32 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
                 userFolders = {}
 
             self.tw_components.clear()
-            self.tw_components.itemClicked.connect(self.CompItemClicked)
 
             if len(self.plugins) > 0:
-                integrationsItem = QTreeWidgetItem(["DCC integrations"])
-                self.tw_components.addTopLevelItem(integrationsItem)
+                integrationsItem = QTreeWidgetItem()
 
                 for i in sorted(self.plugins):
                     if hasattr(self.plugins[i], "updateInstallerUI"):
                         self.plugins[i].updateInstallerUI(userFolders, integrationsItem)
 
-                integrationsItem.setExpanded(True)
+                dccItems = integrationsItem.takeChildren()
+                self.tw_components.addTopLevelItems(dccItems)
+                for item in dccItems:
+                    if item.childCount() == 1 and item.child(0).text(0) == "Custom":
+                        customItem = item.takeChild(0)
+                        item.setText(1, customItem.text(1))
+                        item.setToolTip(0, customItem.toolTip(0))
+                        item.setToolTip(1, customItem.toolTip(1))
+                        item.setCheckState(0, customItem.checkState(0))
+                        item.setData(0, Qt.UserRole, "customOnly")
+
+                    item.setExpanded(True)
+                    plugin = self.plugins.get(item.text(0))
+                    iconPath = getattr(plugin, "appIcon", None)
+                    if iconPath:
+                        item.setIcon(0, QIcon(iconPath))
+
+            self.refreshIntegrationStatuses()
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -587,36 +774,27 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
         Returns:
             Dict[str, List[str]]: Dictionary mapping plugin names to lists of install paths.
         """
-        dccItems = self.tw_components.findItems(
-            "DCC integrations", Qt.MatchExactly | Qt.MatchRecursive
-        )
-        if len(dccItems) > 0:
-            dccItem = dccItems[0]
-        else:
-            dccItem = None
-
         result = {}
 
-        if dccItem is not None:
-            for i in range(dccItem.childCount()):
-                childItem = dccItem.child(i)
-                if not childItem.text(0) in self.plugins:
-                    continue
+        for index in range(self.tw_components.topLevelItemCount()):
+            childItem = self.tw_components.topLevelItem(index)
+            if childItem.text(0) not in self.plugins:
+                continue
 
-                if childItem.checkState(0) != Qt.Checked:
-                    continue
+            if childItem.checkState(0) != Qt.Checked:
+                continue
 
-                paths = []
-                if childItem.childCount():
-                    for i in range(childItem.childCount()):
-                        cchildItem = childItem.child(i)
-                        if cchildItem.checkState(0) == Qt.Checked and os.path.exists(cchildItem.text(1)):
-                            paths.append(cchildItem.text(1))
-                else:
-                    if os.path.exists(childItem.text(1)):
-                        paths.append(childItem.text(1))
+            paths = []
+            if childItem.childCount():
+                for childIndex in range(childItem.childCount()):
+                    cchildItem = childItem.child(childIndex)
+                    if cchildItem.checkState(0) == Qt.Checked and os.path.exists(cchildItem.text(1)):
+                        paths.append(cchildItem.text(1))
+            else:
+                if os.path.exists(childItem.text(1)):
+                    paths.append(childItem.text(1))
 
-                result[childItem.text(0)] = paths
+            result[childItem.text(0)] = paths
 
         return result
 
@@ -634,23 +812,23 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
         try:
             # print "\n\nInstalling - please wait.."
 
-            dccItems = self.tw_components.findItems(
-                "DCC integrations", Qt.MatchExactly | Qt.MatchRecursive
-            )
-            if len(dccItems) > 0:
-                dccItem = dccItems[0]
-            else:
-                dccItem = None
+            with self.core.waitPopup(self.core, "Adding Integrations - please wait.."):
+                result = {}
 
-            result = {}
-
-            if dccItem is not None:
-                for i in range(dccItem.childCount()):
-                    childItem = dccItem.child(i)
-                    if not childItem.text(0) in self.plugins:
+                for index in range(self.tw_components.topLevelItemCount()):
+                    childItem = self.tw_components.topLevelItem(index)
+                    if childItem.text(0) not in self.plugins:
                         continue
 
-                    self.plugins[childItem.text(0)].installerExecute(childItem, result)
+                    installItem = childItem
+                    if childItem.data(0, Qt.UserRole) == "customOnly":
+                        installItem = childItem.clone()
+                        customItem = QTreeWidgetItem(installItem, ["Custom", childItem.text(1)])
+                        customItem.setCheckState(0, childItem.checkState(0))
+
+                    self.plugins[childItem.text(0)].installerExecute(installItem, result)
+
+                self.refreshIntegrationStatuses()
 
             if self.installShortcuts and not os.environ.get("prism_skip_root_install"):
                 self.core.setupStartMenu(quiet=True)
@@ -1508,22 +1686,30 @@ def force_elevated() -> None:
     
     Relaunches script with admin rights if not already elevated.
     """
+    if platform.system() != "Windows":
+        return
+
+    shellconMod, shellMod, win32conMod, win32eventMod, win32processMod = getWin32ShellModules()
+    if not all([shellconMod, shellMod, win32conMod, win32eventMod, win32processMod]):
+        if _WIN32_SHELL_IMPORT_ERROR:
+            print(_WIN32_SHELL_IMPORT_ERROR)
+        return
+
     try:
         if sys.argv[-1] != "asadmin":
             script = os.path.abspath(sys.argv[0])
             params = " ".join(['"%s"' % script] + sys.argv[1:] + ["asadmin"])
-            procInfo = shell.ShellExecuteEx(
-                nShow=win32con.SW_SHOWNORMAL,
-                fMask=shellcon.SEE_MASK_NOCLOSEPROCESS,
+            procInfo = shellMod.ShellExecuteEx(
+                nShow=win32conMod.SW_SHOWNORMAL,
+                fMask=shellconMod.SEE_MASK_NOCLOSEPROCESS,
                 lpVerb="runas",
                 lpFile=sys.executable,
                 lpParameters=params,
             )
 
             procHandle = procInfo["hProcess"]
-            obj = win32event.WaitForSingleObject(procHandle, win32event.INFINITE)
-            rc = win32process.GetExitCodeProcess(procHandle)
-
+            win32eventMod.WaitForSingleObject(procHandle, win32eventMod.INFINITE)
+            win32processMod.GetExitCodeProcess(procHandle)
     except Exception as ex:
         print(ex)
 

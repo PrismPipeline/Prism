@@ -36,6 +36,7 @@ import os
 import sys
 import subprocess
 import logging
+import json
 import traceback
 from collections import OrderedDict
 import shutil
@@ -105,6 +106,15 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
         self.initialized = False
         self.closeParm = "closeafterload"
+        self.identifierRefreshId = 0
+        self.versionRefreshId = 0
+        self.mediaListWorkers = []
+        self.mediaListWorkerCallbacks = {}
+        self.mediaListWorkerWidgets = {}
+        self.identifierToSelect = None
+        self.versionToSelect = None
+        self.pendingNavigationData = None
+        self.pendingPreviewNavigation = None
         self.loadLayout()
         self.connectEvents()
         self.core.callback(name="onMediaBrowserOpen", args=[self])
@@ -137,18 +147,21 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             self.w_entities.getPage("Shots").blockSignals(True)
             self.w_entities.tb_entities.blockSignals(True)
             self.w_entities.blockSignals(True)
-            self.w_entities.navigate(navData)
+            if navData and not self.w_entities.navigate(
+                navData, deferSelection=True
+            ):
+                self.w_entities.getCurrentPage().pendingRestoreData = navData
+            self.pendingNavigationData = navData
             self.w_entities.refreshEntities(defaultSelection=False)
             self.w_entities.getPage("Assets").blockSignals(False)
             self.w_entities.getPage("Shots").blockSignals(False)
             self.w_entities.tb_entities.blockSignals(False)
             self.w_entities.blockSignals(False)
             self.oiio = self.core.media.getOIIO()
-            if navData:
-                self.navigate(navData)
-
-            if not self.getCurrentEntity():
+            if not navData:
                 self.entityChanged()
+            if not self.getCurrentEntities():
+                self.w_preview.mediaPlayer.updatePreview()
 
             self.initialized = True
 
@@ -233,7 +246,104 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         if "previewDisabled" in brsData:
             self.w_preview.mediaPlayer.state = "disabled" if brsData["previewDisabled"] else "enabled"
 
+        self.initMediaListLoadingWidgets()
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
+
+    def eventFilter(self, source: Any, event: Any) -> bool:
+        if event.type() == QEvent.Resize:
+            for widget, loadingData in getattr(
+                self, "mediaListLoadingWidgets", {}
+            ).items():
+                if source == widget.viewport():
+                    loadingData[0].setGeometry(source.rect())
+                    break
+
+        return super(MediaBrowser, self).eventFilter(source, event)
+
+    @err_catcher(name=__name__)
+    def initMediaListLoadingWidgets(self) -> None:
+        """Create loading overlays for the identifier and version widgets."""
+        self.mediaListLoadingWidgets = {}
+        gifPath = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "loading.gif"
+        )
+        for widget in [self.tw_identifier, self.lw_version]:
+            viewport = widget.viewport()
+            overlay = QWidget(viewport)
+            overlay.setObjectName("medialist_loading")
+            overlay.setStyleSheet(
+                "#medialist_loading {background-color: rgba(0, 0, 0, 50)}"
+            )
+            overlay.setAttribute(Qt.WA_StyledBackground, True)
+            overlay.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            overlay.hide()
+
+            layout = QHBoxLayout(overlay)
+            layout.setContentsMargins(0, 0, 0, 0)
+            label = QLabel(overlay)
+            label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(label)
+
+            movie = QMovie(gifPath, QByteArray(), overlay)
+            movie.setCacheMode(QMovie.CacheAll)
+            movie.setScaledSize(QSize(108, 60))
+            label.setMovie(movie)
+            self.mediaListLoadingWidgets[widget] = (overlay, movie)
+            viewport.installEventFilter(self)
+
+    @err_catcher(name=__name__)
+    def showMediaListLoading(self, widget: Any) -> None:
+        overlay, movie = self.mediaListLoadingWidgets[widget]
+        overlay.setGeometry(widget.viewport().rect())
+        overlay.show()
+        overlay.raise_()
+        movie.start()
+
+    @err_catcher(name=__name__)
+    def hideMediaListLoading(self, widget: Any) -> None:
+        if widget in self.mediaListWorkerWidgets.values():
+            return
+
+        overlay, movie = self.mediaListLoadingWidgets[widget]
+        overlay.hide()
+        movie.stop()
+
+    @err_catcher(name=__name__)
+    def runMediaListWorker(self, function: Any, callback: Any, widget: Any) -> None:
+        """Run a media list query without blocking the browser UI."""
+        worker = self.core.worker(self.core)
+        self.mediaListWorkers.append(worker)
+        self.mediaListWorkerCallbacks[worker] = callback
+        self.mediaListWorkerWidgets[worker] = widget
+        self.showMediaListLoading(widget)
+
+        def sendData() -> None:
+            worker.dataSent.emit({"worker": worker, "result": function()})
+
+        worker.function = sendData
+        worker.errored.connect(self.core.writeErrorLog)
+        worker.dataSent.connect(self.onMediaListWorkerData)
+        worker.finished.connect(self.onMediaListWorkerFinished)
+        worker.start()
+
+    @err_catcher(name=__name__)
+    def onMediaListWorkerData(self, data: Dict[str, Any]) -> None:
+        callback = self.mediaListWorkerCallbacks.get(data["worker"])
+        if callback:
+            callback(data["result"])
+
+    @err_catcher(name=__name__)
+    def onMediaListWorkerFinished(self) -> None:
+        worker = self.sender()
+        if worker in self.mediaListWorkers:
+            self.mediaListWorkers.remove(worker)
+
+        self.mediaListWorkerCallbacks.pop(worker, None)
+        widget = self.mediaListWorkerWidgets.pop(worker, None)
+        if widget is not None:
+            self.hideMediaListLoading(widget)
+
+        worker.deleteLater()
 
     @err_catcher(name=__name__)
     def showEvent(self, event: Any) -> None:
@@ -341,7 +451,13 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         Args:
             item: Selected entity item (optional)
         """
-        self.updateTasks(restoreSelection=True)
+        if self.pendingNavigationData:
+            navData = self.pendingNavigationData
+            self.pendingNavigationData = None
+            self.navigate(navData)
+            return
+
+        self.updateTasks(restoreSelection=True, restoreVersionSelection=False)
 
     @err_catcher(name=__name__)
     def refreshUI(self) -> None:
@@ -349,13 +465,23 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         
         Clears caches and reloads all displayed data while maintaining current selection.
         """
+        identifier = self.getCurrentIdentifier()
+        if identifier and not self.identifierToSelect:
+            self.identifierToSelect = identifier.get("displayName")
+        self.identifierRefreshId += 1
+        self.versionRefreshId += 1
         self.core.media.invalidateOiioCache()
+        for widget in [self.tw_identifier, self.lw_version]:
+            wasBlocked = widget.signalsBlocked()
+            widget.blockSignals(True)
+            widget.clear()
+            widget.blockSignals(wasBlocked)
+        self.w_preview.updateLayers()
         self.w_entities.getCurrentPage().tw_tree.blockSignals(True)
         self.w_entities.getCurrentPage().tw_tree.selectionModel().blockSignals(True)
         self.w_entities.refreshEntities(restoreSelection=True)
         self.w_entities.getCurrentPage().tw_tree.blockSignals(False)
         self.w_entities.getCurrentPage().tw_tree.selectionModel().blockSignals(False)
-        self.entityChanged()
         self.refreshStatus = "valid"
 
     @err_catcher(name=__name__)
@@ -400,7 +526,10 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
     def refreshRender(self) -> None:
         """Refresh the current render display by re-navigating to current selection."""
         curData = self.getCurrentData()
+        if curData.get("identifier") and not self.identifierToSelect:
+            self.identifierToSelect = curData["identifier"]
         self.navigate(curData)
+        self.updateTasks(restoreSelection=True)
 
     @err_catcher(name=__name__)
     def getCurrentEntity(self) -> Dict[str, Any]:
@@ -582,7 +711,12 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         self.updateTasks(restoreSelection=True)
 
     @err_catcher(name=__name__)
-    def updateTasks(self, restoreSelection: bool = False) -> None:
+    def updateTasks(
+        self,
+        restoreSelection: bool = False,
+        restoreVersionSelection: bool = True,
+        mediaTasks: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    ) -> None:
         """Update the identifier/task tree widget with available media tasks.
         
         Populates the task list organized by department and task (if configured),
@@ -590,7 +724,38 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         
         Args:
             restoreSelection: If True, attempt to restore previously selected task
+            restoreVersionSelection: If True, attempt to restore previously selected version
         """
+        if mediaTasks is None:
+            self.identifierRefreshId += 1
+            refreshId = self.identifierRefreshId
+            entities = self.getCurrentEntities()
+            if len(entities) != 1 or entities[0]["type"] not in ["asset", "shot"]:
+                mediaTasks = {}
+            else:
+                entity = entities[0].copy()
+                location = self.w_entities.getCurrentLocation()
+
+                def loadMediaTasks() -> Dict[str, List[Dict[str, Any]]]:
+                    return self.core.mediaProducts.getIdentifiersByType(
+                        entity=entity, locations=[location]
+                    )
+
+                def applyMediaTasks(data: Dict[str, List[Dict[str, Any]]]) -> None:
+                    if refreshId != self.identifierRefreshId:
+                        return
+
+                    self.updateTasks(
+                        restoreSelection=restoreSelection,
+                        restoreVersionSelection=restoreVersionSelection,
+                        mediaTasks=data,
+                    )
+
+                self.runMediaListWorker(
+                    loadMediaTasks, applyMediaTasks, self.tw_identifier
+                )
+                return
+
         if restoreSelection:
             curTask = None
             identifier = self.getCurrentIdentifier()
@@ -603,7 +768,6 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
         self.tw_identifier.clear()
 
-        mediaTasks = self.getMediaTasks()
         if mediaTasks:
             useTasks = self.core.mediaProducts.getLinkedToTasks()
             if useTasks:
@@ -697,11 +861,16 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
         if self.tw_identifier.topLevelItemCount() > 0:
             selectFirst = True
-            if restoreSelection and curTask:
-                match = self.findIdentifierItemByDisplayName(curTask)
+            targetIdentifier = self.identifierToSelect or (
+                curTask if restoreSelection else None
+            )
+            if targetIdentifier:
+                match = self.findIdentifierItemByDisplayName(targetIdentifier)
                 if match:
                     self.tw_identifier.setCurrentItem(match)
                     selectFirst = False
+
+                self.identifierToSelect = None
 
             if selectFirst:
                 mainMatch = self.findIdentifierItemByDisplayName("main")
@@ -714,7 +883,7 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
         if not wasBlocked:
             self.tw_identifier.blockSignals(False)
-            self.updateVersions(restoreSelection=True)
+            self.updateVersions(restoreSelection=restoreVersionSelection)
 
     @err_catcher(name=__name__)
     def createGroupItems(self, identifiers: Dict[str, List[Dict[str, Any]]], rootItem: Optional[Any] = None) -> Tuple[Dict[str, str], Dict[str, Any]]:
@@ -796,7 +965,12 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         return val
 
     @err_catcher(name=__name__)
-    def updateVersions(self, restoreSelection: bool = False) -> None:
+    def updateVersions(
+        self,
+        restoreSelection: bool = False,
+        versions: Optional[List[Dict[str, Any]]] = None,
+        refreshId: Optional[int] = None,
+    ) -> None:
         """Update version list widget with versions from selected identifier.
         
         Versions are sorted in reverse order (latest first), with "master" appearing first.
@@ -804,6 +978,36 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         Args:
             restoreSelection: If True, attempt to restore previously selected version
         """
+        if versions is None:
+            self.versionRefreshId += 1
+            refreshId = self.versionRefreshId
+            identifier = self.getCurrentIdentifier()
+            if len(self.tw_identifier.selectedItems()) != 1 or not identifier:
+                versions = []
+            else:
+                identifier = identifier.copy()
+                location = self.w_entities.getCurrentLocation()
+
+                def loadVersions() -> List[Dict[str, Any]]:
+                    return self.core.mediaProducts.getVersionsFromIdentifier(
+                        identifier=identifier, locations=[location]
+                    )
+
+                def applyVersions(data: List[Dict[str, Any]]) -> None:
+                    if refreshId != self.versionRefreshId:
+                        return
+
+                    self.updateVersions(
+                        restoreSelection=restoreSelection,
+                        versions=data,
+                        refreshId=refreshId,
+                    )
+
+                self.runMediaListWorker(
+                    loadVersions, applyVersions, self.lw_version
+                )
+                return
+
         if restoreSelection:
             curVersion = None
             version = self.getCurrentVersion()
@@ -816,16 +1020,11 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         
         self.lw_version.clear()
         selectFirst = True
-        identifier = self.getCurrentIdentifier()
-        if len(self.tw_identifier.selectedItems()) == 1 and identifier:
-            location = self.w_entities.getCurrentLocation()
-            versions = self.core.mediaProducts.getVersionsFromIdentifier(
-                identifier=identifier, locations=[location]
-            )
+        if versions:
             locs = self.core.paths.getRenderProductBasePaths()
             for version in sorted(versions, key=self.sortVersions, reverse=True):
                 if version["version"] == "master":
-                    versionName = self.core.mediaProducts.getMasterVersionLabel(version["path"])
+                    versionName = self.core.mediaProducts.getMasterVersionLabel(version["path"], mediaType=version.get("mediaType"))
                 else:
                     versionName = version["version"]
 
@@ -856,10 +1055,15 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
                 self.lw_version.addItem(item)
 
-                if restoreSelection and curVersion:
-                    if curVersion == version["version"]:
+                targetVersion = self.versionToSelect or (
+                    curVersion if restoreSelection else None
+                )
+                if targetVersion:
+                    if targetVersion == version["version"]:
                         self.lw_version.setCurrentItem(item)
                         selectFirst = False
+
+        self.versionToSelect = None
 
         if self.lw_version.count() > 0 and selectFirst:
             self.lw_version.setCurrentRow(0)
@@ -911,9 +1115,20 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
         self.updateVersions()
 
     @err_catcher(name=__name__)
-    def versionClicked(self) -> None:
-        """Handle version selection in list widget."""
-        self.w_preview.updateLayers(restoreSelection=True)
+    def versionClicked(self, updateLayers: bool = True) -> None:
+        """Handle version selection in list widget.
+        
+        Args:
+            updateLayers: If True, update the preview layers based on selected version
+        """
+        if updateLayers:
+            navigation = getattr(self, "pendingPreviewNavigation", None)
+            self.pendingPreviewNavigation = None
+            if navigation is not None:
+                if not self.w_preview.navigate(*navigation):
+                    self.w_preview.layerChanged()
+            else:
+                self.w_preview.updateLayers(restoreSelection=True)
 
     @err_catcher(name=__name__)
     def onVersionDoubleClicked(self, item: Any) -> None:
@@ -1052,67 +1267,103 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
 
     @err_catcher(name=__name__)
     def showVersionInfo(self, context: Dict[str, Any]) -> None:
-        """Display detailed version information dialog.
-        
-        Shows version metadata including source scene, comment, creation date, etc.
+        """Display and edit media version information.
         
         Args:
             context: Version dictionary with metadata
         """
-        vInfo = "No information is saved with this version."
-
         path = self.core.mediaProducts.getVersionInfoPathFromContext(context)
-
-        if os.path.exists(path):
-            vData = self.core.getConfig(configPath=path)
-
-            vInfo = []
-            for key in vData:
-                label = key[0].upper() + key[1:]
-                vInfo.append([label, vData[key]])
-
-        if type(vInfo) == str or len(vInfo) == 0:
-            self.core.popup(vInfo, severity="info")
-            return
+        vData = self.core.getConfig(configPath=path) or {}
 
         infoDlg = QDialog()
-        lay_info = QGridLayout()
-
         identifier = self.getCurrentIdentifier()
         version = self.getCurrentVersion() or context
 
         infoDlg.setWindowTitle(
             "Versioninfo %s %s:" % (identifier["identifier"], version["version"])
         )
-        for idx, val in enumerate(vInfo):
-            l_infoName = QLabel(val[0] + ":\t")
-            l_info = QLabel(str(val[1]))
-            lay_info.addWidget(l_infoName)
-            lay_info.addWidget(l_info, idx, 1)
 
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        )
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
-        )
+        table = QTableWidget(0, 2, infoDlg)
+        table.setHorizontalHeaderLabels(["Key", "Value"])
+        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setHighlightSections(False)
+        table.verticalHeader().hide()
+        table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        sa_info = QScrollArea()
+        def addRow(key="", value="", original=None):
+            row = table.rowCount()
+            table.insertRow(row)
+            table.setItem(row, 0, QTableWidgetItem(key))
+            valueItem = QTableWidgetItem(value)
+            valueItem.setData(Qt.UserRole, original)
+            valueItem.setData(Qt.UserRole + 1, bool(key))
+            table.setItem(row, 1, valueItem)
+            return row
 
-        lay_info.setContentsMargins(10, 10, 10, 10)
-        w_info = QWidget()
-        w_info.setLayout(lay_info)
-        sa_info.setWidget(w_info)
-        sa_info.setWidgetResizable(True)
+        for key, value in vData.items():
+            text = value if isinstance(value, str) else json.dumps(value)
+            addRow(key, text, value)
+
+        table.resizeColumnToContents(0)
+
+        def showTableMenu(pos):
+            menu = QMenu(table)
+            addAction = menu.addAction("Add row")
+            removeAction = None
+            row = table.rowAt(pos.y())
+            if row >= 0:
+                removeAction = menu.addAction("Remove")
+
+            action = menu.exec_(table.viewport().mapToGlobal(pos))
+            if action == addAction:
+                row = addRow()
+                table.setCurrentCell(row, 0)
+                table.editItem(table.item(row, 0))
+            elif action == removeAction and row >= 0:
+                table.removeRow(row)
+
+        table.customContextMenuRequested.connect(showTableMenu)
 
         bb_info = QDialogButtonBox()
+        bb_info.addButton("Save", QDialogButtonBox.AcceptRole)
+        bb_info.addButton("Cancel", QDialogButtonBox.RejectRole)
 
-        bb_info.addButton("Ok", QDialogButtonBox.AcceptRole)
+        def saveInfo():
+            table.setFocus()
+            data = {}
+            for row in range(table.rowCount()):
+                key = table.item(row, 0).text().strip()
+                if not key or key in data:
+                    self.core.popup("Version info keys must be unique and not empty.")
+                    return
 
-        bb_info.accepted.connect(infoDlg.accept)
+                item = table.item(row, 1)
+                text = item.text()
+                original = item.data(Qt.UserRole)
+                if item.data(Qt.UserRole + 1) and text == (original if isinstance(original, str) else json.dumps(original)):
+                    value = original
+                elif isinstance(original, str) or original is None:
+                    value = text
+                else:
+                    try:
+                        value = json.loads(text)
+                    except ValueError:
+                        self.core.popup("Enter valid JSON for the value of '%s'." % key)
+                        return
+
+                data[key] = value
+
+            self.core.setConfig(data=data, configPath=path, updateNestedData=False)
+            infoDlg.accept()
+
+        bb_info.accepted.connect(saveInfo)
+        bb_info.rejected.connect(infoDlg.reject)
 
         bLayout = QVBoxLayout()
-        bLayout.addWidget(sa_info)
+        bLayout.addWidget(table)
         bLayout.addWidget(bb_info)
         infoDlg.setLayout(bLayout)
         infoDlg.setParent(self.core.messageParent, Qt.Window)
@@ -1202,58 +1453,30 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             source: Source name (for multi-source)
             filelayer: File layer/channel name
         """
-        prevIdf = self.getCurrentIdentifier()
-        self.tw_identifier.blockSignals(True)
+        self.identifierRefreshId += 1
+        self.versionRefreshId += 1
+        self.pendingNavigationData = None
+        if entity and entity.get("mediaType") and identifier == entity.get("identifier") and identifier:
+            identifier = self.core.mediaProducts.getDisplayNameForIdentifier(identifier, entity["mediaType"])
+        self.identifierToSelect = identifier
+        self.versionToSelect = version
+        self.pendingPreviewNavigation = (aov, source, filelayer)
+        for pageName in ("Assets", "Shots"):
+            self.w_entities.getPage(pageName).pendingRestoreData = None
+
         if entity:
-            self.navigateToEntity(entity)
+            wasBlocked = self.w_entities.blockSignals(True)
+            try:
+                restored = self.w_entities.navigate(entity, deferSelection=True)
+                if not restored:
+                    self.w_entities.getCurrentPage().pendingRestoreData = entity
+            finally:
+                self.w_entities.blockSignals(wasBlocked)
 
-        if not identifier:
-            self.tw_identifier.blockSignals(False)
-            if prevIdf != self.getCurrentIdentifier() or not self.initialized:
-                self.taskClicked()
+            if not restored:
+                return
 
-            return
-
-        match = self.findIdentifierItemByDisplayName(identifier)
-        matches = [match] if match else []
-        if not matches:
-            self.tw_identifier.blockSignals(False)
-            if prevIdf != self.getCurrentIdentifier() or not self.initialized:
-                self.taskClicked()
-
-            return
-
-        self.tw_identifier.setCurrentItem(matches[0])
-        self.tw_identifier.blockSignals(False)
-        prevVersion = self.getCurrentVersion()
-        self.lw_version.blockSignals(True)
-        if prevIdf != self.getCurrentIdentifier():
-            self.taskClicked()
-
-        if not version:
-            self.lw_version.blockSignals(False)
-            if prevVersion != self.getCurrentVersion() or not self.initialized:
-                self.versionClicked()
-
-            return
-
-        items = [self.lw_version.item(x) for x in range(self.lw_version.count())]
-        vMatches = [item for item in items if item.data(Qt.UserRole) and item.data(Qt.UserRole).get("version") == version]
-        if not vMatches:
-            self.lw_version.blockSignals(False)
-            if prevVersion != self.getCurrentVersion() or not self.initialized:
-                self.versionClicked()
-
-            return
-
-        self.lw_version.clearSelection()
-        self.lw_version.setCurrentItem(vMatches[0])
-        self.lw_version.blockSignals(False)
-        if prevVersion != self.getCurrentVersion():
-            self.versionClicked()
-            result = self.w_preview.navigate(aov, source, filelayer, updateLayers=False)
-            if not result:
-                self.w_preview.layerChanged()
+        self.updateTasks(restoreSelection=True, restoreVersionSelection=True)
 
     @err_catcher(name=__name__)
     def setPreview(self) -> None:
@@ -1591,12 +1814,10 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             context["displayName"] = displayName
             self.core.mediaProducts.setIdentifiersGroup([context], group=group)
 
-        self.updateTasks()
-        if itemName is not None:
-            displayName = self.core.mediaProducts.getDisplayNameForIdentifier(itemName, mediaType)
-            match = self.findIdentifierItemByDisplayName(displayName)
-            if match:
-                self.tw_identifier.setCurrentItem(match)
+        self.identifierToSelect = self.core.mediaProducts.getDisplayNameForIdentifier(
+            itemName, mediaType
+        )
+        self.updateTasks(restoreSelection=True)
 
     @err_catcher(name=__name__)
     def createVersionDlg(self) -> None:
@@ -1639,13 +1860,8 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             version=versionName,
             location=location,
         )
-        self.updateVersions()
-        if versionName is not None:
-            matches = self.lw_version.findItems(
-                versionName, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive)
-            )
-            if matches:
-                self.lw_version.setCurrentItem(matches[0])
+        self.versionToSelect = versionName
+        self.updateVersions(restoreSelection=True)
 
     @err_catcher(name=__name__)
     def groupIdentifiersDlg(self) -> None:
@@ -1665,7 +1881,7 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             core=self.core, showType=False, mode="identifier", startText=startText, valueRequired=False, allowChars="/"
         )
         self.newItem.setModal(True)
-        self.core.parentWindow(self.newItem)
+        self.core.parentWindow(self.newItem, parent=self)
         self.newItem.e_item.setFocus()
         self.newItem.setWindowTitle("Group selected identifiers")
         self.newItem.l_item.setText("Group Name:")
@@ -2127,20 +2343,22 @@ class MediaVersionPlayer(QWidget):
         self.lo_main = QVBoxLayout(self)
         self.lo_main.setContentsMargins(0, 0, 0, 0)
 
-        self.l_layer = QLabel("AOVs:")
+        self.lo_aov = QFormLayout()
+
+        self.l_layer = QLabel("AOVs:  ")
         self.cb_layer = QComboBox()
-        self.lo_main.addWidget(self.l_layer)
-        self.lo_main.addWidget(self.cb_layer)
+        self.lo_aov.addRow(self.l_layer, self.cb_layer)
+        self.lo_main.addLayout(self.lo_aov)
 
-        self.l_source = QLabel("Source:")
+        self.l_source = QLabel("Source:  ")
         self.cb_source = QComboBox()
-        self.lo_main.addWidget(self.l_source)
-        self.lo_main.addWidget(self.cb_source)
+        self.lo_aov.addRow(self.l_source, self.cb_source)
 
-        self.l_filelayer = QLabel("Channel:")
+        self.l_filelayer = QLabel("Channel:  ")
         self.cb_filelayer = QComboBox()
-        self.lo_main.addWidget(self.l_filelayer)
-        self.lo_main.addWidget(self.cb_filelayer)
+        self.lo_aov.addRow(self.l_filelayer, self.cb_filelayer)
+        for widget in [self.l_layer, self.cb_layer, self.l_source, self.cb_source, self.l_filelayer, self.cb_filelayer]:
+            widget.setHidden(True)
 
         self.mediaPlayer = self.getMediaPlayer()
         self.lo_main.addWidget(self.mediaPlayer)
@@ -2162,6 +2380,43 @@ class MediaVersionPlayer(QWidget):
         Returns:
             MediaPlayer instance
         """
+        if self.core.getConfig("globals", "useGLMediaPlayer", config="user", dft=False):
+            traceback.print_stack()
+            loadPreviewPlayerGl = True
+            try:
+                import av
+            except ImportError:
+                msg = "Module 'av' couldn't be loaded.\nDo you want to install it?"
+                result = self.core.popupQuestion(msg, buttons=["Install", "Cancel"])
+                if result == "Install":
+                    self.core.installMissingModule("av")
+                    try:
+                        import av
+                    except ImportError:
+                        loadPreviewPlayerGl = False
+
+                else:
+                    loadPreviewPlayerGl = False
+
+            try:
+                import OpenGL
+            except ImportError:
+                msg = "Module 'OpenGL' couldn't be loaded.\nDo you want to install it?"
+                result = self.core.popupQuestion(msg, buttons=["Install", "Cancel"])
+                if result == "Install":
+                    self.core.installMissingModule("PyOpenGL")
+                    try:
+                        import OpenGL
+                    except ImportError:
+                        loadPreviewPlayerGl = False
+
+                else:
+                    loadPreviewPlayerGl = False
+            
+            if loadPreviewPlayerGl:
+                from PreviewPlayer_GL import PreviewPlayer_GL
+                return PreviewPlayer_GL(self)
+
         return MediaPlayer(self)
 
     @err_catcher(name=__name__)
@@ -2276,6 +2531,8 @@ class MediaVersionPlayer(QWidget):
                 else:
                     self.cb_layer.setCurrentIndex(0)
 
+        self.l_layer.setHidden(self.cb_layer.count() < 1)
+        self.cb_layer.setHidden(self.cb_layer.count() < 1)
         if not wasBlocked:
             self.cb_layer.blockSignals(False)
             self.updateSources(restoreSelection=True)
@@ -2304,6 +2561,8 @@ class MediaVersionPlayer(QWidget):
             if curAov:
                 mediaFiles = self.core.mediaProducts.getFilesFromContext(curAov)
                 validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
+                if not validFiles and curAov.get("path"):
+                    validFiles = self.core.media.getFilesFromSequence(curAov["path"])
 
                 if validFiles:
                     validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
@@ -2356,8 +2615,10 @@ class MediaVersionPlayer(QWidget):
             if curSource:
                 mediaFiles = self.core.mediaProducts.getFilesFromContext(curSource)
                 validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
+                if not validFiles and curSource.get("path"):
+                    validFiles = self.core.media.getFilesFromSequence(curSource["path"])
 
-                if validFiles:
+                if validFiles and os.path.splitext(validFiles[0])[1].lower() in [".exr"]:
                     if threaded:
                         layers = ["Loading..."]
 
@@ -2489,7 +2750,7 @@ class MediaVersionPlayer(QWidget):
 
             return
 
-        idx = self.cb_source.findText(aov)
+        idx = self.cb_source.findText(source)
         if idx != -1:
             self.cb_source.setCurrentIndex(idx)
 
@@ -2507,7 +2768,7 @@ class MediaVersionPlayer(QWidget):
 
             return
 
-        idx = self.cb_filelayer.findText(aov)
+        idx = self.cb_filelayer.findText(filelayer)
         if idx != -1:
             self.cb_filelayer.setCurrentIndex(idx)
 
@@ -2712,6 +2973,10 @@ class MediaPlayer(QWidget):
         self.previewTooltip = "Left mouse drag to drag media files.\nCtrl+Left mouse drag to drag media folder."
         self.previewEnabled = True
         self.state = "enabled"
+        self.loadingDelayMs = 500
+        self.loadingFadeMs = 500
+        self.loadingRequestId = 0
+        self.loadingFadeAnim = None
         self.core.registerCallback("onUserSettingsSave", self.onUserSettingsSave)
         self.updateExternalMediaPlayer()
         self.setupUi()
@@ -2750,6 +3015,9 @@ class MediaPlayer(QWidget):
         self.l_loading = QLabel(self)
         self.l_loading.setAlignment(Qt.AlignCenter)
         self.l_loading.setVisible(False)
+        self.loadingOpacityEffect = QGraphicsOpacityEffect(self.l_loading)
+        self.loadingOpacityEffect.setOpacity(0.0)
+        self.l_loading.setGraphicsEffect(self.loadingOpacityEffect)
 
         self.w_timeslider = QWidget()
         self.lo_timeslider = QHBoxLayout(self.w_timeslider)
@@ -3068,6 +3336,12 @@ class MediaPlayer(QWidget):
                             self.pend,
                         ) = self.core.media.getFrameRangeFromSequence(self.seq, baseFile=baseFile)
                     else:
+                        self.pstart, self.pend = 1, 1
+                        self.l_start.setText(str(self.pstart))
+                        self.l_end.setText(str(self.pend))
+                        self.sp_current.setMinimum(self.pstart)
+                        self.sp_current.setMaximum(self.pend)
+                        self.sp_current.setEnabled(False)
                         self.prvIsSequence = False
                         self.seq = validFiles
 
@@ -3093,7 +3367,12 @@ class MediaPlayer(QWidget):
 
                     return True
 
-            self.updatePrvInfo_threaded()
+            if contexts:
+                self.updatePrvInfo_threaded()
+            else:
+                self.l_info.clear()
+                self.l_info.setToolTip("")
+                self.l_preview.setToolTip("")
 
         if not self.core.isObjectValid(self.l_preview):
             return
@@ -3111,9 +3390,7 @@ class MediaPlayer(QWidget):
 
         self.w_playerCtrls.setEnabled(False)
         self.sp_current.setEnabled(False)
-        if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
-            self.l_loading.setVisible(False)
-            self.loadingGif.stop()
+        self.hideLoadingIndicator()
 
     @err_catcher(name=__name__)
     def getSeqFiles(self, seqFiles: List[str]) -> List[str]:
@@ -3152,14 +3429,23 @@ class MediaPlayer(QWidget):
         """
         mediaFiles = self.getFilesFromContext(context)
         validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
+        if not validFiles and context.get("path") and not os.path.isdir(context["path"]):
+            validFiles = self.core.media.getFilesFromSequence(context["path"])
+
         if validFiles:
             validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
 
         return validFiles
 
     @err_catcher(name=__name__)
-    def updatePrvInfo_threaded(self, prvFile: str = "", vidReader: Optional[Any] = None, 
-                               seq: Optional[List[str]] = None, frame: Optional[int] = None) -> None:
+    def updatePrvInfo_threaded(
+        self,
+        prvFile: str = "",
+        vidReader: Optional[Any] = None,
+        seq: Optional[List[str]] = None,
+        frame: Optional[int] = None,
+        clearInfo: bool = True
+    ) -> None:
         """Update preview info (resolution, duration) in a worker thread.
         
         Args:
@@ -3168,9 +3454,10 @@ class MediaPlayer(QWidget):
             seq: Sequence file list
             frame: Frame number
         """
-        self.l_info.setText("\nLoading...\n")
-        self.l_info.setToolTip("")
-        self.l_preview.setToolTip("")
+        if clearInfo:
+            self.l_info.setText("\nLoading...\n")
+            self.l_info.setToolTip("")
+            self.l_preview.setToolTip("")
 
         thread = self.core.worker(self.core)
         thread.function = lambda x=list(self.seq): self.getMediainfo(
@@ -3245,6 +3532,13 @@ class MediaPlayer(QWidget):
         ext = os.path.splitext(prvFile)[1].lower()
         if ext in self.core.media.videoFormats:
             if len(self.seq) == 1:
+                if vidReader == "loading":
+                    info["videoStart"] = "loading..."
+                else:
+                    videoStart = self.core.media.getVideoStartFrameFromTimecode(prvFile, videoReader=vidReader)
+                    if videoStart is not None:
+                        info["videoStart"] = int(videoStart)
+
                 if self.core.isStr(vidReader) or self.state == "disabled":
                     duration = 1
                 else:
@@ -3291,8 +3585,12 @@ class MediaPlayer(QWidget):
         self.pwidth = mediaInfo["width"]
         self.pheight = mediaInfo["height"]
 
+        if mediaInfo.get("videoStart") not in [None, "loading..."]:
+            self.pstart = mediaInfo["videoStart"]
+
         if "duration" in mediaInfo:
             self.pduration = mediaInfo["duration"]
+            self.pend = self.pstart + self.pduration - 1
 
         ext = os.path.splitext(prvFile)[1].lower()
         self.pformat = "*" + ext
@@ -3309,9 +3607,8 @@ class MediaPlayer(QWidget):
         if not pdate:
             pdate = self.core.getFileModificationDate(prvFile)
         self.sl_preview.setEnabled(True)
-        start, end = self.getStartEnd(ext)
-        self.pstart = int(start)
-        self.pend = int(end)
+        self.pstart = int(self.pstart)
+        self.pend = int(self.pend)
 
         if self.timeline:
             self.timeline.stop()
@@ -3328,14 +3625,14 @@ class MediaPlayer(QWidget):
         )
         QPixmapCache.setCacheLimit(2097151)
 
-        self.l_start.setText(start)
-        self.l_end.setText(end)
-        self.sp_current.setMinimum(int(start))
-        self.sp_current.setMaximum(int(end))
+        self.l_start.setText(str(self.pstart))
+        self.l_end.setText(str(self.pend))
+        self.sp_current.setMinimum(self.pstart)
+        self.sp_current.setMaximum(self.pend)
         self.w_playerCtrls.setEnabled(True)
         self.sp_current.setEnabled(True)
 
-        frame = frame or int(start)
+        frame = frame or self.pstart
         if frame != self.sp_current.value():
             self.sp_current.setValue(frame)
         else:
@@ -3439,13 +3736,8 @@ class MediaPlayer(QWidget):
         """
         start = "1"
         end = "1"
-        if self.prvIsSequence:
-            start = str(self.pstart)
-            end = str(self.pend)
-        elif ext in self.core.media.videoFormats:
-            if self.pwidth != "?":
-                end = str(int(start) + self.pduration - 1)
-
+        start = str(self.pstart)
+        end = str(self.pend)
         return start, end
 
     @err_catcher(name=__name__)
@@ -3498,6 +3790,39 @@ class MediaPlayer(QWidget):
         self.l_loading.setGeometry(geo)
 
     @err_catcher(name=__name__)
+    def hideLoadingIndicator(self) -> None:
+        """Hide and stop the loading indicator, canceling pending delayed shows."""
+        # Incrementing the request id invalidates delayed callbacks from older loads.
+        self.loadingRequestId += 1
+        if self.loadingFadeAnim:
+            self.loadingFadeAnim.stop()
+
+        self.loadingOpacityEffect.setOpacity(0.0)
+        self.l_loading.setVisible(False)
+        if hasattr(self, "loadingGif"):
+            self.loadingGif.stop()
+
+    @err_catcher(name=__name__)
+    def showLoadingIndicatorDelayed(self, requestId: int) -> None:
+        """Fade in the loading indicator if loading is still active after delay."""
+        if requestId != self.loadingRequestId:
+            return
+
+        if not getattr(self, "curMediaThread", None) or not self.curMediaThread.isRunning():
+            return
+
+        self.moveLoadingLabel()
+        if self.loadingFadeAnim:
+            self.loadingFadeAnim.stop()
+
+        self.l_loading.setVisible(True)
+        self.loadingFadeAnim = QPropertyAnimation(self.loadingOpacityEffect, b"opacity", self)
+        self.loadingFadeAnim.setDuration(self.loadingFadeMs)
+        self.loadingFadeAnim.setStartValue(self.loadingOpacityEffect.opacity())
+        self.loadingFadeAnim.setEndValue(1.0)
+        self.loadingFadeAnim.start()
+
+    @err_catcher(name=__name__)
     def changeImage_threaded(self, frame: int = 0, regenerateThumb: bool = False) -> None:
         """Load and display an image/frame in a worker thread.
         
@@ -3511,19 +3836,28 @@ class MediaPlayer(QWidget):
             else:
                 self.mediaThreads.remove(thread)
 
+        if (self.getSelectedContexts() or [{}])[0].get("channel") == "Loading...":
+            return
+
+        self.hideLoadingIndicator()
+        self.loadingRequestId += 1
+        requestId = self.loadingRequestId
+
         self.moveLoadingLabel()
         path = os.path.join(
             self.core.prismRoot, "Scripts", "UserInterfacesPrism", "loading.gif"
         )
-        self.loadingGif = QMovie(path, QByteArray(), self) 
-        self.loadingGif.setCacheMode(QMovie.CacheAll) 
-        self.loadingGif.setSpeed(100) 
+        self.loadingGif = QMovie(path, QByteArray(), self)
+        self.loadingGif.setCacheMode(QMovie.CacheAll)
+        self.loadingGif.setSpeed(100)
         self.l_loading.setMovie(self.loadingGif)
         self.loadingGif.start()
-        self.l_loading.setVisible(True)
-
-        if (self.getSelectedContexts() or [{}])[0].get("channel") == "Loading...":
-            return
+        self.l_loading.setVisible(False)
+        self.loadingOpacityEffect.setOpacity(0.0)
+        QTimer.singleShot(
+            self.loadingDelayMs,
+            lambda rid=requestId: self.showLoadingIndicatorDelayed(rid),
+        )
 
         thread = self.core.worker(self.core)
         thread.function = lambda x=list(self.seq): self.changeImg(
@@ -3552,8 +3886,7 @@ class MediaPlayer(QWidget):
             self.curMediaThread.start()
         else:
             self.curMediaThread = None
-            self.l_loading.setVisible(False)
-            self.loadingGif.stop()
+            self.hideLoadingIndicator()
 
     @err_catcher(name=__name__)
     def onChangeImgDataSent(self, data: Dict[str, Any]) -> None:
@@ -3755,10 +4088,10 @@ class MediaPlayer(QWidget):
                                     self.videoReaders[fileName] = vidFile
 
                                 if thread:
-                                    data = {"function": "updatePrvInfo_threaded", "args": [fileName], "kwargs": {"vidReader": vidFile, "seq": seq}}
+                                    data = {"function": "updatePrvInfo_threaded", "args": [fileName], "kwargs": {"vidReader": vidFile, "seq": seq, "clearInfo": False}}
                                     thread.dataSent.emit(data)
                                 else:
-                                    self.updatePrvInfo_threaded(fileName, vidReader=vidFile, seq=seq)
+                                    self.updatePrvInfo_threaded(fileName, vidReader=vidFile, seq=seq, clearInfo=False)
 
                         pm = self.core.media.getPixmapFromVideoPath(
                             fileName,
@@ -3823,7 +4156,7 @@ class MediaPlayer(QWidget):
             newVal = 0
 
         curSliderVal = int((self.sl_preview.value() / self.sl_preview.maximum()) * float(self.pduration))
-        if curSliderVal != curFrame:
+        if not self.sl_preview.isSliderDown() and curSliderVal != curFrame:
             self.sl_preview.blockSignals(True)
             self.sl_preview.setValue(newVal)
             self.sl_preview.blockSignals(False)
@@ -4000,7 +4333,7 @@ class MediaPlayer(QWidget):
         rcmenu = QMenu(self)
 
         if len(self.seq) > 0 and hasattr(self.core.appPlugin, "importImages"):
-            impAct = QAction("Import images...", self)
+            impAct = QAction("Import Media...", self)
             impAct.triggered.connect(lambda: self.core.appPlugin.importImages(mediaBrowser=self))
             rcmenu.addAction(impAct)
 
@@ -4086,7 +4419,7 @@ class MediaPlayer(QWidget):
         else:
             curSeqIdx = self.getCurrentFrame()
 
-        if len(self.seq) > 0 and self.core.media.getUseThumbnailForFile(self.seq[curSeqIdx]):
+        if 0 <= curSeqIdx < len(self.seq) and self.core.media.getUseThumbnailForFile(self.seq[curSeqIdx]):
             prvAct = QAction("Use thumbnail", self)
             prvAct.setCheckable(True)
             prvAct.setChecked(self.core.media.getUseThumbnails())
@@ -4512,12 +4845,35 @@ class MediaPlayer(QWidget):
         if not outputpath:
             return
 
+        inputIsVideo = inputExt.lower() in self.core.media.videoFormats
+        outputIsVideo = extension.lower() in self.core.media.videoFormats
+
         if self.prvIsSequence:
             startNum = self.pstart
+            if outputIsVideo and "-timecode" not in conversionSettings:
+                seqTimecode = self.core.media._frameToTimecode(startNum, self.core.projects.getFps() or 25)
+                if seqTimecode:
+                    conversionSettings["-timecode"] = seqTimecode
         else:
-            startNum = 0
-            conversionSettings["-start_number"] = None
-            conversionSettings["-start_number_out"] = None
+            if inputIsVideo:
+                videoStart = self.core.media.getVideoStartFrameFromTimecode(inputpath)
+                startNum = videoStart if videoStart is not None else 0
+            else:
+                startNum = 0
+
+            if "-start_number" not in conversionSettings:
+                conversionSettings["-start_number"] = None
+
+            if "-start_number_out" not in conversionSettings:
+                conversionSettings["-start_number_out"] = None
+
+            if inputIsVideo:
+                inputTimecode = self.core.media.getVideoTimecode(inputpath)
+                if inputTimecode and "-timecode" not in conversionSettings and outputIsVideo:
+                    conversionSettings["-timecode"] = inputTimecode
+
+                if not outputIsVideo and startNum and not conversionSettings.get("-start_number_out"):
+                    conversionSettings["-start_number_out"] = startNum
 
         result = self.core.media.convertMedia(
             inputpath, startNum, outputpath, settings=conversionSettings

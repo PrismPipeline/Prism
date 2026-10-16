@@ -286,6 +286,36 @@ class Prism_AfterEffects_Integration(object):
         else:
             return True
 
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Compare the CEP extension payload and platform-specific launcher."""
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        extensionPath = os.path.join(path, "prism.aep")
+        scriptName = "prism.sh" if platform.system() == "Darwin" else "prism.cmd"
+        scriptPath = os.path.join(path, scriptName)
+        if not any(os.path.exists(os.path.join(path, name)) for name in ["prism.aep", "prism.cmd", "prism.sh"]):
+            return "not added"
+        if not os.path.isfile(scriptPath) or not os.path.isdir(extensionPath):
+            return "update needed"
+
+        with open(os.path.join(integrationBase, scriptName), "r") as stream:
+            expected = stream.read().replace("PLUGINROOT", self.pluginDirectory.replace("\\", "/"))
+        expected = expected.replace("PRISMROOT", self.core.prismRoot)
+        with open(scriptPath, "r") as stream:
+            if stream.read() != expected:
+                return "update needed"
+        with zipfile.ZipFile(os.path.join(integrationBase, "prism.aep.zip"), "r") as archive:
+            for entry in archive.infolist():
+                if entry.is_dir():
+                    continue
+                installedFile = os.path.join(extensionPath, entry.filename)
+                if not os.path.isfile(installedFile):
+                    return "update needed"
+                with open(installedFile, "rb") as stream:
+                    if stream.read() != archive.read(entry):
+                        return "update needed"
+        return "added"
+
     def removeIntegration(self, installPath: str) -> bool:
         """Remove Prism integration from Adobe CEP extensions directory.
         

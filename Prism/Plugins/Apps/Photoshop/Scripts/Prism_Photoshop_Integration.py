@@ -288,6 +288,45 @@ class Prism_Photoshop_Integration(object):
             self.core.popup(msgStr, title="Prism Integration")
             return False
 
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Compare installed JSX scripts; UXP installation status is not folder-based."""
+        if path == "UXP":
+            return ""
+
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        osName = "Mac" if platform.system() == "Darwin" else "Windows"
+        scriptdir = os.path.join(path, "Presets", "Scripts")
+        filenames = [
+            "Prism - 1 Tools.jsx",
+            "Prism - 2 Save Version.jsx",
+            "Prism - 3 Save Extended.jsx",
+            "Prism - 4 Export.jsx",
+            "Prism - 5 Project Browser.jsx",
+            "Prism - 6 Settings.jsx",
+        ]
+        foundIntegration = False
+        currentIntegration = True
+        for filename in filenames:
+            installedFile = os.path.join(scriptdir, filename)
+            if not os.path.isfile(installedFile):
+                currentIntegration = False
+                continue
+
+            foundIntegration = True
+            with open(os.path.join(integrationBase, osName, filename), "r") as stream:
+                expected = stream.read()
+            expected = expected.replace("PLUGINROOT", os.path.dirname(self.pluginPath).replace("\\", "/"))
+            expected = expected.replace("PRISMROOT", self.core.prismRoot)
+            expected = expected.replace("PRISMLIBS", self.core.prismLibs)
+            with open(installedFile, "r") as stream:
+                if stream.read() != expected:
+                    currentIntegration = False
+
+        if not foundIntegration:
+            return "not added"
+        return "added" if currentIntegration else "update needed"
+
     def removeIntegration(self, installPath: str) -> bool:
         """Remove Prism integration from Photoshop.
         

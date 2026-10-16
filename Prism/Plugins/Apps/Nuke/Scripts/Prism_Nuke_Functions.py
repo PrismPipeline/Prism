@@ -174,6 +174,10 @@ class Prism_Nuke_Functions(object):
         Returns:
             True if OIIO should be loaded, False otherwise
         """
+        envVal = os.getenv("PRISM_NUKE_LOAD_OIIO", "")
+        if envVal:
+            return envVal == "1"
+
         return self.core.getConfig("nuke", "loadOIIO", dft=False, config="user")
 
     @err_catcher(name=__name__)
@@ -248,6 +252,7 @@ class Prism_Nuke_Functions(object):
         nuke.menu("Nuke").addCommand("Prism/Project Browser...", self.core.projectBrowser)
         nuke.menu("Nuke").addCommand("Prism/Settings...", self.core.prismSettings)
         nuke.menu("Nuke").addCommand("Prism/Manage Media Versions...", self.openMediaVersionsDialog)
+        nuke.menu("Nuke").addCommand("Prism/Import Shotcam", self.importShotcam)
         if self.getMultiShotEnabled():
             nuke.menu("Nuke").addCommand("Prism/Import Shots...", self.onImportShotsTriggered)
 
@@ -495,12 +500,17 @@ class Prism_Nuke_Functions(object):
         if ocio:
             r = nuke.root()
             try:
-                r["colorManagement"].setValue("OCIO")
+                if r["colorManagement"].value() != "OCIO":
+                    r["colorManagement"].setValue("OCIO")
             except Exception:
                 return
 
-            r["OCIO_config"].setValue("custom")
-            r["customOCIOConfigPath"].setValue(ocio.replace("\\", "/"))
+            if r["OCIO_config"].value() != "custom":
+                r["OCIO_config"].setValue("custom")
+
+            if r["customOCIOConfigPath"].value() != ocio.replace("\\", "/"):
+                r["customOCIOConfigPath"].setValue(ocio.replace("\\", "/"))
+
             r.knob("reloadConfig").execute()
 
     @err_catcher(name=__name__)
@@ -615,7 +625,8 @@ class Prism_Nuke_Functions(object):
             else:
                 return nuke.scriptSave()
 
-        except:
+        except Exception as e:
+            logger.warning("Failed to save scene: %s" % str(e))
             return ""
 
     @err_catcher(name=__name__)
@@ -984,7 +995,12 @@ class Prism_Nuke_Functions(object):
             Version string (e.g. "v0001") or None if autoversion enabled
         """
         version = None
-        if node.knob("autoversion") and not node.knob("autoversion").value():
+        try:
+            autoversionKnob = node.knob("autoversion")
+        except Exception:
+            autoversionKnob = None
+
+        if autoversionKnob and not autoversionKnob.value():
             intVersion = node.knob("renderversion").value()
             version = self.core.versionFormat % intVersion
 
@@ -1019,6 +1035,11 @@ class Prism_Nuke_Functions(object):
                 self.core.entities.backupScenefile(os.path.dirname(filename))
 
             return filename
+    
+        isProduct = group.Class() == "WriteGeo"
+        if isProduct:
+            if self.core.appPlugin.isNodeRendering(node):
+                return self.core.appPlugin.getPathFromRenderingNode(node)
 
         try:
             taskName = self.getIdentifierFromNode(group)
@@ -1036,16 +1057,30 @@ class Prism_Nuke_Functions(object):
             entity = self.outputEntityOverride
 
         version = self.getRenderVersionFromWriteNode(group)
-        outputName = self.core.getCompositingOut(
-            taskName,
-            fileType,
-            version,
-            render,
-            location,
-            comment=comment,
-            node=node,
-            entity=entity,
-        )
+        if isProduct:
+            if not entity:
+                entity = self.core.getCurrentScenefileData()
+
+            outputName = self.core.products.generateProductPath(
+                entity=entity,
+                task=taskName,
+                extension="." + fileType,
+                version=version,
+                location=location,
+                comment=comment,
+            )
+            outputName = outputName.replace("\\", "/") or "FileNotInPipeline"
+        else:
+            outputName = self.core.getCompositingOut(
+                taskName,
+                fileType,
+                version,
+                render,
+                location,
+                comment=comment,
+                node=node,
+                entity=entity,
+            )
 
         isNukeAssist = "--nukeassist" in nuke.rawArgs
         if not self.isNodeRendering(node) and not isNukeAssist and updateValues or render:
@@ -1153,6 +1188,118 @@ class Prism_Nuke_Functions(object):
         }
 
         self.core.callback("postRender", **kwargs)
+        return True
+
+    @err_catcher(name=__name__)
+    def startExport(
+        self,
+        node: Any,
+        start: Optional[int] = None,
+        end: Optional[int] = None,
+        dependencies: Optional[List[Any]] = None,
+        submit: Optional[bool] = None,
+        entity: Optional[Any] = None,
+        showSubmitUi: bool = True,
+    ) -> Optional[bool]:
+        """Start exporting a WriteGeo node.
+        
+        Either submits to render farm or exports locally.
+        
+        Args:
+            node: The WriteGeo node
+            start: Start frame
+            end: End frame
+            dependencies: List of dependency nodes 
+            submit: Whether to submit to farm (overrides node knob)
+            entity: Optional entity to use for path calculation
+            
+        Returns:
+            True if export started successfully, None/False otherwise
+        """            
+        if entity:
+            self.outputEntityOverride = entity
+
+        submit = submit if submit is not None else node.knob("submitJob").value()
+        if submit:
+            return self.openFarmSubmitter(node, None, dependencies=dependencies, entity=entity, showSubmitUi=showSubmitUi)
+
+        taskName = self.getIdentifierFromNode(node)
+        if not taskName:
+            self.core.popup("Please choose a product name")
+            return
+
+        fileName = self.getOutputPath(node, None, force=True)
+        if not fileName or fileName == "FileNotInPipeline":
+            self.core.showFileNotInProjectWarning(title="Warning")
+            return
+
+        if start is None and not self.core.uiAvailable:
+            start = nuke.root().knob("first_frame").value()
+            end = nuke.root().knob("last_frame").value()
+
+        settings = {
+            "outputName": fileName,
+            "node": node,
+            "start": start,
+            "end": end,
+            "identifier": taskName,
+            "entity": entity,
+        }
+        scenefile = self.core.getCurrentFileName()
+        kwargs = {
+            "state": self,
+            "scenefile": scenefile,
+            "settings": settings,
+        }
+
+        result = self.core.callback("preExport", **kwargs)
+        for res in result:
+            if isinstance(res, dict) and res.get("cancel", False):
+                return [
+                    "Nuke Export - error - %s" % res.get("details", "preExport hook returned False")
+                ]
+
+        self.core.saveScene(versionUp=False, prismReq=False)
+        if not os.path.exists(os.path.dirname(fileName)):
+            try:
+                os.makedirs(os.path.dirname(fileName), exist_ok=True)
+            except Exception as e:
+                self.core.popup("Failed to create output directory: %s" % str(e))
+                return
+
+        expandedOutputpath = os.path.expandvars(fileName)
+        expandedOutputpath = expandedOutputpath.replace("%PRISM_JOB", os.getenv("PRISM_JOB"))
+        if not os.path.exists(os.path.dirname(expandedOutputpath)):
+            try:
+                os.makedirs(os.path.dirname(expandedOutputpath))
+            except:
+                self.core.popup("Could not create output folder")
+
+        details = settings.copy()
+        details["sourceScene"] = self.core.getCurrentFileName()
+        filepath = os.path.dirname(expandedOutputpath)
+        self.core.saveVersionInfo(
+            filepath=filepath,
+            details=details,
+        )
+        if self.core.getConfig("globals", "backupScenesOnPublish", config="project"):
+            self.core.entities.backupScenefile(filepath)
+
+        self.startedRendering(node, fileName)
+        if start is None:
+            node.knob("Execute").execute()
+        else:
+            nuke.execute(node, start, end)
+
+        self.outputEntityOverride = None
+        self.getOutputPath(node)
+        kwargs = {
+            "state": self,
+            "scenefile": scenefile,
+            "settings": settings,
+        }
+
+        self.core.callback("postExport", **kwargs)
         return True
 
     @err_catcher(name=__name__)
@@ -1315,8 +1462,8 @@ class Prism_Nuke_Functions(object):
         if cleared:
             try:
                 nuke.scriptOpen(filepath)
-            except:
-                pass
+            except Exception as e:
+                logger.warning("Failed to open scene: %s" % str(e))
 
         return True
 
@@ -2021,6 +2168,486 @@ class Prism_Nuke_Functions(object):
         self.core.appPlugin.refreshOcio()
 
     @err_catcher(name=__name__)
+    def _getBuildSceneLoadMediaPatterns(self, step: Dict[str, Any]) -> List[str]:
+        patterns = []
+        for setting in step.get("settings") or []:
+            label = (setting.get("label") or "").lower()
+            name = (setting.get("name") or "").lower()
+            if "identifier" in label or "identifier" in name:
+                value = setting.get("value") or ""
+                patterns = [x.strip().lower() for x in str(value).split(",") if x.strip()]
+                break
+
+        if not patterns:
+            patterns = ["*"]
+
+        return patterns
+
+    @err_catcher(name=__name__)
+    def _getBuildSceneMatchingMediaIdentifiers(self, step: Dict[str, Any], context: Dict[str, Any]) -> List[str]:
+        import fnmatch
+
+        idfs = self.core.mediaProducts.getIdentifiersFromEntity(context) or []
+        patterns = self._getBuildSceneLoadMediaPatterns(step)
+        matchingIdfs = []
+        for idf in idfs:
+            group = (self.core.mediaProducts.getGroupFromIdentifier(idf) or "").lower()
+            idfName = (idf.get("identifier") or "").lower()
+            for pattern in patterns:
+                if fnmatch.fnmatch(group, pattern) or fnmatch.fnmatch(idfName, pattern):
+                    matchingIdfs.append(idf.get("identifier") or "")
+                    break
+
+        return [x for x in matchingIdfs if x]
+
+    @err_catcher(name=__name__)
+    def _getBuildSceneExpectedMediaEntries(self, step: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, str]]:
+        selectedIdentifiers = {idf.lower() for idf in self._getBuildSceneMatchingMediaIdentifiers(step, context)}
+        if not selectedIdentifiers:
+            return []
+
+        entries = []
+        idfs = self.core.mediaProducts.getIdentifiersFromEntity(context) or []
+        for idf in idfs:
+            idfName = (idf.get("identifier") or "")
+            if idfName.lower() not in selectedIdentifiers:
+                continue
+
+            version = self.core.mediaProducts.getVersion(context, idfName, mediaType=idf.get("mediaType"))
+            if not version:
+                continue
+
+            mediaPath = self.core.mediaProducts.getFileFromVersion(version, findExisting=True)
+            if not mediaPath:
+                continue
+
+            entries.append(
+                {
+                    "identifier": idfName,
+                    "path": mediaPath.replace("\\", "/"),
+                }
+            )
+
+        return entries
+
+    @err_catcher(name=__name__)
+    def _normalizeNukeMediaPath(self, path: str) -> str:
+        if not path:
+            return ""
+
+        path = self.expandEnvVarsInFilepath(path)
+        path = path.replace("\\", "/")
+        import re
+        path = re.sub(r"\s+\d+\s*-\s*\d+\s*$", "", path).strip()
+        return path
+
+    @err_catcher(name=__name__)
+    def _getNukeMediaPathCandidates(self, path: str) -> List[str]:
+        candidates = []
+        normPath = self._normalizeNukeMediaPath(path)
+        if normPath:
+            candidates.append(normPath)
+
+            seqPath = self.core.media.getSequenceFromFilename(normPath)
+            if seqPath:
+                seqPath = seqPath.replace("\\", "/")
+                if seqPath not in candidates:
+                    candidates.append(seqPath)
+
+        return candidates
+
+    @err_catcher(name=__name__)
+    def _isNukeReadNodeOutdated(self, readNode: Any) -> bool:
+        if not readNode or not readNode.knob("file"):
+            return False
+
+        readPath = self._normalizeNukeMediaPath(readNode.knob("file").value())
+        if not readPath:
+            return False
+
+        latestVersion = self.core.mediaProducts.getLatestVersionFromFilepath(readPath)
+        if latestVersion and latestVersion.get("path") not in readPath:
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def buildSceneGetLoadMediaUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        expectedEntries = self._getBuildSceneExpectedMediaEntries(step, context)
+        if not expectedEntries:
+            return {
+                "action": "no change",
+                "summary": self.core.tr("No matching media identifiers found."),
+            }
+
+        readNodes = nuke.allNodes("Read")
+        nodeEntries = []
+        for readNode in readNodes:
+            if not readNode.knob("file"):
+                continue
+
+            curPath = readNode.knob("file").value()
+            candidates = self._getNukeMediaPathCandidates(curPath)
+            if not candidates:
+                continue
+
+            nodeEntries.append(
+                {
+                    "node": readNode,
+                    "name": readNode.name(),
+                    "candidates": candidates,
+                    "path": candidates[0],
+                }
+            )
+
+        missingEntries = []
+        outdatedNodes = []
+        for expected in expectedEntries:
+            expectedCandidates = self._getNukeMediaPathCandidates(expected.get("path") or "")
+            if not expectedCandidates:
+                continue
+
+            match = None
+            for nodeData in nodeEntries:
+                if set(expectedCandidates).intersection(set(nodeData["candidates"])):
+                    match = nodeData
+                    break
+
+            if not match:
+                missingEntries.append(expected)
+                continue
+
+            if self._isNukeReadNodeOutdated(match.get("node")):
+                outdatedNodes.append(match.get("name") or match.get("path") or "")
+
+        action = "update" if missingEntries or outdatedNodes else "no change"
+        if action == "update":
+            summary = self.core.tr("Missing reads: %s | Outdated reads: %s") % (
+                len(missingEntries),
+                len(set(outdatedNodes)),
+            )
+        else:
+            summary = ""
+
+        issueLines = []
+        for entry in missingEntries:
+            issueLines.append(self.core.tr("Missing Read for '%s': %s") % (entry.get("identifier"), entry.get("path")))
+        for nodeName in sorted(set(outdatedNodes)):
+            issueLines.append(self.core.tr("Outdated Read node: %s") % nodeName)
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("nuke_loadmedia_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#nuke_loadmedia_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#nuke_loadmedia_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#nuke_loadmedia_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#nuke_loadmedia_value {
+                font-weight: 600;
+            }
+            QPlainTextEdit#nuke_loadmedia_details {
+                border: 1px solid rgba(255, 255, 255, 24);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 10);
+                padding: 2px;
+            }
+            """
+        )
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        l_title = QLabel(self.core.tr("Load Media State Check"))
+        l_title.setObjectName("nuke_loadmedia_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(6)
+        rows = [
+            (self.core.tr("Required media entries"), str(len(expectedEntries))),
+            (self.core.tr("Missing Read nodes"), str(len(missingEntries))),
+            (self.core.tr("Outdated Read nodes"), str(len(set(outdatedNodes)))),
+        ]
+        for row, (labelText, valueText) in enumerate(rows):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("nuke_loadmedia_label")
+            l_value = QLabel(valueText)
+            l_value.setObjectName("nuke_loadmedia_value")
+            l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+
+        te_details = QPlainTextEdit()
+        te_details.setObjectName("nuke_loadmedia_details")
+        te_details.setReadOnly(True)
+        te_details.setLineWrapMode(QPlainTextEdit.NoWrap)
+        te_details.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        te_details.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        te_details.setMinimumHeight(90)
+        te_details.setPlainText("\n".join(issueLines) if issueLines else self.core.tr("All matching media is loaded and up-to-date."))
+        lo_main.addWidget(te_details)
+        lo_main.addStretch(1)
+
+        return {
+            "action": action,
+            "current_value": {
+                "missing": len(missingEntries),
+                "outdated": len(set(outdatedNodes)),
+            },
+            "new_value": {
+                "required": len(expectedEntries),
+            },
+            "summary": summary,
+            "summary_widget": summaryWidget,
+        }
+
+    @err_catcher(name=__name__)
+    def _getExpectedMultishotNames(self, context: Dict[str, Any]) -> List[str]:
+        entity = self.core.getCurrentScenefileData() or {}
+        if entity.get("type") != "shot":
+            return []
+
+        sequence = entity.get("sequence")
+        if not sequence:
+            return []
+
+        shots = self.core.entities.getShots(sequence=sequence) or []
+        shotNames = [self.core.entities.getShotName(shot) for shot in shots]
+        shotNames = [name for name in shotNames if name]
+        return sorted(set(shotNames))
+
+    @err_catcher(name=__name__)
+    def _getMultishotReadGsvMismatches(self, shotName: str) -> List[str]:
+        try:
+            gsv_knob = nuke.root()["gsv"]
+        except Exception:
+            return []
+
+        shotData = (shotName or "").split("-")
+        if len(shotData) != 2:
+            return []
+
+        shotEntity = {"type": "shot", "sequence": shotData[0], "shot": shotData[1]}
+        idfs_from_entity = self.core.mediaProducts.getIdentifiersFromEntity(shotEntity) or []
+        idf_map = {idf["identifier"].lower(): idf for idf in idfs_from_entity if idf.get("identifier")}
+
+        import json as _json
+        rawMap = gsv_knob.getGsvValue("prism.multishot_identifier_map") or ""
+        try:
+            idfNameMap = _json.loads(rawMap) if rawMap else {}
+            if not isinstance(idfNameMap, dict):
+                idfNameMap = {}
+        except (ValueError, TypeError):
+            return [self.core.tr("Invalid prism.multishot_identifier_map GSV data.")]
+
+        mismatches = []
+        for sanitized, entry in idfNameMap.items():
+            varname = "prism.multishot_read_%s" % sanitized
+            currentPath = (gsv_knob.getGsvValue(varname) or "").replace("\\", "/")
+
+            if isinstance(entry, dict):
+                originalIdentifier = entry.get("identifier", sanitized)
+                aovName = entry.get("aov") or None
+            elif isinstance(entry, str):
+                originalIdentifier = entry
+                aovName = None
+            else:
+                originalIdentifier = sanitized
+                aovName = None
+
+            matchedIdf = idf_map.get(originalIdentifier.lower())
+            expectedPath = ""
+            if matchedIdf:
+                version = self.core.mediaProducts.getVersion(
+                    shotEntity,
+                    matchedIdf["identifier"],
+                    mediaType=matchedIdf.get("mediaType"),
+                )
+                if version:
+                    expectedPath = self.core.mediaProducts.getFileFromVersion(version, aov=aovName, findExisting=True) or ""
+                    expectedPath = expectedPath.replace("\\", "/")
+
+            if currentPath != expectedPath:
+                mismatches.append(varname)
+
+        return mismatches
+
+    @err_catcher(name=__name__)
+    def buildSceneGetMultishotSetupUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.getMultiShotEnabled():
+            return {
+                "action": "no change",
+                "summary": self.core.tr("Multishot is disabled for this Nuke version/environment."),
+            }
+
+        expectedShots = self._getExpectedMultishotNames(context)
+        if not expectedShots:
+            return {
+                "action": "no change",
+                "summary": self.core.tr("Multishot setup is only available in shot scenes."),
+            }
+
+        sceneShots = self.getShotsFromScene() or []
+        missingShots = [shot for shot in expectedShots if shot not in sceneShots]
+
+        switchNode = nuke.toNode("Shot_Switch")
+        writeNode = nuke.toNode("Shot_Write")
+        switchStartDot = nuke.toNode("shot_switch_start")
+        readNodes = [node for node in nuke.allNodes("Read") if node.name() == "Shot_Read" or node.name().startswith("Shot_Read_")]
+
+        missingCoreNodes = []
+        if not switchNode:
+            missingCoreNodes.append("Shot_Switch")
+        if not writeNode:
+            missingCoreNodes.append("Shot_Write")
+        if not switchStartDot:
+            missingCoreNodes.append("shot_switch_start")
+        if not readNodes:
+            missingCoreNodes.append("Shot_Read*")
+
+        missingSwitchInputs = []
+        if switchNode:
+            inputShotNames = []
+            idx = 0
+            while switchNode.input(idx) is not None:
+                knob = switchNode.knob("i%s" % idx)
+                if knob:
+                    val = knob.value()
+                    if val:
+                        inputShotNames.append(val)
+                idx += 1
+
+            missingSwitchInputs = [shot for shot in expectedShots if shot not in inputShotNames]
+
+        currentShot = ""
+        try:
+            currentShot = nuke.root()["gsv"].getGsvValue("prism.shot") or ""
+        except Exception:
+            currentShot = ""
+
+        if not currentShot and expectedShots:
+            currentShot = expectedShots[0]
+
+        gsvMismatches = self._getMultishotReadGsvMismatches(currentShot)
+
+        needsUpdate = bool(missingShots or missingCoreNodes or missingSwitchInputs or gsvMismatches)
+        action = "update" if needsUpdate else "no change"
+        summary = ""
+        if needsUpdate:
+            summary = self.core.tr("Missing shots: %s | Missing setup nodes: %s | Missing switch inputs: %s | Outdated GSV reads: %s") % (
+                len(missingShots),
+                len(missingCoreNodes),
+                len(missingSwitchInputs),
+                len(gsvMismatches),
+            )
+
+        issueLines = []
+        for shot in missingShots:
+            issueLines.append(self.core.tr("Missing shot in multishot list: %s") % shot)
+        for nodeName in missingCoreNodes:
+            issueLines.append(self.core.tr("Missing setup node: %s") % nodeName)
+        for shot in missingSwitchInputs:
+            issueLines.append(self.core.tr("Shot missing on Shot_Switch input: %s") % shot)
+        for varname in gsvMismatches:
+            issueLines.append(self.core.tr("Outdated GSV media path: %s") % varname)
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("nuke_multishot_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#nuke_multishot_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#nuke_multishot_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#nuke_multishot_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#nuke_multishot_value {
+                font-weight: 600;
+            }
+            QPlainTextEdit#nuke_multishot_details {
+                border: 1px solid rgba(255, 255, 255, 24);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 10);
+                padding: 2px;
+            }
+            """
+        )
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        l_title = QLabel(self.core.tr("Multishot Setup Check"))
+        l_title.setObjectName("nuke_multishot_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(6)
+        rows = [
+            (self.core.tr("Expected shots"), str(len(expectedShots))),
+            (self.core.tr("Missing shots"), str(len(missingShots))),
+            (self.core.tr("Missing setup nodes"), str(len(missingCoreNodes))),
+            (self.core.tr("Missing switch inputs"), str(len(missingSwitchInputs))),
+            (self.core.tr("Outdated GSV reads"), str(len(gsvMismatches))),
+        ]
+        for row, (labelText, valueText) in enumerate(rows):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("nuke_multishot_label")
+            l_value = QLabel(valueText)
+            l_value.setObjectName("nuke_multishot_value")
+            l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+
+        te_details = QPlainTextEdit()
+        te_details.setObjectName("nuke_multishot_details")
+        te_details.setReadOnly(True)
+        te_details.setLineWrapMode(QPlainTextEdit.NoWrap)
+        te_details.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        te_details.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        te_details.setMinimumHeight(110)
+        te_details.setPlainText("\n".join(issueLines) if issueLines else self.core.tr("Multishot setup is present and up-to-date for the current sequence."))
+        lo_main.addWidget(te_details)
+        lo_main.addStretch(1)
+
+        return {
+            "action": action,
+            "current_value": {
+                "missing_shots": len(missingShots),
+                "missing_nodes": len(missingCoreNodes),
+                "missing_switch_inputs": len(missingSwitchInputs),
+                "gsv_mismatches": len(gsvMismatches),
+            },
+            "new_value": {
+                "expected_shots": len(expectedShots),
+            },
+            "summary": summary,
+            "summary_widget": summaryWidget,
+        }
+
+    @err_catcher(name=__name__)
     def buildSceneLoadMedia(self, step: Dict[str, Any], context: Dict[str, Any]) -> None:
         """
         Scene building step function to load media for an entity.
@@ -2029,23 +2656,7 @@ class Prism_Nuke_Functions(object):
             step: Step settings dict.
             context: Current scene building context dict with entity, department, task info.
         """
-        idfs = self.core.mediaProducts.getIdentifiersFromEntity(context)
-        matchingIdfs = []
-
-        import fnmatch
-        stepsNames = [name.strip().lower() for name in step["settings"][0]["value"].split(",")]
-        for idf in idfs:
-            group = (self.core.mediaProducts.getGroupFromIdentifier(idf) or "").lower()
-            idfName = idf["identifier"].lower()
-            valid = False
-            for stepsName in stepsNames:
-                if fnmatch.fnmatch(group, stepsName) or fnmatch.fnmatch(idfName, stepsName):
-                    valid = True
-                    break
-
-            if valid:
-                matchingIdfs.append(idfName)
-
+        matchingIdfs = self._getBuildSceneMatchingMediaIdentifiers(step, context)
         self.loadMediaForEntity(context, matchingIdfs)
 
     @err_catcher(name=__name__)
@@ -2062,6 +2673,34 @@ class Prism_Nuke_Functions(object):
             return
 
         shots = self.core.entities.getShots(sequence=entity.get("sequence"))
+        switchNode = nuke.toNode("Shot_Switch")
+        writeNode = nuke.toNode("Shot_Write")
+        switchStartDot = nuke.toNode("shot_switch_start")
+        readNodes = [node for node in nuke.allNodes("Read") if node.name() == "Shot_Read" or node.name().startswith("Shot_Read_")]
+
+        missingCoreNodes = not (switchNode and writeNode and switchStartDot and readNodes)
+        try:
+            gsv_knob = nuke.root()["gsv"]
+            if missingCoreNodes:
+                # Force a full multishot recreation path when core setup nodes are missing.
+                gsv_knob.setListOptions("prism.shot", [])
+            elif switchNode:
+                # Keep only actually connected switch inputs, so missing shot inputs can be rebuilt.
+                connectedShots = []
+                idx = 0
+                while switchNode.input(idx) is not None:
+                    knob = switchNode.knob("i%s" % idx)
+                    if knob:
+                        val = knob.value()
+                        if val:
+                            connectedShots.append(val)
+                    idx += 1
+
+                if connectedShots:
+                    gsv_knob.setListOptions("prism.shot", sorted(set(connectedShots)))
+        except Exception:
+            pass
+
         self.loadShotsIntoNuke(shots)
 
     @err_catcher(name=__name__)
@@ -2124,7 +2763,7 @@ class Prism_Nuke_Functions(object):
             nodeClass = node.Class()
             if nodeClass == "WritePrism" and node.knob("refresh"):
                 node.knob("refresh").execute()
-            elif nodeClass == "Write":
+            elif nodeClass in ["Write", "WriteGeo"]:
                 if node.knob("tab_prism") and node.knob("refresh"):
                     node.knob("refresh").execute()
 
@@ -2188,7 +2827,23 @@ class Prism_Nuke_Functions(object):
             if not node.knob("tab_prism"):
                 self.addUiToVariableSwitchNode(node)
 
-            self.updateNodeUI("read", node)
+            self.updateNodeUI("variableSwitch", node)
+
+        elif nodeClass == "WriteGeo" and addWriteKnobs:
+            if not node.knob("tab_prism"):
+                self.addUiToWriteGeoNode(node)
+
+            self.updateNodeUI("writeGeo", node)
+            self.getOutputPath(node)
+
+            cmd = "try:\n\tpcore.getPlugin(\"Nuke\").updateNodeUI(\"writeGeo\", nuke.toNode(nuke.thisNode().fullName().rsplit(\".\", 1)[0]))\nexcept:\n\tpass"
+            node.knob("knobChanged").setValue(cmd)
+            idfKnob = node.knob("identifier")
+            if idfKnob and not idfKnob.value():
+                idf = self.core.getCurrentScenefileData().get("task")
+                if idf:
+                    idfKnob.setValue(idf)
+                    self.getOutputPath(node)
 
         kwargs = {"origin": self, "node": node}
         self.core.callback("onNukeNodeCreated", **kwargs)
@@ -2227,7 +2882,7 @@ class Prism_Nuke_Functions(object):
         Args:
             node: The Write node
         """
-        knobs = ["identifier", "comment", "location", "fileName", "refresh", "startRender", "showPrevVersions", "submitJob", "prevFileName", "openDir", "farmSubmissionSettings"]
+        knobs = ["identifier", "comment", "renderversion", "autoversion", "location", "fileName", "refresh", "startRender", "showPrevVersions", "submitJob", "prevFileName", "openDir", "farmSubmissionSettings"]
         for knob in knobs:
             k = node.knob(knob)
             if k:
@@ -2285,6 +2940,69 @@ class Prism_Nuke_Functions(object):
         node.knob("afterRender").setValue("try: pcore.appPlugin.finishedRendering(nuke.thisNode())\nexcept: pass")
 
     @err_catcher(name=__name__)
+    def addUiToWriteGeoNode(self, node: Any) -> None:
+        """Add Prism UI elements (knobs) to a Write Geo node.
+        
+        Args:
+            node: The Write Geo node
+        """
+        knobs = ["identifier", "comment", "productversion", "autoversion", "location", "fileName", "refresh", "startExecute", "showPrevVersions", "submitJob", "prevFileName", "openDir", "farmSubmissionSettings"]
+        for knob in knobs:
+            k = node.knob(knob)
+            if k:
+                node.removeKnob(k)
+
+        tab = node.knob("tab_prism")
+        if not tab:
+            tab = nuke.Tab_Knob('tab_prism', 'Prism')
+            node.addKnob(tab)
+
+        knobIdf = nuke.EvalString_Knob("identifier", "identifier")
+        node.addKnob(knobIdf)
+        knobComment = nuke.EvalString_Knob("comment", "comment (optional)")
+        node.addKnob(knobComment)
+        knobVersion = nuke.Int_Knob("productversion", "Version")
+        knobVersion.setValue(1)
+        node.addKnob(knobVersion)
+        knobVersion.setEnabled(False)
+        knobAutoVersion = nuke.Boolean_Knob("autoversion", "auto")
+        knobAutoVersion.setValue(True)
+        node.addKnob(knobAutoVersion)
+        knobPrevVersions = nuke.PyScript_Knob("showPrevVersions", "Show Previous Versions...", "pcore.appPlugin.showPrevVersions(nuke.thisNode())")
+        node.addKnob(knobPrevVersions)
+        knobLoc = nuke.Enumeration_Knob("location", "location", ["                              "])
+        node.addKnob(knobLoc)
+        knobDiv = nuke.Text_Knob("")
+        node.addKnob(knobDiv)
+        knobFilepath = nuke.EvalString_Knob("fileName", "filepath")
+        knobFilepath.setValue("FileNotInPipeline")
+        node.addKnob(knobFilepath)
+        knobRefresh = nuke.PyScript_Knob("refresh", "Refresh", "pcore.appPlugin.getOutputPath(nuke.thisNode())")
+        knobRefresh.setFlag(nuke.STARTLINE)
+        node.addKnob(knobRefresh)
+        knobDiv = nuke.Text_Knob("")
+        node.addKnob(knobDiv)
+        knobRender = nuke.PyScript_Knob("startExecute", "Execute", "pcore.appPlugin.startExport(nuke.thisNode())")
+        node.addKnob(knobRender)
+        knobSubmit = nuke.Boolean_Knob("submitJob", "Submit Job")
+        node.addKnob(knobSubmit)
+        knobPrev = nuke.Text_Knob("prevFileName", "previous filepath", "-")
+        node.addKnob(knobPrev)
+        knobOpen = nuke.PyScript_Knob("openDir", "Open In...", "pcore.appPlugin.openInClicked(nuke.thisNode())")
+        knobOpen.setFlag(nuke.STARTLINE)
+        node.addKnob(knobOpen)
+        knobOpen = nuke.PyScript_Knob("createRead", "Create ReadGeo", "pcore.appPlugin.createReadGeo(nuke.thisNode())")
+        node.addKnob(knobOpen)
+        knobFarmSettings = nuke.String_Knob("farmSubmissionSettings", "Farm Submission Settings")
+        knobFarmSettings.setVisible(False)
+        node.addKnob(knobFarmSettings)
+
+        node.knob("file").setValue("[value fileName]")
+        node.knob("file_type").setValue("abc")
+        node.knob("beforeRender").setValue("try: pcore.appPlugin.getOutputPath(nuke.thisNode(), render=True)\nexcept: pass")
+        node.knob("afterRender").setValue("try: pcore.appPlugin.finishedRendering(nuke.thisNode())\nexcept: pass")
+
+    @err_catcher(name=__name__)
     def addUiToReadNode(self, node: Any) -> None:
         """Add Prism UI elements (knobs) to a Read node.
         
@@ -2314,17 +3032,21 @@ class Prism_Nuke_Functions(object):
     @err_catcher(name=__name__)
     def ensureReadNodeMediaVersionExclusionKnob(self, node: Any) -> None:
         """Add the media version exclusion checkbox to Prism Read node UI."""
-        if not node.knob("tab_prism"):
-            return
+        try:
+            if not node or not node.knob("tab_prism"):
+                return
 
-        if node.knob("excludeFromMediaVersionUpdates"):
-            return
+            if node.knob("excludeFromMediaVersionUpdates"):
+                return
 
-        knobExclude = nuke.Boolean_Knob(
-            "excludeFromMediaVersionUpdates",
-            "Exclude from Manage Media Versions",
-        )
-        node.addKnob(knobExclude)
+            knobExclude = nuke.Boolean_Knob(
+                "excludeFromMediaVersionUpdates",
+                "Exclude from Manage Media Versions",
+            )
+            node.addKnob(knobExclude)
+        except ValueError as exc:
+            if "not attached to a node" not in str(exc):
+                raise
 
     @err_catcher(name=__name__)
     def isReadNodeExcludedFromMediaVersions(self, node: Any) -> bool:
@@ -2551,7 +3273,7 @@ class Prism_Nuke_Functions(object):
         Updates location dropdowns and other dynamic UI elements.
         
         Args:
-            nodeType: Type of node ("writePrism", "write", "read")
+            nodeType: Type of node ("writePrism", "write", "writeGeo", "read")
             node: The node to update
         """
         if not nuke.env.get("gui"):
@@ -2565,7 +3287,7 @@ class Prism_Nuke_Functions(object):
             except:
                 pass
 
-            if nodeType == "WritePrismBase":
+            if nodeType == "writePrism":
                 base = node.node("WritePrismBase")
                 if base:
                     knobs = base.knobs()
@@ -2585,6 +3307,21 @@ class Prism_Nuke_Functions(object):
 
             if knob and knob.name() == "autoversion":
                 nuke.thisNode().knob("renderversion").setEnabled(not knob.value())
+
+        elif nodeType in ["writeGeo"]:
+            locations = self.core.paths.getExportProductBasePaths()
+            locNames = list(locations.keys())
+            try:
+                node.knob("location").setValues(locNames)
+            except:
+                pass
+
+            knob = nuke.thisKnob()
+            if knob and knob.name() in ["identifier", "location", "productversion", "autoversion"]:
+                self.getOutputPath(node)
+
+            if knob and knob.name() == "autoversion":
+                nuke.thisNode().knob("productversion").setEnabled(not knob.value())
 
         elif nodeType in ["read"]:
             self.ensureReadNodeMediaVersionExclusionKnob(node)
@@ -2646,6 +3383,59 @@ class Prism_Nuke_Functions(object):
         for seq in seqs:
             if re.match(pattern, seq):
                 readNode = nuke.createNode('Read')
+                filepath = os.path.join(os.path.dirname(filepath), seq)
+                if useRel:
+                    filepath = self.makePathRelative(filepath)
+
+                readNode.knob('file').fromUserText(filepath)
+                break
+        else:
+            self.core.popup("No media files found.\nMake sure the rendering is completed and try again.")
+
+    @err_catcher(name=__name__)
+    def createReadGeo(self, node: Any) -> None:
+        """Create ReadGeo node from WriteGeo node output.
+        
+        Args:
+            node: The WriteGeo node
+        """
+        filepath = node.knob("prevFileName").value()
+        if not os.path.exists(os.path.dirname(filepath)):
+            filepath = node.knob("fileName").value()
+            if not os.path.exists(os.path.dirname(filepath)):
+                context = self.core.paths.getCachePathData(filepath)
+                intVersion = self.core.products.getIntVersionFromVersionName(context.get("version") or "")
+                if intVersion is not None:
+                    context["version"] = self.core.versionFormat % (intVersion - 1)
+                    filepath = self.core.mediaProducts.generateMediaProductPath(
+                        entity=context,
+                        task=context["product"],
+                        version=context["version"],
+                        extension=context.get("extension", ""),
+                        comment=context.get("comment", ""),
+                        location=context.get("location", "global"),
+                        framePadding="#",
+                    )
+
+                filepath = self.expandEnvVarsInFilepath(filepath)
+                if not os.path.exists(os.path.dirname(filepath)):
+                    self.core.popup("Folder doesn't exist: %s" % os.path.dirname(filepath))
+                    return
+
+        seqs = nuke.getFileNameList(os.path.dirname(filepath))
+        if not seqs:
+            self.core.popup("No files exist in current path.")
+            return
+
+        if "#" not in os.path.basename(filepath):
+            base, ext = os.path.splitext(filepath)
+            filepath = base + "#" + ext
+
+        pattern = os.path.basename(filepath).replace("#", ".*")
+        useRel = self.core.getConfig("nuke", "useRelativePaths", dft=False, config="user")
+        for seq in seqs:
+            if re.match(pattern, seq):
+                readNode = nuke.createNode('ReadGeo2')
                 filepath = os.path.join(os.path.dirname(filepath), seq)
                 if useRel:
                     filepath = self.makePathRelative(filepath)
@@ -2722,8 +3512,14 @@ class Prism_Nuke_Functions(object):
             group = node
 
         taskName = self.getIdentifierFromNode(group)
+        isProduct = group.Class() == "WriteGeo"
         if not taskName:
-            self.core.popup("Please choose an identifier")
+            if isProduct:
+                msg = "Please choose a product name."
+            else:
+                msg = "Please choose an identifier."
+
+            self.core.popup(msg)
             return
 
         fileName = self.getOutputPath(node, group, force=True, entity=entity)
@@ -2734,9 +3530,13 @@ class Prism_Nuke_Functions(object):
         settings = {
             "outputName": fileName,
             "node": node,
-            "group": group,
-            "identifier": taskName,
         }
+        if isProduct:
+            settings["product"] = taskName
+        else:
+            settings["group"] = group
+            settings["identifier"] = taskName
+
         scenefile = self.core.getCurrentFileName()
         kwargs = {
             "state": self,
@@ -2756,8 +3556,12 @@ class Prism_Nuke_Functions(object):
             self.core.popup("Failed to create the State Manager.")
             return
 
-        state = sm.createState("ImageRender")
-        state.ui.mediaType = "2drenders"
+        if isProduct:
+            state = sm.createState("Export")
+        else:
+            state = sm.createState("ImageRender")
+            state.ui.mediaType = "2drenders"
+
         if not state.ui.cb_manager.count():
             msg = "No farm submitter is installed."
             self.core.popup(msg)
@@ -2777,14 +3581,22 @@ class Prism_Nuke_Functions(object):
             name = "Submit Renderjob - %s - %s" % (self.core.entities.getEntityName(entity), taskName)
             state.ui.e_name.setText(name)
             state.ui.nameChanged()
-            
-        state.ui.chb_version.setChecked(False)
+        
         state.ui.setTaskname(self.getIdentifierFromNode(group))
-        fmt = "." + group.knob("file_type").value()
-        if state.ui.cb_format.findText(fmt) == -1:
-            state.ui.cb_format.addItem(fmt)
+        if isProduct:
+            fmt = "." + group.knob("file_type").value()
+            if state.ui.cb_outType.findText(fmt) == -1:
+                state.ui.cb_outType.addItem(fmt)
 
-        state.ui.setFormat(fmt)
+            state.ui.setOutputType(fmt)
+        else:
+            state.ui.chb_version.setChecked(False)
+            fmt = "." + group.knob("file_type").value()
+            if state.ui.cb_format.findText(fmt) == -1:
+                state.ui.cb_format.addItem(fmt)
+
+            state.ui.setFormat(fmt)
+
         if self.core.uiAvailable and showSubmitUi:
             if entity:
                 self.submitter.quiet = True
@@ -2817,13 +3629,18 @@ class Prism_Nuke_Functions(object):
         path = self.expandEnvVarsInFilepath(path)
         menu = QMenu()
 
-        act_play = QAction("Play")
-        act_play.triggered.connect(lambda: self.core.media.playMediaInExternalPlayer(path))
-        menu.addAction(act_play)
+        if group.Class() == "WriteGeo":
+            act_browser = QAction("Open in Product Browser")
+            act_browser.triggered.connect(lambda: self.openInProductBrowser(path))
+            menu.addAction(act_browser)
+        else:
+            act_play = QAction("Play")
+            act_play.triggered.connect(lambda: self.core.media.playMediaInExternalPlayer(path))
+            menu.addAction(act_play)
 
-        act_browser = QAction("Open in Media Browser")
-        act_browser.triggered.connect(lambda: self.openInMediaBrowser(path))
-        menu.addAction(act_browser)
+            act_browser = QAction("Open in Media Browser")
+            act_browser.triggered.connect(lambda: self.openInMediaBrowser(path))
+            menu.addAction(act_browser)
 
         act_open = QAction("Open in explorer")
         act_open.triggered.connect(lambda: self.core.openFolder(path))
@@ -2833,6 +3650,17 @@ class Prism_Nuke_Functions(object):
         menu.addAction(act_copy)
 
         menu.exec_(QCursor.pos())
+
+    @err_catcher(name=__name__)
+    def openInProductBrowser(self, path: str) -> None:
+        """Open path in Prism Product Browser.
+        
+        Args:
+            path: File path to show in Product Browser
+        """
+        self.core.projectBrowser()
+        self.core.pb.showTab("Products")
+        self.core.pb.productBrowser.navigateToFile(path)
 
     @err_catcher(name=__name__)
     def openInMediaBrowser(self, path: str) -> None:
@@ -2873,14 +3701,14 @@ class Prism_Nuke_Functions(object):
             nodes = nuke.allNodes(recurseGroups=True)
         else:
             for node in nuke.allNodes(recurseGroups=True):
-                if node.Class() == "Write" or node.Class() == "WritePrism":
+                if node.Class() == "Write" or node.Class() == "WritePrism" or node.Class() == "WriteGeo":
                     node.setSelected(True)
 
             nuke.selectConnectedNodes()
             nodes = nuke.selectedNodes()
 
         for node in nodes:
-            if node.Class() == "Write" or node.Class() == "WritePrism":
+            if node.Class() == "Write" or node.Class() == "WritePrism" or node.Class() == "WriteGeo":
                 continue
 
             for kname, knob in node.knobs().items():
@@ -3003,6 +3831,9 @@ class Prism_Nuke_Functions(object):
             dlg = renderdialog._getFlipbookDialog(inputNode)
         except Exception as e:
             logger.warning("Error getting flipbook dialog for thumbnail capture: %s" % e)
+            return
+
+        if not dlg:
             return
 
         factory = flipbooking.gFlipbookFactory
@@ -3605,7 +4436,14 @@ class Prism_Nuke_Functions(object):
             msg = "How do you want to import the nuke script?"
             result = self.core.popupQuestion(msg, buttons=["Paste Nodes", "Livegroup", "Precomp"])
             if result == "Paste Nodes":
-                result = nuke.nodePaste(path)
+                try:
+                    result = nuke.nodePaste(path)
+                except Exception as e:
+                    msg = "Failed to paste nodes: %s" % str(e)
+                    logger.warning(msg)
+                    self.core.popup(msg)
+                    result = False
+
             elif result == "Livegroup":
                 liveGroup = nuke.createNode("LiveGroup")
                 liveGroup.knob("published").fromScript("1")
@@ -3645,6 +4483,7 @@ class Prism_Nuke_Functions(object):
         node_render.connectInput(0, node_read)
         node_render.connectInput(1, node_scene)
         node_scene.connectInput(0, node_read)
+        return node_read
 
     @err_catcher(name=__name__)
     def productSelectorContextMenuRequested(self, origin: Any, widget: Any, pos: Any, menu: Any) -> None:
@@ -3687,6 +4526,51 @@ class Prism_Nuke_Functions(object):
 
         self.dlg_mediaVersions = MediaVersionsDialog(self, useSelectedReadNodes=True)
         self.dlg_mediaVersions.show()
+
+    @err_catcher(name=__name__)
+    def importShotcam(self, shot: dict = None, quiet: bool = False) -> None:
+        """Import camera from a shot.
+        
+        Args:
+            shot: Shot dictionary (optional, prompts if None)
+            quiet: If True, skip dialogs
+
+        Returns:
+            True if shotcam was imported successfully, False otherwise
+        """
+        if not shot:
+            fileName = self.core.getCurrentFileName()
+            shot = self.core.getScenefileData(fileName)
+            if not (
+                os.path.exists(fileName)
+                and self.core.fileInPipeline(fileName)
+            ):
+                self.core.showFileNotInProjectWarning(title="Warning")
+                return False
+
+            if shot.get("type") != "shot":
+                msgStr = "Shotcams are not supported for assets."
+                if not quiet:
+                    self.core.popup(msgStr)
+
+                return False
+
+        if self.core.getConfig("globals", "productTasks", config="project"):
+            shot["department"] = os.getenv("PRISM_SHOTCAM_DEPARTMENT", "Layout")
+            shot["task"] = os.getenv("PRISM_SHOTCAM_TASK", "Cameras")
+
+        filepath = self.core.products.getLatestVersionpathFromProduct(
+            self.core.products.getShotcamProductName(), entity=shot
+        )
+        if not filepath:
+            if not quiet:
+                self.core.popup("Could not find a shotcam for the current shot.")
+
+            return False
+
+        logger.debug("importing shotcam: %s" % filepath)
+        node = self.importCamera(shot, filepath)
+        return bool(node)
 
 
 class NukeMultiShotRenderer(QDialog):
@@ -3994,12 +4878,24 @@ if nuke.env.get("gui") and "fnFlipbookRenderer" in globals():
             """
             self._writeNode['file'].setValue(outputpath)
             self._writeNode['file_type'].setValue("jpeg")
-            curSpace = self._writeNode['colorspace'].value()
-            result = self._writeNode['colorspace'].setValue("sRGB")
-            if not result:
-                result = self._writeNode['colorspace'].setValue("Output - sRGB")
-                if not result:
-                    self._writeNode['colorspace'].setValue(curSpace)
+            viewer = nuke.activeViewer()
+            viewerNode = viewer.node() if viewer else None
+            viewerProcessKnob = viewerNode.knob("viewerProcess") if viewerNode else None
+            viewerProcess = viewerProcessKnob.value() if viewerProcessKnob else ""
+            if viewerProcess.endswith(")") and " (" in viewerProcess:
+                view, display = viewerProcess[:-1].rsplit(" (", 1)
+                self._writeNode["transformType"].setValue("display")
+                self._writeNode["ocioDisplay"].setValue(display)
+                self._writeNode["ocioView"].setValue(view)
+            else:
+                colorspaceKnob = self._writeNode["colorspace"]
+                curSpace = colorspaceKnob.value()
+                if "Output - sRGB" in colorspaceKnob.values():
+                    colorspaceKnob.setValue("Output - sRGB")
+                elif "sRGB" in colorspaceKnob.values():
+                    colorspaceKnob.setValue("sRGB")
+                else:
+                    colorspaceKnob.setValue(curSpace)
 
             frange = nuke.FrameRanges(str(int(frame)))
             try:
@@ -4047,17 +4943,31 @@ class Farm_Submitter(QDialog):
         self.lo_main = QVBoxLayout()
         self.setLayout(self.lo_main)
         self.lo_main.addWidget(self.state.ui)
-        self.state.ui.f_name.setVisible(False)
-        self.state.ui.w_format.setVisible(False)
-        self.state.ui.f_taskname.setVisible(False)
-        self.state.ui.f_resolution.setVisible(False)
-        self.state.ui.gb_passes.setHidden(True)
-        self.state.ui.gb_previous.setHidden(True)
-        self.state.ui.gb_submit.setChecked(True)
-        self.state.ui.gb_submit.setCheckable(False)
-        self.state.ui.w_version.setVisible(False)
-        self.state.ui.chb_version.setChecked(False)
-        self.state.ui.f_cam.setVisible(False)
+        isExport = self.state.ui.className == "Export"
+        if isExport:
+            self.state.ui.w_name.setVisible(False)
+            self.state.ui.w_wholeScene.setHidden(True)
+            self.state.ui.chb_wholeScene.setChecked(True)
+            self.state.ui.gb_objects.setHidden(True)
+            self.state.ui.w_additionalOptions.setVisible(False)
+            self.state.ui.cb_context.setVisible(False)
+            self.state.ui.gb_submit.setVisible(True)
+            self.state.ui.gb_submit.setChecked(True)
+            self.state.ui.gb_submit.setCheckable(False)
+            self.state.ui.gb_previous.setHidden(True)
+        else:
+            self.state.ui.f_name.setVisible(False)
+            self.state.ui.w_format.setVisible(False)
+            self.state.ui.f_taskname.setVisible(False)
+            self.state.ui.f_resolution.setVisible(False)
+            self.state.ui.gb_passes.setHidden(True)
+            self.state.ui.gb_previous.setHidden(True)
+            self.state.ui.gb_submit.setChecked(True)
+            self.state.ui.gb_submit.setCheckable(False)
+            self.state.ui.w_version.setVisible(False)
+            self.state.ui.chb_version.setChecked(False)
+            self.state.ui.f_cam.setVisible(False)
+
         if self.state.ui.cb_manager.count() == 1:
             self.state.ui.f_manager.setVisible(False)
             self.state.ui.gb_submit.setTitle(self.state.ui.cb_manager.currentText())
@@ -4274,7 +5184,7 @@ class NukeExport(object):
         super(NukeExport, self).setup(state, core, stateManager, node, stateData)
         self.w_name.setVisible(False)
         self.w_range.setVisible(False)
-        self.f_frameRange_2.setVisible(False)
+        self.w_rangeFrames.setVisible(False)
         self.w_wholeScene.setVisible(False)
         self.chb_wholeScene.setChecked(True)
         self.gb_objects.setVisible(False)

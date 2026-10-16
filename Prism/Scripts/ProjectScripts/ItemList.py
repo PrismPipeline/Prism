@@ -352,7 +352,8 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
         - Next: Creates items and triggers next action (task dialog or scene creation)
         - Cancel: Rejects the dialog
         """
-        if button.text() == "Create":
+        buttonText = button.text().replace("&", "")
+        if buttonText == "Create":
             pb = self.core.pb or self.core.projectBrowser(openUi=False)
             if self.mode == "passes":
                 pass
@@ -386,12 +387,12 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
                 pb.sceneBrowser.createTask(tasks)
 
             self.accept()
-        elif button.text() == self.btext:
+        elif buttonText == self.btext:
             if self.entities:
                 self.stepBbClicked(button)
                 self.accept()
 
-        elif button.text() == "Cancel":
+        elif buttonText == "Cancel":
             self.reject()
 
     @err_catcher(name=__name__)
@@ -404,7 +405,7 @@ class ItemList(QDialog, ItemList_ui.Ui_dlg_ItemList):
         In departments mode: Creates the selected department and opens task dialog
         In tasks mode: Creates tasks and optionally creates new scene from current
         """
-        if button.text() == self.btext:
+        if button.text().replace("&", "") == self.btext:
             pb = self.core.pb or self.core.projectBrowser(openUi=False)
             if self.mode == "departments":
                 for i in self.tw_steps.selectedItems():

@@ -34,6 +34,7 @@
 
 import os
 import sys
+import fnmatch
 import traceback
 import time
 import logging
@@ -62,6 +63,27 @@ from UserInterfaces import StateManager_ui
 
 
 logger = logging.getLogger(__name__)
+
+
+class PublishWarningMessage(QTextBrowser):
+    def __init__(self, message: str) -> None:
+        super(PublishWarningMessage, self).__init__()
+        self.setObjectName("publishWarningMessage")
+        self.setFrameShape(QFrame.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setLineWrapMode(QTextEdit.WidgetWidth)
+        self.setWordWrapMode(QTextOption.WrapAnywhere)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.document().setDocumentMargin(0)
+        self.document().documentLayout().documentSizeChanged.connect(
+            lambda size: self.setFixedHeight(int(size.height()) + 1)
+        )
+        self.setPlainText(message)
+
+    def resizeEvent(self, event: Any) -> None:
+        super(PublishWarningMessage, self).resizeEvent(event)
+        self.setFixedHeight(int(self.document().size().height()) + 1)
 
 
 class StateManager(QMainWindow, StateManager_ui.Ui_mw_StateManager):
@@ -483,6 +505,8 @@ class %s(QWidget, %s.%s, %s.%sClass):
         self.splitter.setStyleSheet(
             'QSplitter::handle{background-image: "";background-color: transparent}'
         )
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
 
         iconPath = os.path.join(
             self.core.prismRoot, "Scripts", "UserInterfacesPrism", "shot.png"
@@ -671,14 +695,18 @@ class %s(QWidget, %s.%s, %s.%sClass):
             self.getCurrentItem(self.activeList).ui.updateUi()
 
         self.curUi = widget
-        self.checkStateSettingsWidth()
+        QTimer.singleShot(0, self.checkStateSettingsWidth)
 
     @err_catcher(name=__name__)
     def checkStateSettingsWidth(self) -> None:
         """Check and adjust state settings panel width to fit content."""
-        QApplication.processEvents()
-        if self.sa_stateSettings.horizontalScrollBar().isVisible():
-            self.resize(self.width() + self.w_stateUi.width() - self.sa_stateSettings.width() + 18, self.height())
+        if not self.getCurrentItem(self.activeList):
+            return
+
+        stateSettingsWidth = max(self.w_stateUi.width(), 400)
+        if self.sa_stateSettings.horizontalScrollBar().isVisible() or self.w_stateUi.width() < stateSettingsWidth:
+            newWidth = self.width() + stateSettingsWidth - self.sa_stateSettings.width() + 18
+            self.resize(newWidth, self.height())
 
     @err_catcher(name=__name__)
     def stateChanged(self, activeList: Optional[QTreeWidget]) -> None:
@@ -731,7 +759,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
             event: Focus event
         """
         self.setListActive(self.tw_import)
-        self.tw_export.setCurrentIndex(self.tw_export.model().createIndex(-1, 0))
         event.accept()
 
     @err_catcher(name=__name__)
@@ -742,7 +769,6 @@ class %s(QWidget, %s.%s, %s.%sClass):
             event: Focus event
         """
         self.setListActive(self.tw_export)
-        self.tw_import.setCurrentIndex(self.tw_import.model().createIndex(-1, 0))
         event.accept()
 
     @err_catcher(name=__name__)
@@ -1470,7 +1496,7 @@ QGroupBox::indicator:checked {
         if statetype != "Folder":
             item.setFlags(item.flags() & ~Qt.ItemIsDropEnabled)
 
-        if not stateData or applyDefaults is True:
+        if stateData is None or applyDefaults is True:
             if hasattr(item.ui, "initializeContextBasedSettings"):
                 item.ui.initializeContextBasedSettings()
 
@@ -1512,6 +1538,7 @@ QGroupBox::indicator:checked {
         if additionalSettings:
             stateSettings.update(copy.deepcopy(additionalSettings))
 
+        logger.debug("applying default state settings")
         if stateSettings:
             state.loadData(stateSettings)
             return True
@@ -1909,12 +1936,13 @@ QGroupBox::indicator:checked {
         self.activeList.setFocus()
 
     @err_catcher(name=__name__)
-    def importShotCam(self, shot: Optional[Dict[str, Any]] = None, quiet: bool = False) -> bool:
+    def importShotCam(self, shot: Optional[Dict[str, Any]] = None, quiet: bool = False, settings: Optional[Dict[str, Any]] = None) -> bool:
         """Import camera from a shot.
         
         Args:
             shot: Shot dictionary (optional, prompts if None)
             quiet: If True, skip dialogs
+            settings: Optional settings dict
 
         Returns:
             True if shotcam was imported successfully, False otherwise
@@ -1953,7 +1981,7 @@ QGroupBox::indicator:checked {
                 shot["task"] = os.getenv("PRISM_SHOTCAM_TASK", "Cameras")
 
             filepath = self.core.products.getLatestVersionpathFromProduct(
-                "_ShotCam", entity=shot
+                self.core.products.getShotcamProductName(), entity=shot
             )
             if not filepath:
                 if not quiet:
@@ -1963,13 +1991,16 @@ QGroupBox::indicator:checked {
                 return False
 
             logger.debug("importing shotcam: %s" % filepath)
-            settings = {}
+            settings = settings or {}
             if quiet:
                 settings["quiet"] = True
-                settings["lookThroughCam"] = True
+                if "lookThroughCam" not in settings:
+                    settings["lookThroughCam"] = True
+
                 if self.core.appPlugin.pluginName == "Maya":
                     settings["useNamespace"] = False
-                    settings["mode"] = "import"
+                    if "mode" not in settings:
+                        settings["mode"] = "import"
 
             self.createState("ImportFile", importPath=filepath, setActive=True, settings=settings)
 
@@ -2000,7 +2031,7 @@ QGroupBox::indicator:checked {
         for state in self.states:
             state.ui.updateUi()
 
-        self.checkStateSettingsWidth()
+        QTimer.singleShot(0, self.checkStateSettingsWidth)
         self.b_publish.setMinimumWidth(self.b_publish.width())
         self.core.callback("onStateManagerShow", args=[self])
 
@@ -2687,6 +2718,10 @@ QGroupBox::indicator:checked {
 
         incrementAfterPublish = self.getVersionUpAfterPublish()
         if continuePublish:
+            self.publishResult = [
+                entry for entry in self.publishResult
+                if not entry["result"] or "publish paused" not in entry["result"][0]
+            ]
             skipStates = [
                 x["state"].state
                 for x in self.publishResult
@@ -2694,8 +2729,8 @@ QGroupBox::indicator:checked {
             ]
             self.execStates = [x for x in self.execStates if x not in set(skipStates)]
             self.publishPaused = False
-            if self.pubMsg and self.pubMsg.msg.isVisible():
-                self.pubMsg.msg.close()
+            if self.pubMsg:
+                self.pubMsg.keepOpenOnExit = False
         else:
             if useVersion != "next" and versionWarning:
                 msg = (
@@ -2785,7 +2820,8 @@ QGroupBox::indicator:checked {
 
         if executeState:
             text = 'Executing states - please wait..'
-            self.pubMsg = self.core.waitPopup(self.core, text)
+            if not continuePublish or not self.pubMsg:
+                self.pubMsg = self.core.waitPopup(self.core, text)
             with self.pubMsg as pubMsg:
                 for i in range(self.tw_export.topLevelItemCount()):
                     curUi = self.tw_export.topLevelItem(i).ui
@@ -2820,6 +2856,7 @@ QGroupBox::indicator:checked {
                             for k in result:
                                 if "publish paused" in k["result"][0]:
                                     self.publishPaused = True
+                                    pubMsg.keepOpenOnExit = True
                                     return
 
                                 if "publish canceled" in k["result"][0]:
@@ -2832,13 +2869,15 @@ QGroupBox::indicator:checked {
 
                             if "publish paused" in result[0]:
                                 self.publishPaused = True
+                                pubMsg.keepOpenOnExit = True
                                 return
 
                             if result and "publish canceled" in result[0]:
                                 return
 
         else:
-            self.pubMsg = self.core.waitPopup(self.core, "")
+            if not continuePublish or not self.pubMsg:
+                self.pubMsg = self.core.waitPopup(self.core, "")
             with self.pubMsg as pubMsg:
                 for i in range(self.tw_export.topLevelItemCount()):
                     curUi = self.tw_export.topLevelItem(i).ui
@@ -2858,6 +2897,7 @@ QGroupBox::indicator:checked {
                             for k in exResult:
                                 if "publish paused" in k["result"][0]:
                                     self.publishPaused = True
+                                    pubMsg.keepOpenOnExit = True
                                     return
 
                                 if "publish canceled" in k["result"][0]:
@@ -2870,6 +2910,7 @@ QGroupBox::indicator:checked {
 
                             if exResult and "publish paused" in exResult[0]:
                                 self.publishPaused = True
+                                pubMsg.keepOpenOnExit = True
                                 return
 
                             if exResult and "publish canceled" in exResult[0]:
@@ -3013,6 +3054,202 @@ QGroupBox::indicator:checked {
         self.lastPathActionTimer.start(100)
 
     @err_catcher(name=__name__)
+    def showPublishWarnings(self, warnings: List[Any], paths: Optional[List[str]] = None) -> bool:
+        """Show publish warnings and return whether publishing should continue."""
+        collectedPaths = set(paths or [])
+        pathMessages = []
+        warnDlg = QDialog()
+        warnDlg.setObjectName("publishWarningsDialog")
+        warnDlg.setWindowTitle("Publish warnings")
+        warnDlg.setModal(True)
+        warnDlg.setParent(self.core.messageParent, Qt.Window)
+        warnDlg.setMinimumSize(
+            680 * self.core.uiScaleFactor, 420 * self.core.uiScaleFactor
+        )
+        warnDlg.resize(
+            900 * self.core.uiScaleFactor, 560 * self.core.uiScaleFactor
+        )
+        warnDlg.setStyleSheet(
+            """
+            QLabel#publishWarningsTitle {
+                font-size: 11pt;
+                font-weight: 600;
+            }
+            QScrollArea#publishWarningsDetails {
+                border: 1px solid rgba(255, 255, 255, 35);
+                border-radius: 6px;
+                background-color: rgba(0, 0, 0, 35);
+            }
+            QWidget#publishWarningsContent {
+                background-color: transparent;
+            }
+            QLabel#publishWarningsCategory {
+                font-size: 11pt;
+                font-weight: 600;
+                padding: 4px 2px;
+            }
+            QFrame#publishWarningItem {
+                border: 1px solid rgba(255, 255, 255, 28);
+                border-left: 3px solid rgb(232, 176, 45);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QFrame#publishWarningItem[severity="error"] {
+                border-left-color: rgb(220, 76, 70);
+            }
+            QLabel#publishWarningTitle {
+                font-weight: 600;
+            }
+            QLabel#publishWarningSeverity {
+                color: rgb(232, 176, 45);
+                font-size: 9pt;
+                font-weight: 600;
+            }
+            QLabel#publishWarningSeverity[severity="error"] {
+                color: rgb(220, 76, 70);
+            }
+            QTextBrowser#publishWarningMessage {
+                color: palette(text);
+                background-color: transparent;
+                border: none;
+            }
+            """
+        )
+
+        header = QFrame()
+        header.setObjectName("publishWarningsHeader")
+        headerLayout = QHBoxLayout(header)
+        headerLayout.setContentsMargins(9, 0, 0, 0)
+        headerLayout.setSpacing(14)
+
+        iconLabel = QLabel()
+        icon = warnDlg.style().standardIcon(QStyle.SP_MessageBoxWarning)
+        iconLabel.setPixmap(icon.pixmap(25, 25))
+        iconLabel.setAlignment(Qt.AlignCenter)
+        headerLayout.addWidget(iconLabel)
+
+        headerTextLayout = QVBoxLayout()
+        headerTextLayout.setContentsMargins(0, 0, 0, 0)
+        headerTextLayout.setSpacing(3)
+        titleLabel = QLabel("Review publish warnings")
+        titleLabel.setObjectName("publishWarningsTitle")
+        subtitleLabel = QLabel(
+            "The following issues were found. Review them before continuing."
+        )
+        subtitleLabel.setObjectName("publishWarningsSubtitle")
+        subtitleLabel.setWordWrap(True)
+        headerTextLayout.addWidget(titleLabel)
+        headerTextLayout.addWidget(subtitleLabel)
+        headerLayout.addLayout(headerTextLayout, 1)
+
+        warningDetails = QScrollArea()
+        warningDetails.setObjectName("publishWarningsDetails")
+        warningDetails.setWidgetResizable(True)
+        warningDetails.setFrameShape(QFrame.NoFrame)
+
+        warningContent = QWidget()
+        warningContent.setObjectName("publishWarningsContent")
+        warningLayout = QVBoxLayout(warningContent)
+        warningLayout.setContentsMargins(12, 12, 12, 12)
+        warningLayout.setSpacing(10)
+
+        for category, categoryWarnings in warnings:
+            if not categoryWarnings:
+                continue
+
+            if category:
+                categoryLabel = QLabel(category.strip())
+                categoryLabel.setObjectName("publishWarningsCategory")
+                categoryLabel.setTextFormat(Qt.PlainText)
+                categoryLabel.setWordWrap(True)
+                categoryLabel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+                categoryLabel.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                warningLayout.addWidget(categoryLabel)
+
+            for title, message, severity in categoryWarnings:
+                warningItem = QFrame()
+                warningItem.setObjectName("publishWarningItem")
+                severityName = "error" if severity == 3 else "warning"
+                warningItem.setProperty("severity", severityName)
+
+                itemLayout = QVBoxLayout(warningItem)
+                itemLayout.setContentsMargins(12, 10, 12, 10)
+                itemLayout.setSpacing(5)
+
+                itemHeader = QHBoxLayout()
+                itemHeader.setContentsMargins(0, 0, 0, 0)
+                itemHeader.setSpacing(10)
+                titleLabel = QLabel(title.strip())
+                titleLabel.setObjectName("publishWarningTitle")
+                titleLabel.setTextFormat(Qt.PlainText)
+                titleLabel.setWordWrap(True)
+                titleLabel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+                titleLabel.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                itemHeader.addWidget(titleLabel, 1)
+
+                severityLabel = QLabel(severityName.upper())
+                severityLabel.setObjectName("publishWarningSeverity")
+                severityLabel.setProperty("severity", severityName)
+                severityLabel.setAlignment(Qt.AlignRight | Qt.AlignTop)
+                itemHeader.addWidget(severityLabel)
+                itemLayout.addLayout(itemHeader)
+
+                if message.strip():
+                    for paragraph in message.strip().split("\n\n"):
+                        if not paragraph.strip():
+                            continue
+
+                        lines = paragraph.splitlines()
+                        paragraphPaths = [line.strip() for line in lines if line.strip() in collectedPaths]
+                        shortText = "\n".join(
+                            os.path.basename(line.strip().replace("\\", "/"))
+                            if line.strip() in collectedPaths else line
+                            for line in lines
+                        )
+                        messageLabel = PublishWarningMessage(shortText)
+                        if paragraphPaths:
+                            messageLabel.setToolTip("\n".join(paragraphPaths))
+                            pathMessages.append((messageLabel, paragraph, shortText))
+
+                        itemLayout.addWidget(messageLabel)
+
+                warningLayout.addWidget(warningItem)
+
+        warningLayout.addStretch()
+        warningDetails.setWidget(warningContent)
+
+        buttonBox = QDialogButtonBox()
+        cancelButton = buttonBox.addButton("Cancel", QDialogButtonBox.RejectRole)
+        cancelButton.setObjectName("publishWarningsCancel")
+        continueButton = buttonBox.addButton(
+            "Continue", QDialogButtonBox.AcceptRole
+        )
+        continueButton.setObjectName("publishWarningsContinue")
+        continueButton.setDefault(True)
+        buttonBox.accepted.connect(warnDlg.accept)
+        buttonBox.rejected.connect(warnDlg.reject)
+
+        layout = QVBoxLayout(warnDlg)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+        layout.addWidget(header)
+        if pathMessages:
+            showFullPaths = QCheckBox("Show full paths")
+            showFullPaths.setObjectName("publishWarningsShowFullPaths")
+
+            def toggleFullPaths(checked: bool) -> None:
+                for messageLabel, fullText, shortText in pathMessages:
+                    messageLabel.setPlainText(fullText if checked else shortText)
+
+            showFullPaths.toggled.connect(toggleFullPaths)
+            layout.addWidget(showFullPaths)
+
+        layout.addWidget(warningDetails, 1)
+        layout.addWidget(buttonBox)
+
+        return warnDlg.exec_() == QDialog.Accepted
+
+    @err_catcher(name=__name__)
     def runSantityChecks(self, executeState: bool) -> List[Dict[str, Any]]:
         """Run sanity checks before state execution.
         
@@ -3023,81 +3260,113 @@ QGroupBox::indicator:checked {
             List of check result dictionaries
         """
         result = []
-        extResult = getattr(self.core.appPlugin, "sm_getExternalFiles", lambda x: None)(self)
-        if extResult is not None:
-            extFiles, extFilesSource = extResult
-        else:
-            extFiles = []
-            extFilesSource = []
+        dependencyPaths = []
+        validateExtFiles = os.getenv("PRISM_VALIDATE_EXTERNAL_FILES", "1") == "1"
+        if validateExtFiles:
+            extResult = getattr(self.core.appPlugin, "sm_getExternalFiles", lambda x: None)(self)
+            if extResult is not None:
+                extFiles, extFilesSource = extResult
+            else:
+                extFiles = []
+                extFilesSource = []
 
-        invalidFiles = []
-        nonExistend = []
-        for idx, i in enumerate(extFiles):
-            i = self.core.fixPath(i)
-
-            if not (
-                i.lower().startswith(self.core.projectPath.lower())
-                or (
-                    self.core.useLocalFiles and i.startswith(self.core.localProjectPath)
+            invalidFiles = []
+            nonExistend = []
+            ignoreExternalFilesOutside = [
+                pattern.strip()
+                for pattern in os.getenv(
+                    "PRISM_IGNORE_EXTERNAL_FILES_OUTSIDE_PROJECT", ""
+                ).split(os.pathsep)
+                if pattern.strip()
+            ]
+            ignoreExternalFilesNonExisting = [
+                pattern.strip()
+                for pattern in os.getenv(
+                    "PRISM_IGNORE_EXTERNAL_FILES_NON_EXISTING", ""
+                ).split(os.pathsep)
+                if pattern.strip()
+            ]
+            for idx, externalFile in enumerate(extFiles):
+                externalFile = self.core.fixPath(externalFile)
+                inProject = (
+                    externalFile.lower().startswith(self.core.projectPath.lower())
+                    or (
+                        self.core.useLocalFiles and externalFile.startswith(self.core.localProjectPath)
+                    )
                 )
-            ):
-                if os.path.exists(i) and not i in invalidFiles:
-                    invalidFiles.append(i)
+                ignored = any(
+                    fnmatch.fnmatch(externalFile, pattern)
+                    for pattern in ignoreExternalFilesOutside
+                )
+                if (
+                    not inProject
+                    and not ignored
+                    and os.path.exists(externalFile)
+                    and externalFile not in invalidFiles
+                ):
+                    invalidFiles.append(externalFile)
 
-            if (
-                not os.path.exists(i)
-                and not i in nonExistend
-                and i != self.core.getCurrentFileName()
-                and not ("#" in i and self.core.media.getFilesFromSequence(i))
-            ):
-                exists = getattr(
-                    self.core.appPlugin, "sm_existExternalAsset", lambda x, y: False
-                )(self, i)
-                if exists:
-                    continue
+                ignored = any(
+                    fnmatch.fnmatch(externalFile, pattern)
+                    for pattern in ignoreExternalFilesNonExisting
+                )
+                if (
+                    not ignored
+                    and not os.path.exists(externalFile)
+                    and not externalFile in nonExistend
+                    and externalFile != self.core.getCurrentFileName()
+                    and not (("#" in externalFile or "%0" in externalFile) and self.core.media.getFilesFromSequence(externalFile))
+                ):
+                    exists = getattr(
+                        self.core.appPlugin, "sm_existExternalAsset", lambda x, y: False
+                    )(self, externalFile)
+                    if exists:
+                        continue
 
-                nonExistend.append(i)
+                    nonExistend.append(externalFile)
 
-        if len(invalidFiles) > 0:
-            depTitle = "The current scene contains dependencies from outside the project folder:\n\n"
-            depwarn = ""
-            for i in invalidFiles:
-                parmStr = getattr(
-                    self.core.appPlugin, "sm_fixWarning", lambda x1, x2, x3, x4: ""
-                )(self, i, extFiles, extFilesSource)
+            if len(invalidFiles) > 0:
+                depTitle = "Dependencies outside the project folder"
+                depwarn = ""
+                for invalidFile in invalidFiles:
+                    parmStr = getattr(
+                        self.core.appPlugin, "sm_fixWarning", lambda x1, x2, x3, x4: ""
+                    )(self, invalidFile, extFiles, extFilesSource)
 
-                depwarn += "\t%s\n\t%s\n\n" % (parmStr, i)
+                    depwarn += ((parmStr.strip() + "\n") if parmStr.strip() else "") + invalidFile + "\n\n"
 
-            result.append([depTitle, depwarn, 2])
+                result.append([depTitle, depwarn, 2])
+                dependencyPaths.extend(invalidFiles)
 
-        if len(nonExistend) > 0:
-            depTitle = (
-                "The current scene contains dependencies, which don't exist:\n\n"
-            )
-            depwarn = ""
-            for i in nonExistend:
-                parmStr = getattr(
-                    self.core.appPlugin, "sm_fixWarning", lambda x1, x2, x3, x4: ""
-                )(self, i, extFiles, extFilesSource)
-                depwarn += "\t%s\n\t%s\n\n" % (parmStr, i)
+            if len(nonExistend) > 0:
+                depTitle = (
+                    "Missing dependencies"
+                )
+                depwarn = ""
+                for nonExistFile in nonExistend:
+                    parmStr = getattr(
+                        self.core.appPlugin, "sm_fixWarning", lambda x1, x2, x3, x4: ""
+                    )(self, nonExistFile, extFiles, extFilesSource)
+                    depwarn += ((parmStr.strip() + "\n") if parmStr.strip() else "") + nonExistFile + "\n\n"
 
-            result.append([depTitle, depwarn, 2])
+                result.append([depTitle, depwarn, 2])
+                dependencyPaths.extend(nonExistend)
 
         warnings = []
         if len(result) > 0:
             warnings.append(["", result])
 
         if executeState:
-            for i in range(self.tw_export.topLevelItemCount()):
-                curState = self.tw_export.topLevelItem(i)
+            for idx in range(self.tw_export.topLevelItemCount()):
+                curState = self.tw_export.topLevelItem(idx)
                 if curState.ui.className == "Folder" or id(curState) in set([id(s) for s in self.execStates]):
                     if curState.ui.className == "Folder":
                         warnings += curState.ui.preExecuteState(states=self.execStates)
                     else:
                         warnings.append(curState.ui.preExecuteState())
         else:
-            for i in range(self.tw_export.topLevelItemCount()):
-                curState = self.tw_export.topLevelItem(i)
+            for idx in range(self.tw_export.topLevelItemCount()):
+                curState = self.tw_export.topLevelItem(idx)
                 if curState.checkState(0) == Qt.Checked and curState in set(
                     self.execStates
                 ):
@@ -3106,115 +3375,33 @@ QGroupBox::indicator:checked {
                     else:
                         warnings.append(curState.ui.preExecuteState())
 
-        warnString = ""
-        if self.core.uiAvailable:
-            for i in warnings:
-                if len(i[1]) == 0:
-                    continue
-
-                if i[0] == "":
-                    warnBase = ""
-                else:
-                    warnString += "- <b>%s</b>\n\n" % i[0]
-                    warnBase = "\t"
-
-                for k in i[1]:
-                    if k[2] == 2:
-                        warnString += (
-                            warnBase
-                            + (
-                                '- <font color="yellow">%s</font>\n  %s\n'
-                                % (k[0], k[1])
-                            ).replace("\n", "\n" + warnBase)
-                            + "\n"
-                        )
-                    elif k[2] == 3:
-                        warnString += (
-                            warnBase
-                            + (
-                                '- <font color="red">%s</font>\n  %s\n' % (k[0], k[1])
-                            ).replace("\n", "\n" + warnBase)
-                            + "\n"
-                        )
-        else:
-            for i in warnings:
-                if len(i[1]) == 0:
-                    continue
-
-                if i[0] == "":
-                    warnBase = ""
-                else:
-                    warnString += "- %s\n" % i[0]
-                    warnBase = "\t"
-
-                for k in i[1]:
-                    warnTitle = k[0].replace("\n", "")
-                    warnMsg = k[1].replace("\n", "")
-                    if k[2] == 2:
-                        warnString += (
-                            warnBase
-                            + ("- %s\n  %s" % (warnTitle, warnMsg)).replace(
-                                "\n", "\n" + warnBase
-                            )
-                            + "\n"
-                        )
-                    elif k[2] == 3:
-                        warnString += (
-                            warnBase
-                            + ("- %s\n  %s" % (warnTitle, warnMsg)).replace(
-                                "\n", "\n" + warnBase
-                            )
-                            + "\n"
-                        )
-
-        if warnString != "":
+        displayWarnings = [
+            (
+                category,
+                [warning for warning in categoryWarnings if warning[2] in [2, 3]],
+            )
+            for category, categoryWarnings in warnings
+        ]
+        hasWarnings = any(categoryWarnings for _, categoryWarnings in displayWarnings)
+        if hasWarnings:
             if self.core.uiAvailable:
-                warnDlg = QDialog()
-
-                warnDlg.setWindowTitle("Publish warnings")
-                l_info = QLabel(str("The following warnings have occurred:\n"))
-
-                warnString = "<pre>%s</pre>" % warnString.replace(
-                    "\n", "<br />"
-                ).replace("\t", "    ")
-                l_warnings = QLabel(warnString)
-                l_warnings.setAlignment(Qt.AlignTop)
-
-                sa_warns = QScrollArea()
-
-                lay_warns = QHBoxLayout()
-                lay_warns.addWidget(l_warnings)
-                lay_warns.setContentsMargins(10, 10, 10, 10)
-                lay_warns.addStretch()
-                w_warns = QWidget()
-                w_warns.setLayout(lay_warns)
-                sa_warns.setWidget(w_warns)
-                sa_warns.setWidgetResizable(True)
-
-                bb_warn = QDialogButtonBox()
-
-                bb_warn.addButton("Continue", QDialogButtonBox.AcceptRole)
-                bb_warn.addButton("Cancel", QDialogButtonBox.RejectRole)
-
-                bb_warn.accepted.connect(warnDlg.accept)
-                bb_warn.rejected.connect(warnDlg.reject)
-
-                bLayout = QVBoxLayout()
-                bLayout.addWidget(l_info)
-                bLayout.addWidget(sa_warns)
-                bLayout.addWidget(bb_warn)
-                warnDlg.setLayout(bLayout)
-                warnDlg.setParent(self.core.messageParent, Qt.Window)
-                warnDlg.resize(
-                    1000 * self.core.uiScaleFactor, 500 * self.core.uiScaleFactor
-                )
-
-                action = warnDlg.exec_()
-
-                if action == 0:
+                if not self.showPublishWarnings(displayWarnings, paths=dependencyPaths):
                     return
 
             else:
+                warnString = ""
+                for category, categoryWarnings in displayWarnings:
+                    if category:
+                        warnString += "- %s\n" % category
+
+                    warnBase = "\t" if category else ""
+                    for title, message, severity in categoryWarnings:
+                        warnString += warnBase + "- %s\n" % title.replace("\n", "")
+                        if message:
+                            warnString += warnBase + "  %s\n" % message.replace(
+                                "\n", "\n" + warnBase + "  "
+                            )
+
                 logger.warning(warnString)
 
         return True
@@ -3369,7 +3556,7 @@ def getStateWindow(core: Any, stateType: str, settings: Optional[Dict[str, Any]]
     Returns:
         QDialog with state UI, or None if state type not found
     """
-    settings = settings or None
+    settings = settings if settings is not None else None
     #  stateNameBase = stateType.replace(stateType.split("_", 1)[0] + "_", "")
     sm = StateManager(core, forceStates=[stateType], standalone=True)
     item = sm.createState(stateType, stateData=settings)

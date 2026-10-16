@@ -37,7 +37,7 @@ import sys
 import platform
 import logging
 from datetime import datetime
-from typing import Any, Optional, List, Dict, Tuple
+from typing import Any, Callable, Optional, List, Dict, Tuple
 
 prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -103,6 +103,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         act_clearConfigCache: Action for clearing config cache on refresh.
     """
     showing = Signal(object)
+    tabCreated = Signal(object)
 
     def __init__(self, core: Any) -> None:
         """Initialize the Project Browser window.
@@ -127,6 +128,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.setWindowTitle(title)
         self.tabs = []
+        self.lazyTabFactories = {}
         self.previousTab = None
         self.locations = [{"name": "global"}]
         if self.core.useLocalFiles:
@@ -151,8 +153,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.actionCheckForUpdates.toggled.connect(self.triggerUpdates)
         self.actionCheckForShotFrameRange.toggled.connect(self.triggerFrameranges)
         self.actionCloseAfterLoad.toggled.connect(self.triggerCloseLoad)
-        if hasattr(self, "mediaBrowser"):
-            self.actionAutoplay.toggled.connect(self.mediaBrowser.triggerAutoplay)
+        self.actionAutoplay.toggled.connect(self.triggerAutoplay)
 
         self.act_filesizes.toggled.connect(self.triggerShowFileSizes)
         self.act_rememberTab.toggled.connect(self.triggerRememberTab)
@@ -334,9 +335,19 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_user.setFocusPolicy(Qt.StrongFocus)
         self.b_user.setToolTip("Current User")
         if self.core.appPlugin.pluginName != "Standalone":
-            self.b_user.setStyleSheet(
-                "QWidget{padding: 0; border-width: 0px;background-color: transparent} QWidget:hover{background-color: rgba(250, 250, 250, 40); }"
-            )
+            self.b_user.setStyleSheet("""
+                QPushButton, QToolButton {
+                    background: transparent;
+                    border: 0px solid transparent;
+                }
+                QPushButton:hover, QToolButton:hover,
+                QPushButton:focus, QToolButton:focus {
+                    background-color: rgba(250, 250, 250, 40);
+                }
+                QPushButton:pressed, QToolButton:pressed {
+                    background-color: rgba(250, 250, 250, 60);
+                }
+            """)
 
         path = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "project.png")
         icon = self.core.media.getColoredIcon(path)
@@ -348,9 +359,19 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_projects.setFocusPolicy(Qt.StrongFocus)
         self.b_projects.setToolTip("Current Project")
         if self.core.appPlugin.pluginName != "Standalone":
-            self.b_projects.setStyleSheet(
-                "QWidget{padding: 0; border-width: 0px;background-color: transparent} QWidget:hover{background-color: rgba(250, 250, 250, 40); }"
-            )
+            self.b_projects.setStyleSheet("""
+                QPushButton, QToolButton {
+                    background: transparent;
+                    border: 0px solid transparent;
+                }
+                QPushButton:hover, QToolButton:hover,
+                QPushButton:focus, QToolButton:focus {
+                    background-color: rgba(250, 250, 250, 40);
+                }
+                QPushButton:pressed, QToolButton:pressed {
+                    background-color: rgba(250, 250, 250, 60);
+                }
+            """)
 
         self.b_refreshTabs = QToolButton()
         self.lo_corner.addWidget(self.b_user)
@@ -367,9 +388,20 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_refreshTabs.setIconSize(QSize(20, 20))
         self.b_refreshTabs.setToolTip("Refresh")
         if self.core.appPlugin.pluginName != "Standalone":
-            self.b_refreshTabs.setStyleSheet(
-                "QWidget{padding: 0; border-width: 0px;background-color: transparent} QWidget:hover{background-color: rgba(250, 250, 250, 40); }"
-            )
+            self.b_refreshTabs.setStyleSheet("""
+                QPushButton, QToolButton {
+                    background: transparent;
+                    border: 0px solid transparent;
+                }
+                QPushButton:hover, QToolButton:hover,
+                QPushButton:focus, QToolButton:focus {
+                    background-color: rgba(250, 250, 250, 40);
+                }
+                QPushButton:pressed, QToolButton:pressed {
+                    background-color: rgba(250, 250, 250, 60);
+                }
+            """)
+
         self.b_refreshTabs.setContextMenuPolicy(Qt.CustomContextMenu)
         self.b_refreshTabs.customContextMenuRequested.connect(
             lambda x: self.showContextMenu("refresh")
@@ -414,20 +446,18 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if "clearConfigCacheOnRefresh" in brsData:
             self.act_clearConfigCache.setChecked(brsData["clearConfigCacheOnRefresh"])
 
-        self.sceneBrowser = SceneBrowser.SceneBrowser(
-            core=self.core, projectBrowser=self, refresh=False
+        self.addTab(
+            self.core.tr("Scenefiles"),
+            createWidget=self.createSceneBrowser,
         )
-        self.addTab(self.core.tr("Scenefiles"), self.sceneBrowser)
-
-        self.productBrowser = ProductBrowser.ProductBrowser(core=self.core, refresh=False, projectBrowser=self)
-        self.productBrowser.autoClose = False
-      #  self.productBrowser.handleImport = False
-        self.addTab(self.core.tr("Products"), self.productBrowser)
-
-        self.mediaBrowser = MediaBrowser.MediaBrowser(
-            core=self.core, projectBrowser=self, refresh=False
+        self.addTab(
+            self.core.tr("Products"),
+            createWidget=self.createProductBrowser,
         )
-        self.addTab(self.core.tr("Media"), self.mediaBrowser)
+        self.addTab(
+            self.core.tr("Media"),
+            createWidget=self.createMediaBrowser,
+        )
 
         self.tbw_project.setStyleSheet("QTabWidget::tab-bar {alignment: center;}")
 
@@ -516,6 +546,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         Args:
             recent: Path to recent scenefile.
         """
+        if not hasattr(self, "sceneBrowser"):
+            self.createSceneBrowser()
+
         mods = QApplication.keyboardModifiers()
         if mods == Qt.ControlModifier:
             self.showTab("Scenefiles")
@@ -533,14 +566,28 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.b_projects.adjustSize()
 
     @err_catcher(name=__name__)
-    def addTab(self, name: str, widget: Any, position: int = -1) -> None:
+    def addTab(
+        self,
+        name: str,
+        widget: Optional[Any] = None,
+        position: int = -1,
+        createWidget: Optional[Callable[[], Any]] = None,
+    ) -> None:
         """Add a browser tab.
         
         Args:
             name: Tab display name.
-            widget: Widget to display in tab.
+            widget: Widget to display in tab. Required unless createWidget is set.
             position: Tab position index, -1 for append.
+            createWidget: Optional factory which creates the widget on first use.
         """
+        if widget is None and createWidget is None:
+            raise ValueError("Either widget or createWidget must be provided.")
+
+        if widget is None:
+            widget = QWidget()
+            self.lazyTabFactories[widget] = createWidget
+
         widget.setProperty("tabType", name)
         widget.setAutoFillBackground(False)
         self.tbw_project.insertTab(position, widget, name)
@@ -549,6 +596,61 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if curIdx != position and (position != -1 or curIdx != (self.tbw_project.count() - 1)):
             QApplication.processEvents()
             widget.hide()
+
+    @err_catcher(name=__name__)
+    def createTabWidget(self, tab: int) -> Optional[Any]:
+        """Create and install a lazily registered tab widget."""
+        placeholder = self.tbw_project.widget(tab)
+        factory = self.lazyTabFactories.pop(placeholder, None)
+        if not factory:
+            return placeholder
+
+        name = self.tbw_project.tabText(tab)
+        icon = self.tbw_project.tabIcon(tab)
+        tooltip = self.tbw_project.tabToolTip(tab)
+        widget = factory()
+        if not isinstance(widget, QWidget):
+            raise TypeError("A tab factory must return a QWidget.")
+
+        widget.setProperty("tabType", placeholder.property("tabType"))
+        widget.setAutoFillBackground(False)
+        signalsBlocked = self.tbw_project.blockSignals(True)
+        self.tbw_project.removeTab(tab)
+        self.tbw_project.insertTab(tab, widget, name)
+        self.tbw_project.setTabIcon(tab, icon)
+        self.tbw_project.setTabToolTip(tab, tooltip)
+        self.tbw_project.setCurrentIndex(tab)
+        self.tbw_project.blockSignals(signalsBlocked)
+
+        self.tabs[self.tabs.index(placeholder)] = widget
+        placeholder.deleteLater()
+        self.tabCreated.emit(widget)
+        return widget
+
+    @err_catcher(name=__name__)
+    def createSceneBrowser(self) -> Any:
+        """Create the Scene Browser tab on demand."""
+        self.sceneBrowser = SceneBrowser.SceneBrowser(
+            core=self.core, projectBrowser=self, refresh=False
+        )
+        return self.sceneBrowser
+
+    @err_catcher(name=__name__)
+    def createProductBrowser(self) -> Any:
+        """Create the Product Browser tab on demand."""
+        self.productBrowser = ProductBrowser.ProductBrowser(
+            core=self.core, refresh=False, projectBrowser=self
+        )
+        self.productBrowser.autoClose = False
+        return self.productBrowser
+
+    @err_catcher(name=__name__)
+    def createMediaBrowser(self) -> Any:
+        """Create the Media Browser tab on demand."""
+        self.mediaBrowser = MediaBrowser.MediaBrowser(
+            core=self.core, projectBrowser=self, refresh=False
+        )
+        return self.mediaBrowser
 
     @err_catcher(name=__name__)
     def closeEvent(self, event: Any) -> None:
@@ -645,24 +747,32 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if not hasattr(self, "w_projects"):
             self.w_projects = self.core.projects.ProjectListWidget(self)
             self.b_projects.setFocusProxy(self.w_projects)
+            self.w_projects.signalSizeChanged.connect(self.positionProjectsWidget)
 
-        mright = self.menubar.mapToGlobal(self.menubar.geometry().bottomRight()).x()
-        y = self.menubar.mapToGlobal(self.menubar.geometry().bottomRight()).y()
-        self.w_projects.adjustSize()
-        widgetWidth = self.w_projects.geometry().width()
-        x = mright - self.w_menuCorner.width() + self.b_projects.pos().x() + self.b_projects.width()
-        x -= widgetWidth
-        newPos = QPoint(x, y)
-        self.w_projects.move(newPos)
-
+        self.w_projects.setMinimumWidth(510)
+        self.w_projects.setMinimumHeight(self.w_projects.preferredHeight)
+        self.w_projects.resize(510, self.w_projects.preferredHeight)
         self.w_projects.showWidget()
-        QApplication.processEvents()
+        self.positionProjectsWidget()
 
-        x = mright - self.w_menuCorner.width() + self.b_projects.pos().x() + self.b_projects.width()
-        widgetWidth = self.w_projects.geometry().width()
-        x -= widgetWidth
-        newPos = QPoint(x, y)
-        self.w_projects.move(newPos)
+    @err_catcher(name=__name__)
+    def positionProjectsWidget(self) -> None:
+        """Keep the project picker aligned to its button on the current screen."""
+        anchor = self.b_projects.mapToGlobal(QPoint(self.b_projects.width(), self.b_projects.height()))
+        screen = QApplication.screenAt(anchor) or self.screen()
+        available = screen.availableGeometry()
+        self.w_projects.setMinimumWidth(min(510, available.width()))
+        self.w_projects.setMinimumHeight(min(self.w_projects.preferredHeight, available.height()))
+        width = min(self.w_projects.width(), available.width())
+        height = min(self.w_projects.height(), available.height())
+        self.w_projects.resize(width, height)
+        x = max(available.left(), min(anchor.x() - width, available.right() - width + 1))
+        y = anchor.y()
+        if y + height > available.bottom() + 1:
+            y = self.b_projects.mapToGlobal(QPoint(0, 0)).y() - height
+
+        y = max(available.top(), min(y, available.bottom() - height + 1))
+        self.w_projects.move(QPoint(x, y))
 
     @err_catcher(name=__name__)
     def tabChanged(self, tab: int, navData: Optional[Dict[str, Any]] = None) -> None:
@@ -677,7 +787,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         else:
             prev = None
 
-        curW = self.tbw_project.currentWidget()
+        curW = self.createTabWidget(tab)
         if curW and hasattr(curW, "entered"):
             curW.entered(prevTab=prev, navData=navData)
 
@@ -686,6 +796,12 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         self.updateTabSize(tab)
         self.previousTab = tab
+
+    @err_catcher(name=__name__)
+    def triggerAutoplay(self, checked: bool = False) -> None:
+        """Apply the autoplay setting once the Media Browser exists."""
+        if hasattr(self, "mediaBrowser"):
+            self.mediaBrowser.triggerAutoplay(checked)
 
     @err_catcher(name=__name__)
     def updateTabSize(self, tab: int) -> None:
@@ -748,6 +864,10 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.act_clearConfigCache.isChecked():
             self.core.configs.clearCache()
 
+        self.core.configs.clearCache(path=self.core.userini, persistent=True)
+        if hasattr(self, "w_projects"):
+            self.w_projects.invalidateProjects()
+
         self.core.callback(name="onProjectBrowserRefreshUiTriggered", args=[self])
         self.refreshUI()
 
@@ -768,7 +888,8 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if self.isVisible() and not self.isMinimized():
             cw = self.tbw_project.currentWidget()
-            cw.refreshUI()
+            if hasattr(cw, "refreshUI"):
+                cw.refreshUI()
 
         self.core.callback(name="onProjectBrowserRefreshUI", args=[self])
         self.setEnabled(True)
@@ -839,7 +960,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
             QMenu with refresh options.
         """
         menu = QMenu(self)
-        menu.addAction("Clear configcache", self.core.configs.clearCache)
+        menu.addAction("Clear configcache", lambda: self.core.configs.clearCache(persistent=True))
         menu.addActions(self.b_refreshTabs.actions())
         return menu
 

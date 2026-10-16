@@ -95,8 +95,8 @@ class ProjectEntities(object):
         self.omittedEntities = {"asset": [], "shot": []}
         omits = self.core.getConfig(config="omit") or {}
 
-        oShots = omits.get("shot") or []
         oAssets = omits.get("asset") or []
+        oShots = omits.get("shot") or {}
 
         self.omittedEntities["shot"] = oShots
         self.omittedEntities["asset"] = oAssets
@@ -164,11 +164,14 @@ class ProjectEntities(object):
         Returns:
             bool: True if shot is omitted.
         """
-        if entity["sequence"] in self.omittedEntities["shot"]:
-            if entity["shot"] in self.omittedEntities["shot"][entity["sequence"]]:
+        omits = self.omittedEntities["shot"]
+        if entity.get("episode") and self.core.projects.getUseEpisodes():
+            episodeOmits = omits.get(entity["episode"], {})
+            if isinstance(episodeOmits, dict) and entity["shot"] in episodeOmits.get(entity["sequence"], []):
                 return True
 
-        return False
+        sequenceOmits = omits.get(entity["sequence"], [])
+        return isinstance(sequenceOmits, list) and entity["shot"] in sequenceOmits
 
     @err_catcher(name=__name__)
     def getShotSubFolders(self) -> List[str]:
@@ -244,17 +247,17 @@ class ProjectEntities(object):
             return "folder"
 
     @err_catcher(name=__name__)
-    def getShotName(self, entity: Dict[str, Any]) -> Optional[str]:
+    def getShotName(self, entity: Dict[str, Any]) -> str:
         """Get the formatted name for a shot entity.
         
         Args:
             entity: Shot entity dict with 'sequence', 'shot', and optionally 'episode' keys.
             
         Returns:
-            Optional[str]: Formatted shot name, or None if no sequence in entity.
+            str: Formatted shot name, or empty string if no sequence in entity.
         """
         if "sequence" not in entity:
-            return
+            return ""
 
         shotnameTemplate = os.getenv("PRISM_SHOT_NAME_TEMPLATE")
         if shotnameTemplate:
@@ -271,6 +274,69 @@ class ProjectEntities(object):
         return shotname
 
     @err_catcher(name=__name__)
+    def useEpisodicShotRanges(self) -> bool:
+        return self.core.projects.getUseEpisodes() and self.core.compareVersions(self.core.projectVersion, "v2.1.1") != "lower"
+
+    @err_catcher(name=__name__)
+    def useEpisodicShotInfo(self) -> bool:
+        return self.core.projects.getUseEpisodes() and self.core.compareVersions(self.core.projectVersion, "v2.1.4") != "lower"
+
+    @err_catcher(name=__name__)
+    def getShotInfoEntityData(self, shotInfo: Dict[str, Any], entity: Dict[str, Any], create: bool = False) -> Optional[Dict[str, Any]]:
+        shotsData = shotInfo.get("shots")
+        if shotsData is None:
+            if not create:
+                return
+            shotInfo["shots"] = {}
+            shotsData = shotInfo["shots"]
+
+        sequence = entity.get("sequence")
+        shot = entity.get("shot")
+        if not sequence or not shot:
+            return
+
+        if self.useEpisodicShotInfo() and entity.get("episode"):
+            episode = entity["episode"]
+            if create:
+                if episode not in shotsData:
+                    shotsData[episode] = {}
+
+                if sequence not in shotsData[episode]:
+                    shotsData[episode][sequence] = {}
+
+                if shot not in shotsData[episode][sequence]:
+                    shotsData[episode][sequence][shot] = {}
+
+                return shotsData[episode][sequence][shot]
+
+            if (
+                episode in shotsData
+                and sequence in shotsData[episode]
+                and shot in shotsData[episode][sequence]
+            ):
+                return shotsData[episode][sequence][shot]
+
+            # Backward compatibility for older projects upgraded to v2.1.4+
+            if sequence in shotsData and shot in shotsData[sequence]:
+                return shotsData[sequence][shot]
+
+            return
+
+        if create:
+            if sequence not in shotsData:
+                shotsData[sequence] = {}
+
+            if shot not in shotsData[sequence]:
+                shotsData[sequence][shot] = {}
+
+            return shotsData[sequence][shot]
+
+        if sequence in shotsData and shot in shotsData[sequence]:
+            return shotsData[sequence][shot]
+
+        return
+
+    @err_catcher(name=__name__)
     def setShotRange(self, entity: Dict[str, Any], start: int, end: int) -> None:
         """Set the frame range for a shot entity.
         
@@ -279,7 +345,7 @@ class ProjectEntities(object):
             start: Start frame number.
             end: End frame number.
         """
-        if self.core.projects.getUseEpisodes() and self.core.compareVersions(self.core.projectVersion, "v2.1.1") != "lower":
+        if self.useEpisodicShotRanges():
             epRanges = self.core.getConfig(
                 "shotRanges", entity["episode"], config="shotinfo", allowCache=False
             )
@@ -318,7 +384,7 @@ class ProjectEntities(object):
         """
         shotRange = None
         ranges = self.core.getConfig("shotRanges", config="shotinfo") or {}
-        if self.core.projects.getUseEpisodes() and self.core.compareVersions(self.core.projectVersion, "v2.1.1") != "lower":
+        if self.useEpisodicShotRanges():
             if entity.get("episode") in ranges:
                 if entity.get("sequence") in ranges[entity["episode"]]:
                     if entity.get("shot") in ranges[entity["episode"]][entity["sequence"]]:
@@ -714,7 +780,7 @@ class ProjectEntities(object):
         for sDir in stepDirs:
             dirContent += self.core.projects.getMatchingPaths(sDir)
 
-        for content in sorted(dirContent, key=lambda x: x.get("department")):
+        for content in sorted(dirContent, key=lambda x: x.get("department", "")):
             dep = content.get("department", "")
             if dep.startswith("_"):
                 continue
@@ -805,6 +871,9 @@ class ProjectEntities(object):
 
         sfiles = {}
         for sDir in sceneDirs:
+            if not sDir:
+                continue
+
             for root, dirs, files in os.walk(sDir):
                 for f in files:
                     if f in sfiles:
@@ -897,23 +966,23 @@ class ProjectEntities(object):
         if ext in self.getBlacklistedExtensions():
             return False
 
-        sData = self.core.getScenefileData(filename)
+        ext = os.path.splitext(filename)[1]
 
         try:
-            int(sData["extension"][-5:])  # ignore maya temp files
+            int(ext[-5:])  # ignore maya temp files
             logger.debug("maya temp file")
             return False
         except Exception:
             pass
 
-        if "extension" not in sData:
+        if not ext:
             logger.debug("no extension")
             return False
 
         if filename.endswith("info.json"):
             return False
 
-        if sData["extension"].endswith("~"):  # ignore nuke autosave files
+        if ext.endswith("~"):  # ignore nuke autosave files
             logger.debug("nuke autosave file")
             return False
 
@@ -921,7 +990,7 @@ class ProjectEntities(object):
             logger.debug("substance lockfile")
             return False
 
-        if sData["extension"] == ".spp" and "autosave_" in filename:  # ignore substance painter autosave files
+        if ext == ".spp" and "autosave_" in filename:  # ignore substance painter autosave files
             logger.debug("substance lockfile")
             return False
 
@@ -929,19 +998,19 @@ class ProjectEntities(object):
             logger.debug("autosave file")
             return False
 
-        if sData["extension"].startswith(".blend") and sData["extension"] != ".blend":  # ignore Blender autosave files
+        if ext.startswith(".blend") and ext != ".blend":  # ignore Blender autosave files
             logger.debug("Blender autosave file")
             return False
 
         if extensions:
-            unknownScene = sData["extension"] not in self.core.getPluginSceneFormats()
+            unknownScene = ext not in self.core.getPluginSceneFormats()
             if unknownScene:
                 if "*" not in extensions:
-                    logger.debug("invalid extension: %s" % sData["extension"])
+                    logger.debug("invalid extension: %s" % ext)
                     return False
             else:
-                if sData["extension"] not in extensions:
-                    logger.debug("invalid extension: %s" % sData["extension"])
+                if ext not in extensions:
+                    logger.debug("invalid extension: %s" % ext)
                     return False
 
         return True
@@ -1934,6 +2003,7 @@ class ProjectEntities(object):
         elif entityType == "shot":
             entityName = self.core.entities.getShotName(entity)
 
+        useEpisodes = entity.get("episode") and self.core.projects.getUseEpisodes()
         omits = self.core.getConfig(entityType, config="omit")
         if omit:
             if entityType == "asset":
@@ -1946,11 +2016,15 @@ class ProjectEntities(object):
                 if not omits:
                     omits = {}
 
-                if not entity["sequence"] in omits:
-                    omits[entity["sequence"]] = []
+                shotOmits = omits
+                if useEpisodes:
+                    shotOmits = omits.setdefault(entity["episode"], {})
 
-                if entity["shot"] not in omits[entity["sequence"]]:
-                    omits[entity["sequence"]].append(entity["shot"])
+                if entity["sequence"] not in shotOmits:
+                    shotOmits[entity["sequence"]] = []
+
+                if entity["shot"] not in shotOmits[entity["sequence"]]:
+                    shotOmits[entity["sequence"]].append(entity["shot"])
 
             self.core.setConfig(entityType, val=omits, config="omit")
             logger.debug("omitted %s %s" % (entityType, entityName))
@@ -1967,13 +2041,16 @@ class ProjectEntities(object):
                     return False
 
             elif entityType == "shot":
-                if entity["sequence"] not in omits:
+                shotOmits = omits
+                if useEpisodes:
+                    episodeOmits = omits.get(entity["episode"], {})
+                    if isinstance(episodeOmits, dict) and entity["shot"] in episodeOmits.get(entity["sequence"], []):
+                        shotOmits = episodeOmits
+
+                if entity["shot"] not in shotOmits.get(entity["sequence"], []):
                     return False
 
-                if entity["shot"] not in omits[entity["sequence"]]:
-                    return False
-
-                omits[entity["sequence"]].remove(entity["shot"])
+                shotOmits[entity["sequence"]].remove(entity["shot"])
 
             self.core.setConfig(entityType, val=omits, config="omit")
             logger.debug("restored %s %s" % (entityType, entityName))
@@ -2177,16 +2254,11 @@ class ProjectEntities(object):
 
         elif entity.get("type") == "shot":
             data = self.core.getConfig(config="shotinfo") or {}
-            if "shots" not in data:
+            shotData = self.getShotInfoEntityData(data, entity)
+            if not shotData:
                 return metadata
 
-            if entity.get("sequence", "") not in data["shots"]:
-                return metadata
-
-            if entity["shot"] not in data["shots"][entity["sequence"]]:
-                return metadata
-
-            metadata = data["shots"][entity["sequence"]][entity["shot"]].get("metadata", {})
+            metadata = shotData.get("metadata", {})
 
         return metadata
 
@@ -2224,16 +2296,9 @@ class ProjectEntities(object):
                 if shotConfig is None:
                     shotConfig = self.core.getConfig(config="shotinfo", allowCache=False) or {}
 
-                if "shots" not in shotConfig:
-                    shotConfig["shots"] = {}
-
-                if entity["sequence"] not in shotConfig["shots"]:
-                    shotConfig["shots"][entity["sequence"]] = {}
-
-                if entity["shot"] not in shotConfig["shots"][entity["sequence"]]:
-                    shotConfig["shots"][entity["sequence"]][entity["shot"]] = {}
-
-                shotConfig["shots"][entity["sequence"]][entity["shot"]]["metadata"] = metaData
+                shotEntityData = self.getShotInfoEntityData(shotConfig, entity, create=True)
+                if shotEntityData is not None:
+                    shotEntityData["metadata"] = metaData
         
         if assetConfig is not None:
             self.core.setConfig(data=assetConfig, config="assetinfo", updateNestedData=False)
@@ -2242,16 +2307,17 @@ class ProjectEntities(object):
             self.core.setConfig(data=shotConfig, config="shotinfo", updateNestedData=False)
 
     @err_catcher(name=__name__)
-    def deleteShot(self, shotName: str) -> None:
+    def deleteShot(self, shot: dict) -> None:
         """Delete a shot and all its files.
         
         Attempts to remove the shot folder from both global and local locations.
         Prompts user to retry if files are locked by another program.
         
         Args:
-            shotName: Name of the shot to delete.
+            shot: Shot data dictionary.
         """
-        shotPath = self.core.getEntityPath(shot=shotName)
+        shotPath = self.core.getEntityPath(entity=shot)
+        shotName = self.getEntityName(shot)
         while True:
             try:
                 if os.path.exists(shotPath):
@@ -2361,7 +2427,7 @@ class ProjectEntities(object):
             self.core.setConfig("shotRanges", val=curRange, config="shotinfo")
 
         curRange = self.core.getConfig("shots", config="shotinfo")
-        if curRange and curEpName in curRange:
+        if self.useEpisodicShotInfo() and curRange and curEpName in curRange:
             cursRange = curRange[curEpName]
             del curRange[curEpName]
             curRange[newEpName] = cursRange
@@ -2447,18 +2513,54 @@ class ProjectEntities(object):
                 os.rename(oldPrvPath, newPrvPath)
 
         curRange = self.core.getConfig("shotRanges", config="shotinfo")
-        if curRange and curSeqName in curRange:
-            cursRange = curRange[curSeqName]
-            del curRange[curSeqName]
-            curRange[newSeqName] = cursRange
-            self.core.setConfig("shotRanges", val=curRange, config="shotinfo")
+        if curRange:
+            if self.useEpisodicShotRanges():
+                changed = False
+                for episode in curRange:
+                    if curSeqName in curRange[episode]:
+                        cursRange = curRange[episode][curSeqName]
+                        del curRange[episode][curSeqName]
+                        curRange[episode][newSeqName] = cursRange
+                        changed = True
+
+                if not changed and curSeqName in curRange:
+                    cursRange = curRange[curSeqName]
+                    del curRange[curSeqName]
+                    curRange[newSeqName] = cursRange
+                    changed = True
+
+                if changed:
+                    self.core.setConfig("shotRanges", val=curRange, config="shotinfo")
+            elif curSeqName in curRange:
+                cursRange = curRange[curSeqName]
+                del curRange[curSeqName]
+                curRange[newSeqName] = cursRange
+                self.core.setConfig("shotRanges", val=curRange, config="shotinfo")
 
         curRange = self.core.getConfig("shots", config="shotinfo")
-        if curRange and curSeqName in curRange:
-            cursRange = curRange[curSeqName]
-            del curRange[curSeqName]
-            curRange[newSeqName] = cursRange
-            self.core.setConfig("shots", val=curRange, config="shotinfo")
+        if curRange:
+            if self.useEpisodicShotInfo():
+                changed = False
+                for episode in curRange:
+                    if curSeqName in curRange[episode]:
+                        cursRange = curRange[episode][curSeqName]
+                        del curRange[episode][curSeqName]
+                        curRange[episode][newSeqName] = cursRange
+                        changed = True
+
+                if not changed and curSeqName in curRange:
+                    cursRange = curRange[curSeqName]
+                    del curRange[curSeqName]
+                    curRange[newSeqName] = cursRange
+                    changed = True
+
+                if changed:
+                    self.core.setConfig("shots", val=curRange, config="shotinfo")
+            elif curSeqName in curRange:
+                cursRange = curRange[curSeqName]
+                del curRange[curSeqName]
+                curRange[newSeqName] = cursRange
+                self.core.setConfig("shots", val=curRange, config="shotinfo")
 
     @err_catcher(name=__name__)
     def renameShot(self, curShotData: Dict[str, str], newShotData: Dict[str, str], locations: Optional[List[str]] = None) -> None:
@@ -2527,19 +2629,49 @@ class ProjectEntities(object):
                     self.core.popup("Renaming shot canceled.")
                     return
 
-        curRange = self.core.getConfig("shotRanges", curShotData["sequence"], config="shotinfo")
-        if curRange and curShotData["shot"] in curRange:
-            cursRange = curRange[curShotData["shot"]]
-            del curRange[curShotData["shot"]]
-            curRange[newShotData["shot"]] = cursRange
-            self.core.setConfig("shotRanges", curShotData["sequence"], curRange, config="shotinfo")
+        updated = False
+        if self.useEpisodicShotRanges() and curShotData.get("episode"):
+            curRange = self.core.getConfig("shotRanges", curShotData["episode"], config="shotinfo")
+            if (
+                curRange
+                and curShotData["sequence"] in curRange
+                and curShotData["shot"] in curRange[curShotData["sequence"]]
+            ):
+                cursRange = curRange[curShotData["sequence"]][curShotData["shot"]]
+                del curRange[curShotData["sequence"]][curShotData["shot"]]
+                curRange[curShotData["sequence"]][newShotData["shot"]] = cursRange
+                self.core.setConfig("shotRanges", curShotData["episode"], curRange, config="shotinfo")
+                updated = True
 
-        curRange = self.core.getConfig("shots", curShotData["sequence"], config="shotinfo")
-        if curRange and curShotData["shot"] in curRange:
-            cursRange = curRange[curShotData["shot"]]
-            del curRange[curShotData["shot"]]
-            curRange[newShotData["shot"]] = cursRange
-            self.core.setConfig("shots", curShotData["sequence"], curRange, config="shotinfo")
+        if not updated:
+            curRange = self.core.getConfig("shotRanges", curShotData["sequence"], config="shotinfo")
+            if curRange and curShotData["shot"] in curRange:
+                cursRange = curRange[curShotData["shot"]]
+                del curRange[curShotData["shot"]]
+                curRange[newShotData["shot"]] = cursRange
+                self.core.setConfig("shotRanges", curShotData["sequence"], curRange, config="shotinfo")
+
+        updated = False
+        if self.useEpisodicShotInfo() and curShotData.get("episode"):
+            curRange = self.core.getConfig("shots", curShotData["episode"], config="shotinfo")
+            if (
+                curRange
+                and curShotData["sequence"] in curRange
+                and curShotData["shot"] in curRange[curShotData["sequence"]]
+            ):
+                cursRange = curRange[curShotData["sequence"]][curShotData["shot"]]
+                del curRange[curShotData["sequence"]][curShotData["shot"]]
+                curRange[curShotData["sequence"]][newShotData["shot"]] = cursRange
+                self.core.setConfig("shots", curShotData["episode"], curRange, config="shotinfo")
+                updated = True
+
+        if not updated:
+            curRange = self.core.getConfig("shots", curShotData["sequence"], config="shotinfo")
+            if curRange and curShotData["shot"] in curRange:
+                cursRange = curRange[curShotData["shot"]]
+                del curRange[curShotData["shot"]]
+                curRange[newShotData["shot"]] = cursRange
+                self.core.setConfig("shots", curShotData["sequence"], curRange, config="shotinfo")
 
     @err_catcher(name=__name__)
     def getAssetSubFolders(self) -> List[str]:
@@ -2875,6 +3007,26 @@ class ProjectEntities(object):
             return assetName not in self.getAssetSubFolders()
 
     @err_catcher(name=__name__)
+    def isValidEntity(self, context: Dict[str, Any]) -> bool:
+        """Check if the given entity context is valid.
+        
+        Args:
+            context: Entity context dictionary.
+            
+        Returns:
+            bool: True if context is valid.
+        """
+        if not context or "type" not in context:
+            return False
+
+        if context["type"] == "asset":
+            return context.get("asset_path")
+        elif context["type"] == "shot":
+            return context.get("shot") and context.get("sequence")
+
+        return False
+
+    @err_catcher(name=__name__)
     def getAssetNameFromPath(self, path: str) -> str:
         """Extract the asset name from a full path.
         
@@ -2905,23 +3057,35 @@ class ProjectEntities(object):
         return path.replace(base, "").strip("\\").strip("/")
 
     @err_catcher(name=__name__)
-    def getScenefileData(self, fileName: str, preview: bool = False, getEntityFromPath: bool = False) -> Dict[str, Any]:
+    def getScenefileData(self, fileName: str, getEntityFromPath: bool = False, cfg: bool = True, entityType: Optional[str] = None) -> Dict[str, Any]:
         """Extract metadata from a scenefile name and path.
         
         Parses entity, department, task, version, user, comment from filename.
         
         Args:
             fileName: Full path to scenefile.
-            preview: If True, also load preview image.
             getEntityFromPath: If True, extract entity data from path.
+            cfg: If True, load additional config data from version info file.
+            entityType: Optional entity type ('asset' or 'shot'). If None, auto-detect.
             
         Returns:
             Dict[str, Any]: Scenefile data with keys like 'entity', 'department', 'task', 'version', 'user', 'comment', 'extension', etc.
         """
-        data = self.core.getConfig(configPath=self.getScenefileInfoPath(fileName)) or {}
+        data = (self.core.getConfig(configPath=self.getScenefileInfoPath(fileName)) or {}) if cfg is True else {}
         data = dict(data)
-        if fileName and (not data or getEntityFromPath):
-            entityType = self.core.paths.getEntityTypeFromPath(fileName)
+        hasData = bool(data)
+        parseFilename = fileName and (not data or getEntityFromPath)
+        if entityType:
+            data["type"] = entityType
+        else:
+            if "type" in data:
+                entityType = data["type"]
+            else:
+                entityType = self.core.paths.getEntityTypeFromPath(fileName)
+                if entityType:
+                    data["type"] = entityType
+
+        if parseFilename:
             key = None
             if entityType == "asset":
                 key = "assetScenefiles"
@@ -2930,7 +3094,6 @@ class ProjectEntities(object):
 
             if key:
                 template = self.core.projects.getTemplatePath(key)
-                hasData = bool(data)
                 data["type"] = entityType
                 data["entityType"] = entityType
                 pathData = self.core.projects.extractKeysFromPath(fileName, template, context=data)
@@ -2938,7 +3101,7 @@ class ProjectEntities(object):
                     pathData["asset"] = os.path.basename(pathData["asset_path"])
 
                 if not hasData:
-                    data = pathData
+                    data.update(pathData)
                 elif getEntityFromPath:
                     if entityType == "asset":
                         if "asset" in pathData:
@@ -2956,31 +3119,30 @@ class ProjectEntities(object):
                         if "episode" in pathData:
                             data["episode"] = pathData["episode"]
 
+        if cfg == "if_version_missing":
+            if "version" not in data or not data["version"]:
+                cfgData = self.core.getConfig(configPath=self.getScenefileInfoPath(fileName)) or {}
+                cfgData.update(data)
+                data = cfgData
+                data["__cfg_loaded__"] = True
+
         if fileName:
             data["filename"] = fileName
             data["extension"] = os.path.splitext(fileName)[1]
 
-        if "type" not in data:
-            etype = self.core.paths.getEntityTypeFromPath(fileName)
-            if etype:
-                data["type"] = etype
-
         data["locations"] = {}
-        glbPath = self.core.convertPath(fileName, "global")
-        if os.path.exists(glbPath):
+        glbPath = self.core.convertPath(fileName, "global", filetype="scenefile")
+        if glbPath == os.path.normpath(fileName) or os.path.exists(glbPath):
             data["locations"]["global"] = glbPath
 
         if (
             self.core.useLocalFiles
-            and os.path.exists(self.core.convertPath(fileName, "local"))
+            and os.path.exists(self.core.convertPath(fileName, "local", filetype="scenefile"))
         ):
-            data["locations"]["local"] = self.core.convertPath(fileName, "local")
+            data["locations"]["local"] = self.core.convertPath(fileName, "local", filetype="scenefile")
 
-        if preview:
-            prvPath = os.path.splitext(fileName)[0] + "preview.jpg"
-            if os.path.exists(prvPath):
-                data["preview"] = prvPath
-
+        prvPath = os.path.splitext(fileName)[0] + "preview.jpg"
+        data["preview"] = prvPath
         return data
 
     @err_catcher(name=__name__)
@@ -3097,6 +3259,7 @@ class ProjectEntities(object):
             if (
                 ext.lower() in self.core.media.supportedFormats
                 and self.core.versionFormat.startswith("v")
+                and len(fname["version"]) > (self.core.versionPadding)
                 and fname["version"][-(self.core.versionPadding+1)] != "v"
             ):
                 continue
@@ -3148,9 +3311,11 @@ class ProjectEntities(object):
                 raise Exception("Invalid taskType: %s" % taskType)
 
         context = context or {}
-        fname = self.core.getCurrentFileName()
-        fnameData = self.core.getScenefileData(fname)
-        context.update(fnameData)
+        if not context:
+            fname = self.core.getCurrentFileName()
+            fnameData = self.core.getScenefileData(fname)
+            context.update(fnameData)
+
         if "version" in context:
             del context["version"]
 
@@ -3312,7 +3477,11 @@ class ProjectEntities(object):
         folders += [x.strip() for x in os.getenv("PRISM_SCENEFILE_PRESET_PATHS", "").split(os.pathsep) if x]
         presetScenes = []
         for folder in folders:
-            presetScenes += self.getPresetScenesFromFolder(folder)
+            if os.path.isfile(folder):
+                preset = {"label": os.path.splitext(os.path.basename(folder))[0], "path": folder}
+                presetScenes.append(preset)
+            else:
+                presetScenes += self.getPresetScenesFromFolder(folder)
 
         self.core.callback("getPresetScenes", args=[presetScenes])
         return presetScenes
@@ -3336,6 +3505,7 @@ class ProjectEntities(object):
         
         Recursively searches folder for scene files, excluding blacklisted extensions
         and files starting with '.', '_', or ending with '~'.
+        Also loads named external scene paths from the folder's presets.json.
         
         Args:
             folder: Folder path to search.
@@ -3348,7 +3518,7 @@ class ProjectEntities(object):
             blacklisted = self.getBlacklistedExtensions()
             for root, folders, files in os.walk(folder):
                 for filename in sorted(files):
-                    if filename == "readme.txt":
+                    if filename in ("readme.txt", "presets.json"):
                         continue
 
                     if filename.startswith(".") or filename.startswith("_") or filename.endswith("~"):
@@ -3370,6 +3540,27 @@ class ProjectEntities(object):
                     presetName = os.path.splitext(presetName)[0]
                     path = os.path.join(root, filename)
                     presetScenes.append({"label": presetName, "path": path})
+
+                folders[:] = [f for f in folders if not f.startswith(".") and not f.startswith("_")]
+
+            manifestPath = os.path.join(folder, "presets.json")
+            if os.path.isfile(manifestPath):
+                entries = self.core.configs.readJson(path=manifestPath, ignoreErrors=True)
+                if isinstance(entries, list):
+                    for entry in entries:
+                        if not isinstance(entry, dict):
+                            continue
+
+                        name = entry.get("name")
+                        path = entry.get("path")
+                        if not isinstance(name, str) or not isinstance(path, str):
+                            continue
+
+                        if not name.strip() or not path.strip():
+                            continue
+
+                        label = os.path.splitext(name.replace("\\", "/"))[0]
+                        presetScenes.append({"label": label, "path": path})
 
         return presetScenes
 
@@ -3467,6 +3658,7 @@ class ProjectEntities(object):
         """Create a new scene version from a preset scene file.
         
         Copies a preset scene to the proper project location with full version info.
+        Uses the preset thumbnail or the project's fallback image for its preview.
         
         Args:
             entity: Entity dict.
@@ -3541,6 +3733,15 @@ class ProjectEntities(object):
         filePath = filePath.replace("\\", "/")
 
         shutil.copyfile(scene, filePath)
+        targetPreview = self.getScenePreviewPath(filePath)
+        if not os.path.exists(targetPreview):
+            sourcePreview = self.getScenePreviewPath(scene)
+            if not os.path.isfile(sourcePreview):
+                sourcePreview = self.core.media.getFallbackImagePath()
+
+            if sourcePreview and os.path.isfile(sourcePreview):
+                shutil.copyfile(sourcePreview, targetPreview)
+
         details = entity.copy()
         details["department"] = step
         details["task"] = category
@@ -3789,39 +3990,72 @@ class ProjectEntities(object):
                         "items": ["Shotrange", "Shotrange + Handles"],
                         "value": "Shotrange"
                     }
-                ]
+                ],
+                "get_update_data": "self.core.entities.buildSceneGetSetFramerangeUpdateData",
             },
             {
                 "name": "setFps",
                 "label": "Set FPS",
                 "function": "self.core.entities.buildSceneSetFPS",
+                "get_update_data": "self.core.entities.buildSceneGetSetFPSUpdateData",
             },
             {
                 "name": "setResolution",
                 "label": "Set Resolution",
                 "function": "self.core.entities.buildSceneSetResolution",
+                "get_update_data": "self.core.entities.buildSceneGetSetResolutionUpdateData",
             },
             {
                 "name": "importProducts",
                 "label": "Import Products",
                 "function": "self.core.entities.buildSceneImportProducts",
+                "get_update_data": "self.core.entities.buildSceneGetImportProductsUpdateData",
+                "description": "Import tagged products from selected entity sources and update existing imports.",
                 "settings": [
+                    {
+                        "type": "lineedit",
+                        "name": "tags",
+                        "label": "Tags",
+                        "value": "to_@department@, to_@task@",
+                    },
                     {
                         "type": "checkbox",
                         "label": "Ignore Master Versions",
                         "value": False,
-                    }
+                    },
+                    {
+                        "type": "checkbox", "name": "sourceEntity",
+                        "label": "Products from source entity", "value": True,
+                    },
+                    {
+                        "type": "checkbox", "name": "connectedAssets",
+                        "label": "Products from connected assets", "value": True,
+                    },
+                    {
+                        "type": "checkbox", "name": "parentEntities",
+                        "label": "Products from parent entities (sequence, episode)", "value": False,
+                    },
+                    {
+                        "type": "checkbox", "name": "customEntitiesEnabled",
+                        "label": "Products from custom entities", "value": False,
+                    },
+                    {
+                        "type": "entities", "name": "customEntities",
+                        "label": "Custom entities", "value": [],
+                    },
                 ]
             },
             {
                 "name": "importShotcam",
                 "label": "Import Shot Cameras",
                 "function": "self.core.entities.buildSceneImportShotcam",
+                "get_update_data": "self.core.entities.buildSceneGetImportShotcamUpdateData",
             },
             {
                 "name": "runCode",
                 "label": "Run Code",
                 "function": "self.core.entities.buildSceneRunCode",
+                "get_update_data": "self.core.entities.buildSceneGetRunCodeUpdateData",
                 "description": "Run custom Python code during scene building.",
                 "settings": [
                     {
@@ -3847,6 +4081,75 @@ class ProjectEntities(object):
 
         steps = self.core.callback("getAvailableSceneBuildingSteps", args=[app]) or []
         return steps
+
+    @err_catcher(name=__name__)
+    def getSceneBuildingStepWithTemplateSettings(
+        self, stepData: Dict[str, Any], app: str
+    ) -> Dict[str, Any]:
+        """Overlay saved setting values onto an application's current step template.
+
+        Template settings define the displayed schema and order. Saved settings
+        are matched by name first, then by label for backwards compatibility.
+        Unmatched saved settings are retained after the template settings.
+        """
+        result = dict(stepData)
+        configuredSettings = result.get("settings") or []
+        if not isinstance(configuredSettings, list):
+            return result
+
+        templateStep = next(
+            (
+                step
+                for step in self.getAvailableSceneBuildingSteps(app)
+                if step.get("name") == result.get("name")
+            ),
+            None,
+        )
+        if not templateStep:
+            return result
+
+        configuredByName = {}
+        configuredByLabel = {}
+        for idx, setting in enumerate(configuredSettings):
+            if not isinstance(setting, dict):
+                continue
+
+            name = (setting.get("name") or "").strip().lower()
+            label = (setting.get("label") or "").strip().lower()
+            if name:
+                configuredByName[name] = (idx, setting)
+            if label:
+                configuredByLabel[label] = (idx, setting)
+
+        orderedSettings = []
+        matchedSettingIndexes = set()
+        for setting in templateStep.get("settings") or []:
+            if not isinstance(setting, dict):
+                continue
+
+            name = (setting.get("name") or "").strip().lower()
+            label = (setting.get("label") or "").strip().lower()
+            configuredSetting = configuredByName.get(name) if name else None
+            if configuredSetting is None and label:
+                configuredSetting = configuredByLabel.get(label)
+
+            templateSetting = copy.deepcopy(setting)
+            if configuredSetting is not None:
+                settingIndex, savedSetting = configuredSetting
+                matchedSettingIndexes.add(settingIndex)
+                if "value" in savedSetting:
+                    templateSetting["value"] = copy.deepcopy(savedSetting["value"])
+
+            orderedSettings.append(templateSetting)
+
+        for idx, setting in enumerate(configuredSettings):
+            if idx not in matchedSettingIndexes:
+                orderedSettings.append(copy.deepcopy(setting))
+
+        if orderedSettings:
+            result["settings"] = orderedSettings
+
+        return result
     
     @err_catcher(name=__name__)
     def buildSceneSetFramerange(self, step: Dict[str, Any], context: Dict[str, Any]) -> None:
@@ -3869,6 +4172,1774 @@ class ProjectEntities(object):
         self.core.sanities.checkFramerange(settings)
 
     @err_catcher(name=__name__)
+    def buildSceneGetSetFramerangeUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        if step["settings"][0]["value"] == "Shotrange":
+            handles = False
+        else:
+            handles = True
+
+        newRange = self.core.entities.getShotRange(context, handles=handles)
+        if context.get("_sceneBuildingNewScene"):
+            summary = (
+                self.core.tr("Set frame range: %s-%s") % (newRange[0], newRange[1])
+                if newRange and len(newRange) > 1 else self.core.tr("No shot range found.")
+            )
+            return {"action": "update", "summary": summary, "new_value": newRange}
+
+        curRange = self.core.appPlugin.getFrameRange(self.core)
+        curStart = curRange[0] if curRange and len(curRange) > 1 else None
+        curEnd = curRange[1] if curRange and len(curRange) > 1 else None
+        newStart = newRange[0] if newRange and len(newRange) > 1 else None
+        newEnd = newRange[1] if newRange and len(newRange) > 1 else None
+        if curRange != newRange and newStart is not None and newEnd is not None:
+            action = "update"
+            summary = "%s-%s -> %s-%s" % (curStart, curEnd, newStart, newEnd)
+        else:
+            action = "no change"
+            summary = ""
+
+        shotName = context.get("shot") or self.getShotName(context) or "-"
+        handlesUsed = self.core.tr("Yes") if handles else self.core.tr("No")
+        currentRangeText = "%s - %s" % (curStart, curEnd)
+        newRangeText = "%s - %s" % (newStart, newEnd)
+        if newStart is None or newEnd is None:
+            newRangeText = self.core.tr("Not available")
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("framerange_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#framerange_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#framerange_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#framerange_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#framerange_value {
+                font-weight: 600;
+            }
+            QLabel#framerange_change {
+                border: 1px solid rgba(255, 255, 255, 28);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 12);
+                padding: 6px;
+                font-weight: 600;
+            }
+            """
+        )
+
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        l_title = QLabel(self.core.tr("Framerange Update"))
+        l_title.setObjectName("framerange_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(4)
+        details = [
+            (self.core.tr("Shot"), shotName),
+            (self.core.tr("Handles used"), handlesUsed),
+            (self.core.tr("Current scene range"), currentRangeText),
+            (self.core.tr("Target range"), newRangeText),
+        ]
+        for row, (labelText, valueText) in enumerate(details):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("framerange_label")
+            l_value = QLabel(str(valueText))
+            l_value.setObjectName("framerange_value")
+            l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+
+        l_change = QLabel(
+            self.core.tr("Current -> New: %s")
+            % (summary or self.core.tr("No framerange change required"))
+        )
+        l_change.setObjectName("framerange_change")
+        l_change.setWordWrap(True)
+        lo_main.addWidget(l_change)
+        lo_main.addStretch(1)
+
+        data = {
+            "action": action,
+            "current_value": curRange,
+            "new_value": newRange,
+            "summary": summary,
+            "summary_widget": summaryWidget
+        }
+        return data
+
+    @err_catcher(name=__name__)
+    def buildSceneGetSetFPSUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        targetFps = self.core.getConfig("globals", "fps", configPath=self.core.prismIni)
+        metaData = self.core.entities.getMetaData(context) or {}
+        fpsDef = "project"
+        if "fps" in metaData:
+            fpsDef = "entity"
+            targetFps = metaData["fps"].get("value")
+
+        try:
+            targetFps = float(targetFps) if targetFps is not None else None
+        except Exception:
+            targetFps = None
+
+        if context.get("_sceneBuildingNewScene"):
+            summary = (
+                self.core.tr("Set FPS: %s") % targetFps
+                if targetFps is not None else self.core.tr("No target FPS configured.")
+            )
+            return {"action": "update", "summary": summary, "new_value": targetFps}
+
+        curFps = self.core.getFPS()
+        try:
+            curFpsVal = float(curFps) if curFps is not None else None
+        except Exception:
+            curFpsVal = None
+
+        if targetFps is not None and curFpsVal is not None and targetFps != curFpsVal:
+            action = "update"
+            summary = "%s -> %s" % (curFpsVal, targetFps)
+        else:
+            action = "no change"
+            summary = ""
+
+        shotName = context.get("shot") or self.getShotName(context) or "-"
+        currentFpsText = str(curFpsVal) if curFpsVal is not None else self.core.tr("Not available")
+        targetFpsText = str(targetFps) if targetFps is not None else self.core.tr("Not available")
+        sourceText = self.core.tr("Entity") if fpsDef == "entity" else self.core.tr("Project")
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("fps_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#fps_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#fps_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#fps_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#fps_value {
+                font-weight: 600;
+            }
+            QLabel#fps_change {
+                border: 1px solid rgba(255, 255, 255, 28);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 12);
+                padding: 6px;
+                font-weight: 600;
+            }
+            """
+        )
+
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        l_title = QLabel(self.core.tr("FPS Update"))
+        l_title.setObjectName("fps_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(4)
+        details = [
+            (self.core.tr("Shot"), shotName),
+            (self.core.tr("Source"), sourceText),
+            (self.core.tr("Current scene FPS"), currentFpsText),
+            (self.core.tr("Target FPS"), targetFpsText),
+        ]
+        for row, (labelText, valueText) in enumerate(details):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("fps_label")
+            l_value = QLabel(str(valueText))
+            l_value.setObjectName("fps_value")
+            l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+
+        l_change = QLabel(
+            self.core.tr("Current -> New: %s")
+            % (summary or self.core.tr("No FPS change required"))
+        )
+        l_change.setObjectName("fps_change")
+        l_change.setWordWrap(True)
+        lo_main.addWidget(l_change)
+        lo_main.addStretch(1)
+
+        return {
+            "action": action,
+            "current_value": curFpsVal,
+            "new_value": targetFps,
+            "summary": summary,
+            "summary_widget": summaryWidget,
+        }
+
+    @err_catcher(name=__name__)
+    def buildSceneGetSetResolutionUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        metaData = self.core.entities.getMetaData(context) or {}
+        resDef = "project"
+        projectResolution = self.core.getConfig(
+            "globals", "resolution", configPath=self.core.prismIni
+        )
+
+        targetX = None
+        targetY = None
+        if projectResolution:
+            targetX = projectResolution[0]
+            targetY = projectResolution[1]
+
+        if "resolution_x" in metaData:
+            resDef = "entity"
+            try:
+                targetX = int(metaData["resolution_x"].get("value"))
+            except Exception:
+                pass
+
+        if "resolution_y" in metaData:
+            resDef = "entity"
+            try:
+                targetY = int(metaData["resolution_y"].get("value"))
+            except Exception:
+                pass
+
+        targetResolution = None
+        if targetX and targetY:
+            targetResolution = [targetX, targetY]
+
+        if context.get("_sceneBuildingNewScene"):
+            summary = (
+                self.core.tr("Set resolution: %s x %s") % (targetX, targetY)
+                if targetResolution else self.core.tr("No target resolution configured.")
+            )
+            return {"action": "update", "summary": summary, "new_value": targetResolution}
+
+        curResolution = self.core.getResolution()
+        curX = curResolution[0] if curResolution and len(curResolution) > 1 else None
+        curY = curResolution[1] if curResolution and len(curResolution) > 1 else None
+
+        if (
+            targetResolution
+            and curX is not None
+            and curY is not None
+            and targetResolution != [curX, curY]
+        ):
+            action = "update"
+            summary = "%sx%s -> %sx%s" % (curX, curY, targetX, targetY)
+        else:
+            action = "no change"
+            summary = ""
+
+        shotName = context.get("shot") or self.getShotName(context) or "-"
+        sourceText = self.core.tr("Entity") if resDef == "entity" else self.core.tr("Project")
+        currentResText = (
+            "%s x %s" % (curX, curY)
+            if curX is not None and curY is not None
+            else self.core.tr("Not available")
+        )
+        targetResText = (
+            "%s x %s" % (targetX, targetY)
+            if targetX is not None and targetY is not None
+            else self.core.tr("Not available")
+        )
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("resolution_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#resolution_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#resolution_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#resolution_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#resolution_value {
+                font-weight: 600;
+            }
+            QLabel#resolution_change {
+                border: 1px solid rgba(255, 255, 255, 28);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 12);
+                padding: 6px;
+                font-weight: 600;
+            }
+            """
+        )
+
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        l_title = QLabel(self.core.tr("Resolution Update"))
+        l_title.setObjectName("resolution_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(4)
+        details = [
+            (self.core.tr("Shot"), shotName),
+            (self.core.tr("Source"), sourceText),
+            (self.core.tr("Current scene resolution"), currentResText),
+            (self.core.tr("Target resolution"), targetResText),
+        ]
+        for row, (labelText, valueText) in enumerate(details):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("resolution_label")
+            l_value = QLabel(str(valueText))
+            l_value.setObjectName("resolution_value")
+            l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+
+        l_change = QLabel(
+            self.core.tr("Current -> New: %s")
+            % (summary or self.core.tr("No resolution change required"))
+        )
+        l_change.setObjectName("resolution_change")
+        l_change.setWordWrap(True)
+        lo_main.addWidget(l_change)
+        lo_main.addStretch(1)
+
+        return {
+            "action": action,
+            "current_value": [curX, curY] if curX is not None and curY is not None else None,
+            "new_value": targetResolution,
+            "summary": summary,
+            "summary_widget": summaryWidget,
+        }
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingImportProductIdentity(self, data: Dict[str, Any]) -> Optional[Tuple[Any, ...]]:
+        if not isinstance(data, dict):
+            return
+
+        product = data.get("product")
+        entityType = data.get("type")
+        if not product or entityType not in ["asset", "shot", "sequence", "episode"]:
+            return
+
+        if entityType == "asset":
+            assetPath = data.get("asset_path")
+            if not assetPath:
+                return
+
+            return ("asset", assetPath.replace("\\", "/"), product)
+
+        if entityType == "sequence" and data.get("sequence"):
+            return ("sequence", data.get("episode") or "", data["sequence"], product)
+
+        if entityType == "episode" and data.get("episode"):
+            return ("episode", data["episode"], product)
+
+        sequence = data.get("sequence")
+        shot = data.get("shot")
+        if not sequence or not shot:
+            return
+
+        episode = data.get("episode") or ""
+        return ("shot", episode, sequence, shot, product)
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingImportEntityKey(self, data: Dict[str, Any]) -> Optional[Tuple[Any, ...]]:
+        if not isinstance(data, dict):
+            return
+
+        entityType = data.get("type")
+        if entityType == "asset":
+            assetPath = data.get("asset_path")
+            if not assetPath:
+                return
+
+            return ("asset", assetPath.replace("\\", "/"))
+
+        if entityType == "sequence" and data.get("sequence"):
+            return ("sequence", data.get("episode") or "", data["sequence"])
+
+        if entityType == "episode" and data.get("episode"):
+            return ("episode", data["episode"])
+
+        if entityType == "shot":
+            sequence = data.get("sequence")
+            shot = data.get("shot")
+            if not sequence or not shot:
+                return
+
+            episode = data.get("episode") or ""
+            return ("shot", episode, sequence, shot)
+
+    @err_catcher(name=__name__)
+    def _formatSceneBuildingProductVersion(self, version: str, path: str) -> str:
+        if not version:
+            return ""
+
+        if str(version).lower() == "master" and path:
+            try:
+                return self.core.products.getMasterVersionLabel(path)
+            except Exception:
+                pass
+
+        return version
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingImportProductDisplay(self, path: str, cacheData: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
+        data = cacheData or {}
+        if not data:
+            try:
+                data = self.core.paths.getCachePathData(path) or {}
+            except Exception:
+                data = {}
+
+        product = data.get("product") or self.core.tr("Unknown Product")
+        entityType = data.get("type")
+        entityLabel = self.core.tr("Unknown Entity")
+        if entityType == "asset":
+            entityLabel = data.get("asset_path") or "-"
+        elif entityType == "shot":
+            entityLabel = self.getShotName(data) or "-"
+
+        version = self._formatSceneBuildingProductVersion(
+            data.get("version") or "",
+            path,
+        ) or "-"
+
+        return "%s | %s | %s | %s" % (entityLabel, product, version, path), product
+
+    @err_catcher(name=__name__)
+    def _createSceneBuildingImportProductsSummaryWidget(
+        self,
+        context: Dict[str, Any],
+        plan: Dict[str, Any],
+    ) -> QFrame:
+        shotName = context.get("shot") or self.getShotName(context) or "-"
+        department = context.get("department") or "-"
+        task = context.get("task") or "-"
+        operations = plan.get("operations", [])
+        selectionStore = plan.get("selection_store") or {}
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("importproducts_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#importproducts_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#importproducts_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#importproducts_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#importproducts_value {
+                font-weight: 600;
+            }
+            QLabel#importproducts_hint {
+                color: rgba(255, 255, 255, 180);
+                font-size: 8.5pt;
+            }
+            QTreeWidget#importproducts_ops {
+                border: 1px solid rgba(255, 255, 255, 24);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 10);
+            }
+            QHeaderView::section {
+                background-color: rgba(255, 255, 255, 10);
+                border: 0px;
+                padding: 4px;
+            }
+            """
+        )
+
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        newScenePreview = context.get("_sceneBuildingNewScene")
+        l_title = QLabel(self.core.tr("Import Products Build" if newScenePreview else "Import Products Update"))
+        l_title.setObjectName("importproducts_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(6)
+        details = [
+            (self.core.tr("Shot"), shotName),
+            (self.core.tr("Department"), department),
+            (self.core.tr("Task"), task),
+            (
+                self.core.tr("Pending imports"),
+                str(len([op for op in operations if op.get("import_label")])),
+            ),
+        ]
+        if not newScenePreview:
+            details.append((
+                self.core.tr("Pending removals"),
+                str(len([op for op in operations if op.get("remove_label")])),
+            ))
+        for row, (labelText, valueText) in enumerate(details):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("importproducts_label")
+            l_value = QLabel(str(valueText))
+            l_value.setObjectName("importproducts_value")
+            l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+
+        l_selectedSummary = QLabel()
+        l_selectedSummary.setObjectName("importproducts_label")
+        lo_main.addWidget(l_selectedSummary)
+
+        l_hint = QLabel(self.core.tr(
+            "Uncheck products to skip them when building the new scene."
+            if newScenePreview else
+            "Uncheck individual products/states to skip them when running rebuild."
+        ))
+        l_hint.setWordWrap(True)
+        l_hint.setObjectName("importproducts_hint")
+        lo_main.addWidget(l_hint)
+
+        tw_ops = QTreeWidget()
+        tw_ops.setObjectName("importproducts_ops")
+        tw_ops.setRootIsDecorated(False)
+        tw_ops.setColumnCount(3)
+        tw_ops.setHeaderLabels(["", self.core.tr("Action"), self.core.tr("Product / State")])
+        tw_ops.header().setSectionResizeMode(0, QHeaderView.Fixed)
+        tw_ops.header().resizeSection(0, 28)
+        tw_ops.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        tw_ops.header().setSectionResizeMode(2, QHeaderView.Stretch)
+        tw_ops.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        tw_ops.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        tw_ops.setAlternatingRowColors(True)
+
+        operationDefaults = {}
+        for op in operations:
+            item = QTreeWidgetItem(["", op.get("action_label") or "", op.get("label") or ""])
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            item.setCheckState(0, Qt.Checked if op.get("selected", True) else Qt.Unchecked)
+            item.setData(0, Qt.UserRole, op.get("id"))
+            tooltip = op.get("tooltip") or op.get("label") or ""
+            item.setToolTip(2, tooltip)
+            tw_ops.addTopLevelItem(item)
+            operationDefaults[op.get("id")] = bool(op.get("default_selected", True))
+
+        tw_ops.resizeColumnToContents(0)
+        tw_ops.resizeColumnToContents(1)
+
+        w_actions = QWidget()
+        lo_actions = QHBoxLayout(w_actions)
+        lo_actions.setContentsMargins(0, 0, 0, 0)
+        lo_actions.setSpacing(6)
+
+        b_selectAll = QPushButton(self.core.tr("Select all"))
+        b_deselectAll = QPushButton(self.core.tr("Deselect all"))
+        b_reset = QPushButton(self.core.tr("Reset defaults"))
+
+        lo_actions.addWidget(b_selectAll)
+        lo_actions.addWidget(b_deselectAll)
+        lo_actions.addWidget(b_reset)
+        lo_actions.addStretch(1)
+
+        lo_main.addWidget(w_actions)
+        lo_main.addWidget(tw_ops)
+
+        def _refreshSelectedSummaryText() -> None:
+            selectedOperations = [op for op in operations if op.get("selected", True)]
+            selectedImportCount = len([op for op in selectedOperations if op.get("import_label")])
+            selectedRemoveCount = len([op for op in selectedOperations if op.get("remove_label")])
+            if newScenePreview:
+                l_selectedSummary.setText(self.core.tr("Selected imports: %s") % selectedImportCount)
+            else:
+                l_selectedSummary.setText(
+                    self.core.tr("Selected actions: %s | Selected imports: %s | Selected removals: %s")
+                    % (len(selectedOperations), selectedImportCount, selectedRemoveCount)
+                )
+
+        def _onOperationItemChanged(item: QTreeWidgetItem, column: int) -> None:
+            if column != 0:
+                return
+
+            opId = item.data(0, Qt.UserRole)
+            if not opId:
+                return
+
+            checked = item.checkState(0) == Qt.Checked
+            selectionStore[opId] = checked
+            for op in operations:
+                if op.get("id") == opId:
+                    op["selected"] = checked
+                    break
+
+            _refreshSelectedSummaryText()
+
+        def _setAllOperations(checked: bool) -> None:
+            tw_ops.blockSignals(True)
+            for row in range(tw_ops.topLevelItemCount()):
+                item = tw_ops.topLevelItem(row)
+                opId = item.data(0, Qt.UserRole)
+                if not opId:
+                    continue
+
+                item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
+                selectionStore[opId] = checked
+                for op in operations:
+                    if op.get("id") == opId:
+                        op["selected"] = checked
+                        break
+
+            tw_ops.blockSignals(False)
+            _refreshSelectedSummaryText()
+
+        def _resetOperations() -> None:
+            tw_ops.blockSignals(True)
+            for row in range(tw_ops.topLevelItemCount()):
+                item = tw_ops.topLevelItem(row)
+                opId = item.data(0, Qt.UserRole)
+                if not opId:
+                    continue
+
+                checked = bool(operationDefaults.get(opId, True))
+                item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
+                selectionStore[opId] = checked
+                for op in operations:
+                    if op.get("id") == opId:
+                        op["selected"] = checked
+                        break
+
+            tw_ops.blockSignals(False)
+            _refreshSelectedSummaryText()
+
+        tw_ops.itemChanged.connect(_onOperationItemChanged)
+        b_selectAll.clicked.connect(lambda: _setAllOperations(True))
+        b_deselectAll.clicked.connect(lambda: _setAllOperations(False))
+        b_reset.clicked.connect(_resetOperations)
+        _refreshSelectedSummaryText()
+
+        def _getRuntimeData() -> Dict[str, Any]:
+            return {
+                "importProductsSelection": dict(selectionStore),
+            }
+
+        summaryWidget.getSceneBuildRuntimeData = _getRuntimeData
+
+        if not operations:
+            tw_ops.setEnabled(False)
+            l_hint.setText(self.core.tr("No importProducts actions are pending."))
+
+        lo_main.addStretch(1)
+        return summaryWidget
+
+    @err_catcher(name=__name__)
+    def _isSceneBuildingImportProductEntrySelected(self, selectionStore: Dict[str, Any], operationId: str) -> bool:
+        selected = selectionStore.get(operationId, True)
+        try:
+            selected = bool(selected)
+        except Exception:
+            selected = True
+
+        selectionStore[operationId] = selected
+        return selected
+
+    @err_catcher(name=__name__)
+    def _buildSceneBuildingImportProductOpId(
+        self,
+        prefix: str,
+        path: str,
+        state: Optional[Any] = None,
+        targetPath: str = "",
+        occurrence: Optional[int] = None,
+    ) -> str:
+        normPath = os.path.normpath(path or "").replace("\\", "/")
+        normTargetPath = os.path.normpath(targetPath or "").replace("\\", "/")
+        stateId = ""
+        if state is not None:
+            stateId = str(id(state))
+
+        occurrenceId = "" if occurrence is None else str(occurrence)
+        return "%s|%s|%s|%s|%s" % (
+            prefix,
+            normPath,
+            normTargetPath,
+            stateId,
+            occurrenceId,
+        )
+
+    @err_catcher(name=__name__)
+    def _appendSceneBuildingImportProductsPlanItem(self, items: List[str], seenItems: set, label: str) -> None:
+        if label and label not in seenItems:
+            items.append(label)
+            seenItems.add(label)
+
+    @err_catcher(name=__name__)
+    def _appendSceneBuildingImportProductsPlanProduct(self, products: List[str], seenProducts: set, productName: str) -> None:
+        if productName and productName not in seenProducts:
+            products.append(productName)
+            seenProducts.add(productName)
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingImportProductsDisplayData(self, path: str, cacheData: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+        label, productName = self._getSceneBuildingImportProductDisplay(path, cacheData=cacheData)
+        return {
+            "label": label,
+            "product": productName,
+        }
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingImportProductTags(
+        self,
+        step: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[str]:
+        tagSetting = ""
+        for setting in step.get("settings") or []:
+            if (setting.get("name") or "").lower() == "tags":
+                tagSetting = setting.get("value") or ""
+                break
+
+        tags = []
+        for tagTemplate in str(tagSetting).split(","):
+            tagTemplate = tagTemplate.strip()
+            if not tagTemplate:
+                continue
+
+            try:
+                resolvedTags = self.core.projects.resolveStructurePath(
+                    tagTemplate,
+                    context=dict(context),
+                )
+            except Exception:
+                resolvedTags = []
+
+            for tag in resolvedTags or []:
+                tag = str(tag).strip()
+                if tag and tag not in tags:
+                    tags.append(tag)
+
+        return tags
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingImportProductsPlan(
+        self,
+        step: Dict[str, Any],
+        context: Dict[str, Any],
+        createStateManager: bool = False,
+    ) -> Dict[str, Any]:
+        plan = {
+            "state_manager": None,
+            "new_imports": [],
+            "state_updates": [],
+            "stale_state_removals": [],
+            "operations": [],
+            "selection_store": {},
+            "all_import_paths": [],
+            "all_remove_paths": [],
+            "import_paths": [],
+            "remove_paths": [],
+            "import_items_all": [],
+            "remove_items_all": [],
+            "import_items_selected": [],
+            "remove_items_selected": [],
+            "import_products_all": [],
+            "remove_products_all": [],
+            "import_products_selected": [],
+            "remove_products_selected": [],
+        }
+
+        if not context:
+            return plan
+
+        department = context.get("department")
+        task = context.get("task")
+        if not department or not task:
+            return plan
+
+        includeMaster = True
+        sourceSettings = {
+            "sourceEntity": True,
+            "connectedAssets": True,
+            "parentEntities": False,
+            "customEntitiesEnabled": False,
+            "customEntities": [],
+        }
+        for setting in step.get("settings") or []:
+            name = (setting.get("name") or "").lower()
+            label = (setting.get("label") or "").lower()
+            if name in ["ignoremaster", "ignore_master"] or "ignore master" in label:
+                includeMaster = not bool(setting.get("value", False))
+            for sourceName in sourceSettings:
+                if name == sourceName.lower():
+                    sourceSettings[sourceName] = setting.get("value")
+
+        selectionStore = step.get("_importProductsSelection")
+        if not isinstance(selectionStore, dict):
+            selectionStore = {}
+
+        step["_importProductsSelection"] = selectionStore
+        plan["selection_store"] = selectionStore
+
+        tags = self._getSceneBuildingImportProductTags(step, context)
+        if not tags:
+            return plan
+
+        desiredByIdentity = {}
+        desiredCacheByIdentity = {}
+        desiredCountByIdentity = {}
+        sourceEntities = []
+        if sourceSettings["sourceEntity"]:
+            sourceEntities.append(context.copy())
+        if sourceSettings["connectedAssets"] and context.get("type") == "shot":
+            sourceEntities.extend(
+                entity for entity in (self.getConnectedEntities(context) or [])
+                if isinstance(entity, dict) and entity.get("type") == "asset"
+            )
+        if sourceSettings["parentEntities"] and context.get("type") == "shot":
+            if context.get("sequence"):
+                sourceEntities.append({
+                    "type": "sequence", "sequence": context["sequence"],
+                    "episode": context.get("episode") or "",
+                })
+            if context.get("episode"):
+                sourceEntities.append({"type": "episode", "episode": context["episode"]})
+        if sourceSettings["customEntitiesEnabled"]:
+            sourceEntities.extend(
+                entity for entity in (sourceSettings["customEntities"] or [])
+                if isinstance(entity, dict) and entity.get("type") in ("asset", "shot")
+            )
+
+        sourceEntityKeys = set()
+        uniqueSources = []
+        for sourceEntity in sourceEntities:
+            entityKey = self._getSceneBuildingImportEntityKey(sourceEntity)
+            if not entityKey or entityKey in sourceEntityKeys:
+                continue
+
+            sourceEntityKeys.add(entityKey)
+            uniqueSources.append(sourceEntity)
+
+        for sourceEntity in uniqueSources:
+            sourceDesiredByIdentity = {}
+            products = self.core.products.getProductsByTags(sourceEntity, tags) or []
+            for product in products:
+                productName = product.get("product")
+                if not productName:
+                    continue
+
+                productPath = self.core.products.getLatestVersionpathFromProduct(
+                    productName,
+                    entity=product,
+                    includeMaster=includeMaster,
+                )
+                if not productPath:
+                    continue
+
+                try:
+                    cacheData = self.core.paths.getCachePathData(productPath) or {}
+                except Exception:
+                    cacheData = {}
+
+                identity = self._getSceneBuildingImportProductIdentity(cacheData)
+                if not identity:
+                    identity = self._getSceneBuildingImportProductIdentity(product)
+                if not identity:
+                    continue
+
+                if identity not in sourceDesiredByIdentity:
+                    sourceDesiredByIdentity[identity] = (productPath, cacheData)
+
+            for identity, desiredData in sourceDesiredByIdentity.items():
+                productPath, cacheData = desiredData
+                desiredByIdentity[identity] = productPath
+                desiredCacheByIdentity[identity] = cacheData
+                desiredCountByIdentity[identity] = desiredCountByIdentity.get(identity, 0) + 1
+
+        sm = None if context.get("_sceneBuildingNewScene") else self.core.getStateManager(create=createStateManager)
+        plan["state_manager"] = sm
+
+        existingByIdentity = {}
+        staleCandidates = []
+        if sm:
+            for state in getattr(sm, "states", []) or []:
+                stateUi = getattr(state, "ui", None)
+                if not stateUi or getattr(stateUi, "className", "") != "ImportFile":
+                    continue
+
+                # Shotcam imports are managed by the dedicated shotcam step and
+                # must never be treated as stale product imports.
+                if self._isSceneBuildingShotcamState(stateUi):
+                    continue
+
+                getImportPath = getattr(stateUi, "getImportPath", None)
+                if not callable(getImportPath):
+                    continue
+
+                curPath = getImportPath() or ""
+                if not curPath:
+                    continue
+
+                try:
+                    cacheData = self.core.paths.getCachePathData(curPath) or {}
+                except Exception:
+                    cacheData = {}
+
+                entityKey = self._getSceneBuildingImportEntityKey(cacheData)
+                if not entityKey or entityKey not in sourceEntityKeys:
+                    continue
+
+                identity = self._getSceneBuildingImportProductIdentity(cacheData)
+                if not identity:
+                    continue
+
+                entry = {
+                    "state": state,
+                    "state_ui": stateUi,
+                    "path": curPath,
+                    "cache_data": cacheData,
+                    "identity": identity,
+                }
+                if identity in desiredByIdentity:
+                    existingByIdentity.setdefault(identity, []).append(entry)
+                else:
+                    staleCandidates.append(entry)
+
+        for identity, desiredPath in desiredByIdentity.items():
+            desiredNormPath = os.path.normpath(desiredPath)
+            entries = existingByIdentity.get(identity, [])
+            desiredCount = desiredCountByIdentity.get(identity, 1)
+            if not entries:
+                for _ in range(desiredCount):
+                    plan["new_imports"].append(
+                        {
+                            "to_path": desiredPath,
+                            "to_cache_data": desiredCacheByIdentity.get(identity) or {},
+                        }
+                    )
+                continue
+
+            matchingEntries = []
+            nonMatchingEntries = []
+            for entry in entries:
+                if os.path.normpath(entry["path"]) == desiredNormPath:
+                    matchingEntries.append(entry)
+                else:
+                    nonMatchingEntries.append(entry)
+
+            matchingCount = min(len(matchingEntries), desiredCount)
+            remainingCount = desiredCount - matchingCount
+            updateEntries = nonMatchingEntries[:remainingCount]
+            for updateEntry in updateEntries:
+                plan["state_updates"].append(
+                    {
+                        "state": updateEntry["state"],
+                        "state_ui": updateEntry["state_ui"],
+                        "from_path": updateEntry["path"],
+                        "from_cache_data": updateEntry.get("cache_data") or {},
+                        "to_path": desiredPath,
+                        "to_cache_data": desiredCacheByIdentity.get(identity) or {},
+                    }
+                )
+
+            remainingCount -= len(updateEntries)
+            for _ in range(remainingCount):
+                plan["new_imports"].append(
+                    {
+                        "to_path": desiredPath,
+                        "to_cache_data": desiredCacheByIdentity.get(identity) or {},
+                    }
+                )
+
+            staleCandidates += matchingEntries[matchingCount:]
+            staleCandidates += nonMatchingEntries[len(updateEntries):]
+
+        staleByStateId = {}
+        for staleEntry in staleCandidates:
+            stateObj = staleEntry.get("state")
+            if not stateObj:
+                continue
+
+            stateKey = id(stateObj)
+            if stateKey in staleByStateId:
+                continue
+
+            staleByStateId[stateKey] = staleEntry
+
+        plan["stale_state_removals"] = list(staleByStateId.values())
+
+        activeSelectionIds = set()
+        for update in plan["state_updates"]:
+            opId = self._buildSceneBuildingImportProductOpId(
+                "update",
+                update.get("from_path") or "",
+                state=update.get("state"),
+                targetPath=update.get("to_path") or "",
+            )
+            activeSelectionIds.add(opId)
+            selected = self._isSceneBuildingImportProductEntrySelected(selectionStore, opId)
+
+            fromDisplay = self._getSceneBuildingImportProductsDisplayData(
+                update.get("from_path") or "",
+                cacheData=update.get("from_cache_data") or {},
+            )
+            toDisplay = self._getSceneBuildingImportProductsDisplayData(
+                update.get("to_path") or "",
+                cacheData=update.get("to_cache_data") or {},
+            )
+
+            update["selected"] = selected
+            update["operation_id"] = opId
+            plan["operations"].append(
+                {
+                    "id": opId,
+                    "selected": selected,
+                    "action_label": self.core.tr("Update state"),
+                    "label": self.core.tr("%s -> %s") % (fromDisplay["label"], toDisplay["label"]),
+                    "tooltip": self.core.tr("Replace existing import with latest tagged publish"),
+                    "import_label": toDisplay["label"],
+                    "remove_label": fromDisplay["label"],
+                    "import_product": toDisplay["product"],
+                    "remove_product": fromDisplay["product"],
+                }
+            )
+
+        for newImportIdx, newImport in enumerate(plan["new_imports"]):
+            opId = self._buildSceneBuildingImportProductOpId(
+                "import",
+                newImport.get("to_path") or "",
+                occurrence=newImportIdx,
+            )
+            activeSelectionIds.add(opId)
+            selected = self._isSceneBuildingImportProductEntrySelected(selectionStore, opId)
+
+            toDisplay = self._getSceneBuildingImportProductsDisplayData(
+                newImport.get("to_path") or "",
+                cacheData=newImport.get("to_cache_data") or {},
+            )
+
+            newImport["selected"] = selected
+            newImport["operation_id"] = opId
+            plan["operations"].append(
+                {
+                    "id": opId,
+                    "selected": selected,
+                    "action_label": self.core.tr("Import"),
+                    "label": toDisplay["label"],
+                    "tooltip": self.core.tr("Import missing tagged product"),
+                    "import_label": toDisplay["label"],
+                    "remove_label": "",
+                    "import_product": toDisplay["product"],
+                    "remove_product": "",
+                }
+            )
+
+        for staleState in plan["stale_state_removals"]:
+            opId = self._buildSceneBuildingImportProductOpId(
+                "remove",
+                staleState.get("path") or "",
+                state=staleState.get("state"),
+            )
+            activeSelectionIds.add(opId)
+            selected = self._isSceneBuildingImportProductEntrySelected(selectionStore, opId)
+
+            staleDisplay = self._getSceneBuildingImportProductsDisplayData(
+                staleState.get("path") or "",
+                cacheData=staleState.get("cache_data") or {},
+            )
+
+            staleState["selected"] = selected
+            staleState["operation_id"] = opId
+            plan["operations"].append(
+                {
+                    "id": opId,
+                    "selected": selected,
+                    "action_label": self.core.tr("Remove stale state"),
+                    "label": staleDisplay["label"],
+                    "tooltip": self.core.tr("Delete import state that is no longer part of tagged imports"),
+                    "import_label": "",
+                    "remove_label": staleDisplay["label"],
+                    "import_product": "",
+                    "remove_product": staleDisplay["product"],
+                }
+            )
+
+        for key in list(selectionStore.keys()):
+            if key not in activeSelectionIds:
+                selectionStore.pop(key, None)
+
+        seenImportAll = set()
+        seenRemoveAll = set()
+        seenImportSelected = set()
+        seenRemoveSelected = set()
+        seenImportProductsAll = set()
+        seenRemoveProductsAll = set()
+        seenImportProductsSelected = set()
+        seenRemoveProductsSelected = set()
+
+        for op in plan["operations"]:
+            importLabel = op.get("import_label") or ""
+            removeLabel = op.get("remove_label") or ""
+            importProduct = op.get("import_product") or ""
+            removeProduct = op.get("remove_product") or ""
+
+            self._appendSceneBuildingImportProductsPlanItem(plan["import_items_all"], seenImportAll, importLabel)
+            self._appendSceneBuildingImportProductsPlanItem(plan["remove_items_all"], seenRemoveAll, removeLabel)
+            self._appendSceneBuildingImportProductsPlanProduct(plan["import_products_all"], seenImportProductsAll, importProduct)
+            self._appendSceneBuildingImportProductsPlanProduct(plan["remove_products_all"], seenRemoveProductsAll, removeProduct)
+
+            if not op.get("selected", True):
+                continue
+
+            self._appendSceneBuildingImportProductsPlanItem(plan["import_items_selected"], seenImportSelected, importLabel)
+            self._appendSceneBuildingImportProductsPlanItem(plan["remove_items_selected"], seenRemoveSelected, removeLabel)
+            self._appendSceneBuildingImportProductsPlanProduct(plan["import_products_selected"], seenImportProductsSelected, importProduct)
+            self._appendSceneBuildingImportProductsPlanProduct(plan["remove_products_selected"], seenRemoveProductsSelected, removeProduct)
+
+        for update in plan["state_updates"]:
+            plan["all_import_paths"].append(update.get("to_path"))
+            plan["all_remove_paths"].append(update.get("from_path"))
+            if update.get("selected", True):
+                plan["import_paths"].append(update.get("to_path"))
+                plan["remove_paths"].append(update.get("from_path"))
+
+        for newImport in plan["new_imports"]:
+            plan["all_import_paths"].append(newImport.get("to_path"))
+            if newImport.get("selected", True):
+                plan["import_paths"].append(newImport.get("to_path"))
+
+        for staleState in plan["stale_state_removals"]:
+            plan["all_remove_paths"].append(staleState.get("path"))
+            if staleState.get("selected", True):
+                plan["remove_paths"].append(staleState.get("path"))
+
+        return plan
+
+    @err_catcher(name=__name__)
+    def buildSceneGetImportProductsUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        plan = self._getSceneBuildingImportProductsPlan(step, context, createStateManager=False)
+        newScenePreview = context.get("_sceneBuildingNewScene")
+        selectedOperations = [op for op in plan.get("operations", []) if op.get("selected", True)]
+        importCount = len([op for op in selectedOperations if op.get("import_label")])
+        removeCount = len([op for op in selectedOperations if op.get("remove_label")])
+
+        if plan.get("all_import_paths") or plan.get("all_remove_paths"):
+            action = "update"
+            if plan.get("import_paths") or plan.get("remove_paths"):
+                if newScenePreview:
+                    summary = self.core.tr("Import: %s") % importCount
+                else:
+                    summary = self.core.tr("Import: %s | Remove: %s") % (
+                        importCount,
+                        removeCount,
+                    )
+            else:
+                summary = self.core.tr("All importProducts actions are unchecked.")
+        else:
+            action = "no change"
+            summary = self.core.tr("No tagged products found.") if newScenePreview else ""
+
+        summaryWidget = self._createSceneBuildingImportProductsSummaryWidget(
+            context,
+            plan,
+        )
+
+        return {
+            "action": action,
+            "current_value": plan.get("remove_paths", []),
+            "new_value": plan.get("import_paths", []),
+            "summary": summary,
+            "summary_widget": summaryWidget,
+        }
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingShotcamContext(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not context or context.get("type") != "shot":
+            return
+
+        shotContext = context.copy()
+        if self.core.getConfig("globals", "productTasks", config="project"):
+            shotContext["department"] = os.getenv("PRISM_SHOTCAM_DEPARTMENT", "Layout")
+            shotContext["task"] = os.getenv("PRISM_SHOTCAM_TASK", "Cameras")
+
+        return shotContext
+
+    @err_catcher(name=__name__)
+    def _isSceneBuildingShotcamState(self, stateUi: Any) -> bool:
+        if not stateUi:
+            return False
+
+        if getattr(stateUi, "className", "") != "ImportFile":
+            return False
+
+        if getattr(stateUi, "taskName", "") == "ShotCam":
+            return True
+
+        impPath = ""
+        try:
+            impPath = (stateUi.getImportPath() or "").replace("\\", "/")
+        except Exception:
+            pass
+
+        camProduct = self.core.products.getShotcamProductName()
+        if f"/{camProduct}/" in impPath:
+            return True
+
+        if impPath:
+            try:
+                cacheData = self.core.paths.getCachePathData(impPath) or {}
+                if cacheData.get("product") == camProduct:
+                    return True
+            except Exception:
+                pass
+
+        return False
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingShotcamState(self, sm: Any) -> Tuple[Optional[Any], Optional[Any]]:
+        if not sm:
+            return None, None
+
+        for state in getattr(sm, "states", []) or []:
+            stateUi = getattr(state, "ui", None)
+            if self._isSceneBuildingShotcamState(stateUi):
+                return state, stateUi
+
+        return None, None
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingShotcamVersionData(self, stateUi: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        curVersion = {}
+        latestVersion = {}
+        if not stateUi or not hasattr(stateUi, "checkLatestVersion"):
+            return curVersion, latestVersion
+
+        try:
+            versions = stateUi.checkLatestVersion()
+            if versions and len(versions) > 1:
+                curVersion = versions[0] or {}
+                latestVersion = versions[1] or {}
+        except Exception:
+            pass
+
+        return curVersion, latestVersion
+
+    @err_catcher(name=__name__)
+    def _isSceneBuildingShotcamStateOutdated(self, stateUi: Any) -> bool:
+        curVersion, latestVersion = self._getSceneBuildingShotcamVersionData(stateUi)
+
+        latestPath = latestVersion.get("path")
+        latestName = latestVersion.get("version")
+        if not latestPath and not latestName:
+            return False
+
+        curPath = curVersion.get("path")
+        curName = curVersion.get("version")
+        if not curPath and not curName:
+            return True
+
+        curVersionLabel = self._formatSceneBuildingShotcamVersion(curName or "", curPath or "")
+        latestVersionLabel = self._formatSceneBuildingShotcamVersion(latestName or "", latestPath or "")
+        if curVersionLabel and latestVersionLabel:
+            return curVersionLabel != latestVersionLabel
+
+        if curName != latestName:
+            return True
+
+        if curPath and latestPath:
+            # Current state usually stores a file path while latest can be a version
+            # folder path. Compare at version-folder level to avoid mismatches.
+            curComparePath = os.path.normpath(curPath)
+            latestComparePath = os.path.normpath(latestPath)
+            if os.path.splitext(curComparePath)[1]:
+                curComparePath = os.path.normpath(os.path.dirname(curComparePath))
+
+            if os.path.splitext(latestComparePath)[1]:
+                latestComparePath = os.path.normpath(os.path.dirname(latestComparePath))
+
+            if curComparePath != latestComparePath:
+                return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def _getSceneBuildingShotcamPublishInfo(
+        self,
+        path: Optional[str],
+        fallbackVersion: str = "",
+        cacheData: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        info = {
+            "path": path or "",
+            "version": fallbackVersion or "",
+            "date": None,
+        }
+        if not path:
+            return info
+
+        data = cacheData
+        if data is None:
+            try:
+                data = self.core.paths.getCachePathData(path) or {}
+            except Exception:
+                data = {}
+
+        if not info["version"]:
+            info["version"] = data.get("version") or ""
+
+        info["date"] = data.get("date")
+        return info
+
+    @err_catcher(name=__name__)
+    def _formatSceneBuildingShotcamDate(self, value: Any) -> str:
+        if value in [None, ""]:
+            return self.core.tr("Not available")
+
+        try:
+            stamp = float(value)
+            return self.core.getFormattedDate(stamp)
+        except Exception:
+            return str(value)
+
+    @err_catcher(name=__name__)
+    def _formatSceneBuildingShotcamVersion(self, version: str, path: str) -> str:
+        if not version:
+            return ""
+
+        if str(version).lower() == "master" and path:
+            try:
+                return self.core.products.getMasterVersionLabel(path)
+            except Exception:
+                pass
+
+        return version
+
+    @err_catcher(name=__name__)
+    def _createSceneBuildingShotcamSummaryWidget(
+        self,
+        context: Dict[str, Any],
+        stateText: str,
+        currentInfo: Dict[str, Any],
+        latestInfo: Dict[str, Any],
+    ) -> QFrame:
+        shotName = context.get("shot") or self.getShotName(context) or "-"
+
+        currentVersion = self._formatSceneBuildingShotcamVersion(
+            currentInfo.get("version") or "",
+            currentInfo.get("path") or "",
+        ) or self.core.tr("Not imported")
+        latestVersion = self._formatSceneBuildingShotcamVersion(
+            latestInfo.get("version") or "",
+            latestInfo.get("path") or "",
+        ) or self.core.tr("Not available")
+
+        currentDateText = self._formatSceneBuildingShotcamDate(currentInfo.get("date"))
+        latestDateText = self._formatSceneBuildingShotcamDate(latestInfo.get("date"))
+
+        currentPath = currentInfo.get("path") or self.core.tr("Not imported")
+        latestPath = latestInfo.get("path") or self.core.tr("Not available")
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("shotcam_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#shotcam_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#shotcam_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#shotcam_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#shotcam_value {
+                font-weight: 600;
+            }
+            QPlainTextEdit#shotcam_path {
+                border: 1px solid rgba(255, 255, 255, 24);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 10);
+                padding: 2px;
+            }
+            """
+        )
+
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        l_title = QLabel(self.core.tr("Shotcam Update"))
+        l_title.setObjectName("shotcam_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(6)
+        details = [
+            (self.core.tr("Shot"), shotName, "shotcam_value"),
+            (self.core.tr("State"), stateText, "shotcam_value"),
+            (self.core.tr("Current version"), currentVersion, "shotcam_value"),
+            (self.core.tr("Latest version"), latestVersion, "shotcam_value"),
+            (self.core.tr("Current publish date"), currentDateText, "shotcam_value"),
+            (self.core.tr("Latest publish date"), latestDateText, "shotcam_value"),
+            (self.core.tr("Current file"), currentPath, "shotcam_path"),
+            (self.core.tr("Latest file"), latestPath, "shotcam_path"),
+        ]
+        for row, (labelText, valueText, valueObjectName) in enumerate(details):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("shotcam_label")
+            if valueObjectName == "shotcam_path":
+                l_value = QPlainTextEdit()
+                l_value.setObjectName(valueObjectName)
+                l_value.setReadOnly(True)
+                l_value.setLineWrapMode(QPlainTextEdit.NoWrap)
+                l_value.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+                l_value.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                l_value.setPlainText(str(valueText))
+                l_value.setToolTip(str(valueText))
+                l_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                l_value.setMinimumWidth(0)
+                l_value.setFixedHeight(36)
+            else:
+                l_value = QLabel(str(valueText))
+                l_value.setObjectName(valueObjectName)
+                l_value.setWordWrap(True)
+                l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                l_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+        lo_main.addStretch(1)
+
+        return summaryWidget
+
+    @err_catcher(name=__name__)
+    def buildSceneGetImportShotcamUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        shotContext = self._getSceneBuildingShotcamContext(context)
+        if not shotContext:
+            return {
+                "action": "no change",
+                "summary": self.core.tr("Shotcam import is only available for shots."),
+            }
+
+        latestShotcamPath = self.core.products.getLatestVersionpathFromProduct(
+            self.core.products.getShotcamProductName(), entity=shotContext
+        )
+        latestShotcamData = {}
+        if latestShotcamPath:
+            try:
+                latestShotcamData = self.core.paths.getCachePathData(latestShotcamPath) or {}
+            except Exception:
+                latestShotcamData = {}
+
+        if context.get("_sceneBuildingNewScene"):
+            if not latestShotcamPath:
+                return {"action": "no change", "summary": self.core.tr("No published shotcam found.")}
+
+            version = self._formatSceneBuildingShotcamVersion(
+                latestShotcamData.get("version") or "", latestShotcamPath
+            ) or os.path.basename(os.path.normpath(latestShotcamPath))
+            return {
+                "action": "update",
+                "summary": self.core.tr("Import shotcam: %s") % version,
+                "new_value": latestShotcamPath,
+            }
+
+        sm = self.core.getStateManager(create=False)
+        _, shotcamStateUi = self._getSceneBuildingShotcamState(sm)
+
+        if not shotcamStateUi:
+            currentInfo = self._getSceneBuildingShotcamPublishInfo("")
+            latestInfo = self._getSceneBuildingShotcamPublishInfo(
+                latestShotcamPath,
+                cacheData=latestShotcamData,
+            )
+
+            if latestShotcamPath:
+                latestVersionLabel = self._formatSceneBuildingShotcamVersion(
+                    latestInfo.get("version") or "",
+                    latestShotcamPath,
+                )
+                if not latestVersionLabel:
+                    latestVersionLabel = os.path.basename(os.path.normpath(latestShotcamPath))
+                    latestInfo["version"] = latestVersionLabel
+
+                summary = self.core.tr("Import shotcam state.")
+                if latestVersionLabel:
+                    summary = self.core.tr("Import shotcam state (%s).") % latestVersionLabel
+
+                summaryWidget = self._createSceneBuildingShotcamSummaryWidget(
+                    shotContext,
+                    self.core.tr("Missing in scene"),
+                    currentInfo,
+                    latestInfo,
+                )
+
+                return {
+                    "action": "update",
+                    "current_value": None,
+                    "new_value": latestShotcamPath,
+                    "summary": summary,
+                    "summary_widget": summaryWidget,
+                }
+
+            summaryWidget = self._createSceneBuildingShotcamSummaryWidget(
+                shotContext,
+                self.core.tr("Missing in scene"),
+                currentInfo,
+                latestInfo,
+            )
+
+            return {
+                "action": "no change",
+                "current_value": None,
+                "new_value": None,
+                "summary": self.core.tr("No published shotcam found."),
+                "summary_widget": summaryWidget,
+            }
+
+        if not latestShotcamPath:
+            currentPath = ""
+            currentVersionName = ""
+            curVersion, _ = self._getSceneBuildingShotcamVersionData(shotcamStateUi)
+            currentPath = curVersion.get("path") or ""
+            currentVersionName = curVersion.get("version") or ""
+            if not currentPath:
+                try:
+                    currentPath = shotcamStateUi.getImportPath() or ""
+                except Exception:
+                    currentPath = ""
+
+            currentInfo = self._getSceneBuildingShotcamPublishInfo(
+                currentPath,
+                fallbackVersion=currentVersionName,
+            )
+            latestInfo = self._getSceneBuildingShotcamPublishInfo("")
+            summaryWidget = self._createSceneBuildingShotcamSummaryWidget(
+                shotContext,
+                self.core.tr("No publish found"),
+                currentInfo,
+                latestInfo,
+            )
+
+            return {
+                "action": "no change",
+                "current_value": None,
+                "new_value": None,
+                "summary": self.core.tr("No published shotcam found."),
+                "summary_widget": summaryWidget,
+            }
+
+        curVersion, latestVersion = self._getSceneBuildingShotcamVersionData(shotcamStateUi)
+        currentPath = curVersion.get("path") or ""
+        if not currentPath:
+            try:
+                currentPath = shotcamStateUi.getImportPath() or ""
+            except Exception:
+                currentPath = ""
+
+        latestPath = latestVersion.get("path") or latestShotcamPath
+        curLabel = self._formatSceneBuildingShotcamVersion(
+            curVersion.get("version") or "",
+            currentPath,
+        ) or os.path.basename(curVersion.get("path", ""))
+        latestLabel = self._formatSceneBuildingShotcamVersion(
+            latestVersion.get("version") or "",
+            latestPath,
+        ) or os.path.basename(latestVersion.get("path", ""))
+
+        currentInfo = self._getSceneBuildingShotcamPublishInfo(
+            currentPath,
+            fallbackVersion=curVersion.get("version") or "",
+        )
+        latestInfo = self._getSceneBuildingShotcamPublishInfo(
+            latestPath,
+            fallbackVersion=latestVersion.get("version") or "",
+            cacheData=latestShotcamData if latestPath == latestShotcamPath else None,
+        )
+
+        if self._isSceneBuildingShotcamStateOutdated(shotcamStateUi):
+            summary = self.core.tr("Update shotcam state")
+            if curLabel or latestLabel:
+                summary = "%s -> %s" % (curLabel or "-", latestLabel or "-")
+
+            summaryWidget = self._createSceneBuildingShotcamSummaryWidget(
+                shotContext,
+                self.core.tr("Outdated in scene"),
+                currentInfo,
+                latestInfo,
+            )
+
+            return {
+                "action": "update",
+                "current_value": curVersion.get("path"),
+                "new_value": latestVersion.get("path") or latestShotcamPath,
+                "summary": summary,
+                "summary_widget": summaryWidget,
+            }
+
+        summaryWidget = self._createSceneBuildingShotcamSummaryWidget(
+            shotContext,
+            self.core.tr("Up to date"),
+            currentInfo,
+            latestInfo,
+        )
+
+        return {
+            "action": "no change",
+            "current_value": curVersion.get("path"),
+            "new_value": latestVersion.get("path") or latestShotcamPath,
+            "summary": "",
+            "summary_widget": summaryWidget,
+        }
+
+    @err_catcher(name=__name__)
+    def buildSceneGetRunCodeUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        # Custom code can perform arbitrary actions, so update status is unknown.
+        # Keep it classified as up-to-date and let users run it manually when needed.
+        return {
+            "action": "no change",
+            "summary": "",
+        }
+
+    @err_catcher(name=__name__)
+    def getSceneBuildingStepUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Evaluate and return update-status data for a scene building step.
+
+        Args:
+            step: Step configuration dictionary.
+            context: Scene building context dictionary.
+
+        Returns:
+            Optional[Dict[str, Any]]: Evaluated update data or None if the step
+            has no update-data evaluator.
+        """
+        getUpdateData = step.get("get_update_data")
+        if not getUpdateData:
+            if context.get("_sceneBuildingNewScene"):
+                return {"action": "update", "summary": self.core.tr("Runs when the new scene is built.")}
+            return
+
+        try:
+            if callable(getUpdateData):
+                fn = getUpdateData
+            elif isinstance(getUpdateData, str):
+                fn = eval(getUpdateData, {"self": self})
+            else:
+                logger.warning(
+                    "Invalid scene building update evaluator for step '%s': %s"
+                    % (step.get("name", ""), getUpdateData)
+                )
+                return
+
+            data = fn(step, context)
+        except Exception as e:
+            logger.warning(
+                "Failed to evaluate scene building update data for step '%s': %s"
+                % (step.get("name", ""), e)
+            )
+            return {
+                "action": "error",
+                "summary": "Failed to evaluate update state.",
+            }
+
+        if not isinstance(data, dict):
+            logger.warning(
+                "Invalid scene building update data for step '%s': %s"
+                % (step.get("name", ""), data)
+            )
+            return {
+                "action": "error",
+                "summary": "Invalid update state data.",
+            }
+
+        data.setdefault("action", "unknown")
+        data.setdefault("summary", "")
+        return data
+
+    @err_catcher(name=__name__)
+    def getSceneBuildingStepsWithUpdateData(
+        self,
+        entity: Dict[str, Any],
+        department: str,
+        task: str,
+        includeUnevaluated: bool = False,
+        newScenePreview: bool = False,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """Return active scene-building steps with their current update status.
+
+        Args:
+            includeUnevaluated: Include active steps that do not define update
+                data. Build previews need to retain these runnable steps, while
+                rebuilds only show steps with a known update state.
+        """
+        sbSettings = self.core.getConfig("sceneBuilding", config="project") or {}
+        activeSteps = self.getActiveSceneBuildingSteps(
+            entity, department, task, sbSettings
+        )
+
+        stepContext = entity.copy()
+        stepContext["department"] = department
+        stepContext["task"] = task
+        stepContext["extension"] = self.core.appPlugin.getSceneExtension(self)
+        if newScenePreview:
+            stepContext["_sceneBuildingNewScene"] = True
+
+        evaluatedSteps = []
+        for step in activeSteps:
+            stepData = copy.deepcopy(step)
+            updateData = self.getSceneBuildingStepUpdateData(stepData, stepContext)
+            if not updateData:
+                if includeUnevaluated:
+                    stepData["update_data"] = {
+                        "action": "unknown",
+                        "summary": "",
+                    }
+                    evaluatedSteps.append(stepData)
+                continue
+
+            stepData["update_data"] = updateData
+            evaluatedSteps.append(stepData)
+
+        return evaluatedSteps, stepContext
+
+    @err_catcher(name=__name__)
     def buildSceneSetFPS(self, step: Dict[str, Any], context: Dict[str, Any]) -> None:
         """
         Scene building step function to set FPS for an entity.
@@ -3878,7 +5949,8 @@ class ProjectEntities(object):
             context: Current scene building context dict with entity, department, task info.
         """
         settings = {
-            "accept": True
+            "accept": True,
+            "force": True,
         }
         self.core.sanities.checkFPS(settings)
 
@@ -3892,7 +5964,8 @@ class ProjectEntities(object):
             context: Current scene building context dict with entity, department, task info.
         """
         settings = {
-            "accept": True
+            "accept": True,
+            "force": True,
         }
         self.core.sanities.checkResolution(settings)
 
@@ -3905,13 +5978,51 @@ class ProjectEntities(object):
             step: Step settings dict.
             context: Current scene building context dict with entity, department, task info.
         """
-        entityData = context.copy()
-        entityData["department"] = context.get("department")
-        entityData["task"] = context.get("task")
-        includeMaster = not step.get("settings", [{}])[0].get("value", True)
-        self.core.products.importProductsForTask(context, context.get("department"), context.get("task"), quietCheck=True, includeMaster=includeMaster)
-        if context.get("type") in ["shot"]:
-            self.core.products.importConnectedAssets(entityData, quietCheck=True, includeMaster=includeMaster)
+        plan = self._getSceneBuildingImportProductsPlan(step, context, createStateManager=True)
+        sm = plan.get("state_manager")
+        if not sm:
+            return
+
+        settings = {
+            "quiet": True,
+        }
+        if self.core.appPlugin.pluginName == "Maya":
+            settings["useNamespace"] = False
+
+        for update in plan.get("state_updates", []):
+            if not update.get("selected", True):
+                continue
+
+            stateUi = update.get("state_ui")
+            if not stateUi:
+                continue
+
+            targetPath = update.get("to_path")
+            if not targetPath:
+                continue
+
+            stateUi.setImportPath(targetPath)
+            stateUi.importObject(update=True, settings=settings)
+
+        for newImport in plan.get("new_imports", []):
+            if not newImport.get("selected", True):
+                continue
+
+            importPath = newImport.get("to_path")
+            if not importPath:
+                continue
+
+            sm.importFile(importPath, settings=settings)
+
+        for staleState in plan.get("stale_state_removals", []):
+            if not staleState.get("selected", True):
+                continue
+
+            state = staleState.get("state")
+            if not state:
+                continue
+
+            sm.deleteState(state)
     
     @err_catcher(name=__name__)
     def buildSceneImportShotcam(self, step: Dict[str, Any], context: Dict[str, Any]) -> None:
@@ -3922,9 +6033,18 @@ class ProjectEntities(object):
             step: Step settings dict.
             context: Current scene building context dict with entity, department, task info.
         """
-        entityData = context.copy()
+        entityData = self._getSceneBuildingShotcamContext(context)
+        if not entityData:
+            return
+
         sm = self.core.getStateManager()
         if not sm:
+            return
+
+        _, shotcamStateUi = self._getSceneBuildingShotcamState(sm)
+        if shotcamStateUi:
+            if self._isSceneBuildingShotcamStateOutdated(shotcamStateUi):
+                shotcamStateUi.importLatest(selectedStates=False)
             return
 
         sm.importShotCam(shot=entityData, quiet=True)
@@ -3992,8 +6112,89 @@ class ProjectEntities(object):
         """
         skipBuildSteps = skipBuildSteps or []
         appName = self.core.appPlugin.pluginName
+        configKey = appName[0].lower() + appName[1:] + "_steps"
 
-        configuredSteps = self.core.getConfig("sceneBuilding", appName[0].lower() + appName[1:] + "_steps", config="project") or []
+        configuredSteps = self.core.getConfig("sceneBuilding", configKey, config="project") or []
+        defaultSteps = self.getDefaultSceneBuildingSteps() or []
+        defaultStepMap = {
+            step.get("name"): step
+            for step in defaultSteps
+            if isinstance(step, dict) and step.get("name")
+        }
+        appAvailableSteps = self.getAvailableSceneBuildingSteps(appName) or []
+        appStepMap = {
+            step.get("name"): step
+            for step in appAvailableSteps
+            if isinstance(step, dict) and step.get("name")
+        }
+        stepTemplateMap = dict(defaultStepMap)
+        stepTemplateMap.update(appStepMap)
+
+        if not configuredSteps:
+            configuredSteps = [dict(step) for step in appAvailableSteps]
+
+        updatedConfiguredSteps = False
+        for step in configuredSteps:
+            if not isinstance(step, dict):
+                continue
+
+            defaultStep = stepTemplateMap.get(step.get("name"))
+            if not defaultStep:
+                continue
+
+            # Backward compatibility: enrich existing saved steps with new keys
+            # without overriding any user-configured values.
+            if "get_update_data" not in step and "get_update_data" in defaultStep:
+                step["get_update_data"] = defaultStep["get_update_data"]
+                updatedConfiguredSteps = True
+
+            if "description" not in step and "description" in defaultStep:
+                step["description"] = defaultStep["description"]
+                updatedConfiguredSteps = True
+
+            defaultSettings = defaultStep.get("settings") or []
+            configuredSettings = step.get("settings") or []
+            if not isinstance(configuredSettings, list):
+                continue
+
+            configuredSettingKeys = set()
+            for setting in configuredSettings:
+                if not isinstance(setting, dict):
+                    continue
+
+                name = (setting.get("name") or "").strip().lower()
+                label = (setting.get("label") or "").strip().lower()
+                if name:
+                    configuredSettingKeys.add(("name", name))
+                if label:
+                    configuredSettingKeys.add(("label", label))
+
+            missingSettings = []
+            for setting in defaultSettings:
+                if not isinstance(setting, dict):
+                    continue
+
+                name = (setting.get("name") or "").strip().lower()
+                label = (setting.get("label") or "").strip().lower()
+                settingKey = ("name", name) if name else ("label", label) if label else None
+                labelKey = ("label", label) if label else None
+                if (
+                    not settingKey
+                    or settingKey in configuredSettingKeys
+                    or labelKey in configuredSettingKeys
+                ):
+                    continue
+
+                missingSettings.append(copy.deepcopy(setting))
+                configuredSettingKeys.add(settingKey)
+
+            if missingSettings:
+                step.setdefault("settings", []).extend(missingSettings)
+                updatedConfiguredSteps = True
+
+        if updatedConfiguredSteps:
+            self.core.setConfig("sceneBuilding", configKey, configuredSteps, config="project")
+
         logger.debug("configured scene building steps for %s: %s" % (appName, [x.get("name") for x in configuredSteps]))
         context = entity.copy()
         context["department"] = department
@@ -4027,6 +6228,8 @@ class ProjectEntities(object):
         department: str,
         task: str,
         stepOverrides: Optional[List[Dict[str, Any]]] = None,
+        useCurrentScene: bool = False,
+        templateScene: Optional[str] = None,
     ) -> Optional[str]:
         """Automatically build a new scene with project settings applied.
         
@@ -4040,7 +6243,10 @@ class ProjectEntities(object):
             stepOverrides: Optional per-run list of step dicts. If provided,
                 these steps are executed instead of resolving active steps from
                 project configuration.
-            
+            useCurrentScene: Whether to use the current scene if available.
+            templateScene: Optional preset scene filepath to use instead of the
+                context's configured default template.
+
         Returns:
             Optional[str]: Path to created scene or None if failed/cancelled.
         """
@@ -4055,7 +6261,7 @@ class ProjectEntities(object):
             if isinstance(res, dict) and res.get("cancel", False):
                 return
 
-        if hasattr(self.core.appPlugin, "newScene"):
+        if not useCurrentScene and hasattr(self.core.appPlugin, "newScene"):
             result = self.core.appPlugin.newScene()
             if not result:
                 return
@@ -4069,34 +6275,38 @@ class ProjectEntities(object):
                 if res.get("skipBuildSteps"):
                     skipBuildSteps += res["skipBuildSteps"]
 
-        version = self.core.entities.getHighestVersion(entity, department, task)
-        filepath = self.core.generateScenePath(
-            entity=entity,
-            department=department,
-            task=task,
-            extension=self.core.appPlugin.getSceneExtension(self),
-            version=version
-        )
+        if useCurrentScene:
+            filepath = (self.core.getCurrentFileName() or "").replace("\\", "/")
+            details = {}
+        else:
+            version = self.core.entities.getHighestVersion(entity, department, task)
+            filepath = self.core.generateScenePath(
+                entity=entity,
+                department=department,
+                task=task,
+                extension=self.core.appPlugin.getSceneExtension(self),
+                version=version
+            )
 
-        if self.core.useLocalFiles:
-            filepath = self.core.convertPath(filepath, "local")
+            if self.core.useLocalFiles:
+                filepath = self.core.convertPath(filepath, "local")
 
-        if not os.path.exists(os.path.dirname(filepath)):
-            try:
-                os.makedirs(os.path.dirname(filepath))
-            except:
-                self.core.popup("The directory could not be created")
-                return
+            if not os.path.exists(os.path.dirname(filepath)):
+                try:
+                    os.makedirs(os.path.dirname(filepath))
+                except:
+                    self.core.popup("The directory could not be created")
+                    return
 
-        filepath = filepath.replace("\\", "/")
-        self.core.startAutosaveTimer(quit=True)
+            filepath = filepath.replace("\\", "/")
+            self.core.startAutosaveTimer(quit=True)
 
-        details = entity.copy()
-        details["department"] = department
-        details["task"] = task
-        details["extension"] = os.path.splitext(filepath)[1]
-        details["comment"] = "Scene Building"
-        details["version"] = version
+            details = entity.copy()
+            details["department"] = department
+            details["task"] = task
+            details["extension"] = os.path.splitext(filepath)[1]
+            details["comment"] = "Scene Building"
+            details["version"] = version
 
         # Get scene building steps and split them into before/after save groups
         sbSettings = self.core.getConfig("sceneBuilding", config="project") or {}
@@ -4134,37 +6344,38 @@ class ProjectEntities(object):
                 except Exception as e:
                     logger.warning("Failed to execute scene building step '%s': %s" % (step.get("name", ""), e))
 
-        # Now save the scene or create from preset
-        self.core.sanities.checksToRun["onSceneOpen"]["enabled"] = False
-        presetScene = self.getDefaultPresetSceneForContext(details)
-        if presetScene and os.path.splitext(presetScene)[1] in self.core.appPlugin.sceneFormats:
-            filePath = self.createSceneFromPreset(
-                entity,
-                presetScene,
-                step=department,
-                category=task,
-                comment="build scene",
-                location="local",
-            )
-            self.core.callback(
-                name="preLoadPresetScene",
-                args=[self, filePath],
-            )
-            self.openScenefile(filepath)
-            try:
-                self.core.pb.sceneBrowser.refreshScenefilesThreaded()
-            except:
-                pass
+        if not useCurrentScene:
+            # Now save the scene or create from preset
+            self.core.sanities.checksToRun["onSceneOpen"]["enabled"] = False
+            presetScene = templateScene or self.getDefaultPresetSceneForContext(details)
+            if presetScene and os.path.splitext(presetScene)[1] in self.core.appPlugin.sceneFormats:
+                filepath = self.createSceneFromPreset(
+                    entity,
+                    presetScene,
+                    step=department,
+                    category=task,
+                    comment="build scene",
+                    location="local",
+                )
+                self.core.callback(
+                    name="preLoadPresetScene",
+                    args=[self, filepath],
+                )
+                self.openScenefile(filepath)
+                try:
+                    self.core.pb.sceneBrowser.refreshScenefilesThreaded()
+                except:
+                    pass
 
-            self.core.callback(
-                name="postLoadPresetScene",
-                args=[self, filePath],
-            )
-        else:
-            filepath = self.core.saveScene(filepath=filepath, details=details)
-            self.core.sceneOpen()
+                self.core.callback(
+                    name="postLoadPresetScene",
+                    args=[self, filepath],
+                )
+            else:
+                filepath = self.core.saveScene(filepath=filepath, details=details)
+                self.core.sceneOpen()
 
-        self.core.sanities.checksToRun["onSceneOpen"]["enabled"] = True
+            self.core.sanities.checksToRun["onSceneOpen"]["enabled"] = True
 
         # Run remaining steps after the scene has been saved
         for step in stepsAfterSave:
@@ -4180,7 +6391,7 @@ class ProjectEntities(object):
                 except Exception as e:
                     logger.warning("Failed to execute scene building step '%s': %s" % (step.get("name", ""), e))
 
-        if self.core.shouldAutosaveTimerRun():
+        if not useCurrentScene and self.core.shouldAutosaveTimerRun():
             self.core.startAutosaveTimer()
 
         kwargs = {
@@ -4248,17 +6459,17 @@ class ProjectEntities(object):
             filepath = lfilepath
 
         if self.core.appPlugin.pluginName == "Standalone":
-            self.core.openFile(filepath)
+            result = self.core.openFile(filepath)
         else:
             filepath = filepath.replace("\\", "/")
             logger.debug("Opening scene " + filepath)
-            self.core.appPlugin.openScene(self, filepath)
+            result = self.core.appPlugin.openScene(self, filepath)
 
         self.core.addToRecent(filepath)
         if wasSmOpen:
             self.core.stateManager()
 
-        return True
+        return result
 
     @err_catcher(name=__name__)
     def createVersionFromCurrentScene(self, entity: Dict[str, Any], department: str, task: str) -> Optional[str]:
@@ -4273,13 +6484,19 @@ class ProjectEntities(object):
             Optional[str]: Path to saved version or None if failed.
         """
         version = self.core.entities.getHighestVersion(entity, department, task)
+        ext = self.core.appPlugin.getSceneExtension(self)
         filepath = self.core.generateScenePath(
             entity=entity,
             department=department,
             task=task,
-            extension=self.core.appPlugin.getSceneExtension(self),
+            extension=ext,
             version=version
         )
+        if not filepath:
+            msg = "Failed to generate scenefile path: entity=%s, department=%s, task=%s, extension=%s, version=%s" % (entity, department, task, ext, version)
+            logger.warning(msg)
+            self.core.popup("Failed to generate scenefile path. Check log for details.")
+            return
 
         if self.core.useLocalFiles:
             filepath = self.core.convertPath(filepath, "local")
@@ -4433,16 +6650,11 @@ class ProjectEntities(object):
 
         elif entity.get("type") == "shot" and "sequence" in entity:
             data = self.core.getConfig(config="shotinfo") or {}
-            if "shots" not in data:
+            entityInfo = self.getShotInfoEntityData(data, entity)
+            if not entityInfo:
                 return centities
 
-            if entity["sequence"] not in data["shots"]:
-                return centities
-
-            if entity["shot"] not in data["shots"][entity["sequence"]]:
-                return centities
-
-            centities = copy.deepcopy(data["shots"][entity["sequence"]][entity["shot"]].get("connectedEntities", {}))
+            centities = copy.deepcopy(entityInfo.get("connectedEntities", {}))
 
         return centities
 
@@ -4477,16 +6689,9 @@ class ProjectEntities(object):
                 if shotInfo is None:
                     shotInfo = self.core.getConfig(config="shotinfo", allowCache=False) or {}
 
-                if "shots" not in shotInfo:
-                    shotInfo["shots"] = {}
-
-                if entity["sequence"] not in shotInfo["shots"]:
-                    shotInfo["shots"][entity["sequence"]] = {}
-
-                if entity["shot"] not in shotInfo["shots"][entity["sequence"]]:
-                    shotInfo["shots"][entity["sequence"]][entity["shot"]] = {}
-
-                entityInfo = shotInfo["shots"][entity["sequence"]][entity["shot"]]
+                entityInfo = self.getShotInfoEntityData(shotInfo, entity, create=True)
+                if entityInfo is None:
+                    continue
 
             curEntities = entityInfo.get("connectedEntities", [])
             centities = []
@@ -4563,6 +6768,8 @@ class ProjectEntities(object):
         elif entity.get("type") == "shot":
             data["shot"] = entity.get("shot")
             data["sequence"] = entity.get("sequence")
+            if entity.get("episode") is not None:
+                data["episode"] = entity.get("episode")
 
         return data
 
@@ -4769,6 +6976,15 @@ class ConnectedListWidget(QTreeWidget):
             return "%s x%s" % (name, count)
         return name
 
+    def startDrag(self, supportedActions):
+        """Remove selected connections when their drag is dropped outside a target."""
+        self._receivedInternalDrop = False
+        drag = QDrag(self)
+        drag.setMimeData(self.mimeData(self.selectedItems()))
+        result = drag.exec_(Qt.MoveAction)
+        if result == Qt.IgnoreAction and not self._receivedInternalDrop:
+            self.dlg.removeSelectedFromConnected(removeAll=True)
+
     def dragEnterEvent(self, event):
         if isinstance(event.source(), QTreeWidget) or event.source() is self:
             event.accept()
@@ -4785,8 +7001,9 @@ class ConnectedListWidget(QTreeWidget):
 
     def dropEvent(self, event):
         if event.source() is self:
+            self._receivedInternalDrop = True
             event.setDropAction(Qt.MoveAction)
-            super(ConnectedListWidget, self).dropEvent(event)
+            event.accept()
         elif isinstance(event.source(), QTreeWidget):
             self.dlg.addSelectedEntitiesToConnected()
             event.accept()
@@ -5105,11 +7322,11 @@ class ConnectEntitiesDlg(QDialog):
         self.refreshConnectedEntityInfo()
 
     @err_catcher(name=__name__)
-    def removeSelectedFromConnected(self, item=None) -> None:
+    def removeSelectedFromConnected(self, item=None, removeAll: bool = False) -> None:
         """Remove items from the connected list.
         
-        If item is provided (from itemDoubleClicked), removes that item or decrements its count.
-        Otherwise removes all currently selected items.
+        If ``removeAll`` is false, decrement each selected item's count. Otherwise,
+        remove each selected item and all of its connections.
         """
         if item is not None:
             items = [item]
@@ -5120,7 +7337,7 @@ class ConnectEntitiesDlg(QDialog):
         
         for lwItem in items:
             current_count = lwItem.data(0, Qt.UserRole + 1) or 1
-            if current_count > 1:
+            if current_count > 1 and not removeAll:
                 # Decrement count
                 new_count = current_count - 1
                 lwItem.setData(0, Qt.UserRole + 1, new_count)
@@ -5151,9 +7368,18 @@ class ConnectEntitiesDlg(QDialog):
     def showConnectedListContextMenu(self, pos) -> None:
         """Show context menu for the connected entities list."""
         menu = QMenu(self)
-        menu.addAction("Add Selected Available", self.addSelectedEntitiesToConnected)
-        menu.addSeparator()
-        menu.addAction("Remove Selected", self.removeSelectedFromConnected)
+        selectedItems = self.lw_connected.selectedItems()
+        hasMultipleConnections = any(
+            (item.data(0, Qt.UserRole + 1) or 1) > 1 for item in selectedItems
+        )
+        if hasMultipleConnections:
+            menu.addAction("Remove One Selected", self.removeSelectedFromConnected)
+            menu.addAction(
+                "Remove All Selected",
+                lambda: self.removeSelectedFromConnected(removeAll=True),
+            )
+        else:
+            menu.addAction("Remove Selected", self.removeSelectedFromConnected)
         menu.addAction("Clear All", self.clearConnected)
         menu.exec_(self.lw_connected.mapToGlobal(pos))
 

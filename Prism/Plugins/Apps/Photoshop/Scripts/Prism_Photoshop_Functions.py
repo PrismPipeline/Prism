@@ -896,8 +896,9 @@ class Prism_Photoshop_Functions(object):
         if len(self.taskList) == 0:
             self.b_task.setHidden(True)
         else:
-            if "_ShotCam" in self.taskList:
-                self.taskList.remove("_ShotCam")
+            camProduct = self.core.products.getShotcamProductName()
+            if camProduct in self.taskList:
+                self.taskList.remove(camProduct)
 
     @err_catcher(name=__name__)
     def exportShowTasks(self) -> None:
@@ -1286,6 +1287,7 @@ class Prism_Photoshop_Functions(object):
                     self.psAppName,
                     outputPath,
                 )
+                self.executeAppleScript(scpt)
             elif ext in [".psd"]:
                 curFileName = self.core.getCurrentFileName()
                 self.core.copySceneFile(curFileName, outputPath)
@@ -1311,7 +1313,7 @@ class Prism_Photoshop_Functions(object):
                     outputPath,
                     formatName,
                 )
-            self.executeAppleScript(scpt)
+                self.executeAppleScript(scpt)
 
     @err_catcher(name=__name__)
     def isUsingMasterVersion(self) -> bool:

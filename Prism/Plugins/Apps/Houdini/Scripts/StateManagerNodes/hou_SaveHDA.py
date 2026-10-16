@@ -97,6 +97,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.e_name.setText(self.className + " - {product} ({node})")
         self.l_name.setVisible(False)
         self.e_name.setVisible(False)
+        self.chb_master.setChecked(os.getenv("PRISM_ENABLE_MASTER_DFT", "1") == "1")
         self.core.callback("onStateStartup", self)
 
         self.export_paths = self.core.paths.getExportProductBasePaths()
@@ -167,6 +168,8 @@ class SaveHDAClass(hou_Export.ExportClass):
             idx = self.cb_outPath.findText(data["curoutputpath"])
             if idx != -1:
                 self.cb_outPath.setCurrentIndex(idx)
+        if "updateMasterVersion" in data:
+            self.chb_master.setChecked(data["updateMasterVersion"])
         if "projecthda" in data:
             self.chb_projectHDA.setChecked(data["projecthda"])
         if "externalReferences" in data:
@@ -175,6 +178,8 @@ class SaveHDAClass(hou_Export.ExportClass):
             self.chb_blackboxHDA.setChecked(data["blackboxhda"])
         if "recipe" in data:
             self.chb_recipe.setChecked(data["recipe"])
+        if "useNodeName" in data:
+            self.chb_nodeName.setChecked(data["useNodeName"])
         if "lastexportpath" in data:
             lePath = self.core.fixPath(data["lastexportpath"])
 
@@ -200,6 +205,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.e_name.editingFinished.connect(self.stateManager.saveStatesToScene)
         self.b_changeTask.clicked.connect(self.changeTask)
         self.cb_outPath.activated.connect(self.stateManager.saveStatesToScene)
+        self.chb_master.stateChanged.connect(self.onUpdateMasterChanged)
         self.chb_projectHDA.stateChanged.connect(
             lambda x: self.w_outPath.setEnabled(not x)
         )
@@ -208,7 +214,8 @@ class SaveHDAClass(hou_Export.ExportClass):
             self.stateManager.saveStatesToScene
         )
         self.chb_blackboxHDA.stateChanged.connect(self.stateManager.saveStatesToScene)
-        self.chb_recipe.stateChanged.connect(self.stateManager.saveStatesToScene)
+        self.chb_recipe.stateChanged.connect(self.onRecipeChanged)
+        self.chb_nodeName.stateChanged.connect(self.stateManager.saveStatesToScene)
         self.b_pathLast.clicked.connect(lambda: self.stateManager.showLastPathMenu(self))
 
         if not self.stateManager.standalone:
@@ -309,7 +316,7 @@ class SaveHDAClass(hou_Export.ExportClass):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -323,7 +330,7 @@ class SaveHDAClass(hou_Export.ExportClass):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 
@@ -393,6 +400,9 @@ class SaveHDAClass(hou_Export.ExportClass):
         self.w_externalReferences.setEnabled(
             bool(self.nodes and isinstance(self.nodes[0], hou.Node) and self.nodes[0].canCreateDigitalAsset())
         )
+
+        if not self.core.products.getUseMaster():
+            self.w_master.setVisible(False)
 
         self.nameChanged(self.e_name.text())
         self.w_comment.setHidden(not self.stateManager.useStateComments())
@@ -492,6 +502,16 @@ class SaveHDAClass(hou_Export.ExportClass):
             return True
 
         return False
+
+    @err_catcher(name=__name__)
+    def onRecipeChanged(self, state=None):
+        """Handle changes to the recipe state.
+        
+        Args:
+            state: Optional state parameter (not used).
+        """
+        self.updateUi()
+        self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def preDelete(self, item: Any, silent: bool = False) -> None:
@@ -658,6 +678,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         details["sourceScene"] = fileName
         details["product"] = self.getProductname()
         details["comment"] = self.getComment()
+        details["useNodeName"] = self.chb_nodeName.isChecked()
 
         self.core.saveVersionInfo(
             filepath=os.path.dirname(outputName),
@@ -673,6 +694,10 @@ class SaveHDAClass(hou_Export.ExportClass):
 
         version = int(hVersion[1:]) if hVersion else None
         result = self.exportHDA(ropNodes, outputName, version)
+
+        useMaster = self.core.products.getUseMaster()
+        if useMaster and self.getUpdateMasterVersion():
+            self.core.products.updateMasterVersion(outputName)
 
         kwargs = {
             "state": self,
@@ -732,6 +757,7 @@ class SaveHDAClass(hou_Export.ExportClass):
         allowExtRef = self.chb_externalReferences.isChecked()
         projectHDA = self.chb_projectHDA.isChecked()
         recipe = self.chb_recipe.isChecked()
+        useNodeName = self.chb_nodeName.isChecked()
         node = nodes[0]
 
         if isinstance(node, hou.Node) and node.canCreateDigitalAsset():
@@ -744,10 +770,17 @@ class SaveHDAClass(hou_Export.ExportClass):
             outputPath = None
             label = self.getProductname()
             version = "increment"
+        elif recipe and version:
+            typeName = "%s_%s" % (typeName, self.core.versionFormat % version)
+            label = typeName
 
         # hou.HDADefinition.copyToHDAFile converts "-" to "_"
         typeName = typeName.replace("-", "_")
         label = label.replace("-", "_")
+
+        if useNodeName:
+            typeName = node.name()
+            label = typeName
 
         result = self.core.appPlugin.createHDA(
             nodes,
@@ -792,12 +825,14 @@ class SaveHDAClass(hou_Export.ExportClass):
             "stateName": self.e_name.text(),
             "productname": self.getProductname(),
             "curoutputpath": self.cb_outPath.currentText(),
+            "updateMasterVersion": self.chb_master.isChecked(),
             "connectednode": curNode,
             "connectednodes": curNodes,
             "projecthda": self.chb_projectHDA.isChecked(),
             "externalReferences": self.chb_externalReferences.isChecked(),
             "blackboxhda": self.chb_blackboxHDA.isChecked(),
             "recipe": self.chb_recipe.isChecked(),
+            "useNodeName": self.chb_nodeName.isChecked(),
             "lastexportpath": self.l_pathLast.text(),
             "stateenabled": self.core.getCheckStateValue(self.state.checkState(0)),
         }

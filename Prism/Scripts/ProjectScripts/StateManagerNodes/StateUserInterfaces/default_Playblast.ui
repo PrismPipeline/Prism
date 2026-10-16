@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>389</width>
-    <height>663</height>
+    <width>419</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -324,7 +324,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="widget" native="true">
+       <widget class="QWidget" name="w_cam" native="true">
         <layout class="QHBoxLayout" name="horizontalLayout_2">
          <property name="spacing">
           <number>0</number>
@@ -951,7 +951,7 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>338</width>
+           <width>361</width>
            <height>54</height>
           </rect>
          </property>

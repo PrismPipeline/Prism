@@ -226,6 +226,38 @@ class Prism_3dsMax_Integration(object):
             QMessageBox.warning(self.core.messageParent, "Prism Integration", msgStr)
             return False
 
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Compare installed Prism startup and macro files with current templates."""
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        files = {
+            "initPrism.ms": os.path.join(path, "ENU", "scripts", "startup", "initPrism.ms"),
+            "initPrism.py": os.path.join(path, "ENU", "scripts", "startup", "python", "initPrism.py"),
+            "PrismMenu.ms": os.path.join(path, "ENU", "scripts", "startup", "PrismMenu.ms"),
+            "PrismMacros.mcr": os.path.join(path, "ENU", "usermacros", "PrismMacros.mcr"),
+        }
+        foundIntegration = False
+        currentIntegration = True
+        for filename, installedFile in files.items():
+            if not os.path.isfile(installedFile):
+                currentIntegration = False
+                continue
+
+            foundIntegration = True
+            with open(installedFile, "r") as stream:
+                installed = stream.read()
+            with open(os.path.join(integrationBase, filename), "r") as stream:
+                expected = stream.read()
+            if filename == "initPrism.py":
+                prismRoot = self.core.prismRoot.replace("\\", "/")
+                expected = expected.replace("PRISMROOT", f'"{prismRoot}"')
+            if installed != expected:
+                currentIntegration = False
+
+        if not foundIntegration:
+            return "not added"
+        return "added" if currentIntegration else "update needed"
+
     def removeIntegration(self, installPath: str) -> bool:
         """Remove Prism integration from 3ds Max preferences folder.
         

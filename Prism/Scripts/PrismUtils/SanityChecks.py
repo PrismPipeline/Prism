@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import os
 import logging
-from typing import Optional, Dict, List, Any, Union
+from typing import Optional, Dict, List, Any, Union, Callable
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -75,6 +75,8 @@ class SanityChecks(object):
             core: PrismCore instance
         """
         self.core = core
+        self._notificationQueue = None
+        self.dlg_sanityNotifications = None
         self.checksToRun = {
             "onOpenProjectBrowser": {
                 "enabled": True,
@@ -95,6 +97,10 @@ class SanityChecks(object):
                     {"name": "checkFramerange", "function": self.checkFramerange},
                     {"name": "checkFPS", "function": self.checkFPS},
                     {"name": "checkResolution", "function": self.checkResolution},
+                    {
+                        "name": "checkSceneBuildingUpdates",
+                        "function": self.checkSceneBuildingUpdates,
+                    },
                 ]
             }
         }
@@ -110,12 +116,16 @@ class SanityChecks(object):
         Returns:
             Dictionary with 'passed' boolean and list of 'checks' results
         """
+        settings = settings or {}
         result = {"passed": True, "checks": []}
         if category not in self.checksToRun:
             return result
 
         if not self.checksToRun[category].get("enabled", True):
             return result
+
+        if category == "onSceneOpen" and not settings.get("accept", False):
+            self._notificationQueue = []
 
         for check in self.checksToRun[category]["checks"]:
             checkResult = check["function"](settings=settings)
@@ -125,7 +135,110 @@ class SanityChecks(object):
             checkData = {"name": check["name"], "passed": checkResult}
             result["checks"].append(checkData)
 
+        if category == "onSceneOpen":
+            self.showQueuedNotifications()
+
         return result
+
+    @err_catcher(name=__name__)
+    def queueOrShowNotification(
+        self,
+        text: str,
+        title: str,
+        buttons: List[str],
+        default: Optional[str] = None,
+        escapeButton: Optional[str] = None,
+        widget: Optional[QWidget] = None,
+        callback: Optional[Callable[[Any], None]] = None,
+    ) -> Optional[Any]:
+        """Queue a notification for stacked display or show it immediately.
+
+        Args:
+            title: Dialog title.
+            text: Message text.
+            buttons: Action button labels.
+            default: Optional default button label.
+            escapeButton: Optional escape button label.
+            widget: Optional extra widget to display in the notification.
+            callback: Optional callback for clicked button.
+
+        Returns:
+            QMessageBox-like dialog when shown immediately, otherwise None.
+        """
+        notification = {
+            "text": text,
+            "title": title,
+            "buttons": buttons,
+            "default": default,
+            "escapeButton": escapeButton,
+            "widget": widget,
+            "callback": callback,
+        }
+
+        if self._notificationQueue is not None:
+            self._notificationQueue.append(notification)
+            return None
+
+        return self.showImmediateNotification(notification)
+
+    @err_catcher(name=__name__)
+    def showImmediateNotification(self, notification: Dict[str, Any]) -> Optional[Any]:
+        """Show a single notification popup directly.
+
+        Args:
+            notification: Notification descriptor.
+
+        Returns:
+            Dialog object when shown, otherwise None.
+        """
+        msg = self.core.popupQuestion(
+            notification.get("text", ""),
+            title=notification.get("title", "Prism"),
+            buttons=notification.get("buttons") or ["Ok"],
+            escapeButton=notification.get("escapeButton"),
+            default=notification.get("default"),
+            widget=notification.get("widget"),
+            doExec=False,
+        )
+        if self.core.isStr(msg):
+            return None
+
+        callback = notification.get("callback")
+        if callback:
+            msg.buttonClicked.connect(callback)
+
+        msg.show()
+        return msg
+
+    @err_catcher(name=__name__)
+    def showQueuedNotifications(self) -> None:
+        """Show queued scene-open sanity notifications as one stacked dialog."""
+        notifications = self._notificationQueue or []
+        self._notificationQueue = None
+        if not notifications:
+            return
+
+        qapp = QApplication.instance()
+        isGuiThread = qapp and qapp.thread() == QThread.currentThread()
+        if "silent" in self.core.prismArgs or not self.core.uiAvailable or not isGuiThread:
+            return
+
+        from PrismUtils import ProjectWidgets
+
+        if (
+            getattr(self, "dlg_sanityNotifications", None)
+            and self.core.isObjectValid(self.dlg_sanityNotifications)
+            and self.dlg_sanityNotifications.isVisible()
+        ):
+            self.dlg_sanityNotifications.close()
+
+        self.dlg_sanityNotifications = ProjectWidgets.SanityNotificationsDialog(
+            self.core,
+            notifications=notifications,
+            parent=getattr(self.core, "messageParent", None),
+        )
+        self.dlg_sanityNotifications.setModal(False)
+        self.dlg_sanityNotifications.show()
 
     @err_catcher(name=__name__)
     def checkRestartRequired(self, settings: Optional[Dict] = None) -> bool:
@@ -195,21 +308,29 @@ class SanityChecks(object):
             if not entityType:
                 continue
 
-            curVersion = self.core.products.getProductDataFromFilepath(path)
-            if not curVersion or "version" not in curVersion:
-                continue
+            curVersionName = self.core.products.getVersionFromFilepath(path) or ""
+            if not curVersionName:
+                curVersionName = self.core.paths.getCachePathData(path).get("version")
+                if curVersionName and os.path.basename(os.path.dirname(path)) == "master":
+                    curVersionName = "master"
 
             ignoreMaster = pathData[2] if len(pathData) > 2 else False
             includeMaster = self.core.products.getUseMaster() and not ignoreMaster
             latestVersion = self.core.products.getLatestVersionFromPath(path, includeMaster=includeMaster)
-
-            if not latestVersion or curVersion["version"] == latestVersion["version"]:
+            if not latestVersion or curVersionName == latestVersion["version"]:
                 continue
+
+            latestVersionName = latestVersion["version"]
+            if curVersionName == "master":
+                curVersionName = self.core.products.getMasterVersionLabel(path)
+
+            if latestVersionName == "master":
+                latestVersionName = self.core.products.getMasterVersionLabel(path)
 
             msgString += "%s\n    current: %s\n    latest: %s\n\n" % (
                 pathData[1],
-                curVersion["version"],
-                latestVersion["version"],
+                curVersionName,
+                latestVersionName,
             )
             updates += 1
 
@@ -219,17 +340,14 @@ class SanityChecks(object):
             if settings.get("accept", False):
                 self.onImportVersionsClicked(settings.get("value", "Update all"))
             else:
-                msg = self.core.popupQuestion(
+                self.queueOrShowNotification(
                     msgString,
                     title="New versions available",
                     buttons=["Update all", "Open State Manager", "Skip"],
                     escapeButton="Skip",
                     default="Skip",
-                    doExec=False,
+                    callback=self.onImportVersionsClicked,
                 )
-                if not self.core.isStr(msg):
-                    msg.buttonClicked.connect(self.onImportVersionsClicked)
-                    msg.show()
         elif settings.get("showSuccess", False):
             self.core.popup("All imports are up to date.", title="No updates available", severity="info")
 
@@ -252,6 +370,76 @@ class SanityChecks(object):
         elif result == "Open State Manager":
             sm = self.core.stateManager()
             sm.gb_import.setChecked(True)
+
+    @err_catcher(name=__name__)
+    def checkSceneBuildingUpdates(
+        self, settings: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Check whether the opened scene has actionable scene-building updates."""
+        if not self.core.getConfig(
+            "sceneBuilding", "checkForUpdatesOnSceneOpen", config="project"
+        ):
+            return True
+
+        fileName = self.core.getCurrentFileName()
+        if not fileName or not self.core.fileInPipeline(fileName):
+            return True
+
+        entity = self.core.getScenefileData(fileName)
+        department = entity.get("department")
+        task = entity.get("task")
+        if entity.get("type") not in ["asset", "shot"] or not department or not task:
+            return True
+
+        steps, stepContext = self.core.entities.getSceneBuildingStepsWithUpdateData(
+            entity, department, task
+        )
+        updateSteps = [
+            step
+            for step in steps
+            if (step.get("update_data", {}).get("action") or "").lower()
+            != "no change"
+        ]
+        if not updateSteps:
+            return True
+
+        self.queueOrShowNotification(
+            "%s scene-building step(s) can be updated."
+            % len(updateSteps),
+            title="Scene-building updates available",
+            buttons=["Update Scene...", "Skip"],
+            escapeButton="Skip",
+            default="Skip",
+            callback=lambda button: self.onSceneBuildingUpdatesClicked(
+                button, steps, stepContext
+            ),
+        )
+        return False
+
+    @err_catcher(name=__name__)
+    def onSceneBuildingUpdatesClicked(
+        self,
+        button: Union[str, Any],
+        steps: List[Dict[str, Any]],
+        stepContext: Dict[str, Any],
+    ) -> None:
+        """Open the rebuild dialog for the scene-open update results."""
+        result = button if self.core.isStr(button) else button.text()
+        if result != "Update Scene...":
+            return
+
+        from ProjectScripts.SceneBrowser import SceneReBuildStepRunDlg
+
+        self.dlg_sceneBuildingUpdates = SceneReBuildStepRunDlg(
+            self.core,
+            steps,
+            stepContext=stepContext,
+            parent=getattr(self.core, "messageParent", None),
+        )
+        self.dlg_sceneBuildingUpdates.setModal(False)
+        self.dlg_sceneBuildingUpdates.show()
+        self.dlg_sceneBuildingUpdates.raise_()
+        self.dlg_sceneBuildingUpdates.activateWindow()
 
     @err_catcher(name=__name__)
     def checkFramerange(self, settings: Optional[Dict[str, Any]] = None) -> None:
@@ -305,12 +493,18 @@ class SanityChecks(object):
         if hasHandles and int(curRange[0]) == int(handleRange[0]) and int(curRange[1]) == int(handleRange[1]):
             return
 
+        handlePolicy = os.getenv("PRISM_FRAMERANGE_CHECK_HANDLES")
+        if handlePolicy == "enforce":
+            shotRange = handleRange
+        elif handlePolicy == "ignore":
+            hasHandles = False
+
         shotName = self.core.entities.getShotName(fnameData)
         msgString = (
             "The framerange of the current scene doesn't match the framerange of the shot:\n\nFramerange of current scene:\n%s - %s\n\nFramerange of shot %s:\n%s - %s"
             % (int(curRange[0]), int(curRange[1]), shotName, shotRange[0], shotRange[1])
         )
-        if hasHandles:
+        if not handlePolicy and hasHandles:
             msgString += " (%s - %s)" % (handleRange[0], handleRange[1])
 
         if self.core.forceFramerange:
@@ -320,20 +514,17 @@ class SanityChecks(object):
                 self.onCheckFramerangeClicked(settings.get("value", "Set shotrange in scene"), shotRange, handleRange)
             else:
                 buttons = ["Set shotrange in scene", "Skip"]
-                if hasHandles:
+                if not handlePolicy and hasHandles:
                     buttons.insert(1, "Set shotrange in scene (with handles)")
 
-                msg = self.core.popupQuestion(
+                self.queueOrShowNotification(
                     msgString,
                     title="Framerange mismatch",
                     buttons=buttons,
                     escapeButton="Skip",
                     default="Skip",
-                    doExec=False,
+                    callback=lambda x: self.onCheckFramerangeClicked(x, shotRange, handleRange),
                 )
-                if not self.core.isStr(msg):
-                    msg.buttonClicked.connect(lambda x: self.onCheckFramerangeClicked(x, shotRange, handleRange))
-                    msg.show()
 
     @err_catcher(name=__name__)
     def onCheckFramerangeClicked(self, button: Union[str, Any], shotRange: Tuple[int, int], handleRange: Optional[Tuple[int, int]] = None) -> None:
@@ -367,7 +558,7 @@ class SanityChecks(object):
         forceFPS = self.core.getConfig(
             "globals", "forcefps", configPath=self.core.prismIni
         )
-        if not forceFPS:
+        if not forceFPS and not settings.get("force", False):
             return
 
         if not getattr(self.core.appPlugin, "hasFrameRange", True):
@@ -413,25 +604,22 @@ class SanityChecks(object):
             QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
         )
 
-        lay_info.setContentsMargins(10, 10, 10, 10)
+        lay_info.setContentsMargins(0, 10, 0, 10)
         w_info = QWidget()
         w_info.setLayout(lay_info)
 
         if settings.get("accept", False):
             self.onCheckFpsClicked(settings.get("value", "Set %s FPS in current scene" % fpsDef), pFps)
         else:
-            msg = self.core.popupQuestion(
+            self.queueOrShowNotification(
                 msgString,
                 title="FPS mismatch",
                 buttons=["Set %s FPS in current scene" % fpsDef, "Skip"],
                 widget=w_info,
                 escapeButton="Skip",
                 default="Skip",
-                doExec=False,
+                callback=lambda x: self.onCheckFpsClicked(x, pFps),
             )
-            if not self.core.isStr(msg):
-                msg.buttonClicked.connect(lambda x: self.onCheckFpsClicked(x, pFps))
-                msg.show()
 
     @err_catcher(name=__name__)
     def onCheckFpsClicked(self, button: Union[str, Any], projectFps: float) -> None:
@@ -462,7 +650,7 @@ class SanityChecks(object):
         forceRes = self.core.getConfig(
             "globals", "forceResolution", configPath=self.core.prismIni
         )
-        if not forceRes:
+        if not forceRes and not settings.get("force", False):
             return
 
         if not self.core.fileInPipeline():
@@ -526,7 +714,7 @@ class SanityChecks(object):
             QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
         )
 
-        lay_info.setContentsMargins(10, 10, 10, 10)
+        lay_info.setContentsMargins(0, 10, 0, 10)
         w_info = QWidget()
         w_info.setLayout(lay_info)
 
@@ -536,18 +724,15 @@ class SanityChecks(object):
         if settings.get("accept", False):
             self.onCheckResolutionClicked(settings.get("value", "Set %s resolution in current scene" % resDef), [resX, resY])
         else:
-            self.dlg_res = self.core.popupQuestion(
+            self.dlg_res = self.queueOrShowNotification(
                 msgString,
                 title="Resolution mismatch",
                 buttons=["Set %s resolution in current scene" % resDef, "Skip"],
                 widget=w_info,
                 escapeButton="Skip",
                 default="Skip",
-                doExec=False,
+                callback=lambda x: self.onCheckResolutionClicked(x, [resX, resY]),
             )
-            if not self.core.isStr(self.dlg_res):
-                self.dlg_res.buttonClicked.connect(lambda x: self.onCheckResolutionClicked(x, [resX, resY]))
-                self.dlg_res.show()
 
     @err_catcher(name=__name__)
     def onCheckResolutionClicked(self, button: Union[str, Any], projectResolution: Tuple[int, int]) -> None:

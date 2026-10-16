@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'hou_SaveHDA.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.0
+## Created by: Qt User Interface Compiler version 6.8.3
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -16,7 +16,7 @@ class Ui_wg_SaveHDA(object):
     def setupUi(self, wg_SaveHDA):
         if not wg_SaveHDA.objectName():
             wg_SaveHDA.setObjectName(u"wg_SaveHDA")
-        wg_SaveHDA.resize(340, 421)
+        wg_SaveHDA.resize(340, 506)
         self.verticalLayout = QVBoxLayout(wg_SaveHDA)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -132,6 +132,29 @@ class Ui_wg_SaveHDA(object):
 
         self.verticalLayout_3.addWidget(self.w_outPath)
 
+        self.w_master = QWidget(self.groupBox_2)
+        self.w_master.setObjectName(u"w_master")
+        self.horizontalLayout_22 = QHBoxLayout(self.w_master)
+        self.horizontalLayout_22.setObjectName(u"horizontalLayout_22")
+        self.horizontalLayout_22.setContentsMargins(-1, 0, -1, 0)
+        self.l_master = QLabel(self.w_master)
+        self.l_master.setObjectName(u"l_master")
+
+        self.horizontalLayout_22.addWidget(self.l_master)
+
+        self.horizontalSpacer_29 = QSpacerItem(113, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_22.addItem(self.horizontalSpacer_29)
+
+        self.chb_master = QCheckBox(self.w_master)
+        self.chb_master.setObjectName(u"chb_master")
+        self.chb_master.setChecked(True)
+
+        self.horizontalLayout_22.addWidget(self.chb_master)
+
+
+        self.verticalLayout_3.addWidget(self.w_master)
+
         self.w_projectHDA = QWidget(self.groupBox_2)
         self.w_projectHDA.setObjectName(u"w_projectHDA")
         self.horizontalLayout_19 = QHBoxLayout(self.w_projectHDA)
@@ -220,6 +243,28 @@ class Ui_wg_SaveHDA(object):
 
         self.verticalLayout_3.addWidget(self.w_recipe)
 
+        self.w_nodeName = QWidget(self.groupBox_2)
+        self.w_nodeName.setObjectName(u"w_nodeName")
+        self.horizontalLayout_23 = QHBoxLayout(self.w_nodeName)
+        self.horizontalLayout_23.setObjectName(u"horizontalLayout_23")
+        self.horizontalLayout_23.setContentsMargins(-1, 0, -1, 0)
+        self.l_nodeName = QLabel(self.w_nodeName)
+        self.l_nodeName.setObjectName(u"l_nodeName")
+
+        self.horizontalLayout_23.addWidget(self.l_nodeName)
+
+        self.horizontalSpacer_15 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_23.addItem(self.horizontalSpacer_15)
+
+        self.chb_nodeName = QCheckBox(self.w_nodeName)
+        self.chb_nodeName.setObjectName(u"chb_nodeName")
+
+        self.horizontalLayout_23.addWidget(self.chb_nodeName)
+
+
+        self.verticalLayout_3.addWidget(self.w_nodeName)
+
         self.f_status = QWidget(self.groupBox_2)
         self.f_status.setObjectName(u"f_status")
         self.horizontalLayout_4 = QHBoxLayout(self.f_status)
@@ -276,7 +321,7 @@ class Ui_wg_SaveHDA(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 271, 69))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 264, 54))
         self.horizontalLayout_5 = QHBoxLayout(self.scrollAreaWidgetContents)
         self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
         self.l_pathLast = QLabel(self.scrollAreaWidgetContents)
@@ -320,6 +365,8 @@ class Ui_wg_SaveHDA(object):
         self.l_taskName.setText("")
         self.b_changeTask.setText(QCoreApplication.translate("wg_SaveHDA", u"change", None))
         self.l_outPath.setText(QCoreApplication.translate("wg_SaveHDA", u"Outputpath:", None))
+        self.l_master.setText(QCoreApplication.translate("wg_SaveHDA", u"Update Master Version:", None))
+        self.chb_master.setText("")
         self.l_projectHDA.setText(QCoreApplication.translate("wg_SaveHDA", u"Save as project HDA:", None))
         self.chb_projectHDA.setText("")
         self.l_externalReferences.setText(QCoreApplication.translate("wg_SaveHDA", u"Allow external references", None))
@@ -328,6 +375,8 @@ class Ui_wg_SaveHDA(object):
         self.chb_blackboxHDA.setText("")
         self.l_recipe.setText(QCoreApplication.translate("wg_SaveHDA", u"Save as Tool Recipe:", None))
         self.chb_recipe.setText("")
+        self.l_nodeName.setText(QCoreApplication.translate("wg_SaveHDA", u"Use node name as type name:", None))
+        self.chb_nodeName.setText("")
         self.label.setText(QCoreApplication.translate("wg_SaveHDA", u"Status:", None))
         self.l_status.setText(QCoreApplication.translate("wg_SaveHDA", u"Not connected", None))
         self.b_goTo.setText(QCoreApplication.translate("wg_SaveHDA", u"Go to Node", None))

@@ -43,6 +43,7 @@ import logging
 import operator
 import tempfile
 import math
+import glob
 from typing import Any, Dict, List, Optional, Tuple
 
 import bpy
@@ -116,6 +117,7 @@ class Prism_Blender_Functions(object):
         )
 
         self.importHandlers = {
+            ".otio": {"importFunction": self.importOtio},
             ".abc": {"importFunction": self.importAlembic},
             ".fbx": {"importFunction": self.importFBX},
             ".obj": {"importFunction": self.importObj},
@@ -123,6 +125,7 @@ class Prism_Blender_Functions(object):
         }
 
         self.exportHandlers = {
+            ".otio": {"exportFunction": self.exportOtio},
             ".abc": {"exportFunction": self.exportAlembic},
             ".fbx": {"exportFunction": self.exportFBX},
             ".obj": {"exportFunction": self.exportObj},
@@ -270,12 +273,15 @@ class Prism_Blender_Functions(object):
                 with bpy.context.temp_override(**self.getOverrideContext(origin)):
                     result = bpy.ops.wm.save_as_mainfile(filepath=filepath, copy=False)
         except Exception as e:
-            if "cannot modify blend data in this state (drawing/rendering)" in str(e):
+            if "cannot modify blend data in this state (drawing/rendering)" in str(e) or "can't modify blend data in this state (drawing/rendering)" in str(e):
                 logger.warning("saving with timer")
                 bpy.app.timers.register(lambda: self.saveScene(origin, filepath, details, usedTimer=True))
             elif "Cannot open file" in str(e) and "Permission denied" in str(e):
                 logger.warning(e)
                 self.core.popup("Unable to save blendfile. Permission denied.\n\n%s" % filepath)
+            elif "Unable to pack file" in str(e):
+                logger.warning(e)
+                self.core.popup("Unable to save blendfile because packing of external data failed. You can disable packing using File -> External Data -> Automatically Pack Resources.\n\n%s" % str(e))
             else:
                 logger.warning(e)
                 self.core.popup("Unable to save blendfile. Error:\n\n%s" % str(e))
@@ -532,6 +538,7 @@ class Prism_Blender_Functions(object):
             else:
                 ctx = self.getOverrideContext()
                 ctx.pop("region")
+                ctx.pop("screen", None)
                 with bpy.context.temp_override(**ctx):
                     if bpy.ops.collection.create.poll():
                         return bpy.ops.collection.create(name=name)
@@ -592,6 +599,7 @@ class Prism_Blender_Functions(object):
             else:
                 with bpy.context.temp_override(**self.getOverrideContext()):
                     bpy.ops.object.select_all(action="DESELECT")
+
         except RuntimeError:
             pass
 
@@ -932,41 +940,171 @@ class Prism_Blender_Functions(object):
             endFrame: End frame number.
             outputName: Output file path (without extension).
         """
-        self.selectCam(origin)
-        if bpy.app.version < (4, 0, 0):
-            bpy.ops.wm.alembic_export(
-                self.getOverrideContext(origin),
-                filepath=(outputName + ".abc"),
-                start=startFrame,
-                end=endFrame,
-                selected=True,
-                as_background_job=False,
-            )
-        else:
-            with bpy.context.temp_override(**self.getOverrideContext()):
+        shotcamFormats = self.core.products.getShotcamFormats()
+        if ".abc" in shotcamFormats:
+            self.selectCam(origin)
+            if bpy.app.version < (4, 0, 0):
                 bpy.ops.wm.alembic_export(
+                    self.getOverrideContext(origin),
                     filepath=(outputName + ".abc"),
                     start=startFrame,
                     end=endFrame,
                     selected=True,
                     as_background_job=False,
                 )
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext()):
+                    bpy.ops.wm.alembic_export(
+                        filepath=(outputName + ".abc"),
+                        start=startFrame,
+                        end=endFrame,
+                        selected=True,
+                        as_background_job=False,
+                    )
 
-        self.selectCam(origin)
-        if bpy.app.version < (4, 0, 0):
-            bpy.ops.export_scene.fbx(
-                self.getOverrideContext(origin),
-                filepath=(outputName + ".fbx"),
-                use_selection=True,
-            )
-        else:
-            with bpy.context.temp_override(**self.getOverrideContext()):
+        if ".fbx" in shotcamFormats:
+            self.selectCam(origin)
+            useAnim = startFrame != endFrame
+            if bpy.app.version < (4, 0, 0):
                 bpy.ops.export_scene.fbx(
+                    self.getOverrideContext(origin),
                     filepath=(outputName + ".fbx"),
                     use_selection=True,
+                    bake_anim=useAnim
                 )
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext()):
+                    bpy.ops.export_scene.fbx(
+                        filepath=(outputName + ".fbx"),
+                        use_selection=True,
+                        bake_anim=useAnim
+                    )
 
         self.deselectObjects()
+
+    def isOtioAvailable(self) -> bool:
+        """
+        Checks if OpenTimelineIO (OTIO) is available in the current Blender environment.
+
+        Returns:
+            bool: True if OTIO is available, False otherwise.
+        """
+        if bpy.app.version < (5, 3, 0) or not getattr(getattr(bpy.app, "build_options", None), "opentimelineio", False):
+            return False
+
+        try:
+            bpy.ops.wm.otio_import.get_rna_type()
+            bpy.ops.wm.otio_export.get_rna_type()
+        except (AttributeError, RuntimeError):
+            return False
+
+        return True
+
+    def importOtio(self, importPath: str, origin: Optional[Any] = None) -> bool:
+        """
+        Imports an OTIO (OpenTimelineIO) file into the current Blender project.
+
+        Args:
+            importPath (str): The file path to the OTIO file to import.
+            origin (Optional[Any]): The origin context for the import operation.
+
+        Returns:
+            bool: True if the import was successful, False otherwise.
+        """
+        if not self.isOtioAvailable():
+            self.core.popup("OTIO requires Blender 5.3 or later with OpenTimelineIO support.")
+            return False
+
+        if not os.path.isfile(importPath):
+            self.core.popup("OTIO file not found:\n%s" % importPath)
+            return False
+
+        window = bpy.context.window or next(iter(bpy.context.window_manager.windows), None)
+        if not window:
+            self.core.popup("OTIO import requires an active Blender window.")
+            return False
+
+        workspace = window.workspace
+        previousTarget = workspace.sequencer_scene
+        target = previousTarget or window.scene
+        previousScenes = set(bpy.data.scenes)
+        workspace.sequencer_scene = target
+        try:
+            with bpy.context.temp_override(window=window):
+                result = bpy.ops.wm.otio_import(filepath=importPath)
+            if "FINISHED" not in result:
+                workspace.sequencer_scene = previousTarget
+                self.core.popup("OTIO import was canceled or failed.")
+                return False
+
+            newScenes = [scene for scene in bpy.data.scenes if scene not in previousScenes]
+            destination = newScenes[0] if newScenes else target
+            workspace.sequencer_scene = destination
+            window.scene = destination
+            return True
+        except Exception as error:
+            workspace.sequencer_scene = previousTarget
+            logger.warning("OTIO import failed: %s", error)
+            self.core.popup("OTIO import failed:\n%s" % error)
+            return False
+
+    def exportOtio(self, outputName: str, origin: Any, startFrame: int, endFrame: int, expNodes: List, additionalSettings: Optional[Dict] = None) -> Any:
+        """
+        Exports the current Blender Video Sequencer timeline to an OTIO (OpenTimelineIO) file.
+
+        Args:
+            outputName (str): The output file path for the OTIO export.
+            origin (Any): The origin context for the export operation.
+            startFrame (int): The starting frame of the export range.
+            endFrame (int): The ending frame of the export range.
+            expNodes (List): The list of nodes to include in the export.
+            additionalSettings (Optional[Dict]): Additional export settings.
+
+        Returns:
+            Any: The output file path if the export was successful, False otherwise.
+        """
+        if not self.isOtioAvailable():
+            self.core.popup("OTIO requires Blender 5.3 or later with OpenTimelineIO support.")
+            return False
+
+        window = bpy.context.window or next(iter(bpy.context.window_manager.windows), None)
+        if not window:
+            self.core.popup("OTIO export requires an active Blender window.")
+            return False
+
+        workspace = window.workspace
+        previousTarget = workspace.sequencer_scene
+        target = previousTarget or window.scene
+        if not target.sequence_editor or not target.sequence_editor.strips:
+            self.core.popup("There are no Video Sequencer strips to export.")
+            return False
+
+        workspace.sequencer_scene = target
+        try:
+            outputDirectory = os.path.dirname(outputName)
+            if outputDirectory:
+                os.makedirs(outputDirectory, exist_ok=True)
+            settings = additionalSettings or getattr(origin, "additionalSettings", None) or {}
+            if isinstance(settings, list):
+                settings = {setting["name"]: setting["value"] for setting in settings}
+            with bpy.context.temp_override(window=window):
+                result = bpy.ops.wm.otio_export(
+                    filepath=outputName,
+                    use_resolve_metadata=bool(settings.get("otioResolveMetadata", False)),
+                )
+            if "FINISHED" in result and os.path.isfile(outputName):
+                return outputName
+
+            self.core.popup("OTIO export was canceled or produced no output file.")
+            return False
+
+        except Exception as error:
+            logger.warning("OTIO export failed: %s", error)
+            self.core.popup("OTIO export failed:\n%s" % error)
+            return False
+
+        finally:
+            workspace.sequencer_scene = previousTarget
 
     @err_catcher(name=__name__)
     def exportObj(self, outputName: str, origin: Any, startFrame: int, endFrame: int, expNodes: List) -> str:
@@ -1184,7 +1322,19 @@ class Prism_Blender_Functions(object):
                 if object_ not in expObjects:
                     bpy.data.objects.remove(object_, do_unlink=True)
 
-            bpy.ops.wm.save_as_mainfile(filepath=outputName, copy=True)
+            try:
+                bpy.ops.wm.save_as_mainfile(filepath=outputName, copy=True)
+            except Exception as e:
+                if "Cannot open file" in str(e) and "Permission denied" in str(e):
+                    logger.warning(e)
+                    self.core.popup("Unable to export blendfile. Permission denied.\n\n%s" % outputName)
+                elif "Unable to pack file" in str(e):
+                    logger.warning(e)
+                    self.core.popup("Unable to export blendfile because packing of external data failed. You can disable packing using File -> External Data -> Automatically Pack Resources.\n\n%s" % str(e))
+                else:
+                    logger.warning(e)
+                    self.core.popup("Unable to export blendfile. Error:\n\n%s" % str(e))
+
             try:
                 bpy.ops.wm.revert_mainfile()
             except Exception as e:
@@ -1274,6 +1424,9 @@ class Prism_Blender_Functions(object):
         Returns:
             Output file path or error message.
         """
+        if origin.getOutputType() == ".otio":
+            return self.exportOtio(outputName, origin, startFrame, endFrame, [], additionalSettings)
+
         expNodes = origin.nodes
         ctx = self.getOverrideContext(origin)
         if bpy.app.version >= (2, 80, 0):
@@ -1293,12 +1446,7 @@ class Prism_Blender_Functions(object):
                     except:
                         pass
 
-        if bpy.app.version < (4, 0, 0):
-            bpy.ops.object.select_all(ctx, action="DESELECT")
-        else:
-            with bpy.context.temp_override(**ctx):
-                bpy.ops.object.select_all(action="DESELECT")
-
+        self.deselectObjects()
         ext = origin.getOutputType()
         if ext != ".blend":
             for expNode in expNodes:
@@ -1318,13 +1466,7 @@ class Prism_Blender_Functions(object):
             msg = "Canceled: Format \"%s\" is not supported." % ext
             return msg
 
-        if bpy.app.version < (4, 0, 0):
-            bpy.ops.object.select_all(ctx, action="DESELECT")
-        else:
-            if ext != ".blend":
-                with bpy.context.temp_override(**ctx):
-                    bpy.ops.object.select_all(action="DESELECT")
-
+        self.deselectObjects()
         return outputName
 
     @err_catcher(name=__name__)
@@ -1526,6 +1668,37 @@ class Prism_Blender_Functions(object):
 
         origin.b_osSlaves.setMinimumWidth(50 * self.core.uiScaleFactor)
 
+        if hasattr(origin, "f_renderLayer"):
+            origin.f_renderLayer.setVisible(True)
+
+    @err_catcher(name=__name__)
+    def sm_render_getRenderLayer(self, origin: Any) -> List[str]:
+        """Get view layer choices for the render state."""
+        return [viewLayer.name for viewLayer in bpy.context.scene.view_layers] + [
+            "All Renderable Renderlayers",
+            "All Renderable Renderlayers (separate identifiers)",
+            "All Renderlayers",
+            "All Renderlayers (separate identifiers)",
+        ]
+
+    @err_catcher(name=__name__)
+    def sm_render_getIdentifiers(self, origin: Any) -> Optional[List[str]]:
+        """Get view layer identifiers for separate-identifier rendering."""
+        selected = origin.cb_renderLayer.currentText()
+        if selected == "All Renderable Renderlayers (separate identifiers)":
+            return [viewLayer.name for viewLayer in bpy.context.scene.view_layers if viewLayer.use]
+        if selected == "All Renderlayers (separate identifiers)":
+            return [viewLayer.name for viewLayer in bpy.context.scene.view_layers]
+
+    @err_catcher(name=__name__)
+    def sm_render_getLayers(self, origin: Any) -> Optional[List[str]]:
+        """Get view layers to render when an all-layers option is selected."""
+        selected = origin.cb_renderLayer.currentText()
+        if selected == "All Renderable Renderlayers":
+            return [viewLayer.name for viewLayer in bpy.context.scene.view_layers if viewLayer.use]
+        if selected == "All Renderlayers":
+            return [viewLayer.name for viewLayer in bpy.context.scene.view_layers]
+
     @err_catcher(name=__name__)
     def sm_render_rightclickPasses(self, origin: Any, menu: Any, pos: Any) -> None:
         """Handle right-click on render passes list.
@@ -1562,12 +1735,12 @@ class Prism_Blender_Functions(object):
         """
         origin.tw_passes.clear()
 
-        passNames = self.getNodeAOVs()
+        passNames = self.getNodeAOVs(origin)
         logger.debug("node aovs: %s" % passNames)
         origin.b_addPasses.setVisible(not passNames)
         self.plugin.canDeleteRenderPasses = True  # bool(not passNames)
         if not passNames:
-            passNames = self.getViewLayerAOVs()
+            passNames = self.getViewLayerAOVs(origin)
             logger.debug("viewlayer aovs: %s" % passNames)
 
         if passNames:
@@ -1589,7 +1762,7 @@ class Prism_Blender_Functions(object):
                         citem.setFlags(citem.flags() & ~Qt.ItemIsEnabled)
 
     @err_catcher(name=__name__)
-    def getNodeAOVs(self) -> Optional[List[Dict]]:
+    def getNodeAOVs(self, origin: Optional[Any] = None) -> Optional[List[Dict]]:
         """Get AOVs from compositor file output nodes.
         
         Returns:
@@ -1609,6 +1782,19 @@ class Prism_Blender_Functions(object):
         outNodes = [
             x for x in nodes if x.type == "OUTPUT_FILE"
         ]
+        selectedLayer = origin.cb_renderLayer.currentText() if origin and hasattr(origin, "cb_renderLayer") else None
+        if selectedLayer and selectedLayer not in [layer.name for layer in bpy.context.scene.view_layers]:
+            selectedLayer = None
+
+        def matchesSelectedLayer(inputSocket):
+            if not selectedLayer:
+                return True
+
+            return bool(inputSocket and any(
+                link.from_node.type == "R_LAYERS" and link.from_node.layer == selectedLayer
+                for link in inputSocket.links
+            ))
+
         passNames = []
         for outNode in outNodes:
             nodePassNames = []
@@ -1624,21 +1810,30 @@ class Prism_Blender_Functions(object):
                 else:
                     _inputs = outNode.file_output_items
 
-                for _input in _inputs:
-                    nodePassNames.append(_input.name)
+                for index, _input in enumerate(_inputs):
+                    inputSocket = outNode.inputs[index] if index < len(outNode.inputs) else None
+                    if not matchesSelectedLayer(inputSocket):
+                        continue
+                    nodePassNames.append(_input.name.split("/", 1)[0])
             else:
                 if hasattr(outNode, "file_slots"):  # removed in Blender 5.0
-                    _inputs = outNode.file_slots
-                    for _input in _inputs:
-                        nodePassNames.append(os.path.basename(_input.path))
+                    for index, slot in enumerate(outNode.file_slots):
+                        inputSocket = outNode.inputs[index] if index < len(outNode.inputs) else None
+                        if not matchesSelectedLayer(inputSocket):
+                            continue
+
+                        if inputSocket and inputSocket.links:
+                            nodePassNames.append(inputSocket.links[0].from_socket.name)
+                        else:
+                            nodePassNames.append(inputSocket.name if inputSocket else os.path.basename(slot.path))
                 else:
                     _inputs = outNode.file_output_items
-                    for _input in _inputs:
-                        nodePassNames.append(_input.name)
+                    for index, _input in enumerate(_inputs):
+                        inputSocket = outNode.inputs[index] if index < len(outNode.inputs) else None
+                        if not matchesSelectedLayer(inputSocket):
+                            continue
 
-            if not layername and connections:
-                if connections[0].from_node.type == "R_LAYERS":
-                    layername = connections[0].from_node.layer
+                        nodePassNames.append(_input.name.split("/", 1)[0])
 
             if not layername:
                 layername = outNode.name
@@ -1649,14 +1844,23 @@ class Prism_Blender_Functions(object):
         return passNames
 
     @err_catcher(name=__name__)
-    def getViewLayerAOVs(self) -> List[Dict]:
+    def getRenderViewLayer(self, origin: Optional[Any] = None) -> Any:
+        selected = origin.cb_renderLayer.currentText() if origin and hasattr(origin, "cb_renderLayer") else None
+        for viewLayer in bpy.context.scene.view_layers:
+            if viewLayer.name == selected:
+                return viewLayer
+
+        return bpy.context.window_manager.windows[0].view_layer
+
+    @err_catcher(name=__name__)
+    def getViewLayerAOVs(self, origin: Optional[Any] = None) -> List[Dict]:
         """Get AOVs from view layer settings.
         
         Returns:
             List containing view layer AOV dictionary.
         """
-        availableAOVs = self.getAvailableAOVs()
-        curlayer = bpy.context.window_manager.windows[0].view_layer
+        curlayer = self.getRenderViewLayer(origin)
+        availableAOVs = self.getAvailableAOVs(curlayer)
         aovNames = []
         for aa in availableAOVs:
             val = None
@@ -1674,26 +1878,23 @@ class Prism_Blender_Functions(object):
         return [{"name": "", "passes": aovNames}]
 
     @err_catcher(name=__name__)
-    def getAvailableAOVs(self) -> List[Dict]:
+    def getAvailableAOVs(self, viewLayer: Optional[Any] = None) -> List[Dict]:
         """Get list of available AOVs.
         
         Returns:
             List of AOV dictionaries with name and parameter.
         """
-        curlayer = bpy.context.window_manager.windows[0].view_layer
-        aovParms = [x for x in dir(curlayer) if x.startswith("use_pass_")]
+        curlayer = viewLayer or self.getRenderViewLayer()
+        aovParms = [x for x in dir(curlayer) if x.startswith("use_pass_") or x.startswith("pass_")]
         aovParms += [
-            "cycles." + x for x in dir(curlayer.cycles) if x.startswith("use_pass_")
+            "cycles." + x for x in dir(curlayer.cycles) if x.startswith("use_pass_") or x.startswith("pass_")
         ]
-        aovs = [
-            {"name": "Denoising Data", "parm": "cycles.denoising_store_passes"},
-            {"name": "Render Time", "parm": "cycles.pass_debug_render_time"},
-        ]
+        aovs = []
         nameOverrides = {
             "Emit": "Emission",
         }
         for aov in aovParms:
-            name = aov.replace("use_pass_", "").replace("cycles.", "")
+            name = aov.replace("use_pass_", "").replace("pass_", "").replace("cycles.", "")
             name = [x[0].upper() + x[1:] for x in name.split("_")]
             name = " ".join(name)
             name = nameOverrides[name] if name in nameOverrides else name
@@ -1770,27 +1971,63 @@ class Prism_Blender_Functions(object):
             self.enableViewLayerAOV(aovName, enable=False)
 
     @err_catcher(name=__name__)
-    def enableViewLayerAOV(self, name: str, enable: bool = True) -> None:
+    def enableViewLayerAOV(self, name: str, enable: bool = True, origin: Optional[Any] = None) -> None:
         """Enable or disable view layer AOV.
         
         Args:
             name: AOV name.
             enable: Enable state. Defaults to True.
         """
-        aa = self.getAvailableAOVs()
+        curlayer = self.getRenderViewLayer(origin)
+        aa = self.getAvailableAOVs(curlayer)
         curAOV = [x for x in aa if x["name"] == name]
         if not curAOV:
             return
 
         curAOV = curAOV[0]
-        curlayer = bpy.context.window_manager.windows[0].view_layer
-
         attrs = curAOV["parm"].split(".")
         obj = curlayer
         for a in attrs[:-1]:
             obj = getattr(obj, a)
 
         setattr(obj, attrs[-1], enable)
+
+    @err_catcher(name=__name__)
+    def isRenderOutputActive(self, sourceNode: Any) -> bool:
+        scene = bpy.context.scene
+        nodes = [sourceNode]
+        visited = set()
+        foundLayer = False
+        while nodes:
+            node = nodes.pop()
+            if id(node) in visited:
+                continue
+            visited.add(id(node))
+            if node.type == "R_LAYERS":
+                sourceScene = getattr(node, "scene", None) or scene
+                if sourceScene is not scene:
+                    return True
+                viewLayer = next((layer for layer in scene.view_layers if layer.name == node.layer), None)
+                if viewLayer is None or viewLayer.use:
+                    return True
+                foundLayer = True
+                continue
+
+            if node.type == "GROUP":
+                return True
+            upstream = [link.from_node for socket in node.inputs for link in socket.links]
+            if not upstream:
+                return True
+            nodes.extend(upstream)
+
+        return not foundLayer
+
+    @err_catcher(name=__name__)
+    def getRenderedOutputPath(self, rSettings: Dict) -> Optional[str]:
+        for outputPath in reversed(rSettings.get("renderOutputPaths", [])):
+            pattern = outputPath.replace("#", "[0-9]")
+            if any(os.path.isfile(path) for path in glob.glob(pattern)):
+                return outputPath
 
     @err_catcher(name=__name__)
     def sm_render_preSubmit(self, origin: Any, rSettings: Dict) -> None:
@@ -1802,6 +2039,23 @@ class Prism_Blender_Functions(object):
             origin: Render state instance.
             rSettings: Render settings dictionary.
         """
+        selectedLayer = origin.cb_renderLayer.currentText() if hasattr(origin, "cb_renderLayer") else None
+        if selectedLayer in ("All Renderable Renderlayers", "All Renderlayers"):
+            selectedLayer = rSettings.get("layer")
+        elif selectedLayer in ("All Renderable Renderlayers (separate identifiers)", "All Renderlayers (separate identifiers)"):
+            selectedLayer = rSettings.get("identifier")
+        else:
+            selectedLayer = rSettings.get("layer") or selectedLayer
+
+        if selectedLayer:
+            viewLayers = bpy.context.scene.view_layers
+            if selectedLayer not in [viewLayer.name for viewLayer in viewLayers]:
+                return False
+
+            rSettings["viewLayerUse"] = {viewLayer.name: viewLayer.use for viewLayer in viewLayers}
+            for viewLayer in viewLayers:
+                viewLayer.use = viewLayer.name == selectedLayer
+
         if origin.chb_resOverride.isChecked():
             rSettings["width"] = bpy.context.scene.render.resolution_x
             rSettings["height"] = bpy.context.scene.render.resolution_y
@@ -1826,7 +2080,9 @@ class Prism_Blender_Functions(object):
 
         rSettings["prev_start"] = bpy.context.scene.frame_start
         rSettings["prev_end"] = bpy.context.scene.frame_end
-        rSettings["mediaType"] = bpy.context.scene.render.image_settings.media_type
+        if bpy.app.version >= (5, 0, 0):
+            rSettings["mediaType"] = bpy.context.scene.render.image_settings.media_type
+
         rSettings["fileformat"] = bpy.context.scene.render.image_settings.file_format
         rSettings["overwrite"] = bpy.context.scene.render.use_overwrite
         rSettings["fileextension"] = bpy.context.scene.render.use_file_extension
@@ -1834,7 +2090,9 @@ class Prism_Blender_Functions(object):
         rSettings["origOutputName"] = rSettings["outputName"]
         bpy.context.scene["PrismIsRendering"] = True
         bpy.context.scene.render.filepath = rSettings["outputName"]
-        bpy.context.scene.render.image_settings.media_type = "MULTI_LAYER_IMAGE" if fileFormat == "OPEN_EXR_MULTILAYER" else "IMAGE"
+        if bpy.app.version >= (5, 0, 0):
+            bpy.context.scene.render.image_settings.media_type = "MULTI_LAYER_IMAGE" if fileFormat == "OPEN_EXR_MULTILAYER" else "IMAGE"
+
         bpy.context.scene.render.image_settings.file_format = fileFormat
         bpy.context.scene.render.use_overwrite = True
         if bpy.app.version < (5, 0, 0):
@@ -1844,6 +2102,8 @@ class Prism_Blender_Functions(object):
         bpy.context.scene.camera = bpy.context.scene.objects[origin.curCam]
 
         usePasses = False
+        renderOutputPath = None
+        renderOutputPaths = []
         if self.useNodeAOVs():
             if bpy.app.version >= (5, 0, 0):
                 nodes = bpy.context.scene.compositing_node_group.nodes
@@ -1852,9 +2112,6 @@ class Prism_Blender_Functions(object):
 
             outNodes = [
                 x for x in nodes if x.type == "OUTPUT_FILE"
-            ]
-            rlayerNodes = [
-                x for x in nodes if x.type == "R_LAYERS"
             ]
 
             for m in outNodes:
@@ -1881,16 +2138,10 @@ class Prism_Blender_Functions(object):
                     filename, ext = os.path.splitext(os.path.basename(rSettings["outputName"]))
                     layername = ""
                     if len(outNodes) > 1:
-                        layername = m.label
-                        if not layername and connections:
-                            if connections[0][0].from_node.type == "R_LAYERS":
-                                layername = connections[0][0].from_node.layer
-
-                        if not layername:
-                            layername = m.name
+                        layername = (m.label or m.name).replace("\\", "_").replace("/", "_")
 
                     if layername:
-                        filename = filename.replace("beauty", "beauty_" + layername)
+                        filename = filename.replace("beauty", "beauty_" + layername.replace("\\", "_").replace("/", "_"))
 
                     newOutputPath = os.path.abspath(
                         os.path.join(
@@ -1905,34 +2156,23 @@ class Prism_Blender_Functions(object):
                         m.directory = os.path.dirname(newOutputPath)
                         m.file_name = os.path.basename(newOutputPath)
 
-                    if connections:
+                    if any(self.isRenderOutputActive(link.from_node) for link, idx in connections):
+                        renderOutputPath = newOutputPath
+                        renderOutputPaths.append(newOutputPath)
                         usePasses = True
                 else:
                     if bpy.app.version < (5, 0, 0):
                         m.base_path = os.path.dirname(rSettings["outputName"])
                     else:
-                        layername = ""
-                        if len(outNodes) > 1:
-                            layername = m.label or m.name
-
-                        if bpy.app.version < (5, 1, 0) or True:
-                            m.directory = os.path.dirname(os.path.dirname(rSettings["outputName"])) + "/" + (layername or "beauty")
-                            m.file_name = os.path.splitext(os.path.basename(rSettings["outputName"]))[0].replace("beauty", layername).strip("#._") + "."
-                        # else:
-                            # m.directory = os.path.dirname(rSettings["outputName"])
-                            # m.file_name = os.path.basename(rSettings["outputName"]).replace("beauty", layername)
+                        outputPath = rSettings["outputName"]
+                        m.directory = os.path.dirname(os.path.dirname(outputPath))
+                        m.file_name = ""
 
                     for i, idx in connections:
                         passName = i.from_socket.name
                         layername = ""
-                        if i.from_node.type == "R_LAYERS":
-                            if len(rlayerNodes) > 1:
-                                layername = i.from_node.layer
-                                passName = "%s_%s" % (layername, passName)
-
-                        else:
-                            if hasattr(i.from_node, "label") and i.from_node.label != "":
-                                passName = i.from_node.label
+                        if hasattr(i.from_node, "label") and i.from_node.label != "":
+                            passName = i.from_node.label
 
                         if hasattr(m, "file_slots"):  # removed in Blender 5.0
                             curSlot = m.file_slots[idx]
@@ -1940,6 +2180,9 @@ class Prism_Blender_Functions(object):
                         else:
                             curSlot = m.file_output_items[idx]
                             useNodeFormat = not curSlot.override_node_format
+                            slotName = curSlot.name.replace("\\", "/")
+                            parent = slotName.rpartition("/")[0]
+                            passName = parent.rsplit("/", 1)[-1] if parent else os.path.splitext(slotName)[0]
 
                         if useNodeFormat:
                             ext = nodeExt
@@ -1950,11 +2193,11 @@ class Prism_Blender_Functions(object):
                             0
                         ]
                         if len(outNodes) > 1:
-                            layername = m.label or layername
+                            layername = (m.label or layername).replace("\\", "_").replace("/", "_")
                             if not layername:
-                                layername = m.name
+                                layername = m.name.replace("\\", "_").replace("/", "_")
 
-                        if layername:
+                        if layername and os.getenv("PRISM_BLENDER_ADD_OUTPUT_NODE_NAME_TO_FILENAME", "0") == "1":
                             filename = filename.replace("beauty", passName + "_" + layername)
                         else:
                             filename = filename.replace("beauty", passName)
@@ -1973,26 +2216,17 @@ class Prism_Blender_Functions(object):
                                 )
                             )
                         else:
-                            if bpy.app.version < (5, 1, 0) or True:
-                                newOutputPath = m.directory + "/" + m.file_name + passName + ext
-                            # else:
-                            #     curSlot.file_name = "../%s/%s" % (
-                            #         passName, filename + ext
-                            #     )
+                            curSlot.name = passName + "/" + filename
+                            newOutputPath = os.path.join(m.directory, curSlot.name + ext)
 
-                            #     newOutputPath = os.path.abspath(
-                            #         os.path.join(
-                            #             rSettings["outputName"],
-                            #             "../..",
-                            #             passName,
-                            #             filename + ext,
-                            #         )
-                            #     )
-
-                        usePasses = True
+                        if self.isRenderOutputActive(i.from_node):
+                            renderOutputPath = newOutputPath
+                            renderOutputPaths.append(newOutputPath)
+                            usePasses = True
 
         if usePasses:
-            rSettings["outputName"] = newOutputPath
+            rSettings["outputName"] = renderOutputPath
+            rSettings["renderOutputPaths"] = renderOutputPaths
             if platform.system() == "Windows":
                 tmpOutput = os.path.join(
                     os.path.dirname(self.core.getTempFilepath()), "PrismRender", "tmp.####" + imgFormat
@@ -2000,6 +2234,27 @@ class Prism_Blender_Functions(object):
                 bpy.context.scene.render.filepath = tmpOutput
                 if not os.path.exists(os.path.dirname(tmpOutput)):
                     os.makedirs(os.path.dirname(tmpOutput))
+
+    @err_catcher(name=__name__)
+    def getAdditionalRenderContext(self, origin: Any, context: Optional[Dict[str, Any]] = None, identifier: Optional[str] = None, layer: Optional[str] = None) -> Dict[str, Any]:
+        """Get additional render context.
+
+        Args:
+            origin: Render state instance
+            context: Existing context dict
+            identifier: Render identifier
+            layer: Render layer
+
+        Returns:
+            Updated context dict
+        """
+        selected = origin.cb_renderLayer.currentText()
+        if selected in ("All Renderable Renderlayers", "All Renderlayers"):
+            selected = layer
+        elif selected in ("All Renderable Renderlayers (separate identifiers)", "All Renderlayers (separate identifiers)"):
+            selected = identifier
+
+        return {"layer": selected} if selected else {}
 
     @err_catcher(name=__name__)
     def sm_render_startLocalRender(self, origin: Any, outputName: str, rSettings: Dict) -> str:
@@ -2089,6 +2344,13 @@ class Prism_Blender_Functions(object):
             if hasattr(origin, "waitmsg") and origin.waitmsg.isVisible():
                 origin.waitmsg.close()
 
+            if "renderOutputPaths" in rSettings:
+                renderedPath = self.getRenderedOutputPath(rSettings)
+                if renderedPath:
+                    rSettings["outputName"] = renderedPath
+                    return "Result=Success"
+                return "unknown error (files do not exist)"
+
             if len(os.listdir(os.path.dirname(outputName))) > 0:
                 return "Result=Success"
             else:
@@ -2114,7 +2376,7 @@ class Prism_Blender_Functions(object):
         Args:
             origin: Render state instance.
         """
-        if not bpy.context.scene.get("PrismIsRendering"):
+        if not bpy.context.scene.get("PrismIsRendering") and not bpy.app.is_job_running("RENDER"):
             origin.stateManager.publish(continuePublish=True)
             return
 
@@ -2143,6 +2405,10 @@ class Prism_Blender_Functions(object):
             origin: Render state instance.
             rSettings: Render settings dictionary with original values.
         """
+        for viewLayer in bpy.context.scene.view_layers:
+            if viewLayer.name in rSettings.get("viewLayerUse", {}):
+                viewLayer.use = rSettings["viewLayerUse"][viewLayer.name]
+
         if "width" in rSettings:
             bpy.context.scene.render.resolution_x = rSettings["width"]
         if "height" in rSettings:
@@ -2243,10 +2509,12 @@ class Prism_Blender_Functions(object):
         Returns:
             List of available pass names.
         """
+        viewLayer = self.getRenderViewLayer(origin)
+        enabledPasses = self.getViewLayerAOVs(origin)[0]["passes"]
         aovNames = [
             x["name"]
-            for x in self.getAvailableAOVs()
-            if x["name"] not in self.getViewLayerAOVs()
+            for x in self.getAvailableAOVs(viewLayer)
+            if x["name"] not in enabledPasses
         ]
         return aovNames
 
@@ -2259,7 +2527,7 @@ class Prism_Blender_Functions(object):
             passName: Pass name to add.
             steps: UI steps list. Defaults to None.
         """
-        self.enableViewLayerAOV(passName)
+        self.enableViewLayerAOV(passName, origin=origin)
 
     @err_catcher(name=__name__)
     def sm_render_managerChanged(self, origin: Any, isPandora: bool) -> None:
@@ -2315,7 +2583,19 @@ class Prism_Blender_Functions(object):
             jobPath: Job submission path.
         """
         jobFilePath = os.path.join(jobPath, self.core.getCurrentFileName(path=False))
-        bpy.ops.wm.save_as_mainfile(filepath=jobFilePath, copy=True)
+        try:
+            bpy.ops.wm.save_as_mainfile(filepath=jobFilePath, copy=True)
+        except Exception as e:
+            if "Cannot open file" in str(e) and "Permission denied" in str(e):
+                logger.warning(e)
+                self.core.popup("Unable to save blendfile. Permission denied.\n\n%s" % jobFilePath)
+            elif "Unable to pack file" in str(e):
+                logger.warning(e)
+                self.core.popup("Unable to save blendfile because packing of external data failed. You can disable packing using File -> External Data -> Automatically Pack Resources.\n\n%s" % str(e))
+            else:
+                logger.warning(e)
+                self.core.popup("Unable to save blendfile. Error:\n\n%s" % str(e))
+
         try:
             bpy.ops.wm.revert_mainfile()
         except Exception as e:
@@ -2353,6 +2633,59 @@ class Prism_Blender_Functions(object):
         """
         origin.f_abcPath.setVisible(True)
 
+    def sm_import_updateUi(self, origin: Any) -> None:
+        """Update the import state UI based on the selected import path.
+        
+        Args:
+            origin: Import state instance.
+        """
+        isOtio = origin.getImportPath().lower().endswith(".otio")
+        origin.f_abcPath.setVisible(not isOtio)
+        origin.chb_trackObjects.setVisible(not isOtio)
+        origin.f_nameSpaces.setVisible(not isOtio and origin.stateMode != "ApplyCache")
+        origin.gb_objects.setVisible(not isOtio and origin.chb_trackObjects.isChecked())
+
+    def sm_export_typeChanged(self, origin: Any, outputType: str) -> None:
+        """Handle changes in the export type and update the UI accordingly.
+
+        Args:
+            origin: Export state instance.
+            outputType: The selected export type (e.g., ".otio", "ShotCam").
+        """
+        isOtio = outputType == ".otio"
+        origin.w_wholeScene.setVisible(not isOtio and outputType != "ShotCam")
+        origin.gb_objects.setVisible(not isOtio and outputType != "ShotCam")
+        origin.cb_rangeType.setEnabled(not isOtio)
+        origin.cb_rangeType.setToolTip(
+            "OTIO exports the entire Video Sequencer timeline, regardless of the frame range."
+            if isOtio else ""
+        )
+
+    @err_catcher(name=__name__)
+    def getUseRelativePath(self) -> bool:
+        return self.core.getConfig("blender", "useRelativePaths", dft=False, config="project")
+
+    @err_catcher(name=__name__)
+    def getPathRelativeToScene(self, path: str) -> str:
+        if not path or path.startswith("//") or not self.getUseRelativePath() or not bpy.data.filepath:
+            return path
+
+        try:
+            return bpy.path.relpath(path)
+        except ValueError:
+            return path
+
+    @err_catcher(name=__name__)
+    def sm_import_getStoredImportPath(self, path: str) -> str:
+        return self.getPathRelativeToScene(path)
+
+    @err_catcher(name=__name__)
+    def sm_import_fixImportPath(self, path: str) -> str:
+        if path.startswith("//") and bpy.data.filepath:
+            return os.path.normpath(bpy.path.abspath(path))
+
+        return path
+
     @err_catcher(name=__name__)
     def importAlembic(self, importPath: str, origin: Optional[Any] = None) -> Any:
         """Import Alembic file.
@@ -2383,7 +2716,7 @@ class Prism_Blender_Functions(object):
                     cache = modifiers[0].cache_file
 
             if cache is not None:
-                cache.filepath = importPath
+                cache.filepath = self.getPathRelativeToScene(importPath)
                 cache.name = os.path.basename(importPath)
             #       bpy.context.scene.frame_current += 1        #updates the cache, but leads to crashes
             #       bpy.context.scene.frame_current -= 1
@@ -2391,6 +2724,7 @@ class Prism_Blender_Functions(object):
                 self.core.popup("No caches updated.")
             return True
         else:
+            existingCaches = tuple(bpy.data.cache_files) if self.getUseRelativePath() and bpy.data.filepath else ()
             if bpy.app.version < (4, 0, 0):
                 bpy.ops.wm.alembic_import(
                     self.getOverrideContext(origin),
@@ -2405,6 +2739,11 @@ class Prism_Blender_Functions(object):
                         set_frame_range=False,
                         as_background_job=False,
                     )
+
+            if self.getUseRelativePath() and bpy.data.filepath:
+                for cache in bpy.data.cache_files:
+                    if cache not in existingCaches:
+                        cache.filepath = self.getPathRelativeToScene(cache.filepath)
 
     @err_catcher(name=__name__)
     def importFBX(self, importPath: str, origin: Optional[Any] = None) -> None:
@@ -2526,6 +2865,9 @@ class Prism_Blender_Functions(object):
         result = False
 
         ext = fileName[1].lower()
+        if ext == ".otio":
+            return {"result": self.importOtio(impFileName, origin), "doImport": doImport}
+
         importedNodes = None
         if ext in [".blend"]:
             prevSceneContent = list(bpy.data.scenes[0].collection.objects) + list(bpy.data.scenes[0].collection.children)
@@ -2828,18 +3170,6 @@ class Prism_Blender_Functions(object):
         origin.updateUi()
 
     @err_catcher(name=__name__)
-    def sm_import_fixImportPath(self, filepath: str) -> str:
-        """Fix import file path format.
-        
-        Args:
-            filepath: Original file path.
-        
-        Returns:
-            Fixed file path.
-        """
-        return filepath.replace("\\\\", "\\")
-
-    @err_catcher(name=__name__)
     def sm_import_preDelete(self, origin: Any) -> None:
         """Clean up on import state deletion.
         
@@ -2932,9 +3262,10 @@ class Prism_Blender_Functions(object):
         ]
         prevOutput = [
             bpy.context.scene.render.filepath,
-            bpy.context.scene.render.image_settings.file_format,
-            bpy.context.scene.render.image_settings.media_type,
+            bpy.context.scene.render.image_settings.file_format
         ]
+        if bpy.app.version >= (5, 0, 0):
+            prevOutput.append(bpy.context.scene.render.image_settings.media_type)
 
         bpy.context.scene.frame_start = jobFrames[0]
         bpy.context.scene.frame_end = jobFrames[1]
@@ -2947,10 +3278,14 @@ class Prism_Blender_Functions(object):
         bpy.context.scene.render.filepath = os.path.normpath(outputName)
         base, ext = os.path.splitext(outputName)
         if ext == ".jpg":
-            bpy.context.scene.render.image_settings.media_type = "IMAGE"
+            if bpy.app.version >= (5, 0, 0):
+                bpy.context.scene.render.image_settings.media_type = "IMAGE"
+
             bpy.context.scene.render.image_settings.file_format = "JPEG"
         if ext == ".mp4":
-            bpy.context.scene.render.image_settings.media_type = "VIDEO"
+            if bpy.app.version >= (5, 0, 0):
+                bpy.context.scene.render.image_settings.media_type = "VIDEO"
+
             bpy.context.scene.render.image_settings.file_format = "FFMPEG"
             bpy.context.scene.render.ffmpeg.format = "MPEG4"
             bpy.context.scene.render.ffmpeg.audio_codec = "MP3"
@@ -2973,7 +3308,9 @@ class Prism_Blender_Functions(object):
         bpy.context.scene.render.resolution_y = prevRes[1]
         bpy.context.scene.render.resolution_percentage = prevRes[2]
         bpy.context.scene.render.filepath = prevOutput[0]
-        bpy.context.scene.render.image_settings.media_type = prevOutput[2]
+        if bpy.app.version >= (5, 0, 0):
+            bpy.context.scene.render.image_settings.media_type = prevOutput[2]
+
         bpy.context.scene.render.image_settings.file_format = prevOutput[1]
 
     @err_catcher(name=__name__)
@@ -3056,6 +3393,13 @@ class Prism_Blender_Functions(object):
         Args:
             origin: State Manager instance.
         """
+        if self.isOtioAvailable():
+            if ".otio" not in self.plugin.outputFormats:
+                self.plugin.outputFormats.insert(-1, ".otio")
+
+        elif ".otio" in self.plugin.outputFormats:
+            self.plugin.outputFormats.remove(".otio")
+
         origin.b_showImportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
         origin.b_showExportStates.setStyleSheet("padding-left: 1px;padding-right: 1px;")
 
@@ -3179,4 +3523,11 @@ class Prism_Blender_Functions(object):
                 }
             ]
 
+            abcSettings.append({
+                "name": "otioResolveMetadata",
+                "label": "Resolve Metadata",
+                "type": "checkbox",
+                "value": additionalSettingsValues.get("otioResolveMetadata", False),
+                "visible": lambda dlg, state: state.getOutputType() == ".otio",
+            })
             state.additionalSettings += abcSettings

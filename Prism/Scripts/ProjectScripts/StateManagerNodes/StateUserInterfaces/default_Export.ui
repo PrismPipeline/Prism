@@ -159,7 +159,7 @@
          <item>
           <widget class="QLabel" name="label_4">
            <property name="text">
-            <string>Context:</string>
+            <string>Entity:</string>
            </property>
           </widget>
          </item>
@@ -199,7 +199,7 @@
          <item>
           <widget class="QPushButton" name="b_context">
            <property name="text">
-            <string>Select</string>
+            <string>Select...</string>
            </property>
           </widget>
          </item>
@@ -1160,8 +1160,8 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>329</width>
-              <height>248</height>
+              <width>320</width>
+              <height>203</height>
              </rect>
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_12">

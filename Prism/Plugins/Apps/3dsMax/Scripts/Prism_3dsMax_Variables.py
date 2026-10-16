@@ -33,7 +33,7 @@
 
 
 import os
-from typing import Any, List, Dict
+from typing import Any
 
 
 class Prism_3dsMax_Variables(object):
@@ -67,7 +67,7 @@ class Prism_3dsMax_Variables(object):
             core: PrismCore instance.
             plugin: Plugin instance.
         """
-        self.version = "v2.1.3"
+        self.version = "v2.1.4"
         self.pluginName = "3dsMax"
         self.pluginType = "App"
         self.appShortName = "Max"

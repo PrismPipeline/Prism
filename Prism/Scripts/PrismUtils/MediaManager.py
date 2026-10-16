@@ -42,6 +42,8 @@ import glob
 import re
 import time
 import threading
+import json
+import hashlib
 from typing import Any, Optional, List, Dict, Tuple
 
 from collections import OrderedDict
@@ -175,6 +177,7 @@ class MediaManager(object):
         Returns:
             str: Sequence pattern with '#' characters, or original filename if not a sequence.
         """
+        filename = os.path.normpath(filename)
         seq = filename
         baseName, extension = os.path.splitext(os.path.basename(filename))
         extension = extension.lower()
@@ -186,6 +189,7 @@ class MediaManager(object):
             if (
                 endStr.isnumeric()
                 and not (len(baseName) > self.core.framePadding and (baseName[-(self.core.framePadding + 1)] == "v"))
+                and not filename.startswith(self.core.projects.getAttachmentsFolder())
                 and extension not in self.core.media.videoFormats
             ):
                 pattern = "#"
@@ -226,7 +230,7 @@ class MediaManager(object):
             if pVersion == 2:
                 endStr = unicode(endStr)
 
-            if endStr.isnumeric():
+            if endStr.isnumeric() and (len(baseName) == self.core.framePadding or baseName[-(self.core.framePadding + 1)] != "v"):
                 return endStr
 
     @err_catcher(name=__name__)
@@ -350,25 +354,82 @@ class MediaManager(object):
         return foundSrc
 
     @err_catcher(name=__name__)
+    def _sequencePatternToGlob(self, pattern: str, keepFrameWidth: bool = True) -> str:
+        """Convert sequence placeholders to a glob-compatible pattern.
+
+        Supports Prism-style ``####`` frame padding and printf-style
+        placeholders like ``%04d``, ``%03d`` and ``%d``.
+
+        Args:
+            pattern: Input sequence pattern.
+            keepFrameWidth: If True, keep explicit frame width using ``?``.
+                If False, use ``*`` for broader matching.
+
+        Returns:
+            str: Glob-compatible pattern.
+        """
+        if not pattern:
+            return pattern
+
+        def _replacePrintfPadding(match: re.Match) -> str:
+            width = match.group(1)
+            if keepFrameWidth and width:
+                try:
+                    count = int(width)
+                except Exception:
+                    count = 0
+
+                if count > 0:
+                    return "?" * count
+
+            return "*"
+
+        globPattern = str(pattern)
+        globPattern = re.sub(r"%0?(\d*)d", _replacePrintfPadding, globPattern)
+
+        if keepFrameWidth:
+            globPattern = re.sub(r"#+", lambda m: "?" * len(m.group(0)), globPattern)
+        else:
+            globPattern = re.sub(r"#+", "*", globPattern)
+
+        return globPattern
+
+    @err_catcher(name=__name__)
     def getFilesFromSequence(self, sequence: str) -> List[str]:
         """Get all actual file paths from a sequence pattern.
         
         Args:
-            sequence: Sequence pattern with '#' or '?' wildcards.
+            sequence: Sequence pattern with '#', '?', or printf frame placeholders
+                like '%04d'.
             
         Returns:
             List[str]: Sorted list of matching file paths.
         """
-        files = glob.glob(sequence.replace("#", "?"))
+        if not sequence:
+            return []
+
+        files = glob.glob(self._sequencePatternToGlob(sequence))
         files = sorted(files)
         return files
 
     @err_catcher(name=__name__)
     def getFirstFilePpathFromSequence(self, sequence: str) -> Optional[str]:
+        """backward-compatible method to get the first file path from a sequence pattern."""
+        msg = "deprecated function used: getFirstFilePpathFromSequence"
+        if os.getenv("PRISM_DEPRECATED_POPUPS", "1") == "1":
+            self.core.popup(msg)
+        else:
+            logger.warning(msg)
+
+        return self.getFirstFilepathFromSequence(sequence)
+
+    @err_catcher(name=__name__)
+    def getFirstFilepathFromSequence(self, sequence: str) -> Optional[str]:
         """Get the first file path from a sequence pattern.
         
         Args:
-            sequence: Sequence pattern with '#' or '?' wildcards.
+            sequence: Sequence pattern with '#', '?', or printf frame placeholders
+                like '%04d'.
             
         Returns:
             Optional[str]: First matching file path, or None if no files found.
@@ -427,7 +488,9 @@ class MediaManager(object):
         Returns:
             Any: ImageIO video reader object, or error string if loading fails.
         """
-        if os.stat(filepath).st_size == 0:
+        if not os.path.exists(filepath):
+            reader = "Error - file does not exist: %s" % filepath
+        elif os.stat(filepath).st_size == 0:
             reader = "Error - empty file: %s" % filepath
         else:
             imageio = self.getImageIO()
@@ -504,6 +567,7 @@ class MediaManager(object):
         except:
             logger.debug("loading oiio failed: %s" % traceback.format_exc())
             self.checkMSVC()
+            oiio = None
 
         return oiio
 
@@ -724,7 +788,7 @@ class MediaManager(object):
 
             checkPath = inputpath
             if "%" in inputpath or "#" in inputpath:
-                pattern = re.sub(r"%\d*d", "*", inputpath).replace("#", "?")
+                pattern = self._sequencePatternToGlob(inputpath, keepFrameWidth=False)
                 matches = sorted(glob.glob(pattern))
                 if matches:
                     checkPath = matches[0]
@@ -1482,6 +1546,225 @@ nuke.execute(write, %s, %s)
         return qimg
 
     @err_catcher(name=__name__)
+    def _isImagePathCacheEnabled(self) -> bool:
+        """Check whether image path cache is enabled via env var.
+
+        Returns:
+            bool: True if disk cache should be used.
+        """
+        return os.getenv("PRISM_IMAGE_PATH_CACHE", "0") == "1"
+
+    @err_catcher(name=__name__)
+    def _getImagePathCacheDir(self) -> str:
+        """Get directory for cached image-path lookups.
+
+        Returns:
+            str: Absolute cache folder path.
+        """
+        cacheDir = os.getenv("PRISM_IMAGE_PATH_CACHE_DIR")
+        if cacheDir:
+            cacheDir = os.path.expandvars(os.path.expanduser(cacheDir))
+            return os.path.normpath(os.path.abspath(cacheDir))
+
+        return os.path.join(self.core.getUserPrefDir(), "Cache", "ImagePathCache")
+
+    @err_catcher(name=__name__)
+    def _getImagePathCacheFormat(self, sourcePath: str) -> Tuple[str, str, int]:
+        """Get cache file extension and Qt image format from source extension.
+
+        Args:
+            sourcePath: Original source image path.
+
+        Returns:
+            Tuple[str, str, int]: (file_extension, qt_format, quality)
+        """
+        ext = os.path.splitext(sourcePath)[1].lower()
+        if ext in [".jpg", ".jpeg"]:
+            return ".jpg", "JPG", 95
+        elif ext in [".tif", ".tiff"]:
+            return ".tif", "TIFF", -1
+        elif ext in [".tga"]:
+            return ".tga", "TGA", -1
+        elif ext in [".bmp"]:
+            return ".bmp", "BMP", -1
+        elif ext in [".png"]:
+            return ".png", "PNG", 95
+
+        return ".png", "PNG", 95
+
+    @err_catcher(name=__name__)
+    def _getImagePathCachePath(
+        self,
+        sourcePath: str,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> Optional[str]:
+        """Build cache file path using source path and requested image size.
+
+        Hash includes source filepath, source modtime/size and requested
+        width/height.
+
+        Args:
+            sourcePath: Original source image path.
+            width: Requested width.
+            height: Requested height.
+
+        Returns:
+            Optional[str]: Cache path, or None if source cannot be fingerprinted.
+        """
+        if not sourcePath:
+            return
+
+        sourcePath = os.path.normpath(sourcePath)
+        if not os.path.exists(sourcePath):
+            return
+
+        try:
+            statData = os.stat(sourcePath)
+        except Exception:
+            return
+
+        mtimeNs = getattr(statData, "st_mtime_ns", None)
+        if mtimeNs is None:
+            mtimeNs = int(getattr(statData, "st_mtime", 0) * 1000000000)
+
+        keyData = {
+            "path": os.path.normcase(os.path.abspath(sourcePath)),
+            "mtime_ns": int(mtimeNs),
+            "file_size": int(getattr(statData, "st_size", 0)),
+            "requested_width": int(width) if width is not None else None,
+            "requested_height": int(height) if height is not None else None,
+        }
+        keyRaw = json.dumps(keyData, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(keyRaw.encode("utf-8")).hexdigest()
+        cacheExt, _, _ = self._getImagePathCacheFormat(sourcePath)
+        return os.path.join(self._getImagePathCacheDir(), digest + cacheExt)
+
+    @err_catcher(name=__name__)
+    def _loadQImageFromImagePathCache(
+        self,
+        sourcePath: str,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> Optional[QImage]:
+        """Load cached QImage generated from a source path.
+
+        Args:
+            sourcePath: Source image filepath.
+            width: Requested width for lookup key.
+            height: Requested height for lookup key.
+
+        Returns:
+            Optional[QImage]: Cached image when available.
+        """
+        cachePath = self._getImagePathCachePath(sourcePath, width=width, height=height)
+        if not cachePath or not os.path.exists(cachePath):
+            return
+
+        image = QImage(cachePath)
+        if image and not image.isNull():
+            return image
+
+    @err_catcher(name=__name__)
+    def _loadPixmapFromImagePathCache(
+        self,
+        sourcePath: str,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> Optional[QPixmap]:
+        """Load cached QPixmap generated from a source path.
+
+        Args:
+            sourcePath: Source image filepath.
+            width: Requested width for lookup key.
+            height: Requested height for lookup key.
+
+        Returns:
+            Optional[QPixmap]: Cached pixmap when available.
+        """
+        cachePath = self._getImagePathCachePath(sourcePath, width=width, height=height)
+        if not cachePath or not os.path.exists(cachePath):
+            return
+
+        pixmap = QPixmap(cachePath)
+        if pixmap and not pixmap.isNull():
+            return pixmap
+
+    @err_catcher(name=__name__)
+    def _saveQImageToImagePathCache(
+        self,
+        sourcePath: str,
+        qimg: QImage,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> None:
+        """Save a QImage into image path cache.
+
+        Args:
+            sourcePath: Source image filepath.
+            qimg: Image to cache.
+            width: Requested width for cache key.
+            height: Requested height for cache key.
+        """
+        if not qimg or qimg.isNull():
+            return
+
+        cachePath = self._getImagePathCachePath(sourcePath, width=width, height=height)
+        if not cachePath:
+            return
+
+        cacheDir = os.path.dirname(cachePath)
+        if not os.path.exists(cacheDir):
+            try:
+                os.makedirs(cacheDir)
+            except FileExistsError:
+                pass
+            except Exception:
+                return
+
+        tempPath = cachePath + ".tmp_%s" % threading.get_ident()
+        try:
+            _, cacheFormat, cacheQuality = self._getImagePathCacheFormat(sourcePath)
+            if not qimg.save(tempPath, cacheFormat, cacheQuality):
+                return
+
+            os.replace(tempPath, cachePath)
+        except Exception:
+            pass
+        finally:
+            if os.path.exists(tempPath):
+                try:
+                    os.remove(tempPath)
+                except Exception:
+                    pass
+
+    @err_catcher(name=__name__)
+    def _savePixmapToImagePathCache(
+        self,
+        sourcePath: str,
+        pixmap: QPixmap,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> None:
+        """Save a QPixmap into image path cache.
+
+        Args:
+            sourcePath: Source image filepath.
+            pixmap: Pixmap to cache.
+            width: Requested width for cache key.
+            height: Requested height for cache key.
+        """
+        if not pixmap or pixmap.isNull():
+            return
+
+        self._saveQImageToImagePathCache(
+            sourcePath,
+            pixmap.toImage(),
+            width=width,
+            height=height,
+        )
+
+    @err_catcher(name=__name__)
     def getPixmapFromPath(self, path: str, width: Optional[int] = None, height: Optional[int] = None, 
                           colorAdjust: bool = False) -> Optional[QPixmap]:
         """Get a QPixmap from any supported media file path.
@@ -1513,6 +1796,15 @@ nuke.execute(write, %s, %s)
                 path, width, height
             )
 
+        if self._isImagePathCacheEnabled():
+            cachedPixmap = self._loadPixmapFromImagePathCache(
+                path,
+                width=width,
+                height=height,
+            )
+            if cachedPixmap:
+                return cachedPixmap
+
         pixmap = QPixmap(path)
         if pixmap.isNull():
             pixmap = self.core.media.getPixmapFromExrPath(
@@ -1521,6 +1813,14 @@ nuke.execute(write, %s, %s)
 
         if (width or height) and pixmap and not pixmap.isNull():
             pixmap = self.scalePixmap(pixmap, width, height)
+
+        if self._isImagePathCacheEnabled() and pixmap and not pixmap.isNull():
+            self._savePixmapToImagePathCache(
+                path,
+                pixmap,
+                width=width,
+                height=height,
+            )
 
         return pixmap
 
@@ -1556,6 +1856,26 @@ nuke.execute(write, %s, %s)
                 path, width, height
             )
 
+        isGuiThread = (
+            QApplication.instance()
+            and QApplication.instance().thread() == QThread.currentThread()
+        )
+
+        canCache = self._isImagePathCacheEnabled()
+        # In non-GUI threads scaling is intentionally skipped. Avoid caching a
+        # non-scaled result under a width/height-specific cache key.
+        if (width or height) and not isGuiThread:
+            canCache = False
+
+        if canCache:
+            cachedQImage = self._loadQImageFromImagePathCache(
+                path,
+                width=width,
+                height=height,
+            )
+            if cachedQImage:
+                return cachedQImage
+
         qimg = QImage(path)
         if qimg.isNull():
             qimg = self.core.media.getQImageFromExrPath(
@@ -1563,12 +1883,16 @@ nuke.execute(write, %s, %s)
             )
 
         if (width or height) and qimg and not qimg.isNull():
-            isGuiThread = (
-                QApplication.instance()
-                and QApplication.instance().thread() == QThread.currentThread()
-            )
             if isGuiThread:  # doesn't seem to be threadsafe
                 qimg = self.scalePixmap(qimg, width, height)
+
+        if canCache and qimg and not qimg.isNull():
+            self._saveQImageToImagePathCache(
+                path,
+                qimg,
+                width=width,
+                height=height,
+            )
 
         return qimg
 
@@ -1741,13 +2065,14 @@ nuke.execute(write, %s, %s)
         if allowThumb and thumbEnabled and not regenerateThumb and path:
             thumbPath = self.getThumbnailPath(path)
             if os.path.exists(thumbPath):
-                return self.getPixmapFromPath(thumbPath, width=width, height=height)
+                return self.getQImageFromPath(thumbPath, width=width, height=height)
 
         try:
             from PySide6.QtPdf import QPdfDocument
         except ImportError:
             logger.warning("PySide6.QtPdf is not available. Cannot render PDF.")
             return None
+
         doc = QPdfDocument()
         doc.load(path)
         page_index = 0
@@ -1790,10 +2115,9 @@ nuke.execute(write, %s, %s)
         painter.end()
         
         # Save thumbnail with white background
-        pixmap = QPixmap.fromImage(white_image)
         if thumbEnabled and allowThumb:
             thumbPath = self.getThumbnailPath(path)
-            self.savePixmap(pixmap, thumbPath)
+            self.saveQImage(white_image, thumbPath)
 
         return white_image
 
@@ -1966,9 +2290,9 @@ nuke.execute(write, %s, %s)
 
         try:
             pixmap = pixmap.scaled(
-                width, height, mode, transformMode=Qt.SmoothTransformation
+                width, height, mode, Qt.SmoothTransformation
             )
-        except AttributeError:
+        except:
             pixmap = pixmap.scaled(
                 width, height, mode
             )
@@ -2010,14 +2334,22 @@ nuke.execute(write, %s, %s)
             QIcon: The colored icon.
         """
         ssheet = self.core.getActiveStyleSheet()
-        if getattr(self.core, "appPlugin", None) and self.core.appPlugin.pluginName == "Standalone" and ssheet and ssheet.get("name") == "Blue Moon" or force:
-            image = QImage(path)
+        tint = getattr(self.core, "appPlugin", None) and self.core.appPlugin.pluginName == "Standalone" and ssheet and ssheet.get("name") == "Blue Moon" or force
+        isSvg = os.path.splitext(path)[1].lower() == ".svg"
+        if tint:
+            image = QIcon(path).pixmap(96, 96).toImage() if isSvg else QImage(path)
+            if isSvg and image.size() != QSize(96, 96):
+                image = image.scaled(96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            if isSvg:
+                image.setDevicePixelRatio(1)
             cimage = QImage(image)
             cimage.fill((QColor(r, g, b)))
             cimage.setAlphaChannel(image.convertToFormat(QImage.Format_Alpha8))
             pixmap = QPixmap.fromImage(cimage)
+            if isSvg:
+                pixmap.setDevicePixelRatio(1)
         else:
-            pixmap = QPixmap(path)
+            return QIcon(path) if isSvg else QIcon(QPixmap(path))
 
         return QIcon(pixmap)
 
@@ -2152,8 +2484,523 @@ nuke.execute(write, %s, %s)
             logger.warning(videoReader)
             return
 
-        duration = videoReader.count_frames()
+        try:
+            # count_frames() spawns ffmpeg internally, so serialize it with other ffmpeg calls.
+            with _FFMPEG_LOCK:
+                duration = videoReader.count_frames()
+        except Exception as e:
+            logger.warning(
+                "failed to count video frames directly for %s: %s",
+                path,
+                e,
+            )
+            duration = self._getVideoDurationFromMeta(videoReader)
+
         return duration
+
+    @err_catcher(name=__name__)
+    def _getVideoDurationFromMeta(self, videoReader: Any) -> Optional[int]:
+        """Estimate frame count from reader metadata.
+
+        Args:
+            videoReader: ImageIO video reader instance.
+
+        Returns:
+            Optional[int]: Estimated frame count, or None when unavailable.
+        """
+        meta = getattr(videoReader, "_meta", None) or {}
+
+        duration = meta.get("nframes")
+        if isinstance(duration, (int, float)) and duration not in [-1, float("inf")] and duration > 0:
+            return int(duration)
+
+        fps = meta.get("fps")
+        seconds = meta.get("duration")
+        if (
+            isinstance(fps, (int, float))
+            and isinstance(seconds, (int, float))
+            and fps > 0
+            and seconds > 0
+        ):
+            estDuration = int(round(fps * seconds))
+            if estDuration > 0:
+                return estDuration
+
+        try:
+            meta = videoReader.get_meta_data() or {}
+        except Exception:
+            return
+
+        duration = meta.get("nframes")
+        if isinstance(duration, (int, float)) and duration not in [-1, float("inf")] and duration > 0:
+            return int(duration)
+
+        fps = meta.get("fps")
+        seconds = meta.get("duration")
+        if (
+            isinstance(fps, (int, float))
+            and isinstance(seconds, (int, float))
+            and fps > 0
+            and seconds > 0
+        ):
+            estDuration = int(round(fps * seconds))
+            if estDuration > 0:
+                return estDuration
+
+    @err_catcher(name=__name__)
+    def getVideoStartFrameFromTimecode(self, path: str, videoReader: Optional[Any] = None) -> Optional[int]:
+        """Get a start frame number from embedded video timecode metadata.
+
+        Args:
+            path: Path to the video file.
+            videoReader: Existing video reader object to reuse.
+
+        Returns:
+            Optional[int]: Parsed frame number from timecode, or None if unavailable.
+        """
+        if videoReader is None:
+            videoReader = self.getVideoReader(path)
+
+        if self.core.isStr(videoReader):
+            logger.warning(videoReader)
+            return
+
+        fps = None
+        metaCandidates = []
+        cachedMeta = getattr(videoReader, "_meta", None)
+        if isinstance(cachedMeta, dict):
+            metaCandidates.append(cachedMeta)
+
+        try:
+            liveMeta = videoReader.get_meta_data() or {}
+        except Exception:
+            liveMeta = {}
+
+        if isinstance(liveMeta, dict):
+            metaCandidates.append(liveMeta)
+
+        foundMeta = False
+        for meta in metaCandidates:
+            if not meta:
+                continue
+
+            foundMeta = True
+            fps = fps or self._getFpsFromMeta(meta)
+            timecode = self._getTimecodeFromMeta(meta)
+            if not self._isValidTimecodeString(timecode):
+                continue
+
+            frame = self._timecodeToFrame(timecode, fps)
+            if frame is not None:
+                logger.debug(
+                    "Using video timecode as start frame: %s -> %s (%s)",
+                    path,
+                    frame,
+                    timecode,
+                )
+                return frame
+
+        # if foundMeta:
+        #     return
+
+        probeData = self._getVideoMetaFromFfprobe(path)
+        if not probeData:
+            return
+
+        fps = fps or self._getFpsFromProbeMeta(probeData)
+        timecode = self._getTimecodeFromProbeMeta(probeData)
+        if not self._isValidTimecodeString(timecode):
+            return
+
+        frame = self._timecodeToFrame(timecode, fps)
+        if frame is not None:
+            logger.debug(
+                "Using ffprobe timecode as start frame: %s -> %s (%s)",
+                path,
+                frame,
+                timecode,
+            )
+
+        return frame
+
+    @err_catcher(name=__name__)
+    def getVideoTimecode(self, path: str, videoReader: Optional[Any] = None) -> Optional[str]:
+        """Read embedded input timecode from video metadata.
+
+        Args:
+            path: Path to the video file.
+            videoReader: Existing video reader object to reuse.
+
+        Returns:
+            Optional[str]: Timecode in SMPTE format (e.g. 01:00:00:00) when available.
+        """
+        if videoReader is None:
+            videoReader = self.getVideoReader(path)
+
+        if self.core.isStr(videoReader):
+            logger.warning(videoReader)
+            return
+
+        metaCandidates = []
+        cachedMeta = getattr(videoReader, "_meta", None)
+        if isinstance(cachedMeta, dict):
+            metaCandidates.append(cachedMeta)
+
+        try:
+            liveMeta = videoReader.get_meta_data() or {}
+        except Exception:
+            liveMeta = {}
+
+        if isinstance(liveMeta, dict):
+            metaCandidates.append(liveMeta)
+
+        for meta in metaCandidates:
+            timecode = self._getTimecodeFromMeta(meta)
+            if self._isValidTimecodeString(timecode):
+                return timecode
+
+        probeData = self._getVideoMetaFromFfprobe(path)
+        if not probeData:
+            return
+
+        timecode = self._getTimecodeFromProbeMeta(probeData)
+        if self._isValidTimecodeString(timecode):
+            return timecode
+
+    @err_catcher(name=__name__)
+    def _isValidTimecodeString(self, timecode: Any) -> bool:
+        if not isinstance(timecode, str):
+            return False
+
+        return bool(re.match(r"^\d+:\d{2}:\d{2}[:;]\d{2}$", timecode.strip()))
+
+    @err_catcher(name=__name__)
+    def _frameToTimecode(self, frame, fps):
+        if frame is None:
+            return None
+
+        try:
+            frame = int(frame)
+        except Exception:
+            return None
+
+        fpsVal = None
+        try:
+            fpsVal = float(fps)
+        except Exception:
+            if self.core.isStr(fps) and "/" in fps:
+                try:
+                    num, den = fps.split("/", 1)
+                    fpsVal = float(num) / float(den)
+                except Exception:
+                    return None
+
+        if not fpsVal or fpsVal <= 0:
+            return None
+
+        fpsInt = max(int(round(fpsVal)), 1)
+        totalFrames = max(frame, 0)
+        hours = totalFrames // (3600 * fpsInt)
+        totalFrames = totalFrames % (3600 * fpsInt)
+        minutes = totalFrames // (60 * fpsInt)
+        totalFrames = totalFrames % (60 * fpsInt)
+        seconds = totalFrames // fpsInt
+        frames = totalFrames % fpsInt
+        return "%02d:%02d:%02d:%02d" % (hours, minutes, seconds, frames)
+
+    @err_catcher(name=__name__)
+    def downloadFFprobe(self, url: Optional[str] = None) -> Optional[str]:
+        """Install ffprobe next to the configured ffmpeg and return its path.
+
+        Uses Gyan's Windows essentials, John Van Sickle's Linux static builds,
+        or Evermeet's macOS build. Default Windows/macOS builds require x64;
+        Linux supports x64 and ARM64. A custom ZIP or tar archive URL can be
+        supplied for other architectures. Existing ffprobe files are preserved.
+        This is a blocking, explicit download; metadata reads never download.
+        Failures are logged and return None without displaying a dialog.
+        """
+        import shutil
+        import tarfile
+        import tempfile
+        import zipfile
+        import requests
+
+        ffmpegPath = self.getFFmpeg()
+        if not ffmpegPath:
+            logger.warning("Cannot install ffprobe without a configured ffmpeg path.")
+            return
+
+        system = platform.system()
+        ffprobeName = "ffprobe.exe" if system == "Windows" else "ffprobe"
+        targetDir = os.path.dirname(os.path.abspath(ffmpegPath))
+        ffprobePath = os.path.join(targetDir, ffprobeName)
+        if os.path.isfile(ffprobePath):
+            return ffprobePath
+
+        if not url:
+            machine = platform.machine().lower()
+            if system == "Windows" and machine in ["amd64", "x86_64"]:
+                url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+            elif system == "Linux" and machine in ["amd64", "x86_64", "aarch64", "arm64"]:
+                architecture = "arm64" if machine in ["aarch64", "arm64"] else "amd64"
+                url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-%s-static.tar.xz" % architecture
+            elif system == "Darwin" and machine in ["amd64", "x86_64"]:
+                url = "https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip"
+            else:
+                logger.warning("No default ffprobe download for %s %s; supply an archive URL.", system, machine)
+                return
+
+        try:
+            os.makedirs(targetDir, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix="ffprobe_", dir=targetDir) as tempDir:
+                archivePath = os.path.join(tempDir, "download")
+                with requests.get(url, stream=True, timeout=(15, 120)) as response:
+                    response.raise_for_status()
+                    with open(archivePath, "wb") as output:
+                        for chunk in response.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                output.write(chunk)
+
+                binaryPath = os.path.join(tempDir, ffprobeName)
+                if zipfile.is_zipfile(archivePath):
+                    with zipfile.ZipFile(archivePath) as archive:
+                        members = [member for member in archive.infolist() if not member.is_dir() and member.filename.split("/")[-1] == ffprobeName]
+                        if len(members) != 1:
+                            raise ValueError("Archive must contain exactly one %s" % ffprobeName)
+                        with archive.open(members[0]) as source, open(binaryPath, "wb") as output:
+                            shutil.copyfileobj(source, output)
+                else:
+                    with tarfile.open(archivePath, "r:*") as archive:
+                        members = [member for member in archive.getmembers() if member.isfile() and member.name.split("/")[-1] == ffprobeName]
+                        if len(members) != 1:
+                            raise ValueError("Archive must contain exactly one %s" % ffprobeName)
+                        with archive.extractfile(members[0]) as source, open(binaryPath, "wb") as output:
+                            shutil.copyfileobj(source, output)
+
+                if not os.path.getsize(binaryPath):
+                    raise ValueError("Downloaded ffprobe is empty")
+                if system != "Windows":
+                    os.chmod(binaryPath, 0o755)
+                os.replace(binaryPath, ffprobePath)
+        except Exception as error:
+            logger.warning("Failed to download ffprobe from %s: %s", url, error)
+            return
+
+        logger.info("Installed ffprobe: %s", ffprobePath)
+        return ffprobePath
+
+    @err_catcher(name=__name__)
+    def _getVideoMetaFromFfprobe(self, path: str) -> Optional[Dict[str, Any]]:
+        """Read stream/container metadata from ffprobe in JSON format."""
+        ffmpegPath = self.getFFmpeg(validate=True)
+        if not ffmpegPath:
+            return
+
+        ffprobeName = "ffprobe.exe" if platform.system() == "Windows" else "ffprobe"
+        ffprobePath = os.path.join(os.path.dirname(ffmpegPath), ffprobeName)
+        if not os.path.exists(ffprobePath):
+            logger.debug("ffprobe binary not found next to ffmpeg: %s", ffprobePath)
+            return
+
+        useShell = True  # for some reason shell=False is extremely slow in OpenRV
+
+        args = [
+            ffprobePath,
+            "-v",
+            "error",
+            "-show_streams",
+            "-show_format",
+            "-print_format",
+            "json",
+            path,
+        ]
+        if useShell:
+            args = " ".join(['"%s"' % a for a in args])
+
+        logger.debug("Running ffprobe: %s" % args)
+
+        with _FFMPEG_LOCK:
+            proc = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=useShell  ,
+            )
+            stdout, stderr = proc.communicate()
+
+        if sys.version[0] == "3":
+            stdout = stdout.decode("utf-8", "ignore")
+            stderr = stderr.decode("utf-8", "ignore")
+
+        if proc.returncode != 0:
+            logger.debug("ffprobe failed for %s: %s", path, stderr)
+            return
+
+        try:
+            return json.loads(stdout)
+        except Exception as e:
+            logger.debug("Failed to parse ffprobe JSON for %s: %s", path, e)
+            return
+
+    @err_catcher(name=__name__)
+    def _getFpsFromMeta(self, meta: Dict[str, Any]) -> Optional[float]:
+        if not isinstance(meta, dict):
+            return
+
+        fps = self._parseFpsValue(meta.get("fps"))
+        if fps:
+            return fps
+
+        return self._parseFpsValue(meta.get("avg_frame_rate"))
+
+    @err_catcher(name=__name__)
+    def _getFpsFromProbeMeta(self, meta: Dict[str, Any]) -> Optional[float]:
+        streams = meta.get("streams") if isinstance(meta, dict) else None
+        if not isinstance(streams, list):
+            return
+
+        for stream in streams:
+            if not isinstance(stream, dict):
+                continue
+
+            if stream.get("codec_type") not in [None, "video"]:
+                continue
+
+            fps = self._parseFpsValue(stream.get("avg_frame_rate"))
+            if fps:
+                return fps
+
+            fps = self._parseFpsValue(stream.get("r_frame_rate"))
+            if fps:
+                return fps
+
+    @err_catcher(name=__name__)
+    def _getTimecodeFromMeta(self, meta: Dict[str, Any]) -> Optional[str]:
+        if not isinstance(meta, dict):
+            return
+
+        for key in ["timecode", "time_code", "tc"]:
+            val = meta.get(key)
+            if isinstance(val, str) and val:
+                return val.strip()
+
+        tags = meta.get("tags")
+        if isinstance(tags, dict):
+            return self._extractTimecodeFromTags(tags)
+
+    @err_catcher(name=__name__)
+    def _getTimecodeFromProbeMeta(self, meta: Dict[str, Any]) -> Optional[str]:
+        streams = meta.get("streams") if isinstance(meta, dict) else None
+        if isinstance(streams, list):
+            for stream in streams:
+                if not isinstance(stream, dict):
+                    continue
+
+                tags = stream.get("tags")
+                if not isinstance(tags, dict):
+                    continue
+
+                timecode = self._extractTimecodeFromTags(tags)
+                if timecode:
+                    return timecode
+
+        fmt = meta.get("format") if isinstance(meta, dict) else None
+        if isinstance(fmt, dict):
+            tags = fmt.get("tags")
+            if isinstance(tags, dict):
+                return self._extractTimecodeFromTags(tags)
+
+    @err_catcher(name=__name__)
+    def _extractTimecodeFromTags(self, tags: Dict[str, Any]) -> Optional[str]:
+        if not isinstance(tags, dict):
+            return
+
+        for key, val in tags.items():
+            if not isinstance(val, str) or not val:
+                continue
+
+            keyLower = str(key).lower()
+            if keyLower in ["timecode", "time_code", "tc", "com.apple.quicktime.timecode.string"]:
+                return val.strip()
+
+            if keyLower.endswith("timecode"):
+                return val.strip()
+
+    @err_catcher(name=__name__)
+    def _parseFpsValue(self, fpsValue: Any) -> Optional[float]:
+        if isinstance(fpsValue, (int, float)):
+            fps = float(fpsValue)
+            return fps if fps > 0 else None
+
+        if isinstance(fpsValue, str):
+            text = fpsValue.strip()
+            if not text:
+                return
+
+            if "/" in text:
+                num, den = text.split("/", 1)
+                try:
+                    numF = float(num)
+                    denF = float(den)
+                except Exception:
+                    return
+
+                if denF == 0:
+                    return
+
+                fps = numF / denF
+                return fps if fps > 0 else None
+
+            try:
+                fps = float(text)
+            except Exception:
+                return
+
+            return fps if fps > 0 else None
+
+    @err_catcher(name=__name__)
+    def _timecodeToFrame(self, timecode: str, fps: Optional[float]) -> Optional[int]:
+        if not timecode:
+            return
+
+        if fps is None:
+            fps = self._parseFpsValue(self.core.projects.getFps())
+        else:
+            fps = self._parseFpsValue(fps)
+
+        if not fps:
+            return
+
+        match = re.match(r"^(\d+):(\d{2}):(\d{2})([:;])(\d{2})$", timecode.strip())
+        if not match:
+            return
+
+        hours = int(match.group(1))
+        minutes = int(match.group(2))
+        seconds = int(match.group(3))
+        separator = match.group(4)
+        frames = int(match.group(5))
+
+        if minutes > 59 or seconds > 59:
+            return
+
+        nominalFps = int(round(fps))
+        if nominalFps <= 0:
+            return
+
+        if frames >= nominalFps:
+            return
+
+        if separator == ";" and nominalFps in [30, 60]:
+            dropFrames = 2 if nominalFps == 30 else 4
+            totalMinutes = (hours * 60) + minutes
+            totalFrames = (
+                ((hours * 3600) + (minutes * 60) + seconds) * nominalFps
+            ) + frames
+            dropped = dropFrames * (totalMinutes - int(totalMinutes / 10))
+            return totalFrames - dropped
+
+        return (((hours * 3600) + (minutes * 60) + seconds) * nominalFps) + frames
 
     @err_catcher(name=__name__)
     def getMediaSequence(self, path: str) -> Dict[str, Any]:
@@ -2162,7 +3009,8 @@ nuke.execute(write, %s, %s)
         Analyzes a glob pattern to find all matching files and determine frame range.
         
         Args:
-            path: Path pattern (e.g., '/path/to/file.####.exr').
+            path: Path pattern (e.g., '/path/to/file.####.exr' or
+                '/path/to/file.%04d.exr').
             
         Returns:
             Dict[str, Any]: Dictionary containing:
@@ -2175,7 +3023,7 @@ nuke.execute(write, %s, %s)
         end = None
         isSequence = None
 
-        matchingFiles = glob.glob(path)
+        matchingFiles = glob.glob(self._sequencePatternToGlob(path))
         isSequence = len(matchingFiles) > 1
 
         frames = []
@@ -2306,9 +3154,13 @@ nuke.execute(write, %s, %s)
             return
 
         if not os.path.exists(path):
-            base, ext = os.path.splitext(path)
-            pattern = base.strip(".#") + ".*" + ext
+            pattern = self._sequencePatternToGlob(path, keepFrameWidth=False)
             paths = glob.glob(pattern)
+            if not paths and pattern == path:
+                base, ext = os.path.splitext(path)
+                pattern = base.strip(".#") + ".*" + ext
+                paths = glob.glob(pattern)
+
             if not paths:
                 logger.warning("media filepath doesn't exist: %s" % path)
                 return
@@ -2443,6 +3295,9 @@ nuke.execute(write, %s, %s)
                             if latestVersion:
                                 filepath = self.core.mediaProducts.getFileFromVersion(latestVersion, findExisting=True)
                                 if filepath:
+                                    if os.getenv("PRISM_OTIO_REPLACE_FRAME_PATTERN", "0") == "1" and "#" in filepath or "%0" in filepath:
+                                        filepath = self.getFirstFilepathFromSequence(filepath)
+
                                     media_reference = otio.schema.ExternalReference(
                                         target_url=filepath.replace("\\", "/")
                                     )

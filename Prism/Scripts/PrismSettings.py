@@ -37,7 +37,7 @@ import sys
 import subprocess
 import platform
 import logging
-from typing import Any, Optional, List, Dict, Tuple
+from typing import Any, Optional, List, Dict, Tuple, Callable
 
 scriptPath = os.path.abspath(os.path.dirname(__file__))
 if scriptPath not in sys.path:
@@ -82,10 +82,13 @@ class PrismSettings(QDialog):
         self.core.parentWindow(self)
         self.tabs = []
         self.activeTabs = []
+        self.lazyTabFactories = {}
 
         self.loadUI()
 
         self.core.callback(name="onPrismSettingsOpen", args=[self])
+        self.tbw_settings.currentChanged.connect(self.tabChanged)
+        self.tabChanged(self.tbw_settings.currentIndex())
         self.setFocus()
         screen = self.core.getQScreenGeo()
         if screen:
@@ -103,24 +106,17 @@ class PrismSettings(QDialog):
         """
         self.setWindowTitle("Prism Settings")
         self.tbw_settings = QTabWidget()
-        self.tbw_settings.currentChanged.connect(self.tabChanged)
         self.lo_main = QVBoxLayout(self)
         self.lo_main.addWidget(self.tbw_settings)
 
-        self.w_user = UserSettings(self.core)
-        self.w_user.buttonBox.setVisible(False)
         path = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "user.png")
         icon = self.core.media.getColoredIcon(path)
-        self.addTab("User", self.w_user, icon=icon)
+        self.addTab("User", createWidget=self.createUserSettings, icon=icon)
 
         if self.core.prismIni:
-            import ProjectSettings
-            self.w_project = ProjectSettings.ProjectSettings(self.core, projectConfig=self.core.prismIni)
-            self.w_project.buttonBox.setVisible(False)
-            self.w_project.layout().setContentsMargins(0, 0, 0, 0)
             path = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "project.png")
             icon = self.core.media.getColoredIcon(path)
-            self.addTab("Project", self.w_project, icon=icon)
+            self.addTab("Project", createWidget=self.createProjectSettings, icon=icon)
 
         self.bb_main = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel | QDialogButtonBox.Apply)
         self.bb_main.button(QDialogButtonBox.Ok).setText("Save")
@@ -130,7 +126,6 @@ class PrismSettings(QDialog):
         self.bb_main.rejected.connect(self.reject)
 
         self.lo_main.addWidget(self.bb_main)
-        self.tabChanged()
 
     @err_catcher(name=__name__)
     def saveSettings(self) -> None:
@@ -138,7 +133,8 @@ class PrismSettings(QDialog):
         
         Delegates to the currently active tab's saveSettings method.
         """
-        self.tbw_settings.currentWidget().saveSettings()
+        widget = self.createTabWidget(self.tbw_settings.currentIndex())
+        widget.saveSettings()
 
     @err_catcher(name=__name__)
     def applySettings(self) -> None:
@@ -146,10 +142,11 @@ class PrismSettings(QDialog):
         
         Saves the current settings without triggering a project change.
         """
-        self.tbw_settings.currentWidget().saveSettings(changeProject=False)
+        widget = self.createTabWidget(self.tbw_settings.currentIndex())
+        widget.saveSettings(changeProject=False)
 
     @err_catcher(name=__name__)
-    def addTab(self, name: str, widget: QWidget, position: int = -1, icon: Optional[QIcon] = None) -> None:
+    def addTab(self, name: str, widget: Optional[QWidget] = None, position: int = -1, icon: Optional[QIcon] = None, createWidget: Optional[Callable[[], QWidget]] = None) -> None:
         """Add a new tab to the settings dialog.
         
         Args:
@@ -157,13 +154,61 @@ class PrismSettings(QDialog):
             widget: The widget to display in the tab
             position: Insert position (default -1 for append)
             icon: Optional icon to display on the tab
+            createWidget: Optional factory that creates the widget on first activation
         """
+        if widget is None and createWidget is None:
+            raise ValueError("Either widget or createWidget must be provided.")
+
+        if widget is None:
+            widget = QWidget()
+            self.lazyTabFactories[widget] = createWidget
+
         widget.setProperty("tabType", name)
         idx = self.tbw_settings.insertTab(position, widget, name)
         if icon:
             self.tbw_settings.setTabIcon(idx, icon)
 
         self.tabs.append(widget)
+
+    @err_catcher(name=__name__)
+    def createTabWidget(self, tab: int) -> QWidget:
+        """Create and install the settings widget for a placeholder tab."""
+        placeholder = self.tbw_settings.widget(tab)
+        factory = self.lazyTabFactories.pop(placeholder, None)
+        if not factory:
+            return placeholder
+
+        name = self.tbw_settings.tabText(tab)
+        icon = self.tbw_settings.tabIcon(tab)
+        widget = factory()
+        signalsBlocked = self.tbw_settings.blockSignals(True)
+        self.tbw_settings.removeTab(tab)
+        self.tbw_settings.insertTab(tab, widget, name)
+        self.tbw_settings.setTabIcon(tab, icon)
+        self.tbw_settings.setCurrentIndex(tab)
+        self.tbw_settings.blockSignals(signalsBlocked)
+        self.tabs[self.tabs.index(placeholder)] = widget
+        placeholder.deleteLater()
+        return widget
+
+    @err_catcher(name=__name__)
+    def createUserSettings(self) -> QWidget:
+        """Create the User Settings tab on demand."""
+        self.w_user = UserSettings(self.core)
+        self.w_user.buttonBox.setVisible(False)
+        return self.w_user
+
+    @err_catcher(name=__name__)
+    def createProjectSettings(self) -> QWidget:
+        """Create the Project Settings tab on demand."""
+        import ProjectSettings
+
+        self.w_project = ProjectSettings.ProjectSettings(
+            self.core, projectConfig=self.core.prismIni
+        )
+        self.w_project.buttonBox.setVisible(False)
+        self.w_project.layout().setContentsMargins(0, 0, 0, 0)
+        return self.w_project
 
     @err_catcher(name=__name__)
     def getCurrentSettingsType(self) -> str:
@@ -223,7 +268,7 @@ class PrismSettings(QDialog):
 
         if "tab" in data:
             tab = data["tab"]
-            widget = self.tbw_settings.currentWidget()
+            widget = self.createTabWidget(self.tbw_settings.currentIndex())
             widget.selectCategory(tab)
 
     @err_catcher(name=__name__)
@@ -235,7 +280,7 @@ class PrismSettings(QDialog):
         Args:
             idx: The new tab index (optional, can be None)
         """
-        curTab = self.tbw_settings.currentWidget()
+        curTab = self.createTabWidget(idx)
         if curTab not in self.activeTabs:
             self.activeTabs.append(curTab)
 
@@ -317,99 +362,18 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
 
         self.exOverridePlugins = {}
         self.integrationPlugins = {}
+        self.dccPluginNames = set()
         self.dccTabs = QTabWidget()
 
         pluginNames = self.core.getPluginNames()
         for i in pluginNames:
-            pAppType = self.core.getPluginData(i, "appType")
-            if pAppType != "standalone":
-                tab = QWidget()
-                w_ovr = QWidget()
-                lo_tab = QVBoxLayout()
-                lo_ovr = QHBoxLayout()
-                tab.setLayout(lo_tab)
-                w_ovr.setLayout(lo_ovr)
-                lo_tab.setContentsMargins(15, 15, 15, 15)
-                lo_ovr.setContentsMargins(0, 9, 0, 9)
-                #   w_ovr.setMinimumSize(0,39)
+            self.addDccPluginSettings(i)
 
-                if self.core.getPluginData(i, "canOverrideExecuteable") is not False:
-                    l_ovr = QLabel(
-                        "By default Prism uses the default application configured in the OS settings to open scenefiles.\nThe following setting let you override this behaviour by defining explicit applications for opening scenefiles."
-                    )
-                    chb_ovr = QCheckBox("Executable override")
-                    le_ovr = QLineEdit()
-                    b_ovr = QPushButton("...")
-                    b_ovr.setContextMenuPolicy(Qt.CustomContextMenu)
-
-                    lo_ovr.addWidget(chb_ovr)
-                    lo_ovr.addWidget(le_ovr)
-                    lo_ovr.addWidget(b_ovr)
-
-                    lo_tab.addWidget(l_ovr)
-                    lo_tab.addWidget(w_ovr)
-
-                    self.exOverridePlugins[i] = {
-                        "chb": chb_ovr,
-                        "le": le_ovr,
-                        "b": b_ovr,
-                    }
-
-                if self.core.getPluginData(i, "hasIntegration") is not False:
-                    hasIntegrationPath = self.core.getPluginData(i, "hasIntegrationPath")
-                    if hasIntegrationPath is None:
-                        hasIntegrationPath = True
-
-                    gb_integ = QGroupBox("Prism integrations")
-                    lo_integ = QVBoxLayout()
-                    gb_integ.setLayout(lo_integ)
-                    lw_integ = QListWidget()
-                    w_integ = QWidget()
-                    lo_integButtons = QHBoxLayout()
-                    b_addInteg = QPushButton("Add")
-                    b_removeInteg = QPushButton("Remove")
-                    if hasIntegrationPath:
-                        examplePath = self.core.getPluginData(i, "examplePath") or ""
-                        l_examplePath = QLabel("Examplepath:\n\n" + examplePath)
-
-                    w_integ.setLayout(lo_integButtons)
-                    lo_integButtons.addStretch()
-                    lo_integButtons.addWidget(b_addInteg)
-                    lo_integButtons.addWidget(b_removeInteg)
-
-                    lo_integ.addWidget(lw_integ)
-                    if hasIntegrationPath:
-                        lo_integ.addWidget(l_examplePath)
-
-                    lo_integ.addWidget(w_integ)
-                    lo_tab.addWidget(gb_integ)
-
-                    lw_integ.setSizePolicy(
-                        QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-                    )
-                    lw_integ.setContextMenuPolicy(Qt.CustomContextMenu)
-                    lw_integ.customContextMenuRequested.connect(
-                        lambda x, y=lw_integ: self.contextMenuIntegration(x, y)
-                    )
-
-                    self.integrationPlugins[i] = {
-                        "lw": lw_integ,
-                        "badd": b_addInteg,
-                        "bremove": b_removeInteg,
-                        "tab": tab,
-                    }
-                    if hasIntegrationPath:
-                        self.integrationPlugins[i]["lexample"] = l_examplePath
-
-                getattr(
-                    self.core.getPlugin(i), "userSettings_loadUI", lambda x, y: None
-                )(self, tab)
-
-                lo_tab.addStretch()
-                self.dccTabs.addTab(tab, i)
-
-        if self.dccTabs.count() > 0:
-            self.tab_dccApps.layout().addWidget(self.dccTabs)
+        self.widget_23.hide()
+        self.b_addIntegrations = QPushButton("Add integrations...")
+        self.b_addIntegrations.clicked.connect(self.addIntegrations)
+        self.tab_dccApps.layout().addWidget(self.b_addIntegrations, 0, Qt.AlignLeft)
+        self.tab_dccApps.layout().addWidget(self.dccTabs)
 
         self.refreshIntegrations()
 
@@ -454,6 +418,21 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
 
+        self.gb_onboarding = QGroupBox("Onboarding")
+        self.lo_onboarding = QHBoxLayout(self.gb_onboarding)
+        self.b_runOnboarding = QPushButton("Run Onboarding...")
+        self.l_onboarding = QLabel(
+            "Review account, plugin, and project setup."
+        )
+        self.lo_onboarding.addWidget(self.b_runOnboarding)
+        self.lo_onboarding.addWidget(self.l_onboarding)
+        self.lo_onboarding.addStretch()
+        self.getTabByName("General").layout().insertWidget(1, self.gb_onboarding)
+        self.b_runOnboarding.clicked.connect(self.runOnboarding)
+        self.gb_onboarding.setVisible(
+            self.core.appPlugin.pluginName == "Standalone"
+        )
+
         if not self.core.getPlugin("Hub", allowUnloaded=True) and os.getenv("PRISM_ALLOW_HUB_INSTALL") != "0":
             self.gb_installHub = QGroupBox("Hub")
             self.lo_installHub = QHBoxLayout(self.gb_installHub)
@@ -468,6 +447,14 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         self.gb_mediaPlayers = PrismWidgets.MediaPlayersWidget(self)
         self.lo_miscellaneousTab.insertWidget(self.lo_miscellaneousTab.count() - 1, self.gb_mediaPlayers)
 
+        self.chb_glMediaPlayer = QCheckBox("Use GL media player", self.gb_miscellaneous)
+        self.chb_glMediaPlayer.setObjectName("chb_glMediaPlayer")
+        self.chb_glMediaPlayer.setToolTip("Use the OpenGL media preview player. Restart Prism to apply changes.")
+        self.lo_miscellaneous.insertWidget(
+            self.lo_miscellaneous.indexOf(self.chb_mediaThumbnails) + 1,
+            self.chb_glMediaPlayer,
+        )
+
         self.refreshIcons()
         self.refreshCategories()
         policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -480,6 +467,158 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         self.selectCategory("General")
         self.updateTabSize(self.tw_settings.currentIndex())
         self.core.callback(name="userSettings_loadUI", args=[self])
+
+    @err_catcher(name=__name__)
+    def addDccPluginSettings(self, pluginName: str, connectEvents: bool = False) -> None:
+        """Add settings controls for a loaded DCC plugin."""
+        if pluginName in self.dccPluginNames:
+            return
+
+        if self.core.getPluginData(pluginName, "appType") == "standalone":
+            return
+
+        tab = QWidget()
+        w_ovr = QWidget()
+        lo_tab = QVBoxLayout()
+        lo_ovr = QHBoxLayout()
+        tab.setLayout(lo_tab)
+        w_ovr.setLayout(lo_ovr)
+        lo_tab.setContentsMargins(15, 15, 15, 15)
+        lo_ovr.setContentsMargins(0, 9, 0, 9)
+
+        if self.core.getPluginData(pluginName, "canOverrideExecuteable") is not False:
+            l_ovr = QLabel(
+                "By default Prism uses the default application configured in the OS settings to open scenefiles.\nThe following setting let you override this behaviour by defining explicit applications for opening scenefiles."
+            )
+            chb_ovr = QCheckBox("Executable override")
+            le_ovr = QLineEdit()
+            b_ovr = QToolButton()
+            b_ovr.setToolTip("Browse for executable")
+            iconPath = os.path.join(
+                self.core.prismRoot, "Scripts", "UserInterfacesPrism", "browse.png"
+            )
+            b_ovr.setIcon(self.core.media.getColoredIcon(iconPath))
+            b_ovr.setContextMenuPolicy(Qt.CustomContextMenu)
+            lo_ovr.addWidget(chb_ovr)
+            lo_ovr.addWidget(le_ovr)
+            lo_ovr.addWidget(b_ovr)
+            lo_tab.addWidget(l_ovr)
+            lo_tab.addWidget(w_ovr)
+            self.exOverridePlugins[pluginName] = {
+                "chb": chb_ovr,
+                "le": le_ovr,
+                "b": b_ovr,
+            }
+            if connectEvents:
+                chb_ovr.stateChanged.connect(
+                    lambda state, name=pluginName: self.orToggled(name, state)
+                )
+                b_ovr.clicked.connect(
+                    lambda state=None, name=pluginName: self.browse(name + "OR", getFile=True)
+                )
+                b_ovr.customContextMenuRequested.connect(
+                    lambda position, name=pluginName: self.core.openFolder(
+                        self.exOverridePlugins[name]["le"].text()
+                    )
+                )
+
+        if self.core.getPluginData(pluginName, "hasIntegration") is not False:
+            hasIntegrationPath = self.core.getPluginData(pluginName, "hasIntegrationPath")
+            if hasIntegrationPath is None:
+                hasIntegrationPath = True
+
+            gb_integ = QGroupBox("Prism integrations")
+            lo_integ = QVBoxLayout(gb_integ)
+            lw_integ = QListWidget()
+            w_integ = QWidget()
+            lo_integButtons = QHBoxLayout(w_integ)
+            b_addInteg = QPushButton("Add")
+            b_removeInteg = QPushButton("Remove")
+            iconDir = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
+            b_addInteg.setIcon(self.core.media.getColoredIcon(os.path.join(iconDir, "add.png")))
+            b_removeInteg.setIcon(self.core.media.getColoredIcon(os.path.join(iconDir, "remove.png")))
+            lo_integButtons.addStretch()
+            lo_integButtons.addWidget(b_addInteg)
+            lo_integButtons.addWidget(b_removeInteg)
+            lo_integ.addWidget(lw_integ)
+            if hasIntegrationPath:
+                examplePath = self.core.getPluginData(pluginName, "examplePath") or ""
+                l_examplePath = QLabel("Examplepath:\n\n" + examplePath)
+                lo_integ.addWidget(l_examplePath)
+            lo_integ.addWidget(w_integ)
+            lo_tab.addWidget(gb_integ)
+            lw_integ.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed))
+            lw_integ.setContextMenuPolicy(Qt.CustomContextMenu)
+            lw_integ.customContextMenuRequested.connect(
+                lambda position, widget=lw_integ: self.contextMenuIntegration(position, widget)
+            )
+            self.integrationPlugins[pluginName] = {
+                "lw": lw_integ,
+                "badd": b_addInteg,
+                "bremove": b_removeInteg,
+                "tab": tab,
+            }
+            if hasIntegrationPath:
+                self.integrationPlugins[pluginName]["lexample"] = l_examplePath
+            if connectEvents:
+                b_addInteg.clicked.connect(
+                    lambda state=None, name=pluginName: self.integrationAdd(name)
+                )
+                b_removeInteg.clicked.connect(
+                    lambda state=None, name=pluginName: self.integrationRemove(name)
+                )
+
+        plugin = self.core.getPlugin(pluginName)
+        getattr(plugin, "userSettings_loadUI", lambda x, y: None)(self, tab)
+        lo_tab.addStretch()
+        iconPath = getattr(plugin, "appIcon", None)
+        icon = QIcon(iconPath) if iconPath else QIcon()
+        self.dccTabs.addTab(tab, icon, pluginName)
+        self.dccPluginNames.add(pluginName)
+
+    @err_catcher(name=__name__)
+    def refreshDccPluginSettings(self) -> None:
+        """Add DCC settings and integrations for plugins loaded after this dialog."""
+        for pluginName in self.core.getPluginNames():
+            self.addDccPluginSettings(pluginName, connectEvents=True)
+
+        self.refreshIntegrations()
+
+    @err_catcher(name=__name__)
+    def runOnboarding(self) -> None:
+        """Temporarily hide User Settings while onboarding is open."""
+        if self.core.appPlugin.pluginName != "Standalone":
+            self.core.popup("Onboarding is only available in Prism Standalone.")
+            return
+
+        settingsWindow = self.window()
+        prepared = self.core.onboarding.prepare(
+            force=True,
+            onClosed=lambda: self.restoreAfterOnboarding(settingsWindow),
+        )
+
+        if prepared is False:
+            return
+
+        if prepared is None:
+            self.core.popup("Onboarding could not be opened.")
+            return
+
+        settingsWindow.hide()
+        shown = self.core.onboarding.showPrepared()
+        if not shown:
+            self.restoreAfterOnboarding(settingsWindow)
+            self.core.popup("Onboarding could not be opened.")
+
+    @err_catcher(name=__name__)
+    def restoreAfterOnboarding(self, settingsWindow: QWidget) -> None:
+        """Restore User Settings after its onboarding rerun closes."""
+        if not self.core.isObjectValid(settingsWindow):
+            return
+
+        settingsWindow.show()
+        settingsWindow.activateWindow()
+        settingsWindow.raise_()
 
     @err_catcher(name=__name__)
     def pluginDragEnterEvent(self, e: Any) -> None:
@@ -736,6 +875,23 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         )
         icon = self.core.media.getColoredIcon(path)
         self.b_loadPlugin.setIcon(icon)
+        self.b_addIntegrations.setIcon(icon)
+        for widgets in self.integrationPlugins.values():
+            widgets["badd"].setIcon(icon)
+
+        path = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "remove.png"
+        )
+        icon = self.core.media.getColoredIcon(path)
+        for widgets in self.integrationPlugins.values():
+            widgets["bremove"].setIcon(icon)
+
+        path = os.path.join(
+            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "browse.png"
+        )
+        icon = self.core.media.getColoredIcon(path)
+        for widgets in self.exOverridePlugins.values():
+            widgets["b"].setIcon(icon)
 
         path = os.path.join(
             self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png"
@@ -957,15 +1113,29 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         menu.exec_(QCursor.pos())
 
     @err_catcher(name=__name__)
+    def addIntegrations(self) -> None:
+        """Open the integration installer for all available DCC plugins."""
+        installer = self.core.getInstaller(parent=self)
+        if not installer:
+            return
+
+        installer.installShortcuts = False
+        installer.exec_()
+        self.refreshIntegrations()
+
+    @err_catcher(name=__name__)
     def integrationAdd(self, prog: str) -> None:
         """Add an integration for a plugin/application.
         
         Args:
             prog: The plugin/application name to add integration for
         """
-        result = self.core.integration.addIntegration(prog)
-        if result:
-            self.refreshIntegrations()
+        if self.core.getPluginData(prog, "hasIntegrationPath") is False:
+            self.core.integration.addIntegration(prog)
+        else:
+            self.core.plugins.setupIntegrations(prog, parent=self, singlePathDialog=True)
+
+        self.refreshIntegrations()
 
     @err_catcher(name=__name__)
     def integrationRemove(self, prog: str) -> None:
@@ -1134,6 +1304,7 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         cData["globals"]["mediaPlayers"] = self.gb_mediaPlayers.getPlayerData()
         cData["globals"]["showonstartup"] = self.chb_browserStartup.isChecked()
         cData["globals"]["useMediaThumbnails"] = self.chb_mediaThumbnails.isChecked()
+        cData["globals"]["useGLMediaPlayer"] = self.chb_glMediaPlayer.isChecked()
         cData["globals"]["autosave"] = self.chb_autosave.isChecked()
         cData["globals"]["capture_viewport"] = self.chb_captureViewport.isChecked()
         cData["globals"]["capture_viewport_products"] = self.chb_captureViewportProduct.isChecked()
@@ -1274,6 +1445,8 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
 
             if "useMediaThumbnails" in gblData:
                 self.chb_mediaThumbnails.setChecked(gblData["useMediaThumbnails"])
+
+            self.chb_glMediaPlayer.setChecked(gblData.get("useGLMediaPlayer", False))
 
             if "useLocalFiles" in configData:
                 if (

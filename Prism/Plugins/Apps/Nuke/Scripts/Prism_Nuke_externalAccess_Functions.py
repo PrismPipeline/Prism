@@ -196,7 +196,7 @@ class Prism_Nuke_externalAccess_Functions(object):
         Returns:
             True if file was started successfully, False otherwise
         """
-        fileStarted = False
+        proc = None
         nukeVersion = self.core.getConfig("nuke", "nukeVersion")
         if nukeVersion and nukeVersion != "Default":
             if appPath == "":
@@ -243,7 +243,7 @@ class Prism_Nuke_externalAccess_Functions(object):
                 self.core.callback(name="preLaunchApp", args=[args, dccEnv])
 
                 try:
-                    subprocess.Popen(args, env=dccEnv)
+                    proc = subprocess.Popen(args, env=dccEnv)
                 except:
                     mods = QApplication.keyboardModifiers()
                     if mods == Qt.ControlModifier:
@@ -253,12 +253,9 @@ class Prism_Nuke_externalAccess_Functions(object):
                             msg = "Executable doesn't exist:\n\n%s\n\nCheck your executable override in the Prism User Settings." % args[0]
                         self.core.popup(msg)
                     else:
-                        subprocess.Popen(" ".join(args), env=dccEnv, shell=True)
-                        fileStarted = True
-                else:
-                    fileStarted = True
+                        proc = subprocess.Popen(" ".join(args), env=dccEnv, shell=True)
 
-        return fileStarted
+        return proc
 
     @err_catcher(name=__name__)
     def getPresetScenes(self, presetScenes: List[Any]) -> None:
@@ -347,6 +344,8 @@ class Prism_Nuke_externalAccess_Functions(object):
                 "name": "loadMedia",
                 "label": "Load Media",
                 "function": "self.core.appPlugin.buildSceneLoadMedia",
+                "get_update_data": "self.core.appPlugin.buildSceneGetLoadMediaUpdateData",
+                "description": "Load matching media identifiers as Read nodes and keep them up-to-date.",
                 "settings": [
                     {
                         "type": "lineedit",
@@ -362,6 +361,8 @@ class Prism_Nuke_externalAccess_Functions(object):
                     "name": "multishotSetup",
                     "label": "Multishot Setup",
                     "function": "self.core.appPlugin.buildSceneMultishotSetup",
+                    "get_update_data": "self.core.appPlugin.buildSceneGetMultishotSetupUpdateData",
+                    "description": "Create and maintain the multi-shot read/switch/write setup for the current sequence.",
                     "settings": []
                 }
             )

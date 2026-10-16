@@ -39,9 +39,16 @@ import logging
 import time
 import errno
 import textwrap
+import json
+import threading
 from typing import Any, Optional, List, Dict, Tuple, Union
 
 from collections import OrderedDict
+
+try:
+    import sqlite3
+except:
+    sqlite3 = None
 
 import collections.abc as collections
 try:
@@ -60,6 +67,9 @@ from PrismUtils import Lockfile
 
 
 logger = logging.getLogger(__name__)
+
+SQLITE_INT64_MIN = -(2 ** 63)
+SQLITE_INT64_MAX = (2 ** 63) - 1
 
 
 class ConfigManager:
@@ -87,10 +97,378 @@ class ConfigManager:
         self.cachedConfigs = {}
         self.preferredExtension = self.core.preferredExtension
         self.configItems = {}
+        self._persistentConfigCacheEnabled = True
+        self._persistentConfigCachePath = self._getPersistentCachePath()
+        self._persistentConfigCacheBusyTimeoutMs = self._getEnvInt(
+            "PRISM_SQLITE_CONFIG_CACHE_BUSY_TIMEOUT_MS", default=500
+        )
+        self._persistentConfigCacheJournalMode = (
+            os.getenv("PRISM_SQLITE_CONFIG_CACHE_JOURNAL_MODE", "auto")
+            .strip()
+            .lower()
+        )
+        self._persistentConfigCacheThreadData = threading.local()
+        self._persistentConfigCacheWarned = False
 
         dprConfig = os.path.splitext(self.core.userini)[0] + ".ini"
         if not os.path.exists(self.core.userini) and os.path.exists(dprConfig):
             self.convertDeprecatedConfig(dprConfig)
+
+    @err_catcher(name=__name__)
+    def _getEnvInt(self, key: str, default: int = 0) -> int:
+        value = os.getenv(key)
+        if value is None:
+            return default
+
+        try:
+            return int(value)
+        except:
+            return default
+
+    @err_catcher(name=__name__)
+    def _getPersistentCachePath(self) -> str:
+        cachePath = os.getenv("PRISM_CONFIG_CACHE_PATH")
+        if cachePath:
+            cachePath = os.path.expandvars(os.path.expanduser(cachePath))
+            return os.path.normpath(os.path.abspath(cachePath))
+
+        base = self.core.getUserPrefDir()
+        path = os.path.join(base, "Cache", "config_cache.sqlite")
+        return os.path.normpath(path)
+
+    @err_catcher(name=__name__)
+    def _isPersistentConfigCacheEnabled(self) -> bool:
+        if os.getenv("PRISM_SQLITE_CONFIG_CACHE", "1") != "1":
+            return False
+
+        return self._persistentConfigCacheEnabled and sqlite3 is not None
+
+    @err_catcher(name=__name__)
+    def _warnAndDisablePersistentCache(self, msg: str, exc: Optional[Exception] = None) -> None:
+        if self._persistentConfigCacheWarned:
+            return
+
+        self._persistentConfigCacheWarned = True
+        self._persistentConfigCacheEnabled = False
+        if exc:
+            logger.warning("%s: %s", msg, str(exc))
+        else:
+            logger.warning("%s", msg)
+
+        self.core.popup(msg)
+
+    @err_catcher(name=__name__)
+    def _isPersistentCachePathSupported(self, path: Optional[str]) -> bool:
+        if not path:
+            return False
+
+        return os.path.splitext(path)[1].lower() == ".json"
+
+    @err_catcher(name=__name__)
+    def _getPersistentCachePathKey(self, path: str) -> str:
+        norm = os.path.normpath(os.path.abspath(path))
+        return os.path.normcase(norm)
+
+    @err_catcher(name=__name__)
+    def _getFileFingerprint(self, path: str) -> Optional[Dict[str, Any]]:
+        try:
+            statData = os.stat(path)
+        except:
+            return
+
+        mtimeNs = getattr(statData, "st_mtime_ns", None)
+        if mtimeNs is None:
+            mtimeNs = int(getattr(statData, "st_mtime", 0) * 1000000000)
+
+        return {
+            "mtime_ns": int(mtimeNs),
+            "size_bytes": int(getattr(statData, "st_size", 0)),
+            "device_id": int(getattr(statData, "st_dev", 0) or 0),
+            "file_id": int(getattr(statData, "st_ino", 0) or 0),
+        }
+
+    @err_catcher(name=__name__)
+    def _toSqliteInt(
+        self,
+        value: Any,
+        default: int = 0,
+        strict: bool = False,
+    ) -> Optional[int]:
+        try:
+            number = int(value)
+        except:
+            return None if strict else default
+
+        if number < SQLITE_INT64_MIN or number > SQLITE_INT64_MAX:
+            return None if strict else default
+
+        return number
+
+    @err_catcher(name=__name__)
+    def _getPersistentCacheConnection(self) -> Optional[Any]:
+        if not self._isPersistentConfigCacheEnabled():
+            return
+
+        conn = getattr(self._persistentConfigCacheThreadData, "conn", None)
+        if conn:
+            return conn
+
+        try:
+            dbPath = self._persistentConfigCachePath
+            dbDir = os.path.dirname(dbPath)
+            if dbDir and not os.path.exists(dbDir):
+                os.makedirs(dbDir, exist_ok=True)
+
+            timeout = max(float(self._persistentConfigCacheBusyTimeoutMs) / 1000.0, 0.1)
+            conn = sqlite3.connect(
+                dbPath,
+                timeout=timeout,
+                isolation_level=None,
+                check_same_thread=True,
+            )
+            conn.execute(
+                "PRAGMA busy_timeout = %s" % int(max(self._persistentConfigCacheBusyTimeoutMs, 1))
+            )
+
+            jmode = self._persistentConfigCacheJournalMode
+            if jmode in ["wal", "delete"]:
+                requestedMode = jmode.upper()
+            else:
+                requestedMode = "WAL"
+
+            try:
+                result = conn.execute(
+                    "PRAGMA journal_mode = %s" % requestedMode
+                ).fetchone()
+                if requestedMode == "WAL":
+                    mode = str((result or [""])[0]).lower()
+                    if mode != "wal":
+                        conn.execute("PRAGMA journal_mode = DELETE")
+            except:
+                conn.execute("PRAGMA journal_mode = DELETE")
+
+            conn.execute("PRAGMA synchronous = NORMAL")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS json_config_cache (
+                    path_key TEXT PRIMARY KEY,
+                    source_path TEXT NOT NULL,
+                    mtime_ns INTEGER NOT NULL,
+                    size_bytes INTEGER NOT NULL,
+                    device_id INTEGER,
+                    file_id INTEGER,
+                    payload TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
+            self._persistentConfigCacheThreadData.conn = conn
+            return conn
+        except Exception as e:
+            self._warnAndDisablePersistentCache(
+                "Disabling persistent config cache because initialization failed",
+                exc=e,
+            )
+            return
+
+    @err_catcher(name=__name__)
+    def _isSqliteTransientError(self, err: Exception) -> bool:
+        msg = str(err).lower()
+        return "locked" in msg or "busy" in msg
+
+    @err_catcher(name=__name__)
+    def _removePersistentConfigCacheEntry(self, path: str) -> None:
+        if not self._isPersistentConfigCacheEnabled() or not self._isPersistentCachePathSupported(path):
+            return
+
+        conn = self._getPersistentCacheConnection()
+        if not conn:
+            return
+
+        key = self._getPersistentCachePathKey(path)
+        try:
+            conn.execute(
+                "DELETE FROM json_config_cache WHERE path_key = ?",
+                (key,),
+            )
+        except Exception as e:
+            if not self._isSqliteTransientError(e):
+                self._warnAndDisablePersistentCache(
+                    "Disabling persistent config cache because deleting entry failed",
+                    exc=e,
+                )
+
+    @err_catcher(name=__name__)
+    def _clearPersistentConfigCache(self) -> None:
+        if not self._isPersistentConfigCacheEnabled():
+            return
+
+        conn = self._getPersistentCacheConnection()
+        if not conn:
+            return
+
+        try:
+            conn.execute("DELETE FROM json_config_cache")
+        except Exception as e:
+            if not self._isSqliteTransientError(e):
+                self._warnAndDisablePersistentCache(
+                    "Disabling persistent config cache because clearing cache failed",
+                    exc=e,
+                )
+
+    @err_catcher(name=__name__)
+    def _loadJsonConfigFromPersistentCache(self, path: str) -> Optional[Any]:
+        if not self._isPersistentConfigCacheEnabled():
+            return
+
+        if not self._isPersistentCachePathSupported(path):
+            return
+
+        if os.path.exists(path + ".lock"):
+            return
+
+        fingerprint = self._getFileFingerprint(path)
+        if not fingerprint:
+            return
+
+        conn = self._getPersistentCacheConnection()
+        if not conn:
+            return
+
+        key = self._getPersistentCachePathKey(path)
+        try:
+            row = conn.execute(
+                """
+                SELECT payload, mtime_ns, size_bytes, device_id, file_id
+                FROM json_config_cache
+                WHERE path_key = ?
+                """,
+                (key,),
+            ).fetchone()
+            if not row:
+                return
+
+            mtimeNs = int(row[1])
+            sizeBytes = int(row[2])
+            deviceId = int(row[3] or 0)
+            fileId = int(row[4] or 0)
+
+            if mtimeNs != fingerprint["mtime_ns"] or sizeBytes != fingerprint["size_bytes"]:
+                self._removePersistentConfigCacheEntry(path)
+                return
+
+            if deviceId and fingerprint["device_id"] and deviceId != fingerprint["device_id"]:
+                self._removePersistentConfigCacheEntry(path)
+                return
+
+            if fileId and fingerprint["file_id"] and fileId != fingerprint["file_id"]:
+                self._removePersistentConfigCacheEntry(path)
+                return
+
+            try:
+                return json.loads(row[0])
+            except Exception:
+                self._removePersistentConfigCacheEntry(path)
+                return
+        except Exception as e:
+            if self._isSqliteTransientError(e):
+                return
+
+            self._warnAndDisablePersistentCache(
+                "Disabling persistent config cache because reading from cache failed",
+                exc=e,
+            )
+            return
+
+    @err_catcher(name=__name__)
+    def _storeJsonConfigInPersistentCache(
+        self,
+        path: str,
+        data: Any,
+        fingerprint: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not self._isPersistentConfigCacheEnabled():
+            return
+
+        if not self._isPersistentCachePathSupported(path):
+            return
+
+        if data is None:
+            return
+
+        if os.path.exists(path + ".lock"):
+            return
+
+        if not fingerprint:
+            fingerprint = self._getFileFingerprint(path)
+
+        if not fingerprint:
+            return
+
+        # Validate the source file fingerprint again before writing to avoid
+        # caching content from a file that changed during read operations.
+        currentFingerprint = self._getFileFingerprint(path)
+        if not currentFingerprint:
+            return
+
+        if (
+            currentFingerprint["mtime_ns"] != fingerprint["mtime_ns"]
+            or currentFingerprint["size_bytes"] != fingerprint["size_bytes"]
+        ):
+            return
+
+        try:
+            payload = json.dumps(data, default=lambda o: "")
+        except Exception:
+            return
+
+        conn = self._getPersistentCacheConnection()
+        if not conn:
+            return
+
+        mtimeNs = self._toSqliteInt(currentFingerprint.get("mtime_ns"), strict=True)
+        sizeBytes = self._toSqliteInt(currentFingerprint.get("size_bytes"), strict=True)
+        if mtimeNs is None or sizeBytes is None:
+            return
+
+        deviceId = self._toSqliteInt(currentFingerprint.get("device_id", 0), default=0)
+        fileId = self._toSqliteInt(currentFingerprint.get("file_id", 0), default=0)
+
+        key = self._getPersistentCachePathKey(path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO json_config_cache (
+                    path_key, source_path, mtime_ns, size_bytes,
+                    device_id, file_id, payload, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    key,
+                    os.path.normpath(path),
+                    mtimeNs,
+                    sizeBytes,
+                    deviceId,
+                    fileId,
+                    payload,
+                    time.time(),
+                ),
+            )
+            conn.execute("COMMIT")
+        except Exception as e:
+            try:
+                conn.execute("ROLLBACK")
+            except:
+                pass
+
+            if self._isSqliteTransientError(e):
+                return
+
+            self._warnAndDisablePersistentCache(
+                "Disabling persistent config cache because writing cache entry failed",
+                exc=e,
+            )
 
     @err_catcher(name=__name__)
     def formatPathForPopup(self, path: Any, width: int = 150) -> str:
@@ -254,7 +632,7 @@ class ConfigManager:
         return configPath
 
     @err_catcher(name=__name__)
-    def clearCache(self, path: Optional[str] = None) -> None:
+    def clearCache(self, path: Optional[str] = None, persistent: bool = False) -> None:
         """Clear cached configuration data.
         
         Removes configuration data from the cache. If a path is provided, only
@@ -267,8 +645,12 @@ class ConfigManager:
         if path:
             path = os.path.normpath(path)
             self.cachedConfigs.pop(path, None)
+            if persistent:
+                self._removePersistentConfigCacheEntry(path)
         else:
             self.cachedConfigs = {}
+            if persistent:
+                self._clearPersistentConfigCache()
 
         self.core.callback("postClearConfigCache", args=[path])
 
@@ -441,6 +823,7 @@ class ConfigManager:
             configData = self.cachedConfigs[configPath]["data"]
             if isinstance(configData, collections.Mapping):
                 configData = configData.copy()
+
         else:
             if not configPath:
                 if dft is not None:
@@ -475,7 +858,13 @@ class ConfigManager:
             if ext == ".ini":
                 configPath = self.convertDeprecatedConfig(configPath)
 
-            configData = self.readConfig(configPath)
+            configData = None
+            if allowCache and self._isPersistentCachePathSupported(configPath):
+                configData = self._loadJsonConfigFromPersistentCache(configPath)
+
+            if configData is None:
+                configData = self.readConfig(configPath)
+
             if configData is None:
                 return dft
 
@@ -524,7 +913,7 @@ class ConfigManager:
         if ext == ".yml":
             configData = self.readYaml(configPath)
         else:
-            configData = self.readJson(configPath)
+            configData = self.readJson(path=configPath)
 
         return configData
 
@@ -669,6 +1058,10 @@ class ConfigManager:
                 "modtime": mdate,
                 "data": configData,
             }
+            self._storeJsonConfigInPersistentCache(
+                configPath,
+                configData,
+            )
 
     @err_catcher(name=__name__)
     def updateNestedDicts(
@@ -931,7 +1324,6 @@ class ConfigManager:
             exist, or None if reading failed or user canceled
         """
         logger.debug("read from config: %s" % path)
-        import json
 
         jsonData = []
         if path:
@@ -971,7 +1363,7 @@ class ConfigManager:
                     return
 
             try:
-                f_handle = open(path, "r")
+                f_handle = open(path, "r", encoding="utf-8")
             except OSError as e:
                 if retry:
                     time.sleep(0.5)
@@ -1000,7 +1392,12 @@ class ConfigManager:
 
             with f_handle as f:
                 try:
-                    jsonData = json.load(f)
+                    try:
+                        jsonData = json.load(f)
+                    except UnicodeDecodeError:
+                        with open(path, "r", encoding="cp1252") as legacy:
+                            jsonData = json.load(legacy)
+
                 except Exception as e:
                     if retry:
                         time.sleep(0.5)
@@ -1037,8 +1434,12 @@ class ConfigManager:
                                 if path == self.core.userini:
                                     self.createUserPrefs()
                                 else:
-                                    with open(path, "w") as f:
-                                        f.write("{}")
+                                    try:
+                                        with open(path, "w") as f:
+                                            f.write("{}")
+                                    except Exception as e:
+                                        logger.warning(e)
+                                        self.core.popup("Failed to reset file:\n\n%s" % str(e))
 
                                 jsonData = self.readJson(path)
                             elif result == "Cancel":
@@ -1046,6 +1447,8 @@ class ConfigManager:
 
             if lf.isLocked():
                 jsonData = self.readJson(path=path, stream=stream, data=data, ignoreErrors=ignoreErrors)
+
+            self._storeJsonConfigInPersistentCache(path=path, data=jsonData)
 
             if not jsonData:
                 logger.warning("empty config: %s" % path)
@@ -1099,14 +1502,15 @@ class ConfigManager:
                 try:
                     os.makedirs(os.path.dirname(path), exist_ok=True)
                 except:
-                    if quiet:
-                        return
-                    else:
-                        raise
+                    if not os.path.exists(os.path.dirname(path)):
+                        if quiet:
+                            return
+                        else:
+                            raise
 
             while True:
                 try:
-                    with open(path, "w") as config:
+                    with open(path, "w", encoding="utf-8") as config:
                         json.dump(data, config, indent=indent, default=lambda o: "")
 
                     break

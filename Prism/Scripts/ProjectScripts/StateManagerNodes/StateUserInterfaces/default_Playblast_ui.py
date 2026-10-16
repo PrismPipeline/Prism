@@ -16,7 +16,7 @@ class Ui_wg_Playblast(object):
     def setupUi(self, wg_Playblast):
         if not wg_Playblast.objectName():
             wg_Playblast.setObjectName(u"wg_Playblast")
-        wg_Playblast.resize(389, 663)
+        wg_Playblast.resize(419, 720)
         self.verticalLayout = QVBoxLayout(wg_Playblast)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -179,13 +179,13 @@ class Ui_wg_Playblast(object):
 
         self.verticalLayout_2.addWidget(self.f_frameRange_2)
 
-        self.widget = QWidget(self.gb_playblast)
-        self.widget.setObjectName(u"widget")
-        self.horizontalLayout_2 = QHBoxLayout(self.widget)
+        self.w_cam = QWidget(self.gb_playblast)
+        self.w_cam.setObjectName(u"w_cam")
+        self.horizontalLayout_2 = QHBoxLayout(self.w_cam)
         self.horizontalLayout_2.setSpacing(0)
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.horizontalLayout_2.setContentsMargins(9, 0, 9, 0)
-        self.label = QLabel(self.widget)
+        self.label = QLabel(self.w_cam)
         self.label.setObjectName(u"label")
 
         self.horizontalLayout_2.addWidget(self.label)
@@ -194,14 +194,14 @@ class Ui_wg_Playblast(object):
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer)
 
-        self.cb_cams = QComboBox(self.widget)
+        self.cb_cams = QComboBox(self.w_cam)
         self.cb_cams.setObjectName(u"cb_cams")
         self.cb_cams.setMinimumSize(QSize(150, 0))
 
         self.horizontalLayout_2.addWidget(self.cb_cams)
 
 
-        self.verticalLayout_2.addWidget(self.widget)
+        self.verticalLayout_2.addWidget(self.w_cam)
 
         self.f_resolution = QWidget(self.gb_playblast)
         self.f_resolution.setObjectName(u"f_resolution")
@@ -496,7 +496,7 @@ class Ui_wg_Playblast(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 338, 54))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 361, 54))
         self.verticalLayout_3 = QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
         self.l_pathLast = QLabel(self.scrollAreaWidgetContents)

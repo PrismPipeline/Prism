@@ -168,6 +168,7 @@ class Prism_Houdini_Functions(object):
         ]
         self.registerCallbacks()
         logging.getLogger("whoosh").setLevel(logging.WARNING)
+        self.applyFix()
 
     @err_catcher(name=__name__)
     def registerCallbacks(self) -> None:
@@ -193,6 +194,9 @@ class Prism_Houdini_Functions(object):
         )
         self.core.registerCallback(
             "onProjectBrowserStartup", self.onProjectBrowserStartup, plugin=self.plugin
+        )
+        self.core.registerCallback(
+            "onSceneBrowserOpen", self.onSceneBrowserOpen, plugin=self.plugin
         )
         self.core.registerCallback(
             "preLoadPresetScene", self.preLoadPresetScene, plugin=self.plugin
@@ -300,6 +304,32 @@ class Prism_Houdini_Functions(object):
             self.core.scenefileSaved()
 
     @err_catcher(name=__name__)
+    def applyFix(self) -> None:
+        """Apply necessary fixes for specific Houdini versions."""
+
+        import hou
+        hversion = hou.applicationVersion()
+        if self.core.uiAvailable and hversion[0] >= 22 and hversion[1] >= 0 and hversion[2] >= 429 and hversion[2] < 447:
+            self.core.registerCallback(
+                "onProjectBrowserStartup", self.fixProjectBrowser, plugin=self.plugin
+            )
+
+            if not self.core.plugins.isFunctionMonkeyPatched(self.core.parentWindow):
+                self.core.plugins.monkeyPatch(self.core.parentWindow, lambda *args, **kwargs: self.parentWindowFix(*args, **kwargs), plugin=None)
+
+    @err_catcher(name=__name__)
+    def parentWindowFix(self, win, parent=None):
+        if parent and parent.window() and not parent.window().isVisible() and getattr(win, "windowTitle", lambda: None)() == "Prism Libraries":
+            return
+
+        self.core.plugins.callUnpatchedFunction(self.core.parentWindow, win, parent)
+
+    @err_catcher(name=__name__)
+    def fixProjectBrowser(self, origin) -> None:
+        origin.tbw_project.setStyleSheet("")
+        origin.scrollArea.setStyleSheet("")
+
+    @err_catcher(name=__name__)
     def autosaveEnabled(self, origin: Any) -> bool:
         """Check if Houdini autosave is enabled.
         
@@ -333,6 +363,55 @@ class Prism_Houdini_Functions(object):
             origin: Prism core instance
         """
         self.updateEnvironment()
+        if os.getenv("PRISM_HOUDINI_AUTO_UPDATE_HDA_MASTER_VERSION_DEFS_ON_OPEN", "1") == "1":
+            self.updateHdaMasterVersionDefinitions()
+
+        if os.getenv("PRISM_HOUDINI_AUTO_INSTALL_HDAS_FROM_STATES_ON_OPEN", "1") == "1":
+            self.installHdasFromStates()
+
+    @err_catcher(name=__name__)
+    def updateHdaMasterVersionDefinitions(self) -> None:
+        """Update HDA definitions to match master version.
+        
+        Iterates through all installed HDA definitions and updates them
+        to the master version if applicable.
+        """
+        sm = self.core.getStateManager()
+        if not sm:
+            return
+
+        for state in sm.states:
+            if state.ui.className != "Install HDA":
+                continue
+
+            path = state.ui.getImportPath()
+            curVersionName = self.core.products.getVersionFromFilepath(path) or ""
+            if curVersionName != "master":
+                continue
+
+            defs = hou.hda.definitionsInFile(path)
+            for definition in defs:
+                state.ui.changeAssetDefinitionVersions(definition)
+
+    @err_catcher(name=__name__)
+    def installHdasFromStates(self) -> None:
+        """Install HDAs from the current state manager.
+        
+        Iterates through all states and installs HDAs for states
+        with the "Install HDA" UI class.
+        """
+        sm = self.core.getStateManager()
+        if not sm:
+            return
+
+        for state in sm.states:
+            if state.ui.className != "Install HDA":
+                continue
+
+            if state.ui.getIsInstalled():
+                continue
+
+            state.ui.importObject(createNode=False)
 
     @err_catcher(name=__name__)
     def onPreSaveScene(self, origin: Any, filepath: str, versionUp: bool, comment: str, publish: bool, details: Dict) -> None:
@@ -608,7 +687,11 @@ class Prism_Houdini_Functions(object):
         """
         oplibPath = oplibPath.replace("\\", "/")
         for path in hdaPaths:
-            hou.hda.installFile(path, oplibPath)
+            try:
+                hou.hda.installFile(path, oplibPath)
+            except Exception as e:
+                msg = f"Failed to install HDA:<br><br>{path}<br><br>Error: {e}"
+                self.core.popup(msg)
 
     @err_catcher(name=__name__)
     def findHDAs(self, paths: Union[str, List[str]]) -> List[str]:
@@ -874,6 +957,7 @@ class Prism_Houdini_Functions(object):
             label=label,
             location=outputPath,
             anchor_node=anchor,
+            anchor_children=True,
             items=items,
         )
         return True
@@ -965,7 +1049,6 @@ class Prism_Houdini_Functions(object):
 
             tname = defs[0].nodeTypeName()
             isToolRecipe = self.isToolRecipe(tname)
-            print("isToolRecipe", isToolRecipe, tname)
             if isToolRecipe or True:  # new installed HDAs are sometimes not immediately recognized as tool recipes
                 result = hou.data.applyTabToolRecipe(
                     name=tname,
@@ -973,8 +1056,8 @@ class Prism_Houdini_Functions(object):
                     click_to_place=False,
                     skip_notes=False
                 )
-                print("applyTabToolRecipe result", result)
                 return result
+
     @err_catcher(name=__name__)
     def isToolRecipe(self, typeName: str) -> bool:
         """Check if HDA type is a tool recipe.
@@ -1233,24 +1316,32 @@ class Prism_Houdini_Functions(object):
             return ".hipnc"
 
     @err_catcher(name=__name__)
-    def saveScene(self, origin: Any, filepath: str, details: Optional[Dict] = None) -> bool:
+    def saveScene(self, origin: Optional[Any] = None, filepath: Optional[str] = None, details: Optional[Dict] = None) -> bool:
         """Save current Houdini scene to a file.
         
         Handles .hip and .hipnc extensions, ensures directory exists.
         
         Args:
-            origin: Prism core instance
-            filepath: Target save path
+            origin: Optional Prism core instance
+            filepath: Optional target save path. Saves the current HIP file when omitted.
             details: Optional save details dict
             
         Returns:
             True if the scene was saved successfully, False otherwise
         """
-        filepath = filepath.replace("\\", "/")
+        if filepath:
+            filepath = filepath.replace("\\", "/")
+
         saved = False
         while True:
             try:
-                saved = hou.hipFile.save(file_name=filepath, save_to_recent_files=True)
+                if filepath:
+                    saved = hou.hipFile.save(
+                        file_name=filepath, save_to_recent_files=True
+                    )
+                else:
+                    saved = hou.hipFile.save(save_to_recent_files=True)
+
                 break
             except Exception as e:
                 msg = "Failed to save hipfile.\nFilepath:\n\n%s\n\nError: %s" % (filepath, e)
@@ -1363,16 +1454,22 @@ class Prism_Houdini_Functions(object):
             origin: Prism Project Browser instance
         """
         origin.checkColor = "rgb(185, 134, 32)"
-        origin.sceneBrowser.lo_entityDetails.setContentsMargins(9, 18, 9, 9)
-        origin.sceneBrowser.setStyleSheet(origin.sceneBrowser.styleSheet() + " QToolButton{ border-width: 0px; background-color: transparent} QToolButton::checked{background-color: rgba(200, 200, 200, 100)}")
 
+    @err_catcher(name=__name__)
+    def onSceneBrowserOpen(self, origin: Any) -> None:
+        """Handle Scene Browser open event.
+        
+        Args:
+            origin: Prism Scene Browser instance
+        """
+        origin.lo_entityDetails.setContentsMargins(9, 18, 9, 9)
+        origin.setStyleSheet(origin.styleSheet() + " QToolButton{ border-width: 0px; background-color: transparent} QToolButton::checked{background-color: rgba(200, 200, 200, 100)}")
         ssheet = hou.qt.styleSheet()
         ssheet = ssheet.replace("QScrollArea", "Qdisabled")
         ssheet = ssheet.replace("QAbstractItemView", "QWidget#sceneItems")
         ssheet = ssheet.replace("QListView", "QWidget#sceneItems")
-
-        origin.sceneBrowser.w_scenefileItems.setObjectName("sceneItems")
-        origin.sceneBrowser.w_scenefileItems.setStyleSheet(ssheet)
+        origin.w_scenefileItems.setObjectName("sceneItems")
+        origin.w_scenefileItems.setStyleSheet(ssheet)
 
     @err_catcher(name=__name__)
     def preLoadPresetScene(self, origin: Any, filepath: str) -> None:
@@ -1897,7 +1994,8 @@ class Prism_Houdini_Functions(object):
         Args:
             widget: Qt widget to apply stylesheet to.
         """
-        if hou.applicationVersion()[0] >= 22:
+        hversion = hou.applicationVersion()
+        if hversion[0] >= 22 and hversion[1] >= 0 and hversion[2] < 447:
             return
 
         root = os.path.dirname(self.pluginPath).replace("\\", "/")
@@ -2120,7 +2218,8 @@ class Prism_Houdini_Functions(object):
         Args:
             origin: State Manager instance
         """
-        if self.core.uiAvailable and hou.applicationVersion()[0] >= 22:
+        hversion = hou.applicationVersion()
+        if self.core.uiAvailable and hversion[0] >= 22 and hversion[1] >= 0 and hversion[2] < 447:
             origin.splitter.setStyleSheet("")
 
     @err_catcher(name=__name__)
@@ -2447,6 +2546,368 @@ class Prism_Houdini_Functions(object):
         if "houdini_apply_abc_caches" in sbData:
             if self.core.entities.doesContextMatchTaskFilters(sbData["houdini_apply_abc_caches"], details):
                 self.applyAbcCaches(kwargs["entity"], kwargs["department"], quiet=True)
+
+    @err_catcher(name=__name__)
+    def _getApplyAbcStateIdentity(self, cacheData: Dict[str, Any]) -> Optional[Tuple[Any, ...]]:
+        if not isinstance(cacheData, dict):
+            return
+
+        product = cacheData.get("product")
+        entityType = cacheData.get("type")
+        if not product or entityType not in ["asset", "shot"]:
+            return
+
+        if entityType == "asset":
+            assetPath = cacheData.get("asset_path")
+            if not assetPath:
+                return
+
+            return ("asset", assetPath.replace("\\", "/"), product)
+
+        sequence = cacheData.get("sequence")
+        shot = cacheData.get("shot")
+        if not sequence or not shot:
+            return
+
+        episode = cacheData.get("episode") or ""
+        return ("shot", episode, sequence, shot, product)
+
+    @err_catcher(name=__name__)
+    def _isApplyAbcStateOutdated(self, stateUi: Any) -> bool:
+        if not stateUi or not hasattr(stateUi, "checkLatestVersion"):
+            return False
+
+        try:
+            curVersion, latestVersion = stateUi.checkLatestVersion()
+        except Exception:
+            return False
+
+        curVersion = curVersion or {}
+        latestVersion = latestVersion or {}
+
+        latestPath = latestVersion.get("path")
+        latestName = latestVersion.get("version")
+        if not latestPath and not latestName:
+            return False
+
+        curPath = curVersion.get("path")
+        curName = curVersion.get("version")
+        if not curPath and not curName:
+            return True
+
+        formatter = getattr(self.core.entities, "_formatSceneBuildingProductVersion", None)
+        curLabel = curName or ""
+        latestLabel = latestName or ""
+        if callable(formatter):
+            curLabel = formatter(curLabel, curPath or "")
+            latestLabel = formatter(latestLabel, latestPath or "")
+
+        if curLabel and latestLabel:
+            return curLabel != latestLabel
+
+        if curName != latestName:
+            return True
+
+        if curPath and latestPath and os.path.normpath(curPath) != os.path.normpath(latestPath):
+            return True
+
+        return False
+
+    @err_catcher(name=__name__)
+    def _isApplyAbcStateApplied(self, stateUi: Any) -> bool:
+        if not stateUi:
+            return False
+
+        node = getattr(stateUi, "node", None)
+        fileNode = getattr(stateUi, "fileNode", None)
+        hasNode = self.isNodeValid(None, node)
+        hasFileNode = self.isNodeValid(None, fileNode)
+
+        importPath = ""
+        getImportPath = getattr(stateUi, "getImportPath", None)
+        if callable(getImportPath):
+            importPath = getImportPath() or ""
+
+        extension = os.path.splitext(importPath)[1].lower()
+        if extension == ".abc":
+            return hasNode and hasFileNode
+        if extension == ".hda":
+            return hasNode
+
+        return hasNode or hasFileNode
+
+    @err_catcher(name=__name__)
+    def _getApplyAbcCachesDesiredEntries(self, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        tags = [x.strip() for x in os.getenv("PRISM_HOUDINI_ANIM_IMPORT_TAGS", "animated").split(",") if x]
+        products = self.core.products.getProductsByTags(context, tags) or []
+        surfTags = [x.strip() for x in os.getenv("PRISM_HOUDINI_STATIC_ASSET_TAGS", "static").split(",") if x]
+
+        entries = []
+        seenCachePaths = set()
+        for product in products:
+            cachePath = self.core.products.getLatestVersionpathFromProduct(product.get("product"), entity=product)
+            if not cachePath or not cachePath.endswith(".abc"):
+                continue
+
+            cacheData = self.core.paths.getCachePathData(cachePath) or {}
+            sourceAssetPath = cacheData.get("source_asset_path")
+            if not sourceAssetPath:
+                continue
+
+            asset = {"type": "asset", "asset_path": sourceAssetPath}
+            assetProducts = self.core.products.getProductsByTags(asset, surfTags) or []
+            if not assetProducts:
+                continue
+
+            sourceProduct = assetProducts[0]
+            sourcePath = self.core.products.getLatestVersionpathFromProduct(
+                sourceProduct.get("product"),
+                entity=sourceProduct,
+            )
+            if not sourcePath or not sourcePath.endswith(".hda"):
+                continue
+
+            normCachePath = os.path.normpath(cachePath)
+            if normCachePath in seenCachePaths:
+                continue
+
+            seenCachePaths.add(normCachePath)
+            sourceData = self.core.paths.getCachePathData(sourcePath) or {}
+            entries.append(
+                {
+                    "cache_path": cachePath,
+                    "cache_data": cacheData,
+                    "cache_identity": self._getApplyAbcStateIdentity(cacheData),
+                    "source_path": sourcePath,
+                    "source_data": sourceData,
+                    "source_identity": self._getApplyAbcStateIdentity(sourceData),
+                    "source_asset": sourceAssetPath,
+                }
+            )
+
+        return entries
+
+    @err_catcher(name=__name__)
+    def buildSceneGetApplyAbcCachesUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        desiredEntries = self._getApplyAbcCachesDesiredEntries(context)
+        if not desiredEntries:
+            return {
+                "action": "no change",
+                "summary": self.core.tr("No Alembic cache products found."),
+            }
+
+        sm = self.core.getStateManager(create=False)
+        if not sm:
+            return {
+                "action": "update",
+                "summary": self.core.tr("State Manager not available. Required: %s cache states.") % len(desiredEntries),
+            }
+
+        sourceStatesByIdentity = {}
+        cacheStatesByIdentity = {}
+        for state in getattr(sm, "states", []) or []:
+            stateUi = getattr(state, "ui", None)
+            className = getattr(stateUi, "className", "") if stateUi else ""
+            if className not in ["ImportFile", "Install HDA"]:
+                continue
+
+            getImportPath = getattr(stateUi, "getImportPath", None)
+            if not callable(getImportPath):
+                continue
+
+            importPath = getImportPath() or ""
+            if not importPath:
+                continue
+
+            extension = os.path.splitext(importPath)[1].lower()
+            cacheData = self.core.paths.getCachePathData(importPath) or {}
+            identity = self._getApplyAbcStateIdentity(cacheData)
+            if not identity:
+                continue
+
+            entry = {
+                "state": state,
+                "state_ui": stateUi,
+                "path": importPath,
+                "class_name": className,
+            }
+
+            if extension == ".abc":
+                cacheStatesByIdentity.setdefault(identity, []).append(entry)
+            elif extension == ".hda":
+                sourceStatesByIdentity.setdefault(identity, []).append(entry)
+
+        missingSource = []
+        missingCache = []
+        unappliedSource = []
+        unappliedCache = []
+        outdatedStates = []
+        okCount = 0
+
+        for desired in desiredEntries:
+            sourceIdentity = desired.get("source_identity")
+            cacheIdentity = desired.get("cache_identity")
+            sourcePath = desired.get("source_path") or ""
+            cachePath = desired.get("cache_path") or ""
+
+            sourceCandidates = sourceStatesByIdentity.get(sourceIdentity, []) if sourceIdentity else []
+            cacheCandidates = cacheStatesByIdentity.get(cacheIdentity, []) if cacheIdentity else []
+
+            sourceState = sourceCandidates[0] if sourceCandidates else None
+            cacheState = cacheCandidates[0] if cacheCandidates else None
+
+            hasIssue = False
+            if not sourceState:
+                missingSource.append(sourcePath)
+                hasIssue = True
+            else:
+                sourceUi = sourceState.get("state_ui")
+                if not self._isApplyAbcStateApplied(sourceUi):
+                    unappliedSource.append(sourceState.get("path") or sourcePath)
+                    hasIssue = True
+
+                if self._isApplyAbcStateOutdated(sourceUi):
+                    outdatedStates.append(sourceState.get("path") or sourcePath)
+                    hasIssue = True
+
+            if not cacheState:
+                missingCache.append(cachePath)
+                hasIssue = True
+            else:
+                cacheUi = cacheState.get("state_ui")
+                if not self._isApplyAbcStateApplied(cacheUi):
+                    unappliedCache.append(cacheState.get("path") or cachePath)
+                    hasIssue = True
+
+                if self._isApplyAbcStateOutdated(cacheUi):
+                    outdatedStates.append(cacheState.get("path") or cachePath)
+                    hasIssue = True
+
+            if not hasIssue:
+                okCount += 1
+
+        details = []
+        if missingSource:
+            details.append(self.core.tr("Missing source states: %s") % len(missingSource))
+        if missingCache:
+            details.append(self.core.tr("Missing Alembic cache states: %s") % len(missingCache))
+        if unappliedSource:
+            details.append(self.core.tr("Unapplied source states: %s") % len(unappliedSource))
+        if unappliedCache:
+            details.append(self.core.tr("Unapplied cache states: %s") % len(unappliedCache))
+        if outdatedStates:
+            details.append(self.core.tr("Outdated states: %s") % len(set(outdatedStates)))
+
+        if details:
+            summary = self.core.tr("Apply Alembic Caches requires updates. %s") % " | ".join(details)
+            action = "update"
+        else:
+            summary = ""
+            action = "no change"
+
+        issueLines = []
+        for path in missingSource:
+            issueLines.append(self.core.tr("Missing source state: %s") % path)
+        for path in missingCache:
+            issueLines.append(self.core.tr("Missing cache state: %s") % path)
+        for path in unappliedSource:
+            issueLines.append(self.core.tr("Source not applied: %s") % path)
+        for path in unappliedCache:
+            issueLines.append(self.core.tr("Cache not applied: %s") % path)
+        for path in sorted(set(outdatedStates)):
+            issueLines.append(self.core.tr("Outdated state: %s") % path)
+
+        summaryWidget = QFrame()
+        summaryWidget.setObjectName("houdini_applyabc_update_summary")
+        summaryWidget.setStyleSheet(
+            """
+            QFrame#houdini_applyabc_update_summary {
+                border: 1px solid rgba(255, 255, 255, 32);
+                border-radius: 6px;
+                background-color: rgba(255, 255, 255, 8);
+            }
+            QLabel#houdini_applyabc_title {
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QLabel#houdini_applyabc_label {
+                color: rgba(255, 255, 255, 170);
+            }
+            QLabel#houdini_applyabc_value {
+                font-weight: 600;
+            }
+            QPlainTextEdit#houdini_applyabc_issues {
+                border: 1px solid rgba(255, 255, 255, 24);
+                border-radius: 4px;
+                background-color: rgba(255, 255, 255, 10);
+                padding: 2px;
+            }
+            """
+        )
+
+        lo_main = QVBoxLayout(summaryWidget)
+        lo_main.setContentsMargins(10, 10, 10, 10)
+        lo_main.setSpacing(8)
+
+        l_title = QLabel(self.core.tr("Alembic Cache State Check"))
+        l_title.setObjectName("houdini_applyabc_title")
+        lo_main.addWidget(l_title)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(6)
+        rows = [
+            (self.core.tr("Required cache entries"), str(len(desiredEntries))),
+            (self.core.tr("Ready entries"), str(okCount)),
+            (self.core.tr("Missing source states"), str(len(missingSource))),
+            (self.core.tr("Missing cache states"), str(len(missingCache))),
+            (self.core.tr("Unapplied source states"), str(len(unappliedSource))),
+            (self.core.tr("Unapplied cache states"), str(len(unappliedCache))),
+            (self.core.tr("Outdated states"), str(len(set(outdatedStates)))),
+        ]
+        for row, (labelText, valueText) in enumerate(rows):
+            l_label = QLabel(labelText + ":")
+            l_label.setObjectName("houdini_applyabc_label")
+            l_value = QLabel(valueText)
+            l_value.setObjectName("houdini_applyabc_value")
+            l_value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(l_label, row, 0, Qt.AlignTop)
+            grid.addWidget(l_value, row, 1, Qt.AlignTop)
+
+        lo_main.addLayout(grid)
+
+        te_issues = QPlainTextEdit()
+        te_issues.setObjectName("houdini_applyabc_issues")
+        te_issues.setReadOnly(True)
+        te_issues.setLineWrapMode(QPlainTextEdit.NoWrap)
+        te_issues.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        te_issues.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        te_issues.setMinimumHeight(120)
+        te_issues.setPlainText(
+            "\n".join(issueLines)
+            if issueLines
+            else self.core.tr("All required Alembic cache states are present and up-to-date.")
+        )
+        lo_main.addWidget(te_issues)
+        lo_main.addStretch(1)
+
+        return {
+            "action": action,
+            "current_value": {
+                "ready": okCount,
+                "missing_source": len(missingSource),
+                "missing_cache": len(missingCache),
+                "unapplied_source": len(unappliedSource),
+                "unapplied_cache": len(unappliedCache),
+                "outdated": len(set(outdatedStates)),
+            },
+            "new_value": {
+                "required": len(desiredEntries),
+            },
+            "summary": summary,
+            "summary_widget": summaryWidget,
+        }
 
     @err_catcher(name=__name__)
     def buildSceneApplyAbcCaches(self, step: Dict[str, Any], context: Dict[str, Any]) -> None:
@@ -3475,8 +3936,8 @@ class Prism_Houdini_Functions(object):
 
         if parent:
             parent.setExpanded(parentExpanded)
-            for state in sm.getSelectedStates():
-                sm.ensureVisibility(state)
+            for selstate in sm.getSelectedStates():
+                sm.ensureVisibility(selstate)
 
         return state
 

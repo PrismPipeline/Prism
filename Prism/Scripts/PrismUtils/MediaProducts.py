@@ -212,6 +212,9 @@ class MediaProducts(object):
         for loc in searchLocations:
             for mtype in mediaTypes:
                 context = entity.copy()
+                if "identifier" in context:
+                    del context["identifier"]
+
                 context["project_path"] = locationData[loc]
                 if mtype == "3d":
                     key = "3drenders"
@@ -314,7 +317,11 @@ class MediaProducts(object):
         Returns:
             str: Path to the version directory.
         """
-        key = "renderVersions"
+        if entity and entity.get("mediaType") == "playblasts":
+            key = "playblastVersions"
+        else:
+            key = "renderVersions"
+
         context = entity.copy()
         template = self.core.projects.getResolvedProjectStructurePath(
             key, context=context
@@ -478,10 +485,18 @@ class MediaProducts(object):
             if not filepaths:
                 sources = self.core.media.getImgSources(os.path.dirname(file))
                 if sources:
-                    if sources[0].endswith("preview.jpg") and len(sources) > 1:
-                        file = sources[1]
-                    else:
-                        file = sources[0]
+                    extension = version.get("extension", "").lower()
+                    matchingSources = [
+                        source
+                        for source in sources
+                        if not source.lower().endswith("preview.jpg")
+                        and extension
+                        and os.path.splitext(source)[1].lower() == extension
+                    ]
+                    nonPreviewSources = [
+                        source for source in sources if not source.lower().endswith("preview.jpg")
+                    ]
+                    file = (matchingSources or nonPreviewSources or sources)[0]
                 else:
                     return
 
@@ -1391,18 +1406,23 @@ class MediaProducts(object):
         if "type" in context and "entityType" not in context:
             context["entityType"] = context["type"]
 
+        if "entityType" not in context:
+            entityType = self.core.paths.getEntityTypeFromPath(path)
+            context["entityType"] = entityType
+            context["type"] = entityType
+
         if context and "version" in context:
             del context["version"]
 
         template = self.core.projects.getResolvedProjectStructurePath(key, context=context)
         data = self.core.projects.extractKeysFromPath(path, template, context=context)
-
-        if not data:
+        if not data or "version" not in data:
             key = "playblastVersions"
             template = self.core.projects.getResolvedProjectStructurePath(key, context=context)
+
             data = self.core.projects.extractKeysFromPath(path, template, context=context)
 
-        if not data and "mediaType" not in context:
+        if (not data or "version" not in data) and "mediaType" not in context:
             key = "renderVersions"
             context["mediaType"] = "2drenders"
             template = self.core.projects.getResolvedProjectStructurePath(key, context=context)
@@ -1474,7 +1494,11 @@ class MediaProducts(object):
             Dict: Metadata dict with entity, version, identifier, etc.
         """
         entityType = self.core.paths.getEntityTypeFromPath(path)
-        key = "renderVersions"
+        if mediaType == "playblasts":
+            key = "playblastVersions"
+        else:
+            key = "renderVersions"
+
         context = {"type": entityType, "entityType": entityType}
         context["mediaType"] = mediaType
         location = self.getLocationFromPath(path)
@@ -1577,6 +1601,7 @@ class MediaProducts(object):
         Returns:
             Optional[str]: Path to master version folder, or None if update failed.
         """
+        mediaType = mediaType or self.getMediaTypeFromContext(context)
         if context:
             path = context["path"]
             files = self.core.getFilesFromFolder(path)
@@ -1605,7 +1630,12 @@ class MediaProducts(object):
             location = self.getLocationFromPath(path)
 
         if "mediaType" not in context:
-            context["mediaType"] = mediaType or self.getMediaTypeFromContext(context)
+            context["mediaType"] = mediaType
+
+        if "identifier" not in context:
+            self.core.popup("missing identifier in context: path: %s context: %s" % (path, context))
+            self.core.popup("Unable to update master version: missing identifier in context. (check console for details)")
+            return
 
         if context.get("mediaType") == "playblasts":
             masterPath = self.generatePlayblastPath(
@@ -1739,17 +1769,18 @@ class MediaProducts(object):
                 return versionData["version"]
 
     @err_catcher(name=__name__)
-    def getMasterVersionLabel(self, path: str) -> str:
+    def getMasterVersionLabel(self, path: str, mediaType: Optional[str] = None) -> str:
         """Get a display label for a master version showing source versions.
         
         Args:
             path: Path to master version folder.
+            mediaType: Optional[str]: Media type string ('3drenders', '2drenders', 'playblasts', or 'externalMedia').
             
         Returns:
             str: Display label (e.g., 'master' or 'master (v0003, v0005)').
         """
         versionName = "master"
-        versionData = self.core.paths.getRenderProductData(path, validateModTime=True, isVersionFolder=True)
+        versionData = self.core.paths.getRenderProductData(path, validateModTime=True, isVersionFolder=True, mediaType=mediaType)
         if "versionpaths" in versionData:
             versions = []
             context = versionData.copy()
@@ -1791,6 +1822,33 @@ class MediaProducts(object):
                     mtype = "externalMedia"
 
         return mtype
+
+    @err_catcher(name=__name__)
+    def findExistingMediaTypeFromIdentifier(self, identifierData: Dict) -> Optional[str]:
+        """Find existing media type for a given identifier data.
+        
+        Args:
+            identifierData: Dictionary containing identifier information.
+            
+        Returns:
+            Optional[str]: Media type string if found, otherwise None.
+        """
+        idfs = self.getIdentifiersByType(identifierData)
+        for mtype in idfs:
+            for idf in idfs[mtype]:
+                if idf["identifier"] == identifierData["identifier"]:
+                    if mtype == "3d":
+                        mtype = "3drenders"
+                    elif mtype == "2d":
+                        mtype = "2drenders"
+                    elif mtype == "playblast":
+                        mtype = "playblasts"
+                    elif mtype == "external":
+                        mtype = "externalMedia"
+
+                    return mtype
+
+        return None
 
     @err_catcher(name=__name__)
     def getMediaTypeFromPath(self, path: str) -> Optional[str]:
@@ -2157,7 +2215,7 @@ class MediaProducts(object):
         self.ingestThreads = []
         startFrame = 1
         if entity.get("type") == "shot":
-            shotRange = self.core.entities.getShotRange(entity)
+            shotRange = self.core.entities.getShotRange(entity, handles=True)
             if shotRange:
                 startFrame = shotRange[0]
                 if startFrame is None:
@@ -2194,6 +2252,7 @@ class MediaProducts(object):
 
             targetPath = pairs[-1][1]
             dst_dir = os.path.dirname(pairs[0][1])
+            hasExistingFiles = False
 
             if not os.path.exists(dst_dir):
                 try:
@@ -2203,7 +2262,16 @@ class MediaProducts(object):
                     self.core.popup(msg)
                     return {"result": msg}
 
-            elif os.listdir(dst_dir):
+            else:
+                try:
+                    hasExistingFiles = bool(os.listdir(dst_dir))
+                except OSError as error:
+                    msg = "The targetfolder cannot be accessed:\n\n%s\n\n%s" % (dst_dir, error)
+                    logger.warning(msg)
+                    self.core.popup(msg)
+                    return {"result": msg}
+
+            if hasExistingFiles:
                 msg = "The targetfolder contains files already.\nContinuing may overwrite existing files."
                 result = self.core.popupQuestion(msg, buttons=["Continue", "Add new version", "Cancel"], icon=QMessageBox.Warning)
                 if result == "Cancel":
@@ -2224,7 +2292,7 @@ class MediaProducts(object):
                         self.createAov(entity=kwargs["entity"], identifier=kwargs["task"], version=version, aov="rgb")
 
                     result = self.ingestMedia(files, entity, identifier, version, aov, mediaType) or {}
-                    return {"result": result.get("result"), "versionAdded": True}
+                    return {"result": result.get("result"), "versionAdded": True, "versionPath": result.get("versionPath")}
 
             self.copyMsg.show()
             if copyMsg.msg:
@@ -2350,7 +2418,9 @@ class MediaProducts(object):
             details = entity.copy()
             details["identifier"] = identifier
             details["user"] = kwargs["user"]
-            details["version"] = kwargs["version"]
+            if kwargs["version"]:
+                details["version"] = kwargs["version"]
+
             details["comment"] = kwargs.get("comment", "")
             details["extension"] = kwargs["extension"]
             details["mediaType"] = kwargs["mediaType"]

@@ -145,6 +145,7 @@ from PrismUtils import (
     Integration,
     MediaManager,
     MediaProducts,
+    Onboarding,
     PathManager,
     PluginManager,
     PrismWidgets,
@@ -226,7 +227,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v2.1.3"
+            self.version = "v2.1.4"
             self.requiredLibraries = "v2.0.0"
             self.core = self
             self.preferredExtension = os.getenv("PRISM_CONFIG_EXTENSION", ".json")
@@ -238,6 +239,10 @@ class PrismCore:
             self.pythonVersion = "Python" + os.getenv("PRISM_PYTHON_VERSION", "3.13").replace(".", "")
 
             self.userini = self.getUserPrefConfigPath()
+            userModulePath = self.getUserModulePath()
+            if userModulePath not in sys.path:
+                sys.path.append(userModulePath)
+
             prjScriptPath = os.path.abspath(
                 os.path.join(__file__, os.pardir, "ProjectScripts")
             )
@@ -280,6 +285,8 @@ class PrismCore:
             self.sm = None
             self.dv = None
             self.ps = None
+            self.username = ""  # full username
+            self.user = ""  # abbreviation
             self.status = "starting"
             self.missingModules = []
             self.restartRequired = False
@@ -295,6 +302,7 @@ class PrismCore:
             self.activeStyleSheet = None
             self.useTranslation = False
             self.pythonHighlighter = PythonHighlighter
+            self.safeFormatDict = SafeFormatDict
 
             if API_NAME == "PySide6":
                 import PySide6
@@ -306,6 +314,7 @@ class PrismCore:
             # if no user ini exists, it will be created with default values
             self.configs = ConfigManager.ConfigManager(self)
             self.users = Users.Users(self)
+            self.onboarding = Onboarding.OnboardingController(self)
             if not os.path.exists(self.userini):
                 self.configs.createUserPrefs()
 
@@ -457,11 +466,11 @@ class PrismCore:
             return os.getenv("PRISM_DATA_DIR")
 
         if platform.system() == "Windows":
-            path = os.path.join(os.environ["PROGRAMDATA"], "Prism2")
+            path = os.path.join(os.environ["PROGRAMDATA"], "Prism Pipeline")
         elif platform.system() == "Linux":
-            path = os.path.join(os.environ["HOME"], "Prism2")
+            path = os.path.join(os.environ["HOME"], "Prism Pipeline")
         elif platform.system() == "Darwin":
-            path = os.path.join(os.environ["HOME"], "Documents", "Prism2")
+            path = os.path.join(os.environ["HOME"], "Documents", "Prism Pipeline")
 
         return path
 
@@ -473,11 +482,16 @@ class PrismCore:
             path (str): Directory or file path to modify permissions for.
         """
         try:
-            subprocess.run(
-                ["icacls", path, "/grant", "Users:(OI)(CI)M", "/T"],
-                check=True,
-                shell=True
-            )
+            if platform.system() == "Windows":
+                subprocess.run(
+                    ["icacls", path, "/grant", "Users:(OI)(CI)M", "/T"],
+                    check=True,
+                    shell=True
+                )
+            else:
+                # On non-Windows platforms, use chmod to set permissions
+                os.chmod(path, 0o777)
+
         except subprocess.CalledProcessError as e:
             logger.debug("Failed to update permissions: %s" % (str(e)))
 
@@ -692,7 +706,11 @@ class PrismCore:
         if result is not None:
             return result
 
-        if "prism_project" in os.environ and os.path.exists(
+        if "PRISM_PROJECT" in os.environ and os.path.exists(
+            os.environ["PRISM_PROJECT"]
+        ):
+            curPrj = os.environ["PRISM_PROJECT"]
+        elif platform.system() != "Windows" and "prism_project" in os.environ and os.path.exists(
             os.environ["prism_project"]
         ):
             curPrj = os.environ["prism_project"]
@@ -707,21 +725,14 @@ class PrismCore:
                 self.splashScreen.setStatus("loading project...")
 
             result = self.changeProject(curPrj)
-            if result is None:
+            if result is None and not self.projects.pendingProjectChange:
                 failedToSetProject = True
 
-        if (
-            "silent" not in self.prismArgs
-            and "noProjectBrowser" not in self.prismArgs
-            and (self.getConfig("globals", "showonstartup") is not False or self.appPlugin.pluginName == "Standalone")
-            and self.uiAvailable
-            and os.getenv("PRISM_NO_PROJECT_BROWSER") != "1"
-            and not failedToSetProject
-        ):
-            if self.splashScreen:
-                self.splashScreen.setStatus("opening Project Browser...")
-
-            self.projectBrowser()
+        onboardingShown = self.onboarding.show(
+            onClosed=lambda: self.openStartupProjectBrowser(failedToSetProject)
+        )
+        if not onboardingShown:
+            self.openStartupProjectBrowser(failedToSetProject)
 
         if self.getCurrentFileName() != "":
             self.sceneOpen()
@@ -732,6 +743,29 @@ class PrismCore:
             self.status = "loaded"
         else:
             self.status = "waitingForDelayedPlugins"
+
+    @err_catcher(name=__name__)
+    def openStartupProjectBrowser(self, failedToSetProject: bool = False) -> None:
+        """Open the normal startup project UI after any onboarding window."""
+        if (
+            "silent" not in self.prismArgs
+            and "noProjectBrowser" not in self.prismArgs
+            and (self.getConfig("globals", "showonstartup") is not False or self.appPlugin.pluginName == "Standalone")
+            and self.uiAvailable
+            and os.getenv("PRISM_NO_PROJECT_BROWSER") != "1"
+        ):
+            if self.projects.pendingProjectChange:
+                self.projects.pendingProjectChange["openUi"] = "projectBrowser"
+                return
+
+            if failedToSetProject:
+                self.projects.setProject(startup=True, openUi="projectBrowser")
+            else:
+                if self.splashScreen:
+                    self.splashScreen.setStatus("opening Project Browser...")
+
+                self.projectBrowser()
+
 
     @err_catcher(name=__name__)
     def shouldAutosaveTimerRun(self) -> bool:
@@ -1035,7 +1069,17 @@ class PrismCore:
             filesToRemove.append(filePath)
 
         for filePath in filesToRemove:
-            os.remove(filePath)
+            while True:
+                try:
+                    os.remove(filePath)
+                    break
+                except Exception as e:
+                    msg = "Failed to delete file: %s?\n\n%s" % (filePath, str(e))
+                    result = self.core.popupQuestion(msg, buttons=["Retry", "Cancel"], escapeButton="Cancel", icon=QMessageBox.Warning)
+                    if result == "Retry":
+                        continue
+
+                    break
 
     @err_catcher(name=__name__)
     def handleCmd(self, command: Optional[List[Any]]) -> None:
@@ -1527,6 +1571,16 @@ License: GNU LGPL-3.0-or-later<br>
             else:
                 return True
 
+        if obj is None:
+            return False
+
+        if API_NAME == "PyQt5":
+            from PyQt5 import sip
+            return not sip.isdeleted(obj)
+        elif API_NAME == "PyQt6":
+            from PyQt6 import sip
+            return not sip.isdeleted(obj)
+
     @err_catcher(name=__name__)
     def getStateManager(self, create: bool = True) -> Optional[Any]:
         """Get the State Manager instance.
@@ -1898,7 +1952,7 @@ License: GNU LGPL-3.0-or-later<br>
         Args:
             parent (Any, optional): Parent widget. Defaults to None.
         """
-        if getattr(self, "dlg_console", None) and self.dlg_console.isVisible():
+        if getattr(self, "dlg_console", None) and self.isObjectValid(self.dlg_console) and self.dlg_console.isVisible():
             self.dlg_console.close()
 
         local_ns = {
@@ -2083,6 +2137,60 @@ License: GNU LGPL-3.0-or-later<br>
                 self.popup(msg, title="Couldn't load module")
             else:
                 logger.debug(msg)
+
+    @err_catcher(name=__name__)
+    def getUserModulePath(self) -> str:
+        """Get the user-writable package directory for this Python runtime."""
+        return os.path.join(
+            self.getUserPrefDir(),
+            "Python",
+            sys.implementation.cache_tag,
+            platform.system() + "-" + platform.machine(),
+        )
+
+    @err_catcher(name=__name__)
+    def installMissingModule(self, moduleName: str) -> None:
+        """Install pip and the missing module in the user's package directory.
+        
+        Args:
+            moduleName (str): Name of the module to install.
+        """
+        try:
+            with self.waitPopup(self, "Installing module %s. Please wait..." % moduleName):
+                modulePath = self.getUserModulePath()
+                os.makedirs(modulePath, exist_ok=True)
+                if modulePath not in sys.path:
+                    sys.path.append(modulePath)
+
+                targetArgs = ["--target", modulePath, "--upgrade"]
+                pipCommand = [
+                    sys.executable,
+                    "-c",
+                    "import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); "
+                    "runpy.run_module('pip', run_name='__main__')",
+                    modulePath,
+                ]
+                try:
+                    subprocess.check_call(
+                        pipCommand + ["--version"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except subprocess.CalledProcessError:
+                    import urllib.request
+
+                    with tempfile.TemporaryDirectory() as tempDir:
+                        bootstrapPath = os.path.join(tempDir, "get-pip.py")
+                        with urllib.request.urlopen("https://bootstrap.pypa.io/get-pip.py", timeout=60) as response:
+                            with open(bootstrapPath, "wb") as bootstrapFile:
+                                shutil.copyfileobj(response, bootstrapFile)
+
+                        subprocess.check_call([sys.executable, bootstrapPath] + targetArgs)
+
+                subprocess.check_call(pipCommand + ["install", moduleName] + targetArgs)
+                importlib.invalidate_caches()
+        except Exception as e:
+            logger.error(f"Failed to install module {moduleName}: {e}")
 
     @err_catcher(name=__name__)
     def resolveFrameExpression(self, expression: str) -> List[int]:
@@ -2649,12 +2757,13 @@ License: GNU LGPL-3.0-or-later<br>
         return self._episodePath
 
     @err_catcher(name=__name__)
-    def convertPath(self, path: str, target: str = "global") -> str:
+    def convertPath(self, path: str, target: str = "global", filetype: Optional[str] = None) -> str:
         """Convert path between storage locations (global/local).
         
         Args:
             path (str): Path to convert.
             target (str, optional): Target location. Defaults to "global".
+            filetype: Type of file (e.g., 'scenefile'). Defaults to None.
             
         Returns:
             str: Converted path for target location.
@@ -2663,7 +2772,7 @@ License: GNU LGPL-3.0-or-later<br>
             return path
 
         path = os.path.normpath(path)
-        source = self.paths.getLocationFromPath(path)
+        source = self.paths.getLocationFromPath(path, filetype=filetype)
         if source and source != target:
             sourcePath = os.path.normpath(self.paths.getLocationPath(source))
             targetLoc = self.paths.getLocationPath(target)
@@ -3168,9 +3277,20 @@ License: GNU LGPL-3.0-or-later<br>
                         return
 
         if mode == "copy":
-            shutil.copy2(origFile, targetFile)
+            try:
+                shutil.copy2(origFile, targetFile)
+            except Exception as e:
+                msg = "Failed to copy scene file:\n\n%s\n\nError: %s" % (origFile, str(e))
+                self.core.popup(msg)
+                return
+
         elif mode == "move":
-            shutil.move(origFile, targetFile)
+            try:
+                shutil.move(origFile, targetFile)
+            except Exception as e:
+                msg = "Failed to move scene file:\n\n%s\n\nError: %s" % (origFile, str(e))
+                self.core.popup(msg)
+                return
 
         infoPath = (
             os.path.splitext(origFile)[0]
@@ -3187,15 +3307,33 @@ License: GNU LGPL-3.0-or-later<br>
 
         if os.path.exists(infoPath) and not os.path.exists(infoPatht):
             if mode == "copy":
-                shutil.copy2(infoPath, infoPatht)
+                try:
+                    shutil.copy2(infoPath, infoPatht)
+                except Exception as e:
+                    msg = "Failed to copy versioninfo file:\n\n%s\n\nError: %s" % (infoPath, str(e))
+                    self.core.popup(msg)
+
             elif mode == "move":
-                shutil.move(infoPath, infoPatht)
+                try:
+                    shutil.move(infoPath, infoPatht)
+                except Exception as e:
+                    msg = "Failed to move versioninfo file:\n\n%s\n\nError: %s" % (infoPath, str(e))
+                    self.core.popup(msg)
 
         if os.path.exists(prvPath) and not os.path.exists(prvPatht):
             if mode == "copy":
-                shutil.copy2(prvPath, prvPatht)
+                try:
+                    shutil.copy2(prvPath, prvPatht)
+                except Exception as e:
+                    msg = "Failed to copy preview file:\n\n%s\n\nError: %s" % (prvPath, str(e))
+                    self.core.popup(msg)
+
             elif mode == "move":
-                shutil.move(prvPath, prvPatht)
+                try:
+                    shutil.move(prvPath, prvPatht)
+                except Exception as e:
+                    msg = "Failed to move preview file:\n\n%s\n\nError: %s" % (prvPath, str(e))
+                    self.core.popup(msg)
 
         ext = os.path.splitext(origFile)[1]
         if ext in self.appPlugin.sceneFormats:
@@ -3675,13 +3813,11 @@ License: GNU LGPL-3.0-or-later<br>
             if process.returncode in [0, 1, 2, 3]:  # Robocopy success codes
                 msg = f"Robocopy completed successfully. Return code: {process.returncode}"
                 logger.debug(msg)
-                logger.debug(msg)
                 return dst
             else:
                 output = '\n'.join(output_lines)
                 msg = f"Robocopy failed with return code {process.returncode}: {output}"
                 logger.warning(f"ERROR: {msg}")
-                logger.warning(msg)
                 raise Exception(msg)
                 
         except Exception as e:
@@ -4203,9 +4339,10 @@ License: GNU LGPL-3.0-or-later<br>
         """
         filepath = filepath.replace("\\", "/")
         logger.debug("Opening file " + filepath)
-        fileStarted = False
+        startFailed = False
         ext = os.path.splitext(filepath)[1]
         appPath = ""
+        proc = None
 
         if ext in self.appPlugin.sceneFormats:
             return self.appPlugin.openScene(self, filepath)
@@ -4217,15 +4354,15 @@ License: GNU LGPL-3.0-or-later<br>
                 if exoverride:
                     appPath = exoverride
 
-                fileStarted = getattr(
+                proc = getattr(
                     plugin, "customizeExecutable", lambda x1, x2, x3: False
                 )(self, appPath, filepath)
                 appPluginName = plugin.pluginName
 
-        if not appPath and not fileStarted:
+        if not appPath and not proc:
             appPath = self.getDefaultAppByExtension(ext)
 
-        if appPath and not fileStarted:
+        if appPath and not proc:
             args = []
             if isinstance(appPath, list):
                 args += appPath
@@ -4244,10 +4381,14 @@ License: GNU LGPL-3.0-or-later<br>
             for envVar in prjEnv:
                 dccEnv[envVar["key"]] = envVar["value"]
 
-            self.core.callback(name="preLaunchApp", args=[args, dccEnv])
+            result = self.core.callback(name="preLaunchApp", args=[args, dccEnv])
+            for res in result:
+                if isinstance(res, dict) and res.get("cancel", False):
+                    return
+
             logger.debug("launching app: args: %s - env: %s" % (args, dccEnv))
             try:
-                subprocess.Popen(args, env=dccEnv)
+                proc = subprocess.Popen(args, env=dccEnv)
             except:
                 mods = QApplication.keyboardModifiers()
                 if mods == Qt.ControlModifier:
@@ -4256,19 +4397,19 @@ License: GNU LGPL-3.0-or-later<br>
                     else:
                         msg = "Executable doesn't exist:\n\n%s\n\nCheck your executable override in the Prism User Settings." % args[0]
                     self.core.popup(msg)
+                    startFailed = True
                 else:
-                    subprocess.Popen(" ".join(args), env=dccEnv, shell=True)
+                    proc = subprocess.Popen(" ".join(args), env=dccEnv, shell=True)
 
-            fileStarted = True
-
-        if not fileStarted:
+        if not proc and not startFailed:
             try:
                 if platform.system() == "Windows":
-                    os.startfile(self.core.fixPath(filepath))
+                    cmd = self.core.fixPath(filepath)
+                    proc = subprocess.Popen(cmd, shell=True)
                 elif platform.system() == "Linux":
-                    subprocess.Popen(["xdg-open", filepath])
+                    proc = subprocess.Popen(["xdg-open", filepath])
                 elif platform.system() == "Darwin":
-                    subprocess.Popen(["open", filepath])
+                    proc = subprocess.Popen(["open", filepath])
             except:
                 ext = os.path.splitext(filepath)[1]
                 warnStr = (
@@ -4276,6 +4417,9 @@ License: GNU LGPL-3.0-or-later<br>
                     % ext
                 )
                 self.core.popup(warnStr)
+
+        if proc:
+            return proc
 
     @err_catcher(name=__name__)
     def createShortcutDeprecated(
@@ -4360,7 +4504,10 @@ License: GNU LGPL-3.0-or-later<br>
                 result = str(e)
             finally:
                 tmp.close()
-                os.remove(tmp.name)
+                try:
+                    os.remove(tmp.name)
+                except Exception as e:
+                    logger.warning("Failed to remove temporary file: %s" % str(e))
 
         else:
             if not ignoreError:
@@ -4612,6 +4759,8 @@ License: GNU LGPL-3.0-or-later<br>
     @err_catcher(name=__name__)
     def onExit(self) -> None:
         """Cleanup when application exits."""
+        if getattr(self, "plugins", None):
+            self.plugins.shutdownDelayedLoader()
         self.unlockScenefile()
 
     @err_catcher(name=__name__)
@@ -5331,6 +5480,9 @@ License: GNU LGPL-3.0-or-later<br>
             button = msg.clickedButton()
             if button:
                 result = button.text()
+                if "&" in result and result not in buttons:
+                    result = result.replace("&", "")
+
             else:
                 result = None
 
@@ -5443,6 +5595,7 @@ License: GNU LGPL-3.0-or-later<br>
             self.activate = activate
             self.msg = None
             self.isCanceled = False
+            self.keepOpenOnExit = False
 
         def __enter__(self) -> 'waitPopup':
             """Enter context manager and show popup.
@@ -5463,7 +5616,8 @@ License: GNU LGPL-3.0-or-later<br>
                 value (Any): Exception value.
                 traceback (Any): Traceback object.
             """
-            self.close()
+            if not self.keepOpenOnExit:
+                self.close()
 
         def createPopup(self) -> None:
             """Create the popup dialog widget."""
@@ -5546,14 +5700,15 @@ License: GNU LGPL-3.0-or-later<br>
             RuntimeError: If error occurs in non-UI mode.
         """
         try:
-            logger.debug(text)
+            logText = text.encode("ascii", errors="backslashreplace").decode("ascii")
+            logger.debug(logText)
             raiseError = False
             text += "\n\n"
 
             if hasattr(self, "messageParent") and self.uiAvailable:
                 self.showErrorPopup(text=text, data=data)
             else:
-                logger.warning(text)
+                logger.warning(logText)
                 raiseError = True
 
             if getattr(self, "prismIni", None) and getattr(self, "user", None):
@@ -5566,7 +5721,7 @@ License: GNU LGPL-3.0-or-later<br>
                         pass
 
                     if os.path.exists(prjErPath):
-                        with open(prjErPath, "a") as erLog:
+                        with open(prjErPath, "a", encoding="utf-8", errors="backslashreplace") as erLog:
                             erLog.write(text)
 
             if getattr(self, "userini", None):
@@ -5587,7 +5742,7 @@ License: GNU LGPL-3.0-or-later<br>
                                 pass
 
                     if os.path.exists(userErPath):
-                        with open(userErPath, "a") as erLog:
+                        with open(userErPath, "a", encoding="utf-8", errors="backslashreplace") as erLog:
                             erLog.write(text)
 
                 self.lastErrorTime = time.time()
@@ -5599,7 +5754,7 @@ License: GNU LGPL-3.0-or-later<br>
 
         except:
             msg = "ERROR - writeErrorLog - %s\n\n%s" % (traceback.format_exc(), text)
-            logger.warning(msg)
+            logger.warning(msg.encode("ascii", errors="backslashreplace").decode("ascii"))
 
         if raiseError:
             raise RuntimeError(text)
@@ -5641,11 +5796,6 @@ If this plugin is an official Prism plugin, please submit this error to the supp
                 if self.getConfig("globals", "send_error_reports", dft=True):
                     self.sendAutomaticErrorReport(text, data=data)
 
-            if "UnicodeDecodeError" in text or "UnicodeEncodeError" in text:
-                msg = "The previous error might be caused by the use of special characters (like ö or é). Prism doesn't support this at the moment. Make sure you remove these characters from your filepaths.".decode(
-                    "utf8"
-                )
-                self.popup(msg)
         except:
             msg = "ERROR - writeErrorLog - %s\n\n%s" % (traceback.format_exc(), text)
             logger.warning(msg)
@@ -6202,10 +6352,15 @@ If this plugin is an official Prism plugin, please submit this error to the supp
         # prog = subprocess.Popen(['Powershell', "-ExecutionPolicy", "Bypass", '-command', cmd])
         # prog.communicate()
 
-        from win32comext.shell import shellcon
-        import win32comext.shell.shell as shell
-        import win32con
-        import win32event
+        try:
+            from win32comext.shell import shellcon
+            import win32comext.shell.shell as shell
+            import win32con
+            import win32event
+        except Exception as e:
+            msg = "Failed to import win32comext. Please contact the support.\n\nError: %s" % str(e)
+            self.core.popup(msg)
+            return
 
         executable = self.getPythonPath()
         params = '-c "%s"' % script
@@ -6219,7 +6374,12 @@ If this plugin is an official Prism plugin, please submit this error to the supp
                 lpParameters=params,
             )
         except Exception as e:
-            if "The operation was canceled by the user." in str(e):
+            # ERROR_CANCELLED (1223): covers localized Windows error messages.
+            errorCode = getattr(e, "winerror", None)
+            if errorCode is None and getattr(e, "args", None):
+                errorCode = e.args[0]
+
+            if errorCode == 1223 or "The operation was canceled by the user." in str(e):
                 return "canceled"
 
             raise
@@ -7055,6 +7215,13 @@ class PythonHighlighter (QSyntaxHighlighter):
             return True
         else:
             return False
+
+
+class SafeFormatDict(dict):
+    """Keep unresolved named format fields intact."""
+
+    def __missing__(self, key: str) -> str:
+        return "{%s}" % key
 
 
 def create(app: str = "Standalone", prismArgs: Optional[List[str]] = None) -> 'PrismCore':

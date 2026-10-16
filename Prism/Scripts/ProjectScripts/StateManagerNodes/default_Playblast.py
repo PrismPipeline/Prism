@@ -154,8 +154,6 @@ class PlayblastClass(object):
         self.updateUi()
         if stateData is not None:
             self.loadData(stateData)
-        else:
-            self.initializeContextBasedSettings()
 
     @err_catcher(name=__name__)
     def loadData(self, data: Dict[str, Any]) -> None:
@@ -411,7 +409,7 @@ class PlayblastClass(object):
             if "{#}" in text:
                 while True:
                     context["#"] = num or ""
-                    name = text.format(**context)
+                    name = text.format_map(self.core.safeFormatDict(context))
                     for state in self.stateManager.states:
                         if state.ui.listType != "Export":
                             continue
@@ -425,7 +423,7 @@ class PlayblastClass(object):
                     else:
                         break
             else:
-                name = text.format(**context)
+                name = text.format_map(self.core.safeFormatDict(context))
         except Exception:
             name = text
 
@@ -754,6 +752,9 @@ class PlayblastClass(object):
             else:
                 startFrame = 1001
                 endFrame = 1100
+        elif rangeType == "Sequencer":
+            if hasattr(self.core.appPlugin, "getSequencerFrameRange"):
+                startFrame, endFrame = self.core.appPlugin.getSequencerFrameRange(self)
         elif rangeType == "Shot":
             context = self.getCurrentContext()
             if context.get("type") == "shot" and "sequence" in context:
@@ -854,6 +855,7 @@ class PlayblastClass(object):
         """
         self.l_pathLast.setText(path)
         self.l_pathLast.setToolTip(path)
+        self.stateManager.saveStatesToScene()
 
     @err_catcher(name=__name__)
     def preExecuteState(self) -> List[Any]:
@@ -1024,7 +1026,13 @@ class PlayblastClass(object):
 
         outputPath = os.path.dirname(outputName)
         if not os.path.exists(outputPath):
-            os.makedirs(outputPath)
+            try:
+                os.makedirs(outputPath, exist_ok=True)
+            except Exception as e:
+                return [
+                    self.state.text(0)
+                    + " - error - Could not create output folder: %s" % outputPath
+                ]
 
         details = context.copy()
         del details["filename"]

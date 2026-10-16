@@ -979,7 +979,8 @@ class Prism_Cinema4D_Functions(object):
         if hasattr(origin, "f_renderLayer"):
             origin.f_renderLayer.setVisible(True)
 
-        origin.l_renderLayer.setText("Take:")
+        if hasattr(origin, "l_renderLayer"):
+            origin.l_renderLayer.setText("Take:")
 
     @err_catcher(name=__name__)
     def sm_render_getRenderLayer(self, origin: Any) -> List[str]:

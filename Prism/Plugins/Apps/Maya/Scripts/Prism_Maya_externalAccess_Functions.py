@@ -306,6 +306,9 @@ class Prism_Maya_externalAccess_Functions(object):
         if "maya" not in settings:
             settings["maya"] = {}
 
+        if not hasattr(origin, "e_mayaSetPrefix"):
+            return
+
         prefix = origin.e_mayaSetPrefix.text()
         settings["maya"]["setPrefix"] = prefix
 
@@ -382,19 +385,57 @@ class Prism_Maya_externalAccess_Functions(object):
             return {"combine": True, "results": []}
         
         steps = self.core.entities.getDefaultSceneBuildingSteps()
-        steps = [s for s in steps if s["name"] not in ["importProducts"]]
+        steps = [s for s in steps if s["name"] not in ["importProducts", "importShotcam"]]
 
         mayaSteps = [
             {
                 "name": "createModelHierarchy",
                 "label": "Create Model Hierarchy",
-                "function": "self.core.appPlugin.buildSceneCreateModelHierarchy"
+                "function": "self.core.appPlugin.buildSceneCreateModelHierarchy",
+                "get_update_data": "self.core.appPlugin.buildSceneGetCreateModelHierarchyUpdateData",
+                "description": "Create the default model hierarchy if it is missing in the scene.",
+            },
+            {
+                "name": "importShotcam",
+                "label": "Import Shot Cameras",
+                "function": "self.core.appPlugin.buildSceneImportShotcam",
+                "get_update_data": "self.core.entities.buildSceneGetImportShotcamUpdateData",
+                "description": "Import shot camera and update existing shotcam states when newer publishes are available.",
+                "settings": [
+                    {
+                        "type": "combobox",
+                        "name": "mode",
+                        "label": "Mode",
+                        "items": ["Reference", "Import"],
+                        "value": "Reference"
+                    },
+                    {
+                        "type": "checkbox",
+                        "name": "lookThrough",
+                        "label": "Look Through Shot Camera",
+                        "value": True,
+                    },
+                    {
+                        "type": "checkbox",
+                        "name": "lockShotcam",
+                        "label": "Lock Shot Camera",
+                        "value": True,
+                    },
+                ]
             },
             {
                 "name": "importProducts",
                 "label": "Import Products",
                 "function": "self.core.appPlugin.buildSceneImportProducts",
+                "get_update_data": "self.core.entities.buildSceneGetImportProductsUpdateData",
+                "description": "Import tagged products from selected entity sources and update existing imports.",
                 "settings": [
+                    {
+                        "type": "lineedit",
+                        "name": "tags",
+                        "label": "Tags",
+                        "value": "to_@department@, to_@task@",
+                    },
                     {
                         "type": "combobox",
                         "name": "mode",
@@ -413,13 +454,49 @@ class Prism_Maya_externalAccess_Functions(object):
                         "name": "ignoreMaster",
                         "label": "Ignore Master Versions",
                         "value": False,
-                    }
+                    },
+                    {
+                        "type": "checkbox", "name": "sourceEntity",
+                        "label": "Products from source entity", "value": True,
+                    },
+                    {
+                        "type": "checkbox", "name": "connectedAssets",
+                        "label": "Products from connected assets", "value": True,
+                    },
+                    {
+                        "type": "checkbox", "name": "parentEntities",
+                        "label": "Products from parent entities (sequence, episode)", "value": False,
+                    },
+                    {
+                        "type": "checkbox", "name": "customEntitiesEnabled",
+                        "label": "Products from custom entities", "value": False,
+                    },
+                    {
+                        "type": "entities", "name": "customEntities",
+                        "label": "Custom entities", "value": [],
+                    },
                 ]
             },
             {
                 "name": "applyAbcCaches",
                 "label": "Apply Alembic Caches",
-                "function": "self.core.appPlugin.buildSceneApplyAbcCaches"
+                "function": "self.core.appPlugin.buildSceneApplyAbcCaches",
+                "get_update_data": "self.core.appPlugin.buildSceneGetApplyAbcCachesUpdateData",
+                "description": "Apply tagged Alembic caches to imported asset states and ensure cache states are up-to-date.",
+                "settings": [
+                    {
+                        "type": "lineedit",
+                        "name": "animatedTags",
+                        "label": "Alembic Product Tags",
+                        "value": "animated",
+                    },
+                    {
+                        "type": "lineedit",
+                        "name": "staticTags",
+                        "label": "Base Product Tags",
+                        "value": "static",
+                    },
+                ],
             },
         ]
 

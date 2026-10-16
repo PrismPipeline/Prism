@@ -211,8 +211,9 @@ class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
         if len(self.taskList) == 0:
             self.b_showTasks.setHidden(True)
         else:
-            if "_ShotCam" in self.taskList:
-                self.taskList.remove("_ShotCam")
+            camProduct = self.core.products.getShotcamProductName()
+            if camProduct in self.taskList:
+                self.taskList.remove(camProduct)
 
     @err_catcher(name=__name__)
     def showTasks(self) -> None:

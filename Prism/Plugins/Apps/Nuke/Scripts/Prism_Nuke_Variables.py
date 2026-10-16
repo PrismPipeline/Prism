@@ -47,7 +47,7 @@ class Prism_Nuke_Variables(object):
             core: The Prism core instance
             plugin: The plugin instance
         """
-        self.version = "v2.1.3"
+        self.version = "v2.1.4"
         self.pluginName = "Nuke"
         self.pluginType = "App"
         self.appShortName = "Nuke"
@@ -57,6 +57,7 @@ class Prism_Nuke_Variables(object):
         self.appSpecificFormats = self.sceneFormats
         self.outputFormats = [".nk"]
         self.canBuildScene = True
+        self.shotcamFormat = ".fbx"
         self.appColor = [160, 52, 66]
         self.platforms = ["Windows", "Linux", "Darwin"]
         self.pluginDirectory = os.path.abspath(

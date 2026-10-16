@@ -34,8 +34,11 @@
 
 import os
 import sys
+import locale
 import logging
+import json
 import subprocess
+import copy
 from collections import OrderedDict
 from typing import Any, Optional, List, Dict, Tuple
 
@@ -263,6 +266,9 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         icon = self.core.media.getColoredIcon(path)
         self.b_exportSettings.setIcon(icon)
         self.b_exportSettings.setIconSize(QSize(22, 22))
+        self.b_editRawSettings = QPushButton("Edit Raw...")
+        self.b_editRawSettings.setToolTip("Edit project settings as JSON")
+        self.horizontalLayout_11.addWidget(self.b_editRawSettings)
 
         self.refreshCategories()
         policy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -284,6 +290,11 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         self.l_sceneBuildingDesc.setWordWrap(True)
         self.l_sceneBuildingDesc.setContentsMargins(4, 4, 4, 2)
         self.lo_sceneBuilding.addWidget(self.l_sceneBuildingDesc)
+
+        self.chb_sceneBuildingCheckForUpdates = QCheckBox(
+            "Check for updates when opening scenefiles"
+        )
+        self.lo_sceneBuilding.addWidget(self.chb_sceneBuildingCheckForUpdates)
 
         self.lo_sceneBuilding.addStretch()
 
@@ -316,6 +327,10 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         self.addTab(self.w_presetScenes, "Preset Scenes")
 
         self.cb_expectedPrismVersion.addItems(["Warn", "Enforce"])
+        self.e_expectedPrismVersion.setToolTip(
+            "Comma-separated Prism versions. Add '+' to accept that version and all newer versions "
+            "(for example, v2.1.3+). Versions without '+' must match exactly."
+        )
 
         self.core.callback(name="projectSettings_loadUI", args=[self])
 
@@ -566,6 +581,7 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         self.b_showEnvironment.clicked.connect(self.showEnvironment)
         self.b_importSettings.clicked.connect(self.onImportSettingsClicked)
         self.b_exportSettings.clicked.connect(self.onExportSettingsClicked)
+        self.b_editRawSettings.clicked.connect(self.onEditRawSettingsClicked)
         self.b_reqPlugins.clicked.connect(self.onRequiredPluginsClicked)
         self.b_disabledPlugins.clicked.connect(self.onDisabledPluginsClicked)
         self.b_expectedPrjPath.clicked.connect(self.onBrowseExpPathClicked)
@@ -912,6 +928,26 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
             return
 
         self.saveSettings(configPath=path, export=True)
+
+    @err_catcher(name=__name__)
+    def onEditRawSettingsClicked(self) -> None:
+        """Open the current project configuration in the raw JSON editor."""
+        configPath = self.projectConfig or self.core.prismIni
+        configData = self.core.getConfig(configPath=configPath) or {}
+        self.dlg_rawSettings = RawProjectSettingsDlg(self, configPath, configData)
+        self.dlg_rawSettings.show()
+
+    @err_catcher(name=__name__)
+    def applyRawProjectSettings(
+        self, configPath: str, configData: Dict[str, Any]
+    ) -> None:
+        """Replace project config data and reload all visible settings."""
+        self.core.setConfig(
+            data=configData, configPath=configPath, updateNestedData=False
+        )
+        self.projectData = configData
+        self.refreshFolderStructure()
+        self.loadSettings(configPath=configPath)
 
     @err_catcher(name=__name__)
     def onRequiredPluginsClicked(self) -> None:
@@ -1388,6 +1424,7 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         structure = self.getFolderStructure()
         if self.isValidStructure(structure) or os.getenv("PRISM_ENFORCE_FOLDER_STRUCTURE_RULES", "1") != "1":
             valStruct = self.core.projects.getStructureValues(structure)
+            valStruct = self._preserveMissingFolderStructureSettings(configPath, valStruct)
             cData["folder_structure"] = valStruct
         else:
             msg = "The project folderstructure is invalid and cannot be saved"
@@ -1399,6 +1436,11 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         cData["globals"]["departments_shot"] = self.getShotDepartments()
         cData["export_paths"] = self.getExportLocations()
         cData["render_paths"] = self.getRenderLocations()
+        cData["sceneBuilding"] = {
+            "checkForUpdatesOnSceneOpen": (
+                self.chb_sceneBuildingCheckForUpdates.isChecked()
+            )
+        }
 
         if "studio" not in cData:
             cData["studio"] = {}
@@ -1440,6 +1482,42 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
 
         self.core.callback(name="postProjectSettingsSave", args=[self, cData])
         self.signalSaved.emit(cData)
+
+    @err_catcher(name=__name__)
+    def _preserveMissingFolderStructureSettings(
+        self,
+        configPath: Optional[str],
+        currentStructure: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Keep unknown folder_structure keys from existing config files.
+
+        This prevents disabled/unloaded plugins from accidentally removing their
+        previously saved folder structure entries.
+        """
+        if not configPath or not isinstance(currentStructure, dict):
+            return currentStructure
+
+        existingData = self.core.getConfig(configPath=configPath, dft=OrderedDict([]))
+        if not isinstance(existingData, dict):
+            return currentStructure
+
+        existingStructure = existingData.get("folder_structure")
+        if not isinstance(existingStructure, dict):
+            return currentStructure
+
+        missingKeys = [key for key in existingStructure if key not in currentStructure]
+        if not missingKeys:
+            return currentStructure
+
+        mergedStructure = OrderedDict(existingStructure)
+        mergedStructure.update(currentStructure)
+
+        logger.warning(
+            "Preserved %s missing folder_structure entries from existing project settings: %s",
+            len(missingKeys),
+            ", ".join(sorted(missingKeys)),
+        )
+        return mergedStructure
 
     @err_catcher(name=__name__)
     def getFolderStructure(self) -> Dict[str, Any]:
@@ -1689,6 +1767,10 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
             self.e_defaultImportStateName.setText(gblData["defaultImportStateName"])
         if "allowAdditionalTasks" in gblData:
             self.chb_allowAdditionalTasks.setChecked(gblData["allowAdditionalTasks"])
+        sceneBuildingData = configData.get("sceneBuilding", {}) if configData else {}
+        self.chb_sceneBuildingCheckForUpdates.setChecked(
+            sceneBuildingData.get("checkForUpdatesOnSceneOpen", False)
+        )
         if configData and "environmentVariables" in configData and configData["environmentVariables"]:
             self.loadEnvironmant(configData["environmentVariables"])
 
@@ -2764,8 +2846,41 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         if not os.path.exists(filepath):
             return
 
-        with open(filepath, "r") as f:
-            text = f.read()
+        text = None
+        encodings = [
+            "utf-8",
+            "utf-8-sig",
+            locale.getpreferredencoding(False),
+            "cp1252",
+            "latin-1",
+        ]
+        triedEncodings = []
+
+        for encoding in encodings:
+            if not encoding or encoding in triedEncodings:
+                continue
+
+            triedEncodings.append(encoding)
+            try:
+                with open(filepath, "r", encoding=encoding) as f:
+                    text = f.read()
+                if encoding != "utf-8":
+                    logger.warning("loaded hook file with non-utf8 encoding (%s): %s" % (encoding, filepath))
+                break
+            except UnicodeDecodeError:
+                continue
+
+        if text is None:
+            try:
+                with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+                logger.warning(
+                    "failed to decode hook file with encodings %s. using replacement characters: %s"
+                    % (triedEncodings, filepath)
+                )
+            except Exception as e:
+                self.core.popup("Failed to read hook file:\n\n%s\n\nError:\n%s" % (filepath, str(e)))
+                return
 
         self.te_hook.setPlainText(text)
 
@@ -2782,7 +2897,7 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
             return
 
         filepath = self.core.callbacks.registeredHooks[items[0].text()][0]["filepath"]
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(text)
 
     @err_catcher(name=__name__)
@@ -3182,6 +3297,53 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
             pass
 
 
+class RawProjectSettingsDlg(QDialog):
+    """Edit the complete project configuration as JSON."""
+
+    def __init__(
+        self, origin: ProjectSettings, configPath: str, configData: Dict[str, Any]
+    ) -> None:
+        super(RawProjectSettingsDlg, self).__init__()
+        self.origin = origin
+        self.core = origin.core
+        self.configPath = configPath
+        self.core.parentWindow(self, parent=origin)
+        self.setupUi(configData)
+
+    @err_catcher(name=__name__)
+    def setupUi(self, configData: Dict[str, Any]) -> None:
+        """Create the JSON editor and its save controls."""
+        self.setWindowTitle("Edit Raw Project Settings")
+        self.resize(900, 700)
+        layout = QVBoxLayout(self)
+        self.te_settings = QTextEdit()
+        self.te_settings.setPlainText(json.dumps(configData, indent=4, default=str))
+        layout.addWidget(self.te_settings)
+
+        self.bb_main = QDialogButtonBox()
+        self.bb_main.addButton("Save", QDialogButtonBox.AcceptRole)
+        self.bb_main.addButton("Cancel", QDialogButtonBox.RejectRole)
+        self.bb_main.accepted.connect(self.saveSettings)
+        self.bb_main.rejected.connect(self.reject)
+        layout.addWidget(self.bb_main)
+
+    @err_catcher(name=__name__)
+    def saveSettings(self) -> None:
+        """Validate, save, and apply the edited JSON configuration."""
+        try:
+            configData = json.loads(self.te_settings.toPlainText())
+        except ValueError as error:
+            self.core.popup("Invalid project settings JSON:\n\n%s" % error, parent=self)
+            return
+
+        if not isinstance(configData, dict):
+            self.core.popup("Project settings JSON must contain an object.", parent=self)
+            return
+
+        self.origin.applyRawProjectSettings(self.configPath, configData)
+        self.accept()
+
+
 class AddProductPathDialog(QDialog):
     """Dialog for adding export or render location paths to project.
     
@@ -3520,7 +3682,15 @@ class SceneBuildingAppWidget(QGroupBox):
 
     def _setupUi(self) -> None:
         """Build the internal layout: icon+title row, then tree widget + add button."""
-        self.setStyleSheet("QGroupBox { border: none; }")
+        setStyleSheet = True
+        if self.core.appPlugin.pluginName == "Houdini":
+            import hou
+            if hou.applicationVersion()[0] >= 22:
+                setStyleSheet = False
+
+        if setStyleSheet:
+            self.setStyleSheet("QGroupBox { border: none; }")
+
         lo_outer = QVBoxLayout(self)
         lo_outer.setContentsMargins(0, 8, 6, 0)
 
@@ -3755,6 +3925,9 @@ class SceneBuildingAppWidget(QGroupBox):
         Returns:
             The newly created QTreeWidgetItem.
         """
+        stepData = self.core.entities.getSceneBuildingStepWithTemplateSettings(
+            stepData, self.appName
+        )
         name = stepData.get("label", "")
         description = stepData.get("description", "")
         enabled = stepData.get("enabled", True)
@@ -3893,11 +4066,42 @@ class SceneBuildingStepSettingsDlg(QDialog):
                     widget.setPlainText(str(default) if default is not None else "")
                     widget.setMinimumHeight(180)
                     self.core.pythonHighlighter(widget.document())
+                elif stype == "entities":
+                    container = QWidget()
+                    layout = QVBoxLayout(container)
+                    layout.setContentsMargins(0, 0, 0, 0)
+                    widget = QListWidget()
+                    widget.setSelectionMode(QAbstractItemView.ExtendedSelection)
+                    for entity in default or []:
+                        if not isinstance(entity, dict) or entity.get("type") not in ("asset", "shot"):
+                            continue
+
+                        item = QListWidgetItem(self.core.entities.getEntityName(entity))
+                        item.setData(Qt.UserRole, entity)
+                        widget.addItem(item)
+
+                    layout.addWidget(widget)
+                    buttons = QHBoxLayout()
+                    addButton = QPushButton("Add...")
+                    addButton.clicked.connect(lambda checked=False, w=widget: self._addEntities(w))
+                    buttons.addWidget(addButton)
+                    removeButton = QPushButton("Remove selected")
+                    removeButton.clicked.connect(lambda checked=False, w=widget: self._removeEntities(w))
+                    buttons.addWidget(removeButton)
+                    layout.addLayout(buttons)
                 else:  # lineedit
                     widget = QLineEdit(str(default) if default is not None else "")
 
                 self._settingWidgets.append((setting, widget))
-                form.addRow(label + ":", widget)
+                form.addRow(label + ":", container if stype == "entities" else widget)
+                if stype == "entities" and setting.get("name") == "customEntities":
+                    customCheckbox = next(
+                        (w for s, w in self._settingWidgets if s.get("name") == "customEntitiesEnabled"),
+                        None,
+                    )
+                    if customCheckbox is not None:
+                        container.setEnabled(customCheckbox.isChecked())
+                        customCheckbox.toggled.connect(container.setEnabled)
 
             lo_main.addLayout(form)
 
@@ -3907,6 +4111,28 @@ class SceneBuildingStepSettingsDlg(QDialog):
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         lo_main.addWidget(bb)
+
+    def _addEntities(self, widget: QListWidget) -> None:
+        dlg = ProjectWidgets.EntityDlg(self, parent=self)
+        selected = [widget.item(idx).data(Qt.UserRole) for idx in range(widget.count())]
+        if selected:
+            dlg.w_entities.navigate(selected)
+
+        def addSelected(entities):
+            for entity in entities:
+                if any(widget.item(idx).data(Qt.UserRole) == entity for idx in range(widget.count())):
+                    continue
+
+                item = QListWidgetItem(self.core.entities.getEntityName(entity))
+                item.setData(Qt.UserRole, entity)
+                widget.addItem(item)
+
+        dlg.entitiesSelected.connect(addSelected)
+        dlg.exec_()
+
+    def _removeEntities(self, widget: QListWidget) -> None:
+        for item in widget.selectedItems():
+            widget.takeItem(widget.row(item))
 
     def getSettings(self) -> Dict[str, Any]:
         """Return the updated step data dict.
@@ -3931,6 +4157,8 @@ class SceneBuildingStepSettingsDlg(QDialog):
                     updated["value"] = widget.isChecked()
                 elif stype == "code":
                     updated["value"] = widget.toPlainText()
+                elif stype == "entities":
+                    updated["value"] = [widget.item(idx).data(Qt.UserRole) for idx in range(widget.count())]
                 else:
                     updated["value"] = widget.text()
                 updatedSettings.append(updated)

@@ -1,0 +1,74 @@
+[
+    {
+        "type": "Submit Workflow (Cloud)",
+        "category": "ComfyUI",
+        "icon": "comfyui_no_background.png",
+        "header_color": [
+            33,
+            25,
+            39
+        ],
+        "outputs": [
+            {
+                "name": "GeneratedFiles",
+                "type": "list"
+            }
+        ],
+        "settings": {
+            "Path": {
+                "type": "text"
+            },
+            "Inputs": {
+                "type": "list",
+                "default": "[]"
+            },
+            "Wait For Completion": {
+                "type": "bool",
+                "default": true
+            },
+            "Output Dir": {
+                "type": "text",
+                "default": ""
+            }
+        },
+        "execution_script": "path = inputs[\"Path\"]\ngraphInputs = inputs[\"Inputs\"] or {}\nif graphInputs and isinstance(graphInputs, str):\n    graphInputs = eval(graphInputs)\n\nwaitForCompletion = inputs[\"Wait For Completion\"]\noutput_dir = inputs[\"Output Dir\"]\nresult = core.getPlugin(\"ComfyUI\").submitGraphToCloud(path=path, inputs=graphInputs, waitForCompletion=waitForCompletion, output_dir=output_dir)\nGeneratedFiles = result.get(\"downloaded_files\", []) if result else []\nif not GeneratedFiles:\n    raise Exception(\"Failed to submit workflow: %s\" % result)"
+    },
+    {
+        "type": "Submit Workflow (Local)",
+        "category": "ComfyUI",
+        "icon": "comfyui_no_background.png",
+        "header_color": [
+            33,
+            25,
+            39
+        ],
+        "outputs": [
+            {
+                "name": "GeneratedFiles",
+                "type": "list"
+            }
+        ],
+        "settings": {
+            "Server Address": {
+                "type": "text",
+                "default": "127.0.0.1:8188"
+            },
+            "Workflow Path": {
+                "type": "text"
+            },
+            "Inputs": {
+                "type": "list",
+                "default": "[]"
+            },
+            "Wait For Completion": {
+                "type": "bool",
+                "default": true
+            },
+            "Output Dir": {
+                "type": "text",
+                "default": ""
+            }
+        },
+        "execution_script": "server_address = inputs[\"Server Address\"]\npath = inputs[\"Workflow Path\"]\ngraphInputs = inputs[\"Inputs\"] or {}\nif graphInputs and isinstance(graphInputs, str):\n    graphInputs = eval(graphInputs)\n\nwaitForCompletion = inputs[\"Wait For Completion\"]\noutput_dir = inputs[\"Output Dir\"]\nresult = core.getPlugin(\"ComfyUI\").submitGraphToLocal(path=path, inputs=graphInputs, waitForCompletion=waitForCompletion, output_dir=output_dir, server_address=server_address)\nGeneratedFiles = result.get(\"downloaded_files\", [])\nif not GeneratedFiles:\n    error = result.get(\"error\") if isinstance(result, dict) else \"\"\n    if error:\n        raise Exception(error)\n    raise Exception(\"Failed to submit workflow: %s\" % result)"
+    }
+]

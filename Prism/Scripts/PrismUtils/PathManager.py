@@ -917,34 +917,46 @@ class PathManager(object):
         return frame
 
     @err_catcher(name=__name__)
-    def getLocationFromPath(self, path: str) -> Optional[str]:
+    def getLocationFromPath(self, path: str, filetype: Optional[str] = None) -> Optional[str]:
         """Determine the storage location name from a path.
         
         Checks both export and render product paths.
         
         Args:
             path: Path to check.
+            filetype (Optional[str], optional): Type of file (e.g., 'scenefile'). Defaults to None.
             
         Returns:
             Optional[str]: Location name ('global', 'local', or custom), or None if not found.
         """
         locations = []
-        productPaths = self.getExportProductBasePaths()
-        for ppath in productPaths:
-            if path.startswith(productPaths[ppath]):
-                locations.append(ppath)
+        if filetype == "scenefile":
+            if not getattr(self.core, "projectPath", None):
+                return
 
-        if locations:
-            return sorted(locations, key=lambda x: len(productPaths[x]), reverse=True)[0]
+            if path.startswith(os.path.normpath(self.core.projectPath)):
+                return "global"
 
-        locations = []
-        renderPaths = self.getRenderProductBasePaths()
-        for rpath in renderPaths:
-            if path.startswith(renderPaths[rpath]):
-                locations.append(rpath)
+            if self.core.useLocalFiles and path.startswith(os.path.normpath(self.core.localProjectPath)):
+                return "local"
 
-        if locations:
-            return sorted(locations, key=lambda x: len(renderPaths[x]), reverse=True)[0]
+        if not filetype or filetype == "product":
+            productPaths = self.getExportProductBasePaths()
+            for ppath in productPaths:
+                if path.startswith(productPaths[ppath]):
+                    locations.append(ppath)
+
+            if locations:
+                return sorted(locations, key=lambda x: len(productPaths[x]), reverse=True)[0]
+
+        if not filetype or filetype == "media":
+            renderPaths = self.getRenderProductBasePaths()
+            for rpath in renderPaths:
+                if path.startswith(renderPaths[rpath]):
+                    locations.append(rpath)
+
+            if locations:
+                return sorted(locations, key=lambda x: len(renderPaths[x]), reverse=True)[0]
 
     @err_catcher(name=__name__)
     def getLocationPath(self, locationName: str) -> Optional[str]:
@@ -983,6 +995,8 @@ class PathManager(object):
         """
         if path.endswith(".bgeo.sc"):
             return [path[: -len(".bgeo.sc")], ".bgeo.sc"]
+        elif path.endswith(".renderSetup.json"):
+            return [path[: -len(".renderSetup.json")], ".renderSetup.json"]
         else:
             return os.path.splitext(path)
 

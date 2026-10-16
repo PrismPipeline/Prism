@@ -33,6 +33,7 @@
 
 
 import os
+import re
 import sys
 import platform
 from typing import Any, Dict, List, Union
@@ -272,3 +273,45 @@ class Prism_Nuke_Integration(object):
                 % (__file__, str(e), exc_type, exc_tb.tb_lineno),
             )
             return False
+
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Check the integration status for the given path.
+
+        Args:
+            path: Path to check for integration
+
+        Returns:
+            "added", "not added", or "update needed" based on installed Prism blocks.
+        """
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        blockPattern = re.compile(r"#\s*>>>PrismStart.*?#\s*<<<PrismEnd", re.DOTALL)
+        foundIntegration = False
+        currentIntegration = True
+        for filename in ["menu.py", "init.py"]:
+            installedFile = os.path.join(path, filename)
+            if not os.path.isfile(installedFile):
+                currentIntegration = False
+                continue
+
+            with open(installedFile, "r") as stream:
+                installed = stream.read()
+
+            blocks = blockPattern.findall(installed)
+            if not re.search(r"#\s*>>>PrismStart", installed):
+                currentIntegration = False
+                continue
+
+            foundIntegration = True
+            with open(os.path.join(integrationBase, filename), "r") as stream:
+                expected = stream.read().replace(
+                    "PRISMROOT", '"%s"' % self.core.prismRoot.replace("\\", "/")
+                )
+
+            if blocks != blockPattern.findall(expected):
+                currentIntegration = False
+
+        if not foundIntegration:
+            return "not added"
+
+        return "added" if currentIntegration else "update needed"

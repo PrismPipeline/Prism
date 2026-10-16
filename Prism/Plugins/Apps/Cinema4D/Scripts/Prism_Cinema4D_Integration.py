@@ -220,6 +220,21 @@ class Prism_Cinema4D_Integration(object):
             self.core.popup(msgStr)
             return False
 
+    @err_catcher(name=__name__)
+    def getIntegrationStatus(self, path: str) -> str:
+        """Compare the installed plugin script with the configured Prism template."""
+        installedFile = os.path.join(path, "plugins", "Prism", "Prism.pyp")
+        if not os.path.isfile(installedFile):
+            return "not added"
+
+        integrationBase = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Integration")
+        prismRoot = self.core.prismRoot.replace("\\", "/")
+        with open(os.path.join(integrationBase, "Prism.pyp"), "r") as stream:
+            expected = stream.read().replace("PRISMROOT", f'"{prismRoot}"')
+        with open(installedFile, "r") as stream:
+            installed = stream.read()
+        return "added" if installed == expected else "update needed"
+
     def removeIntegration(self, installPath: str) -> bool:
         """Remove Prism integration from Cinema4D.
         

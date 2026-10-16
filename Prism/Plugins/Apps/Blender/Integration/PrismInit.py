@@ -84,6 +84,11 @@ def sceneOpen(dummy):
     pcore.sceneOpen()
 
 
+def qt_timer_step():
+    qApp.processEvents()
+    return 0.01
+
+
 class PrismSave(bpy.types.Operator):
     bl_idname = "object.prism_save"
     bl_label = "Save Version"
@@ -93,7 +98,9 @@ class PrismSave(bpy.types.Operator):
             pcore.saveScene()
             for i in QApplication.topLevelWidgets():
                 if i.isVisible():
-                    qApp.exec_()
+                    if not bpy.app.timers.is_registered(qt_timer_step):
+                        bpy.app.timers.register(qt_timer_step)
+
                     break
         else:
             pcore.saveScene()
@@ -110,7 +117,9 @@ class PrismSaveComment(bpy.types.Operator):
             pcore.saveWithComment()
             for i in QApplication.topLevelWidgets():
                 if i.isVisible():
-                    qApp.exec_()
+                    if not bpy.app.timers.is_registered(qt_timer_step):
+                        bpy.app.timers.register(qt_timer_step)
+
                     break
         else:
             pcore.saveWithComment()
@@ -125,7 +134,9 @@ class PrismProjectBrowser(bpy.types.Operator):
     def execute(self, context):
         if platform.system() == "Linux":
             pcore.projectBrowser()
-            qApp.exec_()
+            if not bpy.app.timers.is_registered(qt_timer_step):
+                bpy.app.timers.register(qt_timer_step)
+
         else:
             pcore.projectBrowser()
 
@@ -139,7 +150,9 @@ class PrismStateManager(bpy.types.Operator):
     def execute(self, context):
         if platform.system() == "Linux":
             pcore.stateManager()
-            qApp.exec_()
+            if not bpy.app.timers.is_registered(qt_timer_step):
+                bpy.app.timers.register(qt_timer_step)
+
         else:
             pcore.stateManager()
 
@@ -153,7 +166,9 @@ class PrismSettings(bpy.types.Operator):
     def execute(self, context):
         if platform.system() == "Linux":
             pcore.prismSettings()
-            qApp.exec_()
+            if not bpy.app.timers.is_registered(qt_timer_step):
+                bpy.app.timers.register(qt_timer_step)
+
         else:
             pcore.prismSettings()
 
