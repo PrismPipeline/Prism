@@ -227,7 +227,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v2.1.4"
+            self.version = "v2.1.4.1"
             self.requiredLibraries = "v2.0.0"
             self.core = self
             self.preferredExtension = os.getenv("PRISM_CONFIG_EXTENSION", ".json")
@@ -1022,6 +1022,27 @@ class PrismCore:
                 return "higher"
 
         return "equal"
+
+    @err_catcher(name=__name__)
+    def getVersionWithoutBuild(self, version: str) -> str:
+        """Get the version string without the build number.
+
+        Args:
+            version (str): The full version string.
+
+        Returns:
+            str: The version string without the build number.
+        """
+        v = version.lstrip("v")
+        parts = v.split(".")
+        if len(parts) == 4 and parts[3].isdigit():
+            v = ".".join(parts[:3])
+            if version.startswith("v"):
+                v = "v" + v
+
+            return v
+
+        return version
 
     @err_catcher(name=__name__)
     def checkCommands(self) -> None:
@@ -5214,9 +5235,11 @@ License: GNU LGPL-3.0-or-later<br>
                             pythonPath = "python"
 
         elif platform.system() == "Linux":
-            pythonPath = os.path.dirname(os.path.dirname(__file__)) + "/Python313/bin/python"
+            root = root or os.path.dirname(os.path.dirname(__file__))
+            pythonPath = os.path.join(root, "Python313", "bin", "python")
         else:
-            pythonPath = os.path.dirname(os.path.dirname(__file__)) + "/Python313/bin/python"
+            root = root or os.path.dirname(os.path.dirname(__file__))
+            pythonPath = os.path.join(root, "Python313", "bin", "python")
 
         if pythonPath.startswith("//"):
             pythonPath = "\\\\" + pythonPath[2:]
@@ -5643,6 +5666,8 @@ License: GNU LGPL-3.0-or-later<br>
             """Show the popup dialog."""
             if not self.msg:
                 self.createPopup()
+                if not self.msg:
+                    return
 
             qapp = QApplication.instance()
             isGuiThread = qapp and qapp.thread() == QThread.currentThread()

@@ -73,6 +73,7 @@ class Prism_PureRef_externalAccess_Functions(object):
         self.core.registerCallback("getPresetScenes", self.getPresetScenes, plugin=self.plugin)
         self.core.registerCallback("openPBFileContextMenu", self.openPBFileContextMenu, plugin=self.plugin)
         self.core.registerCallback("mediaPlayerContextMenuRequested", self.mediaPlayerContextMenuRequested, plugin=self.plugin)
+        self.core.registerCallback("onSceneBrowserOpen", self.onSceneBrowserOpen, plugin=self.plugin)
 
         self.initializeFirstLaunch()
         self.initialize()
@@ -131,12 +132,17 @@ class Prism_PureRef_externalAccess_Functions(object):
         Registers PureRef file formats with the Project Browser's scene browser
         and refreshes the scene file list.
         """
-        if hasattr(self.core, "pb") and self.core.pb:
-            self.core.pb.sceneBrowser.appFilters[self.pluginName] = {
-                "formats": self.sceneFormats,
-                "show": True,
-            }
-            self.core.pb.sceneBrowser.refreshScenefilesThreaded()
+        sceneBrowser = getattr(getattr(self.core, "pb", None), "sceneBrowser", None)
+        if sceneBrowser is not None:
+            self.onSceneBrowserOpen(sceneBrowser)
+            sceneBrowser.refreshScenefilesThreaded()
+
+    @err_catcher(name=__name__)
+    def onSceneBrowserOpen(self, origin) -> None:
+        origin.appFilters[self.pluginName] = {
+            "formats": self.sceneFormats,
+            "show": True,
+        }
 
     @err_catcher(name=__name__)
     def preUninstall(self) -> None:

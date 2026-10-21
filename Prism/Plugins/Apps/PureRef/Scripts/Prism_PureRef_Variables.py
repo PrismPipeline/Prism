@@ -33,7 +33,7 @@
 
 
 import os
-from typing import Any, List
+from typing import Any
 
 
 class Prism_PureRef_Variables(object):
@@ -66,7 +66,7 @@ class Prism_PureRef_Variables(object):
             core: PrismCore instance.
             plugin: Plugin instance.
         """
-        self.version = "v2.1.2"
+        self.version = "v2.1.4.1"
         self.pluginName = "PureRef"
         self.pluginType = "App"
         self.appShortName = "PureRef"

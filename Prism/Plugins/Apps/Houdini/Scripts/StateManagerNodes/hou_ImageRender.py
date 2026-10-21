@@ -1906,11 +1906,8 @@ class ImageRenderClass(object):
                     result,
                 )
                 if (
-                    not result.startswith("Execute Canceled") and 
-                    "Failed to establish connection to" not in result and
-                    "does not exist or is not accessible from this computer" not in result and
-                    "No connection could be made because the target machine actively refused it." not in result and
-                    "is not part of a User Group that has permissions to submit jobs" not in result
+                    not result.startswith("Execute Canceled")
+                    and not getattr(plugin, "isKnownSubmissionError", lambda response: False)(result)
                 ):
                     self.core.writeErrorLog(erStr)
 

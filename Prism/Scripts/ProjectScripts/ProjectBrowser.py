@@ -182,6 +182,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         Args:
             event: Show event.
         """
+        self.fitWindowToScreen()
         self.showing.emit(self)
         self.core.callback(name="onProjectBrowserShow", args=[self])
 
@@ -484,21 +485,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         if self.tbw_project.count() == 0:
             self.tbw_project.setVisible(False)
 
-        if "windowSize" in brsData:
-            wsize = brsData["windowSize"]
-            self.resize(wsize[0], wsize[1])
-        else:
-            screen = self.core.getQScreenGeo()
-            if screen:
-                screenW = screen.width()
-                screenH = screen.height()
-                space = 200
-                if screenH < (self.height() + space):
-                    self.resize(self.width(), screenH - space)
-
-                if screenW < (self.width() + space):
-                    self.resize(screenW - space, self.height())
-
+        self.restoreWindowSize(brsData)
         self.updateTabSize(self.tbw_project.currentIndex())
 
         self.scrollArea.setStyleSheet("QScrollArea { border-width: 0px;}")
@@ -513,6 +500,38 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
     # """
     #         self.centralwidget.setObjectName("header")
     #         self.centralwidget.setStyleSheet(ssheet)
+
+    @err_catcher(name=__name__)
+    def restoreWindowSize(self, browserData: Dict[str, Any]) -> None:
+        """Restore the shared size, converting 96-DPI units to host coordinates."""
+        windowSize = browserData.get("windowSize")
+        if windowSize:
+            width, height = windowSize
+            if browserData.get("windowSizeFormat") == "dpi96":
+                width *= self.logicalDpiX() / 96.0
+                height *= self.logicalDpiY() / 96.0
+
+            self.resize(round(width), round(height))
+
+        self.fitWindowToScreen()
+
+    @err_catcher(name=__name__)
+    def fitWindowToScreen(self) -> None:
+        """Constrain window dimensions, including its frame, to the work area."""
+        if self.isMaximized() or self.isFullScreen():
+            return
+
+        screen = self.screen() or QApplication.primaryScreen()
+        if not screen:
+            return
+
+        available = screen.availableGeometry()
+        frame = self.frameGeometry()
+        frameWidth = max(0, frame.width() - self.width())
+        frameHeight = max(0, frame.height() - self.height())
+        width = min(self.width(), max(1, int(available.width() * 0.95) - frameWidth))
+        height = min(self.height(), max(1, int(available.height() * 0.95) - frameHeight))
+        self.resize(width, height)
 
     @err_catcher(name=__name__)
     def refreshRecentMenu(self) -> None:
@@ -678,7 +697,11 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         cData = {
             "browser": {
                 "currentProjectTab": currentType,
-                "windowSize": [self.width(), self.height()],
+                "windowSize": [
+                    self.width() * 96.0 / self.logicalDpiX(),
+                    self.height() * 96.0 / self.logicalDpiY(),
+                ],
+                "windowSizeFormat": "dpi96",
                 "selectedContext": selContext
             }
         }

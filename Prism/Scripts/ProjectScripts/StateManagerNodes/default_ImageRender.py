@@ -1732,6 +1732,13 @@ class ImageRenderClass(object):
                 + ": error - no identifier is given. Skipped the activation of this state."
             ]
 
+        if identifier and platform.system() == "Windows" and identifier.endswith((" ", ".")):
+            return [
+                self.state.text(0)
+                + " - error - The render identifier %r ends with a space or dot, which is not supported in Windows folder names. Remove the trailing spaces or dots from the identifier and try again."
+                % identifier
+            ]
+
         if self.curCam is None or (
             self.curCam != "Current View"
             and not self.core.appPlugin.isNodeValid(self, self.curCam)
@@ -1752,8 +1759,16 @@ class ImageRenderClass(object):
                 % outLength
             ]
 
-        if not os.path.exists(os.path.dirname(expandedOutputPath)):
-            os.makedirs(os.path.dirname(expandedOutputPath), exist_ok=True)
+        outputDirectory = os.path.dirname(expandedOutputPath)
+        try:
+            if not os.path.exists(outputDirectory):
+                os.makedirs(outputDirectory, exist_ok=True)
+        except OSError as error:
+            return [
+                self.state.text(0)
+                + " - error - Failed to create the render output directory:\n%s\n\n%s"
+                % (outputDirectory, error)
+            ]
 
         details = context.copy()
         if "filename" in details:

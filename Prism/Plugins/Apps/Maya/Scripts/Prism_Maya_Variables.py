@@ -47,7 +47,7 @@ class Prism_Maya_Variables(object):
             core: Prism core instance
             plugin: Plugin instance
         """
-        self.version = "v2.1.4"
+        self.version = "v2.1.4.1"
         self.pluginName = "Maya"
         self.pluginType = "App"
         self.appShortName = "Maya"

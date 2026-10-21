@@ -2227,13 +2227,12 @@ class Prism_Blender_Functions(object):
         if usePasses:
             rSettings["outputName"] = renderOutputPath
             rSettings["renderOutputPaths"] = renderOutputPaths
-            if platform.system() == "Windows":
-                tmpOutput = os.path.join(
-                    os.path.dirname(self.core.getTempFilepath()), "PrismRender", "tmp.####" + imgFormat
-                )
-                bpy.context.scene.render.filepath = tmpOutput
-                if not os.path.exists(os.path.dirname(tmpOutput)):
-                    os.makedirs(os.path.dirname(tmpOutput))
+            tmpOutput = os.path.join(
+                os.path.dirname(self.core.getTempFilepath()), "PrismRender", "tmp.####" + imgFormat
+            )
+            bpy.context.scene.render.filepath = tmpOutput
+            if not os.path.exists(os.path.dirname(tmpOutput)):
+                os.makedirs(os.path.dirname(tmpOutput))
 
     @err_catcher(name=__name__)
     def getAdditionalRenderContext(self, origin: Any, context: Optional[Dict[str, Any]] = None, identifier: Optional[str] = None, layer: Optional[str] = None) -> Dict[str, Any]:

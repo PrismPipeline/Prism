@@ -551,11 +551,31 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             data: Navigation data dictionary with entity, department, task, filename keys.
             
         Returns:
-            True if navigation succeeded, None if data invalid.
+            True if navigation was queued, None if data invalid.
         """
         if not isinstance(data, dict):
             return
 
+        self.pendingNavigationData = data.copy()
+        self._navigatingEntity = True
+        try:
+            entity = data.copy()
+            if entity.get("type") in ["sequence", "episode"]:
+                entity["type"] = "shot"
+
+            result = self.w_entities.navigate(entity, deferSelection=True)
+            if result is False:
+                self.w_entities.getCurrentPage().pendingRestoreData = entity
+                return True
+        finally:
+            self._navigatingEntity = False
+
+        self.entityChanged()
+        return True
+
+    @err_catcher(name=__name__)
+    def _applyNavigation(self, data: Dict[str, Any]) -> Optional[bool]:
+        """Apply navigation after the entity's department and task lists load."""
         prevEntities = self.getCurrentEntities()
         if len(prevEntities) == 1:
             prevEntity = prevEntities[0]
@@ -564,17 +584,6 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
 
         prevDep = self.getCurrentDepartment()
         self.lw_departments.blockSignals(True)
-        if data.get("type") in ["asset", "assetFolder"]:
-            self.w_entities.navigate(data)
-        elif data.get("type") in ["shot", "sequence", "episode"]:
-            shotName = data.get("shot", "")
-            seqName = data.get("sequence", "")
-
-            entity = {"type": "shot", "sequence": seqName, "shot": shotName}
-            if "episode" in data:
-                entity["episode"] = data["episode"]
-
-            self.w_entities.navigate(entity)
 
         if not data.get("department"):
             self.lw_departments.blockSignals(False)
@@ -672,6 +681,9 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
         Args:
             item: Optional tree item that changed.
         """
+        if getattr(self, "_navigatingEntity", False):
+            return
+
         if self.pendingNavigationData:
             pendingEntity = self.pendingNavigationData
             currentEntity = self.getCurrentEntity() or {}
@@ -679,8 +691,8 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             if pendingType in ["asset", "assetFolder"]:
                 matchesPendingEntity = (
                     currentEntity.get("type") in ["asset", "assetFolder"]
-                    and currentEntity.get("asset_path")
-                    == pendingEntity.get("asset_path")
+                    and (currentEntity.get("asset_path") or "").replace("\\", "/")
+                    == (pendingEntity.get("asset_path") or "").replace("\\", "/")
                 )
             elif pendingType in ["shot", "sequence", "episode"]:
                 matchesPendingEntity = (
@@ -2122,7 +2134,9 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
         curEntities = self.getCurrentEntities()
         if len(curEntities) != 1 or curEntities[0]["type"] not in ["asset", "shot", "sequence"]:
             self.refreshSelection = None
+            wasBlocked = self.lw_departments.blockSignals(True)
             self.lw_departments.clear()
+            self.lw_departments.blockSignals(wasBlocked)
             self.refreshTasks()
             return
 
@@ -2159,6 +2173,8 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
                             break
 
                 self.lw_departments.setCurrentRow(selectedRow)
+            else:
+                self.pendingNavigationData = None
 
             if not wasBlocked:
                 self.lw_departments.blockSignals(False)
@@ -2174,7 +2190,7 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             restoreSelection: Whether to restore previous task selection.
         """
         if restoreSelection:
-            curTask = self.getCurrentTask()
+            curTask = (self.pendingNavigationData or {}).get("task") or self.getCurrentTask()
             if not curTask and self.refreshSelection and self.getCurrentDepartment() == self.refreshSelection["department"]:
                 curTask = self.refreshSelection["task"]
 
@@ -2184,7 +2200,9 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
         curDep = self.getCurrentDepartment()
         if len(curEntities) != 1 or not curDep:
             self.refreshSelection = None
+            wasBlocked = self.lw_tasks.blockSignals(True)
             self.lw_tasks.clear()
+            self.lw_tasks.blockSignals(wasBlocked)
             self.refreshScenefilesThreaded()
             return
 
@@ -2233,7 +2251,7 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             if self.pendingNavigationData:
                 navData = self.pendingNavigationData
                 self.pendingNavigationData = None
-                self.navigate(navData)
+                self._applyNavigation(navData)
 
         self.runEntityListWorker(loadTasks, applyTasks, self.lw_tasks)
 
@@ -2935,8 +2953,6 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
                 w.setVisible(False)
                 w.setParent(None)
                 w.deleteLater()
-        
-        self.processEvents()
 
     @err_catcher(name=__name__)
     def addScenefileItems(self, itemsData: List[Dict[str, Any]], refreshId: str) -> None:
@@ -3107,6 +3123,9 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             current: Current selection
             prev: Previous selection
         """
+        if current is not None or prev is not None:
+            self.pendingNavigationData = None
+
         self.refreshTasks(restoreSelection=True)
 
     @err_catcher(name=__name__)
@@ -3117,6 +3136,9 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             current: Current selection
             prev: Previous selection
         """
+        if current is not None or prev is not None:
+            self.pendingNavigationData = None
+
         self.refreshScenefilesThreaded(restoreSelection=True)
 
     @err_catcher(name=__name__)
@@ -4362,7 +4384,7 @@ class SceneReBuildStepRunDlg(QDialog):
 
         stepOverrides = []
         for item in selectedItems:
-            data = dict(item.data(0, Qt.UserRole) or {})
+            data = dict(self.steps[item.data(0, Qt.UserRole + 1)])
             data["enabled"] = True
             data.pop("_checked", None)
             data.pop("update_data", None)
@@ -4563,7 +4585,6 @@ class SceneReBuildStepRunDlg(QDialog):
             item.setFlags(flags)
             checked = step.get("_checked", step.get("enabled", True))
             item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
-            item.setData(0, Qt.UserRole, step)
             item.setData(0, Qt.UserRole + 1, stepIdx)
             self.tw_steps.addTopLevelItem(item)
             if firstItem is None:
@@ -4606,7 +4627,7 @@ class SceneReBuildStepRunDlg(QDialog):
             )
             return
 
-        step = items[0].data(0, Qt.UserRole) or {}
+        step = self.steps[items[0].data(0, Qt.UserRole + 1)]
         updateData = step.get("update_data") or {}
         description = self._getStepDescription(step)
         summaryWidget = updateData.get("summary_widget")
@@ -4632,7 +4653,7 @@ class SceneReBuildStepRunDlg(QDialog):
             if item.checkState(0) != Qt.Checked:
                 continue
 
-            data = dict(item.data(0, Qt.UserRole) or {})
+            data = dict(self.steps[item.data(0, Qt.UserRole + 1)])
             data["enabled"] = True
             data.pop("_checked", None)
             data.pop("update_data", None)

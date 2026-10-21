@@ -4781,6 +4781,8 @@ else:
 
         knownErrors = (
             "Could not connect to any of the specified Mongo DB servers defined in",
+            "Failed to establish connection to",
+            "No connection could be made because the target machine actively refused it.",
             "ConcurrentTasks must be a value between 1 and 16 inclusive",
             "does not exist or is not accessible from this computer",
             "System.OutOfMemoryException",

@@ -2130,12 +2130,19 @@ class ExportClass(object):
                     ):
                         return [self.state.text(0) + ": error - Publish canceled"]
 
-                if self.isPrismFilecacheNode(self.node):
-                    if self.node.parm("saveScene").eval():
-                        hou.hipFile.save()
-                else:
-                    if self.stateManager.actionSaveDuringPub.isChecked():
-                        hou.hipFile.save()
+                try:
+                    if self.isPrismFilecacheNode(self.node):
+                        if self.node.parm("saveScene").eval():
+                            hou.hipFile.save()
+                    else:
+                        if self.stateManager.actionSaveDuringPub.isChecked():
+                            hou.hipFile.save()
+                except hou.OperationFailed as error:
+                    return [
+                        self.state.text(0)
+                        + " - error - Failed to save the scene before export:\n%s\n\n%s\n\nCheck that the scene folder is accessible and writable, and that the disk has free space."
+                        % (fileName, error)
+                    ]
 
                 if not self.gb_submit.isHidden() and self.gb_submit.isChecked():
                     wasLocked = False

@@ -4884,7 +4884,6 @@ print( "READY FOR INPUT\\n" )
                     )
                     and origin.chb_keepRefEdits.isChecked()
                 ):
-                    self.deleteNodes(origin, [origin.setName])
                     refNode = ""
                     for validNode in validNodes:
                         try:
@@ -4896,13 +4895,20 @@ print( "READY FOR INPUT\\n" )
                             pass
 
                     if refNode:
-                        oldFname = cmds.referenceQuery(refNode, filename=True)
                         try:
-                            oldNs = cmds.referenceQuery(refNode, namespace=True)
-                        except:
-                            refPath = cmds.referenceQuery(refNode, filename=True)
-                            oldNs = cmds.file(refPath, q=True, namespace=True)
+                            oldFname = cmds.referenceQuery(refNode, filename=True)
+                            try:
+                                oldNs = cmds.referenceQuery(refNode, namespace=True)
+                            except RuntimeError:
+                                oldNs = cmds.file(oldFname, q=True, namespace=True)
+                        except RuntimeError as error:
+                            self.core.popup(
+                                "Failed to read the existing Maya reference:\n\n%s\n\n%s\n\nReconnect this import state to a valid reference before updating it."
+                                % (refNode, error)
+                            )
+                            return {"result": False, "doImport": doImport}
 
+                        self.deleteNodes(origin, [origin.setName])
                         oldf = os.path.splitext(os.path.basename(oldFname))[0].replace(
                             "-", "_"
                         )

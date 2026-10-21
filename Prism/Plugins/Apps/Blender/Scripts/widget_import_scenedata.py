@@ -309,8 +309,10 @@ class Import_SceneData(QDialog):
         self.mode = "link" if link else "append"
         # bpy.context.collection.children.link creates collections, which can't have library overrides so we have to use bpy.ops
         if link:
+            libraryPath = self.plugin.getPathRelativeToScene(self.scenepath)
+            relative = libraryPath.startswith("//")
             if data["collections"]:
-                with bpy.data.libraries.load(self.plugin.getPathRelativeToScene(self.scenepath), link=True) as (data_from, data_to):
+                with bpy.data.libraries.load(libraryPath, link=True, relative=relative) as (data_from, data_to):
                     colNames = [c["name"] for c in data["collections"]]
                     data_to.collections = [c for c in data_from.collections if c in colNames]
 
@@ -337,7 +339,7 @@ class Import_SceneData(QDialog):
                     importedNodes.append(col)
 
             if data["objects"]:
-                with bpy.data.libraries.load(self.plugin.getPathRelativeToScene(self.scenepath), link=True) as (data_from, data_to):
+                with bpy.data.libraries.load(libraryPath, link=True, relative=relative) as (data_from, data_to):
                     objNames = [c["name"] for c in data["objects"]]
                     data_to.objects = [c for c in data_from.objects if c in objNames]
 

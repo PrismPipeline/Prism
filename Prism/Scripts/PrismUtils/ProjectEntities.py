@@ -840,11 +840,14 @@ class ProjectEntities(object):
             path: Optional specific path to search.
             
         Returns:
-            List[str]: List of scenefile paths.
+            List[str]: List of scenefile paths, or empty if neither entity nor path is supplied.
         """
         scenefiles = []
 
         if not path:
+            if not entity:
+                return scenefiles
+
             if entity["type"] == "asset":
                 if (
                     self.core.compareVersions(self.core.projectVersion, "v1.2.1.6")

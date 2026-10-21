@@ -375,7 +375,7 @@ class PluginManager(object):
         Returns:
             str: Computer plugin directory path.
         """
-        pluginPath = os.path.join(self.core.getPrismDataDir(), "plugins", self.core.version)
+        pluginPath = os.path.join(self.core.getPrismDataDir(), "plugins", self.core.getVersionWithoutBuild(self.core.version))
         return pluginPath
 
     @err_catcher(name=__name__)
@@ -1946,30 +1946,41 @@ class PLUGINNAME:
             setPermissions = False
             dataDir = self.core.getPrismDataDir()
             if not os.path.exists(dataDir):
+                try:
+                    os.makedirs(dataDir, exist_ok=True)
+                except Exception as e:
+                    logger.warning("Failed to create data directory: %s" % e)
+
                 setPermissions = True
 
             if not self.core.getPlugin("PrismInternals"):
-                self.installHubMsg.msg.setText("Installing Hub - please wait..\n\nDownloading PrismInternals...")
-                QApplication.processEvents()
+                if self.installHubMsg.msg:
+                    self.installHubMsg.msg.setText("Installing Hub - please wait..\n\nDownloading PrismInternals...")
+                    QApplication.processEvents()
+
                 zipPath = self.downloadPlugin("PrismInternals")
                 if zipPath:
                     target = os.path.join(self.getDefaultPluginPath(), "PrismInternals")
                     updates.append({"target": target, "zip": zipPath})
 
             if not self.core.getPlugin("Hub"):
-                self.installHubMsg.msg.setText("Installing Hub - please wait..\n\nDownloading Hub...")
-                QApplication.processEvents()
+                if self.installHubMsg.msg:
+                    self.installHubMsg.msg.setText("Installing Hub - please wait..\n\nDownloading Hub...")
+                    QApplication.processEvents()
+
                 zipPath = self.downloadPlugin("Hub")
                 if zipPath:
                     target = os.path.join(self.getDefaultPluginPath(), "Hub")
                     updates.append({"target": target, "zip": zipPath})
 
             if updates:
-                self.installHubMsg.msg.setText("Installing Hub - please wait..\n\nInstalling plugins...")
-                QApplication.processEvents()
+                if self.installHubMsg.msg:
+                    self.installHubMsg.msg.setText("Installing Hub - please wait..\n\nInstalling plugins...")
+                    QApplication.processEvents()
+
                 self.updatePlugins(updates)
 
-            if setPermissions:
+            if setPermissions and os.path.exists(dataDir):
                 self.core.grantRwToAllUsers(dataDir)
 
             intPlug = self.core.getPlugin("PrismInternals")

@@ -743,8 +743,13 @@ class ProductBrowser(QDialog, ProductBrowser_ui.Ui_dlg_ProductBrowser):
                 return
 
         else:
+            if index is None or not index.isValid():
+                return
+
             pathC = index.model().columnCount() - 1
             versionPath = index.model().index(index.row(), pathC).data()
+            if not versionPath:
+                return
 
         incompatible = []
         for i in self.core.unloadedAppPlugins.values():

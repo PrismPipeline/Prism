@@ -532,6 +532,9 @@ class Prism_Cinema4D_Functions(object):
         """
         sceneCams = []
         doc = c4d.documents.GetActiveDocument()
+        if doc is None:
+            return sceneCams
+
         obj = doc.GetFirstObject()
 
         while obj:

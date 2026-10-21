@@ -244,7 +244,14 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             self.lw_version.setItemDelegate(self.VersionDelegate)
 
         if "previewDisabled" in brsData:
-            self.w_preview.mediaPlayer.state = "disabled" if brsData["previewDisabled"] else "enabled"
+            player = self.w_preview.mediaPlayer
+            if hasattr(player, "playerEnabled"):
+                enabled = not brsData["previewDisabled"]
+                player.b_enablePlayer.setChecked(enabled)
+                if player.playerEnabled != enabled:
+                    player.togglePreviewPlayer(enabled)
+            elif player is not None:
+                player.state = "disabled" if brsData["previewDisabled"] else "enabled"
 
         self.initMediaListLoadingWidgets()
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
@@ -425,7 +432,11 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             data: Configuration dictionary to update with current settings
         """
         data["browser"]["autoUpdateRenders"] = self.chb_autoUpdate.isChecked()
-        data["browser"]["previewDisabled"] = self.w_preview.mediaPlayer.state == "disabled"
+        player = self.w_preview.mediaPlayer
+        if hasattr(player, "playerEnabled"):
+            data["browser"]["previewDisabled"] = not player.playerEnabled
+        elif player is not None:
+            data["browser"]["previewDisabled"] = player.state == "disabled"
         data["browser"]["mediaSplitter1"] = self.splitter1.sizes()
         data["browser"]["groupIdentifiersByType"] = self.groupByType
 
@@ -1482,7 +1493,18 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
     def setPreview(self) -> None:
         """Set current preview image as entity thumbnail."""
         entity = self.getCurrentEntity()
-        pm = self.w_preview.mediaPlayer.l_preview.pixmap()
+        if not entity:
+            return
+
+        player = self.w_preview.mediaPlayer
+        if hasattr(player, "DisplayWindow"):
+            pm = QPixmap.fromImage(player.DisplayWindow.grabFramebuffer())
+        else:
+            pm = player.l_preview.pixmap()
+
+        if pm is None or pm.isNull():
+            return
+
         self.core.entities.setEntityPreview(entity, pm)
         self.core.pb.sceneBrowser.refreshEntityInfo()
         self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
@@ -2381,7 +2403,6 @@ class MediaVersionPlayer(QWidget):
             MediaPlayer instance
         """
         if self.core.getConfig("globals", "useGLMediaPlayer", config="user", dft=False):
-            traceback.print_stack()
             loadPreviewPlayerGl = True
             try:
                 import av
@@ -2662,7 +2683,8 @@ class MediaVersionPlayer(QWidget):
 
         if not wasBlocked:
             self.cb_filelayer.blockSignals(False)
-            self.mediaPlayer.updatePreview()
+            if self.mediaPlayer is not None:
+                self.mediaPlayer.updatePreview()
 
     @err_catcher(name=__name__)
     def getLayersFromFileThreaded(self, filepath: str, thread: Any, restoreSelection: bool) -> None:

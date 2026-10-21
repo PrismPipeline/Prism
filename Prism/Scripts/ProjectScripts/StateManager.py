@@ -703,9 +703,10 @@ class %s(QWidget, %s.%s, %s.%sClass):
         if not self.getCurrentItem(self.activeList):
             return
 
-        stateSettingsWidth = max(self.w_stateUi.width(), 400)
-        if self.sa_stateSettings.horizontalScrollBar().isVisible() or self.w_stateUi.width() < stateSettingsWidth:
-            newWidth = self.width() + stateSettingsWidth - self.sa_stateSettings.width() + 18
+        stateSettingsWidth = max(self.w_stateUi.minimumSizeHint().width(), 400)
+        availableWidth = self.sa_stateSettings.viewport().width()
+        if availableWidth < stateSettingsWidth:
+            newWidth = self.width() + stateSettingsWidth - availableWidth
             self.resize(newWidth, self.height())
 
     @err_catcher(name=__name__)
@@ -953,8 +954,9 @@ class %s(QWidget, %s.%s, %s.%sClass):
             item: Tree widget item
             column: Column index
         """
-        if item is not None:
-            item.ui.e_name.setFocus()
+        nameField = getattr(getattr(item, "ui", None), "e_name", None)
+        if nameField is not None:
+            nameField.setFocus()
 
     @err_catcher(name=__name__)
     def checkKeyPressed(self, event: Any) -> None:
