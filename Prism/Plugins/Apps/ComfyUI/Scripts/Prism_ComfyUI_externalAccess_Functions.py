@@ -12,7 +12,7 @@
 #
 #
 # Copyright (C) 2016-2023 Richard Frangenberg
-# Copyright (C) 2023 Prism Software GmbH
+# Copyright (C) 2023-2026 Prism Software GmbH
 #
 # Licensed under GNU LGPL-3.0-or-later
 #
@@ -84,6 +84,8 @@ class Prism_ComfyUI_externalAccess_Functions(object):
         self._reconnect_grace_timeout_ms = 15000
         self._initial_connection_timer = None
         self._reconnect_grace_timer = None
+        self._context_ready = False
+        self._pending_project_browser = False
 
         extModPath = os.path.join(self.pluginDirectory, "ExternalModules")
         cpModPath = os.path.join(extModPath, "CrossPlatform")
@@ -98,6 +100,7 @@ class Prism_ComfyUI_externalAccess_Functions(object):
         self.core.registerStyleSheet(ssheetPath)
 
         if self.core.requestedApp in ["ComfyUI"] and self.core.uiAvailable:
+            self.core.registerCallback("postInitialize", self.onContextInitialized, plugin=self.plugin)
             self.ws_server = PrismWebSocketServer(self.core)
             self.ws_server.command_received.connect(self.handle_comfyui_command)
             self.ws_server.connection_state_changed.connect(self.onConnectionStateChanged)
@@ -112,6 +115,32 @@ class Prism_ComfyUI_externalAccess_Functions(object):
 
         self.core.registerCallback("getPresetScenes", self.getPresetScenes, plugin=self.plugin)
         self.core.registerCallback("openPBFileContextMenu", self.openPBFileContextMenu, plugin=self.plugin)
+
+    def onContextInitialized(self):
+        QTimer.singleShot(0, self._finishContextStartup)
+
+    def _finishContextStartup(self):
+        if self.core.status != "loaded":
+            QTimer.singleShot(50, self._finishContextStartup)
+            return
+        self._context_ready = True
+        self.ws_server.send_command({"action": "prism_context_ready", "ready": True})
+        if self._pending_project_browser:
+            self._pending_project_browser = False
+            self.openProjectBrowserWhenReady()
+
+    def openProjectBrowserWhenReady(self):
+        if not self._context_ready:
+            self._pending_project_browser = True
+            return
+        browser = getattr(self.core, "pb", None)
+        if browser and browser.isVisible():
+            if browser.isMinimized():
+                browser.showNormal()
+            browser.activateWindow()
+            browser.raise_()
+            return
+        self.core.projectBrowser()
 
     @err_catcher(name=__name__)
     def onPluginLoaded(self, plugin):
@@ -243,7 +272,9 @@ class Prism_ComfyUI_externalAccess_Functions(object):
                 logger.info(f"Received ComfyUI root from context connection: {self.comfyui_root}")
 
         elif action == "open_project_browser":
-            self.core.projectBrowser()
+            self.openProjectBrowserWhenReady()
+        elif action == "get_context_status":
+            self.ws_server.send_command({"action": "prism_context_ready", "ready": self._context_ready})
         elif action == "open_settings":
             self.core.prismSettings()
         elif action == "save_version":

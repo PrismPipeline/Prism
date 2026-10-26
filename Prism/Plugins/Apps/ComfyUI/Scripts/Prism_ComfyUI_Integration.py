@@ -12,7 +12,7 @@
 #
 #
 # Copyright (C) 2016-2023 Richard Frangenberg
-# Copyright (C) 2023 Prism Software GmbH
+# Copyright (C) 2023-2026 Prism Software GmbH
 #
 # Licensed under GNU LGPL-3.0-or-later
 #
@@ -103,8 +103,7 @@ class Prism_ComfyUI_Integration(object):
         if overridePath:
             return os.path.normpath(os.path.expandvars(os.path.expanduser(overridePath)))
 
-        userProfile = os.getenv("USERPROFILE") or os.path.expanduser("~")
-        return os.path.join(userProfile, "Documents", "Prism2", "comfy.json")
+        return os.path.join(self.core.getUserPrefDir(), "comfy.json")
 
     @err_catcher(name=__name__)
     def writeComfyConfig(self):

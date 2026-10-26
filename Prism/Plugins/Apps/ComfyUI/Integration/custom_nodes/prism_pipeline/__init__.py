@@ -1,4 +1,39 @@
+# -*- coding: utf-8 -*-
+#
+####################################################
+#
+# PRISM - Pipeline for animation and VFX projects
+#
+# www.prism-pipeline.com
+#
+# contact: contact@prism-pipeline.com
+#
+####################################################
+#
+#
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023-2026 Prism Software GmbH
+#
+# Licensed under GNU LGPL-3.0-or-later
+#
+# This file is part of Prism.
+#
+# Prism is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Prism is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with Prism.  If not, see <https://www.gnu.org/licenses/>.
+
+
 from .prism import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
+from .config import get_comfy_config_path
 import os
 import json
 import sys
@@ -7,6 +42,9 @@ import time
 import threading
 import tempfile
 import glob
+import shutil
+import asyncio
+import signal
 import urllib.error
 import urllib.request
 from aiohttp import web
@@ -15,6 +53,10 @@ from server import PromptServer
 WEB_DIRECTORY = "./js"
 _PIPE_DRAIN_THREADS = []
 _SETUP_PROCESSES = {}
+_SETUP_JOBS = {}
+_SETUP_LOCK = threading.RLock()
+_CONTEXT_PROCESS = None
+_CONTEXT_LOCK = threading.Lock()
 PRISM_SETUP_SCRIPT_URL = "https://service.prism-pipeline.com/api/service/setup_comfy"
 
 
@@ -23,12 +65,7 @@ def _get_comfyui_root():
 
 
 def _get_comfy_config_path():
-    override_path = os.getenv("PRISM_COMFYUI_CONFIG_PATH", "")
-    if override_path:
-        return os.path.normpath(os.path.expandvars(os.path.expanduser(override_path)))
-
-    user_profile = os.getenv("USERPROFILE") or os.path.expanduser("~")
-    return os.path.join(user_profile, "Documents", "Prism2", "comfy.json")
+    return get_comfy_config_path()
 
 
 def _read_comfy_config():
@@ -57,7 +94,10 @@ def _find_plugin_root(prism_root, configured_plugin_root=""):
 
 
 def _get_prism_python_executable(prism_root):
-    for executable in ("Prism.exe", "python.exe"):
+    executables = ("Prism.exe", "python.exe") if sys.platform == "win32" else (
+        "bin/python", "bin/python3"
+    )
+    for executable in executables:
         candidate = os.path.join(prism_root, "Python313", executable)
         if os.path.isfile(candidate):
             return candidate
@@ -270,8 +310,9 @@ namespace PrismFolderPicker {
     return prism_root
 
 
-def _download_and_run_prism_setup():
-    setup_path = os.path.join(tempfile.gettempdir(), "PrismSetup.py")
+def _download_and_run_prism_setup(setup_job=None):
+    if setup_job and setup_job["cancelled"].is_set():
+        raise InterruptedError("Prism setup was cancelled.")
     print(f"[Prism] Downloading ComfyUI setup script from {PRISM_SETUP_SCRIPT_URL}")
     request = urllib.request.Request(
         PRISM_SETUP_SCRIPT_URL, headers={"User-Agent": "Prism-ComfyUI"}
@@ -283,14 +324,72 @@ def _download_and_run_prism_setup():
         content = response.read()
     if not content:
         raise RuntimeError("Setup service returned an empty script.")
-    with open(setup_path, "wb") as setup_file:
-        setup_file.write(content)
-    print(f"[Prism] Downloaded {len(content)} bytes to {setup_path}")
-    pythonw_path = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
-    setup_python = pythonw_path if os.path.isfile(pythonw_path) else sys.executable
-    return _run_python_script(
-        setup_python, setup_path, cwd=os.path.dirname(setup_path), track_setup=True
-    )
+    setup_dir = tempfile.mkdtemp(prefix="prism-comfy-setup-")
+    setup_path = os.path.join(setup_dir, "PrismSetup.py")
+    result_path = os.path.join(setup_dir, "result.json")
+    try:
+        with open(setup_path, "wb") as setup_file:
+            setup_file.write(content)
+        with _SETUP_LOCK:
+            if setup_job and setup_job["cancelled"].is_set():
+                raise InterruptedError("Prism setup was cancelled.")
+            result = _run_python_script(
+                sys.executable, setup_path, cwd=setup_dir, track_setup=True,
+                setup_result_path=result_path,
+            )
+            if setup_job:
+                setup_job["pid"] = result["pid"]
+                _SETUP_PROCESSES[result["pid"]]["job"] = setup_job
+            return result
+    except Exception:
+        shutil.rmtree(setup_dir, ignore_errors=True)
+        raise
+
+
+def _cleanup_setup_process(setup_pid):
+    with _SETUP_LOCK:
+        setup_process = _SETUP_PROCESSES.pop(setup_pid, None)
+        if not setup_process:
+            return
+        job = setup_process.get("job")
+        if job:
+            _SETUP_JOBS.pop(job["id"], None)
+    result_path = setup_process.get("result_path")
+    if result_path:
+        shutil.rmtree(os.path.dirname(result_path), ignore_errors=True)
+
+
+def _cancel_prism_setup(setup_id=None, setup_pid=None):
+    with _SETUP_LOCK:
+        if setup_id:
+            job = _SETUP_JOBS.setdefault(setup_id, {
+                "id": setup_id, "cancelled": threading.Event(), "pid": None,
+            })
+            job["cancelled"].set()
+            setup_pid = job["pid"]
+        setup_process = _SETUP_PROCESSES.get(setup_pid)
+        if not setup_process:
+            return
+        setup_process["cancelled"] = True
+        if setup_process.get("job"):
+            setup_process["job"]["cancelled"].set()
+    process = setup_process["process"]
+    if process.poll() is None:
+        if sys.platform == "win32":
+            result = subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True, text=True, check=False, timeout=30,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            if result.returncode and process.poll() is None:
+                raise RuntimeError("Unable to stop Prism setup.")
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.wait(timeout=30)
+    _cleanup_setup_process(setup_pid)
 
 
 def _drain_pipe_to_console(pipe, label, setup_process=None):
@@ -301,6 +400,13 @@ def _drain_pipe_to_console(pipe, label, setup_process=None):
                 print(f"[Prism:{label}] {line}")
                 if setup_process is not None:
                     setup_process["messages"] = (setup_process["messages"] + [line])[-20:]
+                    if setup_process.get("context"):
+                        startup_error = _get_context_startup_error(line)
+                        if startup_error:
+                            setup_process["error"] = startup_error
+                    progress = _get_setup_progress(line)
+                    if progress:
+                        setup_process["progress"] = progress
     except Exception as e:
         print(f"[Prism] Failed to drain {label}: {e}")
     finally:
@@ -308,6 +414,32 @@ def _drain_pipe_to_console(pipe, label, setup_process=None):
             pipe.close()
         except Exception:
             pass
+
+
+def _get_context_startup_error(line):
+    message = line.lower()
+    if "10048" in message or "address already in use" in message or "errno 98" in message:
+        return "Port 8765 is already in use. Close other Prism ComfyUI sessions, then try again."
+    if "error calling python override" in message or "fatal python error" in message:
+        return "Prism encountered an error during startup. Check the ComfyUI console for details."
+    return None
+
+
+def _get_setup_progress(line):
+    message = line.lower()
+    if "dependencies" in message or "pip install" in message or "installing packages" in message or "collecting " in message:
+        return "Installing Python dependencies..."
+    if "setting up" in message and "python" in message or "python.org/ftp/python" in message or "portable python" in message:
+        return "Installing Python 3.13..."
+    if "downloading prism" in message or "downloading repository" in message:
+        return "Downloading Prism..."
+    if "extraction complete" in message or "moving prism" in message:
+        return "Installing Prism..."
+    if "shortcut" in message:
+        return "Finishing Prism setup..."
+    if "completed successfully" in message or "already installed" in message:
+        return "Checking the Prism installation..."
+    return None
 
 
 def _start_process_pipe_drainers(process, setup_process=None):
@@ -327,7 +459,8 @@ def _start_process_pipe_drainers(process, setup_process=None):
         _PIPE_DRAIN_THREADS.append(thread)
 
 
-def _run_python_script(python_executable, script_path, script_args=None, cwd=None, track_setup=False):
+def _run_python_script(python_executable, script_path, script_args=None, cwd=None, track_setup=False, setup_result_path=None, track_context=False):
+    global _CONTEXT_PROCESS
     if not python_executable:
         raise ValueError("Missing python_executable")
 
@@ -341,10 +474,16 @@ def _run_python_script(python_executable, script_path, script_args=None, cwd=Non
     if script_args:
         args.extend([str(arg) for arg in script_args])
 
-    popen_kwargs = {}
     popen_kwargs = {"cwd": cwd or None}
-    if os.name == "nt":
-        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
+    if track_setup or track_context:
+        popen_kwargs["stdin"] = subprocess.DEVNULL
+        popen_kwargs["env"] = dict(os.environ, PYTHONUNBUFFERED="1")
+        if setup_result_path:
+            popen_kwargs["env"]["PRISM_COMFYUI_SETUP_RESULT"] = setup_result_path
+    if sys.platform == "win32":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    elif track_setup:
+        popen_kwargs["start_new_session"] = True
 
     print(f"[Prism] Running Python script: {args} with cwd={cwd}")
     process = subprocess.Popen(
@@ -359,13 +498,46 @@ def _run_python_script(python_executable, script_path, script_args=None, cwd=Non
     )
     setup_process = None
     if track_setup:
-        setup_process = {"process": process, "messages": []}
+        setup_process = {
+            "process": process, "messages": [], "result_path": setup_result_path,
+            "progress": "Downloading Prism...",
+        }
         _SETUP_PROCESSES[process.pid] = setup_process
+    elif track_context:
+        setup_process = {"process": process, "messages": [], "context": True, "error": ""}
+        _CONTEXT_PROCESS = setup_process
     _start_process_pipe_drainers(process, setup_process=setup_process)
     if process.poll() is not None:  # Check if the process has terminated
         print(f"[Prism] Process terminated immediately: {args}")
 
     return {"pid": process.pid, "command": args}
+
+
+def _launch_prism_context(python_executable, script_path, script_args=None, cwd=None):
+    with _CONTEXT_LOCK:
+        if _CONTEXT_PROCESS and _CONTEXT_PROCESS["process"].poll() is None:
+            if _CONTEXT_PROCESS.get("error"):
+                raise RuntimeError(_CONTEXT_PROCESS["error"])
+            return {"pid": _CONTEXT_PROCESS["process"].pid, "already_running": True}
+        return _run_python_script(
+            python_executable, script_path, script_args, cwd, track_context=True,
+        )
+
+
+@PromptServer.instance.routes.get("/prism/get_context_status")
+async def get_context_status(request):
+    state = _CONTEXT_PROCESS
+    try:
+        requested_pid = int(request.query.get("pid"))
+    except (TypeError, ValueError):
+        return web.json_response({"success": False, "error": "Invalid Prism process ID."}, status=400)
+    if not state or state["process"].pid != requested_pid:
+        return web.json_response({"success": False, "running": False, "error": "The Prism startup process could not be found. Please try again."})
+    running = state["process"].poll() is None
+    error = state.get("error", "")
+    if not running and not error:
+        error = "Prism closed before it could connect. Check the ComfyUI console for details."
+    return web.json_response({"success": not bool(error), "running": running, "error": error})
 
 
 @PromptServer.instance.routes.get("/prism/get_comfyui_root")
@@ -422,14 +594,47 @@ async def browse_prism_root(request):
 
 @PromptServer.instance.routes.post("/prism/download_prism_setup")
 async def download_prism_setup(request):
+    setup_job = None
     try:
+        data = await request.json()
+        setup_id = str(data.get("setup_id") or "")
+        if not setup_id or len(setup_id) > 128:
+            return web.json_response({"success": False, "error": "Invalid setup request."}, status=400)
+        with _SETUP_LOCK:
+            setup_job = _SETUP_JOBS.setdefault(setup_id, {
+                "id": setup_id, "cancelled": threading.Event(), "pid": None,
+            })
         print("[Prism] Received ComfyUI setup download request.")
-        result = _download_and_run_prism_setup()
+        result = await asyncio.to_thread(_download_and_run_prism_setup, setup_job)
         print(f"[Prism] Started ComfyUI setup process: pid={result['pid']}")
         return web.json_response({"success": True, **result})
+    except InterruptedError:
+        return web.json_response({"success": False, "cancelled": True})
     except Exception as error:
         print(f"[Prism] Failed to download or start ComfyUI setup: {error}")
-        return web.json_response({"success": False, "error": str(error)}, status=500)
+        return web.json_response({"success": False, "error": "Unable to start Prism setup. Check the ComfyUI console and try again."}, status=500)
+    finally:
+        if setup_job and setup_job["pid"] is None:
+            with _SETUP_LOCK:
+                _SETUP_JOBS.pop(setup_job["id"], None)
+
+
+@PromptServer.instance.routes.post("/prism/cancel_prism_setup")
+async def cancel_prism_setup(request):
+    try:
+        data = await request.json()
+        setup_id = str(data.get("setup_id") or "")
+        setup_pid = int(data["pid"]) if data.get("pid") is not None else None
+        if (not setup_id and setup_pid is None) or len(setup_id) > 128:
+            raise ValueError("Invalid setup request.")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return web.json_response({"success": False, "error": "Invalid setup request."}, status=400)
+    try:
+        await asyncio.to_thread(_cancel_prism_setup, setup_id, setup_pid)
+        return web.json_response({"success": True, "cancelled": True})
+    except Exception as error:
+        print(f"[Prism] Could not stop setup: {error}")
+        return web.json_response({"success": False, "error": "Unable to stop setup. Check the ComfyUI console."}, status=500)
 
 
 @PromptServer.instance.routes.post("/prism/complete_prism_setup")
@@ -445,29 +650,37 @@ async def complete_prism_setup(request):
         return web.json_response({"success": False, "error": "Prism setup process was not found."}, status=404)
 
     process = setup_process["process"]
-    message = setup_process["messages"][-1] if setup_process["messages"] else "Installing Prism..."
+    if setup_process.get("cancelled"):
+        return web.json_response({"success": False, "installed": False, "cancelled": True})
+    message = setup_process.get("progress", "Installing Prism...")
     return_code = process.poll()
     if return_code is None:
         return web.json_response({"success": False, "installed": False, "running": True, "message": message})
     if return_code != 0:
-        _SETUP_PROCESSES.pop(setup_pid, None)
+        _cleanup_setup_process(setup_pid)
         return web.json_response({
             "success": False,
-            "installed": True,
-            "error": "Prism setup failed (exit code %s): %s" % (return_code, message),
+            "installed": False,
+            "error": "Prism setup failed. Check the ComfyUI console for details, then try again.",
         }, status=500)
 
-    prism_root = _get_latest_downloaded_prism_folder()
-    if not prism_root:
-        print("[Prism] Setup completion check: no Prism installation found yet.")
-        return web.json_response({"success": False, "installed": False})
-
-    success, error = _save_prism_root(prism_root)
-    _SETUP_PROCESSES.pop(setup_pid, None)
+    prism_root = ""
+    result_path = setup_process.get("result_path")
+    try:
+        if not result_path:
+            raise RuntimeError("Prism setup did not provide an installation result.")
+        with open(result_path, encoding="utf-8") as result_file:
+            prism_root = json.load(result_file)["prism_root"]
+        success, error = _save_prism_root(prism_root)
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exception:
+        print(f"[Prism] Setup completion failed: {exception}")
+        success, error = False, "Prism setup could not be completed. Check the ComfyUI console and try again."
+    finally:
+        _cleanup_setup_process(setup_pid)
     print(f"[Prism] Setup completion check: root={prism_root}, success={success}")
     return web.json_response({
         "success": success,
-        "installed": True,
+        "installed": success,
         "prism_root": prism_root,
         "error": error,
     }, status=200 if success else 500)
@@ -483,7 +696,8 @@ async def run_python_script(request):
         script_args = data.get("script_args") or []
         cwd = data.get("cwd")
 
-        result = _run_python_script(
+        launcher = _launch_prism_context if os.path.basename(script_path or "") == "Prism_ComfyUI_MenuTools.py" else _run_python_script
+        result = launcher(
             python_executable=python_executable,
             script_path=script_path,
             script_args=script_args,

@@ -98,11 +98,14 @@ class PrismWebSocketClient {
     this.socket = null;
     this.reconnectInterval = 5000;
     this.isConnected = false;
+    this.contextReady = false;
+    this.projectBrowserRequestsSent = 0;
     this.failedReconnectAttempts = 0;
     this.reconnectCancelled = false;
     this.connectionInProgress = false;
     this.reconnectTimer = null;
     this.contextLaunchInProgress = false;
+    this.contextStartPromise = null;
     this.lastContextLaunchTs = 0;
     this.contextLaunchCooldownMs = 10000;
     this.pendingCommands = [];
@@ -145,7 +148,36 @@ class PrismWebSocketClient {
     }
   }
 
-  async runPythonScript(pythonExecutable, scriptPath, scriptArgs = [], cwd = null) {
+  runPythonScript(pythonExecutable, scriptPath, scriptArgs = [], cwd = null) {
+    if (this.contextStartPromise) return this.contextStartPromise;
+    this.contextStartPromise = this.startPrismContext(pythonExecutable, scriptPath, scriptArgs, cwd)
+      .finally(() => { this.contextStartPromise = null; });
+    return this.contextStartPromise;
+  }
+
+  async waitForPrismContext(pid) {
+    const deadline = Date.now() + 30000;
+    this.startConnectionAttempt();
+    while (Date.now() < deadline) {
+      let response;
+      let data;
+      try {
+        response = await fetch(`/prism/get_context_status?pid=${encodeURIComponent(pid)}`);
+        data = await response.json();
+      } catch (error) {
+        throw new Error('Could not check Prism startup. Restart ComfyUI and try again.');
+      }
+      if (!response.ok || !data.success || !data.running) {
+        throw new Error(data.error || 'Prism closed before it could connect. Check the ComfyUI console for details.');
+      }
+      if (this.contextReady && this.isConnected && this.socket?.readyState === WebSocket.OPEN) return true;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    throw new Error('Prism did not finish initializing within 30 seconds. Check the ComfyUI console for details.');
+  }
+
+  async startPrismContext(pythonExecutable, scriptPath, scriptArgs = [], cwd = null) {
+    this.reconnectCancelled = false;
     try {
       console.log('[Prism] Running Python script:', {
         pythonExecutable,
@@ -170,9 +202,13 @@ class PrismWebSocketClient {
       }
 
       console.log('[Prism] Started Prism Comfy context process:', data);
-      return true;
+      return await this.waitForPrismContext(data.pid);
     } catch (error) {
       console.warn('[Prism] Failed to start Prism Comfy context process:', error);
+      this.reconnectCancelled = true;
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+      window.alert(`Prism could not start.\n\n${error.message || 'Check the ComfyUI console for details, then try again.'}`);
       return false;
     }
   }
@@ -200,35 +236,93 @@ class PrismWebSocketClient {
 
       const status = backdrop.querySelector('#prism-config-status');
       const actions = backdrop.querySelector('#prism-config-actions');
-      const close = (configured) => {
+      const title = backdrop.querySelector('#prism-config-title');
+      let setupId = null;
+      let setupRunning = false;
+      let closing = false;
+      let closed = false;
+      const setSetupRunning = (running) => {
+        setupRunning = running;
+        actions.hidden = running;
+        actions.style.display = running ? 'none' : '';
+        title.textContent = running ? 'Prism setup in progress' : 'Prism is not configured';
+      };
+      const cancelSetup = async () => {
+        if (!setupId) return;
+        const response = await fetch('/prism/cancel_prism_setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ setup_id: setupId }),
+          keepalive: true,
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error('Unable to stop setup. Check the ComfyUI console and try Cancel again.');
+        }
+      };
+      const cancelOnPageHide = () => {
+        if (!setupRunning || !setupId) return;
+        closing = true;
+        const body = new Blob([JSON.stringify({ setup_id: setupId })], { type: 'application/json' });
+        if (!navigator.sendBeacon('/prism/cancel_prism_setup', body)) {
+          void cancelSetup().catch((error) => console.warn('[Prism] Could not cancel setup:', error));
+        }
+      };
+      const onKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          void close(false);
+        }
+      };
+      const finishClose = (configured) => {
+        closed = true;
+        window.removeEventListener('pagehide', cancelOnPageHide);
+        document.removeEventListener('keydown', onKeyDown);
         backdrop.remove();
         resolve(configured);
       };
+      const close = async (configured) => {
+        if (closed || closing) return;
+        closing = true;
+        if (!configured && setupRunning) {
+          status.textContent = 'Stopping Prism setup...';
+          try {
+            await cancelSetup();
+          } catch (error) {
+            closing = false;
+            showError(error.message);
+            return;
+          }
+        }
+        finishClose(configured);
+      };
+      window.addEventListener('pagehide', cancelOnPageHide);
+      document.addEventListener('keydown', onKeyDown);
       const showError = (message) => {
         status.style.color = 'var(--error-text, #f08a8a)';
         status.textContent = message;
         status.hidden = !message;
       };
-      const showSetupSuccess = () => {
-        status.textContent = 'Prism was installed and started successfully.';
-        status.style.color = 'var(--success-text, #86d993)';
-        status.hidden = false;
-        actions.innerHTML = '<button type="button" class="prism-config-primary" id="prism-config-open"><i class="pi pi-briefcase" aria-hidden="true"></i>Open Prism</button>';
-        actions.querySelector('#prism-config-open').addEventListener('click', () => {
-          this.sendToDesktopApp({ action: 'open_project_browser' });
-        });
-        backdrop.querySelector('#prism-config-cancel').innerHTML = '<i class="pi pi-times" aria-hidden="true"></i>Close';
-      };
       const waitForSetupCompletion = async (setupPid) => {
-        for (let attempt = 0; attempt < 90; attempt += 1) {
+        for (let attempt = 0; attempt < 900 && !closed && !closing; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
+          if (closed || closing) return;
           const response = await fetch('/prism/complete_prism_setup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pid: setupPid }),
           });
           const data = await response.json();
+          if (closed || closing) return;
           console.info('[Prism] Download Prism: setup completion check.', { attempt, data });
+          if (!response.ok || data.error) {
+            throw new Error('Prism setup failed. Check the ComfyUI console and try again.');
+          }
+          if (data.cancelled) {
+            setupRunning = false;
+            finishClose(false);
+            return;
+          }
           if (!data.installed) {
             if (data.message) {
               status.textContent = data.message;
@@ -236,14 +330,24 @@ class PrismWebSocketClient {
             continue;
           }
           if (!response.ok || !data.success) {
-            showError(data.error || 'Prism was installed, but its configuration could not be saved.');
-            return;
+            throw new Error('Prism could not be configured. Check the ComfyUI console and try again.');
           }
-          await this.ensurePrismComfyContextRunning(true);
-          showSetupSuccess();
+          setupRunning = false;
+          setupId = null;
+          status.textContent = 'Opening Prism Project Browser...';
+          const browserRequestsBeforeStartup = this.projectBrowserRequestsSent;
+          const started = await this.ensurePrismComfyContextRunning(true);
+          if (closed || closing) return;
+          if (!started) {
+            throw new Error('Prism is installed but could not be opened. Check the ComfyUI console.');
+          }
+          this.openProjectBrowserAfterSetup(browserRequestsBeforeStartup);
+          finishClose('started');
           return;
         }
-        showError('Prism setup did not complete within three minutes. You can use Find existing Prism after setup finishes.');
+        if (closed || closing) return;
+        await cancelSetup();
+        throw new Error('Prism setup took too long and was stopped. Check the ComfyUI console before retrying.');
       };
 
       backdrop.querySelector('#prism-config-cancel').addEventListener('click', () => close(false));
@@ -297,9 +401,25 @@ class PrismWebSocketClient {
       });
       backdrop.querySelector('#prism-config-download').addEventListener('click', async () => {
         console.info('[Prism] Download Prism: requesting setup script.');
+        const downloadButton = backdrop.querySelector('#prism-config-download');
+        if (setupRunning || closed || closing) return;
+        downloadButton.disabled = true;
+        setupId = crypto.randomUUID?.() || Array.from(
+          crypto.getRandomValues(new Uint8Array(16)),
+          value => value.toString(16).padStart(2, '0'),
+        ).join('');
+        setSetupRunning(true);
+        status.textContent = 'Preparing Prism setup...';
+        status.style.color = 'var(--input-text, #eee)';
+        status.hidden = false;
         try {
-          const response = await fetch('/prism/download_prism_setup', { method: 'POST' });
+          const response = await fetch('/prism/download_prism_setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ setup_id: setupId }),
+          });
           const responseText = await response.text();
+          if (closed || closing) return;
           console.info('[Prism] Download Prism: setup response.', {
             status: response.status,
             ok: response.ok,
@@ -308,15 +428,26 @@ class PrismWebSocketClient {
           const data = JSON.parse(responseText);
           if (response.ok && data.success) {
             status.textContent = 'Downloading and installing Prism...';
-            status.style.color = 'var(--success-text, #86d993)';
-            status.hidden = false;
             await waitForSetupCompletion(data.pid);
           } else {
-            showError(data.error || 'Unable to download or start Prism setup.');
+            throw new Error('Unable to start Prism setup. Check your internet connection and try again.');
           }
         } catch (error) {
           console.warn('[Prism] Failed to download Prism:', error);
-          showError('Unable to download or start Prism setup. See the browser console for details.');
+          if (closed || closing) return;
+          if (setupRunning) {
+            try {
+              await cancelSetup();
+            } catch (cancelError) {
+              showError(cancelError.message);
+              return;
+            }
+          }
+          setSetupRunning(false);
+          setupId = null;
+          showError(error.message || 'Prism setup failed. Check the ComfyUI console and try again.');
+        } finally {
+          downloadButton.disabled = false;
         }
       });
       backdrop.querySelector('#prism-config-help').addEventListener('click', () => {
@@ -326,10 +457,20 @@ class PrismWebSocketClient {
     });
   }
 
+  openProjectBrowserAfterSetup(previousRequests) {
+    if (this.projectBrowserRequestsSent === previousRequests) {
+      this.sendToDesktopApp({ action: 'open_project_browser' });
+    }
+  }
+
   async ensurePrismComfyContextRunning(force = false, promptForPrismPath = false) {
+    if (this.isConnected && this.socket?.readyState === WebSocket.OPEN) {
+      return this.contextReady || this.contextStartPromise || false;
+    }
+    if (this.reconnectCancelled && !force && !promptForPrismPath) return false;
     const now = Date.now();
     if (this.contextLaunchInProgress) {
-      return false;
+      return this.contextStartPromise || false;
     }
 
     if (!force && !promptForPrismPath && now - this.lastContextLaunchTs < this.contextLaunchCooldownMs) {
@@ -346,8 +487,10 @@ class PrismWebSocketClient {
         this.prismUnavailable = Boolean(data.requires_prism_path);
         if (this.prismUnavailable && promptForPrismPath && !this.prismPathPrompted) {
           this.prismPathPrompted = true;
+          this.contextLaunchInProgress = false;
           const configured = await this.configurePrismRoot();
           this.prismPathPrompted = false;
+          if (configured === 'started') return true;
           if (configured) {
             this.prismUnavailable = false;
             this.lastContextLaunchTs = 0;
@@ -377,8 +520,8 @@ class PrismWebSocketClient {
       return;
     }
 
-    this.failedReconnectAttempts += 1;
-    if (this.failedReconnectAttempts >= 3) {
+    if (!this.contextLaunchInProgress) this.failedReconnectAttempts += 1;
+    if (!this.contextLaunchInProgress && this.failedReconnectAttempts >= 3) {
       const retry = window.confirm("ComfyUI could not connect to Prism. Do you want to retry?");
       if (!retry) {
         this.reconnectCancelled = true;
@@ -419,6 +562,7 @@ class PrismWebSocketClient {
       this.socket.onopen = async () => {
         console.log("[Prism] Connected to ComfyUI context Prism");
         this.isConnected = true;
+        this.contextReady = false;
         this.connectionInProgress = false;
         this.failedReconnectAttempts = 0;
 
@@ -427,7 +571,7 @@ class PrismWebSocketClient {
           action: "set_comfyui_root",
           comfyui_root: comfyuiRoot
         });
-        this.sendPendingCommands();
+        this.sendToDesktopApp({ action: 'get_context_status' });
       };
       
       this.socket.onmessage = (event) => {
@@ -444,6 +588,7 @@ class PrismWebSocketClient {
         const wasConnected = this.isConnected;
         console.log("[Prism] Disconnected from ComfyUI context Prism. Reconnecting...");
         this.isConnected = false;
+        this.contextReady = false;
         this.connectionInProgress = false;
 
         if (!wasConnected) {
@@ -466,6 +611,12 @@ class PrismWebSocketClient {
     const action = data.action;
     
     switch (action) {
+      case "prism_context_ready":
+        if (data.ready && !this.contextReady) {
+          this.contextReady = true;
+          this.sendPendingCommands();
+        }
+        break;
       case "create_node":
         this.createNode(data.node_type, data.position, data.widget_values);
         break;
@@ -1082,12 +1233,19 @@ class PrismWebSocketClient {
   }
   
   sendToDesktopApp(command) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+    const socketOpen = this.socket && this.socket.readyState === WebSocket.OPEN;
+    const startupCommand = ['set_comfyui_root', 'get_context_status'].includes(command.action);
+    if (socketOpen && (this.contextReady || startupCommand)) {
       this.socket.send(JSON.stringify(command));
+      if (command.action === 'open_project_browser') this.projectBrowserRequestsSent += 1;
       console.log("[Prism] Sent to Desktop App:", command);
     } else {
-      console.warn("[Prism] Not connected to Desktop App");
-      this.pendingCommands.push(command);
+      console.log("[Prism] Waiting for Desktop App initialization");
+      if (command.action !== 'open_project_browser'
+          || !this.pendingCommands.some(pending => pending.action === 'open_project_browser')) {
+        this.pendingCommands.push(command);
+      }
+      if (socketOpen) return;
       this.ensurePrismComfyContextRunning(false, true);
       this.startConnectionAttempt();
     }
@@ -1109,7 +1267,7 @@ api.addEventListener("prism_missing_configuration", async () => {
   prismWS.prismPathPrompted = true;
   const configured = await prismWS.configurePrismRoot();
   prismWS.prismPathPrompted = false;
-  if (configured) {
+  if (configured && configured !== 'started') {
     prismWS.lastContextLaunchTs = 0;
     prismWS.ensurePrismComfyContextRunning(true);
   }

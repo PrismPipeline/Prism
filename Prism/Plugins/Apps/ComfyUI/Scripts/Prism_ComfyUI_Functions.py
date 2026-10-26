@@ -12,7 +12,7 @@
 #
 #
 # Copyright (C) 2016-2023 Richard Frangenberg
-# Copyright (C) 2023 Prism Software GmbH
+# Copyright (C) 2023-2026 Prism Software GmbH
 #
 # Licensed under GNU LGPL-3.0-or-later
 #

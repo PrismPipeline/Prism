@@ -12,7 +12,7 @@
 #
 #
 # Copyright (C) 2016-2023 Richard Frangenberg
-# Copyright (C) 2023 Prism Software GmbH
+# Copyright (C) 2023-2026 Prism Software GmbH
 #
 # Licensed under GNU LGPL-3.0-or-later
 #
@@ -37,7 +37,7 @@ import os
 
 class Prism_ComfyUI_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v2.1.4"
+        self.version = "v2.1.4.1"
         self.pluginName = "ComfyUI"
         self.pluginType = "App"
         self.appShortName = "ComfyUI"
