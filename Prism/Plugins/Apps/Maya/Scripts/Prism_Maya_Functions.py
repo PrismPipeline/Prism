@@ -61,6 +61,7 @@ from qtpy.QtWidgets import *
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PrismUtils.Decorators import err_catcher as err_catcher
+from PrismUtils.PrismWidgets import ContentSizedComboBox as AssetComboBox
 
 
 logger = logging.getLogger(__name__)
@@ -1069,7 +1070,14 @@ class Prism_Maya_Functions(object):
             else:
                 sType = "mayaAscii"
 
-        cmds.file(rename=filepath)
+        try:
+            cmds.file(rename=filepath)
+        except Exception as e:
+            tb = traceback.format_exc()
+            currentScene = self.core.getCurrentFileName(origin)
+            msg = "Failed to rename file to %s: %s\n%s\nCurrent scene: %s\nDetails: %s" % (filepath, str(e), tb, currentScene, details)
+            self.core.writeErrorLog(msg)
+            return False
 
         try:
             result = cmds.file(save=True, type=sType)
@@ -1764,7 +1772,7 @@ class Prism_Maya_Functions(object):
         origin.w_asset.setLayout(origin.lo_asset)
         origin.l_asset = QLabel("Asset:")
         spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Expanding)
-        origin.cb_asset = QComboBox()
+        origin.cb_asset = AssetComboBox()
         origin.lo_asset.addWidget(origin.l_asset)
         origin.lo_asset.addSpacerItem(spacer)
         origin.lo_asset.addWidget(origin.cb_asset)
@@ -2145,7 +2153,7 @@ class Prism_Maya_Functions(object):
                 return 'Canceled: The selection set "%s" is invalid.' % setName
 
             invalidNodes = ["MayaNodeEditorSavedTabsInfo"]
-            validNodes = [node for node in cmds.listConnections(setName) if node not in invalidNodes]
+            validNodes = [node for node in (cmds.listConnections(setName) or []) if node not in invalidNodes]
             cmds.select(validNodes, noExpand=True)
             expNodes = origin.nodes
         else:
@@ -4908,7 +4916,6 @@ print( "READY FOR INPUT\\n" )
                             )
                             return {"result": False, "doImport": doImport}
 
-                        self.deleteNodes(origin, [origin.setName])
                         oldf = os.path.splitext(os.path.basename(oldFname))[0].replace(
                             "-", "_"
                         )
@@ -4917,7 +4924,9 @@ print( "READY FOR INPUT\\n" )
                         except Exception as e:
                             logger.warning("Failed to load reference: " + impFileName + "\n" + str(e))
                             self.core.popup("Failed to load reference: %s\n\nCheck log for details." % impFileName)
+                            return {"result": False, "doImport": doImport}
 
+                        self.deleteNodes(origin, [origin.setName])
                         if oldNs == (":" + oldf):
                             newNs = fileName[0].replace("-", "_")
                             cmds.file(impFileName, e=True, namespace=newNs)

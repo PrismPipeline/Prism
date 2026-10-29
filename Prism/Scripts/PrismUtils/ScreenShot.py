@@ -34,7 +34,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import logging
 from typing import Optional, Any
 
 from qtpy.QtCore import *
@@ -42,6 +44,9 @@ from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher
+
+
+logger = logging.getLogger(__name__)
 
 
 class ScreenShotOverlay(QWidget):
@@ -141,6 +146,7 @@ class ScreenShot(QDialog):
 
     @err_catcher(name=__name__)
     def captureSelection(self, position: QPoint) -> None:
+        """Capture the selection, rejecting failed or partial screen captures."""
         self.updateSelection(position)
         if self.selection is not None:
             for overlay in self.overlays:
@@ -150,23 +156,51 @@ class ScreenShot(QDialog):
             self.imgmap = QPixmap(selection.size())
             self.imgmap.fill(Qt.transparent)
 
-            painter = QPainter(self.imgmap)
-            for screen in QApplication.screens():
-                screen_rect = screen.geometry()
-                capture_rect = selection.intersected(screen_rect)
-                if capture_rect.isEmpty():
-                    continue
+            painter = QPainter()
+            captureSucceeded = False
+            try:
+                if not self.imgmap.isNull() and painter.begin(self.imgmap):
+                    capturedScreen = False
+                    for screen in QApplication.screens():
+                        screen_rect = screen.geometry()
+                        capture_rect = selection.intersected(screen_rect)
+                        if capture_rect.isEmpty():
+                            continue
 
-                pixmap = screen.grabWindow(
-                    0,
-                    capture_rect.x() - screen_rect.x(),
-                    capture_rect.y() - screen_rect.y(),
-                    capture_rect.width(),
-                    capture_rect.height(),
-                )
-                painter.drawPixmap(capture_rect.topLeft() - selection.topLeft(), pixmap)
-            painter.end()
-            self.close()
+                        pixmap = screen.grabWindow(
+                            0,
+                            capture_rect.x() - screen_rect.x(),
+                            capture_rect.y() - screen_rect.y(),
+                            capture_rect.width(),
+                            capture_rect.height(),
+                        )
+                        if pixmap.isNull():
+                            break
+
+                        painter.drawPixmap(capture_rect.topLeft() - selection.topLeft(), pixmap)
+                        capturedScreen = True
+                    else:
+                        captureSucceeded = capturedScreen
+            finally:
+                if painter.isActive():
+                    painter.end()
+                if not captureSucceeded:
+                    self.imgmap = None
+                self.close()
+
+            if not captureSucceeded:
+                msg = "Unable to capture the selected screen area."
+                if sys.platform.startswith("linux"):
+                    msg += (
+                        "\n\nWayland or XWayland may restrict desktop capture."
+                        "\nUse your desktop's screenshot tool, then import or paste "
+                        "the image into Prism."
+                        "\nIf available, you can also try Prism in an X11/Xorg session."
+                    )
+                if os.getenv("PRISM_SHOW_SCREENSHOT_WARNING", "1") == "1":
+                    self.core.popup(msg, title="Screen capture failed")
+                else:
+                    logger.debug(msg)
 
     def exec_(self) -> int:
         self.eventLoop = QEventLoop()
@@ -189,7 +223,7 @@ def grabScreenArea(core: Any) -> Optional[QPixmap]:
         core: Prism core instance
         
     Returns:
-        Captured screen area as QPixmap or None if canceled
+        Captured screen area as QPixmap or None if canceled or capture failed
     """
     ss = ScreenShot(core)
     ss.exec_()

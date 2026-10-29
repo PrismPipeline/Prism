@@ -529,19 +529,25 @@ class Prism_Blender_Functions(object):
         Returns:
             Result of creation operation.
         """
-        if bpy.app.version < (2, 80, 0):
-            return bpy.ops.group.create(self.getOverrideContext(), name=name)
-        else:
-            if bpy.app.version < (4, 0, 0):
-                if bpy.ops.collection.create.poll(self.getOverrideContext()):
-                    return bpy.ops.collection.create(self.getOverrideContext(), name=name)
+        try:
+            if bpy.app.version < (2, 80, 0):
+                return bpy.ops.group.create(self.getOverrideContext(), name=name)
             else:
-                ctx = self.getOverrideContext()
-                ctx.pop("region")
-                ctx.pop("screen", None)
-                with bpy.context.temp_override(**ctx):
-                    if bpy.ops.collection.create.poll():
-                        return bpy.ops.collection.create(name=name)
+                if bpy.app.version < (4, 0, 0):
+                    if bpy.ops.collection.create.poll(self.getOverrideContext()):
+                        return bpy.ops.collection.create(self.getOverrideContext(), name=name)
+                else:
+                    ctx = self.getOverrideContext()
+                    ctx.pop("region")
+                    ctx.pop("screen", None)
+                    with bpy.context.temp_override(**ctx):
+                        if bpy.ops.collection.create.poll():
+                            return bpy.ops.collection.create(name=name)
+        except RuntimeError as error:
+            if "modify blend data in this state (drawing/rendering)" not in str(error):
+                raise
+
+            logger.debug(str(error))
 
     @err_catcher(name=__name__)
     def getSelectObject(self, obj: Any) -> bool:
@@ -867,7 +873,10 @@ class Prism_Blender_Functions(object):
         if prevTaskName and prevTaskName in self.getGroups():
             self.getGroups()[prevTaskName].name = setName
         else:
-            self.createGroups(name=setName)
+            result = self.createGroups(name=setName)
+            if not result:
+                self.core.popup("Couldn't create the export collection. Please try again when Blender is idle and not rendering.")
+                return prevTaskName
 
         return setName
 
@@ -3290,7 +3299,7 @@ class Prism_Blender_Functions(object):
             bpy.context.scene.render.ffmpeg.audio_codec = "MP3"
             renderAnim = True
    
-        ctx = self.core.appPlugin.getOverrideContext(origin)
+        ctx = self.core.appPlugin.getOverrideContext(origin, context="VIEW_3D")
         if viewLayer:
             ctx['view_layer'] = viewLayer
 

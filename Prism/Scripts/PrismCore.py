@@ -44,6 +44,7 @@ import errno
 import stat
 import re
 import subprocess
+import shlex
 import logging
 import tempfile
 import glob
@@ -227,7 +228,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v2.1.4.1"
+            self.version = "v2.1.4.2"
             self.requiredLibraries = "v2.0.0"
             self.core = self
             self.preferredExtension = os.getenv("PRISM_CONFIG_EXTENSION", ".json")
@@ -1892,7 +1893,7 @@ License: GNU LGPL-3.0-or-later<br>
         Returns:
             Any: Installer instance.
         """
-        if getattr(self, "pinst", None) and self.pinst.isVisible():
+        if self.isObjectValid(getattr(self, "pinst", None)) and self.pinst.isVisible():
             self.pinst.close()
 
         if eval(os.getenv("PRISM_DEBUG", "False")):
@@ -3272,18 +3273,21 @@ License: GNU LGPL-3.0-or-later<br>
         return paths
 
     @err_catcher(name=__name__)
-    def copySceneFile(self, origFile: str, targetFile: str, mode: str = "copy") -> None:
+    def copySceneFile(self, origFile: str, targetFile: str, mode: str = "copy") -> bool:
         """Copy or move scene file with metadata.
         
         Args:
             origFile (str): Source file path.
             targetFile (str): Destination file path.
             mode (str, optional): "copy" or "move". Defaults to "copy".
+
+        Returns:
+            bool: Whether the main scene file transfer succeeded.
         """
         origFile = self.fixPath(origFile)
         targetFile = self.fixPath(targetFile)
         if origFile == targetFile:
-            return
+            return True
 
         if not os.path.exists(os.path.dirname(targetFile)):
             while not os.path.exists(os.path.dirname(targetFile)):
@@ -3295,7 +3299,7 @@ License: GNU LGPL-3.0-or-later<br>
                     if result == "Retry":
                         continue
                     else:
-                        return
+                        return False
 
         if mode == "copy":
             try:
@@ -3303,7 +3307,7 @@ License: GNU LGPL-3.0-or-later<br>
             except Exception as e:
                 msg = "Failed to copy scene file:\n\n%s\n\nError: %s" % (origFile, str(e))
                 self.core.popup(msg)
-                return
+                return False
 
         elif mode == "move":
             try:
@@ -3311,7 +3315,7 @@ License: GNU LGPL-3.0-or-later<br>
             except Exception as e:
                 msg = "Failed to move scene file:\n\n%s\n\nError: %s" % (origFile, str(e))
                 self.core.popup(msg)
-                return
+                return False
 
         infoPath = (
             os.path.splitext(origFile)[0]
@@ -3367,6 +3371,8 @@ License: GNU LGPL-3.0-or-later<br>
                     getattr(i, "copySceneFile", lambda x1, x2, x3, mode: None)(
                         self, origFile, targetFile, mode=mode
                     )
+
+        return True
 
     @err_catcher(name=__name__)
     def getRecentScenefiles(self, project: Optional[str] = None) -> List[str]:
@@ -4964,6 +4970,10 @@ License: GNU LGPL-3.0-or-later<br>
 
         os.environ["PRISM_JOB_LOCAL"] = ljob
 
+    def getLinuxTrayPaths(self) -> Dict[str, str]:
+        """Return per-user Linux tray launcher paths, respecting XDG overrides."""
+        return getLinuxTrayPaths(self.prismRoot)
+
     @err_catcher(name=__name__)
     def setTrayStartup(self, enabled: bool) -> bool:
         """Enable/disable Prism Tray autostart (cross-platform).
@@ -4978,34 +4988,17 @@ License: GNU LGPL-3.0-or-later<br>
             self.setTrayStartupWindows(enabled)
 
         elif platform.system() == "Linux":
-            trayStartup = "/etc/xdg/autostart/PrismTray.desktop"
-            trayLnk = self.core.fixPath(
-                os.path.join(self.core.prismLibs, "Tools", "PrismTray.desktop")
-            )
-
-            if os.path.exists(trayStartup):
-                try:
-                    os.remove(trayStartup)
-                except:
-                    msg = "Failed to remove autostart file: %s" % trayStartup
-                    self.popup(msg)
-                    return False
-
-            if enabled:
-                if os.path.exists(trayLnk):
-                    try:
-                        shutil.copy2(trayLnk, trayStartup)
-                        os.chmod(trayStartup, 0o777)
-                    except Exception as e:
-                        self.core.popup("Failed to copy autostart file: %s" % e)
-                        return False
-                else:
-                    msg = (
-                        "Cannot add Prism to the autostart because this file doesn't exist:\n\n%s"
-                        % (trayLnk)
-                    )
-                    self.popup(msg)
-                    return False
+            paths = self.getLinuxTrayPaths()
+            try:
+                if enabled:
+                    os.makedirs(os.path.dirname(paths["autostart"]), exist_ok=True)
+                    shutil.copy2(paths["source"], paths["autostart"])
+                    os.chmod(paths["autostart"], 0o755)
+                elif os.path.exists(paths["autostart"]):
+                    os.remove(paths["autostart"])
+            except OSError as e:
+                self.popup("Failed to update Prism tray autostart:\n\n%s" % e)
+                return False
 
         elif platform.system() == "Darwin":
             userName = (
@@ -5387,6 +5380,8 @@ License: GNU LGPL-3.0-or-later<br>
 
         if "silent" not in self.prismArgs and self.uiAvailable and isGuiThread:
             parent = parent or getattr(self, "messageParent", None)
+            if not self.isObjectValid(parent):
+                parent = None
             msg = QMessageBox(parent)
             if "<a href=" in text or "<br>" in text:
                 msg.setTextFormat(Qt.RichText)
@@ -6625,58 +6620,75 @@ If this plugin is an official Prism plugin, please submit this error to the supp
                 if not isinstance(data, dict):
                     data = "unknown command: %s" % data
                     answer = {"success": False, "error": data}
-                    self.sendData(answer, conn)
+                    if self.sendData(answer, conn) is False:
+                        break
                     continue
 
                 name = data.get("name", "")
 
                 if name == "close":
-                    sconn.close()
                     break
 
                 elif name == "getUserPrefDir":
                     returnData = {"success": True, "data": self.getUserPrefDir()}
-                    self.sendData(returnData, conn)
+                    if self.sendData(returnData, conn) is False:
+                        break
 
                 elif name == "getDefaultPluginPath":
                     returnData = {"success": True, "data": self.plugins.getDefaultPluginPath()}
-                    self.sendData(returnData, conn)
+                    if self.sendData(returnData, conn) is False:
+                        break
 
                 elif name == "sendFeedback":
                     result = self.sendFeedback(data["data"])
                     returnData = {"success": True, "data": result}
-                    self.sendData(returnData, conn)
+                    if self.sendData(returnData, conn) is False:
+                        break
 
                 elif name == "removeAllIntegrations":
                     result = self.integration.removeAllIntegrations()
                     returnData = {"success": True, "data": result}
-                    self.sendData(returnData, conn)
+                    if self.sendData(returnData, conn) is False:
+                        break
 
                 elif name == "isAlive":
                     answer = {"success": True, "data": True}
-                    self.sendData(answer, conn)
+                    if self.sendData(answer, conn) is False:
+                        break
 
                 else:
                     data = "unknown command: %s" % data
                     answer = {"success": False, "error": data}
-                    self.sendData(answer, conn)
+                    if self.sendData(answer, conn) is False:
+                        break
 
+        sconn.close()
+        conn.close()
         listener.close()
 
     @err_catcher(name=__name__)
-    def sendData(self, data: Any, conn: Any) -> None:
+    def sendData(self, data: Any, conn: Any) -> bool:
         """Send data to client connection.
         
         Args:
             data (Any): Data to send.
             conn (Any): Connection object.
+
+        Returns:
+            bool: Whether the data was sent before the peer disconnected.
         """
         logger.debug("sending data: %s" % data)
 
         if data is None:
             data = ""
 
-        conn.send(data)
+        try:
+            conn.send(data)
+        except ConnectionError as error:
+            logger.debug("IPC client disconnected while sending data: %s" % error)
+            return False
+
+        return True
 
     @err_catcher(name=__name__)
     def registerProtocolHandler(self, name: str, func: Any) -> None:
@@ -7247,6 +7259,21 @@ class SafeFormatDict(dict):
 
     def __missing__(self, key: str) -> str:
         return "{%s}" % key
+
+
+def getLinuxTrayPaths(prismRoot: str) -> Dict[str, str]:
+    """Return per-user tray launcher paths, respecting XDG base directories."""
+    configHome = os.environ.get("XDG_CONFIG_HOME", "")
+    if not os.path.isabs(configHome):
+        configHome = os.path.expanduser("~/.config")
+    dataHome = os.environ.get("XDG_DATA_HOME", "")
+    if not os.path.isabs(dataHome):
+        dataHome = os.path.expanduser("~/.local/share")
+    return {
+        "source": os.path.join(prismRoot, "prismtray.desktop"),
+        "autostart": os.path.join(configHome, "autostart", "prismtray.desktop"),
+        "applications": os.path.join(dataHome, "applications", "prismtray.desktop"),
+    }
 
 
 def create(app: str = "Standalone", prismArgs: Optional[List[str]] = None) -> 'PrismCore':

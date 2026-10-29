@@ -1341,6 +1341,17 @@ class Uninstaller(QDialog):
             settingsStartMenu,
             desktopPath,
         ]
+        from PrismCore import getLinuxTrayPaths
+
+        trayPaths = getLinuxTrayPaths(prismRoot)
+        for key in ("autostart", "applications"):
+            path = trayPaths[key]
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError as e:
+                    logger.warning("Failed to remove Linux tray shortcut %s: %s", path, e)
+                    return False
 
         if not os.environ.get("prism_skip_root_install"):
             pFiles += [

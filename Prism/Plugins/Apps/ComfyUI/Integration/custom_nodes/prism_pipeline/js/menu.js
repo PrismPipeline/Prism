@@ -90,6 +90,140 @@ style.textContent = `
     margin-top: 12px;
     font-size: 12px;
   }
+
+  .prism-status-dialog {
+    --prism-status-positive: var(--success-text, color-mix(in srgb, currentColor 55%, #19ac62));
+    --prism-status-pending: var(--warning-text, color-mix(in srgb, currentColor 55%, #de9400));
+    --prism-status-negative: var(--error-text, color-mix(in srgb, currentColor 55%, #e34858));
+    --prism-status-info: var(--primary-color, color-mix(in srgb, currentColor 55%, #378bd5));
+    box-sizing: border-box;
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+  }
+
+  .prism-status-dialog svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+  }
+
+  .prism-status-heading,
+  .prism-status-dialog button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .prism-status-heading > svg {
+    color: var(--prism-status-info);
+  }
+
+  .prism-status-dialog .prism-status-close {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .prism-status-details {
+    display: grid;
+    grid-template-columns: 80px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .prism-status-details dt {
+    opacity: 0.75;
+  }
+
+  .prism-status-details dd {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .prism-status-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    width: fit-content;
+    min-height: 26px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    font-weight: 500;
+  }
+
+  .prism-status-value::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .prism-status-value[data-state="positive"] { color: var(--prism-status-positive); }
+  .prism-status-value[data-state="pending"] { color: var(--prism-status-pending); }
+  .prism-status-value[data-state="negative"] { color: var(--prism-status-negative); }
+  .prism-status-value[data-state="info"] { color: var(--prism-status-info); }
+  .prism-status-value[data-state="neutral"] { opacity: 0.7; }
+
+  .prism-status-path-label,
+  .prism-status-path {
+    grid-column: 1 / -1;
+  }
+
+  .prism-status-path-label {
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color, #4a4a4a);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .prism-status-path {
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .prism-status-dialog footer {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border-color, #4a4a4a);
+  }
+
+  .prism-status-dialog footer button {
+    flex: 1 1 140px;
+    min-height: 36px;
+  }
+
+  .prism-status-dialog button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .prism-status-dialog button:focus-visible {
+    outline: 2px solid var(--prism-status-info);
+    outline-offset: 2px;
+  }
+
+  .prism-status-dialog #prism-status-stop:not(:disabled) {
+    color: var(--prism-status-negative);
+  }
+
+  .prism-status-error {
+    color: var(--prism-status-negative);
+    padding: 10px;
+    border-left: 2px solid var(--prism-status-negative);
+    background: color-mix(in srgb, var(--prism-status-negative) 8%, transparent);
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+  }
 `;
 document.head.appendChild(style);
 
@@ -457,6 +591,179 @@ class PrismWebSocketClient {
     });
   }
 
+  async controlPrismProcess(restart) {
+    if (this.processControlInProgress || this.contextStartPromise || this.contextLaunchInProgress) {
+      throw new Error('Prism is busy. Wait for the current operation to finish.');
+    }
+    this.processControlInProgress = true;
+    const wasCancelled = this.reconnectCancelled;
+    this.reconnectCancelled = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    let controlled = false;
+    try {
+      const response = await fetch(restart ? '/prism/restart_context' : '/prism/stop_context', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Unable to control the Prism process.');
+      controlled = true;
+      if (this.socket) {
+        this.socket.onopen = this.socket.onmessage = this.socket.onclose = this.socket.onerror = null;
+        this.socket.close();
+      }
+      this.socket = null;
+      this.isConnected = false;
+      this.contextReady = false;
+      this.connectionInProgress = false;
+      this.pendingCommands = [];
+      this.failedReconnectAttempts = 0;
+      if (restart) {
+        this.reconnectCancelled = false;
+        this.prismUnavailable = false;
+        this.lastContextLaunchTs = Date.now();
+        await this.waitForPrismContext(data.pid);
+      }
+    } catch (error) {
+      this.reconnectCancelled = controlled ? true : wasCancelled;
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+      if (!controlled && !wasCancelled) this.startConnectionAttempt();
+      throw error;
+    } finally {
+      this.processControlInProgress = false;
+    }
+  }
+
+  showStatusDialog() {
+    if (this.statusDialogOpen) return;
+    this.statusDialogOpen = true;
+    const iconPaths = {
+      info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+      restart: '<path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+      stop: '<rect x="3" y="3" width="18" height="18" rx="2"/>',
+      close: '<path d="m18 6-12 12M6 6l12 12"/>',
+    };
+    const icon = name => `<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${iconPaths[name]}</svg>`;
+    const previousFocus = document.activeElement;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'prism-config-backdrop';
+    backdrop.innerHTML = `
+      <section class="prism-config-dialog prism-status-dialog" role="dialog" aria-modal="true" aria-labelledby="prism-status-title">
+        <header>
+          <span class="prism-status-heading" id="prism-status-title">${icon('info')}Prism Status</span>
+          <button type="button" class="prism-status-close" id="prism-status-close" title="Close" aria-label="Close">${icon('close')}</button>
+        </header>
+        <main>
+          <dl class="prism-status-details">
+            <dt>Connection</dt><dd class="prism-status-value" data-state="pending" id="prism-status-connection" aria-live="polite">Checking...</dd>
+            <dt>Process</dt><dd class="prism-status-value" data-state="pending" id="prism-status-process">Checking...</dd>
+            <dt class="prism-status-path-label" id="prism-status-root-label" hidden>Prism root</dt><dd class="prism-status-path" id="prism-status-root" hidden></dd>
+            <dt class="prism-status-path-label" id="prism-status-plugin-label" hidden>Plugin root</dt><dd class="prism-status-path" id="prism-status-plugin" hidden></dd>
+          </dl>
+          <div class="prism-config-status prism-status-error" id="prism-status-error" role="alert" hidden></div>
+        </main>
+        <footer>
+          <button type="button" id="prism-status-restart" disabled>${icon('restart')}Restart Prism</button>
+          <button type="button" id="prism-status-stop" disabled>${icon('stop')}Stop Prism</button>
+        </footer>
+      </section>`;
+    document.body.appendChild(backdrop);
+    const find = id => backdrop.querySelector(`#prism-status-${id}`);
+    const restartButton = find('restart');
+    const stopButton = find('stop');
+    const errorField = find('error');
+    let closed = false;
+    let busy = false;
+    let refreshTimer = null;
+    let actionError = '';
+    const close = () => {
+      closed = true;
+      clearTimeout(refreshTimer);
+      document.removeEventListener('keydown', onKeyDown);
+      backdrop.remove();
+      this.statusDialogOpen = false;
+      previousFocus?.focus();
+    };
+    const onKeyDown = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      } else if (event.key === 'Tab') {
+        const buttons = [...backdrop.querySelectorAll('button:not(:disabled)')];
+        const target = event.shiftKey ? buttons.at(-1) : buttons[0];
+        if (!backdrop.contains(document.activeElement)
+            || document.activeElement === (event.shiftKey ? buttons[0] : buttons.at(-1))) {
+          event.preventDefault();
+          target.focus();
+        }
+      }
+    };
+    const refresh = async () => {
+      if (closed || busy) return;
+      try {
+        const response = await fetch('/prism/get_status');
+        const data = await response.json();
+        if (closed || busy) return;
+        if (!response.ok || !data.success) throw new Error(data.error || 'Unable to check Prism status.');
+        find('connection').textContent = this.isConnected
+          ? (this.contextReady ? 'Connected' : 'Initializing') : 'Disconnected';
+        find('connection').dataset.state = this.isConnected
+          ? (this.contextReady ? 'positive' : 'pending') : 'negative';
+        find('process').textContent = data.running ? `Running (PID ${data.pid})`
+          : (this.isConnected ? 'External session' : 'Stopped');
+        find('process').dataset.state = data.error ? 'negative'
+          : (data.running ? 'positive' : (this.isConnected ? 'info' : 'neutral'));
+        for (const [field, value] of [['root', data.prism_root], ['plugin', data.plugin_root]]) {
+          find(field).textContent = value || '';
+          find(field).hidden = find(`${field}-label`).hidden = !value;
+        }
+        const launching = Boolean(this.contextStartPromise || this.contextLaunchInProgress || this.processControlInProgress);
+        stopButton.disabled = !data.managed || launching;
+        restartButton.disabled = launching || !data.prism_root || !data.plugin_root
+          || (this.isConnected && !data.managed);
+        errorField.textContent = actionError || data.error || '';
+        errorField.hidden = !errorField.textContent;
+      } catch (error) {
+        if (closed || busy) return;
+        find('connection').textContent = 'Status unavailable';
+        find('connection').dataset.state = 'negative';
+        find('process').textContent = 'Unknown';
+        find('process').dataset.state = 'neutral';
+        restartButton.disabled = stopButton.disabled = true;
+        errorField.textContent = error.message;
+        errorField.hidden = false;
+      } finally {
+        if (!closed && !busy) refreshTimer = setTimeout(refresh, 1000);
+      }
+    };
+    const control = async restart => {
+      if (busy) return;
+      busy = true;
+      clearTimeout(refreshTimer);
+      restartButton.disabled = stopButton.disabled = true;
+      find('connection').textContent = restart ? 'Restarting...' : 'Stopping...';
+      find('connection').dataset.state = 'pending';
+      find('process').textContent = restart ? 'Restarting...' : 'Stopping...';
+      find('process').dataset.state = 'pending';
+      errorField.hidden = true;
+      actionError = '';
+      try {
+        await this.controlPrismProcess(restart);
+      } catch (error) {
+        actionError = error.message;
+      } finally {
+        busy = false;
+        void refresh();
+      }
+    };
+    restartButton.addEventListener('click', () => void control(true));
+    stopButton.addEventListener('click', () => void control(false));
+    find('close').addEventListener('click', close);
+    backdrop.addEventListener('click', event => { if (event.target === backdrop) close(); });
+    document.addEventListener('keydown', onKeyDown);
+    find('close').focus();
+    void refresh();
+  }
+
   openProjectBrowserAfterSetup(previousRequests) {
     if (this.projectBrowserRequestsSent === previousRequests) {
       this.sendToDesktopApp({ action: 'open_project_browser' });
@@ -464,6 +771,7 @@ class PrismWebSocketClient {
   }
 
   async ensurePrismComfyContextRunning(force = false, promptForPrismPath = false) {
+    if (this.processControlInProgress) return false;
     if (this.isConnected && this.socket?.readyState === WebSocket.OPEN) {
       return this.contextReady || this.contextStartPromise || false;
     }
@@ -558,23 +866,42 @@ class PrismWebSocketClient {
     try {
       console.log("[Prism] Connecting to ComfyUI context Prism (port 8765)...");
       this.socket = new WebSocket("ws://localhost:8765");
+      const socket = this.socket;
+      let verified = false;
       
       this.socket.onopen = async () => {
-        console.log("[Prism] Connected to ComfyUI context Prism");
-        this.isConnected = true;
-        this.contextReady = false;
-        this.connectionInProgress = false;
-        this.failedReconnectAttempts = 0;
+        try {
+          const response = await fetch('/prism/verify_context');
+          const identity = await response.json();
+          if (this.socket !== socket || socket.readyState !== WebSocket.OPEN) return;
+          if (!response.ok || !identity.success) {
+            throw new Error(identity.error || 'Unable to verify the Prism context.');
+          }
+          verified = true;
+          console.log("[Prism] Connected to ComfyUI context Prism");
+          this.isConnected = true;
+          this.contextReady = false;
+          this.connectionInProgress = false;
+          this.failedReconnectAttempts = 0;
 
-        const comfyuiRoot = await this.getComfyUIRootFolder();
-        this.sendToDesktopApp({
-          action: "set_comfyui_root",
-          comfyui_root: comfyuiRoot
-        });
-        this.sendToDesktopApp({ action: 'get_context_status' });
+          const comfyuiRoot = await this.getComfyUIRootFolder();
+          if (this.socket !== socket || socket.readyState !== WebSocket.OPEN) return;
+          this.sendToDesktopApp({
+            action: "set_comfyui_root",
+            comfyui_root: comfyuiRoot
+          });
+          this.sendToDesktopApp({ action: 'get_context_status' });
+        } catch (error) {
+          if (this.socket !== socket || socket.readyState !== WebSocket.OPEN) return;
+          this.reconnectCancelled = true;
+          this.connectionInProgress = false;
+          socket.close();
+          window.alert(`Prism could not connect.\n\n${error.message}`);
+        }
       };
       
       this.socket.onmessage = (event) => {
+        if (!verified || this.socket !== socket) return;
         const data = JSON.parse(event.data);
         console.log("[Prism] Received command from Desktop App:", data);
         this.handleCommand(data);
@@ -1325,7 +1652,7 @@ app.extensionManager.registerSidebarTab({
           padding: 10px 0;
         ">
           <img 
-            src="extensions/prism_pipeline/prisim-pipeline-logo_font_white.png"
+            src="${new URL('./prism-pipeline-logo_font_white.png', import.meta.url).href}"
             alt="Prism Pipeline"
             style="
               max-width: 70%;
@@ -1418,6 +1745,14 @@ app.extensionManager.registerSidebarTab({
           >
             Settings
           </button>
+          <button
+            id="prism-status"
+            style="width: 100%; padding: 10px 16px; background-color: #2d2d2d; color: #ffffff; border: 1px solid #404040; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s ease;"
+            onmouseover="this.style.backgroundColor='#3a3a3a'; this.style.borderColor='#505050';"
+            onmouseout="this.style.backgroundColor='#2d2d2d'; this.style.borderColor='#404040';"
+          >
+            Status
+          </button>
         </div>
       </div>
     `;
@@ -1459,6 +1794,8 @@ app.extensionManager.registerSidebarTab({
       }
     });
     
+    el.querySelector('#prism-status').addEventListener('click', () => prismWS?.showStatusDialog());
+
     const settingsBtn = el.querySelector('#prism-settings');
     settingsBtn.addEventListener('click', () => {
       if (prismWS) {

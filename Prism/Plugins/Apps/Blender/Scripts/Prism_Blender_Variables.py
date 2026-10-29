@@ -68,7 +68,7 @@ class Prism_Blender_Variables(object):
             core: PrismCore instance.
             plugin: Plugin instance.
         """
-        self.version = "v2.1.4.1"
+        self.version = "v2.1.4.2"
         self.pluginName = "Blender"
         self.pluginType = "App"
         self.appShortName = "Bld"

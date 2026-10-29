@@ -2018,14 +2018,24 @@ class PrismWebSocketServer(QThread):
     async def handle_client(self, websocket):
         import websockets
         """Handle incoming WebSocket connections from ComfyUI"""
-        self.clients.add(websocket)
-        self.connection_state_changed.emit(True, len(self.clients))
-        print(f"ComfyUI client connected. Total clients: {len(self.clients)}")
         
         try:
             async for message in websocket:
                 data = json.loads(message)
                 print(f"Received from ComfyUI: {data}")
+                if data.get("action") == "get_context_identity":
+                    await websocket.send(json.dumps({
+                        "protocol": "prism-comfyui-context-v1",
+                        "pid": os.getpid(),
+                        "prism_root": self.core.prismRoot,
+                        "comfyui_root": os.environ.get("PRISM_COMFYUI_ROOT", ""),
+                        "closing": bool(self._stop_event and self._stop_event.is_set()),
+                    }))
+                    continue
+                if websocket not in self.clients:
+                    self.clients.add(websocket)
+                    self.connection_state_changed.emit(True, len(self.clients))
+                    print(f"ComfyUI client connected. Total clients: {len(self.clients)}")
                 
                 # Process command from ComfyUI
                 self.command_received.emit(data)
@@ -2037,8 +2047,9 @@ class PrismWebSocketServer(QThread):
         except websockets.exceptions.ConnectionClosed:
             print("ComfyUI client disconnected")
         finally:
-            self.clients.discard(websocket)
-            self.connection_state_changed.emit(bool(self.clients), len(self.clients))
+            if websocket in self.clients:
+                self.clients.discard(websocket)
+                self.connection_state_changed.emit(bool(self.clients), len(self.clients))
     
     async def start_server(self):
         import websockets

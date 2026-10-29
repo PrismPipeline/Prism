@@ -898,6 +898,10 @@ class Projects(object):
     @err_catcher(name=__name__)
     def setRecentPrj(self, path: str, action: str = "add") -> None:
         """Add or remove a project from recent projects list.
+
+        Adding preserves metadata, including favorite status. If the project
+        is already first within its favorite/non-favorite group, nothing is
+        written and its timestamp is left unchanged.
         
         Args:
             path: Path to project config file
@@ -906,21 +910,27 @@ class Projects(object):
         path = self.core.fixPath(path)
 
         recentProjects = self.getRecentProjects(includeCurrent=True)
-        if (
-            recentProjects
-            and path == recentProjects[0]["configPath"]
-            and action == "add"
-        ):
-            return
-
         newRecenetProjects = []
+        prjData = {"configPath": path}
 
         for prj in recentProjects:
             if prj["configPath"] != path:
                 newRecenetProjects.append(prj)
+            else:
+                prjData = prj.copy()
 
         if action == "add":
-            prjData = {"configPath": path}
+            firstProject = next(
+                (
+                    prj for prj in recentProjects
+                    if bool(prj.get("favorite", False))
+                    == bool(prjData.get("favorite", False))
+                ),
+                None,
+            )
+            if firstProject and firstProject["configPath"] == path:
+                return
+
             prjData["name"] = self.core.getConfig(
                 "globals", "project_name", configPath=path
             )

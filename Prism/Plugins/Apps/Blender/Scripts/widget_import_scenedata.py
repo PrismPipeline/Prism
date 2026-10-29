@@ -336,6 +336,11 @@ class Import_SceneData(QDialog):
                             else:
                                 raise
 
+                    if col is None:
+                        self.core.popup("Failed to create a library override for the selected collection.")
+                        self.reject()
+                        return
+
                     importedNodes.append(col)
 
             if data["objects"]:
@@ -362,6 +367,11 @@ class Import_SceneData(QDialog):
                                     return
                             else:
                                 raise
+
+                    if obj is None:
+                        self.core.popup("Failed to create a library override for the selected object.")
+                        self.reject()
+                        return
 
                     importedNodes.append(obj)
 

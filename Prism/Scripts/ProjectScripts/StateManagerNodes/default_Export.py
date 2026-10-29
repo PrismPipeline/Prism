@@ -45,6 +45,7 @@ from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher
+from PrismUtils.PrismWidgets import ContentSizedComboBox
 
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,23 @@ class ExportClass(object):
     listType = "Export"
     stateCategories = {"Export": [{"label": className, "stateType": className}]}
 
+    def setupCameraComboBoxes(self):
+        for name in ("cb_cam", "cb_sCamShot"):
+            previous = getattr(self, name)
+            combo = ContentSizedComboBox(previous.parentWidget())
+            combo.setObjectName(previous.objectName())
+            layout = previous.parentWidget().layout()
+            index = layout.indexOf(previous)
+            layout.replaceWidget(previous, combo)
+            layout.insertSpacerItem(
+                index, QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+            )
+            QWidget.setTabOrder(previous.previousInFocusChain(), combo)
+            QWidget.setTabOrder(combo, previous.nextInFocusChain())
+            previous.hide()
+            previous.deleteLater()
+            setattr(self, name, combo)
+
     @err_catcher(name=__name__)
     def setup(self, state: Any, core: Any, stateManager: Any, node: Optional[Any] = None, stateData: Optional[Dict[str, Any]] = None) -> None:
         """Initialize the Export state.
@@ -94,6 +112,7 @@ class ExportClass(object):
         self.customContext = None
         self.allowCustomContext = True
         self.shotCamsInitialized = False
+        self.setupCameraComboBoxes()
 
         self.e_name.setText(state.text(0) + " ({product})")
 

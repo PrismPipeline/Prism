@@ -796,6 +796,11 @@ class ConfigManager:
         Reads configuration data from YAML or JSON files with automatic caching,
         format conversion, and default value handling. Supports hierarchical
         access to nested configuration values.
+
+        The onGetConfig callback receives the resolved path and full config data
+        after retrieval from any cache or disk, before category/key lookup.
+        A non-None callback result replaces the data for this request. Callbacks
+        should copy the data before modifying it to avoid changing cached values.
         
         Args:
             cat: Category/section name in the config file
@@ -876,6 +881,11 @@ class ConfigManager:
                 }
 
             # logger.debug("adding cache: %s ---- %s" % (configPath, configData))
+
+        if hasattr(self.core, "callbacks"):
+            for result in self.core.callback("onGetConfig", args=[configPath, configData]):
+                if result is not None:
+                    configData = result
 
         if param and not cat:
             cat = param

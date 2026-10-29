@@ -37,6 +37,7 @@ import sys
 import subprocess
 import platform
 import logging
+import shutil
 from typing import Any, Optional, List, Dict, Tuple, Callable
 
 scriptPath = os.path.abspath(os.path.dirname(__file__))
@@ -410,7 +411,7 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         self.l_helpUser.msg = msg
         self.w_username.layout().addWidget(self.l_helpUser, 0, 3)
 
-        if platform.system() in ["Linux", "Darwin"]:
+        if platform.system() == "Darwin":
             self.chb_trayStartup.setText(
                 self.chb_trayStartup.text() + " (change requires root permissions)"
             )
@@ -1334,8 +1335,8 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         if not export:
             self.core.setDebugMode(self.chb_debug.isChecked())
             if self.trayChanged:
-                self.core.setTrayStartup(self.chb_trayStartup.isChecked())
-                self.trayChanged = False
+                if self.core.setTrayStartup(self.chb_trayStartup.isChecked()):
+                    self.trayChanged = False
 
             self.core.users.refreshEnvironment()
 
@@ -1412,7 +1413,7 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
                     "Prism.lnk",
                 )
         elif platform.system() == "Linux":
-            trayStartupPath = "/etc/xdg/autostart/PrismTray.desktop"
+            trayStartupPath = self.core.getLinuxTrayPaths()["autostart"]
         elif platform.system() == "Darwin":
             userName = (
                 os.environ["SUDO_USER"]
@@ -1506,9 +1507,10 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
             dccData = configData.get("dccoverrides", {})
             for i in self.exOverridePlugins:
                 if "%s_override" % i in dccData:
-                    self.exOverridePlugins[i]["chb"].setChecked(
-                        dccData["%s_override" % i]
-                    )
+                    override = dccData["%s_override" % i]
+                    if isinstance(override, str):
+                        override = override.strip().lower() in ("true", "1", "yes", "on")
+                    self.exOverridePlugins[i]["chb"].setChecked(bool(override))
 
                 dccPath = None
                 if "%s_path" % i in dccData:
@@ -2054,8 +2056,8 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
     def startTray(self) -> None:
         """Start the Prism tray application.
         
-        Launches the PrismTray.py script using appropriate shell command for the
-        current platform (Windows, Linux, or macOS).
+        Uses the Linux desktop launcher when GIO is available, otherwise starts
+        PrismTray.py directly. Other platforms use their existing tray launcher.
         """
         if platform.system() == "Windows":
             slavePath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
@@ -2068,7 +2070,27 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
 
             command = ["%s" % pythonPath, "%s" % slavePath]
         elif platform.system() == "Linux":
-            command = "bash %s/Tools/PrismTray.sh" % self.core.prismLibs
+            paths = self.core.getLinuxTrayPaths()
+            desktopPath = paths["applications"]
+            if not os.path.exists(desktopPath):
+                desktopPath = paths["source"]
+            gio = shutil.which("gio")
+            if gio and os.path.exists(desktopPath):
+                command = [gio, "launch", desktopPath]
+            else:
+                logger.info("Starting Prism tray directly: GIO or the desktop launcher is unavailable.")
+                command = [
+                    self.core.getPythonPath(executable="python"),
+                    os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py"),
+                ]
+            try:
+                if gio and os.path.exists(desktopPath):
+                    subprocess.run(command, check=True, capture_output=True, text=True)
+                else:
+                    subprocess.Popen(command)
+            except (OSError, subprocess.CalledProcessError) as e:
+                self.core.popup("Failed to start Prism tray:\n\n%s" % e)
+            return
         elif platform.system() == "Darwin":
             command = "bash %s/Tools/PrismTray.sh" % self.core.prismLibs
 

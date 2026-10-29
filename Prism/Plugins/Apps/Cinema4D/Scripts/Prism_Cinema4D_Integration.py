@@ -64,6 +64,18 @@ class Prism_Cinema4D_Integration(object):
 
         if platform.system() == "Windows":
             self.examplePath = self.getExamplePath()
+        elif platform.system() == "Linux":
+            self.examplePath = os.path.join(
+                os.path.expanduser("~"), ".config", "Maxon", "Maxon Cinema4D 2026"
+            )
+        elif platform.system() == "Darwin":
+            self.examplePath = os.path.join(
+                os.path.expanduser("~"),
+                "Library",
+                "Preferences",
+                "Maxon",
+                "Maxon Cinema4D 2026",
+            )
 
     @err_catcher(name=__name__)
     def getExamplePath(self) -> str:

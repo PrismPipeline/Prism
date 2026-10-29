@@ -33,7 +33,7 @@
 
 
 from .prism import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
-from .config import get_comfy_config_path
+from .config import get_comfy_config_path, get_user_pref_dir
 import os
 import json
 import sys
@@ -45,9 +45,10 @@ import glob
 import shutil
 import asyncio
 import signal
+import atexit
 import urllib.error
 import urllib.request
-from aiohttp import web
+from aiohttp import ClientConnectorError, ClientError, ClientSession, ClientTimeout, web
 from server import PromptServer
 
 WEB_DIRECTORY = "./js"
@@ -56,7 +57,8 @@ _SETUP_PROCESSES = {}
 _SETUP_JOBS = {}
 _SETUP_LOCK = threading.RLock()
 _CONTEXT_PROCESS = None
-_CONTEXT_LOCK = threading.Lock()
+_CONTEXT_LOCK = threading.RLock()
+_CONTEXT_SHUTDOWN = threading.Event()
 PRISM_SETUP_SCRIPT_URL = "https://service.prism-pipeline.com/api/service/setup_comfy"
 
 
@@ -113,6 +115,12 @@ def _is_prism_root(prism_root):
     )
 
 
+def _get_downloaded_prism_folders():
+    return sorted(
+        glob.glob(os.path.join(get_user_pref_dir(), "versions", "v*")), reverse=True
+    )
+
+
 def _find_prism_root(configured_root=""):
     candidates = [
         os.getenv("PRISM_ROOT", ""),
@@ -122,12 +130,7 @@ def _find_prism_root(configured_root=""):
     candidates += sorted(
         glob.glob("C:/Program Files/Prism Pipeline/v*"), reverse=True
     )
-    candidates += sorted(
-        glob.glob(os.path.join(
-            os.path.expanduser("~"), "Documents", "Prism2", "versions", "v*"
-        )),
-        reverse=True,
-    )
+    candidates += _get_downloaded_prism_folders()
 
     for candidate in candidates:
         prism_root = os.path.normpath(os.path.expandvars(os.path.expanduser(candidate)))
@@ -137,10 +140,7 @@ def _find_prism_root(configured_root=""):
 
 
 def _find_downloaded_prism_root():
-    pattern = os.path.join(
-        os.path.expanduser("~"), "Documents", "Prism2", "versions", "v*"
-    )
-    for candidate in sorted(glob.glob(pattern), reverse=True):
+    for candidate in _get_downloaded_prism_folders():
         prism_root = os.path.normpath(candidate)
         if _is_prism_root(prism_root):
             return prism_root
@@ -148,10 +148,7 @@ def _find_downloaded_prism_root():
 
 
 def _get_latest_downloaded_prism_folder():
-    pattern = os.path.join(
-        os.path.expanduser("~"), "Documents", "Prism2", "versions", "v*"
-    )
-    candidates = sorted(glob.glob(pattern), reverse=True)
+    candidates = _get_downloaded_prism_folders()
     return os.path.normpath(candidates[0]) if candidates else ""
 
 
@@ -478,11 +475,13 @@ def _run_python_script(python_executable, script_path, script_args=None, cwd=Non
     if track_setup or track_context:
         popen_kwargs["stdin"] = subprocess.DEVNULL
         popen_kwargs["env"] = dict(os.environ, PYTHONUNBUFFERED="1")
+        if track_context:
+            popen_kwargs["env"]["PRISM_COMFYUI_ROOT"] = _get_comfyui_root()
         if setup_result_path:
             popen_kwargs["env"]["PRISM_COMFYUI_SETUP_RESULT"] = setup_result_path
     if sys.platform == "win32":
         popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-    elif track_setup:
+    elif track_setup or track_context:
         popen_kwargs["start_new_session"] = True
 
     print(f"[Prism] Running Python script: {args} with cwd={cwd}")
@@ -504,7 +503,11 @@ def _run_python_script(python_executable, script_path, script_args=None, cwd=Non
         }
         _SETUP_PROCESSES[process.pid] = setup_process
     elif track_context:
-        setup_process = {"process": process, "messages": [], "context": True, "error": ""}
+        setup_process = {
+            "process": process, "messages": [], "context": True, "error": "",
+            "prism_root": str(script_args[0]) if script_args else cwd or "",
+            "plugin_root": os.path.dirname(os.path.dirname(script_path)),
+        }
         _CONTEXT_PROCESS = setup_process
     _start_process_pipe_drainers(process, setup_process=setup_process)
     if process.poll() is not None:  # Check if the process has terminated
@@ -513,15 +516,170 @@ def _run_python_script(python_executable, script_path, script_args=None, cwd=Non
     return {"pid": process.pid, "command": args}
 
 
+async def _probe_prism_context(prism_root):
+    try:
+        async with ClientSession(timeout=ClientTimeout(total=5)) as session:
+            async with session.ws_connect("ws://localhost:8765") as socket:
+                await socket.send_json({"action": "get_context_identity"})
+                identity = await socket.receive_json(timeout=1)
+    except ClientConnectorError:
+        return None
+    except asyncio.TimeoutError:
+        return {"error": "Timed out checking the local Prism context on port 8765. The port may be unavailable or blocked."}
+    except (ClientError, ValueError, TypeError):
+        return {"error": "Port 8765 is already in use by a service that did not identify itself as Prism."}
+    if not isinstance(identity, dict) or identity.get("protocol") != "prism-comfyui-context-v1":
+        return {"error": "Port 8765 is already in use by an unidentified service."}
+    normalize = lambda path: os.path.normcase(os.path.realpath(path)) if isinstance(path, str) and path else ""
+    if (
+        normalize(identity.get("prism_root")) != normalize(prism_root)
+        or normalize(identity.get("comfyui_root")) != normalize(_get_comfyui_root())
+    ):
+        raise RuntimeError("Port 8765 belongs to a different Prism or ComfyUI installation. Close that session before starting this one.")
+    pid = identity.get("pid")
+    if type(pid) is not int or pid <= 0:
+        return {"error": "The existing Prism context returned an invalid process ID."}
+    return {"pid": pid, "already_running": True, "reused": True, "closing": bool(identity.get("closing"))}
+
+
+def _find_existing_prism_context(prism_root):
+    deadline = time.monotonic() + 20
+    while not _CONTEXT_SHUTDOWN.is_set():
+        context = asyncio.run(_probe_prism_context(prism_root))
+        if context is None:
+            return None
+        if context.get("pid") and not context.get("closing"):
+            return context
+        if time.monotonic() >= deadline:
+            raise RuntimeError(context.get("error") or "The previous Prism context is still shutting down. Try again shortly.")
+        delay = min(16, max(0, deadline - time.monotonic())) if context.get("error") else 0.25
+        _CONTEXT_SHUTDOWN.wait(delay)
+    raise RuntimeError("ComfyUI is shutting down.")
+
+
 def _launch_prism_context(python_executable, script_path, script_args=None, cwd=None):
     with _CONTEXT_LOCK:
+        if _CONTEXT_SHUTDOWN.is_set():
+            raise RuntimeError("ComfyUI is shutting down.")
         if _CONTEXT_PROCESS and _CONTEXT_PROCESS["process"].poll() is None:
             if _CONTEXT_PROCESS.get("error"):
                 raise RuntimeError(_CONTEXT_PROCESS["error"])
             return {"pid": _CONTEXT_PROCESS["process"].pid, "already_running": True}
+        existing = _find_existing_prism_context(str(script_args[0]) if script_args else cwd or "")
+        if existing:
+            return existing
+        if _CONTEXT_SHUTDOWN.is_set():
+            raise RuntimeError("ComfyUI is shutting down.")
         return _run_python_script(
             python_executable, script_path, script_args, cwd, track_context=True,
         )
+
+
+def _stop_prism_context():
+    global _CONTEXT_PROCESS
+    state = _CONTEXT_PROCESS
+    if not state:
+        return
+    process = state["process"]
+    if process.poll() is None:
+        if sys.platform == "win32":
+            result = subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True, text=True, check=False, timeout=30,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            if result.returncode and process.poll() is None:
+                raise RuntimeError("Unable to stop Prism.")
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            if sys.platform == "win32":
+                raise RuntimeError("Prism did not stop in time.")
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=10)
+    _CONTEXT_PROCESS = None
+
+
+def _control_prism_context(restart=False):
+    with _CONTEXT_LOCK:
+        config = _get_prism_launch_config() if restart else None
+        if restart and not config:
+            raise RuntimeError("Prism is not configured on this machine.")
+        _stop_prism_context()
+        if restart:
+            return _launch_prism_context(**config)
+        return {"stopped": True}
+
+
+def _shutdown_prism_context():
+    _CONTEXT_SHUTDOWN.set()
+    try:
+        with _CONTEXT_LOCK:
+            _stop_prism_context()
+    except Exception as error:
+        print(f"[Prism] Unable to stop Prism during ComfyUI shutdown: {error}")
+
+
+async def _on_comfyui_shutdown(app):
+    await asyncio.to_thread(_shutdown_prism_context)
+
+
+atexit.register(_shutdown_prism_context)
+_comfyui_app = getattr(PromptServer.instance, "app", None)
+if _comfyui_app is not None:
+    _comfyui_app.on_shutdown.append(_on_comfyui_shutdown)
+
+
+def _get_prism_status_data():
+    with _CONTEXT_LOCK:
+        state = _CONTEXT_PROCESS
+        running = bool(state and state["process"].poll() is None)
+        config = _read_comfy_config()
+        prism_root = state.get("prism_root", "") if running else ""
+        if not _is_prism_root(prism_root):
+            prism_root = _find_prism_root(config.get("prism_root", ""))
+        plugin_root = _find_plugin_root(
+            prism_root,
+            state.get("plugin_root", "") if running else config.get("plugin_root", ""),
+        )
+        result = {
+            "success": True, "running": running, "managed": running,
+            "pid": state["process"].pid if running else None,
+            "prism_root": prism_root, "plugin_root": plugin_root,
+            "error": state.get("error", "") if state else "",
+        }
+    return result
+
+
+@PromptServer.instance.routes.get("/prism/get_status")
+async def get_prism_status(request):
+    return web.json_response(await asyncio.to_thread(_get_prism_status_data))
+
+
+@PromptServer.instance.routes.post("/prism/stop_context")
+async def stop_prism_context(request):
+    try:
+        result = await asyncio.to_thread(_control_prism_context)
+        return web.json_response({"success": True, **result})
+    except Exception as error:
+        return web.json_response({"success": False, "error": str(error)}, status=500)
+
+
+@PromptServer.instance.routes.post("/prism/restart_context")
+async def restart_prism_context(request):
+    try:
+        result = await asyncio.to_thread(_control_prism_context, True)
+        return web.json_response({"success": True, **result})
+    except Exception as error:
+        return web.json_response({"success": False, "error": str(error)}, status=500)
 
 
 @PromptServer.instance.routes.get("/prism/get_context_status")
@@ -532,6 +690,14 @@ async def get_context_status(request):
     except (TypeError, ValueError):
         return web.json_response({"success": False, "error": "Invalid Prism process ID."}, status=400)
     if not state or state["process"].pid != requested_pid:
+        config = _get_prism_launch_config()
+        if config:
+            try:
+                context = await _probe_prism_context(config["cwd"])
+                if context and context.get("pid") == requested_pid and not context.get("closing"):
+                    return web.json_response({"success": True, "running": True, "error": "", "reused": True})
+            except RuntimeError as error:
+                return web.json_response({"success": False, "running": False, "error": str(error)})
         return web.json_response({"success": False, "running": False, "error": "The Prism startup process could not be found. Please try again."})
     running = state["process"].poll() is None
     error = state.get("error", "")
@@ -697,7 +863,8 @@ async def run_python_script(request):
         cwd = data.get("cwd")
 
         launcher = _launch_prism_context if os.path.basename(script_path or "") == "Prism_ComfyUI_MenuTools.py" else _run_python_script
-        result = launcher(
+        result = await asyncio.to_thread(
+            launcher,
             python_executable=python_executable,
             script_path=script_path,
             script_args=script_args,
@@ -714,6 +881,19 @@ async def run_python_script(request):
             "error": str(e),
             "data": data
         }, status=500)
+
+@PromptServer.instance.routes.get("/prism/verify_context")
+async def verify_context(request):
+    try:
+        config = _get_prism_launch_config()
+        if not config:
+            raise RuntimeError("Prism is not configured on this machine.")
+        context = await _probe_prism_context(config["cwd"])
+        if not context or context.get("error") or context.get("closing"):
+            raise RuntimeError((context or {}).get("error") or "The Prism context is unavailable or shutting down.")
+        return web.json_response({"success": True, "pid": context["pid"]})
+    except RuntimeError as error:
+        return web.json_response({"success": False, "error": str(error)})
 
 # Custom endpoint to save workflows to absolute paths
 @PromptServer.instance.routes.post("/prism/save_workflow_absolute")

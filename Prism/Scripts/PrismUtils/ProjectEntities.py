@@ -2109,7 +2109,8 @@ class ProjectEntities(object):
                 scenedata["comment"] = comment
                 if "department" in localData:
                     newPath = self.core.generateScenePath(**scenedata)
-                    self.core.copySceneFile(localPath, newPath, mode="move")
+                    if self.core.copySceneFile(localPath, newPath, mode="move") is False:
+                        return localPath
                 else:
                     newPath = localPath
 
@@ -2135,7 +2136,8 @@ class ProjectEntities(object):
             scenedata["comment"] = comment
             if "department" in data:
                 newPath = self.core.generateScenePath(**scenedata)
-                self.core.copySceneFile(filepath, newPath, mode="move")
+                if self.core.copySceneFile(filepath, newPath, mode="move") is False:
+                    return filepath
             else:
                 newPath = filepath
 
@@ -6408,16 +6410,17 @@ class ProjectEntities(object):
         return filepath
 
     @err_catcher(name=__name__)
-    def openScenefile(self, filepath: str) -> bool:
+    def openScenefile(self, filepath: str, app: Optional[Dict[str, Any]] = None) -> Any:
         """Open a scenefile in the current application.
         
         Handles lockfile checking, local file syncing, state manager, and callbacks.
         
         Args:
             filepath: Path to scenefile to open.
+            app: Optional application dictionary for standalone launches.
             
         Returns:
-            bool: True if successfully opened, False otherwise.
+            Any: Open result, including the process for an external launch.
         """
         if self.core.getLockScenefilesEnabled():
             from PrismUtils import Lockfile
@@ -6462,7 +6465,10 @@ class ProjectEntities(object):
             filepath = lfilepath
 
         if self.core.appPlugin.pluginName == "Standalone":
-            result = self.core.openFile(filepath)
+            if app is None:
+                result = self.core.openFile(filepath)
+            else:
+                result = self.core.openFile(filepath, app=app)
         else:
             filepath = filepath.replace("\\", "/")
             logger.debug("Opening scene " + filepath)

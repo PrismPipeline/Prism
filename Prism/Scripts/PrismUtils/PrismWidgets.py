@@ -45,6 +45,22 @@ from PrismUtils.Decorators import err_catcher
 from UserInterfacesPrism import CreateItem_ui, EnterText_ui, SetPath_ui, SaveComment_ui
 
 
+class ContentSizedComboBox(QComboBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.setMinimumContentsLength(20)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+
+    def minimumSizeHint(self):
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        option.currentText = "M" * self.minimumContentsLength()
+        metrics = self.fontMetrics()
+        content = QSize(metrics.horizontalAdvance(option.currentText), metrics.height())
+        return self.style().sizeFromContents(QStyle.CT_ComboBox, option, content, self)
+
+
 class CreateItem(QDialog, CreateItem_ui.Ui_dlg_CreateItem):
     """Dialog for creating/entering item names with validation and task presets.
     

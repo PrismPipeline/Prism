@@ -47,7 +47,7 @@ class Prism_Cinema4D_Variables(object):
             core: Prism core instance
             plugin: Plugin instance
         """
-        self.version = "v2.1.4.1"
+        self.version = "v2.1.4.2"
         self.pluginName = "Cinema4D"
         self.pluginType = "App"
         self.appShortName = "Cinema4D"

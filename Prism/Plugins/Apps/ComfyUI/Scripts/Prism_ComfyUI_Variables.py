@@ -37,7 +37,7 @@ import os
 
 class Prism_ComfyUI_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v2.1.4.1"
+        self.version = "v2.1.4.2"
         self.pluginName = "ComfyUI"
         self.pluginType = "App"
         self.appShortName = "ComfyUI"

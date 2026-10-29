@@ -30,13 +30,6 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
-####################################################
-#
-#
-#   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                               #   TODO
-#
-#
-####################################################
 
 
 import os
@@ -150,6 +143,7 @@ class PreviewPlayer_GL(QWidget):
         self.playingWasChecked = False
 
         self.cacheRescanEnabled = True
+        self.rescanIntervalMs = 10000
         self.uiRefreshIntervalMs = 200
         self.pendingCacheUpdateFrame = None
         self.uiRefreshCallbacks = OrderedDict()
@@ -450,7 +444,7 @@ class PreviewPlayer_GL(QWidget):
         self.b_soundEnabled.setIcon(self.soundIcon_on)
         self.b_soundEnabled.setIconSize(QSize(18, 18))
 
-        self.lo_toolButtons.addWidget(self.b_soundEnabled)
+        # self.lo_toolButtons.addWidget(self.b_soundEnabled)    #   Disabled until Audio support is added
 
         #   OCIO Enable Button
         self.b_ocioEnabled = QPushButton()
@@ -3607,4 +3601,3 @@ class PreviewPlayer_GL(QWidget):
                 self.setTimelinePaused(True)
         else:
             self.tlPaused = not checked
-
