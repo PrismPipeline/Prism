@@ -613,10 +613,12 @@ class ImportFileClass(object):
             if result and "mode" in importResult:
                 self.setStateMode(importResult["mode"])
 
-        if doImport:
-            if result == "canceled":
-                return
+        if not result or result == "canceled":
+            if doImport and result != "canceled":
+                self.core.popup("Import failed: %s" % impFileName, title="ImportFile")
+            return result if result != "canceled" else None
 
+        if doImport:
             self.nodeNames = [
                 self.core.appPlugin.getNodeName(self, x) for x in self.nodes
             ]
@@ -629,10 +631,6 @@ class ImportFileClass(object):
 
             if self.chb_autoNameSpaces.isChecked():
                 self.core.appPlugin.sm_import_removeNameSpaces(self)
-
-            if not result:
-                msgStr = "Import failed: %s" % impFileName
-                self.core.popup(msgStr, title="ImportFile")
 
         kwargs = {
             "state": self,
@@ -656,33 +654,34 @@ class ImportFileClass(object):
             refreshUi: Whether to refresh UI before importing
             selectedStates: Whether to apply to selected states
         """
-        if refreshUi:
-            self.updateUi()
-
-        includeMaster = not self.chb_ignoreMaster.isChecked()
-        latestVersion = self.core.products.getLatestVersionFromPath(
-            self.getImportPath(), includeMaster=includeMaster
-        )
-        filepath = self.core.products.getPreferredFileFromVersion(latestVersion)
-        if not filepath:
-            if not self.chb_autoUpdate.isChecked():
-                self.core.popup("Couldn't get latest version.")
+        if getattr(self, "_importLatestInProgress", False):
             return
-
         prevState = self.stateManager.applyChangesToSelection
-        self.stateManager.applyChangesToSelection = False
-        self.setImportPath(filepath)
-        self.importObject(update=True)
-        if selectedStates:
-            selStates = self.stateManager.getSelectedStates()
-            for state in selStates:
-                if state.__hash__() == self.state.__hash__():
-                    continue
-
-                if hasattr(state.ui, "importLatest"):
-                    state.ui.importLatest(refreshUi=refreshUi, selectedStates=False)
-
-        self.stateManager.applyChangesToSelection = prevState
+        self._importLatestInProgress = True
+        try:
+            if refreshUi:
+                self.updateUi()
+            includeMaster = not self.chb_ignoreMaster.isChecked()
+            latestVersion = self.core.products.getLatestVersionFromPath(
+                self.getImportPath(), includeMaster=includeMaster
+            )
+            filepath = self.core.products.getPreferredFileFromVersion(latestVersion)
+            if not filepath:
+                if not self.chb_autoUpdate.isChecked():
+                    self.core.popup("Couldn't get latest version.")
+                return
+            self.stateManager.applyChangesToSelection = False
+            self.importObject(update=True, path=filepath)
+            if selectedStates:
+                selStates = self.stateManager.getSelectedStates()
+                for state in selStates:
+                    if state.__hash__() == self.state.__hash__():
+                        continue
+                    if hasattr(state.ui, "importLatest"):
+                        state.ui.importLatest(refreshUi=refreshUi, selectedStates=False)
+        finally:
+            self.stateManager.applyChangesToSelection = prevState
+            self._importLatestInProgress = False
 
     @err_catcher(name=__name__)
     def checkLatestVersion(self) -> Tuple[Dict[str, str], Dict[str, str]]:
@@ -902,7 +901,7 @@ class ImportFileClass(object):
             for idx in range(self.lw_objects.count()):
                 connectedNodes.append([self.lw_objects.item(idx).text(), self.nodes[idx]])
 
-        return {
+        stateProps = {
             "statename": self.e_name.text(),
             "statemode": self.stateMode,
             "filepath": getattr(self.core.appPlugin, "sm_import_getStoredImportPath", lambda path: path)(self.getImportPath()),
@@ -917,3 +916,5 @@ class ImportFileClass(object):
             "nodenames": str(self.nodeNames),
             "setname": self.setName,
         }
+        self.core.callback("onStateGetSettings", self, stateProps)
+        return stateProps

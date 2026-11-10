@@ -228,7 +228,7 @@ class PrismCore:
 
         try:
             # set some general variables
-            self.version = "v2.1.4.2"
+            self.version = "v2.1.4.3"
             self.requiredLibraries = "v2.0.0"
             self.core = self
             self.preferredExtension = os.getenv("PRISM_CONFIG_EXTENSION", ".json")
@@ -1068,7 +1068,13 @@ class PrismCore:
                 return
 
         filesToRemove = []
-        for filename in sorted(os.listdir(cmdDir)):
+        try:
+            filenames = sorted(os.listdir(cmdDir))
+        except OSError as error:
+            logger.warning("Could not check pending commands in %s: %s", cmdDir, error)
+            return
+
+        for filename in filenames:
             if not filename.startswith("prismCmd_"):
                 continue
 
@@ -2003,13 +2009,28 @@ License: GNU LGPL-3.0-or-later<br>
 
     @err_catcher(name=__name__)
     def setupStartMenu(self, quiet: bool = False) -> None:
-        """Create Windows Start Menu entries for Prism.
+        """Create Prism application shortcuts and enable tray autostart.
+
+        Linux installs the shipped desktop launcher into the user's XDG
+        applications and autostart directories without requiring root.
         
         Args:
             quiet (bool, optional): Suppress popup notifications. Defaults to False.
         """
         if self.appPlugin.pluginName == "Standalone":
-            result = self.appPlugin.createWinStartMenu(self)
+            if platform.system() == "Linux":
+                paths = self.getLinuxTrayPaths()
+                try:
+                    os.makedirs(os.path.dirname(paths["applications"]), exist_ok=True)
+                    shutil.copy2(paths["source"], paths["applications"])
+                    os.chmod(paths["applications"], 0o755)
+                except OSError as e:
+                    logger.exception("Failed to install Linux tray launcher")
+                    self.popup("Failed to install Prism tray launcher:\n\n%s" % e)
+                    return
+                result = self.setTrayStartup(True)
+            else:
+                result = self.appPlugin.createWinStartMenu(self)
             if "silent" not in self.prismArgs and not quiet:
                 if result:
                     msg = "Successfully added start menu entries."
@@ -3305,7 +3326,10 @@ License: GNU LGPL-3.0-or-later<br>
             try:
                 shutil.copy2(origFile, targetFile)
             except Exception as e:
-                msg = "Failed to copy scene file:\n\n%s\n\nError: %s" % (origFile, str(e))
+                msg = "Failed to copy scene file:\n\n%s\n\nDestination:\n%s\n\nError: %s" % (origFile, targetFile, str(e))
+                if getattr(e, "winerror", None) in [32, 33]:
+                    msg += "\n\nThe source or destination is being used by another process. Close applications using these files and try again."
+
                 self.core.popup(msg)
                 return False
 
@@ -5694,14 +5718,14 @@ License: GNU LGPL-3.0-or-later<br>
             Returns:
                 bool: True if visible.
             """
-            if not self.msg:
+            if not self.msg or not self.core.isObjectValid(self.msg):
                 return False
 
             return self.msg.isVisible()
 
         def close(self) -> None:
             """Close the popup dialog."""
-            if self.msg and self.msg.isVisible():
+            if self.isVisible():
                 self.msg.close()
 
         def cancel(self) -> None:

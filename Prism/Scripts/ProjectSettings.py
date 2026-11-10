@@ -87,6 +87,8 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
             "publish": "On Publish",
             "never": "Never",
         }
+        for idx, state in enumerate(("always", "publish", "never")):
+            self.cb_dependencies.setItemData(idx, state)
 
         self.loadUI()
         self.loadSettings()
@@ -1358,6 +1360,7 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         it to the specified config path. Handles folder structure validation,
         environment variables, departments, paths, and task presets. Triggers
         pre/post save callbacks and optionally changes the active project.
+        Dependency tracking is stored by its item data, not its display label.
         
         Args:
             changeProject: If True and saving main project config, triggers project
@@ -1372,15 +1375,16 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         if configPath is None:
             configPath = self.projectConfig
 
+        dependencyState = self.cb_dependencies.currentData()
+        if not self.core.isStr(dependencyState) or dependencyState not in self.dependencyStates:
+            self.core.popup("Select a valid dependency tracking option before saving project settings.")
+            return
+
         cData = {"globals": {}}
 
         cData["globals"]["project_name"] = self.e_curPname.text()
         cData["globals"]["uselocalfiles"] = self.chb_curPuseLocal.isChecked()
-        cData["globals"]["track_dependencies"] = [
-            x
-            for x in self.dependencyStates
-            if self.dependencyStates[x] == self.cb_dependencies.currentText()
-        ][0]
+        cData["globals"]["track_dependencies"] = dependencyState
         cData["globals"]["forcefps"] = self.chb_curPuseFps.isChecked()
         cData["globals"]["fps"] = self.sp_curPfps.value()
         cData["globals"]["forceResolution"] = self.chb_prjResolution.isChecked()
@@ -1701,11 +1705,21 @@ class ProjectSettings(QDialog, ProjectSettings_ui.Ui_dlg_ProjectSettings):
         if "track_dependencies" in gblData:
             if not self.core.isStr(gblData["track_dependencies"]):
                 gblData["track_dependencies"] = "publish"
-            idx = self.cb_dependencies.findText(
-                self.dependencyStates[gblData["track_dependencies"]]
-            )
+            dependencyState = gblData["track_dependencies"]
+            if dependencyState not in self.dependencyStates:
+                dependencyState = next(
+                    (state for state, label in self.dependencyStates.items()
+                     if label == dependencyState),
+                    None,
+                )
+            idx = self.cb_dependencies.findData(dependencyState) if dependencyState is not None else -1
             if idx != -1:
                 self.cb_dependencies.setCurrentIndex(idx)
+            else:
+                logger.warning(
+                    "Invalid dependency tracking setting %r; keeping the current selection.",
+                    gblData["track_dependencies"],
+                )
         if "forcefps" in gblData:
             self.chb_curPuseFps.setChecked(gblData["forcefps"])
         if "fps" in gblData:

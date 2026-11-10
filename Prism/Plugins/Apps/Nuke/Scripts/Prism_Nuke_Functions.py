@@ -2239,6 +2239,9 @@ class Prism_Nuke_Functions(object):
         path = path.replace("\\", "/")
         import re
         path = re.sub(r"\s+\d+\s*-\s*\d+\s*$", "", path).strip()
+        directory, filename = os.path.split(path)
+        filename = re.sub(r"%0([1-9]\d*)d", lambda match: "#" * int(match.group(1)), filename)
+        path = os.path.join(directory, filename).replace("\\", "/")
         return path
 
     @err_catcher(name=__name__)
@@ -2257,7 +2260,7 @@ class Prism_Nuke_Functions(object):
         return candidates
 
     @err_catcher(name=__name__)
-    def _isNukeReadNodeOutdated(self, readNode: Any) -> bool:
+    def _isNukeReadNodeOutdated(self, readNode: Any, latestVersion: Optional[Dict[str, Any]] = None) -> bool:
         if not readNode or not readNode.knob("file"):
             return False
 
@@ -2265,11 +2268,16 @@ class Prism_Nuke_Functions(object):
         if not readPath:
             return False
 
-        latestVersion = self.core.mediaProducts.getLatestVersionFromFilepath(readPath)
-        if latestVersion and latestVersion.get("path") not in readPath:
-            return True
+        if latestVersion is None:
+            latestVersion = self.core.mediaProducts.getLatestVersionFromFilepath(readPath)
 
-        return False
+        latestPath = self._normalizeNukeMediaPath((latestVersion or {}).get("path") or "")
+        if not latestPath:
+            return False
+
+        latestPath = os.path.normcase(os.path.normpath(latestPath)).replace("\\", "/")
+        readPath = os.path.normcase(os.path.normpath(readPath)).replace("\\", "/")
+        return not readPath.startswith(latestPath.rstrip("/") + "/")
 
     @err_catcher(name=__name__)
     def buildSceneGetLoadMediaUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
@@ -2302,6 +2310,7 @@ class Prism_Nuke_Functions(object):
 
         missingEntries = []
         outdatedNodes = []
+        outdatedDetails = {}
         for expected in expectedEntries:
             expectedCandidates = self._getNukeMediaPathCandidates(expected.get("path") or "")
             if not expectedCandidates:
@@ -2317,8 +2326,18 @@ class Prism_Nuke_Functions(object):
                 missingEntries.append(expected)
                 continue
 
-            if self._isNukeReadNodeOutdated(match.get("node")):
-                outdatedNodes.append(match.get("name") or match.get("path") or "")
+            latestVersion = self.core.mediaProducts.getLatestVersionFromFilepath(match["path"])
+            if self._isNukeReadNodeOutdated(match.get("node"), latestVersion=latestVersion):
+                nodeName = match.get("name") or match.get("path") or ""
+                outdatedNodes.append(nodeName)
+                currentData = self.core.mediaProducts.getDataFromFilepath(match["path"]) or {}
+                latestPath = self.core.mediaProducts.getFileFromVersion(
+                    dict(latestVersion), aov=currentData.get("aov"), findExisting=True
+                )
+                outdatedDetails[nodeName] = {
+                    "current": match["node"].knob("file").value(),
+                    "latest": latestPath or latestVersion.get("path") or "",
+                }
 
         action = "update" if missingEntries or outdatedNodes else "no change"
         if action == "update":
@@ -2334,6 +2353,8 @@ class Prism_Nuke_Functions(object):
             issueLines.append(self.core.tr("Missing Read for '%s': %s") % (entry.get("identifier"), entry.get("path")))
         for nodeName in sorted(set(outdatedNodes)):
             issueLines.append(self.core.tr("Outdated Read node: %s") % nodeName)
+            issueLines.append(self.core.tr("Current: %s") % outdatedDetails[nodeName]["current"])
+            issueLines.append(self.core.tr("Latest: %s") % outdatedDetails[nodeName]["latest"])
 
         summaryWidget = QFrame()
         summaryWidget.setObjectName("nuke_loadmedia_update_summary")

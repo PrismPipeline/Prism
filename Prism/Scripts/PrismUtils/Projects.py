@@ -4578,7 +4578,7 @@ class Projects(object):
             else:
                 icon = self.data["icon"]
 
-            pixmap = icon.pixmap(30, 30)
+            pixmap = QIcon(icon).pixmap(30, 30)
             return pixmap
 
         @err_catcher(name=__name__)

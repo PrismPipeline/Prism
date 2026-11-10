@@ -3039,27 +3039,30 @@ class Prism_Houdini_Functions(object):
         file = tempfile.NamedTemporaryFile(suffix=".jpg")
         path = file.name
         file.close()
-        frame = hou.frame()
-        cur_desktop = hou.ui.curDesktop()
-        scene = cur_desktop.paneTabOfType(hou.paneTabType.SceneViewer)
-        if not scene:
-            return
-
-        if not scene.isCurrentTab():
-            scene.setIsCurrentTab()
-
-        flip_options = scene.flipbookSettings().stash()
-        flip_options.outputToMPlay(False)
-        flip_options.frameRange((frame, frame))
-        flip_options.output(path)
-        scene.flipbook(scene.curViewport(), flip_options)
-        pm = self.core.media.getPixmapFromPath(path)
         try:
-            os.remove(path)
-        except:
-            pass
+            frame = hou.frame()
+            cur_desktop = hou.ui.curDesktop()
+            scene = cur_desktop.paneTabOfType(hou.paneTabType.SceneViewer)
+            if not scene:
+                return
 
-        return pm
+            if not scene.isCurrentTab():
+                scene.setIsCurrentTab()
+
+            flip_options = scene.flipbookSettings().stash()
+            flip_options.outputToMPlay(False)
+            flip_options.frameRange((frame, frame))
+            flip_options.output(path)
+            scene.flipbook(scene.curViewport(), flip_options)
+            return self.core.media.getPixmapFromPath(path)
+        except hou.OperationInterrupted:
+            logger.debug("Viewport thumbnail capture was interrupted.")
+            return
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
     @err_catcher(name=__name__)
     def getPreferredStateType(self, category: str) -> Optional[str]:

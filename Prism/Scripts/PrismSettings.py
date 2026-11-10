@@ -428,7 +428,7 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         self.lo_onboarding.addWidget(self.b_runOnboarding)
         self.lo_onboarding.addWidget(self.l_onboarding)
         self.lo_onboarding.addStretch()
-        self.getTabByName("General").layout().insertWidget(1, self.gb_onboarding)
+        self.tabWidgetPage4.layout().insertWidget(1, self.gb_onboarding)
         self.b_runOnboarding.clicked.connect(self.runOnboarding)
         self.gb_onboarding.setVisible(
             self.core.appPlugin.pluginName == "Standalone"
@@ -443,7 +443,7 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
             self.lo_installHub.addWidget(self.b_installHub)
             self.lo_installHub.addWidget(self.l_installHub)
             self.lo_installHub.addStretch()
-            self.getTabByName("General").layout().insertWidget(1, self.gb_installHub)
+            self.tabWidgetPage4.layout().insertWidget(1, self.gb_installHub)
 
         self.gb_mediaPlayers = PrismWidgets.MediaPlayersWidget(self)
         self.lo_miscellaneousTab.insertWidget(self.lo_miscellaneousTab.count() - 1, self.gb_mediaPlayers)
@@ -465,7 +465,9 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         policy.setHorizontalStretch(100)
         self.scrollArea.setSizePolicy(policy)
         self.lw_categories.currentItemChanged.connect(self.onCategoryChanged)
-        self.selectCategory("General")
+        self.selectCategory(
+            self.tw_settings.tabText(self.tw_settings.indexOf(self.tabWidgetPage4))
+        )
         self.updateTabSize(self.tw_settings.currentIndex())
         self.core.callback(name="userSettings_loadUI", args=[self])
 
@@ -2057,7 +2059,8 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
         """Start the Prism tray application.
         
         Uses the Linux desktop launcher when GIO is available, otherwise starts
-        PrismTray.py directly. Other platforms use their existing tray launcher.
+        PrismTray.py with Prism's bundled interpreter and startup environment.
+        Other platforms use their existing tray launcher.
         """
         if platform.system() == "Windows":
             slavePath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
@@ -2080,15 +2083,22 @@ class UserSettings(QDialog, UserSettings_ui.Ui_dlg_UserSettings):
             else:
                 logger.info("Starting Prism tray directly: GIO or the desktop launcher is unavailable.")
                 command = [
-                    self.core.getPythonPath(executable="python"),
+                    self.core.getPythonPath(executable="python", root=self.core.prismLibs),
                     os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py"),
                 ]
             try:
                 if gio and os.path.exists(desktopPath):
-                    subprocess.run(command, check=True, capture_output=True, text=True)
+                    subprocess.run(
+                        command, check=True, capture_output=True, text=True,
+                        cwd=self.core.prismRoot, env=self.core.startEnv,
+                    )
                 else:
-                    subprocess.Popen(command)
+                    subprocess.Popen(
+                        command, cwd=self.core.prismRoot, env=self.core.startEnv,
+                        start_new_session=True,
+                    )
             except (OSError, subprocess.CalledProcessError) as e:
+                logger.exception("Failed to start Prism tray")
                 self.core.popup("Failed to start Prism tray:\n\n%s" % e)
             return
         elif platform.system() == "Darwin":

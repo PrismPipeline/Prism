@@ -36,6 +36,7 @@ import os
 import sys
 import subprocess
 import platform
+import socket
 import logging
 import traceback
 import time
@@ -302,16 +303,37 @@ class PrismTray:
     def restartTray(self) -> None:
         """Restart the Prism tray application.
         
-        Shuts down the listener thread (releasing port 7571), spawns a new
-        Prism tray process, and exits the current process.
+        Waits for the IPC listener to release its port before relaunching.
+        Linux and macOS reuse the running interpreter without a shell or an
+        installed desktop launcher. If launching fails, the current tray stays
+        open and its listener is restarted.
         """
-        self.listenerThread.shutDown()  # release port 7571 so the new process can acquire it
-
-        pythonPath = self.core.getPythonPath(executable="Prism")
         filepath = os.path.join(self.core.prismRoot, "Scripts", "PrismTray.py")
-        cmd = """start "" "%s" "%s" showSplash""" % (pythonPath, filepath)
-        subprocess.Popen(cmd, cwd=self.core.prismRoot, shell=True, env=self.core.startEnv)
-        sys.exit(0)
+        if platform.system() == "Windows":
+            pythonPath = self.core.getPythonPath(executable="Prism")
+            cmd = """start "" "%s" "%s" showSplash""" % (pythonPath, filepath)
+            launchOptions = {"shell": True}
+        else:
+            cmd = [sys.executable, filepath, "showSplash"]
+            launchOptions = {"start_new_session": True}
+
+        if not self.listenerThread.shutDown():
+            msg = "Unable to restart Prism tray: the IPC listener did not stop."
+            logger.error(msg)
+            self.core.popup(msg, title="Tray restart failed")
+            return
+
+        try:
+            subprocess.Popen(
+                cmd, cwd=self.core.prismRoot, env=self.core.startEnv, **launchOptions
+            )
+        except OSError as e:
+            logger.exception("Failed to restart Prism tray")
+            self.startListener()
+            self.core.popup("Failed to restart Prism tray:\n\n%s" % e, title="Tray restart failed")
+            return
+
+        QApplication.instance().quit()
 
     def exitTray(self) -> None:
         """Exit the Prism tray application.
@@ -319,7 +341,11 @@ class PrismTray:
         Cleanly shuts down the listener thread and closes the Qt application.
         """
         if hasattr(self, "listenerThread"):
-            self.listenerThread.shutDown()
+            if not self.listenerThread.shutDown():
+                msg = "Unable to exit Prism tray: the IPC listener did not stop."
+                logger.error(msg)
+                self.core.popup(msg, title="Tray exit failed")
+                return
 
         QApplication.instance().quit()
 
@@ -383,41 +409,49 @@ class ListenerThread(QThread):
                 else:
                     raise
 
-            while True:
-                try:
+            try:
+                while not self.isInterruptionRequested():
                     self.conn = self.listener.accept()
-                except OSError:
-                    break  # Listener was closed by shutDown()
-
-                while True:
                     try:
-                        data = self.conn.recv()
-                    except Exception as e:
-                        break
+                        while not self.isInterruptionRequested():
+                            if not self.conn.poll(0.1):
+                                continue
+                            try:
+                                data = self.conn.recv()
+                            except (EOFError, OSError):
+                                break
 
-                    if data == "getPid":
-                        try:
-                            self.conn.send((os.getpid(), sys.executable))
-                        except Exception:
-                            pass
-                        continue
+                            if data == "getPid":
+                                try:
+                                    self.conn.send((os.getpid(), sys.executable))
+                                except OSError as e:
+                                    logger.warning("Could not reply to tray IPC client: %s", e)
+                                    break
+                                continue
 
-                    self.dataReceived.emit(data)
-
-            self.listener.close()
-            self.quit()
+                            self.dataReceived.emit(data)
+                    finally:
+                        self.conn.close()
+            finally:
+                self.listener.close()
         except Exception as e:
             self.errored.emit(traceback.format_exc())
 
-    def shutDown(self) -> None:
+    def shutDown(self) -> bool:
         """Shut down the listener thread.
         
-        Closes the listener socket and terminates the thread cleanly.
+        Wakes a blocked accept call and waits for the worker to close its
+        connections and listener. Returns False if it cannot stop in time.
         """
-        if hasattr(self, "listener"):
-            self.listener.close()
+        self.requestInterruption()
+        if self.isRunning() and hasattr(self, "listener"):
+            try:
+                with socket.create_connection(("localhost", _ipc_port()), timeout=1):
+                    pass
+            except OSError as e:
+                logger.debug("Could not wake tray IPC listener: %s", e)
 
-        self.quit()
+        return self.wait(3000)
 
 
 class SenderThread(QThread):

@@ -2754,18 +2754,27 @@ class Prism_Blender_Functions(object):
                         cache.filepath = self.getPathRelativeToScene(cache.filepath)
 
     @err_catcher(name=__name__)
-    def importFBX(self, importPath: str, origin: Optional[Any] = None) -> None:
+    def importFBX(self, importPath: str, origin: Optional[Any] = None) -> Optional[bool]:
         """Import FBX file.
         
         Args:
             importPath: Path to FBX file.
             origin: Import state instance. Defaults to None.
         """
-        if bpy.app.version < (4, 0, 0):
-            bpy.ops.import_scene.fbx(self.getOverrideContext(origin), filepath=importPath)
-        else:
-            with bpy.context.temp_override(**self.getOverrideContext(origin)):
-                bpy.ops.import_scene.fbx(filepath=importPath)
+        try:
+            if bpy.app.version < (4, 0, 0):
+                bpy.ops.import_scene.fbx(self.getOverrideContext(origin), filepath=importPath)
+            else:
+                with bpy.context.temp_override(**self.getOverrideContext(origin)):
+                    bpy.ops.import_scene.fbx(filepath=importPath)
+        except RuntimeError as e:
+            msg = "Failed to import FBX:\n\n%s\n\n%s" % (importPath, e)
+            if 'enum "Non-Color" not found' in str(e):
+                msg += "\n\nBlender's FBX importer requires a 'Non-Color' data color space, which is missing from the active OCIO configuration. Use a compatible configuration or ask your pipeline team to add the appropriate data color-space alias."
+
+            msg += "\n\nBlender may have partially modified the scene. Review it before retrying."
+            self.core.popup(msg)
+            return False
 
     @err_catcher(name=__name__)
     def importObj(self, importPath: str, origin: Optional[Any] = None) -> None:
@@ -2901,13 +2910,16 @@ class Prism_Blender_Functions(object):
                 )
             existingNodes = list(bpy.data.objects) + list(bpy.data.collections)
             prevSceneContent = list(bpy.data.scenes[0].collection.objects) + list(bpy.data.scenes[0].collection.children)
-            origin.setName = ""
 
             if ext in self.importHandlers:
                 result = self.importHandlers[ext]["importFunction"](impFileName, origin)
+                if result is False:
+                    return {"result": False, "doImport": doImport}
             else:
                 self.core.popup("Format is not supported.")
                 return {"result": False, "doImport": doImport}
+
+            origin.setName = ""
 
         if not result:
             if importedNodes is None:

@@ -830,7 +830,9 @@ class PrismInstaller(QDialog, PrismInstaller_ui.Ui_dlg_installer):
 
                 self.refreshIntegrationStatuses()
 
-            if self.installShortcuts and not os.environ.get("prism_skip_root_install"):
+            if self.installShortcuts and (
+                platform.system() == "Linux" or not os.environ.get("prism_skip_root_install")
+            ):
                 self.core.setupStartMenu(quiet=True)
 
             if False not in result.values():

@@ -1664,7 +1664,10 @@ class ExportClass(object):
                     rangeType = "Single Frame"
 
             extension = self.getOutputType()
-            if rangeType == "Single Frame" or (not isFilecache or (not self.node.parm("writeFileSequence").eval() and extension in [".abc", ".fbx", ".usd", ".usda", ".usdc"])):
+            if rangeType == "Single Frame" or (
+                extension in [".abc", ".fbx", ".usd", ".usda", ".usdc"]
+                and (not isFilecache or not self.node.parm("writeFileSequence").eval())
+            ):
                 framePadding = ""
             elif isOtio:
                 framePadding = ""

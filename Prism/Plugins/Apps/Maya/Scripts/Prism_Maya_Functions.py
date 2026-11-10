@@ -2399,31 +2399,34 @@ class Prism_Maya_Functions(object):
 
             outputName = os.path.splitext(outputName)[0] + ".####.rs"
             outDir = os.path.dirname(outputName)
-            if not os.path.exists(outDir):
-                os.makedirs(outDir, exist_ok=True)
-
             pr = origin.chb_preserveReferences.isChecked()
 
-            if origin.chb_wholeScene.isChecked():
-                cmds.file(
-                    outputName,
-                    force=True,
-                    exportAll=True,
-                    type="Redshift Proxy",
-                    preserveReferences=pr,
-                    exportUnloadedReferences=pr,
-                    options=opt,
-                )
-            else:
-                cmds.file(
-                    outputName,
-                    force=True,
-                    exportSelected=True,
-                    type="Redshift Proxy",
-                    preserveReferences=pr,
-                    exportUnloadedReferences=pr,
-                    options=opt,
-                )
+            try:
+                if not os.path.exists(outDir):
+                    os.makedirs(outDir, exist_ok=True)
+
+                if origin.chb_wholeScene.isChecked():
+                    cmds.file(
+                        outputName,
+                        force=True,
+                        exportAll=True,
+                        type="Redshift Proxy",
+                        preserveReferences=pr,
+                        exportUnloadedReferences=pr,
+                        options=opt,
+                    )
+                else:
+                    cmds.file(
+                        outputName,
+                        force=True,
+                        exportSelected=True,
+                        type="Redshift Proxy",
+                        preserveReferences=pr,
+                        exportUnloadedReferences=pr,
+                        options=opt,
+                    )
+            except (RuntimeError, OSError) as e:
+                return "Canceled: Failed to export Redshift proxy:\n\n%s\n\n%s\n\nCheck that the destination is writable, the output files are not locked, and Redshift is configured correctly." % (outputName, e)
 
             outputName = outputName.replace("####", format(endFrame, "04"))
         elif expType == ".abc (GPU Cache)":
@@ -2461,26 +2464,29 @@ class Prism_Maya_Functions(object):
             outputName = os.path.splitext(outputName)[0] + ".ass"
             pr = origin.chb_preserveReferences.isChecked()
 
-            if origin.chb_wholeScene.isChecked():
-                cmds.file(
-                    outputName,
-                    force=True,
-                    exportAll=True,
-                    type="ASS Export",
-                    preserveReferences=pr,
-                    exportUnloadedReferences=pr,
-                    options=opt,
-                )
-            else:
-                cmds.file(
-                    outputName,
-                    force=True,
-                    exportSelected=True,
-                    type="ASS Export",
-                    preserveReferences=pr,
-                    exportUnloadedReferences=pr,
-                    options=opt,
-                )
+            try:
+                if origin.chb_wholeScene.isChecked():
+                    cmds.file(
+                        outputName,
+                        force=True,
+                        exportAll=True,
+                        type="ASS Export",
+                        preserveReferences=pr,
+                        exportUnloadedReferences=pr,
+                        options=opt,
+                    )
+                else:
+                    cmds.file(
+                        outputName,
+                        force=True,
+                        exportSelected=True,
+                        type="ASS Export",
+                        preserveReferences=pr,
+                        exportUnloadedReferences=pr,
+                        options=opt,
+                    )
+            except (RuntimeError, OSError) as e:
+                return "Canceled: Failed to export Arnold scene:\n\n%s\n\n%s\n\nCheck that the destination is writable, the output files are not locked, and Maya-to-Arnold (mtoa) is configured correctly." % (outputName, e)
 
             base, ext = os.path.splitext(outputName)
             if startFrame != endFrame:
@@ -4624,6 +4630,19 @@ print( "READY FOR INPUT\\n" )
             return
 
         fileName = os.path.splitext(os.path.basename(impFileName))
+        def reportImportError(operation, error):
+            logger.warning("%s: %s\n%s" % (operation, impFileName, error))
+            msg = "%s:\n\n%s\n\n%s" % (operation, impFileName, error)
+            if "ai_translator" in str(error) or "ai_surface_shader" in str(error):
+                msg += "\n\nThe file contains Arnold attributes which Maya could not read. Check that a compatible Maya-to-Arnold (mtoa) plugin is installed and loaded, or re-export the asset with compatible settings."
+
+            if "rsSurfaceShader" in str(error) or "rsExtentionMeshVersion" in str(error):
+                msg += "\n\nThe file contains Redshift attributes which Maya could not read. Check that a compatible Redshift for Maya plugin is installed and loaded, or re-export the asset with compatible settings."
+
+            msg += "\n\nMaya may have partially modified the scene. Review the scene before retrying."
+            self.core.popup(msg)
+            return {"result": False, "doImport": doImport}
+
         base, ext = fileName
         importOnly = True
         applyCache = False
@@ -4853,8 +4872,8 @@ print( "READY FOR INPUT\\n" )
                 doGpuCache = bool(
                     [
                         node
-                        for node in origin.nodes
-                        if cmds.objectType(node) == "gpuCache"
+                        for node in validNodes
+                        if "." not in node and cmds.objectType(node) == "gpuCache"
                     ]
                 )
                 if ":" in validNodes[0]:
@@ -4922,9 +4941,7 @@ print( "READY FOR INPUT\\n" )
                         try:
                             cmds.file(impFileName, loadReference=refNode)
                         except Exception as e:
-                            logger.warning("Failed to load reference: " + impFileName + "\n" + str(e))
-                            self.core.popup("Failed to load reference: %s\n\nCheck log for details." % impFileName)
-                            return {"result": False, "doImport": doImport}
+                            return reportImportError("Failed to load reference", e)
 
                         self.deleteNodes(origin, [origin.setName])
                         if oldNs == (":" + oldf):
@@ -4954,9 +4971,7 @@ print( "READY FOR INPUT\\n" )
                             lockReference=lock
                         )
                     except RuntimeError as e:
-                        msg = "Failed to create reference:\n\n%s\n\n%s" % (impFileName, str(e))
-                        self.core.popup(msg)
-                        return {"result": False, "doImport": doImport}
+                        return reportImportError("Failed to create reference", e)
 
                     refNode = ""
                     for newNode in newNodes:
@@ -4974,8 +4989,8 @@ print( "READY FOR INPUT\\n" )
                 if update:
                     gpuNode = [
                         node
-                        for node in origin.nodes
-                        if cmds.objectType(node) == "gpuCache"
+                        for node in validNodes
+                        if "." not in node and cmds.objectType(node) == "gpuCache"
                     ][0]
                     importedNodes = self.updateGpuCache(
                         gpuNode, impFileName, name=fileName[0]
@@ -5077,14 +5092,17 @@ print( "READY FOR INPUT\\n" )
                         return {"result": "canceled", "doImport": doImport}
 
                 else:
-                    importedNodes = cmds.file(
-                        impFileName,
-                        i=True,
-                        returnNewNodes=True,
-                        type=rtype,
-                        mergeNamespacesOnClash=mergeNamespacesOnClash,
-                        namespace=nSpace,
-                    )
+                    try:
+                        importedNodes = cmds.file(
+                            impFileName,
+                            i=True,
+                            returnNewNodes=True,
+                            type=rtype,
+                            mergeNamespacesOnClash=mergeNamespacesOnClash,
+                            namespace=nSpace,
+                        )
+                    except RuntimeError as e:
+                        return reportImportError("Failed to import file", e)
 
             importOnly = False
 
@@ -5228,6 +5246,7 @@ print( "READY FOR INPUT\\n" )
                             error,
                         )
                         self.core.popup(msg, title="Import error")
+                        return {"result": False, "doImport": doImport}
 
         cams = cmds.listCameras()
         for i in importedNodes:
@@ -8262,12 +8281,13 @@ class PlayblastDlg(QDialog):
         Args:
             event: Qt close event
         """
-        curItem = self.core.sm.getCurrentItem(self.core.sm.activeList)
-        if self.state and curItem and id(self.state) == id(curItem):
-            self.core.sm.showState()
+        if self.core.sm:
+            curItem = self.core.sm.getCurrentItem(self.core.sm.activeList)
+            if self.state and curItem and id(self.state) == id(curItem):
+                self.core.sm.showState()
 
-        if self.showSm:
-            self.core.sm.setHidden(False)
+            if self.showSm:
+                self.core.sm.setHidden(False)
 
         event.accept()
 
@@ -8371,12 +8391,13 @@ class RenderDlg(QDialog):
         Args:
             event: Qt close event
         """
-        curItem = self.core.sm.getCurrentItem(self.core.sm.activeList)
-        if self.state and curItem and id(self.state) == id(curItem):
-            self.core.sm.showState()
+        if self.core.sm:
+            curItem = self.core.sm.getCurrentItem(self.core.sm.activeList)
+            if self.state and curItem and id(self.state) == id(curItem):
+                self.core.sm.showState()
 
-        if self.showSm:
-            self.core.sm.setHidden(False)
+            if self.showSm:
+                self.core.sm.setHidden(False)
 
         event.accept()
 

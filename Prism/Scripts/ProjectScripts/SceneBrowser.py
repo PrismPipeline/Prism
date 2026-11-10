@@ -814,9 +814,7 @@ class SceneBrowser(QWidget, SceneBrowser_ui.Ui_w_sceneBrowser):
             elif event.button() == Qt.LeftButton:
                 index = widget.indexAt(event.pos())
                 if index.data() is None:
-                    widget.setCurrentIndex(
-                        widget.model().createIndex(-1, 0)
-                    )
+                    widget.setCurrentIndex(QModelIndex())
 
                 widget.mouseClickEvent(event)
 
@@ -4509,6 +4507,7 @@ class SceneReBuildStepRunDlg(QDialog):
 
     def _wrapDetailsWidgetWithDescription(self, widget: QWidget, description: str) -> QWidget:
         wrapper = QWidget()
+        wrapper._detailsSummaryWidget = widget
         lo_wrapper = QVBoxLayout(wrapper)
         lo_wrapper.setContentsMargins(0, 0, 0, 0)
         lo_wrapper.setSpacing(8)
@@ -4526,6 +4525,9 @@ class SceneReBuildStepRunDlg(QDialog):
             item = self.lo_detailsWidget.takeAt(0)
             widget = item.widget()
             if widget:
+                summaryWidget = getattr(widget, "_detailsSummaryWidget", None)
+                if summaryWidget is not None and summaryWidget.parent() is widget:
+                    summaryWidget.setParent(None)
                 widget.setParent(None)
 
     def _showDetailsText(self, text: str) -> None:

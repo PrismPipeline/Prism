@@ -4165,16 +4165,12 @@ class ProjectEntities(object):
             step: Step settings dict.
             context: Current scene building context dict with entity, department, task info.
         """
-        if step["settings"][0]["value"] == "Shotrange":
-            value = "Set shotrange in scene"
-        else:
-            value = "Set shotrange in scene (with handles)"
+        handles = step["settings"][0]["value"] != "Shotrange"
+        frameRange = self.core.entities.getShotRange(context, handles=handles)
+        if not frameRange or len(frameRange) != 2 or any(value in [None, ""] for value in frameRange):
+            return
 
-        settings = {
-            "accept": True,
-            "value": value
-        }
-        self.core.sanities.checkFramerange(settings)
+        self.core.setFrameRange(int(frameRange[0]), int(frameRange[1]))
 
     @err_catcher(name=__name__)
     def buildSceneGetSetFramerangeUpdateData(self, step: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
@@ -5024,13 +5020,20 @@ class ProjectEntities(object):
         desiredCacheByIdentity = {}
         desiredCountByIdentity = {}
         sourceEntities = []
+        connectedAssetCounts = {}
         if sourceSettings["sourceEntity"]:
             sourceEntities.append(context.copy())
         if sourceSettings["connectedAssets"] and context.get("type") == "shot":
-            sourceEntities.extend(
-                entity for entity in (self.getConnectedEntities(context) or [])
-                if isinstance(entity, dict) and entity.get("type") == "asset"
-            )
+            for entity in self.getConnectedEntities(context) or []:
+                if not isinstance(entity, dict) or entity.get("type") != "asset":
+                    continue
+
+                entityKey = self._getSceneBuildingImportEntityKey(entity)
+                if not entityKey:
+                    continue
+
+                sourceEntities.append(entity)
+                connectedAssetCounts[entityKey] = connectedAssetCounts.get(entityKey, 0) + 1
         if sourceSettings["parentEntities"] and context.get("type") == "shot":
             if context.get("sequence"):
                 sourceEntities.append({
@@ -5056,6 +5059,7 @@ class ProjectEntities(object):
             uniqueSources.append(sourceEntity)
 
         for sourceEntity in uniqueSources:
+            sourceCount = connectedAssetCounts.get(self._getSceneBuildingImportEntityKey(sourceEntity), 1)
             sourceDesiredByIdentity = {}
             products = self.core.products.getProductsByTags(sourceEntity, tags) or []
             for product in products:
@@ -5089,7 +5093,7 @@ class ProjectEntities(object):
                 productPath, cacheData = desiredData
                 desiredByIdentity[identity] = productPath
                 desiredCacheByIdentity[identity] = cacheData
-                desiredCountByIdentity[identity] = desiredCountByIdentity.get(identity, 0) + 1
+                desiredCountByIdentity[identity] = desiredCountByIdentity.get(identity, 0) + sourceCount
 
         sm = None if context.get("_sceneBuildingNewScene") else self.core.getStateManager(create=createStateManager)
         plan["state_manager"] = sm
@@ -6429,8 +6433,11 @@ class ProjectEntities(object):
                 showPopup = True
 
                 modTime = self.core.getFileModificationDate(lf.lockPath, asString=False, asDatetime=True)
-                age = datetime.datetime.now() - modTime
-                if age < datetime.timedelta(minutes=11):
+                age = None
+                if isinstance(modTime, datetime.datetime):
+                    age = datetime.datetime.now() - modTime
+
+                if age is None or age < datetime.timedelta(minutes=11):
                     lfData = self.core.configs.readJson(path=lf.lockPath, ignoreErrors=True) or {}
                     if lfData.get("username"):
                         if lfData.get("username") == self.core.username:
@@ -6445,10 +6452,6 @@ class ProjectEntities(object):
                         if result != "Continue":
                             return
 
-        wasSmOpen = self.core.isStateManagerOpen()
-        if wasSmOpen:
-            self.core.sm.close()
-
         if self.core.useLocalFiles and self.core.fileInPipeline(filepath):
             lfilepath = self.core.convertPath(filepath, "local")
 
@@ -6460,9 +6463,14 @@ class ProjectEntities(object):
                         self.core.popup(self.core.tr("The directory could not be created"))
                         return
 
-                self.core.copySceneFile(filepath, lfilepath)
+                if not self.core.copySceneFile(filepath, lfilepath):
+                    return False
 
             filepath = lfilepath
+
+        wasSmOpen = self.core.isStateManagerOpen()
+        if wasSmOpen:
+            self.core.sm.close()
 
         if self.core.appPlugin.pluginName == "Standalone":
             if app is None:
@@ -6951,6 +6959,10 @@ class ConnectedListWidget(QTreeWidget):
         
         Creates a custom widget with preview image and label text, matching EntityWidget style.
         """
+        if (not self.dlg.core.isObjectValid(self) or not self.dlg.core.isObjectValid(item)
+            or item.treeWidget() is not self):
+            return
+
         w_entity = QWidget()
         w_entity.setStyleSheet("background-color: transparent;")
         lo_entity = QHBoxLayout()
@@ -6975,6 +6987,11 @@ class ConnectedListWidget(QTreeWidget):
             pmap = self.dlg.core.media.scalePixmap(pm, self.entityPreviewWidth, self.entityPreviewHeight, fitIntoBounds=False, crop=True)
             l_preview.setPixmap(pmap)
         
+        if (not self.dlg.core.isObjectValid(self) or not self.dlg.core.isObjectValid(item)
+                or item.treeWidget() is not self):
+            w_entity.deleteLater()
+            return
+
         # Set the custom widget as the item display
         self.setItemWidget(item, 0, w_entity)
         item.setText(0, "")  # Clear text since we're using custom widget
@@ -7544,4 +7561,4 @@ class ConnectEntitiesDlg(QDialog):
         Args:
             entities: List of entity dictionaries to navigate to
         """
-        self.w_entities.navigate(entities)
+        self.w_entities.navigate(entities, deferSelection=True)

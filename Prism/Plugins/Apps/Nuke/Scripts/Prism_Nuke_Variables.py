@@ -47,7 +47,7 @@ class Prism_Nuke_Variables(object):
             core: The Prism core instance
             plugin: The plugin instance
         """
-        self.version = "v2.1.4"
+        self.version = "v2.1.4.1"
         self.pluginName = "Nuke"
         self.pluginType = "App"
         self.appShortName = "Nuke"

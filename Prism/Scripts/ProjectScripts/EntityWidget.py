@@ -351,7 +351,11 @@ class EntityWidget(QWidget):
 
         self.sw_tabs.setCurrentWidget(page)
         self.tb_entities.setCurrentIndex(self.sw_tabs.currentIndex())
-        return page.navigate(data, deferSelection=deferSelection)
+        result = page.navigate(data, deferSelection=deferSelection)
+        if deferSelection:
+            page.pendingRestoreData = None if result else data
+
+        return result
 
     @err_catcher(name=__name__)
     def syncFromWidget(self, widget: Any, navData: Optional[Any] = None) -> None:
@@ -724,19 +728,21 @@ class EntityPage(QWidget):
         worker.deleteLater()
 
     @err_catcher(name=__name__)
-    def restoreSelectionWhenReady(self, data: Optional[Dict[str, Any]]) -> None:
+    def restoreSelectionWhenReady(self, data: Any) -> None:
         """Restore a selection after all required lazy tree items exist."""
         if not data:
             return
 
-        entityType = data.get("type")
-        if (
-            entityType == "asset" and not data.get("asset_path")
-        ) or (
-            entityType in ["shot", "sequence"] and not data.get("sequence")
-        ):
-            self.pendingRestoreData = None
-            return
+        entities = data if isinstance(data, list) else [data]
+        for entity in entities:
+            entityType = entity.get("type")
+            if (
+                entityType == "asset" and not entity.get("asset_path")
+            ) or (
+                entityType in ["shot", "sequence"] and not entity.get("sequence")
+            ):
+                self.pendingRestoreData = None
+                return
 
         self.pendingRestoreData = data
         restored = self.navigate(data, deferSelection=True)
@@ -2313,7 +2319,7 @@ class EntityPage(QWidget):
                 if deferSelection and not complete:
                     continue
 
-            if sItem:
+            if sItem and (not deferSelection or complete):
                 parent = sItem.parent()
                 while parent:
                     parent.setExpanded(True)

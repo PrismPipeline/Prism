@@ -1506,7 +1506,9 @@ class MediaBrowser(QWidget, MediaBrowser_ui.Ui_w_mediaBrowser):
             return
 
         self.core.entities.setEntityPreview(entity, pm)
-        self.core.pb.sceneBrowser.refreshEntityInfo()
+        sceneBrowser = getattr(self.core.pb, "sceneBrowser", None)
+        if sceneBrowser:
+            sceneBrowser.refreshEntityInfo()
         self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
 
     @err_catcher(name=__name__)
@@ -2435,8 +2437,11 @@ class MediaVersionPlayer(QWidget):
                     loadPreviewPlayerGl = False
             
             if loadPreviewPlayerGl:
-                from PreviewPlayer_GL import PreviewPlayer_GL
-                return PreviewPlayer_GL(self)
+                try:
+                    from PreviewPlayer_GL import PreviewPlayer_GL
+                    return PreviewPlayer_GL(self)
+                except (ImportError, OSError) as e:
+                    logger.warning("Couldn't load the OpenGL media player. Using the standard media player: %s", e)
 
         return MediaPlayer(self)
 

@@ -539,6 +539,9 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         
         Populates menu with recently accessed scenefiles.
         """
+        if not self.core.isObjectValid(self) or not self.core.isObjectValid(self.recentMenu):
+            return
+
         self.recentMenu.clear()
         recents = self.core.getRecentScenefiles()
         for recent in recents:
@@ -613,7 +616,6 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
         self.tabs.append(widget)
         curIdx = self.tbw_project.currentIndex()
         if curIdx != position and (position != -1 or curIdx != (self.tbw_project.count() - 1)):
-            QApplication.processEvents()
             widget.hide()
 
     @err_catcher(name=__name__)
@@ -719,7 +721,7 @@ class ProjectBrowser(QMainWindow, ProjectBrowser_ui.Ui_mw_ProjectBrowser):
 
         if hasattr(self, "mediaBrowser"):
             pb = self.mediaBrowser.w_preview.mediaPlayer
-            if pb.timeline and pb.timeline.state() != QTimeLine.NotRunning:
+            if pb and pb.timeline and pb.timeline.state() != QTimeLine.NotRunning:
                 pb.timeline.setPaused(True)
 
         QPixmapCache.clear()

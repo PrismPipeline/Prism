@@ -1596,12 +1596,14 @@ class MediaProducts(object):
             context: Optional context dict with version metadata.
             isFilepath: Whether path is a filepath (vs version folder).
             add: If True, adds to existing master instead of replacing.
-            mediaType: Optional media type hint.
+            mediaType: Optional media type hint, overriding context or path detection.
             
         Returns:
             Optional[str]: Path to master version folder, or None if update failed.
         """
-        mediaType = mediaType or self.getMediaTypeFromContext(context)
+        mediaType = mediaType or (
+            self.getMediaTypeFromContext(context) if context else self.getMediaTypeFromPath(path)
+        )
         if context:
             path = context["path"]
             files = self.core.getFilesFromFolder(path)
@@ -1799,17 +1801,17 @@ class MediaProducts(object):
         return versionName
 
     @err_catcher(name=__name__)
-    def getMediaTypeFromContext(self, context: Dict) -> str:
-        """Determine media type from a context dict.
+    def getMediaTypeFromContext(self, context: Optional[Dict]) -> str:
+        """Determine media type from a context dict, defaulting to 3D renders.
         
         Args:
-            context: Context dict with metadata.
+            context: Optional context dict with metadata.
             
         Returns:
             str: Media type string ('3drenders', '2drenders', 'playblasts', or 'externalMedia').
         """
         mtype = "3drenders"
-        if "displayName" in context:
+        if context and "displayName" in context:
             ndata = context["displayName"].rsplit(" (", 1)
             if len(ndata) == 2 and ndata[1][-1] == ")":
                 mtype = ndata[1][:-1]
